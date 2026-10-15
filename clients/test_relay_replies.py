@@ -86,6 +86,14 @@ class RepliesTest(unittest.TestCase):
         self.assertEqual(self.replies(), (0, f"Relay: [{A}] Acme · Check Node — done: ok\n", ""))
         self.assertEqual(self.replies(), (0, "", ""))
 
+    def test_reopen_prints_like_a_close(self):
+        self.replies()
+        self.queue.add(A, "resolved", "owner")
+        self.queue.add(A, "reopened", "owner")
+        self.assertEqual(self.replies()[1], f"Relay: [{A}] Acme · Check Node — done\n"
+                                            f"Relay: [{A}] Acme · Check Node — reopened\n")
+        self.assertEqual(self.replies(), (0, "", ""))
+
     def test_only_owner_events(self):
         self.replies()
         self.queue.add(A, "posted", "session")

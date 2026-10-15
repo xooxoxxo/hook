@@ -170,8 +170,9 @@ def tool_list() -> list:
             "name": "relay_status",
             "description": ("Status of one ask in the owner's Relay queue: open, done or dismissed; "
                             "resolvedBy (owner, session or null) says who closed it; ownerEvents holds the "
-                            "owner's answers (resolved, declined, reply). Only owner events are the "
-                            "owner's answer."),
+                            "owner's answers (resolved, declined, reply). The owner can also reopen an "
+                            "ask they closed (kind reopened): it is open again, and resolvedBy is null. "
+                            "Only owner events are the owner's answer."),
             "inputSchema": {"type": "object", "properties": {"id": {"type": "string"}},
                             "required": ["id"], "additionalProperties": False},
         },

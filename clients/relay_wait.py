@@ -2,7 +2,7 @@
 
 Meant to run in the background right after posting an ask the session's work waits on:
 Claude Code wakes the session when the command exits. Only owner events count
-(reply, resolved, declined) with a seq above --after. Exit 0 with the answer on
+(reply, resolved, declined, reopened) with a seq above --after. Exit 0 with the answer on
 stdout; 3 when the timeout passes first. An unreachable Relay or mailbox, or a 5xx
 answer, is retried every interval until the deadline; a missing ask or a missing
 config ends the wait at once (exit 1 / 2, raised to the caller).
@@ -20,7 +20,7 @@ LOCAL_INTERVAL_S = 2.0            # 127.0.0.1 is cheap to poll
 MAILBOX_INTERVAL_S = 20.0
 MIN_INTERVAL_S = 1.0
 TIMEOUT_EXIT = 3
-OWNER_KINDS = ("reply", "resolved", "declined")
+OWNER_KINDS = ("reply", "resolved", "declined", "reopened")
 
 
 def _seq(event: Dict[str, Any]) -> int:
@@ -31,7 +31,7 @@ def _seq(event: Dict[str, Any]) -> int:
 
 
 def owner_answers(events: List[Any], after: int) -> List[Dict[str, Any]]:
-    """Owner reply/resolved/declined events with seq > after, in log order."""
+    """Owner reply/resolved/declined/reopened events with seq > after, in log order."""
     return [e for e in events if isinstance(e, dict) and e.get("actor") == "owner"
             and e.get("kind") in OWNER_KINDS and _seq(e) > after]
 

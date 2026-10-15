@@ -85,6 +85,16 @@ class WaitTest(unittest.TestCase):
         self.assertEqual(out, "[Acme] Check Node\n  ↳ owner declined 2026-10-11T09:03:00+00:00\nlast seq: 3\n")
         self.assertEqual(self.clock.sleeps, [20.0, 20.0])
 
+    def test_reopen_wakes_the_waiter(self):
+        closed = detail(event(1, "posted", "session"), event(2, "resolved", "owner"))
+        reopened = detail(event(1, "posted", "session"), event(2, "resolved", "owner"), event(3, "reopened", "owner"))
+        client = FakeAsk(closed, reopened)
+        self.assertEqual(self.wait(client, after=2), (0, "[Acme] Check Node\n"
+                                                         "  ↳ owner reopened 2026-10-11T09:03:00+00:00\n"
+                                                         "last seq: 3\n", ""))
+        self.assertEqual(self.clock.sleeps, [20.0])
+        self.assertIn("reopened", rw.OWNER_KINDS)
+
     def test_missing_title_and_project_fall_back(self):
         client = FakeAsk({"item": {"id": ITEM_ID}, "events": [event(4, "resolved", "owner")]})
         self.assertEqual(self.wait(client)[1],

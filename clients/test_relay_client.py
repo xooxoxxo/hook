@@ -402,6 +402,23 @@ class HelperTests(Base):
         self.assertNotIn("session", rc.fill_from(original, {})["from"])
         self.assertEqual(rc.fill_from({"from": {"host": "x"}}, {"CLAUDE_SESSION_ID": "s1"})["from"], {"host": "x"})
 
+    def test_fill_from_session_names_and_precedence(self):
+        original = {"v": 1, "title": "t"}
+        self.assertEqual(rc.fill_from(original, {"CLAUDE_CODE_SESSION_ID": "c1"})["from"]["session"], "c1")
+        self.assertEqual(rc.fill_from(original, {"CLAUDE_SESSION_ID": "s1"})["from"]["session"], "s1")
+        both = {"CLAUDE_CODE_SESSION_ID": "c1", "CLAUDE_SESSION_ID": "s1"}
+        self.assertEqual(rc.fill_from(original, both)["from"]["session"], "c1")
+        empty_code = {"CLAUDE_CODE_SESSION_ID": "", "CLAUDE_SESSION_ID": "s1"}
+        self.assertEqual(rc.fill_from(original, empty_code)["from"]["session"], "s1")
+        self.assertNotIn("session", rc.fill_from(original, {"CLAUDE_CODE_SESSION_ID": ""})["from"])
+
+    def test_fill_from_project_dir(self):
+        original = {"v": 1, "title": "t"}
+        self.assertEqual(rc.fill_from(original, {"CLAUDE_PROJECT_DIR": "/work/acme"})["from"]["cwd"], "/work/acme")
+        self.assertEqual(rc.fill_from(original, {"CLAUDE_PROJECT_DIR": "acme"})["from"]["cwd"], os.getcwd())
+        self.assertEqual(rc.fill_from(original, {"CLAUDE_PROJECT_DIR": ""})["from"]["cwd"], os.getcwd())
+        self.assertEqual(rc.fill_from(original, {})["from"]["cwd"], os.getcwd())
+
     def test_one_line(self):
         self.assertEqual(rc.one_line("a\nb\r\nc"), "a ⏎ b ⏎ c")
 

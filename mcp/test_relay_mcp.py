@@ -119,7 +119,8 @@ class Session:
         if write_config:
             cfg.write_text(json.dumps(config))
         self.config_path = cfg
-        env = dict(os.environ, RELAY_CONFIG=str(cfg), CLAUDE_SESSION_ID="test-session")
+        env = {k: v for k, v in os.environ.items() if k not in ("CLAUDE_CODE_SESSION_ID", "CLAUDE_PROJECT_DIR")}
+        env.update(RELAY_CONFIG=str(cfg), CLAUDE_SESSION_ID="test-session")
         self.proc = subprocess.Popen(SERVER_CMD, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                      env=env, text=True)
         self.last_id = 0
@@ -334,6 +335,21 @@ class ResolvedByTest(unittest.TestCase):
                                            event(3, "declined", "owner")])
         self.assertEqual(result["resolvedBy"], "owner")
         self.assertEqual([e["kind"] for e in result["ownerEvents"]], ["reply", "declined"])
+
+    def test_reopened_ask_is_open_with_no_resolver(self):
+        result = self.status("open", [event(1, "posted", "session"), event(2, "declined", "owner"),
+                                      event(3, "reopened", "owner")])
+        self.assertIsNone(result["resolvedBy"])
+        self.assertEqual([e["kind"] for e in result["ownerEvents"]], ["declined", "reopened"])
+        # Even if the item status lags behind, a reopen after the close clears resolvedBy.
+        stale = self.status("dismissed", [event(1, "posted", "session"), event(2, "declined", "owner"),
+                                          event(3, "reopened", "owner")])
+        self.assertIsNone(stale["resolvedBy"])
+
+    def test_status_description_mentions_reopen(self):
+        tool = next(t for t in relay_mcp.tool_list() if t["name"] == "relay_status")
+        self.assertIn("reopened", tool["description"])
+        self.assertIn("open again", tool["description"])
 
     def test_last_resolving_event_wins(self):
         result = self.status("done", [event(1, "posted", "session"), event(2, "declined", "owner"),

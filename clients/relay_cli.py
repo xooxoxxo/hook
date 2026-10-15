@@ -80,9 +80,13 @@ class _Ctx:
 
 
 def resolved_by(events: list) -> Optional[str]:
-    """Actor of the last resolved/declined event."""
+    """Actor of the last resolved/declined event; None when a reopen came after it."""
     for event in reversed(events or []):
-        if isinstance(event, dict) and event.get("kind") in ("resolved", "declined"):
+        if not isinstance(event, dict):
+            continue
+        if event.get("kind") == "reopened":
+            return None
+        if event.get("kind") in ("resolved", "declined"):
             actor = event.get("actor")
             return actor if isinstance(actor, str) else None
     return None
@@ -110,7 +114,9 @@ def format_status(detail: dict) -> list:
 def _status_json(detail: dict) -> Dict[str, Any]:
     item = detail.get("item") if isinstance(detail.get("item"), dict) else {}
     events = detail.get("events") if isinstance(detail.get("events"), list) else []
-    return {"id": item.get("id"), "status": item.get("status"), "resolvedBy": resolved_by(events),
+    status = item.get("status")
+    return {"id": item.get("id"), "status": status,
+            "resolvedBy": resolved_by(events) if status != "open" else None,
             "project": item.get("projectId"), "title": item.get("title"),
             "ownerEvents": [{"kind": e.get("kind"), "text": e.get("text"), "at": e.get("at")}
                             for e in events if isinstance(e, dict) and e.get("actor") == "owner"]}

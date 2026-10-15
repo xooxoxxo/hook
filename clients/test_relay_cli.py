@@ -149,6 +149,17 @@ class CliTest(unittest.TestCase):
         self.assertEqual((data["status"], data["resolvedBy"]), ("done", "owner"))
         self.assertEqual(data["ownerEvents"], [{"kind": "resolved", "text": "ok", "at": "2026-10-11T09:02:00+00:00"}])
 
+    def test_status_lists_a_reopen(self):
+        self.client.detail = {"item": dict(ITEM, status="open"), "events": [
+            event(1, "posted", "session"), event(2, "resolved", "owner"), event(3, "reopened", "owner")]}
+        self.assertEqual(self.run_cli("status", ITEM_ID)[1],
+                         "open · Acme · Check Node\n"
+                         "2026-10-11T09:02:00+00:00 done\n"
+                         "2026-10-11T09:03:00+00:00 reopened\n")
+        data = json.loads(self.run_cli("status", ITEM_ID, "--json")[1])
+        self.assertIsNone(data["resolvedBy"])
+        self.assertEqual([e["kind"] for e in data["ownerEvents"]], ["resolved", "reopened"])
+
     def test_status_not_found(self):
         self.client.error = NotFound(f"no ask with id {ITEM_ID}")
         self.assertEqual(self.run_cli("status", ITEM_ID), (1, "", f"relay: no ask with id {ITEM_ID}\n"))
@@ -184,6 +195,11 @@ class CliTest(unittest.TestCase):
         self.assertIsNone(relay_cli.resolved_by([event(1, "posted", "session")]))
         self.assertEqual(relay_cli.resolved_by([event(1, "resolved", "session"), event(2, "reply", "owner"),
                                                 event(3, "declined", "owner")]), "owner")
+
+    def test_resolved_by_after_a_reopen(self):
+        self.assertIsNone(relay_cli.resolved_by([event(1, "resolved", "owner"), event(2, "reopened", "owner")]))
+        self.assertEqual(relay_cli.resolved_by([event(1, "declined", "owner"), event(2, "reopened", "owner"),
+                                                event(3, "resolved", "session")]), "session")
 
     def test_format_status_with_missing_fields(self):
         self.assertEqual(relay_cli.format_status({}), ["? · ? · ?"])

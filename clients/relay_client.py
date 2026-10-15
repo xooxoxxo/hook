@@ -39,7 +39,7 @@ LAUNCH_WAIT_S = 5.0
 LAUNCH_POLL_S = 0.25
 PROOF_PREFIX = "relay-proof-v1\n"   # message: PROOF_PREFIX + str(port) + "\n" + nonce
 # Owner event kinds as the CLI and the hook print them.
-OWNER_LABELS = {"resolved": "done", "declined": "skipped", "reply": "reply"}
+OWNER_LABELS = {"resolved": "done", "declined": "skipped", "reply": "reply", "reopened": "reopened"}
 
 
 class RelayError(Exception):
@@ -185,13 +185,20 @@ def resolve_source(cfg: Dict[str, Any]) -> Dict[str, Any]:
 # --- small helpers ---
 
 def fill_from(instructable: Dict[str, Any], env: Optional[Mapping[str, str]] = None) -> Dict[str, Any]:
-    """A copy with `from` filled (host, cwd, session) when the caller left it out."""
+    """A copy with `from` filled (host, cwd, session) when the caller left it out.
+
+    session: $CLAUDE_CODE_SESSION_ID, else $CLAUDE_SESSION_ID. cwd: $CLAUDE_PROJECT_DIR
+    when it is set and absolute, else the current directory.
+    """
     env = _env(env)
     out = dict(instructable)
     if "from" not in out:
-        origin = {"host": socket.gethostname(), "cwd": os.getcwd()}
-        if env.get("CLAUDE_SESSION_ID"):
-            origin["session"] = env["CLAUDE_SESSION_ID"]
+        project_dir = env.get("CLAUDE_PROJECT_DIR") or ""
+        cwd = project_dir if os.path.isabs(project_dir) else os.getcwd()
+        origin = {"host": socket.gethostname(), "cwd": cwd}
+        session = env.get("CLAUDE_CODE_SESSION_ID") or env.get("CLAUDE_SESSION_ID")
+        if session:
+            origin["session"] = session
         out["from"] = origin
     return out
 
