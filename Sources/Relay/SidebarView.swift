@@ -61,6 +61,7 @@ struct SidebarView: View {
     private let onSettings: () -> Void
     @State private var highlighted: String?
     @FocusState private var listFocused: Bool
+    @AppStorage("relay.closedToday.expanded") private var closedExpanded = false
 
     init(store: Store, model: AppModel, onSettings: @escaping () -> Void) {
         _store = ObservedObject(wrappedValue: store)
@@ -74,7 +75,7 @@ struct SidebarView: View {
             if let banner = store.banner {
                 bannerView(banner)
             }
-            if store.items.isEmpty {
+            if store.items.isEmpty && store.recentlyClosed.isEmpty {
                 emptyState
             } else {
                 list
@@ -168,6 +169,15 @@ struct SidebarView: View {
                                 .id(item.id)
                             }
                         }
+                        if store.items.isEmpty {
+                            Text("Nothing waiting")
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 40)
+                        }
+                        if !store.recentlyClosed.isEmpty {
+                            closedGroup(now: context.date)
+                        }
                     }
                     .padding(.horizontal, 10)
                     .padding(.bottom, 10)
@@ -194,6 +204,35 @@ struct SidebarView: View {
             return .handled
         }
         .onAppear { listFocused = true }
+    }
+
+    /// "Closed today (N)", collapsed by default, after the open sections.
+    @ViewBuilder private func closedGroup(now: Date) -> some View {
+        Button {
+            closedExpanded.toggle()
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9, weight: .semibold))
+                    .rotationEffect(.degrees(closedExpanded ? 90 : 0))
+                Text(verbatim: "Closed today (\(store.recentlyClosed.count))")
+                    .font(.system(size: 11, weight: .semibold))
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(.secondary)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 6)
+        .padding(.top, 14)
+        .help(closedExpanded ? "Hide asks closed in the last 24 hours" : "Show asks closed in the last 24 hours")
+        if closedExpanded {
+            ForEach(store.recentlyClosed) { item in
+                ClosedRow(item: item, closedBy: store.closedBy(item), now: now) {
+                    Task { await store.reopen(item.id) }
+                }
+            }
+        }
     }
 
     private func move(_ delta: Int) {
@@ -332,5 +371,41 @@ struct UndoBar: View {
 
     static func label(_ close: PendingClose) -> String {
         (close.verdict == .done ? "Done: " : "Skipped: ") + line(close.title)
+    }
+}
+
+/// One ask in "Closed today": dimmed and compact, with Reopen.
+struct ClosedRow: View {
+    let item: WireItem
+    let closedBy: String?
+    let now: Date
+    let reopen: () -> Void
+
+    var body: some View {
+        let project = item.projectId ?? ""
+        HStack(spacing: 8) {
+            MonogramView(project: project, size: 16)
+                .opacity(0.6)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(verbatim: line(item.title))
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Text(verbatim: ClosedLine.text(status: item.status, closedBy: closedBy,
+                                               completedAt: item.completedAt, now: now))
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 4)
+            Button("Reopen", action: reopen)
+                .controlSize(.small)
+                .help("Put it back in the queue")
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .contain)
     }
 }

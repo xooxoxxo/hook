@@ -9,6 +9,8 @@ import RelayCore
     @Published private(set) var items: [WireItem] = []
     /// Done and Skip held back for `PendingCloses.delay` seconds so they can be undone.
     @Published private(set) var pending = PendingCloses()
+    /// Asks closed in the last 24 hours, newest first, without any still held back.
+    @Published private(set) var recentlyClosed: [WireItem] = []
     @Published private(set) var details: [String: AskDetail] = [:]
     @Published private(set) var selectedID: String?
     @Published private(set) var notFoundID: String?
@@ -47,6 +49,12 @@ import RelayCore
     /// Closes taken off `pending` whose send hasn't finished (or whose list hasn't caught up).
     private var sending: Set<String> = []
     private var ticker: Task<Void, Never>?
+    /// "id completedAt" → the closing event's actor, so each close is fetched once.
+    private var closedActors: [String: String] = [:]
+    /// Reopened asks: their return to the list is not a new ask to announce.
+    private var quietIDs: Set<String> = []
+
+    static let closedWindow: TimeInterval = 24 * 3600
 
     init() {}
 
@@ -67,6 +75,9 @@ import RelayCore
         listed = []
         items = []
         sending = []
+        recentlyClosed = []
+        closedActors = [:]
+        quietIDs = []
         notFoundID = nil
         actionError = nil
         busyID = nil
@@ -159,9 +170,13 @@ import RelayCore
                 await load(id, from: source, generation: gen)
             }
             guard gen == generation else { return }
-            if loadedOnce, !diff.added.isEmpty {
-                onNewItems?(items.filter { diff.added.contains($0.id) })
+            let announce = diff.added.filter { !quietIDs.contains($0) }
+            quietIDs.subtract(diff.added)
+            if loadedOnce, !announce.isEmpty {
+                onNewItems?(items.filter { announce.contains($0.id) })
             }
+            await loadClosed(from: source, generation: gen)
+            guard gen == generation else { return }
             loadedOnce = true
         } catch {
             guard gen == generation else { return }
@@ -223,6 +238,7 @@ import RelayCore
     func close(_ id: String, _ verdict: Verdict, title: String) {
         guard source != nil else { return }
         pending.add(id: id, verdict: verdict, note: nil, title: title, now: Date())
+        recentlyClosed.removeAll { $0.id == id }
         actionError = nil
         if selectedID == id {
             selectedID = nil
@@ -255,6 +271,56 @@ import RelayCore
     }
 
     var hasPendingCloses: Bool { !pending.isEmpty }
+
+    /// The actor of the event that closed `item` ("owner", "session"), once fetched.
+    func closedBy(_ item: WireItem) -> String? {
+        closedActors[Self.closedKey(item)]
+    }
+
+    /// Puts a closed ask back in the open queue, as the owner.
+    func reopen(_ id: String) async {
+        guard let source else { return }
+        let gen = generation
+        do {
+            _ = try await source.reopen(id)
+            guard gen == generation else { return }
+            details[id] = nil
+            quietIDs.insert(id)
+            recentlyClosed.removeAll { $0.id == id }
+            await freshRefresh()
+        } catch {
+            guard gen == generation else { return }
+            banner = "Reopen failed: \(error.localizedDescription)"
+            noteStoreFailure(error)
+        }
+    }
+
+    /// The last 24 hours of closed asks, and who closed each (from its events).
+    /// A failed fetch keeps the previous list.
+    private func loadClosed(from source: any QueueSource, generation gen: Int) async {
+        guard let fresh = try? await source.recentlyClosed(within: Self.closedWindow) else { return }
+        guard gen == generation else { return }
+        let open = Set(listed.map(\.id))
+        let closed = fresh.filter { !open.contains($0.id) && !pending.contains($0.id) }
+        var actors: [String: String] = [:]
+        for item in closed {
+            let key = Self.closedKey(item)
+            if let known = closedActors[key] {
+                actors[key] = known
+            } else if let detail = try? await source.get(item.id),
+                      let actor = DetailModel.make(detail).closedBy {
+                guard gen == generation else { return }
+                actors[key] = actor
+            }
+        }
+        guard gen == generation else { return }
+        closedActors = actors
+        if closed != recentlyClosed { recentlyClosed = closed }
+    }
+
+    private static func closedKey(_ item: WireItem) -> String {
+        item.id + " " + (item.completedAt ?? "")
+    }
 
     /// Every id the open list was refreshed with, pending ones included (for tick pruning).
     var listedIDs: Set<String> { Set(listed.map(\.id)) }

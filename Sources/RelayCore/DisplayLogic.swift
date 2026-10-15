@@ -146,3 +146,30 @@ public enum RelativeAge {
         return "\(Int(seconds / 86400))d"
     }
 }
+
+/// How a row in "Closed today" says when and how the ask was closed:
+/// "Done 5m ago", "Skipped 1h ago", "Closed by the session 2h ago".
+public enum ClosedLine {
+    /// `closedBy` is the actor of the closing event ("owner", "session"), when known.
+    public static func text(status: String, closedBy: String?, completedAt: String?, now: Date) -> String {
+        let how: String
+        if closedBy == "session" {
+            how = "Closed by the session"
+        } else {
+            switch status {
+            case "done": how = "Done"
+            case "dismissed": how = "Skipped"
+            default: how = "Closed"
+            }
+        }
+        guard let stamp = completedAt, let date = Timestamp.date(stamp) else { return how }
+        return how + " " + ago(max(0, now.timeIntervalSince(date)))
+    }
+
+    static func ago(_ seconds: TimeInterval) -> String {
+        if seconds < 60 { return "just now" }
+        if seconds < 3600 { return "\(Int(seconds / 60))m ago" }
+        if seconds < 86400 { return "\(Int(seconds / 3600))h ago" }
+        return "\(Int(seconds / 86400))d ago"
+    }
+}
