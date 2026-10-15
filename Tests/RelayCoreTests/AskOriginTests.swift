@@ -20,6 +20,15 @@ private func origin(host: String? = "build-mac", cwd: String? = "/work/acme", se
         #expect(o.resumeCommand == "cd '/work/acme' && claude --resume \(session)")
     }
 
+    @Test func helpLinesInFullAndInOrder() throws {
+        let o = try #require(origin())
+        #expect(o.helpLines == ["Folder: /work/acme", "Host: build-mac", "Session: \(session)"])
+        let hostOnly = try #require(origin(cwd: nil, session: nil))
+        #expect(hostOnly.helpLines == ["Host: build-mac"])
+        let badSession = try #require(origin(session: "x"))
+        #expect(badSession.helpLines == ["Folder: /work/acme", "Host: build-mac"])
+    }
+
     @Test func pathWithSpaces() throws {
         let o = try #require(origin(cwd: "  /Users/me/My Projects/site  "))
         #expect(o.cwd == "/Users/me/My Projects/site")

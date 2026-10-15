@@ -55,6 +55,9 @@ struct DetailView: View {
                     if !ask.ownerReplies.isEmpty {
                         repliesList(ask.ownerReplies)
                     }
+                    if let command = ask.origin?.resumeCommand {
+                        resumeSection(command)
+                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 16)
@@ -114,6 +117,16 @@ struct DetailView: View {
             .fixedSize(horizontal: false, vertical: true)
             .padding(.top, 2)
             .padding(.bottom, 4)
+        if let origin = ask.origin {
+            // Where the ask came from; the full folder, host and session on hover.
+            Text(verbatim: "From " + line(origin.summary))
+                .font(.system(size: 11.5))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .help(origin.helpLines.map(line).joined(separator: "\n"))
+                .padding(.bottom, 6)
+        }
         if let why = ask.why {
             Text(verbatim: prose(why))
                 .foregroundStyle(.secondary)
@@ -126,13 +139,6 @@ struct DetailView: View {
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.bottom, 4)
-        }
-        if let from = ask.origin?.summary {
-            Text(verbatim: line(from))
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundStyle(.tertiary)
-                .textSelection(.enabled)
-                .fixedSize(horizontal: false, vertical: true)
         }
         Spacer().frame(height: 12)
     }
@@ -244,6 +250,15 @@ struct DetailView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+
+    /// The exact command to get back to the session that posted the ask.
+    private func resumeSection(_ command: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            sectionTitle("Back to the session")
+            CodeBlock(code: command, lang: "shell")
+        }
+        .padding(.top, 12)
     }
 
     private func sectionTitle(_ text: String) -> some View {

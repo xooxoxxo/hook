@@ -43,6 +43,16 @@ public struct AskOrigin: Sendable, Equatable {
         [folder, host, shortSession].compactMap { $0 }.joined(separator: " · ")
     }
 
+    /// The From row's tooltip: "Folder: …", "Host: …", "Session: …", one per line,
+    /// in full and without the missing parts. Raw: the view reveals each line.
+    public var helpLines: [String] {
+        var lines: [String] = []
+        if let cwd { lines.append("Folder: " + cwd) }
+        if let host { lines.append("Host: " + host) }
+        if let session { lines.append("Session: " + session) }
+        return lines
+    }
+
     /// `cd '<cwd>' && claude --resume <session>`, with each `'` in the path written
     /// as `'\''`. Only when the session is valid and the path is absolute, at most
     /// 1024 characters, and free of control and hidden characters.
