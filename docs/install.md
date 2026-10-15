@@ -1,0 +1,47 @@
+# Install
+
+Relay builds from source with one script.
+
+## Requirements
+
+- macOS 14.5+ to build (the Swift 6 toolchain needs it); the app runs on macOS 14.
+- Xcode Command Line Tools 16 with Swift 6+ (`xcode-select -p`, or `xcode-select --install`).
+- Python 3.9+. No third-party dependencies.
+
+## Install
+
+```bash
+git clone https://github.com/xooxoxxo/relay.git
+cd relay
+./scripts/install.sh
+```
+
+- No flag: keeps the config. A new install gets `{"source":"local"}` (This Mac only).
+- `--local`: switches to This Mac only.
+- `--mailbox <dir>`: switches to the mailbox whose http(s) URL is in `<dir>/mailbox-url`. `<dir>/mailbox-token` must be non-empty; only its path is stored.
+- `--uninstall`: see [Uninstall](#uninstall).
+
+## What the installer does
+
+1. Checks macOS, Swift and Python, and prints the fix for anything missing.
+2. Writes `~/.config/relay/config.json` (folder `0700`, file `0600`), keeping existing keys. A config that doesn't parse moves to `config.json.bad-<time>`.
+3. Builds `./build/Relay.app` and replaces `~/Applications/Relay.app` only on success.
+4. Links `relay` to `~/.local/bin/relay` unless another `relay` is there, and prints the `~/.zshrc` line if that folder isn't on your `PATH`.
+5. Runs `claude mcp add --scope user relay -- python3 "<repo>/mcp/relay_mcp.py"`, or prints it when `claude` is missing or the call fails.
+6. Links the skill to `~/.claude/skills/instructables` unless something else is there.
+7. Writes the login LaunchAgent `~/Library/LaunchAgents/io.github.xooxoxxo.relay.plist` only on a first install or if it exists, so turning it off sticks. Removes the pre-release `dev.instructables.relay` one.
+8. Starts Relay and checks `http://127.0.0.1:<port>/health` (port 47823 unless `port` says otherwise).
+
+## Keep the clone
+
+The `relay` command, MCP server and skill run from the clone. If you move it, rerun `./scripts/install.sh` there.
+
+## Update
+
+`git pull && ./scripts/install.sh` keeps the config.
+
+## Uninstall
+
+`./scripts/install.sh --uninstall` removes the app, LaunchAgent, CLI link, MCP server and this repo's skill link. It keeps the config, token and queue, and prints their paths.
+
+To remove everything, also delete the clone, `~/Library/Application Support/Relay` and `~/.config/relay`, and run `defaults delete io.github.xooxoxxo.relay` (the uninstaller prints it) to clear the UI state.
