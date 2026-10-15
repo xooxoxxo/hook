@@ -139,9 +139,9 @@ private func details(_ response: HTTPResponse) -> [String] {
 
     @Test func lastSeenRecordsAuthenticatedClients() async throws {
         let h = try await harness()
-        _ = await h.send("GET", "/asks", auth: nil, headers: ["x-relay-client": "mcp/0.3.0"])
+        _ = await h.send("GET", "/asks", auth: nil, headers: ["x-relay-client": "mcp/0.3.1"])
         #expect(await h.api.lastSeen()["mcp"] == nil)
-        _ = await h.send("GET", "/asks", headers: ["X-Relay-Client": "cli/0.3.0"])
+        _ = await h.send("GET", "/asks", headers: ["X-Relay-Client": "cli/0.3.1"])
         _ = await h.send("GET", "/asks", headers: ["x-relay-client": "browser/1"])
         let seen = await h.api.lastSeen()
         #expect(seen["cli"] != nil)

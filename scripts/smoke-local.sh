@@ -43,6 +43,14 @@ printf '%s' "$HEALTH" | grep -q '"proof"' && fail "health sent a proof without a
 [ "$(mode_of "$TMP/config")" = "755" ] || fail "custom config folder was changed to $(mode_of "$TMP/config")"
 [ "$(mode_of "$TMP/data")" = "700" ] || fail "data folder is $(mode_of "$TMP/data"), not 700"
 
+# A malformed link id: 404 with the same page a valid one gets, and its headers.
+LINK_CODE="$(curl -q --noproxy '*' -sS -D "$TMP/link.head" -o "$TMP/link.body" -w '%{http_code}' \
+  "http://127.0.0.1:$PORT/i/not-an-id" || true)"
+[ "$LINK_CODE" = "404" ] || fail "malformed link id answered $LINK_CODE"
+grep -q "Handed to Relay" "$TMP/link.body" || fail "link page body"
+grep -qi "^content-security-policy: default-src 'none'" "$TMP/link.head" || fail "link page has no CSP"
+grep -qi "^x-content-type-options: nosniff" "$TMP/link.head" || fail "link page has no nosniff"
+
 export RELAY_CONFIG="$TMP/config/config.json"
 # Test-only: if the temp instance dies, the CLI must never start the installed app.
 export RELAY_NO_AUTOLAUNCH=1

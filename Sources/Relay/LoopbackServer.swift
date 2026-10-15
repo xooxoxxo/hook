@@ -22,12 +22,6 @@ enum ListenerState: Equatable {
     static let connectionDeadline: Duration = .seconds(5)
     static let retryDelay: Duration = .seconds(10)
 
-    /// The same page whether or not the id exists, so a request learns nothing.
-    private static let receivedPage = """
-        <!doctype html><meta charset="utf-8"><title>Relay</title>
-        <body style="font:15px -apple-system,sans-serif;margin:3em">Relay received the link.</body>
-        """
-
     /// A request whose head passed framing, waiting for its body.
     private struct Pending: Sendable {
         let method: String
@@ -309,10 +303,8 @@ enum ListenerState: Equatable {
         return parts.count == 3 ? String(parts[1]) : nil
     }
 
+    /// The same page whether or not the id exists, so a request learns nothing.
     static func linkPage(_ status: Int) -> HTTPResponse {
-        HTTPResponse(
-            status: status,
-            headers: ["Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store"],
-            body: Data(receivedPage.utf8))
+        LinkPage.response(status: status)
     }
 }

@@ -3,6 +3,13 @@
 All notable changes to Relay are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## [0.3.1] - 2026-10-15
+
+### Changed
+
+- The page an Open in Relay link opens is redesigned and closes its own tab where
+  the browser allows it.
+
 ## [0.3.0] - 2026-10-15
 
 ### Added
