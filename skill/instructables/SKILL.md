@@ -118,6 +118,8 @@ Refused asks print `refused: <error>` and one line per field error on stderr, an
     `choice: <option>`.
   - Only **owner** events, or a `(by owner)` status, are the owner's answer.
     `done (by session)` means a session closed it, not the owner.
+- The owner may reopen an ask they closed by mistake (owner event `reopened`). Treat
+  it as open again, and wait for the next answer with `relay wait <id> --after <last seq>`.
 - If the replies hook is set up, answers also show up in your next prompt as
   `Relay: [<id>] <project> · <title> — <done|skipped|reply>: <text>`. The hook shows
   answers to every session's asks: act only on ids you posted.

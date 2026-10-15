@@ -3,6 +3,21 @@
 All notable changes to Relay are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## [0.3.0] - 2026-10-15
+
+### Added
+
+- Undo: after Done or Skip, a 10-second Undo bar (or ⌘Z) brings the ask back before
+  the answer is sent.
+- A "Closed today" group in the sidebar, with Reopen.
+- The Claude Code session id is recorded with each ask (`CLAUDE_CODE_SESSION_ID`,
+  falling back to `CLAUDE_SESSION_ID`), and the project folder from
+  `CLAUDE_PROJECT_DIR`.
+- A From row in the ask view (folder · Mac · short session id) with a copyable
+  command that resumes the session in Claude Code.
+- The mailbox `POST /asks/{id}/reopen` route and the `reopened` owner event, shown by
+  `relay status`, `relay replies`, `relay wait` and `relay_status`.
+
 ## [0.2.0] - 2026-10-15
 
 First public release.

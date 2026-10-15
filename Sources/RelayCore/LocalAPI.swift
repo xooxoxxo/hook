@@ -171,7 +171,7 @@ public actor LocalAPI {
         return LocalToken.matches(String(header.dropFirst(prefix.count)), expected)
     }
 
-    /// "cli/0.2.0" or "mcp/0.2.0" → the Connect tab's "last seen".
+    /// "cli/0.3.0" or "mcp/0.3.0" → the Connect tab's "last seen".
     private func noteClient(_ header: String?) {
         guard let kind = header?.split(separator: "/", maxSplits: 1).first?.lowercased(),
               kind == "cli" || kind == "mcp" else { return }

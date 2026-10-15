@@ -85,6 +85,12 @@ uninstaller prints that last command when it finishes.
 - **In an ask.** Tick steps as you go. Copy puts exactly the code shown on the
   clipboard, without a trailing newline, so a paste never runs on its own. Answer with
   Done, Skip or Reply.
+- **Undo.** After Done or Skip, an Undo bar shows for 10 seconds. ⌘Z or Undo brings
+  the ask back; Relay sends your answer only after that.
+- **Closed today.** A collapsed group at the bottom of the sidebar lists the asks
+  closed today, each with Reopen.
+- **From.** An ask shows where it came from (folder · Mac · short session id) and,
+  when the session is known, a command to resume it in Claude Code.
 - **First launch** asks for permission to show notifications.
 
 Settings has four tabs:
@@ -118,7 +124,7 @@ Settings has four tabs:
   | `relay done <id> [note]`, `relay skip <id> [note]` | `done <id>` / `skipped <id>`, or `already <status> (by <actor>) <id>` |
   | `relay replies [--new] [--hook]` | One line per new owner answer |
   | `relay wait <id> [--timeout SECONDS] [--interval SECONDS] [--after SEQ]` | Waits for the owner's answer to one ask, then prints `[<project>] <title>`, one `  ↳ owner <kind> <at>: <text>` line per answer and `last seq: <n>` |
-  | `relay --version` | `relay 0.2.0` |
+  | `relay --version` | `relay 0.3.0` |
 
   Exit codes: 0 success, 1 refused or not found, 2 no config or Relay unreachable,
   3 `relay wait` timed out.
