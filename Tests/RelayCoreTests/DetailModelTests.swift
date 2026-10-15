@@ -124,6 +124,43 @@ private func minimal(from: Origin? = nil) -> Payload {
         #expect(model.ownerReplies == ["On it"])
     }
 
+    @Test func reopenedAskIsNeverShownAsClosed() {
+        let reopened = AskDetail(
+            item: ask(minimal(), status: "open"),
+            events: [
+                event(1, "posted", "session"),
+                event(2, "resolved", "owner", at: firstClose),
+                event(3, "reopened", "owner", at: secondClose),
+            ])
+        let model = DetailModel.make(reopened)
+        #expect(model.isOpen)
+        #expect(model.closedBy == nil)
+        #expect(model.closedAt == nil)
+        #expect(reopened.ownerEvents.map(\.kind) == ["resolved", "reopened"])
+
+        // A stale status with a reopen as the last status event still shows no closer.
+        let stale = DetailModel.make(AskDetail(item: ask(minimal(), status: "done"), events: reopened.events))
+        #expect(stale.closedBy == nil)
+
+        let closedAgain = DetailModel.make(AskDetail(
+            item: ask(minimal(), status: "dismissed"),
+            events: reopened.events + [event(4, "declined", "owner", at: secondClose)]))
+        #expect(closedAgain.closedBy == "owner")
+        #expect(closedAgain.closedAt == secondClose)
+    }
+
+    @Test func ownerEventsKeepOnlyOwnerActions() {
+        let detail = AskDetail(item: ask(minimal()), events: [
+            event(1, "posted", "session"),
+            event(2, "reply", "owner", "hi"),
+            event(3, "resolved", "session"),
+            event(4, "reopened", "owner"),
+            event(5, "steps", "owner"),
+        ])
+        #expect(detail.ownerEvents.map(\.seq) == [2, 4])
+        #expect(Event.ownerKinds.contains("reopened"))
+    }
+
     @Test func lastCloseEventWins() {
         let detail = AskDetail(
             item: ask(minimal(), status: "dismissed"),

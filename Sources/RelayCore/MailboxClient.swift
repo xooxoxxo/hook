@@ -67,6 +67,46 @@ public struct MailboxClient: QueueSource {
         return response.item
     }
 
+    /// Takes back a Done or Skip: always `actor: "owner"`. The mailbox returns an open
+    /// ask unchanged.
+    public func reopen(_ id: String) async throws -> WireItem {
+        let response: ItemResponse = try await send("POST", "asks/\(id)/reopen", body: Self.encode(["actor": "owner"]))
+        return response.item
+    }
+
+    /// The mailbox's `days` filter counts from creation, so both lists reach back
+    /// `closedLookbackDays`; the completion window is applied here.
+    public func recentlyClosed(within interval: TimeInterval) async throws -> [WireItem] {
+        var merged: [WireItem] = []
+        for status in ["done", "dismissed"] {
+            let query = [
+                URLQueryItem(name: "status", value: status),
+                URLQueryItem(name: "days", value: String(Self.closedLookbackDays)),
+            ]
+            let response: ListResponse = try await send("GET", "asks", query: query)
+            merged += response.items
+        }
+        return Self.closedWithin(merged, interval: interval, now: Date())
+    }
+
+    static let closedLookbackDays = 14
+
+    /// Items whose `completedAt` is within `interval` of `now`, newest first. One
+    /// without a readable `completedAt` is skipped; an id seen twice is kept once.
+    static func closedWithin(_ items: [WireItem], interval: TimeInterval, now: Date) -> [WireItem] {
+        let cutoff = now.addingTimeInterval(-interval)
+        var seen = Set<String>()
+        return items
+            .compactMap { item -> (completed: Date, item: WireItem)? in
+                guard item.status != "open",
+                      let completed = item.completedAt.flatMap(Timestamp.date),
+                      completed >= cutoff, seen.insert(item.id).inserted else { return nil }
+                return (completed, item)
+            }
+            .sorted { $0.completed > $1.completed }
+            .map(\.item)
+    }
+
     /// The mailbox has no push channel; the Store polls.
     public func changes() async -> AsyncStream<Void>? {
         nil

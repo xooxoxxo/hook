@@ -15,6 +15,10 @@ public protocol QueueSource: Sendable {
     /// The app always acts as the owner.
     func resolve(_ id: String, verdict: Verdict, note: String?) async throws -> WireItem
     func reply(_ id: String, text: String) async throws -> WireItem
+    /// The app always acts as the owner. Reopening an open ask returns it unchanged.
+    func reopen(_ id: String) async throws -> WireItem
+    /// Asks closed (done or dismissed) whose completion time is within `interval` of now, newest first.
+    func recentlyClosed(within interval: TimeInterval) async throws -> [WireItem]
     /// nil: the Store polls every pollSeconds. Otherwise each call returns a NEW
     /// stream that yields after every committed change, until the caller cancels it.
     func changes() async -> AsyncStream<Void>?

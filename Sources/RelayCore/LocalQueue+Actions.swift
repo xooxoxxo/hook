@@ -34,6 +34,39 @@ extension LocalQueue {
         return next.items[index]
     }
 
+    /// The owner takes back a close (app only): status "open", `completedAt` cleared,
+    /// and a `reopened` event by the owner. An open ask is returned unchanged, with
+    /// no event. Unknown id → `.notFound`.
+    public func reopen(_ id: String) throws -> LocalItem {
+        guard let index = state.items.firstIndex(where: { $0.id == id }) else {
+            throw LocalQueueError.notFound
+        }
+        guard state.items[index].status != "open" else { return state.items[index] }
+
+        var next = state
+        next.items[index].status = "open"
+        next.items[index].completedAt = nil
+        next.items[index].updated = Timestamp.string(now())
+        appendEvent(&next, itemId: id, kind: "reopened", actor: "owner", text: nil)
+        try commit(next)
+        return next.items[index]
+    }
+
+    /// Finished asks (done or dismissed) whose `completedAt` is within `interval`
+    /// of now, newest completion first. An ask without a readable `completedAt` is left out.
+    public func recentlyClosed(within interval: TimeInterval) -> [LocalItem] {
+        let cutoff = now().addingTimeInterval(-interval)
+        return state.items.enumerated()
+            .compactMap { offset, item -> (offset: Int, completed: Date, item: LocalItem)? in
+                guard item.status == "done" || item.status == "dismissed",
+                      let completed = item.completedAt.flatMap(Timestamp.date),
+                      completed >= cutoff else { return nil }
+                return (offset, completed, item)
+            }
+            .sorted { $0.completed != $1.completed ? $0.completed > $1.completed : $0.offset > $1.offset }
+            .map(\.item)
+    }
+
     /// The owner's answer (app only). Trimmed; empty → `.missingText`; more than
     /// 4000 scalars → `.textTooLong`. Works on any existing ask, open or not; the
     /// item itself is unchanged, as on a mailbox.

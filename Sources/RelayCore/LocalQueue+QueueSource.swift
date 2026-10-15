@@ -1,7 +1,7 @@
 import Foundation
 
 /// The in-process `LocalQueue` as a `QueueSource`. Relay is the owner here, so
-/// resolve and reply record actor "owner".
+/// resolve, reply and reopen record actor "owner".
 ///
 /// A wrapper rather than `extension LocalQueue: QueueSource`: the protocol's
 /// `get` and `reply` would overload LocalQueue's own and hijack its callers.
@@ -51,6 +51,18 @@ public struct LocalQueueSource: QueueSource {
         } catch let error as LocalQueueError {
             throw error.queueError
         }
+    }
+
+    public func reopen(_ id: String) async throws -> WireItem {
+        do {
+            return try await queue.reopen(id).wireItem
+        } catch let error as LocalQueueError {
+            throw error.queueError
+        }
+    }
+
+    public func recentlyClosed(within interval: TimeInterval) async throws -> [WireItem] {
+        await queue.recentlyClosed(within: interval).map(\.wireItem)
     }
 
     public func changes() async -> AsyncStream<Void>? {

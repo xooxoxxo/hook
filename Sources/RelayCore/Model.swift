@@ -82,6 +82,8 @@ public struct WireItem: Codable, Sendable, Equatable, Identifiable {
     public var created: String
     public var updated: String
     public var payload: Payload
+    /// When the ask was last closed; nil while it is open.
+    public var completedAt: String? = nil
 
     public var instructable: Instructable? { payload.instructable }
 
@@ -96,6 +98,13 @@ public struct Event: Codable, Sendable, Equatable {
     public var actor: String
     public var text: String?
     public var at: String
+
+    /// The kinds an owner's action records: an answer, a close, or a reopen.
+    public static let ownerKinds: Set<String> = ["reply", "resolved", "declined", "reopened"]
+    /// The kinds that change whether an ask is open: a close or a reopen.
+    public static let statusKinds: Set<String> = ["resolved", "declined", "reopened"]
+
+    public var isOwnerEvent: Bool { actor == "owner" && Self.ownerKinds.contains(kind) }
 }
 
 /// `GET /asks/{id}`.
@@ -106,5 +115,10 @@ public struct AskDetail: Codable, Sendable, Equatable {
     /// The owner's replies, oldest first.
     public var ownerReplies: [String] {
         events.filter { $0.kind == "reply" && $0.actor == "owner" }.compactMap(\.text)
+    }
+
+    /// Every owner event (reply, resolved, declined, reopened), oldest first.
+    public var ownerEvents: [Event] {
+        events.filter(\.isOwnerEvent)
     }
 }

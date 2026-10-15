@@ -148,6 +148,60 @@ private func makeClient(
         #expect(MailboxStubRegistry.shared.last(host)?.request.url?.path() == "/asks/\(askID)/reply")
     }
 
+    @Test func reopenPostsAsTheOwner() async throws {
+        let (client, host) = try makeClient { _, _ in (200, #"{"item":\#(itemJSON)}"#) }
+        let item = try await client.reopen(askID)
+        #expect(item.id == askID)
+        let sent = try #require(MailboxStubRegistry.shared.last(host))
+        #expect(sent.request.httpMethod == "POST")
+        #expect(sent.request.url?.path() == "/asks/\(askID)/reopen")
+        #expect(sent.request.value(forHTTPHeaderField: "Authorization") == "Bearer tok-example")
+        #expect(try JSONValue.parse(sent.body) == .object(["actor": .string("owner")]))
+
+        let (missing, _) = try makeClient { _, _ in (404, #"{"error":"not found"}"#) }
+        await #expect(throws: QueueError.notFound) { try await missing.reopen(askID) }
+        let (redirect, _) = try makeClient { _, _ in (302, "") }
+        await #expect(throws: QueueError.self) { try await redirect.reopen(askID) }
+    }
+
+    @Test func recentlyClosedMergesDoneAndDismissed() async throws {
+        let now = Date()
+        func closed(_ id: String, _ status: String, _ ago: TimeInterval?) -> String {
+            let completed = ago.map { #""\#(Timestamp.string(now.addingTimeInterval(-$0)))""# } ?? "null"
+            return #"{"id":"\#(id)","title":"T \#(id)","status":"\#(status)","created":"2026-09-01T09:30:00+00:00","updated":"2026-09-01T09:30:00+00:00","completedAt":\#(completed),"payload":{}}"#
+        }
+        let done = [closed("d1", "done", 600), closed("d2", "done", 5 * 3600), closed("d3", "done", nil)]
+        let dismissed = [closed("x1", "dismissed", 60),
+                         #"{"id":"x2","title":"T","status":"dismissed","created":"2026-09-01T09:30:00+00:00","updated":"2026-09-01T09:30:00+00:00","completedAt":"yesterday","payload":{}}"#]
+        let statuses = StatusLog()
+        let (client, _) = try makeClient { request, _ in
+            let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            let status = query.first { $0.name == "status" }?.value ?? ""
+            let days = query.first { $0.name == "days" }?.value ?? ""
+            statuses.add(status + "/" + days)
+            let items = status == "done" ? done : status == "dismissed" ? dismissed : []
+            return (200, #"{"items":[\#(items.joined(separator: ","))]}"#)
+        }
+        let items = try await client.recentlyClosed(within: 3600)
+        #expect(items.map(\.id) == ["x1", "d1"])
+        #expect(statuses.all.sorted() == ["dismissed/14", "done/14"])
+    }
+
+    @Test func closedWithinSkipsOpenAndDuplicates() {
+        let now = Date(timeIntervalSince1970: 1_791_000_000)
+        func item(_ id: String, _ status: String, _ completed: String?) -> WireItem {
+            WireItem(id: id, title: id, status: status, projectId: nil, created: "2026-10-01T00:00:00+00:00",
+                     updated: "2026-10-01T00:00:00+00:00", payload: Payload(why: nil, cmd: nil, link: nil, instructable: nil),
+                     completedAt: completed)
+        }
+        let stamp = Timestamp.string(now.addingTimeInterval(-10))
+        let older = Timestamp.string(now.addingTimeInterval(-20))
+        let result = MailboxClient.closedWithin(
+            [item("a", "done", older), item("b", "open", stamp), item("a", "done", older), item("c", "dismissed", stamp)],
+            interval: 60, now: now)
+        #expect(result.map(\.id) == ["c", "a"])
+    }
+
     @Test func mapsHTTPErrors() async throws {
         let (notFound, _) = try makeClient { _, _ in (404, #"{"error":"not found"}"#) }
         await #expect(throws: QueueError.notFound) { try await notFound.get(askID) }
@@ -242,5 +296,21 @@ private func expectUnreachable<T>(
         #expect(!reason.contains("tok-example"), sourceLocation: sourceLocation)
     } catch {
         Issue.record("expected QueueError, got \(error)", sourceLocation: sourceLocation)
+    }
+}
+
+/// Records the queries a stub saw, across URLSession's threads.
+final class StatusLog: @unchecked Sendable {
+    private let lock = NSLock()
+    private var seen: [String] = []
+    func add(_ value: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        seen.append(value)
+    }
+    var all: [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return seen
     }
 }

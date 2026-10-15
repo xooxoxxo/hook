@@ -42,7 +42,8 @@ public struct DetailModel: Sendable, Equatable {
     public var reply: ReplySpec?
     public var ownerReplies: [String]
     public var isOpen: Bool
-    /// Actor and time of the last resolved/declined event, when not open.
+    /// Actor and time of the last resolved/declined event, when not open and not
+    /// reopened since.
     public var closedBy: String?
     public var closedAt: String?
 
@@ -85,7 +86,9 @@ public struct DetailModel: Sendable, Equatable {
         }
 
         let isOpen = item.status == "open"
-        let closing = isOpen ? nil : events.last { $0.kind == "resolved" || $0.kind == "declined" }
+        // The last close or reopen decides; a reopened ask is never shown as closed.
+        let lastStatus = isOpen ? nil : events.last { Event.statusKinds.contains($0.kind) }
+        let closing = lastStatus?.kind == "reopened" ? nil : lastStatus
 
         return DetailModel(
             id: item.id,

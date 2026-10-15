@@ -110,7 +110,8 @@ public struct LocalItem: Codable, Sendable, Equatable, Identifiable {
         return WireItem(
             id: id, title: title, status: status, projectId: projectId,
             created: created, updated: updated,
-            payload: Payload(why: payload.why, cmd: nil, link: nil, instructable: instructable))
+            payload: Payload(why: payload.why, cmd: nil, link: nil, instructable: instructable),
+            completedAt: completedAt)
     }
 
     /// A new open ask with the mailbox's item defaults for every other key.
