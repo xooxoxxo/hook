@@ -59,7 +59,8 @@ export RELAY_NO_AUTOLAUNCH=1
 POST_OUT="$("$PY" bin/relay post Acme --json - <<'EOF'
 {"v": 1, "title": "Smoke test ask", "why": "Checks the local queue end to end.",
  "urgency": "today",
- "steps": [{"do": "Run the check", "where": "Terminal", "code": "echo relay-ok", "expect": "relay-ok"}],
+ "steps": [{"do": "Run the check", "where": "Terminal", "detail": "Paste it into any Terminal window.\nIt only prints a word.",
+            "code": "echo relay-ok", "expect": "relay-ok"}],
  "reply": {"prompt": "Did it work?", "choices": ["Yes", "No"]}}
 EOF
 )" || fail "relay post exited non-zero"

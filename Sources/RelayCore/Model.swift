@@ -8,12 +8,14 @@ public struct Step: Codable, Sendable, Equatable {
     public var code: String?
     public var lang: String?
     public var expect: String?
+    /// Longer instructions for the step, shown as wrapped prose.
+    public var detail: String?
     public var url: String?
 
     enum CodingKeys: String, CodingKey {
         case action = "do"
         case place = "where"
-        case code, lang, expect, url
+        case code, lang, expect, detail, url
     }
 }
 

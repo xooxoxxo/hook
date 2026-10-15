@@ -186,6 +186,9 @@ class RelayMcpTest(StubServerCase):
             self.assertEqual(set(tools), {"relay_post", "relay_status", "relay_list"})
             self.assertIn("instructable", tools["relay_post"]["inputSchema"]["properties"])
             self.assertIn("step", tools["relay_post"]["inputSchema"]["$defs"])   # "#/$defs/step" resolves
+            detail = tools["relay_post"]["inputSchema"]["$defs"]["step"]["properties"]["detail"]
+            self.assertEqual((detail["type"], detail["maxLength"]), ("string", 1500))
+            self.assertIn("never in code", detail["description"])
 
             post = s.call("relay_post", {"project": "Acme", "instructable": {
                 "v": 1, "title": "Check Node", "steps": [{"do": "Run it", "code": "node --version"}]}})

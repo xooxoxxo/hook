@@ -67,6 +67,11 @@
         "code": { "type": "string", "maxLength": 4000 },
         "lang": { "type": "string", "maxLength": 20 },
         "expect": { "type": "string", "maxLength": 300 },
+        "detail": {
+          "type": "string",
+          "maxLength": 1500,
+          "description": "Longer instructions for this step, shown as wrapped text under do. Put explanations here, never in code: code is only text to copy exactly."
+        },
         "url": { "$ref": "#/$defs/httpUrl" }
       }
     }

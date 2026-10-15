@@ -3,6 +3,15 @@
 All notable changes to Relay are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## [0.4.0] - 2026-10-16
+
+### Added
+
+- A step `detail` field (at most 1500 characters, line breaks allowed) for longer
+  instructions, shown as wrapped text under the step's action.
+- Code blocks with `lang` `text`, or no `lang`, wrap long lines; other languages keep
+  their lines and scroll sideways. Copy still copies the exact text.
+
 ## [0.3.1] - 2026-10-15
 
 ### Changed

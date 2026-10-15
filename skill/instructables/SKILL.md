@@ -26,8 +26,11 @@ on you" line in chat alone gets lost.
 - **steps** (1–20): one action per step. `do` says exactly what to click or type, in
   order (site → page → menu → button). `where` names the place: "Slack desktop",
   "Mac terminal", "GitHub → Settings".
+- **detail**: longer instructions for one step (at most 1500 chars, line breaks
+  allowed), shown as wrapped text under `do`.
 - **code**: the exact command or text to paste. Make it complete, with nothing for
-  the owner to edit. Set `lang` (`bash`, `text`, `json`).
+  the owner to edit. Set `lang` (`bash`, `text`, `json`). Never put instructions or
+  explanations in `code`: `code` is only text to copy exactly. They go in `detail`.
 - **expect**: what the owner should see, on every step that can be checked.
 - **url**: the exact page that step needs (http or https only).
 - **verify**: a final Step that proves it worked. A command with `expect` is best.

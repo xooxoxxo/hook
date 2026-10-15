@@ -1977,6 +1977,195 @@
    "pyBytes": 96
   },
   {
+   "name": "step-detail",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Create the Slack channel",
+    "steps": [
+     {
+      "do": "Create the app",
+      "detail": "In the form, choose From scratch, name it Acme Bot and pick the Acme workspace."
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Create the Slack channel",
+    "steps": [
+     {
+      "do": "Create the app",
+      "detail": "In the form, choose From scratch, name it Acme Bot and pick the Acme workspace."
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 175
+  },
+  {
+   "name": "step-detail-multi-line",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Create the Slack channel",
+    "steps": [
+     {
+      "do": "Create the app",
+      "detail": "Choose From scratch.\nName it Acme Bot.\n\n\tPick the Acme workspace."
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Create the Slack channel",
+    "steps": [
+     {
+      "do": "Create the app",
+      "detail": "Choose From scratch.\nName it Acme Bot.\n\n\tPick the Acme workspace."
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 165
+  },
+  {
+   "name": "step-detail-1500",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Create the Slack channel",
+    "steps": [
+     {
+      "do": "x",
+      "detail": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Create the Slack channel",
+    "steps": [
+     {
+      "do": "x",
+      "detail": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 1583
+  },
+  {
+   "name": "step-detail-1501",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Create the Slack channel",
+    "steps": [
+     {
+      "do": "x",
+      "detail": "ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].detail: longer than 1500 characters"
+   ],
+   "cleaned": null,
+   "pyBytes": 1584
+  },
+  {
+   "name": "step-detail-secret",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Create the Slack channel",
+    "steps": [
+     {
+      "do": "x",
+      "detail": "Paste ghp_example into the box"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].detail: secret-like value"
+   ],
+   "cleaned": null,
+   "pyBytes": 113
+  },
+  {
+   "name": "step-detail-hidden",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Create the Slack channel",
+    "steps": [
+     {
+      "do": "x",
+      "detail": "Open the ‮settings page"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].detail: contains hidden or control characters (U+202E)"
+   ],
+   "cleaned": null,
+   "pyBytes": 108
+  },
+  {
+   "name": "step-detail-not-string",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Create the Slack channel",
+    "steps": [
+     {
+      "do": "x",
+      "detail": [
+       "a"
+      ]
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].detail: must be a string"
+   ],
+   "cleaned": null,
+   "pyBytes": 86
+  },
+  {
+   "name": "verify-detail-1501",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Create the Slack channel",
+    "steps": [
+     {
+      "do": "x"
+     }
+    ],
+    "verify": {
+     "do": "Check",
+     "detail": "ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    }
+   },
+   "valid": false,
+   "errors": [
+    "verify.detail: longer than 1500 characters"
+   ],
+   "cleaned": null,
+   "pyBytes": 1611
+  },
+  {
    "name": "step-code-multi-line-tab",
    "kind": "instructable",
    "input": {

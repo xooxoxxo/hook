@@ -30,7 +30,7 @@ private func minimal(from: Origin? = nil) -> Payload {
             steps: [
                 Step(action: "Open the key page", place: "Browser", url: "https://example.com/keys"),
                 Step(action: "Store the new key", place: "Terminal", code: "echo stored", lang: "bash",
-                     expect: "stored"),
+                     expect: "stored", detail: "Use the key from the vault.\nNot the old one."),
             ],
             verify: Step(action: "The job log shows success", code: "tail -n 5 job.log"),
             reply: ReplySpec(prompt: "Which region?", choices: ["eu", "us"]),
@@ -57,7 +57,7 @@ private func minimal(from: Origin? = nil) -> Payload {
         #expect(model.nodes == [
             DetailModel.Node(index: 0, action: "Open the key page", place: "Browser", url: "https://example.com/keys"),
             DetailModel.Node(index: 1, action: "Store the new key", place: "Terminal", code: "echo stored",
-                             lang: "bash", expect: "stored"),
+                             lang: "bash", expect: "stored", detail: "Use the key from the vault.\nNot the old one."),
             DetailModel.Node(index: 2, isVerify: true, action: "The job log shows success", code: "tail -n 5 job.log"),
         ])
         #expect(model.links == [LinkRef(label: "Runbook", url: "https://example.com/runbook")])

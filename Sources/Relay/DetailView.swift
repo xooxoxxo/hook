@@ -362,6 +362,13 @@ private struct TimelineNode: View {
                     .foregroundStyle(ticked ? HierarchicalShapeStyle.secondary : HierarchicalShapeStyle.primary)
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
+                if let detail = node.detail {
+                    // Longer instructions: plain wrapped prose, like `why`.
+                    Text(verbatim: prose(detail))
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 if let code = node.code {
                     CodeBlock(code: code, lang: node.lang)
                 }
@@ -435,6 +442,7 @@ private struct TimelineNode: View {
 
 /// Code with a language label and Copy, dark in both appearances. What is shown
 /// is exactly what Copy puts on the pasteboard (hidden characters revealed).
+/// Plain text soft-wraps; other languages keep their lines and scroll sideways.
 struct CodeBlock: View {
     let code: String
     let lang: String?
@@ -461,18 +469,28 @@ struct CodeBlock: View {
                     .padding(.horizontal, 10)
                     .padding(.top, 4)
             }
-            ScrollView(.horizontal) {
-                Text(verbatim: shown.text)
-                    .font(Theme.codeFont)
-                    .foregroundStyle(.primary)
-                    .textSelection(.enabled)
-                    .padding(.horizontal, 10)
-                    .padding(.top, 6)
-                    .padding(.bottom, 9)
+            if CodeWrap.shouldWrap(lang: lang) {
+                codeText(shown.text)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                ScrollView(.horizontal) {
+                    codeText(shown.text)
+                }
             }
         }
         .background(RoundedRectangle(cornerRadius: Theme.codeRadius).fill(Theme.codeBackground))
         .environment(\.colorScheme, .dark)
+    }
+
+    private func codeText(_ text: String) -> some View {
+        Text(verbatim: text)
+            .font(Theme.codeFont)
+            .foregroundStyle(.primary)
+            .textSelection(.enabled)
+            .padding(.horizontal, 10)
+            .padding(.top, 6)
+            .padding(.bottom, 9)
     }
 
     private func copy() {

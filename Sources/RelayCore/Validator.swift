@@ -21,14 +21,14 @@ public enum Validator {
     static let urgencies: Set<String> = ["now", "today", "whenever"]
 
     static let topKeys: Set<String> = ["v", "title", "why", "urgency", "steps", "verify", "reply", "links", "from"]
-    static let stepKeys: Set<String> = ["do", "where", "code", "lang", "expect", "url"]
+    static let stepKeys: Set<String> = ["do", "where", "code", "lang", "expect", "detail", "url"]
     static let replyKeys: Set<String> = ["prompt", "choices"]
     static let linkKeys: Set<String> = ["label", "url"]
     static let fromKeys = ["session", "host", "cwd"]
     /// Step fields in the reference's order: name, limit, text class.
     static let stepFields: [(name: String, limit: Int, kind: TextKind)] = [
         ("do", 300, .single), ("where", 60, .single), ("code", 4000, .code),
-        ("lang", 20, .single), ("expect", 300, .multi),
+        ("lang", 20, .single), ("expect", 300, .multi), ("detail", 1500, .multi),
     ]
 
     enum TextKind: Sendable {

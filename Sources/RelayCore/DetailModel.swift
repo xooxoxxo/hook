@@ -13,10 +13,12 @@ public struct DetailModel: Sendable, Equatable {
         public var code: String?
         public var lang: String?
         public var expect: String?
+        public var detail: String?
         public var url: String?
 
         public init(index: Int, isVerify: Bool = false, action: String, place: String? = nil,
-                    code: String? = nil, lang: String? = nil, expect: String? = nil, url: String? = nil) {
+                    code: String? = nil, lang: String? = nil, expect: String? = nil, detail: String? = nil,
+                    url: String? = nil) {
             self.index = index
             self.isVerify = isVerify
             self.action = action
@@ -24,6 +26,7 @@ public struct DetailModel: Sendable, Equatable {
             self.code = code
             self.lang = lang
             self.expect = expect
+            self.detail = detail
             self.url = url
         }
     }
@@ -107,7 +110,7 @@ public struct DetailModel: Sendable, Equatable {
     private static func node(_ step: Step, index: Int, isVerify: Bool) -> Node {
         Node(index: index, isVerify: isVerify, action: step.action, place: present(step.place),
              code: present(step.code), lang: present(step.lang), expect: present(step.expect),
-             url: present(step.url))
+             detail: present(step.detail), url: present(step.url))
     }
 
     /// The value unchanged, or nil when it is absent or only whitespace.
