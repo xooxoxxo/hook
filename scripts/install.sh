@@ -1,0 +1,363 @@
+#!/usr/bin/env bash
+# Relay installer. Idempotent: re-run it after `git pull` to rebuild and re-register.
+#   scripts/install.sh                  build and install; keep the config (new installs get "This Mac only")
+#   scripts/install.sh --local          the same, and set source "local" (This Mac only)
+#   scripts/install.sh --mailbox <dir>  the same, and use the mailbox named by <dir>/mailbox-url and <dir>/mailbox-token
+#   scripts/install.sh --uninstall      remove the app, LaunchAgent, this repo's CLI link, MCP server
+#                                       and this repo's skill link (keeps the config, token and queue)
+# This script never reads or prints any token.
+# Test-only switches, used by scripts/test-install.sh and nothing else:
+#   RELAY_SKIP_BUILD=1   no build, no app quit, no copy to ~/Applications
+#   RELAY_SKIP_LAUNCH=1  no launchctl, no pkill, no lsregister, no app start
+#   RELAY_SKIP_MCP=1     no `claude mcp` calls
+set -euo pipefail
+
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+APP="$HOME/Applications/Relay.app"
+LABEL="io.github.xooxoxxo.relay"
+PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
+OLD_LABEL="dev.instructables.relay"   # the bundle id of pre-release builds
+OLD_PLIST="$HOME/Library/LaunchAgents/$OLD_LABEL.plist"
+CONFIG_DIR="$HOME/.config/relay"
+CONFIG="$CONFIG_DIR/config.json"
+DATA_DIR="$HOME/Library/Application Support/Relay"
+CLI_LINK="$HOME/.local/bin/relay"
+SKILL_LINK="$HOME/.claude/skills/instructables"
+MCP_CMD="claude mcp add --scope user relay -- python3 \"$REPO/mcp/relay_mcp.py\""
+GUI="gui/$(id -u)"
+LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+SKIP_BUILD="${RELAY_SKIP_BUILD:-0}"
+SKIP_LAUNCH="${RELAY_SKIP_LAUNCH:-0}"
+SKIP_MCP="${RELAY_SKIP_MCP:-0}"
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/install.sh [--local | --mailbox <dir> | --uninstall | --help]
+
+  (no flag)        Build and install Relay. Keeps an existing config;
+                   a new install starts in "This Mac only" mode.
+  --local          Also switch the config to "This Mac only" (source "local").
+  --mailbox <dir>  Also switch to the mailbox named by <dir>/mailbox-url (an http(s) URL)
+                   and <dir>/mailbox-token (only its path is stored; it is never read).
+  --uninstall      Remove the app, LaunchAgent, CLI link, MCP server and this repo's
+                   skill link. Keeps the config, token and queue.
+EOF
+}
+
+die() { echo "install: $*" >&2; exit 1; }
+
+mode="keep"
+mailbox_dir=""
+uninstall=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --local)
+      [ "$mode" = "keep" ] || { echo "install: choose one of --local and --mailbox" >&2; exit 2; }
+      mode="local" ;;
+    --mailbox)
+      [ "$mode" = "keep" ] || { echo "install: choose one of --local and --mailbox" >&2; exit 2; }
+      [ $# -ge 2 ] || { echo "install: --mailbox needs a folder" >&2; exit 2; }
+      mode="mailbox"; mailbox_dir="$2"; shift ;;
+    --uninstall) uninstall=1 ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "install: unknown option: $1 (see --help)" >&2; exit 2 ;;
+  esac
+  shift
+done
+
+have_claude() { command -v claude >/dev/null 2>&1; }
+
+# Creates a directory with mode 0700, or tightens an existing one to 0700.
+private_dir() { (umask 077; mkdir -p "$1"); chmod 700 "$1"; }
+
+# Unloads and removes the LaunchAgent written under the old bundle id, if any.
+remove_old_agent() {
+  [ -e "$OLD_PLIST" ] || return 0
+  if [ "$SKIP_LAUNCH" != "1" ]; then launchctl bootout "$GUI/$OLD_LABEL" 2>/dev/null || true; fi
+  rm -f "$OLD_PLIST"
+  echo "launchagent: removed the old $OLD_LABEL LaunchAgent"
+}
+
+# --- uninstall -------------------------------------------------------------------
+
+if [ "$uninstall" -eq 1 ]; then
+  if [ "$SKIP_LAUNCH" != "1" ]; then
+    launchctl bootout "$GUI/$LABEL" 2>/dev/null || true
+    pkill -x Relay 2>/dev/null || true
+  fi
+  rm -f "$PLIST"
+  remove_old_agent
+  if [ -d "$APP" ]; then
+    if [ "$SKIP_LAUNCH" != "1" ]; then "$LSREGISTER" -u "$APP" 2>/dev/null || true; fi
+    rm -rf "$APP"
+  fi
+  if [ -L "$CLI_LINK" ] && [ "$(readlink "$CLI_LINK")" = "$REPO/bin/relay" ]; then
+    rm "$CLI_LINK"
+  elif [ -e "$CLI_LINK" ] || [ -L "$CLI_LINK" ]; then
+    echo "cli: $CLI_LINK is not this repo's link; left alone"
+  fi
+  if [ "$SKIP_MCP" != "1" ] && have_claude; then claude mcp remove relay --scope user >/dev/null 2>&1 || true; fi
+  if [ -L "$SKILL_LINK" ] && [ "$(readlink "$SKILL_LINK")" = "$REPO/skill/instructables" ]; then
+    rm "$SKILL_LINK"
+  elif [ -e "$SKILL_LINK" ] || [ -L "$SKILL_LINK" ]; then
+    echo "skill: $SKILL_LINK is not this repo's link; left alone"
+  fi
+  echo "Relay uninstalled. Kept:"
+  echo "  config: $CONFIG"
+  echo "  token:  $CONFIG_DIR/local-token"
+  echo "  queue:  $DATA_DIR"
+  echo "To also remove Relay's UI state: defaults delete $LABEL"
+  exit 0
+fi
+
+# --- 1. checks -------------------------------------------------------------------
+
+macos="$(sw_vers -productVersion 2>/dev/null || echo 0)"
+[ "${macos%%.*}" -ge 14 ] 2>/dev/null || die "Relay needs macOS 14 or newer (this Mac has $macos)"
+command -v python3 >/dev/null 2>&1 || die "python3 not found; install the Command Line Tools: xcode-select --install"
+python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)' \
+  || die "python3 is older than 3.9; update the Command Line Tools in System Settings › Software Update"
+if [ "$SKIP_BUILD" != "1" ]; then
+  xcode-select -p >/dev/null 2>&1 || die "the Command Line Tools are missing; run: xcode-select --install"
+  swift_out="$(swift --version 2>&1 || true)"
+  swift_major="$(printf '%s\n' "$swift_out" | sed -nE 's/.*Swift version ([0-9]+)\..*/\1/p' | head -1)"
+  if [ -z "$swift_major" ]; then
+    die "swift --version failed: $(printf '%s\n' "$swift_out" | head -1)
+If it mentions the Xcode license, run: sudo xcodebuild -license accept"
+  fi
+  [ "$swift_major" -ge 6 ] \
+    || die "Relay needs Swift 6 or newer; update the Command Line Tools in System Settings › Software Update"
+fi
+
+mailbox_url=""
+token_file=""
+if [ "$mode" = "mailbox" ]; then
+  [ -d "$mailbox_dir" ] || die "--mailbox: $mailbox_dir is not a folder"
+  mailbox_dir="$(cd "$mailbox_dir" && pwd -P)"
+  [ -s "$mailbox_dir/mailbox-url" ] || die "--mailbox: $mailbox_dir/mailbox-url is missing or empty"
+  test -s "$mailbox_dir/mailbox-token" || die "--mailbox: $mailbox_dir/mailbox-token is missing or empty"
+  mailbox_url="$(tr -d '[:space:]' < "$mailbox_dir/mailbox-url")"
+  case "$mailbox_url" in
+    http://*|https://*) ;;
+    *) die "--mailbox: $mailbox_dir/mailbox-url must hold an http(s) URL" ;;
+  esac
+  mailbox_url="${mailbox_url%/}"
+  token_file="$mailbox_dir/mailbox-token"
+fi
+
+# --- 2. config, before anything can start the app ---------------------------------
+
+# Whether launch at login was on before this run, under the new or the old bundle id.
+had_agent=0
+if [ -e "$PLIST" ] || [ -e "$OLD_PLIST" ]; then had_agent=1; fi
+
+private_dir "$CONFIG_DIR"
+private_dir "$DATA_DIR"
+
+# A first install: no config yet, or no app yet (an earlier first install that
+# failed at the build has already written the config).
+first_install=0
+[ -e "$CONFIG" ] || first_install=1
+[ -d "$APP" ] || first_install=1
+if [ -e "$CONFIG" ]; then
+  if ! python3 - "$CONFIG" <<'PY'
+import json, sys
+try:
+    with open(sys.argv[1], encoding="utf-8-sig") as f:
+        ok = isinstance(json.load(f), dict)
+except (OSError, ValueError):
+    ok = False
+sys.exit(0 if ok else 1)
+PY
+  then
+    bad="$CONFIG.bad-$(date +%Y%m%d-%H%M%S)"
+    mv "$CONFIG" "$bad"
+    echo "config: $CONFIG did not parse; moved it to $bad"
+  fi
+fi
+
+python3 - "$CONFIG" "$mode" "$mailbox_url" "$token_file" "$REPO" <<'PY'
+import json, os, sys
+path, mode, url, token_file, repo = sys.argv[1:6]
+try:
+    with open(path, encoding="utf-8-sig") as f:
+        cfg = json.load(f)
+    created = False
+except FileNotFoundError:
+    cfg, created = {}, True
+if mode == "local":
+    cfg["source"] = "local"
+elif mode == "mailbox":
+    cfg.update({"source": "mailbox", "mailboxURL": url, "tokenFile": token_file})
+elif created:
+    cfg["source"] = "local"
+cfg["repoPath"] = repo
+data = (json.dumps(cfg, indent=2, sort_keys=True, ensure_ascii=False) + "\n").encode("utf-8")
+tmp = os.path.join(os.path.dirname(path), ".config.json.%d.tmp" % os.getpid())
+fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+try:
+    with os.fdopen(fd, "wb") as f:
+        f.write(data)
+        f.flush()
+        os.fsync(f.fileno())
+    os.rename(tmp, path)
+except BaseException:
+    if os.path.exists(tmp):
+        os.unlink(tmp)
+    raise
+source = cfg.get("source") or ("mailbox" if "mailboxURL" in cfg else "not set")
+print("config: %s %s (source: %s)" % ("wrote" if created else "updated", path, source))
+PY
+
+# --- 3. build; only after success, replace the running app ------------------------
+
+if [ "$SKIP_BUILD" != "1" ]; then
+  BUILD_ONLY=1 "$REPO/scripts/build.sh"
+  [ -d "$REPO/build/Relay.app" ] || die "build.sh did not produce $REPO/build/Relay.app"
+  if [ "$SKIP_LAUNCH" != "1" ]; then
+    pkill -x Relay 2>/dev/null || true
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+      pgrep -x Relay >/dev/null 2>&1 || break
+      sleep 0.5
+    done
+  fi
+  mkdir -p "$(dirname "$APP")"
+  rm -rf "$APP"
+  ditto "$REPO/build/Relay.app" "$APP"
+  if [ "$SKIP_LAUNCH" != "1" ]; then "$LSREGISTER" -f "$APP"; fi
+  echo "app: installed $APP"
+else
+  echo "app: skipped (RELAY_SKIP_BUILD=1)"
+fi
+
+# Steps 4-6 are optional: a failure warns with the command to run later, and the
+# LaunchAgent, start and health check still run.
+warn() { echo "$*" >&2; }
+
+# --- 4. CLI; never replace a `relay` command that isn't ours ---------------------------
+
+if [ -L "$CLI_LINK" ] && [ "$(readlink "$CLI_LINK")" = "$REPO/bin/relay" ]; then
+  echo "cli: $CLI_LINK already links here"
+elif [ -e "$CLI_LINK" ] || [ -L "$CLI_LINK" ]; then
+  warn "cli: $CLI_LINK points elsewhere; left alone. To use this clone: rm ~/.local/bin/relay && ./scripts/install.sh"
+elif mkdir -p "$(dirname "$CLI_LINK")" && ln -s "$REPO/bin/relay" "$CLI_LINK"; then
+  echo "cli: $CLI_LINK -> $REPO/bin/relay"
+else
+  warn "cli: couldn't link $CLI_LINK; later run: ln -s \"$REPO/bin/relay\" \"$CLI_LINK\""
+fi
+case ":$PATH:" in
+  *":$HOME/.local/bin:"*) ;;
+  *) echo "cli: ~/.local/bin is not on PATH; add this line to ~/.zshrc:"
+     echo '  export PATH="$HOME/.local/bin:$PATH"' ;;
+esac
+
+# --- 5. MCP server, user scope -----------------------------------------------------
+
+if [ "$SKIP_MCP" = "1" ]; then
+  echo "mcp: skipped (RELAY_SKIP_MCP=1)"
+elif have_claude; then
+  claude mcp remove relay --scope user >/dev/null 2>&1 || true
+  if claude mcp add --scope user relay -- python3 "$REPO/mcp/relay_mcp.py"; then
+    echo "mcp: registered relay (user scope)"
+  else
+    warn "mcp: registration failed; later run: $MCP_CMD"
+  fi
+else
+  echo "mcp: claude CLI not found; later run: $MCP_CMD"
+fi
+
+# --- 6. skill symlink; never replace something that isn't ours ---------------------
+
+if [ -L "$SKILL_LINK" ] && [ "$(readlink "$SKILL_LINK")" = "$REPO/skill/instructables" ]; then
+  echo "skill: $SKILL_LINK already links here"
+elif [ -e "$SKILL_LINK" ] || [ -L "$SKILL_LINK" ]; then
+  echo "skill: $SKILL_LINK points elsewhere; left alone"
+elif mkdir -p "$(dirname "$SKILL_LINK")" && ln -s "$REPO/skill/instructables" "$SKILL_LINK"; then
+  echo "skill: $SKILL_LINK -> $REPO/skill/instructables"
+else
+  warn "skill: couldn't link $SKILL_LINK; later run: ln -s \"$REPO/skill/instructables\" \"$SKILL_LINK\""
+fi
+
+# --- 7. LaunchAgent: only on a first install, or when it already exists --------------
+# Once the owner turns off "Launch at login" in Settings, an update never turns it back on.
+# A LaunchAgent under the old bundle id counts as existing; it is replaced by the new one.
+
+remove_old_agent
+if [ "$first_install" -eq 1 ] || [ "$had_agent" -eq 1 ]; then
+  # ~/Library/LaunchAgents is shared, not private: create it only when missing, never chmod it.
+  [ -d "$(dirname "$PLIST")" ] || mkdir -p "$(dirname "$PLIST")"
+  (umask 022; cat > "$PLIST.tmp.$$") <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>$LABEL</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/open</string>
+    <string>-a</string>
+    <string>$APP</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <false/>
+</dict>
+</plist>
+EOF
+  mv "$PLIST.tmp.$$" "$PLIST"
+  plutil -lint "$PLIST" >/dev/null
+  if [ "$SKIP_LAUNCH" = "1" ]; then
+    echo "launchagent: wrote $PLIST (not loaded: RELAY_SKIP_LAUNCH=1)"
+  else
+    launchctl bootout "$GUI/$LABEL" 2>/dev/null || true
+    loaded=0
+    for _ in 1 2 3; do   # bootstrap right after bootout can fail with "5: Input/output error"
+      if launchctl bootstrap "$GUI" "$PLIST" 2>/dev/null; then loaded=1; break; fi
+      sleep 1
+    done
+    if [ "$loaded" -eq 1 ]; then
+      echo "launchagent: loaded $LABEL"
+    else
+      echo "launchagent: launchctl bootstrap $GUI $PLIST failed; Relay still starts below" >&2
+    fi
+  fi
+else
+  echo "launchagent: not written (not a first install, and there is no LaunchAgent to update)"
+fi
+
+# --- 8. start and check /health ------------------------------------------------------
+
+if [ "$SKIP_LAUNCH" = "1" ]; then
+  echo "start: skipped (RELAY_SKIP_LAUNCH=1)"
+  exit 0
+fi
+port="$(python3 - "$CONFIG" <<'PY'
+import json, sys
+try:
+    port = json.load(open(sys.argv[1], encoding="utf-8-sig")).get("port", 47823)
+except (OSError, ValueError, AttributeError):
+    port = 47823
+print(port if isinstance(port, int) and not isinstance(port, bool) and 1 <= port <= 65535 else 47823)
+PY
+)"
+open -g -a "$APP"
+for _ in $(seq 1 20); do
+  health="$(curl -q --noproxy '*' -fsS --max-time 2 "http://127.0.0.1:$port/health" 2>/dev/null || true)"
+  src="$(printf '%s' "$health" | python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+except ValueError:
+    d = {}
+print(d.get("source", "?") if isinstance(d, dict) and d.get("app") == "relay" else "")' 2>/dev/null || true)"
+  if [ -n "$src" ]; then
+    echo "relay: running on 127.0.0.1:$port (source: $src)"
+    echo "Done. Settings: right-click the menu-bar icon. Config: $CONFIG"
+    exit 0
+  fi
+  sleep 0.5
+done
+echo "warning: Relay did not answer on 127.0.0.1:$port/health; open $APP by hand" >&2
+exit 1

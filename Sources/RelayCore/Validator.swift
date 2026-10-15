@@ -1,0 +1,355 @@
+import Foundation
+
+public struct ValidationFailure: Error, Sendable, Equatable {
+    /// "<field path>: <problem>". Never a value, so a pasted credential isn't echoed.
+    public let errors: [String]
+
+    public init(errors: [String]) {
+        self.errors = errors
+    }
+}
+
+/// The instructable validator, matching the mailbox service's. It gives the
+/// same SET of errors as the reference implementation; object keys are visited in sorted
+/// order, so the list order can differ from Python's document order.
+public enum Validator {
+    public static let maxBytes = 32768
+    static let maxSteps = 20
+    static let maxChoices = 6
+    static let maxLinks = 10
+    static let maxProject = 60
+    static let urgencies: Set<String> = ["now", "today", "whenever"]
+
+    static let topKeys: Set<String> = ["v", "title", "why", "urgency", "steps", "verify", "reply", "links", "from"]
+    static let stepKeys: Set<String> = ["do", "where", "code", "lang", "expect", "url"]
+    static let replyKeys: Set<String> = ["prompt", "choices"]
+    static let linkKeys: Set<String> = ["label", "url"]
+    static let fromKeys = ["session", "host", "cwd"]
+    /// Step fields in the reference's order: name, limit, text class.
+    static let stepFields: [(name: String, limit: Int, kind: TextKind)] = [
+        ("do", 300, .single), ("where", 60, .single), ("code", 4000, .code),
+        ("lang", 20, .single), ("expect", 300, .multi),
+    ]
+
+    enum TextKind: Sendable {
+        case code, multi, single
+    }
+
+    /// `.success` holds the cleaned instructable: the input with `urgency`
+    /// set to "today" when it is absent or null.
+    public static func validate(_ value: JSONValue) -> Result<JSONValue, ValidationFailure> {
+        guard case .object(let object) = value else {
+            return .failure(ValidationFailure(errors: ["instructable: must be an object"]))
+        }
+        guard PySize.bytes(value) <= maxBytes else {
+            return .failure(ValidationFailure(errors: ["instructable: larger than \(maxBytes) bytes"]))
+        }
+
+        var errors: [String] = []
+        keys(&errors, "", value, allowed: topKeys)
+
+        if object["v"] != .int(1) {
+            errors.append("v: must be 1")
+        }
+        text(&errors, "title", object["title"], limit: 120, required: true)
+        text(&errors, "why", object["why"], limit: 300, kind: .multi)
+        if let urgency = present(object["urgency"]),
+           urgency.stringValue.map({ urgencies.contains($0) }) != true {
+            errors.append("urgency: must be one of now, today, whenever")
+        }
+
+        if case .array(let steps)? = present(object["steps"]), (1...maxSteps).contains(steps.count) {
+            for (index, item) in steps.enumerated() {
+                step(&errors, "steps[\(index)]", item)
+            }
+        } else {
+            errors.append("steps: must be a list of 1 to \(maxSteps) steps")
+        }
+        if let verify = present(object["verify"]) {
+            step(&errors, "verify", verify)
+        }
+
+        if let replyValue = present(object["reply"]),
+           let reply = keys(&errors, "reply", replyValue, allowed: replyKeys) {
+            text(&errors, "reply.prompt", reply["prompt"], limit: 300, required: true, kind: .multi)
+            if case .array(let choices)? = present(reply["choices"]), choices.count <= maxChoices {
+                for (index, choice) in choices.enumerated() {
+                    text(&errors, "reply.choices[\(index)]", choice, limit: 60, required: true)
+                }
+            } else {
+                errors.append("reply.choices: must be a list of at most \(maxChoices) choices")
+            }
+        }
+
+        if let linksValue = present(object["links"]) {
+            if case .array(let links) = linksValue, links.count <= maxLinks {
+                for (index, linkValue) in links.enumerated() {
+                    let path = "links[\(index)]"
+                    if let link = keys(&errors, path, linkValue, allowed: linkKeys) {
+                        text(&errors, "\(path).label", link["label"], limit: 60, required: true)
+                        url(&errors, "\(path).url", link["url"], required: true)
+                    }
+                }
+            } else {
+                errors.append("links: must be a list of at most \(maxLinks) links")
+            }
+        }
+
+        if let originValue = present(object["from"]),
+           let origin = keys(&errors, "from", originValue, allowed: Set(fromKeys)) {
+            for key in fromKeys {
+                text(&errors, "from.\(key)", origin[key])
+            }
+        }
+
+        secrets(&errors, "", value)
+        guard errors.isEmpty else { return .failure(ValidationFailure(errors: errors)) }
+        var clean = object
+        if present(object["urgency"]) == nil {
+            clean["urgency"] = .string("today")
+        }
+        return .success(.object(clean))
+    }
+
+    /// The `project` sent beside an instructable: required, one line, at most
+    /// 60 characters, no hidden characters, nothing credential-like.
+    public static func validateProject(_ value: JSONValue?) -> [String] {
+        var errors: [String] = []
+        text(&errors, "project", value, limit: maxProject, required: true)
+        if errors.isEmpty, case .string(let name)? = value, looksSecret(name) {
+            errors.append("project: secret-like value")
+        }
+        return errors
+    }
+
+    /// The optional note on a resolve, checked like `why`.
+    public static func validateNote(_ value: JSONValue?) -> [String] {
+        var errors: [String] = []
+        text(&errors, "note", value, limit: 300, kind: .multi)
+        if errors.isEmpty, case .string(let note)? = value, looksSecret(note) {
+            errors.append("note: secret-like value")
+        }
+        return errors
+    }
+
+    /// True when the text, or its skeleton (NFKC with every hidden scalar,
+    /// U+200D, U+FE0E and U+FE0F removed), holds one of the 7 reference patterns.
+    public static func looksSecret(_ text: String) -> Bool {
+        if matchesSecretPattern(Array(text.unicodeScalars)) { return true }
+        let skeleton: [Unicode.Scalar] = text.precomposedStringWithCompatibilityMapping.unicodeScalars
+            .filter { !Sanitize.isHidden($0, as: .code) }
+        return matchesSecretPattern(skeleton)
+    }
+
+    // MARK: - Rules
+
+    /// JSON null counts as absent, as Python's `obj.get(key)` sees it.
+    static func present(_ value: JSONValue?) -> JSONValue? {
+        guard let value, value != .null else { return nil }
+        return value
+    }
+
+    /// `_text`: at most one error per string, the first that applies.
+    static func text(
+        _ errors: inout [String], _ path: String, _ value: JSONValue?,
+        limit: Int? = nil, required: Bool = false, kind: TextKind = .single
+    ) {
+        guard let value = present(value) else {
+            if required { errors.append("\(path): required") }
+            return
+        }
+        guard case .string(let string) = value else {
+            errors.append("\(path): must be a string")
+            return
+        }
+        let scalars = string.unicodeScalars
+        if required && scalars.allSatisfy(isPythonSpace) {
+            errors.append("\(path): must not be empty")
+        } else if let limit, scalars.count > limit {
+            errors.append("\(path): longer than \(limit) characters")
+        } else if let problem = shape(path, string, kind) {
+            errors.append(problem)
+        }
+    }
+
+    static func shape(_ path: String, _ string: String, _ kind: TextKind) -> String? {
+        let cls: FieldClass = kind == .code ? .code : .prose
+        if let hidden = string.unicodeScalars.first(where: { Sanitize.isHidden($0, as: cls) }) {
+            return "\(path): contains hidden or control characters (U+\(String(format: "%04X", hidden.value)))"
+        }
+        if kind == .single && string.unicodeScalars.contains(where: { $0 == "\n" || $0 == "\t" }) {
+            return "\(path): must be a single line"
+        }
+        return nil
+    }
+
+    /// Python's `str.isspace`, which `str.strip()` uses.
+    static func isPythonSpace(_ scalar: Unicode.Scalar) -> Bool {
+        switch scalar.value {
+        case 0x09...0x0D, 0x1C...0x20, 0x85, 0xA0, 0x1680, 0x2000...0x200A,
+             0x2028, 0x2029, 0x202F, 0x205F, 0x3000:
+            return true
+        default:
+            return false
+        }
+    }
+
+    static func url(_ errors: inout [String], _ path: String, _ value: JSONValue?, required: Bool = false) {
+        let before = errors.count
+        text(&errors, path, value, required: required)
+        guard errors.count == before, case .string(let string)? = present(value) else { return }
+        if !isHTTPURL(string) {
+            errors.append("\(path): must be an http(s) URL")
+        }
+    }
+
+    /// What `urlparse` accepts as http(s) with a host: scheme (any case) before
+    /// the first ":", then "//", then a non-empty authority up to the first
+    /// "/", "?" or "#", with balanced brackets and no character that NFKC turns
+    /// into "/", "?", "#", "@" or ":". Deliberately not `URL(string:)`.
+    static func isHTTPURL(_ text: String) -> Bool {
+        let scalars = Array(text.unicodeScalars)
+        let colon: Unicode.Scalar = ":", slash: Unicode.Scalar = "/"
+        guard let end = scalars.firstIndex(of: colon), end > 0,
+              isASCIILetter(scalars[0]),
+              scalars[..<end].allSatisfy(isSchemeScalar) else { return false }
+        let scheme = String(String.UnicodeScalarView(scalars[..<end])).lowercased()
+        guard scheme == "http" || scheme == "https" else { return false }
+        let rest = scalars[(end + 1)...]
+        guard rest.count >= 2, rest[rest.startIndex] == slash, rest[rest.startIndex + 1] == slash else {
+            return false
+        }
+        let netloc = rest.dropFirst(2).prefix { $0 != "/" && $0 != "?" && $0 != "#" }
+        guard !netloc.isEmpty else { return false }
+        let opens = netloc.contains("["), closes = netloc.contains("]")
+        guard opens == closes else { return false }
+        return netlocSurvivesNFKC(netloc)
+    }
+
+    static func isASCIILetter(_ scalar: Unicode.Scalar) -> Bool {
+        ("a"..."z").contains(scalar) || ("A"..."Z").contains(scalar)
+    }
+
+    static func isSchemeScalar(_ scalar: Unicode.Scalar) -> Bool {
+        isASCIILetter(scalar) || ("0"..."9").contains(scalar) || scalar == "+" || scalar == "-" || scalar == "."
+    }
+
+    /// urllib's `_checknetloc`.
+    static func netlocSurvivesNFKC(_ netloc: ArraySlice<Unicode.Scalar>) -> Bool {
+        guard !netloc.allSatisfy(\.isASCII) else { return true }
+        let ignored: Set<Unicode.Scalar> = ["@", ":", "#", "?"]
+        let kept = String(String.UnicodeScalarView(netloc.filter { !ignored.contains($0) }))
+        let forbidden: Set<Unicode.Scalar> = ["/", "?", "#", "@", ":"]
+        return !kept.precomposedStringWithCompatibilityMapping.unicodeScalars.contains { forbidden.contains($0) }
+    }
+
+    /// `_step`: `do` required, the rest optional.
+    static func step(_ errors: inout [String], _ path: String, _ value: JSONValue) {
+        guard let step = keys(&errors, path, value, allowed: stepKeys) else { return }
+        for field in stepFields {
+            text(&errors, "\(path).\(field.name)", step[field.name], limit: field.limit,
+                 required: field.name == "do", kind: field.kind)
+        }
+        url(&errors, "\(path).url", step["url"])
+    }
+
+    /// `_keys`: the members of an object, after reporting each unknown key;
+    /// nil (and "must be an object") when the value isn't an object.
+    @discardableResult
+    static func keys(
+        _ errors: inout [String], _ path: String, _ value: JSONValue, allowed: Set<String>
+    ) -> [String: JSONValue]? {
+        guard case .object(let members) = value else {
+            errors.append("\(path): must be an object")
+            return nil
+        }
+        for key in members.keys.sorted() where !allowed.contains(key) {
+            errors.append("\(join(path, key)): unknown key")
+        }
+        return members
+    }
+
+    /// `_secrets`: every string value anywhere, by path.
+    static func secrets(_ errors: inout [String], _ path: String, _ value: JSONValue) {
+        switch value {
+        case .string(let string):
+            if looksSecret(string) { errors.append("\(path): secret-like value") }
+        case .object(let members):
+            for key in members.keys.sorted() {
+                if let inner = members[key] { secrets(&errors, join(path, key), inner) }
+            }
+        case .array(let items):
+            for (index, inner) in items.enumerated() {
+                secrets(&errors, "\(path)[\(index)]", inner)
+            }
+        default:
+            break
+        }
+    }
+
+    static func join(_ path: String, _ key: String) -> String {
+        path.isEmpty ? name(key) : "\(path).\(name(key))"
+    }
+
+    /// A key as it may appear in an error: redacted when it looks like a
+    /// credential or holds a hidden scalar (code class), else its first 60 scalars.
+    static func name(_ key: String) -> String {
+        if looksSecret(key) || key.unicodeScalars.contains(where: { Sanitize.isHidden($0, as: .code) }) {
+            return "<redacted>"
+        }
+        return String(String.UnicodeScalarView(key.unicodeScalars.prefix(60)))
+    }
+
+    // MARK: - The 7 patterns, matched by hand (no Regex, which isn't Sendable)
+
+    static func matchesSecretPattern(_ s: [Unicode.Scalar]) -> Bool {
+        for i in s.indices {
+            if has(s, i, "sk-ant-") || has(s, i, "xoxa-") || has(s, i, "xoxb-") || has(s, i, "xoxp-")
+                || has(s, i, "ghp_") || has(s, i, "github_pat_") {
+                return true
+            }
+            // \bsk-[A-Za-z0-9]{20,}
+            if has(s, i, "sk-"), i == 0 || !isWordScalar(s[i - 1]),
+               s[(i + 3)...].prefix(while: isASCIIAlphanumeric).count >= 20 {
+                return true
+            }
+            // AKIA[0-9A-Z]{16}
+            if has(s, i, "AKIA"),
+               s[(i + 4)...].prefix(while: { ("0"..."9").contains($0) || ("A"..."Z").contains($0) }).count >= 16 {
+                return true
+            }
+            // -----BEGIN [A-Z ]*PRIVATE KEY-----
+            if has(s, i, "-----BEGIN ") {
+                let start = i + 11
+                let run = s[start...].prefix { ("A"..."Z").contains($0) || $0 == " " }
+                if run.reversed().starts(with: "PRIVATE KEY".unicodeScalars.reversed()),
+                   has(s, start + run.count, "-----") {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    static func has(_ s: [Unicode.Scalar], _ at: Int, _ literal: String) -> Bool {
+        let pattern = literal.unicodeScalars
+        guard at + pattern.count <= s.count else { return false }
+        return zip(s[at...], pattern).allSatisfy { $0 == $1 }
+    }
+
+    static func isASCIIAlphanumeric(_ scalar: Unicode.Scalar) -> Bool {
+        isASCIILetter(scalar) || ("0"..."9").contains(scalar)
+    }
+
+    /// Python's `\w` for str patterns: letters, numbers and "_".
+    static func isWordScalar(_ scalar: Unicode.Scalar) -> Bool {
+        if scalar == "_" { return true }
+        switch scalar.properties.generalCategory {
+        case .uppercaseLetter, .lowercaseLetter, .titlecaseLetter, .modifierLetter, .otherLetter,
+             .decimalNumber, .letterNumber, .otherNumber:
+            return true
+        default:
+            return scalar.properties.numericType != nil
+        }
+    }
+}

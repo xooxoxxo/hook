@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Swift version
+        run: swift --version
+
+      - name: Build
+        run: swift build
+
+      - name: Swift tests
+        run: swift test
+
+      - name: Client tests
+        run: python3 -m unittest discover -s clients -p 'test_*.py' -v
+
+      - name: MCP tests
+        run: python3 -m unittest discover -s mcp -p 'test_*.py' -v
+
+      - name: Client and MCP tests on /usr/bin/python3
+        run: |
+          if [ -x /usr/bin/python3 ] && /usr/bin/python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)'; then
+            /usr/bin/python3 -m unittest discover -s clients -p 'test_*.py' -v
+            /usr/bin/python3 -m unittest discover -s mcp -p 'test_*.py' -v
+          else
+            echo "/usr/bin/python3 is missing or older than 3.9; skipped"
+          fi
+
+      - name: Installer tests
+        run: ./scripts/test-install.sh

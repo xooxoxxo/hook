@@ -1,0 +1,459 @@
+"""Shared Relay client for the `relay` CLI and the MCP server.
+
+Reads ~/.config/relay/config.json (or $RELAY_CONFIG) and talks to either source:
+- local: Relay.app on 127.0.0.1:<port>. Every token-bearing call first checks the
+  server proof on GET /health, so the token only ever goes to Relay itself.
+- mailbox: the mailbox service at mailboxURL.
+Tokens are read from disk on every call and never printed or logged.
+Standard library only; runs on Python 3.9+.
+"""
+from __future__ import annotations
+
+import hashlib
+import hmac
+import http.client
+import json
+import os
+import pathlib
+import secrets
+import socket
+import stat
+import subprocess
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
+
+VERSION = "0.2.0"
+DEFAULT_CONFIG = "~/.config/relay/config.json"
+DEFAULT_PORT = 47823
+DEFAULT_CONTEXT = "personal"
+NO_CONFIG = "No Relay config; run scripts/install.sh"
+MAILBOX_PROBLEM = "mailbox needs an http(s) mailboxURL and a tokenFile"
+NOT_THIS_MAC = "Relay is running but not in This Mac mode."
+NOT_RUNNING = "Relay isn't running"
+NO_APP = "Relay.app not found; run scripts/install.sh"
+LAUNCH_COMMAND = ["open", "-g", "-a", "Relay"]
+LAUNCH_WAIT_S = 5.0
+LAUNCH_POLL_S = 0.25
+PROOF_PREFIX = "relay-proof-v1\n"   # message: PROOF_PREFIX + str(port) + "\n" + nonce
+# Owner event kinds as the CLI and the hook print them.
+OWNER_LABELS = {"resolved": "done", "declined": "skipped", "reply": "reply"}
+
+
+class RelayError(Exception):
+    """A failure reported on stderr; exit_code is the process exit status."""
+    exit_code = 1
+
+
+class ConfigMissing(RelayError):
+    exit_code = 2
+
+
+class Unreachable(RelayError):
+    exit_code = 2
+
+
+class Refused(RelayError):
+    """The source answered with an error: .status (HTTP), .error (spec string), .details (field paths)."""
+    exit_code = 1
+
+    def __init__(self, status: int, error: str, details: Optional[List[str]] = None) -> None:
+        super().__init__(error)
+        self.status = status
+        self.error = error
+        self.details = list(details or [])
+
+
+class NotFound(RelayError):
+    exit_code = 1
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Never follow a redirect: the bearer token must only reach the configured server."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+class _Refused(Exception):
+    """Connection refused in local mode; triggers the auto-launch."""
+
+
+# --- config ---
+
+def _env(env: Optional[Mapping[str, str]]) -> Mapping[str, str]:
+    return os.environ if env is None else env
+
+
+def config_path(env: Optional[Mapping[str, str]] = None) -> pathlib.Path:
+    custom = _env(env).get("RELAY_CONFIG")
+    return pathlib.Path(custom or DEFAULT_CONFIG).expanduser()
+
+
+def config_dir(env: Optional[Mapping[str, str]] = None) -> pathlib.Path:
+    return config_path(env).parent
+
+
+def check_trusted_dir(path: Any) -> None:
+    """Refuses a folder another user owns or can write to."""
+    path = pathlib.Path(path)
+    info = os.stat(str(path))
+    if info.st_uid != os.getuid():
+        raise ConfigMissing(f"{path} belongs to another user; refusing to use it")
+    if info.st_mode & 0o022:
+        raise ConfigMissing(f"{path} is writable by other users; refusing to use it")
+
+
+def check_trusted_file(path: Any) -> None:
+    """A missing file is fine; otherwise it must be a regular file owned by the current user
+    (stat follows symlinks, so a symlink to your own file is accepted)."""
+    path = pathlib.Path(path)
+    try:
+        info = os.stat(str(path))
+    except FileNotFoundError:
+        return
+    if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
+        raise ConfigMissing(f"{path} is not a regular file owned by you; refusing to use it")
+
+
+def _check_trusted(directory: pathlib.Path, file: pathlib.Path) -> None:
+    try:
+        check_trusted_dir(directory)
+    except FileNotFoundError:
+        return
+    check_trusted_file(file)
+
+
+def load_config(env: Optional[Mapping[str, str]] = None) -> Dict[str, Any]:
+    path = config_path(env)
+    _check_trusted(path.parent, path)
+    try:
+        raw = path.read_bytes()
+    except FileNotFoundError:
+        raise ConfigMissing(f"No Relay config at {path}; run scripts/install.sh") from None
+    except OSError:
+        raise ConfigMissing(f"Relay config at {path} can't be read") from None
+    try:
+        cfg = json.loads(raw.decode("utf-8-sig"))
+    except ValueError:
+        raise ConfigMissing(f"Relay config at {path} is not valid JSON") from None
+    if not isinstance(cfg, dict):
+        raise ConfigMissing(f"Relay config at {path} is not a JSON object")
+    return cfg
+
+
+def _valid_http_url(url: str) -> bool:
+    try:
+        parts = urllib.parse.urlsplit(url)
+        host = parts.hostname
+    except ValueError:
+        return False
+    return parts.scheme.lower() in ("http", "https") and bool(host)
+
+
+def resolve_source(cfg: Dict[str, Any]) -> Dict[str, Any]:
+    """The same rule as RelayConfig.resolvedSource() in the app."""
+    port = cfg.get("port")
+    if port is None:
+        port = DEFAULT_PORT
+    elif isinstance(port, float) and port.is_integer():
+        port = int(port)
+    if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
+        raise ConfigMissing("config.json: port must be a whole number from 1 to 65535")
+    source = cfg.get("source")
+    if source not in ("local", "mailbox"):
+        source = None
+    url = cfg.get("mailboxURL")
+    if not isinstance(url, str):
+        url = None
+    kind = source or ("mailbox" if url is not None else None)
+    if kind is None:
+        raise ConfigMissing(NO_CONFIG)
+    if kind == "local":
+        return {"kind": "local", "port": port}
+    token_file = cfg.get("tokenFile")
+    if url is None or not _valid_http_url(url) or not isinstance(token_file, str) or not token_file.strip():
+        raise ConfigMissing(MAILBOX_PROBLEM)
+    context = cfg.get("context")
+    if not isinstance(context, str):
+        context = DEFAULT_CONTEXT
+    return {"kind": "mailbox", "url": url, "token_file": token_file, "context": context}
+
+
+# --- small helpers ---
+
+def fill_from(instructable: Dict[str, Any], env: Optional[Mapping[str, str]] = None) -> Dict[str, Any]:
+    """A copy with `from` filled (host, cwd, session) when the caller left it out."""
+    env = _env(env)
+    out = dict(instructable)
+    if "from" not in out:
+        origin = {"host": socket.gethostname(), "cwd": os.getcwd()}
+        if env.get("CLAUDE_SESSION_ID"):
+            origin["session"] = env["CLAUDE_SESSION_ID"]
+        out["from"] = origin
+    return out
+
+
+def one_line(text: str) -> str:
+    """Owner text on one terminal line: newlines become ' ⏎ '."""
+    return text.replace("\r\n", "\n").replace("\r", "\n").replace("\n", " ⏎ ")
+
+
+def ensure_private_dir(path: pathlib.Path) -> None:
+    """Creates a missing directory 0700. An existing one is left as it is, so a custom
+    $RELAY_CONFIG in a shared folder never tightens that folder (only Relay and
+    install.sh tighten their own directories)."""
+    try:
+        path.mkdir(mode=0o700, parents=True)
+    except FileExistsError:
+        return
+    os.chmod(path, 0o700)   # mkdir's mode is masked by the umask
+
+
+def private_write(path: pathlib.Path, data: bytes) -> None:
+    """0700 parent, then an O_EXCL 0600 temp file in the same directory: write, fsync, rename."""
+    path = pathlib.Path(path)
+    ensure_private_dir(path.parent)
+    check_trusted_dir(path.parent)
+    check_trusted_file(path)
+    tmp = path.with_name(f".{path.name}.{secrets.token_hex(6)}.tmp")
+    fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(data)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(str(tmp), str(path))
+    except BaseException:
+        try:
+            os.unlink(str(tmp))
+        except OSError:
+            pass
+        raise
+
+
+def _launch(argv: List[str]) -> bool:
+    try:
+        done = subprocess.run(argv, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                              stderr=subprocess.DEVNULL, timeout=10, check=False)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return done.returncode == 0
+
+
+# --- client ---
+
+class Client:
+    """One configured source. Methods return the decoded JSON bodies of the API responses."""
+
+    def __init__(self, cfg: Optional[Dict[str, Any]] = None, *, kind: str = "cli", autolaunch: bool = True,
+                 timeout: float = 10.0, env: Optional[Mapping[str, str]] = None,
+                 urlopen: Optional[Callable[..., Any]] = None,
+                 launcher: Optional[Callable[[List[str]], bool]] = None,
+                 sleep: Optional[Callable[[float], None]] = None,
+                 monotonic: Optional[Callable[[], float]] = None) -> None:
+        self.env = _env(env)
+        self.source = resolve_source(load_config(self.env) if cfg is None else cfg)
+        self.kind = kind
+        self.autolaunch = autolaunch
+        self.timeout = float(timeout)
+        if urlopen is not None:
+            self._urlopen = urlopen
+        elif self.local:
+            # Never through an HTTP proxy: a proxy from the environment or System Settings
+            # would see 127.0.0.1 traffic, and the proof would fail on every call.
+            self._urlopen = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect).open
+        else:
+            # The system proxy settings still apply to the mailbox.
+            self._urlopen = urllib.request.build_opener(_NoRedirect).open
+        self._launcher = launcher or _launch
+        self._sleep = sleep or time.sleep
+        self._monotonic = monotonic or time.monotonic
+        self._launched = False
+        # An absolute time on `monotonic` after which no exchange starts, and each one's
+        # timeout is capped at what is left (the hook's total budget).
+        self.deadline: Optional[float] = None
+        if self.local:
+            self.base = f"http://127.0.0.1:{self.source['port']}"
+        else:
+            self.base = self.source["url"].rstrip("/")
+
+    @property
+    def local(self) -> bool:
+        return self.source["kind"] == "local"
+
+    def source_key(self) -> str:
+        if self.local:
+            return "local"
+        return "mailbox:" + hashlib.sha1(self.source["url"].encode("utf-8")).hexdigest()[:12]
+
+    # public calls
+
+    def health(self) -> Dict[str, Any]:
+        if self.local:
+            return self._with_launch(self._verify_server)[1]
+        status, obj = self._transport("GET", "/health")
+        if not isinstance(obj, dict):
+            raise Unreachable(f"mailbox at {self.base} answered HTTP {status} with a non-JSON body")
+        return obj
+
+    def post(self, project: str, instructable: Dict[str, Any]) -> Dict[str, Any]:
+        body: Dict[str, Any] = {"project": project, "instructable": fill_from(instructable, self.env)}
+        if not self.local:
+            body["context"] = self.source["context"]
+        return self._call("POST", "/asks", body)
+
+    def list(self, status: str = "open", days: int = 36500) -> List[Dict[str, Any]]:
+        query = urllib.parse.urlencode({"status": status, "days": int(days)})
+        items = self._call("GET", "/asks?" + query).get("items")
+        return [i for i in items if isinstance(i, dict)] if isinstance(items, list) else []
+
+    def get(self, ask_id: str) -> Dict[str, Any]:
+        return self._call("GET", "/asks/" + self._quote(ask_id), not_found=f"no ask with id {ask_id}")
+
+    def resolve(self, ask_id: str, verdict: str, note: Optional[str] = None) -> Dict[str, Any]:
+        body: Dict[str, Any] = {"verdict": verdict, "actor": "session"}
+        if note is not None:
+            body["note"] = note
+        return self._call("POST", "/asks/" + self._quote(ask_id) + "/resolve", body,
+                          not_found=f"no ask with id {ask_id}")
+
+    def events(self, after: int = 0, limit: int = 1000) -> Dict[str, Any]:
+        query = urllib.parse.urlencode({"after": int(after), "limit": int(limit)})
+        return self._call("GET", "/events?" + query)
+
+    # plumbing
+
+    @staticmethod
+    def _quote(ask_id: str) -> str:
+        return urllib.parse.quote(ask_id.strip(), safe="")
+
+    def _call(self, method: str, path: str, body: Optional[Dict[str, Any]] = None,
+              not_found: Optional[str] = None) -> Dict[str, Any]:
+        def attempt() -> Tuple[int, Any]:
+            token = self._verify_server()[0] if self.local else self._mailbox_token()
+            return self._transport(method, path, body=body, auth=token)
+
+        status, obj = self._with_launch(attempt) if self.local else attempt()
+        return self._check(status, obj, not_found)
+
+    def _check(self, status: int, obj: Any, not_found: Optional[str]) -> Dict[str, Any]:
+        if 200 <= status < 300:
+            if not isinstance(obj, dict):
+                raise Unreachable(f"{self.base} answered HTTP {status} with a non-JSON body")
+            return obj
+        obj = obj if isinstance(obj, dict) else {}
+        if status == 404:
+            raise NotFound(not_found or "not found")
+        error = obj.get("error") if isinstance(obj.get("error"), str) else f"HTTP {status}"
+        details = obj.get("details") if isinstance(obj.get("details"), list) else []
+        raise Refused(status, error, [str(d) for d in details])
+
+    def _with_launch(self, fn: Callable[[], Any]) -> Any:
+        try:
+            return fn()
+        except _Refused:
+            if not self.autolaunch or self._launched:
+                raise Unreachable(NOT_RUNNING) from None
+        self._launched = True
+        if not self._launcher(list(LAUNCH_COMMAND)):
+            raise Unreachable(NO_APP)
+        deadline = self._monotonic() + LAUNCH_WAIT_S
+        while True:
+            self._sleep(LAUNCH_POLL_S)
+            try:
+                return fn()
+            except _Refused:
+                if self._monotonic() >= deadline:
+                    raise Unreachable(NOT_RUNNING) from None
+
+    def _verify_server(self) -> Tuple[str, Dict[str, Any]]:
+        """GET /health with a fresh nonce and no token; returns (token, health)."""
+        nonce = secrets.token_hex(16)
+        other = f"Something else is answering on 127.0.0.1:{self.source['port']}; not sending."
+        status, obj = self._transport("GET", "/health", headers={"X-Relay-Nonce": nonce})
+        if status != 200 or not isinstance(obj, dict) or obj.get("app") != "relay":
+            raise Unreachable(other)
+        if obj.get("source") != "local":
+            raise Unreachable(NOT_THIS_MAC)
+        token = self._local_token()
+        # The proof is bound to the port this client connects to, so a
+        # proof relayed from Relay's real listener doesn't verify on another port.
+        port = self.source["port"]
+        expected = hmac.new(token.encode("utf-8"), (PROOF_PREFIX + str(port) + "\n" + nonce).encode("utf-8"),
+                            hashlib.sha256).hexdigest()
+        proof = obj.get("proof")
+        if not isinstance(proof, str) or not hmac.compare_digest(proof.encode("utf-8"), expected.encode("utf-8")):
+            raise Unreachable(other)
+        return token, obj
+
+    def _local_token(self) -> str:
+        path = config_dir(self.env) / "local-token"
+        _check_trusted(path.parent, path)
+        try:
+            token = path.read_text(encoding="utf-8").strip()
+        except OSError:
+            token = ""
+        if not token:
+            raise Unreachable(f"Relay's local token at {path} is missing; open Relay in This Mac mode")
+        return token
+
+    def _mailbox_token(self) -> str:
+        path = pathlib.Path(self.source["token_file"]).expanduser()
+        try:
+            token = path.read_text(encoding="utf-8").strip()
+        except OSError:
+            token = ""
+        if not token:
+            raise ConfigMissing(f"mailbox token unreadable at {path}")
+        return token
+
+    def _unreachable(self, reason: Any) -> Unreachable:
+        if self.local:
+            return Unreachable(f"Relay isn't reachable on 127.0.0.1:{self.source['port']}: {reason}")
+        return Unreachable(f"mailbox unreachable: {self.base}: {reason}")
+
+    def _transport(self, method: str, path: str, *, body: Optional[Dict[str, Any]] = None,
+                   headers: Optional[Dict[str, str]] = None, auth: Optional[str] = None) -> Tuple[int, Any]:
+        """One HTTP exchange → (status, decoded JSON or None). Never raises on HTTP status."""
+        hdrs = {"X-Relay-Client": f"{self.kind}/{VERSION}", "Accept": "application/json"}
+        hdrs.update(headers or {})
+        data = None
+        if body is not None:
+            # ASCII escapes: a lone surrogate from a "\ud800" escape can't crash the UTF-8
+            # encode, and the server answers it with 400 invalid json.
+            data = json.dumps(body).encode("utf-8")
+            hdrs["Content-Type"] = "application/json"
+        req = urllib.request.Request(self.base + path, data=data, headers=hdrs, method=method)
+        if auth is not None:
+            # Unredirected: urllib drops it on any redirect it might still follow.
+            req.add_unredirected_header("Authorization", "Bearer " + auth)
+        timeout = self.timeout
+        if self.deadline is not None:
+            left = self.deadline - self._monotonic()
+            if left <= 0:
+                raise self._unreachable("timed out")
+            timeout = min(timeout, left)
+        try:
+            with self._urlopen(req, timeout=timeout) as resp:
+                status, raw = resp.status, resp.read()
+        except urllib.error.HTTPError as exc:
+            status = exc.code
+            try:
+                raw = exc.read() or b""
+            except OSError:
+                raw = b""
+        except (urllib.error.URLError, OSError, http.client.HTTPException) as exc:
+            reason = getattr(exc, "reason", exc)
+            if isinstance(reason, ConnectionRefusedError) and self.local:
+                raise _Refused() from None
+            raise self._unreachable(reason) from None
+        if 300 <= status < 400:
+            raise Unreachable(f"the server at {self.base} answered with a redirect ({status}); not following it")
+        try:
+            obj = json.loads(raw.decode("utf-8")) if raw else {}
+        except ValueError:
+            obj = None
+        return status, obj

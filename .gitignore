@@ -1,0 +1,10 @@
+.build/
+build/
+.swiftpm/
+xcuserdata/
+*.xcodeproj/
+.DS_Store
+__pycache__/
+*.pyc
+.worktrees/
+.superpowers/
