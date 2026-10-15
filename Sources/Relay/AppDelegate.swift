@@ -35,6 +35,8 @@ import RelayCore
     private var shownConfigNote: String?
     /// A link that arrived before launch finished.
     private var pendingLink: String?
+    /// Quit is waiting on held-back closes; set once the reply has been sent.
+    private var terminationAnswered = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let hotKeys = HotKeyManager { [weak self] in self?.togglePanel() }
@@ -89,6 +91,28 @@ import RelayCore
             pendingLink = nil
             openLink(id)
         }
+    }
+
+    /// Held-back Done and Skip are sent before quitting, with a 3 s cap so
+    /// quitting never hangs on an unreachable source.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let store, store.hasPendingCloses else { return .terminateNow }
+        terminationAnswered = false
+        Task {
+            await store.sendAllPending()
+            answerTermination()
+        }
+        Task {
+            try? await Task.sleep(for: .seconds(3))
+            answerTermination()
+        }
+        return .terminateLater
+    }
+
+    private func answerTermination() {
+        guard !terminationAnswered else { return }
+        terminationAnswered = true
+        NSApp.reply(toApplicationShouldTerminate: true)
     }
 
     /// relay://i/<uuid>

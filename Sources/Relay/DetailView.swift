@@ -282,9 +282,9 @@ struct DetailView: View {
             }
             if ask.isOpen {
                 HStack {
-                    Button("Skip") { finish(.declined) }
+                    Button("Skip") { finish(.declined, title: ask.title) }
                     Spacer()
-                    Button("Done") { finish(.done) }
+                    Button("Done") { finish(.done, title: ask.title) }
                         .buttonStyle(.borderedProminent)
                         .keyboardShortcut(editorFocused ? nil : KeyboardShortcut(.return, modifiers: .command))
                         .help("Done (⌘↩)")
@@ -300,19 +300,9 @@ struct DetailView: View {
         .padding(.vertical, 10)
     }
 
-    /// Resolves as the owner, then opens the next ask in sidebar order, or the list.
-    private func finish(_ verdict: Verdict) {
-        let id = self.id
-        let next = SidebarOrder.next(after: id, in: store.items)
-        Task {
-            await store.resolve(id, verdict)
-            guard store.actionError == nil, !store.items.contains(where: { $0.id == id }) else { return }
-            if let next, store.items.contains(where: { $0.id == next }) {
-                store.select(next)
-            } else if store.selectedID == id {
-                store.select(nil)
-            }
-        }
+    /// Done or Skip as the owner, held back for Undo; the panel goes back to the queue.
+    private func finish(_ verdict: Verdict, title: String) {
+        store.close(id, verdict, title: title)
     }
 
     /// "Closed by the session · 11 Oct 2026 at 14:32" (local time).

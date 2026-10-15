@@ -79,6 +79,9 @@ struct SidebarView: View {
             } else {
                 list
             }
+            if let latest = store.pending.latest {
+                UndoBar(close: latest) { store.undoLatest() }
+            }
             Divider()
             footer
         }
@@ -297,5 +300,37 @@ struct SidebarCard: View {
                               lineWidth: highlighted ? 2 : 0.5))
         .contentShape(RoundedRectangle(cornerRadius: Theme.cardRadius))
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// The latest held-back Done or Skip, with Undo (⌘Z while the list is showing).
+/// The sidebar has no text fields, so ⌘Z here never takes undo from typing; the
+/// detail view, which has the reply editor, doesn't show this bar.
+struct UndoBar: View {
+    let close: PendingClose
+    let undo: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(verbatim: Self.label(close))
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Spacer(minLength: 4)
+            Button("Undo", action: undo)
+                .controlSize(.small)
+                .keyboardShortcut("z", modifiers: .command)
+                .help("Undo (⌘Z)")
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 7)
+        .background(Color.primary.opacity(0.04))
+        .overlay(alignment: .top) { Divider() }
+        .accessibilityElement(children: .combine)
+    }
+
+    static func label(_ close: PendingClose) -> String {
+        (close.verdict == .done ? "Done: " : "Skipped: ") + line(close.title)
     }
 }

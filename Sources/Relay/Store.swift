@@ -4,7 +4,11 @@ import RelayCore
 /// The app's state over one `QueueSource` at a time: the open queue, fetched
 /// details, the selection, and the owner's actions.
 @MainActor final class Store: ObservableObject {
+    /// The open queue as shown: the source's list without the asks held back
+    /// for Undo or being sent. Every list, count and badge reads this.
     @Published private(set) var items: [WireItem] = []
+    /// Done and Skip held back for `PendingCloses.delay` seconds so they can be undone.
+    @Published private(set) var pending = PendingCloses()
     @Published private(set) var details: [String: AskDetail] = [:]
     @Published private(set) var selectedID: String?
     @Published private(set) var notFoundID: String?
@@ -38,6 +42,11 @@ import RelayCore
     private var listOK = false
     private var listProblem: String? = Store.noSourceProblem
     private var listenerProblem: String?
+    /// The source's open list, pending asks included.
+    private var listed: [WireItem] = []
+    /// Closes taken off `pending` whose send hasn't finished (or whose list hasn't caught up).
+    private var sending: Set<String> = []
+    private var ticker: Task<Void, Never>?
 
     init() {}
 
@@ -45,6 +54,8 @@ import RelayCore
     /// the selection, details, items and not-found; 4 the next first load never
     /// notifies; 5 subscribe or poll, and refresh.
     func swap(to source: (any QueueSource)?, sourceKey: String, pollSeconds: Int) {
+        // Closes still held back belong to the old source: send them now.
+        flushAll(to: self.source)
         generation += 1
         watchTask?.cancel()
         watchTask = nil
@@ -53,7 +64,9 @@ import RelayCore
 
         selectedID = nil
         details = [:]
+        listed = []
         items = []
+        sending = []
         notFoundID = nil
         actionError = nil
         busyID = nil
@@ -110,6 +123,7 @@ import RelayCore
     /// it must be in the open queue, after at most one refresh per 5 seconds.
     func acceptsLink(_ id: String) async -> Bool {
         if items.contains(where: { $0.id == id }) { return true }
+        if hidden.contains(id) { return false }
         let now = ContinuousClock.now
         if let last = lastLinkRefresh, now - last < .seconds(5) { return false }
         lastLinkRefresh = now
@@ -128,8 +142,9 @@ import RelayCore
         do {
             let fresh = try await source.list()
             guard gen == generation else { return }
-            let diff = QueueLogic.diff(old: items, new: fresh)
-            items = fresh
+            let diff = QueueLogic.diff(old: listed, new: fresh)
+            listed = fresh
+            updateItems()
             listOK = true
             listProblem = nil
             for id in diff.removed where id != selectedID {
@@ -145,7 +160,7 @@ import RelayCore
             }
             guard gen == generation else { return }
             if loadedOnce, !diff.added.isEmpty {
-                onNewItems?(fresh.filter { diff.added.contains($0.id) })
+                onNewItems?(items.filter { diff.added.contains($0.id) })
             }
             loadedOnce = true
         } catch {
@@ -183,7 +198,7 @@ import RelayCore
             guard gen == generation else { return }
             await refresh()
             guard gen == generation else { return }
-            if details[id] == nil, !items.contains(where: { $0.id == id }) {
+            if details[id] == nil, !listed.contains(where: { $0.id == id }) {
                 notFoundID = id
             }
         } catch {
@@ -195,31 +210,143 @@ import RelayCore
     }
 
     func item(for id: String) -> WireItem? {
-        details[id]?.item ?? items.first { $0.id == id }
+        details[id]?.item ?? listed.first { $0.id == id }
     }
 
     func detail(for id: String) -> AskDetail? {
         details[id]
     }
 
-    /// Done or Skip, as the owner. On success the panel goes back to the queue.
-    func resolve(_ id: String, _ verdict: Verdict) async {
-        guard let source, busyID == nil else { return }
-        let gen = generation
-        busyID = id
+    /// Done or Skip, as the owner, held back for Undo: the ask leaves the list at
+    /// once, the panel goes back to the queue, and the close is sent when its
+    /// deadline passes (or on quit).
+    func close(_ id: String, _ verdict: Verdict, title: String) {
+        guard source != nil else { return }
+        pending.add(id: id, verdict: verdict, note: nil, title: title, now: Date())
         actionError = nil
-        defer { if gen == generation { busyID = nil } }
+        if selectedID == id {
+            selectedID = nil
+            notFoundID = nil
+        }
+        updateItems()
+        publishState()
+        startTicker()
+    }
+
+    /// Takes back the latest held-back close; the ask returns where it was.
+    func undoLatest() {
+        guard pending.undoLatest() != nil else { return }
+        updateItems()
+        publishState()
+    }
+
+    /// Before quitting: sends every held-back close at once. The caller caps the wait.
+    func sendAllPending() async {
+        guard let source else { return }
+        let all = pending.drainAll()
+        guard !all.isEmpty else { return }
+        await withTaskGroup(of: Void.self) { group in
+            for close in all {
+                group.addTask {
+                    _ = try? await source.resolve(close.id, verdict: close.verdict, note: close.note)
+                }
+            }
+        }
+    }
+
+    var hasPendingCloses: Bool { !pending.isEmpty }
+
+    /// Every id the open list was refreshed with, pending ones included (for tick pruning).
+    var listedIDs: Set<String> { Set(listed.map(\.id)) }
+
+    private var hidden: Set<String> {
+        var ids = sending
+        if !pending.isEmpty {
+            for item in listed where pending.contains(item.id) { ids.insert(item.id) }
+        }
+        return ids
+    }
+
+    private func updateItems() {
+        let hidden = self.hidden
+        let shown = hidden.isEmpty ? listed : listed.filter { !hidden.contains($0.id) }
+        if shown != items { items = shown }
+    }
+
+    /// About once a second while anything is held back: sends what is due.
+    private func startTicker() {
+        guard ticker == nil else { return }
+        ticker = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                guard let self else { return }
+                if self.sendDue() {
+                    self.ticker = nil
+                    return
+                }
+            }
+        }
+    }
+
+    /// Returns true once nothing is held back.
+    private func sendDue() -> Bool {
+        let due = pending.due(now: Date())
+        if let source {
+            let gen = generation
+            for close in due {
+                sending.insert(close.id)
+                Task { await self.send(close, via: source, generation: gen) }
+            }
+        }
+        if !due.isEmpty {
+            updateItems()
+            publishState()
+        }
+        return pending.isEmpty
+    }
+
+    /// The resolve itself. The ask stays hidden until a list that started after
+    /// the send has come back; on failure it reappears and the banner says why.
+    private func send(_ close: PendingClose, via source: any QueueSource, generation gen: Int) async {
         do {
-            _ = try await source.resolve(id, verdict: verdict, note: nil)
+            _ = try await source.resolve(close.id, verdict: close.verdict, note: close.note)
             guard gen == generation else { return }
-            if selectedID == id { selectedID = nil }
-            details[id] = nil
-            await refresh()
+            details[close.id] = nil
+            await freshRefresh()
+            guard gen == generation else { return }
+            sending.remove(close.id)
+            updateItems()
         } catch {
             guard gen == generation else { return }
-            let label = verdict == .done ? "Done" : "Skip"
-            actionError = "\(label) failed: \(error.localizedDescription)"
-            noteStoreFailure(error)
+            sending.remove(close.id)
+            updateItems()
+            publishState()
+            let label = close.verdict == .done ? "Done" : "Skip"
+            banner = "\(label) failed for “\(close.title)”: \(error.localizedDescription)"
+        }
+    }
+
+    /// A refresh that starts after this call: waits out one already running.
+    private func freshRefresh() async {
+        if let inFlight { await inFlight.value }
+        await refresh()
+    }
+
+    /// A swap: whatever is still held back goes to the old source straight away.
+    private func flushAll(to old: (any QueueSource)?) {
+        ticker?.cancel()
+        ticker = nil
+        let all = pending.drainAll()
+        guard let old, !all.isEmpty else { return }
+        Task.detached {
+            for close in all {
+                do {
+                    _ = try await old.resolve(close.id, verdict: close.verdict, note: close.note)
+                } catch {
+                    NSLog("Relay: a held-back close couldn't be sent before the queue changed: %@",
+                          error.localizedDescription)
+                }
+            }
         }
     }
 

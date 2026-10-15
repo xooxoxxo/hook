@@ -71,7 +71,8 @@ struct RootView: View {
     /// before the new source lists, so it never prunes. The open ask is kept.
     private func pruneTicks(_ items: [WireItem]) {
         guard store.reachable, !items.isEmpty else { return }
-        var keep = Set(items.map(\.id))
+        // Pending closes are still listed by the source: keep their ticks for Undo.
+        var keep = store.listedIDs
         if let selected = store.selectedID { keep.insert(selected) }
         Ticks.prune(.standard, sourceKey: store.sourceKey, keep: keep)
     }
