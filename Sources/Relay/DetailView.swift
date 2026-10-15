@@ -127,7 +127,7 @@ struct DetailView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.bottom, 4)
         }
-        if let from = ask.provenance {
+        if let from = ask.origin?.summary {
             Text(verbatim: line(from))
                 .font(.system(size: 11, design: .monospaced))
                 .foregroundStyle(.tertiary)

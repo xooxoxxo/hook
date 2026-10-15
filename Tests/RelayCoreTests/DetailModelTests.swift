@@ -35,7 +35,7 @@ private func minimal(from: Origin? = nil) -> Payload {
             verify: Step(action: "The job log shows success", code: "tail -n 5 job.log"),
             reply: ReplySpec(prompt: "Which region?", choices: ["eu", "us"]),
             links: [LinkRef(label: "Runbook", url: "https://example.com/runbook")],
-            from: Origin(session: "s-42", host: "build-mac", cwd: "/work/acme"))
+            from: Origin(session: "5f633ed3-a328-412b", host: "build-mac", cwd: "/work/acme"))
         let detail = AskDetail(
             item: ask(Payload(why: nil, cmd: nil, link: nil, instructable: ins)),
             events: [
@@ -50,7 +50,8 @@ private func minimal(from: Origin? = nil) -> Payload {
         #expect(model.title == "Rotate the example key")
         #expect(model.why == "The old key expires on Friday.\nIt is used by the job.")
         #expect(model.notes.isEmpty)
-        #expect(model.provenance == "build-mac · /work/acme · s-42")
+        #expect(model.origin?.summary == "acme · build-mac · 5f633ed3")
+        #expect(model.origin?.resumeCommand == "cd '/work/acme' && claude --resume 5f633ed3-a328-412b")
         #expect(model.project == "Acme")
         #expect(model.urgency == "now")
         #expect(model.nodes == [
@@ -68,15 +69,16 @@ private func minimal(from: Origin? = nil) -> Payload {
         #expect(DetailModel.make(item: detail.item, events: detail.events) == model)
     }
 
-    @Test func provenanceKeepsOnlyPresentParts() {
+    @Test func originKeepsOnlyPresentParts() {
         let hostAndSession = DetailModel.make(AskDetail(
-            item: ask(minimal(from: Origin(session: "s-42", host: "build-mac", cwd: "  "))), events: []))
-        #expect(hostAndSession.provenance == "build-mac · s-42")
+            item: ask(minimal(from: Origin(session: "abcdef12-3456", host: "build-mac", cwd: "  "))), events: []))
+        #expect(hostAndSession.origin?.summary == "build-mac · abcdef12")
+        #expect(hostAndSession.origin?.resumeCommand == nil)
         let cwdOnly = DetailModel.make(AskDetail(item: ask(minimal(from: Origin(cwd: "/work/acme"))), events: []))
-        #expect(cwdOnly.provenance == "/work/acme")
+        #expect(cwdOnly.origin?.summary == "acme")
         let none = DetailModel.make(AskDetail(item: ask(minimal(from: Origin())), events: []))
-        #expect(none.provenance == nil)
-        #expect(DetailModel.make(AskDetail(item: ask(minimal()), events: [])).provenance == nil)
+        #expect(none.origin == nil)
+        #expect(DetailModel.make(AskDetail(item: ask(minimal()), events: [])).origin == nil)
     }
 
     /// Review Focus 1: a legacy mailbox ask with only why, cmd and link (no instructable).
@@ -96,7 +98,7 @@ private func minimal(from: Origin? = nil) -> Payload {
         #expect(model.links == [LinkRef(label: "Link", url: "https://example.com/x")])
         #expect(model.notes == ["Then restart the job"])
         #expect(model.reply == nil)
-        #expect(model.provenance == nil)
+        #expect(model.origin == nil)
         #expect(model.isOpen)
     }
 

@@ -33,8 +33,8 @@ public struct DetailModel: Sendable, Equatable {
     public var why: String?
     /// Text of a legacy ask's `steps` events; empty for instructables.
     public var notes: [String]
-    /// "host · cwd · session" from `instructable.from`, present parts only.
-    public var provenance: String?
+    /// Where the ask came from (`instructable.from`), when it says anything usable.
+    public var origin: AskOrigin?
     public var project: String
     public var urgency: String
     public var nodes: [Node]
@@ -54,7 +54,7 @@ public struct DetailModel: Sendable, Equatable {
     public static func make(item: WireItem, events: [Event]) -> DetailModel {
         var why: String?
         var notes: [String] = []
-        var provenance: String?
+        var origin: AskOrigin?
         var nodes: [Node] = []
         var links: [LinkRef] = []
         var reply: ReplySpec?
@@ -69,10 +69,7 @@ public struct DetailModel: Sendable, Equatable {
             }
             links = ins.links ?? []
             reply = ins.reply
-            if let from = ins.from {
-                let parts = [from.host, from.cwd, from.session].compactMap(present)
-                provenance = parts.isEmpty ? nil : parts.joined(separator: " · ")
-            }
+            origin = AskOrigin(from: ins.from)
         } else {
             // A legacy ask (posted without an instructable): why, cmd, link, steps events.
             why = present(item.payload.why)
@@ -95,7 +92,7 @@ public struct DetailModel: Sendable, Equatable {
             title: item.title,
             why: why,
             notes: notes,
-            provenance: provenance,
+            origin: origin,
             project: item.projectId ?? "",
             urgency: item.urgency,
             nodes: nodes,
