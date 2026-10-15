@@ -17,7 +17,7 @@ Registered by the installer.
 
 ## The `relay` command
 
-Python 3.9+, standard library only. Commands start Relay if it isn't running, except `relay replies --hook` and `relay wait`.
+Commands start Relay if it isn't running, except `relay replies --hook` and `relay wait`.
 
 | Command | Prints |
 |---|---|
@@ -33,7 +33,7 @@ Exit codes: 0 success, 1 refused or not found, 2 no config or Relay unreachable,
 
 ## Replies hook
 
-Add this to `~/.claude/settings.json` to show each new owner answer in the next prompt of every session:
+In `~/.claude/settings.json`, this shows each new owner answer in every session's next prompt:
 
 ```json
 {"hooks": {"UserPromptSubmit": [{"hooks": [{"type": "command", "command": "relay replies --new --hook", "timeout": 5}]}]}}
@@ -44,7 +44,7 @@ Add this to `~/.claude/settings.json` to show each new owner answer in the next 
 
 ## `relay wait`
 
-A session that needs your answer to go on runs `relay wait <id>` in the background after posting. When you answer, it prints `[<project>] <title>`, one `  ↳ owner <kind> <at>: <text>` line per answer and `last seq: <n>`, and exits.
+A session that needs your answer runs `relay wait <id>` in the background after posting. When you answer, it prints `[<project>] <title>`, one `  ↳ owner <kind> <at>: <text>` line per answer and `last seq: <n>`, and exits.
 
 With no answer it exits 3 after `--timeout` (default 8 h). Pass `--after <last seq>` to wait for the next answer.
 

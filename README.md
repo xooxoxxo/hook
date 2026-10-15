@@ -1,58 +1,52 @@
-<p align="center">
-  <!-- logo: docs/assets/relay-logo.png -->
-</p>
-
 # Relay
 
-Everything your Claude Code sessions need from you, in one calm queue on your Mac.
+A macOS menu-bar inbox for Claude Code. When a session needs a key, a decision or a manual step, it lands here as a checklist you tick off.
 
 [![CI](https://github.com/xooxoxxo/relay/actions/workflows/ci.yml/badge.svg)](https://github.com/xooxoxxo/relay/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 <!-- screenshot: docs/assets/sidebar.png -->
 
-When a session needs a key, a decision or a manual step, it posts an ask: numbered steps with commands to copy. You follow them in a sidebar and press Done, Skip or Reply. The session reads your answer.
+How an ask goes:
 
-## How it works
+- Your session posts an ask: numbered steps with copy-paste commands.
+- You follow it in the sidebar and press Done, Skip or Reply.
+- The session carries on with your answer.
 
-```mermaid
-sequenceDiagram
-    participant S as Claude Code session
-    participant R as Relay
-    participant Y as You
-    S->>R: Post an ask (relay_post or relay post)
-    R->>Y: Badge, notification, sidebar
-    Y->>R: Done, Skip or Reply
-    R->>S: The session reads your answer
-```
+Runs entirely on your Mac by default. Optional [mailbox mode](docs/mailbox-protocol.md) forwards asks to you when you are away from it.
 
-Relay runs in one of two modes. **This Mac only** is the default, and nothing leaves the Mac. **Mailbox** uses a server you run, so asks reach you away from the Mac (see the [mailbox protocol](docs/mailbox-protocol.md)).
+For people who run Claude Code on a Mac and want one place to answer what their sessions are waiting on.
 
 ## Quick start
 
-You need macOS 14.5 or later to build, the Xcode Command Line Tools and Python 3.9 or later.
+Relay builds from source; there is no prebuilt download yet. You need:
+
+- macOS 14.5+ to build
+- Xcode Command Line Tools (`xcode-select --install`)
+- Python 3.9+
+- Claude Code (the `claude` command)
 
 ```bash
 git clone https://github.com/xooxoxxo/relay.git
 cd relay
-./scripts/install.sh --local
+./scripts/install.sh
 ```
 
-1. In Settings › Connect, copy the CLAUDE.md section and paste it into `~/.claude/CLAUDE.md`.
-2. In Settings › Queue, click Send a test ask.
+1. Right-click the menu-bar icon, choose Settings… › Connect › Copy CLAUDE.md section, and paste it into `~/.claude/CLAUDE.md`. This teaches your sessions to ask through Relay.
+2. In Settings › Queue, click Send a test ask. A badge appears on the menu-bar icon; open the ask and press Done.
 
 ## Documentation
 
-| Topic | Page |
+| I want to | Page |
 |---|---|
 | Install, update, uninstall | [install.md](docs/install.md) |
-| Sidebar, keys, Settings | [using.md](docs/using.md) |
-| MCP, `relay` command, hook | [claude-code.md](docs/claude-code.md) |
-| Ask format | [instructables.md](docs/instructables.md) |
-| Config file | [configuration.md](docs/configuration.md) |
-| Problems | [troubleshooting.md](docs/troubleshooting.md) |
-| Build and test | [development.md](docs/development.md), [CONTRIBUTING.md](CONTRIBUTING.md) |
-| API, mailbox, security | [local-api.md](docs/local-api.md), [mailbox-protocol.md](docs/mailbox-protocol.md), [security.md](docs/security.md) |
+| Use the sidebar and shortcuts | [using.md](docs/using.md) |
+| Connect Claude Code (MCP, CLI, hook) | [claude-code.md](docs/claude-code.md) |
+| Write an ask | [instructables.md](docs/instructables.md) |
+| Fix a problem | [troubleshooting.md](docs/troubleshooting.md) |
+| Contribute | [CONTRIBUTING.md](CONTRIBUTING.md) |
+
+Everything else: [docs/](docs/README.md).
 
 ## License
 

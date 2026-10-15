@@ -2,15 +2,15 @@
 
 What Relay sends to a mailbox service you run, and what it reads back. Relay includes no mailbox server.
 
-The app polls every `pollSeconds` (15 by default); the CLI and MCP server use the same routes.
+The app polls every `pollSeconds`; the CLI and MCP server use the same routes.
 
 ## Requests
 
-Every request carries `Authorization: Bearer <token>`, the token being the content of `tokenFile`. Bodies are JSON (`Content-Type: application/json`).
+Every request carries `Authorization: Bearer <content of tokenFile>`. Bodies are JSON (`Content-Type: application/json`).
 
 | Request | Sent by | Body or query | Relay expects |
 |---|---|---|---|
-| `POST /asks` | CLI, MCP server, Settings › Queue test ask | `{project, context, instructable}`; `context` comes from the config (`"personal"` by default) | 201 or 200 `{item, deduped?, openUrl?}` |
+| `POST /asks` | CLI, MCP server, Settings › Queue test ask | `{project, context, instructable}` | 201 or 200 `{item, deduped?, openUrl?}` |
 | `GET /asks` | app, CLI, MCP server | `status=open`, `days=36500` | 200 `{items}`, newest first |
 | `GET /asks` | app (Closed today) | `status=done` or `status=dismissed`, `days=14` | 200 `{items}`; Relay keeps those whose `completedAt` falls in its window |
 | `GET /asks/{id}` | app, CLI (including `relay wait`), MCP server | none | 200 `{item, events}`, or 404 |
@@ -30,7 +30,7 @@ Every request carries `Authorization: Bearer <token>`, the token being the conte
 ## Responses
 
 - `401`: token refused. `404`: no such ask.
-- Other errors: `{"error": "<message>", "details": ["<field>: <problem>"]}`, shown to whoever made the call.
+- Other errors: `{"error": "<message>", "details": ["<field>: <problem>"]}`, shown to the caller.
 - A redirect (3xx) is an error and never followed.
 
 ## Items
@@ -54,7 +54,7 @@ Without `payload.instructable`, an item is shown from `payload.why`, `payload.cm
 An event is `{seq, itemId, kind, actor, text, at}`; `seq` is an integer that only grows.
 
 - An owner's answer has actor `owner` and kind `resolved`, `declined` or `reply`.
-- An ask closed by an agent has actor `session`. Clients show `by owner` or `by session`.
+- An ask closed by an agent has actor `session`.
 - `reopened` (actor `owner`): the ask is open again, and no client shows it closed until a later `resolved` or `declined`.
 
 ## Timestamps

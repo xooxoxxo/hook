@@ -9,18 +9,6 @@ Relay lives in the menu bar and shows asks in a sidebar.
 - A red badge counts waiting asks from 1 to 9. From 10 up, or with "Show the count on the badge" off, it is a dot.
 - On first launch, Relay asks to show notifications.
 
-## Keys
-
-| Key | Action |
-|---|---|
-| ↑ ↓ | Move |
-| ↩ | Open an ask |
-| Esc | Back, or hide the sidebar |
-| ⌘↩ | Done |
-| ⌘Z | Undo |
-| ⌘R | Refresh |
-| ⌘, | Settings |
-
 ## An ask
 
 - Tick steps as you go.
@@ -29,6 +17,18 @@ Relay lives in the menu bar and shows asks in a sidebar.
 - **From** shows folder · Mac · short session id. **Back to the session** gives a command that resumes it in Claude Code.
 - After Done or Skip, an Undo bar shows for 10 seconds; Undo or ⌘Z brings the ask back. Relay sends your answer only after that.
 - **Closed today**, collapsed at the bottom, lists today's closed asks, each with **Reopen**.
+
+## Keys
+
+| Key | Action |
+|---|---|
+| ↑ ↓ | Move |
+| ↩ | Open an ask |
+| Esc | Back, or hide the sidebar |
+| ⌘↩ | Done (Send, while typing a reply) |
+| ⌘Z | Undo |
+| ⌘R | Refresh |
+| ⌘, | Settings |
 
 ## Settings
 

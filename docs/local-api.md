@@ -1,6 +1,6 @@
 # Local API
 
-In This Mac only mode, Relay serves the queue on `127.0.0.1`. The CLI and MCP server use this API; you need it only to write your own client.
+In This Mac only mode, the CLI and MCP server use this API. You need it only to write your own client.
 
 ## Access
 

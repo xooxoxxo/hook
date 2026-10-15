@@ -14,7 +14,7 @@ Agents can post, read and close asks. Only the app can record owner answers. Cli
 
 ## Browsers
 
-Browsers are refused. The Host check stops DNS rebinding, requests with `Origin` or a cross-site `Sec-Fetch-Site` are rejected, and no CORS headers are ever sent.
+The Host check stops DNS rebinding, requests with `Origin` or a cross-site `Sec-Fetch-Site` are rejected, and no CORS headers are ever sent.
 
 ## Port squatting
 

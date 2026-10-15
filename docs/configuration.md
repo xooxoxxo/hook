@@ -8,7 +8,7 @@ Relay reads `~/.config/relay/config.json`, and Settings edits the same file.
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `source` | `"local"` \| `"mailbox"` | `"mailbox"` when `mailboxURL` is set | Where asks live: `local` keeps them in `~/Library/Application Support/Relay/queue.json`, served on `127.0.0.1` |
+| `source` | `"local"` \| `"mailbox"` | `"mailbox"` when `mailboxURL` is set | Where asks live: `local` keeps them in `~/Library/Application Support/Relay/queue.json`, served on `127.0.0.1`. Switch it in Settings › Queue or with `install.sh --local` / `--mailbox` |
 | `mailboxURL` | http(s) string | none | Mailbox mode: the service's base URL |
 | `tokenFile` | path | none | Mailbox mode: file holding the bearer token |
 | `context` | string | `"personal"` | Mailbox mode: sent with every post |
