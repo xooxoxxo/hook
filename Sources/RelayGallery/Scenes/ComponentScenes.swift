@@ -20,7 +20,7 @@ struct SheetSection {
 
 /// The sheet's sections in reading order. Tasks 7–14 each append one.
 @MainActor func sheetSections() -> [SheetSection] {
-    [typeRamp(), controls(), rows(), headers()]
+    [typeRamp(), controls(), rows(), headers(), bars()]
 }
 
 @MainActor func typeRamp() -> SheetSection {
@@ -170,6 +170,31 @@ let longProject = "Quarterly planning for the public launch of the pricing page"
         Sample("DetailHeaderBar · middle") { detail(previous: .ask("p"), next: .ask("n")) },
         Sample("DetailHeaderBar · at the end") { detail(previous: .ask("p"), next: .end) },
         Sample("DetailHeaderBar · outside the filter") { detail(previous: .outsideFilter, next: .outsideFilter) },
+    ])
+}
+
+@MainActor func bars() -> SheetSection {
+    let soon = Date().addingTimeInterval(8)
+    func status(_ symbol: StatusSymbol, _ text: String) -> some View {
+        StatusBar(symbol: symbol, text: text, onSettings: {}) { Text("Updated 09:40") }
+    }
+    let actionError = "Couldn't send Done for “Send the release notes draft”. The mailbox didn't answer within 10 seconds."
+    return SheetSection(title: "Bars", samples: [
+        Sample("UndoBar · one") { UndoBar(undo: UndoInfo(verdict: .done, title: "Rotate the mailbox token", deadline: soon, more: 0), onUndo: {}) },
+        Sample("UndoBar · several") { UndoBar(undo: UndoInfo(verdict: .declined, title: "Rotate the mailbox token", deadline: soon, more: 1), onUndo: {}) },
+        Sample("StatusBar · ready") { status(.ok, "Mailbox · ready") },
+        Sample("StatusBar · connecting") { status(.connecting, "Mailbox · connecting…") },
+        Sample("StatusBar · offline") { status(.down, "Mailbox · offline") },
+        Sample("StatusBar · not set up") { status(.notSetUp, "No queue set up") },
+        Sample("StatusBar · away") { status(.away, "Away · Mailbox · ready") },
+        Sample("ActionBar · open") { ActionBar(mode: .open(.done), onSkip: {}, onPrimary: {}, onReopen: {}) },
+        Sample("ActionBar · Send & Done") { ActionBar(mode: .open(.sendAndDone), onSkip: {}, onPrimary: {}, onReopen: {}) },
+        Sample("ActionBar · busy") { ActionBar(mode: .busy(.done), onSkip: {}, onPrimary: {}, onReopen: {}) },
+        Sample("ActionBar · closed") { ActionBar(mode: .closed("Done by you · 16 Oct, 06:12"), onSkip: {}, onPrimary: {}, onReopen: {}) },
+        Sample("Notice · error") { Notice(kind: .error, text: "Couldn't save the queue. The disk is full.", actionTitle: nil, onAction: {}, onDismiss: {}) },
+        Sample("Notice · error with action") { Notice(kind: .error, text: actionError, actionTitle: "Retry", onAction: {}, onDismiss: {}) },
+        Sample("Notice · info") { Notice(kind: .info, text: "Settings changed, so the queue reloaded.", actionTitle: nil, onAction: {}, onDismiss: {}) },
+        Sample("Notice · info with action") { Notice(kind: .info, text: "Offline · showing asks from 09:22", actionTitle: "Try Again", onAction: {}, onDismiss: {}) },
     ])
 }
 
