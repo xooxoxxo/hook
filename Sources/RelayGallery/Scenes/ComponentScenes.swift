@@ -20,7 +20,7 @@ struct SheetSection {
 
 /// The sheet's sections in reading order. Tasks 7–14 each append one.
 @MainActor func sheetSections() -> [SheetSection] {
-    [typeRamp()]
+    [typeRamp(), controls()]
 }
 
 @MainActor func typeRamp() -> SheetSection {
@@ -38,6 +38,27 @@ struct SheetSection {
                 Text("caption · caption").font(DS.Font.caption)
                 Text("welcomeTitle · title2 semibold").font(DS.Font.welcomeTitle)
             }
+        },
+    ])
+}
+
+@MainActor func controls() -> SheetSection {
+    SheetSection(title: "Controls", samples: [
+        Sample("IconButton · normal, tinted, disabled") {
+            HStack(spacing: DS.Space.inline) {
+                IconButton(DS.Symbol.refresh, label: "Refresh", help: "Refresh (⌘R)") {}
+                IconButton(DS.Symbol.filterOn, label: "Group and filter", tint: DS.Color.accent) {}
+                IconButton(DS.Symbol.next, label: "Next ask", help: "Next ask (⌘↓)") {}.disabled(true)
+            }
+        },
+        Sample("HelpButton") { HStack { Text("Presence"); HelpButton(rowLabel: "Presence", text: "Relay marks you away when the screen locks.") } },
+        Sample("TrailingDisclosureStyle · collapsed") {
+            DisclosureGroup(isExpanded: .constant(false)) { Text("Hidden body") } label: { Text("Done step") }
+                .disclosureGroupStyle(.trailing)
+        },
+        Sample("TrailingDisclosureStyle · expanded") {
+            DisclosureGroup(isExpanded: .constant(true)) { Text("The body shows under the label.") } label: { Text("Done step") }
+                .disclosureGroupStyle(.trailing)
         },
     ])
 }

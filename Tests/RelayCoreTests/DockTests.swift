@@ -111,3 +111,44 @@ private let above = DockScreen(
         #expect(snap(0, 0, []) == nil)
     }
 }
+
+@Suite struct DragTrackerTests {
+    @Test func underTheThresholdIsAClick() {
+        var tracker = DragTracker(threshold: 3)
+        #expect(tracker.mouseDown(at: CGPoint(x: 10, y: 10), clickCount: 1) == nil)
+        #expect(tracker.mouseDragged(to: CGPoint(x: 12, y: 11)) == nil)
+        #expect(tracker.mouseUp(at: CGPoint(x: 12, y: 11)) == .click)
+    }
+
+    @Test func pastTheThresholdItDrags() {
+        var tracker = DragTracker(threshold: 3)
+        _ = tracker.mouseDown(at: CGPoint(x: 10, y: 10), clickCount: 1)
+        #expect(tracker.mouseDragged(to: CGPoint(x: 13, y: 10)) == .began)
+        #expect(tracker.mouseDragged(to: CGPoint(x: 13, y: 10)) == .moved(CGSize(width: 3, height: 0)))
+        #expect(tracker.mouseDragged(to: CGPoint(x: 40, y: -5)) == .moved(CGSize(width: 30, height: -15)))
+        #expect(tracker.mouseUp(at: CGPoint(x: 41, y: -5)) == .ended(CGPoint(x: 41, y: -5)))
+    }
+
+    @Test func aVerticalDragCountsToo() {
+        var tracker = DragTracker(threshold: 3)
+        _ = tracker.mouseDown(at: .zero, clickCount: 1)
+        #expect(tracker.mouseDragged(to: CGPoint(x: 0, y: -3)) == .began)
+    }
+
+    @Test func doubleClickRedocksAndItsMouseUpIsSilent() {
+        var tracker = DragTracker(threshold: 3)
+        #expect(tracker.mouseDown(at: .zero, clickCount: 2) == .doubleClick)
+        #expect(tracker.mouseDragged(to: CGPoint(x: 50, y: 0)) == nil)
+        #expect(tracker.mouseUp(at: .zero) == nil)
+    }
+
+    @Test func aStrayUpOrDragDoesNothing() {
+        var tracker = DragTracker(threshold: 3)
+        #expect(tracker.mouseDragged(to: CGPoint(x: 9, y: 9)) == nil)
+        #expect(tracker.mouseUp(at: .zero) == nil)
+        _ = tracker.mouseDown(at: .zero, clickCount: 1)
+        _ = tracker.mouseDragged(to: CGPoint(x: 5, y: 0))
+        tracker.cancel()
+        #expect(tracker.mouseUp(at: .zero) == nil)
+    }
+}

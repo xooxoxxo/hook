@@ -52,3 +52,53 @@ public enum DockGeometry {
         return (dx * dx + dy * dy).squareRoot()
     }
 }
+
+/// What one pointer event on the panel header means.
+public enum DragEvent: Equatable, Sendable { case began, moved(CGSize), ended(CGPoint), click, doubleClick }
+
+/// The header's press-drag-release logic, in screen points. Under `threshold`
+/// of travel a press is a click; past it the panel follows the pointer.
+public struct DragTracker: Sendable {
+    public let threshold: CGFloat
+    private var start: CGPoint?
+    private var dragging = false
+
+    public init(threshold: CGFloat) {
+        self.threshold = threshold
+    }
+
+    public mutating func mouseDown(at point: CGPoint, clickCount: Int) -> DragEvent? {
+        dragging = false
+        if clickCount >= 2 {
+            start = nil
+            return .doubleClick
+        }
+        start = point
+        return nil
+    }
+
+    /// `.began` once, when the travel first reaches `threshold`; every later call `.moved`
+    /// with the offset from the press. Call again after `.began` to get the first `.moved`.
+    public mutating func mouseDragged(to point: CGPoint) -> DragEvent? {
+        guard let start else { return nil }
+        let delta = CGSize(width: point.x - start.x, height: point.y - start.y)
+        if !dragging {
+            guard max(abs(delta.width), abs(delta.height)) >= threshold else { return nil }
+            dragging = true
+            return .began
+        }
+        return .moved(delta)
+    }
+
+    public mutating func mouseUp(at point: CGPoint) -> DragEvent? {
+        defer { cancel() }
+        guard start != nil else { return nil }
+        return dragging ? .ended(point) : .click
+    }
+
+    /// Drops the press (the view left its window, or the panel was hidden).
+    public mutating func cancel() {
+        start = nil
+        dragging = false
+    }
+}
