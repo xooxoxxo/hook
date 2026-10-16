@@ -11,6 +11,8 @@ import UserNotifications
     private var policy = NotifyPolicy(settings: NotifySettings())
     private var settings = NotifySettings()
     private var flushTask: Task<Void, Never>?
+    /// Away mode: nothing is shown, and a waiting flush is dropped.
+    private var quiet = false
     /// UNUserNotificationCenter traps outside an app bundle (e.g. a bare `swift run`).
     private let available = Bundle.main.bundleIdentifier != nil
 
@@ -43,6 +45,29 @@ import UserNotifications
         perform(policy.add(newItems, now: Date()))
     }
 
+    /// Away mode on or off. Going quiet cancels a waiting flush and forgets its asks.
+    func setQuiet(_ on: Bool) {
+        guard quiet != on else { return }
+        quiet = on
+        guard on else { return }
+        flushTask?.cancel()
+        flushTask = nil
+        policy = NotifyPolicy(settings: settings)
+    }
+
+    /// The one notification on return from away ("3 asks arrived while you were
+    /// away"). It names no ask, so a click opens the list.
+    func showReturnSummary(_ text: String, settings: NotifySettings) {
+        guard available, !quiet else { return }
+        let note = UNMutableNotificationContent()
+        note.title = "Relay"
+        note.body = text
+        note.threadIdentifier = "relay"
+        if settings.sound { note.sound = .default }
+        UNUserNotificationCenter.current().add(
+            UNNotificationRequest(identifier: "relay.away.\(UUID().uuidString)", content: note, trigger: nil))
+    }
+
     private func perform(_ action: NotifyAction) {
         switch action {
         case .none:
@@ -67,7 +92,7 @@ import UserNotifications
     }
 
     private func deliver(_ content: NotifyContent) {
-        guard available else { return }
+        guard available, !quiet else { return }
         let note = UNMutableNotificationContent()
         let identifier: String
         switch content {

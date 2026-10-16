@@ -120,12 +120,17 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
     public var sidebarEdge: SidebarEdge
     public var appearance: AppearanceSetting
     public var notify: NotifySettings
+    /// Away mode: Automatic, or set to Home or Away.
+    public var presence: PresenceMode
+    /// Automatic: minutes without input before Relay marks the owner away;
+    /// one of `PresenceLogic.awayAfterChoices`.
+    public var awayAfterMinutes: Int
     /// Written by install.sh; the Connect tab builds commands from it.
     public var repoPath: String?
 
     enum CodingKeys: String, CodingKey {
         case source, mailboxURL, tokenFile, context, port, pollSeconds, hotkey, keepDays
-        case showCount, sidebarEdge, appearance, notify, repoPath
+        case showCount, sidebarEdge, appearance, notify, presence, awayAfterMinutes, repoPath
     }
 
     public init(
@@ -141,6 +146,8 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
         sidebarEdge: SidebarEdge = .right,
         appearance: AppearanceSetting = .system,
         notify: NotifySettings = NotifySettings(),
+        presence: PresenceMode = .auto,
+        awayAfterMinutes: Int = PresenceLogic.defaultAwayAfterMinutes,
         repoPath: String? = nil
     ) {
         self.source = source
@@ -155,6 +162,8 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
         self.sidebarEdge = sidebarEdge
         self.appearance = appearance
         self.notify = notify
+        self.presence = presence
+        self.awayAfterMinutes = awayAfterMinutes
         self.repoPath = repoPath
     }
 
@@ -182,6 +191,9 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
         sidebarEdge = c.lenient(String.self, .sidebarEdge).flatMap(SidebarEdge.init(rawValue:)) ?? .right
         appearance = c.lenient(String.self, .appearance).flatMap(AppearanceSetting.init(rawValue:)) ?? .system
         notify = c.lenient(NotifySettings.self, .notify) ?? NotifySettings()
+        presence = c.lenient(String.self, .presence).flatMap(PresenceMode.init(rawValue:)) ?? .auto
+        awayAfterMinutes = c.lenient(Int.self, .awayAfterMinutes)
+            .flatMap { PresenceLogic.awayAfterChoices.contains($0) ? $0 : nil } ?? PresenceLogic.defaultAwayAfterMinutes
         repoPath = c.lenient(String.self, .repoPath)
     }
 

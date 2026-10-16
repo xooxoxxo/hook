@@ -20,7 +20,25 @@ Relay reads `~/.config/relay/config.json`, and Settings edits the same file.
 | `sidebarEdge` | `"right"` \| `"left"` | `"right"` | Which screen edge the sidebar docks to |
 | `appearance` | `"system"` \| `"light"` \| `"dark"` | `"system"` | Applies to all windows |
 | `notify` | object | `{"now":true,"today":true,"whenever":false,"sound":false,"slideIn":true}` | Which urgencies notify, sound, and whether "now" asks slide the sidebar in |
+| `presence` | `"auto"` \| `"home"` \| `"away"` | `"auto"` | [Away mode](using.md#away-mode): `auto` follows the screen lock, display sleep, user switching and idle time; `home` and `away` set it by hand |
+| `awayAfterMinutes` | 5, 10, 15, 30 or 60 | 10 | Automatic: minutes without input before Relay marks you away |
 | `repoPath` | path | none | Set by the installer; Settings › Connect builds its commands from it |
+
+## The away flag
+
+While you're away, Relay keeps the file `$HOME/.local/state/relay/away` (folder mode 0700, file mode 0600). It has two lines:
+
+```
+since=2026-10-16T10:22:00Z
+reason=screen locked
+```
+
+Relay removes it when you're back and when it quits, and rewrites or removes a stale one at launch. Other tools can test for it. For example, this `~/.ssh/config` block makes ssh skip the 1Password SSH agent while you're away, so no Touch ID prompt waits on an empty desk:
+
+```
+Match exec "test -e $HOME/.local/state/relay/away"
+    IdentityAgent none
+```
 
 ## Reload and errors
 

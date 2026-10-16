@@ -3,10 +3,11 @@ import RelayCore
 import SwiftUI
 
 /// Settings → General: shortcut, launch at login, menu-bar badge count,
-/// sidebar edge and appearance. Every control but the login item writes config.json
+/// presence, sidebar edge and appearance. Every control but the login item writes config.json
 /// through AppModel.save; AppDelegate applies the result.
 struct GeneralTab: View {
     static let shortcutFailed = "Couldn't register this shortcut"
+    static let presenceHelp = "Relay marks you away when the screen locks, the displays sleep, or you haven't touched the Mac for this long. While you're away, Relay doesn't slide the panel in or show notifications; asks still reach anything your mailbox forwards them to. Relay also creates ~/.local/state/relay/away, so other tools can tell. For example, ssh can skip the 1Password agent."
 
     @ObservedObject private var model: AppModel
     @ObservedObject private var hotKeys: HotKeyManager
@@ -71,6 +72,39 @@ struct GeneralTab: View {
                         .toggleStyle(.checkbox)
                         .disabled(model.config == nil)
                     HelpButton("The red badge shows how many asks are waiting, up to 9. With more, or with this off, it's a plain dot.")
+                }
+            }
+
+            SettingsRow("Presence:", newGroup: true) {
+                HStack(spacing: 6) {
+                    Picker("Presence:", selection: Binding(
+                        get: { model.config?.presence ?? .auto },
+                        set: { model.save(set: ["presence": $0.rawValue]) })) {
+                        Text("Automatic").tag(PresenceMode.auto)
+                        Text("Always home").tag(PresenceMode.home)
+                        Text("Away").tag(PresenceMode.away)
+                    }
+                    .pickerStyle(.menu)
+                    .labelsHidden()
+                    .fixedSize()
+                    .disabled(model.config == nil)
+                    HelpButton(Self.presenceHelp)
+                }
+            }
+
+            if (model.config?.presence ?? .auto) == .auto {
+                SettingsRow("Away after:") {
+                    Picker("Away after:", selection: Binding(
+                        get: { model.config?.awayAfterMinutes ?? PresenceLogic.defaultAwayAfterMinutes },
+                        set: { model.save(set: ["awayAfterMinutes": $0]) })) {
+                        ForEach(PresenceLogic.awayAfterChoices, id: \.self) { minutes in
+                            Text("\(minutes) minutes").tag(minutes)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .labelsHidden()
+                    .fixedSize()
+                    .disabled(model.config == nil)
                 }
             }
 

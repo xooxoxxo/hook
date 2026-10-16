@@ -9,36 +9,44 @@ public enum MenuBarBadge: Sendable, Equatable {
 
 /// What the menu-bar status item shows: a red badge on the symbol
 /// while any ask is open (the count when it fits in one digit, else a plain
-/// dot), dimming when the source is unreachable, and the VoiceOver label.
+/// dot), dimming when the source is unreachable, the fainter symbol while the
+/// owner is away, and the VoiceOver label.
 public struct MenuBarState: Sendable, Equatable {
     public var count: Int
     public var nowCount: Int
     public var reachable: Bool
     public var showCount: Bool
     public var offlineReason: String?
+    /// Away mode: the symbol is de-emphasised; the badge is unchanged.
+    public var away: Bool
 
     public init(
         count: Int = 0,
         nowCount: Int = 0,
         reachable: Bool = true,
         showCount: Bool = true,
-        offlineReason: String? = nil
+        offlineReason: String? = nil,
+        away: Bool = false
     ) {
         self.count = count
         self.nowCount = nowCount
         self.reachable = reachable
         self.showCount = showCount
         self.offlineReason = offlineReason
+        self.away = away
     }
 
     /// `items` is the open list.
-    public static func from(items: [WireItem], reachable: Bool, showCount: Bool, offlineReason: String?) -> MenuBarState {
+    public static func from(
+        items: [WireItem], reachable: Bool, showCount: Bool, offlineReason: String?, away: Bool = false
+    ) -> MenuBarState {
         MenuBarState(
             count: items.count,
             nowCount: items.filter { $0.urgency == "now" }.count,
             reachable: reachable,
             showCount: showCount,
-            offlineReason: offlineReason)
+            offlineReason: offlineReason,
+            away: away)
     }
 
     public var badge: MenuBarBadge {
@@ -47,16 +55,24 @@ public struct MenuBarState: Sendable, Equatable {
         return .dot
     }
 
+    /// Offline: the symbol and the badge dim.
     public var dimmed: Bool { !reachable }
+
+    /// The symbol looks disabled when offline or away.
+    public var symbolDimmed: Bool { dimmed || away }
 
     public var accessibilityLabel: String {
         var label = "Relay, \(count) waiting"
         if nowCount > 0 { label += ", \(nowCount) now" }
         if !reachable { label += ", offline" }
+        if away { label += ", away" }
         return label
     }
 
-    public var tooltip: String? { dimmed ? offlineReason : nil }
+    public var tooltip: String? {
+        if dimmed { return offlineReason }
+        return away ? "Away" : nil
+    }
 }
 
 /// The two-letter project badge on cards and in the detail header.

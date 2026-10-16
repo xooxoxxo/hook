@@ -446,8 +446,8 @@ import RelayCore
         return result
     }
 
-    func menuBarState(showCount: Bool) -> MenuBarState {
-        MenuBarState.from(items: items, reachable: reachable, showCount: showCount, offlineReason: problem)
+    func menuBarState(showCount: Bool, away: Bool) -> MenuBarState {
+        MenuBarState.from(items: items, reachable: reachable, showCount: showCount, offlineReason: problem, away: away)
     }
 
     private func load(_ id: String, from source: any QueueSource, generation gen: Int) async {

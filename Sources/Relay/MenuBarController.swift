@@ -3,13 +3,16 @@ import RelayCore
 
 /// The status item: the template "checklist" symbol with a red
 /// badge on its top-right corner while any ask is open (the count when it fits
-/// in one digit, else a plain dot), dimming when the source is unreachable, and
-/// the right-click menu. Left click toggles the sidebar.
+/// in one digit, else a plain dot), dimming when the source is unreachable, a
+/// fainter symbol while away, and the right-click menu. Left click toggles the sidebar.
 @MainActor final class MenuBarController: NSObject {
     private let item: NSStatusItem
     /// A template image can't carry colour, so the badge is its own view.
     private let badge: BadgeView
     private var shortcutLabel = "Shortcut: (not set)"
+    private var presenceLine = "Home · active"
+    private var presenceMode: PresenceMode = .auto
+    private let onPresence: @MainActor (PresenceMode) -> Void
     private let onToggle: @MainActor () -> Void
     private let onRefresh: @MainActor () -> Void
     private let onSettings: @MainActor () -> Void
@@ -19,8 +22,10 @@ import RelayCore
         onToggle: @escaping @MainActor () -> Void,
         onRefresh: @escaping @MainActor () -> Void,
         onSettings: @escaping @MainActor () -> Void,
+        onPresence: @escaping @MainActor (PresenceMode) -> Void,
         onQuit: @escaping @MainActor () -> Void
     ) {
+        self.onPresence = onPresence
         self.onToggle = onToggle
         self.onRefresh = onRefresh
         self.onSettings = onSettings
@@ -51,7 +56,7 @@ import RelayCore
 
     func update(_ state: MenuBarState) {
         guard let button = item.button else { return }
-        button.appearsDisabled = state.dimmed
+        button.appearsDisabled = state.symbolDimmed
         button.toolTip = state.tooltip
         button.setAccessibilityLabel(state.accessibilityLabel)
         badge.badge = state.badge
@@ -63,6 +68,13 @@ import RelayCore
 
     func setShortcutLabel(_ text: String) {
         shortcutLabel = text
+    }
+
+    /// The menu's presence line ("Away · screen locked · since 10:22") and the
+    /// ticked item in Presence.
+    func setPresence(line: String, mode: PresenceMode) {
+        presenceLine = line
+        presenceMode = mode
     }
 
     /// Over the symbol's top-right corner, clamped inside the button's bounds.
@@ -100,6 +112,22 @@ import RelayCore
     private func makeMenu() -> NSMenu {
         let menu = NSMenu()
         menu.autoenablesItems = false
+        let status = NSMenuItem(title: presenceLine, action: nil, keyEquivalent: "")
+        status.isEnabled = false
+        menu.addItem(status)
+        let presence = NSMenuItem(title: "Presence", action: nil, keyEquivalent: "")
+        presence.isEnabled = true
+        let choices = NSMenu()
+        choices.autoenablesItems = false
+        for (mode, title) in [(PresenceMode.auto, "Automatic"), (.home, "Home"), (.away, "Away")] {
+            let choice = entry(title, #selector(presenceClicked(_:)))
+            choice.representedObject = mode.rawValue
+            choice.state = mode == presenceMode ? .on : .off
+            choices.addItem(choice)
+        }
+        presence.submenu = choices
+        menu.addItem(presence)
+        menu.addItem(.separator())
         menu.addItem(entry("Refresh", #selector(refreshClicked)))
         menu.addItem(entry("Settings…", #selector(settingsClicked)))
         let shortcut = NSMenuItem(title: shortcutLabel, action: nil, keyEquivalent: "")
@@ -120,6 +148,10 @@ import RelayCore
     @objc private func refreshClicked() { onRefresh() }
     @objc private func settingsClicked() { onSettings() }
     @objc private func quitClicked() { onQuit() }
+    @objc private func presenceClicked(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String, let mode = PresenceMode(rawValue: raw) else { return }
+        onPresence(mode)
+    }
 }
 
 /// The red badge: a 12 pt circle with a white digit, or a plain 7 pt dot.

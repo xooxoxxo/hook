@@ -120,9 +120,21 @@ private let tooLarge = FramingDecision.reject(.error(413, "body too large"))
 
     @Test func plainHealth() throws {
         let local = try body(Health.response(source: "local", port: 47823, nonce: nil, token: token))
-        #expect(local == .object(["ok": .bool(true), "app": .string("relay"), "source": .string("local")]))
+        #expect(local == .object([
+            "ok": .bool(true), "app": .string("relay"), "source": .string("local"), "presence": .string("home"),
+        ]))
         let none = try body(Health.response(source: "none", port: 47823, nonce: nonce, token: nil))
-        #expect(none == .object(["ok": .bool(true), "app": .string("relay"), "source": .string("none")]))
+        #expect(none == .object([
+            "ok": .bool(true), "app": .string("relay"), "source": .string("none"), "presence": .string("home"),
+        ]))
+    }
+
+    @Test func presenceIsReported() throws {
+        let away = try body(Health.response(source: "mailbox", port: 47823, nonce: nil, token: nil, presence: .away))
+        #expect(away["presence"] == .string("away"))
+        #expect(away["source"] == .string("mailbox"))
+        let home = try body(Health.response(source: "local", port: 47823, nonce: nil, token: nil, presence: .home))
+        #expect(home["presence"] == .string("home"))
     }
 
     @Test func proofOnlyForLocalWithAValidNonceAndAToken() throws {

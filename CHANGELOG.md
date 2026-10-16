@@ -3,6 +3,18 @@
 All notable changes to Relay are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## Unreleased
+
+### Added
+
+- Away mode: Relay marks you away when the screen locks, the displays sleep, you
+  switch users or the Mac sits idle (Automatic, 5 to 60 minutes), or when you set
+  it by hand. While away, the panel doesn't slide in and no notifications show;
+  on return, one notification says how many asks arrived. The status menu shows
+  the state and has a Presence submenu, the icon fades, `/health` reports
+  `presence`, and `$HOME/.local/state/relay/away` exists so other tools can tell.
+  New config keys `presence` and `awayAfterMinutes`.
+
 ## [0.4.0] - 2026-10-16
 
 ### Added

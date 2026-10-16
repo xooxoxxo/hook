@@ -37,6 +37,9 @@ import RelayCore
     private var pendingLink: String?
     /// Quit is waiting on held-back closes; set once the reply has been sent.
     private var terminationAnswered = false
+    /// Away mode: the signals, the flag file and the asks counted while away.
+    private let presence = PresenceMonitor()
+    private var awayTally = AwayTally()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let hotKeys = HotKeyManager { [weak self] in self?.togglePanel() }
@@ -60,7 +63,10 @@ import RelayCore
             self?.announce(items)
         }
         let notifier = Notifier { [weak self] id in self?.showItem(id) }
-        notifier.onOpenList = { [weak self] in self?.panel?.present(focus: true) }
+        notifier.onOpenList = { [weak self] in
+            self?.store?.select(nil)
+            self?.panel?.present(focus: true)
+        }
         notifier.requestAuthorization()
         self.notifier = notifier
         settings?.setContent(.queue, SettingsWindowController.hosting(QueueTab(model: model, store: store)))
@@ -84,6 +90,13 @@ import RelayCore
             if config.resolvedSource() == .incomplete { showWelcome() }
         }
         configNoteChanged(model.configNote)
+        presence.onChange = { [weak self] old, status in
+            self?.presenceChanged(from: old, to: status)
+        }
+        presence.start(
+            mode: model.config?.presence ?? .auto,
+            awayAfterMinutes: model.config?.awayAfterMinutes ?? PresenceLogic.defaultAwayAfterMinutes)
+        presenceChanged(from: .home, to: presence.status)
         applyGeneral(model.config)
         scheduleApply(model.config)
 
@@ -107,6 +120,11 @@ import RelayCore
             answerTermination()
         }
         return .terminateLater
+    }
+
+    /// The away flag never outlives the app.
+    func applicationWillTerminate(_ notification: Notification) {
+        presence.stop()
     }
 
     private func answerTermination() {
@@ -354,6 +372,7 @@ import RelayCore
             onToggle: { [weak self] in self?.togglePanel() },
             onRefresh: { [weak self] in self?.refreshNow() },
             onSettings: { [weak self] in self?.showSettings(nil) },
+            onPresence: { [weak self] mode in self?.model?.save(set: ["presence": mode.rawValue]) },
             onQuit: { NSApp.terminate(nil) })
         MainMenu.install(settings: #selector(showSettings(_:)), refresh: #selector(refreshNow), target: self)
         updateMenuBar()
@@ -363,7 +382,7 @@ import RelayCore
     /// Count, "now" dot, dimming and tooltip, after every Store change.
     private func updateMenuBar() {
         guard let store else { return }
-        menuBar?.update(store.menuBarState(showCount: showCount))
+        menuBar?.update(store.menuBarState(showCount: showCount, away: presence.status.state == .away))
     }
 
     /// "Shortcut: ⌃⌥⌘R", or "Shortcut: (not set)" when off or not registered.
@@ -407,6 +426,10 @@ import RelayCore
     /// registered is the same spec, so `apply` is a no-op then. `appearance`,
     /// `sidebarEdge` and `showCount` are applied at the end of `apply(_:)`.
     private func applyGeneral(_ config: RelayConfig?) {
+        presence.configure(
+            mode: config?.presence ?? .auto,
+            awayAfterMinutes: config?.awayAfterMinutes ?? PresenceLogic.defaultAwayAfterMinutes)
+        updatePresenceMenu()
         guard let hotKeys else { return }
         // A later successful apply clears an earlier failure's red line.
         model?.hotkeyStatus = hotKeys.apply(config?.hotkey ?? HotkeySpec.defaultString) ? nil : GeneralTab.shortcutFailed
@@ -426,12 +449,36 @@ import RelayCore
 
     /// New asks from the Store diff. A new "now" ask also slides the
     /// sidebar in on that ask without taking focus, unless the sidebar is already up.
+    /// While away, the asks are only counted.
     private func announce(_ items: [WireItem]) {
+        guard awayTally.arrived(items.count) else { return }
         let settings = model?.config?.notify ?? NotifySettings()
         notifier?.handle(newItems: items, settings: settings)
         guard let target = NotifyPolicy(settings: settings).slideInTarget(items),
               let panel, let store, !panel.isVisible else { return }
         panel.present(focus: false)
         Task { await store.focus(target.id) }
+    }
+
+    // MARK: Away mode
+
+    /// Quiet or not, the menu bar, `/health`, and the summary on return home.
+    private func presenceChanged(from old: PresenceState, to status: PresenceMonitor.Status) {
+        let away = status.state == .away
+        notifier?.setQuiet(away)
+        routing.setPresence(status.state)
+        if let summary = awayTally.changed(to: status.state) {
+            notifier?.showReturnSummary(summary, settings: model?.config?.notify ?? NotifySettings())
+        }
+        updatePresenceMenu()
+        updateMenuBar()
+    }
+
+    private func updatePresenceMenu() {
+        let status = presence.status
+        let since = status.since.formatted(date: .omitted, time: .shortened)
+        menuBar?.setPresence(
+            line: PresenceLogic.statusLine(state: status.state, reason: status.reason, since: since),
+            mode: presence.mode)
     }
 }
