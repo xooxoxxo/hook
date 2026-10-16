@@ -1,4 +1,5 @@
 import AppKit
+import RelayUI
 import SwiftUI
 
 /// How a scene is captured.
@@ -17,6 +18,8 @@ struct GalleryScene {
     let size: SceneSize
     /// Paints windowBackgroundColor where the panel material would be (labelled in index.html).
     let standIn: Bool
+    /// Alignment rules checked against this scene's probes (design §3.5); [] = none.
+    var rules: [AlignmentRule] = []
     let view: @MainActor () -> AnyView
     var appKit: (@MainActor () -> NSView)? = nil
 }

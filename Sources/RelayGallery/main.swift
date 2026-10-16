@@ -21,9 +21,11 @@ do {
 }
 
 var entries: [GalleryEntry] = []
+var failures: [String] = []
 for scene in allScenes where options.wants(scene.name) {
     let result = render(scene, options: options)
     entries.append(GalleryEntry(scene: scene.name, files: result.files, standIn: scene.standIn))
+    failures += result.failures.map { "\(scene.name): \($0)" }
 }
 let index = (options.outDir as NSString).appendingPathComponent("index.html")
 do {
@@ -33,4 +35,9 @@ do {
     exit(1)
 }
 print("RelayGallery: \(entries.count) scene(s) in \(options.outDir)")
+if !failures.isEmpty {
+    for failure in failures { FileHandle.standardError.write(Data("alignment: \(failure)\n".utf8)) }
+    FileHandle.standardError.write(Data("RelayGallery: \(failures.count) alignment failure(s)\n".utf8))
+    exit(1)
+}
 exit(0)

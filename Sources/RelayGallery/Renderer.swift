@@ -24,6 +24,7 @@ final class PreviewApp: NSApplication {
 
 struct RenderResult {
     let files: [String]
+    let failures: [AlignmentFailure]
 }
 
 @MainActor let themes: [(name: String, appearance: NSAppearance.Name)] = [("light", .aqua), ("dark", .darkAqua)]
@@ -37,8 +38,16 @@ struct RenderResult {
 }
 
 /// The environment every captured SwiftUI root gets, from the command-line flags.
-@MainActor func decorated(_ view: AnyView, options: GalleryOptions, standIn: Bool) -> AnyView {
-    var root = AnyView(view.environment(\.appearsActive, true))
+/// A non-nil `sink` turns alignment probes on and collects their frames.
+@MainActor func decorated(_ view: AnyView, options: GalleryOptions, standIn: Bool,
+                          sink: AlignmentProbeSink?) -> AnyView {
+    var root: AnyView
+    if let sink {
+        root = AnyView(view.environment(\.appearsActive, true).environment(\.alignmentProbesEnabled, true)
+            .environment(\.alignmentProbeSink, sink))
+    } else {
+        root = AnyView(view.environment(\.appearsActive, true))
+    }
     if options.contrast { root = AnyView(root.environment(\._colorSchemeContrast, .increased)) }
     if options.reduceTransparency { root = AnyView(root.environment(\._accessibilityReduceTransparency, true)) }
     if options.xl {
@@ -86,10 +95,11 @@ func write(_ rep: NSBitmapImageRep, to path: String) {
 }
 
 /// A SwiftUI scene hosted in an offscreen borderless window. A nil `height`
-/// sizes the scene to its content, with no cap.
-@MainActor func hostedCapture(_ scene: GalleryScene, width: CGFloat, height: CGFloat?,
-                              options: GalleryOptions, appearance: NSAppearance?) -> NSBitmapImageRep {
-    let root = decorated(scene.view(), options: options, standIn: scene.standIn)
+/// sizes the scene to its content, with no cap. Returns the capture and its probes.
+@MainActor func hostedCapture(_ scene: GalleryScene, width: CGFloat, height: CGFloat?, options: GalleryOptions,
+                              appearance: NSAppearance?) -> (rep: NSBitmapImageRep, probes: [ProbeFrame]) {
+    let sink = AlignmentProbeSink()
+    let root = decorated(scene.view(), options: options, standIn: scene.standIn, sink: sink)
     let h: CGFloat
     if let height {
         h = height
@@ -112,7 +122,7 @@ func write(_ rep: NSBitmapImageRep, to path: String) {
     host.displayIfNeeded()
     let rep = capture(host)
     win.contentView = nil
-    return rep
+    return (rep, sink.frames)
 }
 
 /// The Settings toolbar's tab labels.
@@ -137,8 +147,9 @@ func tabSymbol(_ id: SettingsTabID) -> String {
 }
 
 /// One Settings tab inside a real `.toolbar` tab window, captured with its title bar.
+/// Probes are shifted from the tab content's space into the captured frame view's.
 @MainActor func settingsCapture(_ scene: GalleryScene, tab: String, options: GalleryOptions,
-                                appearance: NSAppearance?) -> NSBitmapImageRep {
+                                appearance: NSAppearance?) -> (rep: NSBitmapImageRep, probes: [ProbeFrame]) {
     let width = DS.Metric.settingsWidth
     let tabs = NSTabViewController()
     tabs.tabStyle = .toolbar
@@ -147,15 +158,19 @@ func tabSymbol(_ id: SettingsTabID) -> String {
     guard let selected = specs.firstIndex(where: { $0.id.rawValue == tab }) else {
         fatalError("RelayGallery: scene \(scene.name) names unknown Settings tab \(tab)")
     }
+    let sink = AlignmentProbeSink()
     var contentHeight: CGFloat = 0
+    var selectedController: NSHostingController<AnyView>?
     for (index, spec) in specs.enumerated() {
         let rooted: AnyView = index == selected
-            ? AnyView(decorated(scene.view(), options: options, standIn: false).frame(width: width))
+            ? AnyView(decorated(scene.view(), options: options, standIn: false, sink: sink).frame(width: width))
             : AnyView(EmptyView())
+        let controller = NSHostingController(rootView: rooted)
         if index == selected {
             contentHeight = NSHostingView(rootView: rooted).fittingSize.height
+            selectedController = controller
         }
-        let item = NSTabViewItem(viewController: NSHostingController(rootView: rooted))
+        let item = NSTabViewItem(viewController: controller)
         item.label = spec.title
         item.image = NSImage(systemSymbolName: spec.symbol, accessibilityDescription: spec.title)
         item.identifier = spec.id.rawValue
@@ -175,10 +190,18 @@ func tabSymbol(_ id: SettingsTabID) -> String {
     frameView.layoutSubtreeIfNeeded()
     RunLoop.current.run(until: Date().addingTimeInterval(0.8))
     frameView.displayIfNeeded()
-    return capture(frameView)
+    guard let selectedController else { fatalError("RelayGallery: Settings tab \(tab) has no controller") }
+    let content = selectedController.view
+    let topLeft = frameView.convert(NSPoint(x: 0, y: content.isFlipped ? 0 : content.bounds.height), from: content)
+    let offset = CGPoint(x: topLeft.x, y: frameView.isFlipped ? topLeft.y : frameView.bounds.height - topLeft.y)
+    let shifted = sink.frames.map {
+        ProbeFrame(role: $0.role, group: $0.group, frame: $0.frame.offsetBy(dx: offset.x, dy: offset.y))
+    }
+    return (capture(frameView), shifted)
 }
 
-@MainActor func appKitCapture(_ scene: GalleryScene, size: NSSize, appearance: NSAppearance?) -> NSBitmapImageRep {
+@MainActor func appKitCapture(_ scene: GalleryScene, size: NSSize,
+                              appearance: NSAppearance?) -> (rep: NSBitmapImageRep, probes: [ProbeFrame]) {
     guard let make = scene.appKit else { fatalError("RelayGallery: scene \(scene.name) has no AppKit view") }
     let view = make()
     view.frame = NSRect(origin: .zero, size: size)
@@ -191,28 +214,37 @@ func tabSymbol(_ id: SettingsTabID) -> String {
     view.displayIfNeeded()
     let rep = capture(view)
     window.contentView = nil
-    return rep
+    return (rep, [])
 }
 
-/// Renders `scene` in light and dark: `<scene>-<theme><suffix>.png`, 2×, into options.outDir.
+/// Renders `scene` in light and dark: `<scene>-<theme><suffix>.png`, 2×, into options.outDir,
+/// and checks the scene's alignment rules against each capture.
 @MainActor func render(_ scene: GalleryScene, options: GalleryOptions) -> RenderResult {
     var files: [String] = []
+    var failures: [AlignmentFailure] = []
     for theme in themes {
         let appearance = NSAppearance(named: theme.appearance)
-        let rep: NSBitmapImageRep
+        let captured: (rep: NSBitmapImageRep, probes: [ProbeFrame])
         switch scene.size {
         case .panel(let height):
-            rep = hostedCapture(scene, width: DS.Metric.panelWidth, height: height, options: options, appearance: appearance)
+            captured = hostedCapture(scene, width: DS.Metric.panelWidth, height: height, options: options, appearance: appearance)
         case .wide(let width, let height):
-            rep = hostedCapture(scene, width: width, height: height, options: options, appearance: appearance)
+            captured = hostedCapture(scene, width: width, height: height, options: options, appearance: appearance)
         case .settings(let tab):
-            rep = settingsCapture(scene, tab: tab, options: options, appearance: appearance)
+            captured = settingsCapture(scene, tab: tab, options: options, appearance: appearance)
         case .appKit(let size):
-            rep = appKitCapture(scene, size: size, appearance: appearance)
+            captured = appKitCapture(scene, size: size, appearance: appearance)
         }
         let file = "\(scene.name)-\(theme.name)\(options.fileSuffix).png"
-        write(rep, to: (options.outDir as NSString).appendingPathComponent(file))
+        write(captured.rep, to: (options.outDir as NSString).appendingPathComponent(file))
         files.append(file)
+        guard !scene.rules.isEmpty else { continue }
+        if let bitmap = InkBitmap(captured.rep) {
+            failures += AlignmentCheck.verify(captured.probes, bitmap: bitmap, rules: scene.rules)
+                .map { AlignmentFailure(rule: $0.rule, detail: "\(file): \($0.detail)") }
+        } else {
+            failures += scene.rules.map { AlignmentFailure(rule: $0, detail: "\(file): can't read the bitmap") }
+        }
     }
-    return RenderResult(files: files)
+    return RenderResult(files: files, failures: failures)
 }
