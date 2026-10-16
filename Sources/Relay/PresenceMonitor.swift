@@ -13,8 +13,8 @@ import RelayCore
         var since: Date
     }
 
-    /// After the state or its reason changed; the old state comes first.
-    var onChange: (@MainActor (_ old: PresenceState, _ new: Status) -> Void)?
+    /// After the state or its reason changed.
+    var onChange: (@MainActor (Status) -> Void)?
     private(set) var status = Status(state: .home, reason: "active", since: Date())
     private(set) var mode: PresenceMode = .auto
 
@@ -120,7 +120,7 @@ import RelayCore
         if decision.state != old {
             NSLog("Relay: presence %@ (%@)", status.state.rawValue, status.reason)
         }
-        onChange?(old, status)
+        onChange?(status)
     }
 
     private func writeFlag() {

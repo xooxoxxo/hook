@@ -33,7 +33,7 @@ since=2026-10-16T10:22:00Z
 reason=screen locked
 ```
 
-Relay removes it when you're back and when it quits, and rewrites or removes a stale one at launch. Other tools can test for it. For example, this `~/.ssh/config` block makes ssh skip the 1Password SSH agent while you're away, so no Touch ID prompt waits on an empty desk:
+Relay removes it when you're back and when it quits (including on SIGTERM). After a crash the file stays until Relay next launches and rewrites or removes it. Other tools can test for it. For example, this `~/.ssh/config` block makes ssh skip the 1Password SSH agent while you're away, so no Touch ID prompt waits on an empty desk:
 
 ```
 Match exec "test -e $HOME/.local/state/relay/away"

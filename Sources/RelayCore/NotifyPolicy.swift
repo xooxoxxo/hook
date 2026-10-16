@@ -60,6 +60,14 @@ public struct NotifyPolicy: Sendable {
         return .show(content)
     }
 
+    /// Asks waiting for a scheduled flush.
+    public var pendingCount: Int { pending.count }
+
+    /// The asks these settings would notify about, by urgency toggle.
+    public func notifiable(_ items: [WireItem]) -> [WireItem] {
+        items.filter { wants($0) }
+    }
+
     /// The ask the sidebar slides in for: the first "now" ask, when `slideIn` is on.
     public func slideInTarget(_ items: [WireItem]) -> WireItem? {
         guard settings.slideIn else { return nil }

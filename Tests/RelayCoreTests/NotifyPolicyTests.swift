@@ -98,4 +98,21 @@ private func ask(_ id: String, urgency: String?, project: String? = "Acme") -> W
         // Slide-in does not depend on the "now" notification setting.
         #expect(NotifyPolicy(settings: NotifySettings(now: false, slideIn: true)).slideInTarget(items)?.id == "n1")
     }
+
+    @Test func notifiableKeepsOnlyTheSwitchedOnUrgencies() {
+        let policy = NotifyPolicy(settings: NotifySettings())   // now and today on, whenever off
+        let items = [ask("n", urgency: "now"), ask("w", urgency: "whenever"), ask("l", urgency: nil)]
+        #expect(policy.notifiable(items).map(\.id) == ["n", "l"])
+    }
+
+    @Test func pendingCountIsTheAsksWaitingForAFlush() {
+        var policy = NotifyPolicy(settings: NotifySettings())
+        _ = policy.add([ask("a", urgency: "today")], now: t0)
+        #expect(policy.pendingCount == 0)
+        _ = policy.add([ask("b", urgency: "today"), ask("w", urgency: "whenever")], now: t0 + 1)
+        _ = policy.add([ask("c", urgency: "now")], now: t0 + 2)
+        #expect(policy.pendingCount == 2)
+        _ = policy.flush(now: t0 + 3)
+        #expect(policy.pendingCount == 0)
+    }
 }

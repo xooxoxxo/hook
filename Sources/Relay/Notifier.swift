@@ -45,14 +45,18 @@ import UserNotifications
         perform(policy.add(newItems, now: Date()))
     }
 
-    /// Away mode on or off. Going quiet cancels a waiting flush and forgets its asks.
-    func setQuiet(_ on: Bool) {
-        guard quiet != on else { return }
+    /// Away mode on or off. Going quiet cancels a waiting flush and returns how
+    /// many asks it held, so they can join the away count instead of vanishing.
+    @discardableResult
+    func setQuiet(_ on: Bool) -> Int {
+        guard quiet != on else { return 0 }
         quiet = on
-        guard on else { return }
+        guard on else { return 0 }
         flushTask?.cancel()
         flushTask = nil
+        let dropped = policy.pendingCount
         policy = NotifyPolicy(settings: settings)
+        return dropped
     }
 
     /// The one notification on return from away ("3 asks arrived while you were

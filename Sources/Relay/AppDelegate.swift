@@ -40,6 +40,9 @@ import RelayCore
     /// Away mode: the signals, the flag file and the asks counted while away.
     private let presence = PresenceMonitor()
     private var awayTally = AwayTally()
+    /// SIGTERM (`kill`, `launchctl bootout`) skips applicationWillTerminate, so it
+    /// is caught here to clear the away flag first.
+    private var termSource: (any DispatchSourceSignal)?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let hotKeys = HotKeyManager { [weak self] in self?.togglePanel() }
@@ -90,13 +93,14 @@ import RelayCore
             if config.resolvedSource() == .incomplete { showWelcome() }
         }
         configNoteChanged(model.configNote)
-        presence.onChange = { [weak self] old, status in
-            self?.presenceChanged(from: old, to: status)
+        presence.onChange = { [weak self] status in
+            self?.presenceChanged(to: status)
         }
         presence.start(
             mode: model.config?.presence ?? .auto,
             awayAfterMinutes: model.config?.awayAfterMinutes ?? PresenceLogic.defaultAwayAfterMinutes)
-        presenceChanged(from: .home, to: presence.status)
+        presenceChanged(to: presence.status)
+        watchTermSignal()
         applyGeneral(model.config)
         scheduleApply(model.config)
 
@@ -122,9 +126,23 @@ import RelayCore
         return .terminateLater
     }
 
-    /// The away flag never outlives the app.
+    /// A normal quit or SIGTERM removes the away flag; after a crash it stays
+    /// until the next launch rewrites or removes it.
     func applicationWillTerminate(_ notification: Notification) {
         presence.stop()
+    }
+
+    private func watchTermSignal() {
+        signal(SIGTERM, SIG_IGN)
+        let source = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+        source.setEventHandler { [weak self] in
+            MainActor.assumeIsolated {
+                self?.presence.stop()
+                NSApp.terminate(nil)
+            }
+        }
+        source.resume()
+        termSource = source
     }
 
     private func answerTermination() {
@@ -449,10 +467,11 @@ import RelayCore
 
     /// New asks from the Store diff. A new "now" ask also slides the
     /// sidebar in on that ask without taking focus, unless the sidebar is already up.
-    /// While away, the asks are only counted.
+    /// While away, the asks are only counted, and only those whose urgency is
+    /// switched on in Notifications, so the summary covers what would have notified.
     private func announce(_ items: [WireItem]) {
-        guard awayTally.arrived(items.count) else { return }
         let settings = model?.config?.notify ?? NotifySettings()
+        guard awayTally.arrived(NotifyPolicy(settings: settings).notifiable(items).count) else { return }
         notifier?.handle(newItems: items, settings: settings)
         guard let target = NotifyPolicy(settings: settings).slideInTarget(items),
               let panel, let store, !panel.isVisible else { return }
@@ -463,13 +482,15 @@ import RelayCore
     // MARK: Away mode
 
     /// Quiet or not, the menu bar, `/health`, and the summary on return home.
-    private func presenceChanged(from old: PresenceState, to status: PresenceMonitor.Status) {
+    /// Asks that were waiting in the batch window when Relay went away join the count.
+    private func presenceChanged(to status: PresenceMonitor.Status) {
         let away = status.state == .away
-        notifier?.setQuiet(away)
+        let held = notifier?.setQuiet(away) ?? 0
         routing.setPresence(status.state)
         if let summary = awayTally.changed(to: status.state) {
             notifier?.showReturnSummary(summary, settings: model?.config?.notify ?? NotifySettings())
         }
+        _ = awayTally.arrived(held)
         updatePresenceMenu()
         updateMenuBar()
     }
