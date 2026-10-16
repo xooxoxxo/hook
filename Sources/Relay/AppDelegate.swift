@@ -481,12 +481,11 @@ import RelayCore
 
     // MARK: Away mode
 
-    /// Quiet or not, the menu bar, `/health`, and the summary on return home.
+    /// Quiet or not, the menu bar, and the summary on return home.
     /// Asks that were waiting in the batch window when Relay went away join the count.
     private func presenceChanged(to status: PresenceMonitor.Status) {
         let away = status.state == .away
         let held = notifier?.setQuiet(away) ?? 0
-        routing.setPresence(status.state)
         if let summary = awayTally.changed(to: status.state) {
             notifier?.showReturnSummary(summary, settings: model?.config?.notify ?? NotifySettings())
         }

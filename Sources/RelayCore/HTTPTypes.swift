@@ -160,16 +160,14 @@ public enum RequestFraming {
 }
 
 /// `GET /health`. No auth; the proof lets a client check it is
-/// talking to this Relay before it sends the token.
+/// talking to this Relay before it sends the token. It never says whether the
+/// owner is away: anyone who can reach the port could read that.
 public enum Health {
-    public static func response(
-        source: String, port: Int, nonce: String?, token: String?, presence: PresenceState = .home
-    ) -> HTTPResponse {
+    public static func response(source: String, port: Int, nonce: String?, token: String?) -> HTTPResponse {
         var object: [String: JSONValue] = [
             "ok": .bool(true),
             "app": .string("relay"),
             "source": .string(source),
-            "presence": .string(presence.rawValue),
         ]
         if source == "local", let nonce, LocalToken.isValidNonce(nonce), let token, !token.isEmpty {
             object["proof"] = .string(LocalToken.proof(token: token, port: port, nonce: nonce))

@@ -121,20 +121,20 @@ private let tooLarge = FramingDecision.reject(.error(413, "body too large"))
     @Test func plainHealth() throws {
         let local = try body(Health.response(source: "local", port: 47823, nonce: nil, token: token))
         #expect(local == .object([
-            "ok": .bool(true), "app": .string("relay"), "source": .string("local"), "presence": .string("home"),
+            "ok": .bool(true), "app": .string("relay"), "source": .string("local"),
         ]))
         let none = try body(Health.response(source: "none", port: 47823, nonce: nonce, token: nil))
         #expect(none == .object([
-            "ok": .bool(true), "app": .string("relay"), "source": .string("none"), "presence": .string("home"),
+            "ok": .bool(true), "app": .string("relay"), "source": .string("none"),
         ]))
     }
 
-    @Test func presenceIsReported() throws {
-        let away = try body(Health.response(source: "mailbox", port: 47823, nonce: nil, token: nil, presence: .away))
-        #expect(away["presence"] == .string("away"))
-        #expect(away["source"] == .string("mailbox"))
-        let home = try body(Health.response(source: "local", port: 47823, nonce: nil, token: nil, presence: .home))
-        #expect(home["presence"] == .string("home"))
+    /// `/health` needs no token, so it must never reveal whether the owner is away.
+    @Test func presenceIsNeverReported() throws {
+        for source in ["local", "mailbox", "none"] {
+            let response = try body(Health.response(source: source, port: 47823, nonce: nonce, token: token))
+            #expect(response["presence"] == nil)
+        }
     }
 
     @Test func proofOnlyForLocalWithAValidNonceAndAToken() throws {

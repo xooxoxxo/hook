@@ -12,15 +12,9 @@ final class ServerRouting: Sendable {
     }
 
     private let routes = OSAllocatedUnfairLock(initialState: Routes(source: "none", api: nil, token: nil))
-    private let presence = OSAllocatedUnfairLock(initialState: PresenceState.home)
 
     func update(_ next: Routes) {
         routes.withLock { $0 = next }
-    }
-
-    /// What `/health` reports as `presence`.
-    func setPresence(_ state: PresenceState) {
-        presence.withLock { $0 = state }
     }
 
     var api: LocalAPI? {
@@ -34,9 +28,7 @@ final class ServerRouting: Sendable {
     func health(port: Int, nonce: String?) -> HTTPResponse {
         let current = routes.withLock { $0 }
         let token = current.source == "local" ? current.token.flatMap { try? $0.ensure() } : nil
-        return Health.response(
-            source: current.source, port: port, nonce: nonce, token: token,
-            presence: presence.withLock { $0 })
+        return Health.response(source: current.source, port: port, nonce: nonce, token: token)
     }
 }
 
