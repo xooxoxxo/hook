@@ -44,6 +44,9 @@ public struct GalleryOptions: Equatable, Sendable {
         scenes.isEmpty || scenes.contains(scene)
     }
 
+    /// --xl text multiplier; 1.35 is iOS's xxxLarge-to-Large body ratio (23/17).
+    public var textScale: CGFloat { xl ? 1.35 : 1 }
+
     public var fileSuffix: String {
         (contrast ? "-contrast" : "") + (reduceTransparency ? "-rt" : "") + (xl ? "-xl" : "")
     }
@@ -52,7 +55,8 @@ public struct GalleryOptions: Equatable, Sendable {
 public struct GalleryEntry: Equatable, Sendable {
     public var scene: String
     public var files: [String]
-    /// The scene paints windowBackgroundColor where the panel's sidebar material would be.
+    /// The scene paints a stand-in where the panel's sidebar material would be: translucent
+    /// window background over the canvas, or the opaque window background under --reduce-transparency.
     public var standIn: Bool
 
     public init(scene: String, files: [String], standIn: Bool) {

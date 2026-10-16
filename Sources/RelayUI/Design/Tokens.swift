@@ -56,16 +56,26 @@ public enum DS {
     }
 
     public enum Font {
-        public static let listTitle: SwiftUI.Font = .headline
-        public static let askTitle: SwiftUI.Font = .title3.weight(.semibold)
-        public static let heading: SwiftUI.Font = .headline
-        public static let body: SwiftUI.Font = .body
-        public static let currentAction: SwiftUI.Font = .headline
-        public static let meta: SwiftUI.Font = .subheadline
-        public static let prose: SwiftUI.Font = .callout
-        public static let code: SwiftUI.Font = .system(.callout, design: .monospaced)
-        public static let caption: SwiftUI.Font = .caption
-        public static let welcomeTitle: SwiftUI.Font = .title2.weight(.semibold)
+        /// Gallery-only text multiplier for --xl. macOS ignores .dynamicTypeSize for text styles, so RelayGallery sets this once before rendering. Relay never sets it, and at 1 every token is exactly its stock text style (§3.1).
+        nonisolated(unsafe) public static var galleryScale: CGFloat = 1
+
+        /// The stock text style `s`, or under `galleryScale` the same style's NSFont scaled, which keeps its weight (headline's bold).
+        static func style(_ s: SwiftUI.Font.TextStyle, _ ns: NSFont.TextStyle) -> SwiftUI.Font {
+            if galleryScale == 1 { return SwiftUI.Font.system(s) }
+            let base = NSFont.preferredFont(forTextStyle: ns)
+            return SwiftUI.Font(base.withSize(base.pointSize * galleryScale) as CTFont)
+        }
+
+        public static var listTitle: SwiftUI.Font { style(.headline, .headline) }
+        public static var askTitle: SwiftUI.Font { style(.title3, .title3).weight(.semibold) }
+        public static var heading: SwiftUI.Font { style(.headline, .headline) }
+        public static var body: SwiftUI.Font { style(.body, .body) }
+        public static var currentAction: SwiftUI.Font { style(.headline, .headline) }
+        public static var meta: SwiftUI.Font { style(.subheadline, .subheadline) }
+        public static var prose: SwiftUI.Font { style(.callout, .callout) }
+        public static var code: SwiftUI.Font { style(.callout, .callout).monospaced() }
+        public static var caption: SwiftUI.Font { style(.caption, .caption1) }
+        public static var welcomeTitle: SwiftUI.Font { style(.title2, .title2).weight(.semibold) }
         public static var badgeDigit: NSFont { .monospacedDigitSystemFont(ofSize: 9, weight: .bold) }
     }
 
@@ -84,8 +94,12 @@ public enum DS {
         public static let bar = Material.bar
         public static var badge: NSColor { .systemRed }
         public static let badgeText = SwiftUI.Color.white
-        /// Gallery stand-in: the sidebar material does not render offscreen.
-        public static let panelStandIn = SwiftUI.Color(nsColor: .windowBackgroundColor)
+        /// Gallery stand-in for the panel's sidebar material, which does not render offscreen:
+        /// the window background, translucent over `canvas` (which plays the desktop behind the panel).
+        public static let panelStandIn = SwiftUI.Color(nsColor: .windowBackgroundColor).opacity(0.8)
+        /// Gallery stand-in under --reduce-transparency: the opaque window background the
+        /// material falls back to (§3.5).
+        public static let panelStandInOpaque = SwiftUI.Color(nsColor: .windowBackgroundColor)
         /// Gallery canvas behind multi-panel scenes.
         public static let canvas = SwiftUI.Color(nsColor: .underPageBackgroundColor)
         /// The panel's backdrop material.

@@ -7,6 +7,7 @@ let app = PreviewApp.shared
 app.setActivationPolicy(.prohibited)
 
 let options = GalleryOptions.parse(Array(CommandLine.arguments.dropFirst()))
+DS.Font.galleryScale = options.textScale
 let known = Set(allScenes.map(\.name))
 for name in options.scenes.sorted() where !known.contains(name) {
     FileHandle.standardError.write(Data("RelayGallery: unknown scene \(name)\n".utf8))

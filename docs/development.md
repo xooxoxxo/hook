@@ -23,13 +23,21 @@ Test-only switches:
 `scripts/gallery.sh` renders every design-system component and screen offscreen,
 in light and dark, into `build/gallery/` (git-ignored), with an `index.html` grid.
 Nothing appears on screen. Pass scene names to render only those
-(`scripts/gallery.sh components queue`), and `--contrast`, `--reduce-transparency`
-or `--xl` (largest text size) for the accessibility variants; those files get a
-`-contrast`, `-rt` or `-xl` suffix.
+(`scripts/gallery.sh components queue`), and these flags for the accessibility
+variants, whose files get a `-contrast`, `-rt` or `-xl` suffix:
 
-Panel scenes paint the window background where the panel's sidebar material
-would be, because the material doesn't render offscreen; `index.html` labels
-them "panel material: stand-in". So a pull request that changes
+- `--contrast`: Increase Contrast.
+- `--reduce-transparency`: the panel stand-in becomes opaque (see below).
+- `--xl`: text 1.35× larger (macOS ignores Dynamic Type, so the gallery scales
+  the DS text styles; stock controls that don't use a DS font or inherit the
+  body font stay at their normal size).
+
+Panel scenes paint a stand-in where the panel's sidebar material would be,
+because the material doesn't render offscreen: the window background,
+translucent over the gallery canvas, or opaque under `--reduce-transparency`,
+as the real material falls back. `index.html` labels them "panel material:
+stand-in". The real material follows the system setting, so a `-rt` PNG checks
+only the opaque backdrop. So a pull request that changes
 `Sources/RelayUI/` attaches before and after gallery PNGs of the scenes it
 touches, plus one `screencapture -l <windowID>` of the running panel per theme.
 Menus are checked with `screencapture -w`.

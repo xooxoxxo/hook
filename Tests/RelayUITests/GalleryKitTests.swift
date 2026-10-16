@@ -26,6 +26,11 @@ import Testing
         #expect(GalleryOptions.parse(["--bogus", "x"]).outDir == "x")
     }
 
+    @Test func xlScalesText() {
+        #expect(GalleryOptions.parse([]).textScale == 1)
+        #expect(GalleryOptions.parse(["--xl"]).textScale == 1.35)
+    }
+
     @Test func indexListsEveryFileUnderItsScene() {
         let html = GalleryIndex.html([
             GalleryEntry(scene: "queue", files: ["queue-light.png", "queue-dark.png"], standIn: true),
