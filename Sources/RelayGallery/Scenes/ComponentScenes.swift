@@ -20,7 +20,7 @@ struct SheetSection {
 
 /// The sheet's sections in reading order. Tasks 7–14 each append one.
 @MainActor func sheetSections() -> [SheetSection] {
-    [typeRamp(), controls(), rows()]
+    [typeRamp(), controls(), rows(), headers()]
 }
 
 @MainActor func typeRamp() -> SheetSection {
@@ -145,6 +145,31 @@ let sampleClosed = AskRowModel(id: "c1", title: "Store the API key", project: "A
                 EmptyListLine(project: "Acme", onShowAll: {})
             }
         },
+    ])
+}
+
+let sampleProjects = [MenuProject(name: "Acme", open: 3), MenuProject(name: "Northwind", open: 1), MenuProject(name: "Relay", open: 1)]
+let longProject = "Quarterly planning for the public launch of the pricing page"
+
+@MainActor func headers() -> SheetSection {
+    func list(_ title: String, refreshing: Bool = false, filter: String? = nil, hidden: HiddenCount = .zero) -> some View {
+        ListHeaderBar(title: title, refreshing: refreshing, updated: "09:40", grouping: .constant(.project),
+                      filter: .constant(filter), projects: sampleProjects, hidden: hidden,
+                      onRefresh: {}, onHide: {}, onDock: { _ in })
+    }
+    func detail(previous: Neighbour, next: Neighbour) -> some View {
+        DetailHeaderBar(project: "Acme", urgency: .now, age: "3 h ago", previous: previous, next: next,
+                        onBack: {}, onPrevious: {}, onNext: {}, onHide: {}, onDock: { _ in })
+    }
+    return SheetSection(title: "Headers", samples: [
+        Sample("ListHeaderBar · idle") { list("5 waiting") },
+        Sample("ListHeaderBar · manual refresh running") { list("5 waiting", refreshing: true) },
+        Sample("ListHeaderBar · filtered, 2 hidden") { list("3 waiting", filter: "Acme", hidden: HiddenCount(total: 2, now: 0)) },
+        Sample("ListHeaderBar · filtered, hidden now") { list("1 waiting", filter: "Relay", hidden: HiddenCount(total: 4, now: 1)) },
+        Sample("FilterRow · long name") { FilterRow(project: longProject, hidden: HiddenCount(total: 4, now: 0), onClear: {}) },
+        Sample("DetailHeaderBar · middle") { detail(previous: .ask("p"), next: .ask("n")) },
+        Sample("DetailHeaderBar · at the end") { detail(previous: .ask("p"), next: .end) },
+        Sample("DetailHeaderBar · outside the filter") { detail(previous: .outsideFilter, next: .outsideFilter) },
     ])
 }
 
