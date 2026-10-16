@@ -76,7 +76,7 @@ private let mailboxProblem = ResolvedSource.invalid("mailbox needs an http(s) ma
     @Test func sidebarDisplayIsAStringOrNil() throws {
         #expect(try decode(#"{"sidebarDisplay":"37D8832A-2D66-02CA-B9F7-8F30A301B230"}"#).sidebarDisplay
             == "37D8832A-2D66-02CA-B9F7-8F30A301B230")
-        for json in [#"{}"#, #"{"sidebarDisplay":""}"#, #"{"sidebarDisplay":null}"#,
+        for json in [#"{}"#, #"{"sidebarDisplay":""}"#, #"{"sidebarDisplay":" \n"}"#, #"{"sidebarDisplay":null}"#,
                      #"{"sidebarDisplay":7}"#, #"{"sidebarDisplay":{"id":"A"}}"#] {
             #expect(try decode(json).sidebarDisplay == nil)
         }

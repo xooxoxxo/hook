@@ -201,7 +201,9 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
         awayAfterMinutes = c.lenient(Int.self, .awayAfterMinutes)
             .flatMap { PresenceLogic.awayAfterChoices.contains($0) ? $0 : nil } ?? PresenceLogic.defaultAwayAfterMinutes
         repoPath = c.lenient(String.self, .repoPath)
-        sidebarDisplay = c.lenient(String.self, .sidebarDisplay).flatMap { $0.isEmpty ? nil : $0 }
+        sidebarDisplay = c.lenient(String.self, .sidebarDisplay)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .flatMap { $0.isEmpty ? nil : $0 }
     }
 
     /// `source` when present; else mailbox when `mailboxURL` is present; else incomplete.

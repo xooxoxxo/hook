@@ -105,23 +105,39 @@ final class PanelDragView: NSView {
     }
 
     override func mouseDragged(with event: NSEvent) {
-        guard let start, let window else { return }
+        guard let start, let panel = window as? SidePanel else { return }
         let now = NSEvent.mouseLocation
         let dx = now.x - start.x, dy = now.y - start.y
         if !dragging {
             guard max(abs(dx), abs(dy)) >= Self.clickSlop else { return }
             dragging = true
-            NSCursor.closedHand.push()
+            panel.beginDrag()
+            NSCursor.closedHand.set()
+        } else if !panel.isDragging {
+            // The panel ended the drag (it was hidden); ignore the rest of it.
+            reset()
+            return
         }
-        window.setFrameOrigin(NSPoint(x: startOrigin.x + dx, y: startOrigin.y + dy))
+        panel.setFrameOrigin(NSPoint(x: startOrigin.x + dx, y: startOrigin.y + dy))
     }
 
     override func mouseUp(with event: NSEvent) {
-        defer { start = nil }
-        guard dragging else { return }
+        let wasDragging = dragging
+        reset()
+        guard wasDragging, let panel = window as? SidePanel, panel.isDragging else { return }
+        panel.pin(at: NSEvent.mouseLocation)
+    }
+
+    /// Leaving the window mid-drag drops the drag state.
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        super.viewWillMove(toWindow: newWindow)
+        if dragging { reset() }
+    }
+
+    /// Clears the drag state; the cursor rect brings back the open hand.
+    private func reset() {
+        start = nil
         dragging = false
-        NSCursor.pop()
         window?.invalidateCursorRects(for: self)
-        (window as? SidePanel)?.pin(at: NSEvent.mouseLocation)
     }
 }

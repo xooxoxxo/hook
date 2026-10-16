@@ -16,6 +16,9 @@ import RelayCore
     /// Reads `sidebarDisplay` and saves a pin from a header drag; set by `connect(_:)`.
     private weak var model: AppModel?
     private var docker: PanelDocker?
+    /// True from the first move of a header drag until `pin(at:)` or a hide.
+    /// Re-docks wait meanwhile, so the panel stays under the pointer.
+    private(set) var isDragging = false
 
     init(content: NSView) {
         super.init(
@@ -79,26 +82,49 @@ import RelayCore
     /// hidden too, so the next show is already in place.
     func dock(edge: SidebarEdge) {
         self.edge = edge
+        guard !isDragging else { return }
         guard let screen = DockGeometry.target(screens: NSScreen.dockScreens, pinned: model?.config?.sidebarDisplay)
         else { return }
         let frame = DockGeometry.frame(edge: edge, on: screen, width: Self.width)
         if frame != self.frame { setFrame(frame, display: true) }
     }
 
+    /// A header drag moved the panel; holds off re-docks until it ends.
+    func beginDrag() {
+        isDragging = true
+    }
+
     /// The end of a header drag at `point` (screen coordinates): pins the panel
     /// to that display's nearer edge, saves `sidebarEdge` and `sidebarDisplay`,
-    /// and slides it into place (no slide with Reduce Motion).
+    /// and slides it into place (no slide with Reduce Motion). The slide goes
+    /// where the reloaded config says, so a save that fails, or a reload that
+    /// keeps the last good config, slides the panel back to its old spot.
     func pin(at point: NSPoint) {
         let screens = NSScreen.dockScreens
-        guard let snap = DockGeometry.snap(point: point, screens: screens),
-              let screen = screens.first(where: { $0.id == snap.screenID }) else {
-            dock(edge: edge)
-            return
+        let snap = DockGeometry.snap(point: point, screens: screens)
+        if let snap, let model {
+            model.save(set: ["sidebarEdge": snap.edge.rawValue, "sidebarDisplay": snap.screenID])
         }
-        edge = snap.edge
-        model?.save(set: ["sidebarEdge": snap.edge.rawValue, "sidebarDisplay": snap.screenID])
+        isDragging = false
+        let pinned: (edge: SidebarEdge, display: String?)
+        if let model {
+            pinned = (model.config?.sidebarEdge ?? edge, model.config?.sidebarDisplay)
+        } else {
+            pinned = (snap?.edge ?? edge, snap?.screenID)
+        }
+        edge = pinned.edge
+        guard let screen = DockGeometry.target(screens: screens, pinned: pinned.display) else { return }
+        let frame = DockGeometry.frame(edge: pinned.edge, on: screen, width: Self.width)
         let animate = !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        setFrame(DockGeometry.frame(edge: snap.edge, on: screen, width: Self.width), display: true, animate: animate)
+        if frame != self.frame { setFrame(frame, display: true, animate: animate) }
+    }
+
+    /// Hiding mid-drag ends the drag: the panel goes back to its pinned spot.
+    override func orderOut(_ sender: Any?) {
+        super.orderOut(sender)
+        guard isDragging else { return }
+        isDragging = false
+        dock(edge: edge)
     }
 
     /// Brings the panel in. `focus` false (slide-in for "now" asks) leaves the
