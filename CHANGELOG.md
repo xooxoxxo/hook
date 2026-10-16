@@ -3,7 +3,7 @@
 All notable changes to Relay are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
-## Unreleased
+## [0.5.0] - 2026-10-16
 
 ### Added
 
