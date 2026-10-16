@@ -23,6 +23,7 @@ Relay reads `~/.config/relay/config.json`, and Settings edits the same file.
 | `presence` | `"auto"` \| `"home"` \| `"away"` | `"auto"` | [Away mode](using.md#away-mode): `auto` follows the screen lock, display sleep, user switching and idle time; `home` and `away` set it by hand |
 | `awayAfterMinutes` | 5, 10, 15, 30 or 60 | 10 | Automatic: minutes without input before Relay marks you away |
 | `repoPath` | path | none | Set by the installer; Settings › Connect builds its commands from it |
+| `sidebarDisplay` | display UUID string | none | The display the sidebar is pinned to. Dragging the sidebar sets it (and `sidebarEdge`); while that display is disconnected, the main display is used. Delete it to go back to the main display |
 
 ## The away flag
 

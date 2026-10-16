@@ -113,6 +113,8 @@ struct SidebarView: View {
         .padding(.horizontal, 16)
         .padding(.top, 14)
         .padding(.bottom, 8)
+        // Drag the header to move the panel to another edge or display.
+        .background(PanelDragHandle())
     }
 
     /// Corrupt queue, save failed, config error, already running: dismissible.

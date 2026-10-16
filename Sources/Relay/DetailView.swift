@@ -108,6 +108,8 @@ struct DetailView: View {
         .padding(.trailing, 16)
         .padding(.top, 12)
         .padding(.bottom, 10)
+        // Drag the header to move the panel to another edge or display.
+        .background(PanelDragHandle())
     }
 
     @ViewBuilder private func intro(_ ask: DetailModel) -> some View {

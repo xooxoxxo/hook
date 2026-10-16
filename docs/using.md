@@ -9,6 +9,10 @@ Relay lives in the menu bar and shows asks in a sidebar.
 - A red badge counts waiting asks from 1 to 9. From 10 up, or with "Show the count on the badge" off, it is a dot.
 - On first launch, Relay asks to show notifications.
 
+## Moving the panel
+
+Drag the sidebar by its header to the left or right edge of any display. When you let go, it snaps flush and full height, and stays pinned there. After a display change, sleep or wake, it returns to that spot. If the pinned display is disconnected, the sidebar moves to the same edge of the main display and goes back when the display returns. The shortcut and the menu bar icon always open it there.
+
 ## An ask
 
 - Tick steps as you go.

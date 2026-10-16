@@ -189,6 +189,7 @@ import RelayCore
         // No title-bar inset: the content starts at the panel's top edge.
         hosting.safeAreaRegions = []
         let panel = SidePanel(content: hosting)
+        panel.connect(model)
         panel.onEscape = { [weak store] in
             guard let store, store.selectedID != nil else { return false }
             store.select(nil)
