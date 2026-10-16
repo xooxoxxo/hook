@@ -34,12 +34,18 @@ public struct QueueMenu: View {
         } label: {
             Image(systemName: filtered ? DS.Symbol.filterOn : DS.Symbol.filter)
                 .foregroundStyle(filtered ? DS.Color.accent : DS.Color.secondary)
+                // Rule A3: the frame and shape sit inside the label, so the click region is
+                // the 28 pt square. `.borderlessButton` would draw the label as a glyph-sized
+                // NSPopUpButton that ignores this frame, and clicks on the padding around it
+                // would reach the header's drag handle. A plain-styled button menu lets
+                // SwiftUI draw and hit-test the label itself.
+                .frame(minWidth: DS.Metric.hit, minHeight: DS.Metric.hit)
+                .contentShape(.rect)
         }
-        .menuStyle(.borderlessButton)
+        .menuStyle(.button)
+        .buttonStyle(.plain)
         .menuIndicator(.hidden)
         .fixedSize()
-        .frame(minWidth: DS.Metric.hit, minHeight: DS.Metric.hit)
-        .contentShape(.rect)
         .tint(filtered ? DS.Color.accent : DS.Color.secondary)
         .accessibilityLabel("Group and filter")
         .accessibilityValue(Self.accessibilityValue(grouping: grouping.wrappedValue, filter: filter.wrappedValue))

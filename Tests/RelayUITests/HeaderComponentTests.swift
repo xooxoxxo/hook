@@ -36,6 +36,7 @@ import Testing
         #expect(DetailHeaderBar.neighbourHelp(.ask("b"), previous: true) == "Previous ask (⌘↑)")
         #expect(DetailHeaderBar.neighbourHelp(.end, previous: false) == "Next ask (⌘↓)")
         #expect(DetailHeaderBar.neighbourHelp(.outsideFilter, previous: true) == "Not in the filtered queue")
+        #expect(DetailHeaderBar.hideHelp == "Hide (⌘W)")
         #expect(DetailHeaderBar.metaText(project: "Acme", urgency: .now, age: "3 h ago") == "Acme · Now · 3 h ago")
         #expect(DetailHeaderBar.metaText(project: "", urgency: .unknown("x\ty"), age: "now") == "— · x⟨U+0009⟩y · now")
     }

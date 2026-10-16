@@ -46,7 +46,7 @@ public struct DetailHeaderBar: View {
                     .disabled(!isAsk(previous))
                 IconButton(DS.Symbol.next, label: "Next ask", help: Self.neighbourHelp(next, previous: false), action: onNext)
                     .disabled(!isAsk(next))
-                IconButton(DS.Symbol.hide, label: "Hide Relay", help: "Hide (Esc)", action: onHide)
+                IconButton(DS.Symbol.hide, label: "Hide Relay", help: Self.hideHelp, action: onHide)
             }
         }
     }
@@ -65,6 +65,9 @@ public struct DetailHeaderBar: View {
     public static func metaText(project: String, urgency: Urgency, age: String) -> String {
         (project.isEmpty ? "—" : line(project)) + " · " + urgencyWord(urgency) + " · " + age
     }
+
+    /// Esc goes back to the list in detail (§4.12), so Hide names ⌘W here (N8).
+    public static let hideHelp = "Hide (⌘W)"
 
     public static func neighbourHelp(_ n: Neighbour, previous: Bool) -> String {
         if n == .outsideFilter { return "Not in the filtered queue" }
