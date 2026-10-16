@@ -125,18 +125,26 @@ import RelayCore
 
     /// The names of the processes holding power assertions, or nil when
     /// `IOPMCopyAssertionsByProcess` fails.
+    /// Entries whose value isn't an assertion list are skipped, so one
+    /// malformed entry can't hide the others.
     private static func assertionHolders() -> [String]? {
         var unmanaged: Unmanaged<CFDictionary>?
         guard IOPMCopyAssertionsByProcess(&unmanaged) == kIOReturnSuccess,
-              let byPID = unmanaged?.takeRetainedValue() as? [NSNumber: [[String: Any]]]
+              let byPID = unmanaged?.takeRetainedValue() as? [NSNumber: Any]
         else { return nil }
-        return byPID.compactMap { pid, assertions in
-            if let name = assertions.lazy.compactMap({ $0["Process Name"] as? String }).first, !name.isEmpty {
+        return byPID.compactMap { pid, value in
+            guard let assertions = value as? [[String: Any]] else { return nil }
+            if let name = assertions.lazy.compactMap({ $0[processNameKey] as? String }).first, !name.isEmpty {
                 return name
             }
             return processName(pid: pid.int32Value)
         }
     }
+
+    /// The process-name key in each assertion dictionary. It is undocumented
+    /// (the private kIOPMAssertionProcessNameKey, not in the public IOKit
+    /// headers); when it is missing, `processName(pid:)` is the fallback.
+    private static let processNameKey = "Process Name"
 
     private static func processName(pid: pid_t) -> String? {
         var buffer = [UInt8](repeating: 0, count: 2 * Int(MAXCOMLEN) + 1)
