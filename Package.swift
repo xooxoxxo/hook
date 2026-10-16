@@ -6,11 +6,14 @@ let package = Package(
     platforms: [.macOS(.v14)],
     targets: [
         .target(name: "RelayCore"),
-        .executableTarget(name: "Relay", dependencies: ["RelayCore"]),
+        .target(name: "RelayUI", dependencies: ["RelayCore"]),
+        .executableTarget(name: "Relay", dependencies: ["RelayCore", "RelayUI"]),
+        .executableTarget(name: "RelayGallery", dependencies: ["RelayCore", "RelayUI"]),
         .testTarget(
             name: "RelayCoreTests",
             dependencies: ["RelayCore"],
             resources: [.copy("Fixtures")]
         ),
+        .testTarget(name: "RelayUITests", dependencies: ["RelayUI", "RelayCore"]),
     ]
 )

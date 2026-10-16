@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import RelayCore
+import RelayUI
 
 /// Sidebar order: NOW, TODAY, WHENEVER, each newest first as the
 /// source lists them. Unknown urgencies count as TODAY.

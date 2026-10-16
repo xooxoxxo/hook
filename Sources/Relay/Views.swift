@@ -1,18 +1,13 @@
 import AppKit
 import SwiftUI
 import RelayCore
+import RelayUI
 
 /// Only http(s) links are opened from Relay.
 func webURL(_ raw: String) -> URL? {
     guard let url = URL(string: raw), url.scheme == "http" || url.scheme == "https" else { return nil }
     return url
 }
-
-/// Untrusted multi-line prose, hidden characters revealed.
-func prose(_ s: String) -> String { Sanitize.reveal(s, as: .prose).text }
-
-/// Untrusted single-line prose; LF and TAB are revealed too.
-func line(_ s: String) -> String { Sanitize.revealLine(s) }
 
 /// "label · host" for a link, so the destination is always visible. Foundation
 /// stores an internationalized host as punycode ("xn--…"), which gets a warning.
