@@ -73,6 +73,15 @@ private let mailboxProblem = ResolvedSource.invalid("mailbox needs an http(s) ma
             repoPath: "/opt/relay"))
     }
 
+    @Test func sidebarDisplayIsAStringOrNil() throws {
+        #expect(try decode(#"{"sidebarDisplay":"37D8832A-2D66-02CA-B9F7-8F30A301B230"}"#).sidebarDisplay
+            == "37D8832A-2D66-02CA-B9F7-8F30A301B230")
+        for json in [#"{}"#, #"{"sidebarDisplay":""}"#, #"{"sidebarDisplay":null}"#,
+                     #"{"sidebarDisplay":7}"#, #"{"sidebarDisplay":{"id":"A"}}"#] {
+            #expect(try decode(json).sidebarDisplay == nil)
+        }
+    }
+
     @Test(arguments: ["0", "65536", "-1", #""47823""#, "1.5", "true"])
     func aBadPortThrows(_ port: String) {
         #expect(throws: (any Error).self) {
@@ -154,6 +163,25 @@ private let mailboxProblem = ResolvedSource.invalid("mailbox needs an http(s) ma
         }
         #expect(try Data(contentsOf: url) == Data(contents.utf8))
         #expect(try FileManager.default.contentsOfDirectory(atPath: root.path) == ["config.json"])
+    }
+
+    @Test func aDragPinMergesIntoTheOtherKeys() throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let url = root.appending(path: "config.json")
+        let before = #"{"source":"local","port":47901,"sidebarEdge":"right","appearance":"dark","futureKey":true}"#
+        try PrivateFile.write(Data(before.utf8), to: url)
+
+        try ConfigStore.merge(set: ["sidebarEdge": "left", "sidebarDisplay": "DISPLAY-B"], into: url)
+        #expect(ConfigStore.load(url) == .loaded(RelayConfig(
+            source: .local, port: 47901, sidebarEdge: .left, appearance: .dark, sidebarDisplay: "DISPLAY-B")))
+
+        // The Settings edge picker saves only the edge; the pinned display stays.
+        try ConfigStore.merge(set: ["sidebarEdge": "right"], into: url)
+        #expect(ConfigStore.load(url) == .loaded(RelayConfig(
+            source: .local, port: 47901, sidebarEdge: .right, appearance: .dark, sidebarDisplay: "DISPLAY-B")))
+        let object = try #require(try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        #expect(object["futureKey"] as? Bool == true)
     }
 
     @Test func mergeCreatesAnAbsentFilePrivately() throws {

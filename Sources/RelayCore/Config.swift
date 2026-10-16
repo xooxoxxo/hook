@@ -127,10 +127,14 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
     public var awayAfterMinutes: Int
     /// Written by install.sh; the Connect tab builds commands from it.
     public var repoPath: String?
+    /// The UUID of the display the sidebar is pinned to; set by dragging the
+    /// panel. nil, or a display that isn't connected, means the main display.
+    public var sidebarDisplay: String?
 
     enum CodingKeys: String, CodingKey {
         case source, mailboxURL, tokenFile, context, port, pollSeconds, hotkey, keepDays
         case showCount, sidebarEdge, appearance, notify, presence, awayAfterMinutes, repoPath
+        case sidebarDisplay
     }
 
     public init(
@@ -148,7 +152,8 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
         notify: NotifySettings = NotifySettings(),
         presence: PresenceMode = .auto,
         awayAfterMinutes: Int = PresenceLogic.defaultAwayAfterMinutes,
-        repoPath: String? = nil
+        repoPath: String? = nil,
+        sidebarDisplay: String? = nil
     ) {
         self.source = source
         self.mailboxURL = mailboxURL
@@ -165,6 +170,7 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
         self.presence = presence
         self.awayAfterMinutes = awayAfterMinutes
         self.repoPath = repoPath
+        self.sidebarDisplay = sidebarDisplay
     }
 
     /// A missing, null, wrong-typed or out-of-range key takes its default.
@@ -195,6 +201,7 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
         awayAfterMinutes = c.lenient(Int.self, .awayAfterMinutes)
             .flatMap { PresenceLogic.awayAfterChoices.contains($0) ? $0 : nil } ?? PresenceLogic.defaultAwayAfterMinutes
         repoPath = c.lenient(String.self, .repoPath)
+        sidebarDisplay = c.lenient(String.self, .sidebarDisplay).flatMap { $0.isEmpty ? nil : $0 }
     }
 
     /// `source` when present; else mailbox when `mailboxURL` is present; else incomplete.
