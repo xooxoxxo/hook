@@ -124,12 +124,25 @@ public enum AlignmentCheck {
     /// Ink differs from the background by more than this in some channel (0–255).
     static let threshold = 48
 
+    /// How far, in points, a probe may overhang the capture and still count as inside it (rounding).
+    static let edgeSlack: CGFloat = 0.5
+
+    /// Checks `rules` against the probes. A probe whose frame runs past the capture's edges (a List
+    /// row cut off at the bottom) is skipped: the visible strip holds no full glyph, so measuring it
+    /// would report a false "no ink". A rule whose probes are all clipped fails.
     public static func verify(_ probes: [ProbeFrame], bitmap: InkBitmap, rules: [AlignmentRule]) -> [AlignmentFailure] {
         var failures: [AlignmentFailure] = []
+        let bounds = CGRect(x: 0, y: 0, width: CGFloat(bitmap.width) / bitmap.scale,
+                            height: CGFloat(bitmap.height) / bitmap.scale)
+            .insetBy(dx: -edgeSlack, dy: -edgeSlack)
         for rule in rules {
-            let mine = probes.filter { $0.role == rule.role }
+            let ofRole = probes.filter { $0.role == rule.role }
+            let mine = ofRole.filter { bounds.contains($0.frame) }
             guard !mine.isEmpty else {
-                failures.append(AlignmentFailure(rule: rule, detail: "no \(rule.role.rawValue) probe"))
+                let detail = ofRole.isEmpty
+                    ? "no \(rule.role.rawValue) probe"
+                    : "no \(rule.role.rawValue) probe inside the capture (\(ofRole.count) clipped)"
+                failures.append(AlignmentFailure(rule: rule, detail: detail))
                 continue
             }
             func measure(_ scan: (InkBitmap, CGRect, Int) -> CGFloat?) -> [(ProbeFrame, CGFloat)]? {

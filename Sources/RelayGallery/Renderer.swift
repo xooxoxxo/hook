@@ -147,7 +147,7 @@ func tabSymbol(_ id: SettingsTabID) -> String {
 }
 
 /// One Settings tab inside a real `.toolbar` tab window, captured with its title bar.
-/// Probes are shifted from the tab content's space into the captured frame view's.
+/// Probes report .global frames, which in a titled window are already in the frame view's space (title bar included), so they are used unshifted.
 @MainActor func settingsCapture(_ scene: GalleryScene, tab: String, options: GalleryOptions,
                                 appearance: NSAppearance?) -> (rep: NSBitmapImageRep, probes: [ProbeFrame]) {
     let width = DS.Metric.settingsWidth
@@ -192,12 +192,18 @@ func tabSymbol(_ id: SettingsTabID) -> String {
     frameView.displayIfNeeded()
     guard let selectedController else { fatalError("RelayGallery: Settings tab \(tab) has no controller") }
     let content = selectedController.view
+    // The tab content's top-left in the frame view, top-left origin. Used only to check that every
+    // probe lies inside the tab content, which holds while .global is the frame view's space.
     let topLeft = frameView.convert(NSPoint(x: 0, y: content.isFlipped ? 0 : content.bounds.height), from: content)
-    let offset = CGPoint(x: topLeft.x, y: frameView.isFlipped ? topLeft.y : frameView.bounds.height - topLeft.y)
-    let shifted = sink.frames.map {
-        ProbeFrame(role: $0.role, group: $0.group, frame: $0.frame.offsetBy(dx: offset.x, dy: offset.y))
+    let contentTop = CGPoint(x: topLeft.x, y: frameView.isFlipped ? topLeft.y : frameView.bounds.height - topLeft.y)
+    for probe in sink.frames {
+        let frame = probe.frame, role = probe.role
+        if frame.minY < contentTop.y - 0.5 || frame.maxY > frameView.bounds.height + 0.5
+            || frame.minX < -0.5 || frame.maxX > frameView.bounds.width + 0.5 {
+            fatalError("RelayGallery: scene \(scene.name) probe \(role) lies outside the Settings tab content; the .global space assumption broke")
+        }
     }
-    return (capture(frameView), shifted)
+    return (capture(frameView), sink.frames)
 }
 
 @MainActor func appKitCapture(_ scene: GalleryScene, size: NSSize,

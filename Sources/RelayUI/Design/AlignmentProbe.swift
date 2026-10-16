@@ -5,7 +5,8 @@ public enum ProbeRole: String, Sendable, CaseIterable {
     case gutterText, trailingEdge, topMarker, subMarker, topActionText, subLabelText, settingsTrailing, mailboxField
 }
 
-/// A probed view's frame in the window's content, in points, top-left origin.
+/// A probed view's frame in the window frame view's space (`.global`), in points, top-left origin,
+/// title bar included. In a borderless window that is the content view's space.
 public struct ProbeFrame: Equatable, Sendable {
     public var role: ProbeRole
     /// Groups probes that must agree among themselves (one Settings section).

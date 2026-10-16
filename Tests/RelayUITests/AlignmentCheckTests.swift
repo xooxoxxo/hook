@@ -81,6 +81,25 @@ private func probe(_ role: ProbeRole, _ x: CGFloat, _ y: CGFloat, _ w: CGFloat, 
         #expect(AlignmentCheck.verify(mixed, bitmap: bitmap, rules: [.sameTrailingPerGroup(.settingsTrailing, tolerance: 1)]).count == 1)
     }
 
+    @Test func aProbeCutOffByTheBottomEdgeIsSkipped() {
+        // Ink only in the top 5 pt; the second row starts at 8 pt and hangs 14 pt past the 10 pt edge,
+        // so its visible strip is blank (a List row cut off at the bottom of the capture).
+        let top = paint(canvas(50, 10), columns: 32..<40, rows: 0..<10)
+        let rows = [probe(.gutterText, 0, 0, 50, 5), probe(.gutterText, 0, 8, 50, 16)]
+        #expect(AlignmentCheck.verify(rows, bitmap: top, rules: [.leading(.gutterText, x: 16, tolerance: 1)]).isEmpty)
+        // The skipped row doesn't hide a real misalignment in the rows that are inside.
+        #expect(AlignmentCheck.verify(rows, bitmap: top, rules: [.leading(.gutterText, x: 18, tolerance: 1)]).count == 1)
+        // A probe off the top or the sides counts as clipped too; rounding within half a point doesn't.
+        #expect(AlignmentCheck.verify([probe(.gutterText, 0, -3, 50, 5), probe(.gutterText, 0, 0, 50.4, 5)],
+                                      bitmap: top, rules: [.leading(.gutterText, x: 16, tolerance: 1)]).isEmpty)
+    }
+
+    @Test func aRuleWhoseProbesAreAllClippedFails() {
+        let failures = AlignmentCheck.verify([probe(.gutterText, 0, 8, 50, 16)], bitmap: ink,
+                                             rules: [.leading(.gutterText, x: 16, tolerance: 1)])
+        #expect(failures.map(\.detail) == ["no gutterText probe inside the capture (1 clipped)"])
+    }
+
     @Test func failuresDescribeTheRule() {
         let failure = AlignmentFailure(rule: .leading(.gutterText, x: 16, tolerance: 1), detail: "no ink")
         #expect(failure.description == "leading(gutterText, x: 16.0, tolerance: 1.0): no ink")
