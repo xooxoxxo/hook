@@ -7,7 +7,7 @@ import SwiftUI
 /// through AppModel.save; AppDelegate applies the result.
 struct GeneralTab: View {
     static let shortcutFailed = "Couldn't register this shortcut"
-    static let presenceHelp = "Relay marks you away when the screen locks, the displays sleep, or you haven't touched the Mac for this long. While you're away, Relay doesn't slide the panel in or show notifications; asks still reach anything your mailbox forwards them to. Relay also creates ~/.local/state/relay/away, so other tools can tell. For example, ssh can skip the 1Password agent."
+    static let presenceHelp = "Relay marks you away when the screen locks, the displays sleep, you're connected over Screen Sharing, or you haven't touched the Mac for this long. While you're away, Relay doesn't slide the panel in or show notifications; asks still reach anything your mailbox forwards them to. Relay also creates ~/.local/state/relay/away, so other tools can tell. For example, ssh can skip the 1Password agent."
 
     @ObservedObject private var model: AppModel
     @ObservedObject private var hotKeys: HotKeyManager

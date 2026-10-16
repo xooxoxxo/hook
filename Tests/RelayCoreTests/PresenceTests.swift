@@ -15,8 +15,24 @@ private func decode(_ json: String) throws -> RelayConfig {
     try JSONDecoder().decode(RelayConfig.self, from: Data(json.utf8))
 }
 
+@Suite struct RemoteSessionTests {
+    @Test func screensharingdMeansConnected() {
+        #expect(RemoteSession.isConnected(holders: ["powerd", "screensharingd", "WindowServer"]))
+        #expect(RemoteSession.isConnected(holders: ["screensharingd"]))
+    }
+
+    @Test func noHoldersOrOtherDaemonsOnlyMeanNotConnected() {
+        #expect(!RemoteSession.isConnected(holders: []))
+        #expect(!RemoteSession.isConnected(holders: ["powerd", "WindowServer", "caffeinate", "coreaudiod"]))
+    }
+
+    @Test func namesMustMatchExactly() {
+        #expect(!RemoteSession.isConnected(holders: ["ScreenSharingd", "screensharingd-helper", "screensharing"]))
+    }
+}
+
 @Suite struct PresenceLogicTests {
-    private let everything = PresenceSignals(screenLocked: true, screensAsleep: true, sessionActive: false, idleSeconds: 99_999)
+    private let everything = PresenceSignals(screenLocked: true, screensAsleep: true, sessionActive: false, remoteSession: true, idleSeconds: 99_999)
 
     @Test func homeAndAwayAreSetByYouWhateverTheSignals() {
         for signals in [PresenceSignals(), everything] {
@@ -34,6 +50,7 @@ private func decode(_ json: String) throws -> RelayConfig {
         (PresenceSignals(screenLocked: true), .away, "screen locked"),
         (PresenceSignals(screensAsleep: true), .away, "displays asleep"),
         (PresenceSignals(sessionActive: false), .away, "switched user"),
+        (PresenceSignals(remoteSession: true), .away, "screen sharing"),
         (PresenceSignals(idleSeconds: 600), .away, "idle 10 min"),
         (PresenceSignals(idleSeconds: 599.9), .home, "active"),
     ])
@@ -48,9 +65,22 @@ private func decode(_ json: String) throws -> RelayConfig {
             PresenceLogic.evaluate(mode: .auto, signals: signals, awayAfterMinutes: 5).reason
         }
         #expect(reason(everything) == "screen locked")
-        #expect(reason(PresenceSignals(screensAsleep: true, sessionActive: false, idleSeconds: 99_999)) == "displays asleep")
-        #expect(reason(PresenceSignals(sessionActive: false, idleSeconds: 99_999)) == "switched user")
+        #expect(reason(PresenceSignals(screensAsleep: true, sessionActive: false, remoteSession: true, idleSeconds: 99_999)) == "displays asleep")
+        #expect(reason(PresenceSignals(sessionActive: false, remoteSession: true, idleSeconds: 99_999)) == "switched user")
+        #expect(reason(PresenceSignals(remoteSession: true, idleSeconds: 99_999)) == "screen sharing")
         #expect(reason(PresenceSignals(idleSeconds: 99_999)) == "idle 5 min")
+    }
+
+    @Test func screenSharingIsAwayEvenWhileRemoteInputKeepsIdleAtZero() {
+        let result = PresenceLogic.evaluate(mode: .auto, signals: PresenceSignals(remoteSession: true, idleSeconds: 0), awayAfterMinutes: 60)
+        #expect(result.state == .away)
+        #expect(result.reason == "screen sharing")
+    }
+
+    @Test func screenSharingDoesNotOverrideHomeOrAway() {
+        let signals = PresenceSignals(remoteSession: true)
+        #expect(PresenceLogic.evaluate(mode: .home, signals: signals, awayAfterMinutes: 10) == (.home, "set by you"))
+        #expect(PresenceLogic.evaluate(mode: .away, signals: signals, awayAfterMinutes: 10) == (.away, "set by you"))
     }
 
     @Test(arguments: [5, 10, 15, 30, 60])

@@ -20,13 +20,17 @@ public struct PresenceSignals: Sendable, Equatable {
     public var screensAsleep: Bool
     /// False while another user's session is on the console (fast user switching).
     public var sessionActive: Bool
+    /// True while a remote session (Screen Sharing) is connected: Touch ID
+    /// can't be reached from a remote screen, and remote input resets idle time.
+    public var remoteSession: Bool
     /// Seconds since the last keyboard, mouse or trackpad event.
     public var idleSeconds: Double
 
-    public init(screenLocked: Bool = false, screensAsleep: Bool = false, sessionActive: Bool = true, idleSeconds: Double = 0) {
+    public init(screenLocked: Bool = false, screensAsleep: Bool = false, sessionActive: Bool = true, remoteSession: Bool = false, idleSeconds: Double = 0) {
         self.screenLocked = screenLocked
         self.screensAsleep = screensAsleep
         self.sessionActive = sessionActive
+        self.remoteSession = remoteSession
         self.idleSeconds = idleSeconds
     }
 }
@@ -38,7 +42,8 @@ public enum PresenceLogic {
     public static let defaultAwayAfterMinutes = 10
 
     /// Home and Away are "set by you". Automatic reports the first signal that
-    /// holds, in this order: screen locked, displays asleep, switched user, idle.
+    /// holds, in this order: screen locked, displays asleep, switched user,
+    /// screen sharing, idle.
     public static func evaluate(
         mode: PresenceMode, signals: PresenceSignals, awayAfterMinutes: Int
     ) -> (state: PresenceState, reason: String) {
@@ -51,6 +56,7 @@ public enum PresenceLogic {
             if signals.screenLocked { return (.away, "screen locked") }
             if signals.screensAsleep { return (.away, "displays asleep") }
             if !signals.sessionActive { return (.away, "switched user") }
+            if signals.remoteSession { return (.away, "screen sharing") }
             if signals.idleSeconds >= Double(awayAfterMinutes) * 60 {
                 return (.away, "idle \(awayAfterMinutes) min")
             }
@@ -74,6 +80,19 @@ public enum PresenceLogic {
         case .home: return "Home · \(reason)"
         case .away: return "Away · \(reason) · since \(since)"
         }
+    }
+}
+
+/// Whether a remote-desktop session is connected, from the names of the
+/// processes holding power assertions (`IOPMCopyAssertionsByProcess`).
+/// Screen Sharing's `screensharingd` holds assertions only while a viewer is
+/// connected. Pure: `PresenceMonitor` reads the assertions.
+public enum RemoteSession {
+    /// The daemons whose assertions mean a remote session is connected.
+    public static let daemons: Set<String> = ["screensharingd"]
+
+    public static func isConnected(holders: [String]) -> Bool {
+        holders.contains { daemons.contains($0) }
     }
 }
 

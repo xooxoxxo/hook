@@ -3,6 +3,13 @@
 All notable changes to Relay are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## [0.5.1] - 2026-10-16
+
+### Fixed
+
+- Away mode counts a Screen Sharing session as away: Touch ID can't be reached
+  from a remote screen, and remote input used to look like you were at the Mac.
+
 ## [0.5.0] - 2026-10-16
 
 ### Added

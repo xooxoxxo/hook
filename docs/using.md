@@ -36,9 +36,9 @@ Drag the sidebar by its header to the left or right edge of any display. When yo
 
 ## Away mode
 
-Relay knows when you're away from the Mac: the screen is locked, the displays sleep, you switched users, or you haven't touched it for the time set in Settings › General (10 minutes by default). You can also pick Home or Away yourself from Presence in the status menu.
+Relay marks you away when the screen is locked, the displays sleep, you switched users, you're connected over Screen Sharing, or you haven't touched the Mac for the time set in Settings › General (10 minutes by default). Or pick Home or Away yourself from Presence in the status menu.
 
-While you're away, "now" asks don't slide the sidebar in and no notifications show. Asks still reach anything your mailbox forwards them to, such as a phone. The icon fades, and the status menu shows why and since when. When you're back, one notification counts the asks that arrived for the urgencies switched on in Notifications; click it to open the list.
+While you're away, "now" asks don't slide the sidebar in and no notifications show. Asks still reach anything your mailbox forwards them to. The icon fades, and the status menu shows why and since when. When you're back, one notification counts the asks that arrived for the urgencies switched on in Notifications; click it to open the list.
 
 Relay also keeps a [flag file](configuration.md#the-away-flag) for other tools.
 

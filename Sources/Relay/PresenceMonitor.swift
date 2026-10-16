@@ -1,10 +1,13 @@
 import AppKit
 import CoreGraphics
+import Darwin
+import IOKit.pwr_mgt
 import RelayCore
 
 /// Away mode's eyes: watches the screen lock, display sleep, fast user
-/// switching and input idle time, decides with `PresenceLogic`, and keeps the
-/// away flag file in step. AppDelegate applies the effects through `onChange`.
+/// switching, Screen Sharing sessions and input idle time, decides with
+/// `PresenceLogic`, and keeps the away flag file in step. AppDelegate applies
+/// the effects through `onChange`.
 @MainActor final class PresenceMonitor {
     /// The current decision; `since` is when `state` last changed.
     struct Status: Equatable {
@@ -23,6 +26,9 @@ import RelayCore
     private var signals = PresenceSignals()
     private var observers: [(NotificationCenter, any NSObjectProtocol)] = []
     private var pollTask: Task<Void, Never>?
+    /// True while reading the power assertions keeps failing, so the failure
+    /// is logged once per streak rather than on every poll.
+    private var assertionsFailing = false
 
     init(flag: AwayFlag = .standard) {
         self.flag = flag
@@ -34,6 +40,7 @@ import RelayCore
         self.mode = mode
         self.awayAfterMinutes = awayAfterMinutes
         signals = Self.currentSignals()
+        signals.remoteSession = remoteSessionConnected()
         let decision = PresenceLogic.evaluate(mode: mode, signals: signals, awayAfterMinutes: awayAfterMinutes)
         status = Status(state: decision.state, reason: decision.reason, since: Date())
         writeFlag()
@@ -102,15 +109,53 @@ import RelayCore
         return signals
     }
 
+    /// Whether a Screen Sharing session is connected, from the processes holding
+    /// power assertions. A failed read counts as not connected.
+    private func remoteSessionConnected() -> Bool {
+        guard let holders = Self.assertionHolders() else {
+            if !assertionsFailing {
+                assertionsFailing = true
+                NSLog("Relay: couldn't read power assertions; treating Screen Sharing as not connected")
+            }
+            return false
+        }
+        assertionsFailing = false
+        return RemoteSession.isConnected(holders: holders)
+    }
+
+    /// The names of the processes holding power assertions, or nil when
+    /// `IOPMCopyAssertionsByProcess` fails.
+    private static func assertionHolders() -> [String]? {
+        var unmanaged: Unmanaged<CFDictionary>?
+        guard IOPMCopyAssertionsByProcess(&unmanaged) == kIOReturnSuccess,
+              let byPID = unmanaged?.takeRetainedValue() as? [NSNumber: [[String: Any]]]
+        else { return nil }
+        return byPID.compactMap { pid, assertions in
+            if let name = assertions.lazy.compactMap({ $0["Process Name"] as? String }).first, !name.isEmpty {
+                return name
+            }
+            return processName(pid: pid.int32Value)
+        }
+    }
+
+    private static func processName(pid: pid_t) -> String? {
+        var buffer = [UInt8](repeating: 0, count: 2 * Int(MAXCOMLEN) + 1)
+        let length = proc_name(pid, &buffer, UInt32(buffer.count))
+        guard length > 0 else { return nil }
+        return String(decoding: buffer.prefix(Int(length)), as: UTF8.self)
+    }
+
     private static func idleSeconds() -> Double {
         CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: CGEventType(rawValue: ~0)!)
     }
 
     // MARK: Deciding
 
-    /// Re-reads idle time and decides again. Runs every 30 s and on every notification.
+    /// Re-reads idle time and Screen Sharing and decides again. Runs every 30 s
+    /// and on every notification.
     private func refresh() {
         signals.idleSeconds = Self.idleSeconds()
+        signals.remoteSession = remoteSessionConnected()
         let decision = PresenceLogic.evaluate(mode: mode, signals: signals, awayAfterMinutes: awayAfterMinutes)
         guard decision.state != status.state || decision.reason != status.reason else { return }
         let old = status.state
