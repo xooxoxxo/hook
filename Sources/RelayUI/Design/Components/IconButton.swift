@@ -23,15 +23,19 @@ public struct IconButton: View {
 
     public var body: some View {
         Button(action: action) {
-            if let tint, isEnabled {
-                Image(systemName: symbol).imageScale(scale).foregroundStyle(tint)
-            } else {
-                Image(systemName: symbol).imageScale(scale)
+            Group {
+                if let tint, isEnabled {
+                    Image(systemName: symbol).imageScale(scale).foregroundStyle(tint)
+                } else {
+                    Image(systemName: symbol).imageScale(scale)
+                }
             }
+            // The frame and shape sit inside the label: a borderless button takes clicks
+            // only over its label, so this makes the click region the 28 pt square (rule A3).
+            .frame(minWidth: DS.Metric.hit, minHeight: DS.Metric.hit)
+            .contentShape(.rect)
         }
         .buttonStyle(.borderless)
-        .frame(minWidth: DS.Metric.hit, minHeight: DS.Metric.hit)
-        .contentShape(.rect)
         .help(Self.helpText(label: label, help: help))
         .accessibilityLabel(label)
     }
