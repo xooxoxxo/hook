@@ -20,7 +20,7 @@ struct SheetSection {
 
 /// The sheet's sections in reading order. Tasks 7–14 each append one.
 @MainActor func sheetSections() -> [SheetSection] {
-    [typeRamp(), controls()]
+    [typeRamp(), controls(), rows()]
 }
 
 @MainActor func typeRamp() -> SheetSection {
@@ -59,6 +59,91 @@ struct SheetSection {
         Sample("TrailingDisclosureStyle · expanded") {
             DisclosureGroup(isExpanded: .constant(true)) { Text("The body shows under the label.") } label: { Text("Done step") }
                 .disclosureGroupStyle(.trailing)
+        },
+    ])
+}
+
+/// A one-off sidebar List, so rows render with real List chrome.
+struct MiniList<Content: View>: View {
+    let height: CGFloat
+    var selection: String? = nil
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        List(selection: .constant(selection)) { content }
+            .listStyle(.sidebar)
+            .scrollContentBackground(.hidden)
+            .scrollDisabled(true)
+            .environment(\.defaultMinListRowHeight, DS.Metric.rowMinHeight)
+            .frame(height: height)
+    }
+}
+
+let rowInsets = EdgeInsets(top: DS.Space.rowInsetV, leading: DS.Space.rowInsetH,
+                           bottom: DS.Space.rowInsetV, trailing: DS.Space.rowInsetH)
+
+let sampleRows: [AskRowModel] = [
+    AskRowModel(id: "r1", title: "Renew the staging certificate and the deploy key", project: "Acme", urgency: .now,
+                created: "2026-10-16T06:40:00Z", summary: .steps(done: 2, total: 8)),
+    AskRowModel(id: "r2", title: "Choose the backup region", project: "Acme", urgency: .today,
+                created: "2026-10-16T00:40:00Z", summary: .steps(done: 0, total: 1)),
+    AskRowModel(id: "r3", title: "Review the onboarding checklist", project: "Acme", urgency: .today,
+                created: "2026-10-15T23:40:00Z", summary: .steps(done: 0, total: 4), hasDraft: true),
+    AskRowModel(id: "r4", title: "Send the release notes draft", project: "Relay", urgency: .whenever,
+                created: "2026-10-15T09:40:00Z", summary: .steps(done: 0, total: 2)),
+    AskRowModel(id: "r5", title: "Pick a colour for the dashboard theme", project: "Northwind", urgency: .today,
+                created: "2026-10-16T04:40:00Z", summary: .choose(3)),
+    AskRowModel(id: "r6", title: "Send the invoice number from the receipt", project: "Atlas", urgency: .unknown("soon"),
+                created: "2026-10-15T09:40:00Z", summary: .reply),
+]
+
+let sampleClosed = AskRowModel(id: "c1", title: "Store the API key", project: "Acme", urgency: .today,
+                               created: "2026-10-16T05:40:00Z", summary: .none,
+                               closed: ClosedInfo(status: "done", closedBy: "owner", completedAt: "2026-10-16T06:40:00Z"))
+
+@MainActor func rows() -> SheetSection {
+    func askRow(_ row: AskRowModel, _ grouping: QueueGrouping, age: String, selected: String? = nil) -> some View {
+        MiniList(height: 64, selection: selected) {
+            AskRow(row: row, age: age, grouping: grouping, selected: row.id == selected, onShowOnlyProject: {})
+                .listRowInsets(rowInsets).tag(row.id)
+        }
+    }
+    return SheetSection(title: "Rows", samples: [
+        Sample("UrgencyLabel · now, today, whenever, unknown") {
+            HStack(spacing: DS.Space.section) {
+                UrgencyLabel(.now); UrgencyLabel(.today); UrgencyLabel(.whenever); UrgencyLabel(.unknown("soon"))
+            }
+            .font(DS.Font.meta)
+        },
+        Sample("SectionHeader · urgency and project, empty name") {
+            MiniList(height: 120) {
+                Section { EmptyView() } header: { SectionHeader(name: "Now", count: 1) }
+                Section { EmptyView() } header: { SectionHeader(name: "Acme", count: 3) }
+                Section { EmptyView() } header: { SectionHeader(name: "", count: 1) }
+            }
+        },
+        Sample("AskRow · Project grouping, now with progress") { askRow(sampleRows[0], .project, age: "3 h ago") },
+        Sample("AskRow · Project grouping, today") { askRow(sampleRows[1], .project, age: "9 h ago") },
+        Sample("AskRow · Project grouping, whenever") { askRow(sampleRows[3], .project, age: "1 d ago") },
+        Sample("AskRow · Urgency grouping, project on line 2") { askRow(sampleRows[0], .urgency, age: "3 h ago") },
+        Sample("AskRow · selected") { askRow(sampleRows[1], .project, age: "9 h ago", selected: "r2") },
+        Sample("AskRow · draft pending") { askRow(sampleRows[2], .project, age: "10 h ago") },
+        Sample("AskRow · choice summary") { askRow(sampleRows[4], .project, age: "5 h ago") },
+        Sample("AskRow · reply summary, unknown urgency") { askRow(sampleRows[5], .project, age: "1 d ago") },
+        Sample("ClosedAskRow") {
+            MiniList(height: 64) { ClosedAskRow(row: sampleClosed, closedLine: "Done 3 h ago", onReopen: {}, onShowOnlyProject: {}).listRowInsets(rowInsets) }
+        },
+        Sample("ClosedGroupHeader · collapsed, expanded") {
+            MiniList(height: 72) {
+                Section { EmptyView() } header: { ClosedGroupHeader(count: 2, expanded: .constant(false)) }
+                Section { EmptyView() } header: { ClosedGroupHeader(count: 2, expanded: .constant(true)) }
+            }
+        },
+        Sample("EmptyListLine · plain, filtered") {
+            MiniList(height: 190) {
+                EmptyListLine(project: nil, onShowAll: {})
+                EmptyListLine(project: "Acme", onShowAll: {})
+            }
         },
     ])
 }
