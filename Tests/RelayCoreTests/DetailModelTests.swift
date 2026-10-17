@@ -54,12 +54,16 @@ private func minimal(from: Origin? = nil) -> Payload {
         #expect(model.origin?.resumeCommand == "cd '/work/acme' && claude --resume 5f633ed3-a328-412b")
         #expect(model.project == "Acme")
         #expect(model.urgency == "now")
-        #expect(model.nodes == [
-            DetailModel.Node(index: 0, action: "Open the key page", place: "Browser", url: "https://example.com/keys"),
-            DetailModel.Node(index: 1, action: "Store the new key", place: "Terminal", code: "echo stored",
-                             lang: "bash", expect: "stored", detail: "Use the key from the vault.\nNot the old one."),
-            DetailModel.Node(index: 2, isVerify: true, action: "The job log shows success", code: "tail -n 5 job.log"),
-        ])
+        #expect(model.nodes.map(\.path) == ["1", "2", "verify"])
+        #expect(model.nodes.map(\.label) == ["1", "2", "Verify"])
+        #expect(model.nodes.map(\.kind) == [.step, .step, .verify])
+        #expect(model.nodes.map(\.number) == [1, 2, 3])
+        #expect(model.nodes[0].content == StepContent(action: "Open the key page", place: "Browser", url: "https://example.com/keys"))
+        #expect(model.nodes[1].content == StepContent(action: "Store the new key", place: "Terminal",
+                                                      detail: "Use the key from the vault.\nNot the old one.",
+                                                      code: "echo stored", lang: "bash", expect: "stored"))
+        #expect(model.nodes[2].content == StepContent(action: "The job log shows success", code: "tail -n 5 job.log"))
+        #expect(model.stepTotal == 3)
         #expect(model.links == [LinkRef(label: "Runbook", url: "https://example.com/runbook")])
         #expect(model.reply == ReplySpec(prompt: "Which region?", choices: ["eu", "us"]))
         #expect(model.ownerReplies == ["choice: eu"])
@@ -94,7 +98,9 @@ private func minimal(from: Origin? = nil) -> Payload {
         #expect(model.title == "Rotate the example key")
         #expect(model.why == "It expires Friday")
         #expect(model.urgency == "today")
-        #expect(model.nodes == [DetailModel.Node(index: 0, action: "Run this", code: "relay --version")])
+        #expect(model.nodes.map(\.path) == ["1"])
+        #expect(model.nodes.first?.content == StepContent(action: "Run this", code: "relay --version"))
+        #expect(model.nodes.first?.fingerprint == StepFingerprint.make(kind: .step, action: "Run this", place: nil, code: "relay --version"))
         #expect(model.links == [LinkRef(label: "Link", url: "https://example.com/x")])
         #expect(model.notes == ["Then restart the job"])
         #expect(model.reply == nil)
@@ -220,5 +226,58 @@ private func minimal(from: Origin? = nil) -> Payload {
             #expect(Ticks.load(defaults, sourceKey: "mailbox:mail.example.com.other", id: "c") == [0])
             #expect(Ticks.load(defaults, sourceKey: "local", id: "a") == [0])
         }
+    }
+}
+
+@Suite struct NodeTreeTests {
+    private let steps = [
+        Step(action: "Create a channel", place: "Slack"),
+        Step(action: "Create the app", place: "api.example.com", substeps: [
+            Step(action: "Click Create New App", url: "https://api.example.com/apps"),
+            Step(action: "Name it Acme", place: "  "),
+            Step(action: "Add the scope", code: "chat:write"),
+        ]),
+        Step(action: "Invite the bot", substeps: []),
+    ]
+
+    @Test func pathsLabelsAndChildren() {
+        let nodes = DetailModel.nodes(steps: steps, verify: Step(action: "Check it", code: "ls"))
+        #expect(nodes.map(\.path) == ["1", "2", "3", "verify"])
+        #expect(nodes[1].children.map(\.path) == ["2.1", "2.2", "2.3"])
+        #expect(nodes[1].children.map(\.label) == ["2a", "2b", "2c"])
+        #expect(nodes[1].children.map(\.level) == [.sub(2, 0), .sub(2, 1), .sub(2, 2)])
+        #expect(nodes[1].children.allSatisfy { $0.kind == .sub && $0.number == 2 && $0.index == 1 })
+        #expect(nodes[1].isParent && !nodes[0].isParent && !nodes[2].isParent)
+        #expect(nodes[2].children.isEmpty)
+        #expect(nodes[3].isVerify && nodes[3].children.isEmpty && nodes[3].number == 4 && nodes[3].level == .verify)
+        #expect(nodes[0].level == .top(1))
+        #expect(nodes[1].children[1].content.place == nil)
+        #expect(nodes.map(\.index) == [0, 1, 2, 3])
+        #expect(nodes.map(\.id) == nodes.map(\.path))
+    }
+
+    @Test func fingerprints() {
+        let nodes = DetailModel.nodes(steps: steps, verify: Step(action: "Check it", code: "ls"))
+        let parent = StepFingerprint.make(kind: .step, action: "Create the app", place: "api.example.com", code: nil)
+        #expect(nodes[1].fingerprint == parent)
+        #expect(nodes[1].children[2].fingerprint
+            == StepFingerprint.make(kind: .sub, action: "Add the scope", place: nil, code: "chat:write", parent: parent))
+        #expect(nodes[3].fingerprint == StepFingerprint.make(kind: .verify, action: "Check it", place: nil, code: "ls"))
+        #expect(nodes[1].children[1].fingerprint
+            == StepFingerprint.make(kind: .sub, action: "Name it Acme", place: nil, code: nil, parent: parent))
+    }
+
+    @Test func allTenLettersAndNoMore() {
+        let many = Step(action: "Many", substeps: (1...12).map { Step(action: "s\($0)") })
+        let nodes = DetailModel.nodes(steps: [many], verify: nil)
+        #expect(nodes[0].children.map(\.label) == ["1a", "1b", "1c", "1d", "1e", "1f", "1g", "1h", "1i", "1j"])
+        #expect(nodes[0].children.last?.path == "1.10")
+    }
+
+    @Test func forwardersForTheOldView() {
+        let node = DetailModel.nodes(steps: [Step(action: "A", place: "P", code: "c", lang: "l", expect: "e", detail: "d", url: "u")], verify: nil)[0]
+        #expect([node.action, node.place, node.code, node.lang, node.expect, node.detail, node.url]
+            == ["A", "P", "c", "l", "e", "d", "u"])
+        #expect(!node.isVerify)
     }
 }
