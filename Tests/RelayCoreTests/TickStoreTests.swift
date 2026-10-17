@@ -100,3 +100,65 @@ private let original = tree([
         }
     }
 }
+
+@Suite struct TickMigrationTests {
+    private let plain = DetailModel.nodes(steps: [Step(action: "One"), Step(action: "Two"), Step(action: "Three")],
+                                          verify: Step(action: "Check"))
+
+    @Test func legacyKeyFormat() {
+        #expect(TickStore.legacyKey(sourceKey: "local", id: "a") == "relay.ticks.local.a")
+    }
+
+    @Test func plainIndicesBecomePaths() throws {
+        try withDefaults { d in
+            d.set([0, 2], forKey: "relay.ticks.local.a")
+            #expect(TickStore.load(d, sourceKey: "local", id: "a", nodes: plain) == ["1", "3"])
+            #expect(d.object(forKey: "relay.ticks.local.a") == nil)
+            #expect((d.dictionary(forKey: "relay.ticks.v2.local.a") as? [String: String])?.keys.sorted() == ["1", "3"])
+        }
+    }
+
+    @Test func aStepThatGainedSubstepsTicksThemAll() throws {
+        let grown = DetailModel.nodes(steps: [Step(action: "One"), Step(action: "Two", substeps: [Step(action: "a"), Step(action: "b")])],
+                                      verify: nil)
+        try withDefaults { d in
+            d.set([1], forKey: "relay.ticks.local.a")
+            #expect(TickStore.load(d, sourceKey: "local", id: "a", nodes: grown) == ["2.1", "2.2"])
+        }
+    }
+
+    @Test func theIndexAfterTheStepsIsVerify() throws {
+        try withDefaults { d in
+            d.set([3], forKey: "relay.ticks.local.a")
+            #expect(TickStore.load(d, sourceKey: "local", id: "a", nodes: plain) == ["verify"])
+        }
+    }
+
+    @Test func outOfRangeMigratesNothingAndDeletesV1() throws {
+        try withDefaults { d in
+            d.set([0, 7], forKey: "relay.ticks.local.a")
+            #expect(TickStore.load(d, sourceKey: "local", id: "a", nodes: plain) == [])
+            #expect(d.object(forKey: "relay.ticks.local.a") == nil)
+            #expect(d.object(forKey: "relay.ticks.v2.local.a") == nil)
+            let noVerify = DetailModel.nodes(steps: [Step(action: "One")], verify: nil)
+            d.set([1], forKey: "relay.ticks.local.b")
+            #expect(TickStore.load(d, sourceKey: "local", id: "b", nodes: noVerify) == [])
+        }
+    }
+
+    @Test func aV2KeyWinsAndV1IsLeftAlone() throws {
+        try withDefaults { d in
+            TickStore.save(d, sourceKey: "local", id: "a", ticks: ["2"], nodes: plain)
+            d.set([0], forKey: "relay.ticks.local.a")
+            #expect(TickStore.load(d, sourceKey: "local", id: "a", nodes: plain) == ["2"])
+            #expect(d.array(forKey: "relay.ticks.local.a") as? [Int] == [0])
+        }
+    }
+
+    @Test func noKeysAtAll() throws {
+        try withDefaults { d in
+            #expect(TickStore.migrateV1(d, sourceKey: "local", id: "a", nodes: plain) == nil)
+            #expect(TickStore.load(d, sourceKey: "local", id: "a", nodes: plain) == [])
+        }
+    }
+}

@@ -14,7 +14,9 @@ public enum TickStore {
     /// leaf elsewhere with that fingerprint; else it is dropped. Changes are written back.
     public static func load(_ defaults: UserDefaults, sourceKey: String, id: String, nodes: [DetailModel.Node]) -> Set<String> {
         let key = key(sourceKey: sourceKey, id: id)
-        guard let stored = defaults.dictionary(forKey: key) as? [String: String] else { return [] }
+        guard let stored = defaults.dictionary(forKey: key) as? [String: String] else {
+            return migrateV1(defaults, sourceKey: sourceKey, id: id, nodes: nodes) ?? []
+        }
         let leaves = Flow.leaves(of: nodes)
         var byPath: [String: String] = [:]
         for leaf in leaves { byPath[leaf.path] = leaf.fingerprint }
@@ -62,5 +64,36 @@ public enum TickStore {
         } else {
             defaults.set(entries, forKey: key)
         }
+    }
+}
+
+extension TickStore {
+    /// The 0.5 key: sorted `[Int]` of 0-based node indices (steps, then verify).
+    public static func legacyKey(sourceKey: String, id: String) -> String {
+        "relay.ticks." + sourceKey + "." + id
+    }
+
+    /// nil without a v1 key. Otherwise the v1 key is deleted and its ticks written as
+    /// v2: index i < steps → step i+1 (every sub-step when the step now has them);
+    /// i == steps with a verify → verify. Any index out of range migrates nothing.
+    static func migrateV1(_ defaults: UserDefaults, sourceKey: String, id: String, nodes: [DetailModel.Node]) -> Set<String>? {
+        let old = legacyKey(sourceKey: sourceKey, id: id)
+        guard let indices = defaults.array(forKey: old) as? [Int] else { return nil }
+        defaults.removeObject(forKey: old)
+        let steps = nodes.filter { !$0.isVerify }
+        let verify = nodes.first(where: \.isVerify)
+        var ticks: Set<String> = []
+        for index in indices {
+            if index >= 0, index < steps.count {
+                let step = steps[index]
+                if step.isParent { ticks.formUnion(step.children.map(\.path)) } else { ticks.insert(step.path) }
+            } else if index == steps.count, let verify {
+                ticks.insert(verify.path)
+            } else {
+                return []
+            }
+        }
+        save(defaults, sourceKey: sourceKey, id: id, ticks: ticks, nodes: nodes)
+        return ticks
     }
 }
