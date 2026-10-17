@@ -1,7 +1,9 @@
 import Foundation
 
 /// One step of an instructable. The JSON keys `do` and `where` are
-/// Swift keywords, so they map to `action` and `place`.
+/// Swift keywords, so they map to `action` and `place`. A step in `steps` may
+/// hold `substeps` (1 to 10 steps without their own sub-steps); validation, not
+/// the type, forbids nesting and sub-steps on verify.
 public struct Step: Codable, Sendable, Equatable {
     public var action: String
     public var place: String?
@@ -11,11 +13,28 @@ public struct Step: Codable, Sendable, Equatable {
     /// Longer instructions for the step, shown as wrapped prose.
     public var detail: String?
     public var url: String?
+    public var substeps: [Step]?
 
     enum CodingKeys: String, CodingKey {
         case action = "do"
         case place = "where"
-        case code, lang, expect, detail, url
+        case code, lang, expect, detail, url, substeps
+    }
+}
+
+extension Step {
+    /// As the synthesized decoder did, plus a lenient `substeps`: null, the wrong
+    /// type or a malformed sub-step becomes nil instead of failing the instructable.
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        action = try c.decode(String.self, forKey: .action)
+        place = try c.decodeIfPresent(String.self, forKey: .place)
+        code = try c.decodeIfPresent(String.self, forKey: .code)
+        lang = try c.decodeIfPresent(String.self, forKey: .lang)
+        expect = try c.decodeIfPresent(String.self, forKey: .expect)
+        detail = try c.decodeIfPresent(String.self, forKey: .detail)
+        url = try c.decodeIfPresent(String.self, forKey: .url)
+        substeps = (try? c.decodeIfPresent([Step].self, forKey: .substeps)) ?? nil
     }
 }
 
