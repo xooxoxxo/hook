@@ -1,5 +1,6 @@
 import AppKit
 import RelayCore
+import RelayUI
 
 /// The status item: the template "checklist" symbol with a red
 /// badge on its top-right corner while any ask is open (the count when it fits
@@ -60,8 +61,7 @@ import RelayCore
         button.toolTip = state.tooltip
         button.setAccessibilityLabel(state.accessibilityLabel)
         badge.badge = state.badge
-        badge.isHidden = state.badge == .none
-        badge.alphaValue = state.dimmed ? 0.5 : 1
+        badge.dimmed = state.dimmed
         button.layoutSubtreeIfNeeded()
         placeBadge(in: button)
     }
@@ -81,14 +81,9 @@ import RelayCore
     /// Positioned from the bounds and the image rect, so taller menu bars
     /// (notched MacBooks) need no special case.
     private func placeBadge(in button: NSStatusBarButton) {
-        let size = badge.diameter
         let bounds = button.bounds
         let image = button.cell?.imageRect(forBounds: bounds) ?? bounds
-        let x = min(max(image.maxX - size * 0.6, bounds.minX), bounds.maxX - size)
-        let y = button.isFlipped ? image.minY - size * 0.35 : image.maxY - size * 0.65
-        badge.frame = NSRect(
-            x: x, y: min(max(y, bounds.minY), bounds.maxY - size),
-            width: size, height: size)
+        badge.frame = BadgeGeometry.frame(for: badge.badge, in: bounds, imageRect: image, flipped: button.isFlipped)
         badge.needsDisplay = true
     }
 
@@ -152,44 +147,4 @@ import RelayCore
         guard let raw = sender.representedObject as? String, let mode = PresenceMode(rawValue: raw) else { return }
         onPresence(mode)
     }
-}
-
-/// The red badge: a 12 pt circle with a white digit, or a plain 7 pt dot.
-/// Redraws on appearance changes and never takes clicks.
-private final class BadgeView: NSView {
-    var badge: MenuBarBadge = .none {
-        didSet { if badge != oldValue { needsDisplay = true } }
-    }
-
-    var diameter: CGFloat {
-        if case .number = badge { return 12 }
-        return 7
-    }
-
-    override func viewDidChangeEffectiveAppearance() {
-        super.viewDidChangeEffectiveAppearance()
-        needsDisplay = true
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        guard badge != .none else { return }
-        NSColor.systemRed.setFill()
-        NSBezierPath(ovalIn: bounds).fill()
-        guard case .number(let count) = badge,
-              let context = NSGraphicsContext.current?.cgContext else { return }
-        let text = NSAttributedString(string: "\(count)", attributes: [
-            .font: NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .bold),
-            .foregroundColor: NSColor.white,
-        ])
-        // Centre the digit's ink, not its line box, so it looks optically centred.
-        let line = CTLineCreateWithAttributedString(text)
-        let ink = CTLineGetBoundsWithOptions(line, .useGlyphPathBounds)
-        context.saveGState()
-        context.textMatrix = .identity
-        context.textPosition = CGPoint(x: bounds.midX - ink.midX, y: bounds.midY - ink.midY)
-        CTLineDraw(line, context)
-        context.restoreGState()
-    }
-
-    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
