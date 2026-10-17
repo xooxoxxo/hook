@@ -20,7 +20,7 @@ struct SheetSection {
 
 /// The sheet's sections in reading order. Tasks 7–14 each append one.
 @MainActor func sheetSections() -> [SheetSection] {
-    [typeRamp(), controls(), rows(), headers(), bars(), codeAndLinks(), steps(), reply()]
+    [typeRamp(), controls(), rows(), headers(), bars(), codeAndLinks(), steps(), reply(), states()]
 }
 
 @MainActor func typeRamp() -> SheetSection {
@@ -332,6 +332,38 @@ struct ComponentsSheet: View {
             }
         }
     }
+}
+
+@MainActor func states() -> SheetSection {
+    func state(_ kind: StateKind) -> some View { StateView(kind, actions: .none).frame(height: 220) }
+    return SheetSection(title: "States and Settings rows", samples: [
+        Sample("StateView · loading") { state(.loading(source: "Mailbox", stillTrying: false)) },
+        Sample("StateView · loading, still trying") { state(.loading(source: "Mailbox", stillTrying: true)) },
+        Sample("StateView · empty") { state(.empty(updated: "09:40")) },
+        Sample("StateView · empty, filtered") { state(.emptyFiltered(project: "Atlas", updated: "09:40")) },
+        Sample("StateView · offline") { state(.offline(title: "Can't reach the mailbox", reason: "The mailbox didn't answer within 10 seconds.")) },
+        Sample("StateView · not set up") { state(.notSetUp) },
+        Sample("StateView · not found") { state(.notFound(canShowClosed: true)) },
+        Sample("SettingsRow · help, none, error") {
+            Form {
+                Section("Shortcut") {
+                    SettingsRow("Show or hide Relay", help: "Click the field, then press the new keys.",
+                                error: "That key can't be used. Pick a letter, a digit, Space, ` or F1–F12.") {
+                        ShortcutField(label: "⌃⌥⌘R", onBegin: {}, onRecord: { _ in }, onCancel: {}, onClear: {})
+                    }
+                    SettingsRow("Appearance") {
+                        Picker("Appearance", selection: .constant(0)) { Text("System").tag(0) }.labelsHidden().fixedSize()
+                    }
+                }
+                Section("Mailbox") {
+                    MailboxFields(address: .constant("https://mailbox.example:8790"), tokenFile: .constant(""),
+                                  context: .constant(""), addressError: nil, tokenFileError: nil, onChooseTokenFile: {})
+                }
+            }
+            .formStyle(.grouped)
+            .frame(height: 470)
+        },
+    ])
 }
 
 @MainActor let componentScenes: [GalleryScene] = [

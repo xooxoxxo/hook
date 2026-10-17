@@ -1,5 +1,6 @@
 import AppKit
 import RelayCore
+import RelayUI
 import SwiftUI
 
 /// Settings → General: shortcut, launch at login, menu-bar badge count,

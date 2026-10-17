@@ -5,7 +5,7 @@ import SwiftUI
 
 /// The shortcut field on the General tab. Click it, then press a
 /// combination with at least one of ⌘, ⌃ or ⌥; Esc or clicking elsewhere cancels.
-struct ShortcutRecorder: NSViewRepresentable {
+public struct ShortcutRecorder: NSViewRepresentable {
     /// What the field shows while idle, e.g. "⌃⌥⌘R" or "(not set)".
     let label: String
     let onBegin: @MainActor () -> Void
@@ -13,13 +13,21 @@ struct ShortcutRecorder: NSViewRepresentable {
     let onRecord: @MainActor (HotkeySpec?) -> Void
     let onCancel: @MainActor () -> Void
 
-    func makeNSView(context: Context) -> RecorderButton {
+    public init(label: String, onBegin: @escaping @MainActor () -> Void,
+                onRecord: @escaping @MainActor (HotkeySpec?) -> Void, onCancel: @escaping @MainActor () -> Void) {
+        self.label = label
+        self.onBegin = onBegin
+        self.onRecord = onRecord
+        self.onCancel = onCancel
+    }
+
+    public func makeNSView(context: Context) -> RecorderButton {
         let button = RecorderButton()
         configure(button)
         return button
     }
 
-    func updateNSView(_ button: RecorderButton, context: Context) {
+    public func updateNSView(_ button: RecorderButton, context: Context) {
         configure(button)
     }
 
@@ -33,7 +41,7 @@ struct ShortcutRecorder: NSViewRepresentable {
 }
 
 /// A push button that catches the next key press while recording.
-final class RecorderButton: NSButton {
+public final class RecorderButton: NSButton {
     var idleLabel = ""
     var onBegin: (@MainActor () -> Void)?
     var onRecord: (@MainActor (HotkeySpec?) -> Void)?
@@ -46,7 +54,7 @@ final class RecorderButton: NSButton {
         setButtonType(.momentaryPushIn)
         target = self
         action = #selector(startRecording)
-        widthAnchor.constraint(greaterThanOrEqualToConstant: 130).isActive = true
+        widthAnchor.constraint(greaterThanOrEqualToConstant: DS.Metric.recorderMin).isActive = true
         setAccessibilityLabel("Shortcut")
     }
 
@@ -55,7 +63,7 @@ final class RecorderButton: NSButton {
         fatalError("RecorderButton is created in code")
     }
 
-    override var acceptsFirstResponder: Bool { true }
+    public override var acceptsFirstResponder: Bool { true }
 
     func refreshTitle() {
         title = isRecording ? "Press keys…" : idleLabel
@@ -69,7 +77,7 @@ final class RecorderButton: NSButton {
         window?.makeFirstResponder(self)
     }
 
-    override func keyDown(with event: NSEvent) {
+    public override func keyDown(with event: NSEvent) {
         guard isRecording else {
             super.keyDown(with: event)
             return
@@ -78,7 +86,7 @@ final class RecorderButton: NSButton {
     }
 
     /// ⌘ and ⌃ combinations arrive here before keyDown (and before the main menu).
-    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+    public override func performKeyEquivalent(with event: NSEvent) -> Bool {
         guard isRecording, window?.firstResponder === self else {
             return super.performKeyEquivalent(with: event)
         }
@@ -86,7 +94,7 @@ final class RecorderButton: NSButton {
         return true
     }
 
-    override func resignFirstResponder() -> Bool {
+    public override func resignFirstResponder() -> Bool {
         cancelRecording()
         return super.resignFirstResponder()
     }
@@ -94,7 +102,7 @@ final class RecorderButton: NSButton {
     /// Closing Settings or switching apps mid-recording never resigns first
     /// responder, so watch the window too: either one cancels the recording and
     /// resumes the old shortcut.
-    override func viewWillMove(toWindow newWindow: NSWindow?) {
+    public override func viewWillMove(toWindow newWindow: NSWindow?) {
         let center = NotificationCenter.default
         if let old = window {
             center.removeObserver(self, name: NSWindow.didResignKeyNotification, object: old)
