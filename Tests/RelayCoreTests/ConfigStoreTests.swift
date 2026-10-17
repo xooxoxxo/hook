@@ -94,6 +94,14 @@ private let mailboxProblem = ResolvedSource.invalid("mailbox needs an http(s) ma
         #expect(RelayConfig.path(environment: environment).path == "/tmp/relay-example/config.json")
         #expect(RelayConfig.directory(environment: environment).path == "/tmp/relay-example")
     }
+
+    @Test(arguments: [
+        ("{}", AfterClose.next), (#"{"afterClose":"queue"}"#, .queue), (#"{"afterClose":"next"}"#, .next),
+        (#"{"afterClose":"bogus"}"#, .next), (#"{"afterClose":3}"#, .next), (#"{"afterClose":null}"#, .next),
+    ])
+    func afterCloseDecodesLeniently(_ json: String, _ expected: AfterClose) throws {
+        #expect(try decode(json).afterClose == expected)
+    }
 }
 
 @Suite struct ConfigStoreTests {
@@ -194,6 +202,19 @@ private let mailboxProblem = ResolvedSource.invalid("mailbox needs an http(s) ma
         #expect(try mode(url) == 0o600)
         #expect(try mode(url.deletingLastPathComponent()) == 0o700)
         #expect(ConfigStore.load(url) == .loaded(RelayConfig(source: .local)))
+    }
+
+    @Test func afterCloseMergesIntoTheOtherKeys() throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let url = root.appending(path: "config.json")
+        try PrivateFile.write(Data(#"{"source":"local","port":47901,"futureKey":true}"#.utf8), to: url)
+
+        try ConfigStore.merge(set: ["afterClose": AfterClose.queue.rawValue], into: url)
+        #expect(ConfigStore.load(url) == .loaded(RelayConfig(source: .local, port: 47901, afterClose: .queue)))
+        let object = try #require(try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        #expect(object["futureKey"] as? Bool == true)
+        #expect(object["afterClose"] as? String == "queue")
     }
 }
 
