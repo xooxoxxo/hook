@@ -20,7 +20,7 @@ struct SheetSection {
 
 /// The sheet's sections in reading order. Tasks 7–14 each append one.
 @MainActor func sheetSections() -> [SheetSection] {
-    [typeRamp(), controls(), rows(), headers(), bars(), codeAndLinks(), steps()]
+    [typeRamp(), controls(), rows(), headers(), bars(), codeAndLinks(), steps(), reply()]
 }
 
 @MainActor func typeRamp() -> SheetSection {
@@ -254,6 +254,52 @@ let sampleVerify = StepContent(action: "Check the release folder exists", place:
         Sample("StepView · verify current") { step(sampleVerify, .verify, .current) },
         Sample("StepView · verify done") { step(sampleVerify, .verify, .done) },
         Sample("StepView · read-only") { step(sampleStep4, .top(4), .todo, readOnly: true) },
+    ])
+}
+
+/// ReplyBox needs a FocusState; the gallery holds one per sample.
+struct ReplySample: View {
+    let text: String
+    let state: ReplyBoxState
+    var showHeading = true
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        ReplyBox(prompt: "Paste the ticket ID from the tracker (starts with C)", text: .constant(text), state: state,
+                 showHeading: showHeading, isFocused: $focused, onSend: {}, onRetry: {})
+    }
+}
+
+@MainActor func reply() -> SheetSection {
+    let choices = ["Europe", "North America"]
+    let origin = AskOrigin(from: Origin(session: "1b2c3d4e-0000-4000-8000-000000000001", host: "example-mac", cwd: "/work/acme"))!
+    func choice(picked: Int?, sent: Set<Int>, latest: Int?) -> some View {
+        ChoiceGroup(prompt: "Which region should the backups use?", choices: choices, picked: .constant(picked), sent: sent,
+                    latestSent: latest, sending: false, onSend: {})
+    }
+    return SheetSection(title: "Reply", samples: [
+        Sample("ReplyBox · empty") { ReplySample(text: "", state: .idle) },
+        Sample("ReplyBox · typing") { ReplySample(text: "C0123ABCDEF", state: .idle) },
+        Sample("ReplyBox · sending") { ReplySample(text: "C0123ABCDEF", state: .sending) },
+        Sample("ReplyBox · sent") { ReplySample(text: "", state: .sent(at: "09:40")) },
+        Sample("ReplyBox · failed") { ReplySample(text: "C0123ABCDEF", state: .failed(reason: "The mailbox didn't answer within 10 seconds.")) },
+        Sample("ChoiceGroup · none picked") { choice(picked: nil, sent: [], latest: nil) },
+        Sample("ChoiceGroup · picked") { choice(picked: 0, sent: [], latest: nil) },
+        Sample("ChoiceGroup · sent") { choice(picked: 0, sent: [0], latest: 0) },
+        Sample("RepliesList") {
+            RepliesList([ReplyLine(id: 1, text: "You chose: Europe", time: "09:12"), ReplyLine(id: 2, text: "C0123ABCDEF", time: "09:31")])
+        },
+        Sample("Reply anyway · expanded") {
+            DisclosureGroup("Reply anyway", isExpanded: .constant(true)) {
+                VStack(alignment: .leading, spacing: DS.Space.inline) {
+                    Text("The session may have finished. It sees this only if it checks replies.")
+                        .font(DS.Font.caption).foregroundStyle(DS.Color.secondary)
+                    ReplySample(text: "", state: .idle, showHeading: false)
+                }
+            }
+        },
+        Sample("FromDisclosure · collapsed") { FromDisclosure(origin: origin, expanded: .constant(false), onCopy: { _ in }) },
+        Sample("FromDisclosure · expanded") { FromDisclosure(origin: origin, expanded: .constant(true), onCopy: { _ in }) },
     ])
 }
 

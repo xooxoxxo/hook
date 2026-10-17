@@ -33,6 +33,10 @@ public struct Origin: Codable, Sendable, Equatable {
     public var session: String?
     public var host: String?
     public var cwd: String?
+
+    public init(session: String? = nil, host: String? = nil, cwd: String? = nil) {
+        self.session = session; self.host = host; self.cwd = cwd
+    }
 }
 
 /// An instructable (`"v": 1`). The mailbox service validates strictly; Relay only displays it, so
