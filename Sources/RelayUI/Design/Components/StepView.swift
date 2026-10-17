@@ -56,7 +56,6 @@ public struct StepView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(.horizontal, -DS.Space.currentBleed)
-            .accessibilityValue("Current step")
         case .todo:
             column(actionFont: DS.Font.body)
         }
@@ -75,7 +74,7 @@ public struct StepView: View {
 
     private var tick: some View {
         TickButton(level: level, state: state, label: line(content.action),
-                   hint: StepAccessibility.hint(level: level, total: total), value: StepAccessibility.value(state),
+                   hint: StepAccessibility.hint(level: level, total: total), value: StepAccessibility.tickValue(state),
                    help: StepAccessibility.help(state), readOnly: readOnly, action: toggle)
     }
 

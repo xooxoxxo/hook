@@ -12,6 +12,12 @@ public enum StepAccessibility {
 
     public static func value(_ state: StepState) -> String { state == .done ? "Done" : "Not done" }
 
+    /// The tick's value: `value(_:)`, plus the current-step cue on the current step (spec §4.14),
+    /// so the cue sits on the one element that owns the state instead of every child of the box.
+    public static func tickValue(_ state: StepState) -> String {
+        state == .current ? "Not done, current step" : value(state)
+    }
+
     public static func help(_ state: StepState) -> String {
         switch state {
         case .current: return "Mark as done (⌘T)"
