@@ -20,7 +20,7 @@ struct SheetSection {
 
 /// The sheet's sections in reading order. Tasks 7–14 each append one.
 @MainActor func sheetSections() -> [SheetSection] {
-    [typeRamp(), controls(), rows(), headers(), bars(), codeAndLinks()]
+    [typeRamp(), controls(), rows(), headers(), bars(), codeAndLinks(), steps()]
 }
 
 @MainActor func typeRamp() -> SheetSection {
@@ -213,6 +213,47 @@ let longProject = "Quarterly planning for the public launch of the pricing page"
         Sample("RefusedLink · not a web address") { RefusedLink(text: LinkDisplay.refusedText(label: nil), raw: "ftp://files.example.com/brief.pdf") },
         Sample("Link row") { OpenLink(title: LinkDisplay.linkTitle(label: "API docs", url: "https://api.example.com/v2/docs"), url: URL(string: "https://api.example.com/v2/docs")!) },
         Sample("ExpectLine") { ExpectLine("token-ok") },
+    ])
+}
+
+let sampleStep1 = StepContent(action: "Create the release folder", place: "Mac terminal",
+                              code: "mkdir -p ~/src/acme/release", expect: "The command prints nothing")
+let sampleParent = StepContent(action: "Register the Acme app", place: "Developer portal")
+let sampleSubs = [
+    StepContent(action: "Click New App, then Start empty", url: "https://developer.example.com/apps"),
+    StepContent(action: "Name it Acme and pick your team"),
+    StepContent(action: "Under Permissions, add the read scope", code: "items:read", lang: "text"),
+]
+let sampleStep4 = StepContent(action: "Create an access token", place: "Developer portal",
+                              detail: "Click New Token. Name it Acme and set it to expire in 90 days, then save. Treat the token like a password.",
+                              url: "https://developer.example.com/tokens")
+let sampleVerify = StepContent(action: "Check the release folder exists", place: "Mac terminal",
+                               code: "test -d ~/src/acme/release && echo folder-ok", expect: "folder-ok")
+
+@MainActor func steps() -> SheetSection {
+    func step(_ c: StepContent, _ level: StepLevel, _ state: StepState, expanded: Bool = false, readOnly: Bool = false) -> some View {
+        StepView(content: c, level: level, state: state, total: 6, readOnly: readOnly, expanded: .constant(expanded),
+                 onToggle: {}, onCopy: { _ in })
+    }
+    func parent(_ states: [StepState], expanded: Bool = false) -> some View {
+        ParentStepView(content: sampleParent, number: 2, total: 6, children: sampleSubs, childPaths: ["2.1", "2.2", "2.3"],
+                       childStates: states, readOnly: false,
+                       expanded: .constant(expanded), childExpanded: { _ in .constant(false) },
+                       onToggleParent: {}, onToggleChild: { _ in }, onCopy: { _ in })
+    }
+    return SheetSection(title: "Steps", samples: [
+        Sample("StepView · done, collapsed") { step(sampleStep1, .top(1), .done) },
+        Sample("StepView · done, expanded") { step(sampleStep1, .top(1), .done, expanded: true) },
+        Sample("StepView · current") { step(sampleStep4, .top(4), .current) },
+        Sample("StepView · todo") { step(sampleStep1, .top(5), .todo) },
+        Sample("ParentStepView · holds the current sub-step") { parent([.done, .current, .todo]) },
+        Sample("ParentStepView · done, collapsed") { parent([.done, .done, .done]) },
+        Sample("ParentStepView · done, expanded") { parent([.done, .done, .done], expanded: true) },
+        Sample("StepView · sub-step read-only") { step(sampleSubs[2], .sub(2, 2), .todo, readOnly: true) },
+        Sample("StepView · verify todo") { step(sampleVerify, .verify, .todo) },
+        Sample("StepView · verify current") { step(sampleVerify, .verify, .current) },
+        Sample("StepView · verify done") { step(sampleVerify, .verify, .done) },
+        Sample("StepView · read-only") { step(sampleStep4, .top(4), .todo, readOnly: true) },
     ])
 }
 
