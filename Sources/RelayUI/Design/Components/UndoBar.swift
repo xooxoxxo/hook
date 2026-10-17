@@ -15,32 +15,42 @@ public struct UndoBar: View {
     }
 
     public var body: some View {
-        VStack(spacing: 0) {
-            Divider()
-            HStack(alignment: .firstTextBaseline, spacing: DS.Space.inline) {
-                Text(Self.text(undo))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                Spacer(minLength: DS.Space.inline)
-                // The upper bound never drops below the lower one, so the range can't invert.
-                Text(timerInterval: Date()...max(Date(), undo.deadline), countsDown: true)
-                    .monospacedDigit()
-                    .foregroundStyle(DS.Color.secondary)
-                Button("Undo", action: onUndo)
-                    .controlSize(DS.Control.inline)
-                    .help("Undo (⌘Z)")
+        // The label's seconds-left value is redrawn at each instant it changes (rule A6), so
+        // VoiceOver and the visible countdown agree. The explicit schedule ends at the deadline.
+        TimelineView(.explicit(Self.ticks(until: undo.deadline, now: Date()))) { context in
+            VStack(spacing: 0) {
+                Divider()
+                HStack(alignment: .firstTextBaseline, spacing: DS.Space.inline) {
+                    Text(Self.text(undo))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Spacer(minLength: DS.Space.inline)
+                    // The upper bound never drops below the lower one, so the range can't invert.
+                    Text(timerInterval: context.date...max(context.date, undo.deadline), countsDown: true)
+                        .monospacedDigit()
+                        .foregroundStyle(DS.Color.secondary)
+                    Button("Undo", action: onUndo)
+                        .controlSize(DS.Control.inline)
+                        .help("Undo (⌘Z)")
+                }
+                .font(DS.Font.meta)
+                .padding(.horizontal, DS.Space.gutter)
+                .frame(height: DS.Metric.undoBar)
+                .background(DS.Color.bar)
             }
-            .font(DS.Font.meta)
-            .padding(.horizontal, DS.Space.gutter)
-            .frame(height: DS.Metric.undoBar)
-            .background(DS.Color.bar)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(Self.accessibilityText(undo, secondsLeft: Self.secondsLeft(until: undo.deadline, now: context.date)))
+            .accessibilityAddTraits(.isButton)
+            // VO-Space on the combined element runs Undo, whatever the child Button does.
+            .accessibilityAction { onUndo() }
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(Self.accessibilityText(undo, secondsLeft: Self.secondsLeft(until: undo.deadline, now: Date())))
-        .onAppear { AccessibilityNotification.Announcement(Self.announcement).post() }
+        .onAppear { AccessibilityNotification.Announcement(Self.announcement(undo.verdict)).post() }
     }
 
-    public static let announcement = "Done. Undo available for 10 seconds."
+    /// "Done. Undo available for 10 seconds." or "Skipped. …"; the hold is `DS.Motion.undoHold`.
+    public static func announcement(_ verdict: Verdict) -> String {
+        "\(word(verdict)). Undo available for \(Int(DS.Motion.undoHold)) seconds."
+    }
 
     static func word(_ verdict: Verdict) -> String { verdict == .done ? "Done" : "Skipped" }
 
@@ -57,5 +67,12 @@ public struct UndoBar: View {
     /// Whole seconds until `deadline`, rounded up, never below 0.
     public static func secondsLeft(until deadline: Date, now: Date) -> Int {
         max(0, Int(deadline.timeIntervalSince(now).rounded(.up)))
+    }
+
+    /// The ascending instants at which `secondsLeft(until:now:)` changes, ending at `deadline`;
+    /// empty once the deadline has passed. Drives the accessibility label's redraws.
+    static func ticks(until deadline: Date, now: Date) -> [Date] {
+        let n = secondsLeft(until: deadline, now: now)
+        return (0..<n).reversed().map { deadline.addingTimeInterval(-Double($0)) }
     }
 }

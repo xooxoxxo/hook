@@ -20,7 +20,10 @@ private let deadline = Date(timeIntervalSince1970: 1_000)
             == "Skipped: X. Undo, 3 seconds left")
         #expect(UndoBar.secondsLeft(until: deadline, now: deadline.addingTimeInterval(-7.2)) == 8)
         #expect(UndoBar.secondsLeft(until: deadline, now: deadline.addingTimeInterval(5)) == 0)
-        #expect(UndoBar.announcement == "Done. Undo available for 10 seconds.")
+        #expect(UndoBar.announcement(.done) == "Done. Undo available for 10 seconds.")
+        #expect(UndoBar.announcement(.declined) == "Skipped. Undo available for 10 seconds.")
+        #expect(UndoBar.ticks(until: deadline, now: deadline.addingTimeInterval(-7.2)) == (0..<8).reversed().map { deadline.addingTimeInterval(-Double($0)) })
+        #expect(UndoBar.ticks(until: deadline, now: deadline.addingTimeInterval(5)).isEmpty)
     }
 
     @Test func statusSentence() {
