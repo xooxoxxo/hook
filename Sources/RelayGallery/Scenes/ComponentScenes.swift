@@ -20,7 +20,7 @@ struct SheetSection {
 
 /// The sheet's sections in reading order. Tasks 7–14 each append one.
 @MainActor func sheetSections() -> [SheetSection] {
-    [typeRamp(), controls(), rows(), headers(), bars()]
+    [typeRamp(), controls(), rows(), headers(), bars(), codeAndLinks()]
 }
 
 @MainActor func typeRamp() -> SheetSection {
@@ -195,6 +195,24 @@ let longProject = "Quarterly planning for the public launch of the pricing page"
         Sample("Notice · error with action") { Notice(kind: .error, text: actionError, actionTitle: "Retry", onAction: {}, onDismiss: {}) },
         Sample("Notice · info") { Notice(kind: .info, text: "Settings changed, so the queue reloaded.", actionTitle: nil, onAction: {}, onDismiss: {}) },
         Sample("Notice · info with action") { Notice(kind: .info, text: "Offline · showing asks from 09:22", actionTitle: "Try Again", onAction: {}, onDismiss: {}) },
+    ])
+}
+
+@MainActor func codeAndLinks() -> SheetSection {
+    let store = "ssh-keygen -t ed25519 -f ~/.ssh/acme_deploy -C deploy@example.com"
+    func open(_ raw: String) -> some View {
+        OpenLink(title: LinkDisplay.stepTitle(raw) ?? raw, url: URL(string: raw)!)
+    }
+    return SheetSection(title: "Code and links", samples: [
+        Sample("CodeBlock · normal") { CodeBlock(code: store, copyLabel: "Copy the command for step 5", lang: "bash", onCopy: { _ in }) },
+        Sample("CodeBlock · copied") { CodeBlock(code: store, copyLabel: "Copy the command for step 5", copied: true, onCopy: { _ in }) },
+        Sample("CodeBlock · hidden characters") { CodeBlock(code: "echo token\u{200B}-ok", copyLabel: "Copy the verify command", onCopy: { _ in }) },
+        Sample("CodeBlock · long line wraps") { CodeBlock(code: String(repeating: "curl -s https://api.example.com/v1/items | ", count: 4) + "jq .", copyLabel: "Copy the command for step 2", onCopy: { _ in }) },
+        Sample("OpenLink · web") { open("https://www.example.com/oauth/apps") },
+        Sample("OpenLink · non-ASCII host") { open("https://xn--bcher-kva.example.com/apps") },
+        Sample("RefusedLink · not a web address") { RefusedLink(text: LinkDisplay.refusedText(label: nil), raw: "ftp://files.example.com/brief.pdf") },
+        Sample("Link row") { OpenLink(title: LinkDisplay.linkTitle(label: "API docs", url: "https://api.example.com/v2/docs"), url: URL(string: "https://api.example.com/v2/docs")!) },
+        Sample("ExpectLine") { ExpectLine("token-ok") },
     ])
 }
 
