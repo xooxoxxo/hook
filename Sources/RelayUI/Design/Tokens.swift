@@ -93,7 +93,9 @@ public enum DS {
         public static let codeFill = AnyShapeStyle(.quaternary.opacity(0.6))
         public static let bar = Material.bar
         public static var badge: NSColor { .systemRed }
-        public static let badgeText = SwiftUI.Color.white
+        public static var badgeText: NSColor { .white }
+        /// Badge alpha while offline (§4.10).
+        public static let badgeDimmedAlpha: CGFloat = 0.5
         /// Gallery stand-in for the panel's sidebar material, which does not render offscreen:
         /// the window background, translucent over `canvas` (which plays the desktop behind the panel).
         public static let panelStandIn = SwiftUI.Color(nsColor: .windowBackgroundColor).opacity(0.8)

@@ -36,7 +36,7 @@ public final class BadgeView: NSView {
     }
 
     public var dimmed = false {
-        didSet { alphaValue = dimmed ? 0.5 : 1 }
+        didSet { alphaValue = dimmed ? DS.Color.badgeDimmedAlpha : 1 }
     }
 
     public override init(frame: NSRect) {
@@ -63,7 +63,7 @@ public final class BadgeView: NSView {
         guard case .number(let count) = badge, let context = NSGraphicsContext.current?.cgContext else { return }
         let text = NSAttributedString(string: "\(count)", attributes: [
             .font: DS.Font.badgeDigit,
-            .foregroundColor: NSColor.white,
+            .foregroundColor: DS.Color.badgeText,
         ])
         // Centre the digit's ink, not its line box, so it looks optically centred.
         let line = CTLineCreateWithAttributedString(text)
