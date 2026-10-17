@@ -73,3 +73,21 @@ public enum Flow {
         return (ticks.subtracting([target]), target)
     }
 }
+
+extension Flow {
+    /// After Done or Skip on `id`: the next row below, else the one above, else nil.
+    /// `id` not in the order (it was outside the filter): the first row, else nil.
+    public static func nextAsk(after id: String, in visibleOrder: [String]) -> String? {
+        guard let index = visibleOrder.firstIndex(of: id) else { return visibleOrder.first }
+        if index + 1 < visibleOrder.count { return visibleOrder[index + 1] }
+        if index > 0 { return visibleOrder[index - 1] }
+        return nil
+    }
+
+    /// "Send & Done" while the reply field has text or a picked choice isn't the latest sent one.
+    public static func primaryAction(draft: String?, choice: Int?, sent: Int?) -> PrimaryAction {
+        if let draft, !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return .sendAndDone }
+        if let choice, choice != sent { return .sendAndDone }
+        return .done
+    }
+}

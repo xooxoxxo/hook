@@ -71,3 +71,44 @@ private let nodes = DetailModel.nodes(
         #expect(Flow.untickLast(ticks: ["2"], history: ["2"], nodes: nodes).path == nil)
     }
 }
+
+@Suite struct NextAskTests {
+    @Test func middleGoesDown() { #expect(Flow.nextAsk(after: "b", in: ["a", "b", "c"]) == "c") }
+    @Test func firstGoesDown() { #expect(Flow.nextAsk(after: "a", in: ["a", "b", "c"]) == "b") }
+    @Test func lastGoesUp() { #expect(Flow.nextAsk(after: "c", in: ["a", "b", "c"]) == "b") }
+    @Test func singleHasNone() { #expect(Flow.nextAsk(after: "a", in: ["a"]) == nil) }
+    @Test func emptyHasNone() { #expect(Flow.nextAsk(after: "a", in: []) == nil) }
+    @Test func outsideTheFilterTakesTheFirst() { #expect(Flow.nextAsk(after: "x", in: ["a", "b"]) == "a") }
+    @Test func outsideTheFilterWithNothingShownHasNone() { #expect(Flow.nextAsk(after: "x", in: []) == nil) }
+
+    /// Closing every ask in turn: each close opens the next until none is left.
+    @Test func theListDrainsInOrder() {
+        var order = ["a", "b", "c"]
+        var opened: [String] = []
+        var current: String? = "a"
+        while let id = current {
+            current = Flow.nextAsk(after: id, in: order)
+            order.removeAll { $0 == id }
+            if let next = current { opened.append(next) }
+        }
+        #expect(opened == ["b", "c"])
+    }
+}
+
+@Suite struct PrimaryActionTests {
+    @Test func doneByDefault() {
+        #expect(Flow.primaryAction(draft: nil, choice: nil, sent: nil) == .done)
+        #expect(Flow.primaryAction(draft: " \n", choice: nil, sent: nil) == .done)
+    }
+
+    @Test func aDraftMakesItSendAndDone() {
+        #expect(Flow.primaryAction(draft: "C07", choice: nil, sent: nil) == .sendAndDone)
+    }
+
+    @Test func aPickedUnsentChoiceMakesItSendAndDone() {
+        #expect(Flow.primaryAction(draft: nil, choice: 1, sent: nil) == .sendAndDone)
+        #expect(Flow.primaryAction(draft: nil, choice: 1, sent: 0) == .sendAndDone)
+        #expect(Flow.primaryAction(draft: nil, choice: 1, sent: 1) == .done)
+        #expect(Flow.primaryAction(draft: nil, choice: nil, sent: 1) == .done)
+    }
+}
