@@ -80,6 +80,20 @@ let legacyJSON = #"""
     return snapshot
 }
 
+/// The fixture's step ask before its detail arrives: no model yet (as `DetailSnapshot.build`
+/// makes it with `detail: nil`), so the header and title come from the row and the steps
+/// area shows `load`: "Loading steps…" or, after the timeout, "Couldn't load this ask."
+@MainActor func unloadedDetail(_ load: DetailLoadState) -> DetailSnapshot {
+    var snapshot = GalleryFixtures.detailSteps
+    snapshot.model = nil
+    snapshot.load = load
+    snapshot.ticks = []
+    snapshot.current = Flow.currentStep(ticks: [], nodes: [])
+    snapshot.progress = Flow.progress(ticks: [], nodes: [])
+    snapshot.replies = []
+    return snapshot
+}
+
 /// Not found, but the ask is in Recently closed, so "Show Closed Ask" is offered (§4.7;
 /// controller ruling from Task 40). Without it is "state-notfound" (StateScenes).
 @MainActor func notFoundClosedModel() -> FixturePanelModel {
@@ -92,5 +106,7 @@ let legacyJSON = #"""
     detailScene("detail-legacy", detailSnapshot(decodeDetail(legacyJSON), base: GalleryFixtures.detailSteps)),
     detailScene("detail-closed", closedDetail),
     detailScene("detail-session-closed", sessionClosedDetail, notice: .sessionClosed(id: sessionClosedDetail.id)),
+    detailScene("detail-loading", unloadedDetail(.loading)),
+    detailScene("detail-load-failed", unloadedDetail(.timedOut)),
     panelScene("detail-notfound-closed", notFoundClosedModel()),
 ]
