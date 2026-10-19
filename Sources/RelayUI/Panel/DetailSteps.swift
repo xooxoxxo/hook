@@ -70,6 +70,10 @@ struct DetailSteps<Model: PanelViewModel>: View {
                 ForEach(nodes) { node in
                     nodeView(node)
                         .id(node.path)
+                        .background(GeometryReader { geometry in
+                            Color.clear.preference(key: NodeFramesKey.self,
+                                                   value: [node.path: geometry.frame(in: .named(detailScrollSpace))])
+                        })
                 }
             }
         }

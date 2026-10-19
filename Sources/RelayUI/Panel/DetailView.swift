@@ -11,6 +11,8 @@ struct DetailView<Model: PanelViewModel>: View {
     @Environment(\.panelGallery) private var gallery
     @AppStorage("relay.detail.fromExpanded") private var storedFromExpanded = false
     @FocusState private var replyFocused: Bool
+    @State private var nodeFrames: [String: CGRect] = [:]
+    @State private var viewportHeight: CGFloat = 0
 
     init(model: Model, id: String) {
         _model = ObservedObject(wrappedValue: model)
@@ -85,13 +87,58 @@ struct DetailView<Model: PanelViewModel>: View {
                 bottomBars(snapshot)
             }
         } else {
-            ScrollViewReader { _ in
+            ScrollViewReader { proxy in
                 ScrollView {
                     content(snapshot)
                 }
+                .coordinateSpace(name: detailScrollSpace)
+                .background(GeometryReader { geometry in
+                    Color.clear
+                        .onAppear { viewportHeight = geometry.size.height }
+                        .onChange(of: geometry.size.height) { _, height in viewportHeight = height }
+                })
+                .onPreferenceChange(NodeFramesKey.self) { frames in
+                    // Some SDKs mark this closure @Sendable; it always runs on the main thread.
+                    MainActor.assumeIsolated {
+                        nodeFrames = frames
+                        noteAnchor(frames, order: Flow.flattened(snapshot.model?.nodes ?? []).map(\.path))
+                    }
+                }
+                .onAppear { restoreAnchor(proxy) }
+                .onChange(of: snapshot.current) { _, current in scrollToCurrent(current, proxy: proxy) }
                 .safeAreaInset(edge: .top, spacing: 0) { header(snapshot) }
                 .safeAreaInset(edge: .bottom, spacing: 0) { bottomBars(snapshot) }
             }
+        }
+    }
+
+    /// The visible band of the ScrollView: below the pinned header, above the action bar.
+    private var visibleTop: CGFloat { DS.Metric.header }
+    private var visibleBottom: CGFloat { viewportHeight - DS.Metric.actionBar }
+
+    /// Saves the top visible node as this ask's anchor (memory only); writes only on change,
+    /// so scrolling doesn't republish the model every frame.
+    private func noteAnchor(_ frames: [String: CGRect], order: [String]) {
+        let visible = Flow.visible(frames: frames, top: visibleTop, bottom: visibleBottom)
+        guard let anchor = Flow.topVisible(visible: visible, order: order), model.detailAnchor[id] != anchor else { return }
+        model.detailAnchor[id] = anchor
+    }
+
+    /// Back to where you left this ask. The anchor is read now, before the first frame
+    /// report of the fresh view can overwrite it with the top node.
+    private func restoreAnchor(_ proxy: ScrollViewProxy) {
+        guard let anchor = model.detailAnchor[id] else { return }
+        DispatchQueue.main.async { proxy.scrollTo(anchor, anchor: .top) }
+    }
+
+    /// After a tick: bring the new current leaf in only when it starts below the visible area
+    /// (design §4.4). A sub-step row has its own `.id(path)` and frame (Task 12), so the
+    /// leaf itself is the target, never its parent (Ruling 2).
+    private func scrollToCurrent(_ current: String?, proxy: ScrollViewProxy) {
+        guard let current, let frame = nodeFrames[current] else { return }
+        guard Flow.needsScroll(nodeTop: frame.minY, visibleBottom: visibleBottom) else { return }
+        withAnimation(DS.motion(DS.Motion.step, reduce: reduceMotion)) {
+            proxy.scrollTo(current, anchor: .top)
         }
     }
 

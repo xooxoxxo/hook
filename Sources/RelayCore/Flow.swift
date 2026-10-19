@@ -91,3 +91,25 @@ extension Flow {
         return .done
     }
 }
+
+// MARK: Scroll anchors (design §4.6 "Detail scroll per ask")
+
+extension Flow {
+    /// The anchor that restores a detail's scroll position: the first node in `order` that
+    /// is on screen. nil when none is.
+    public static func topVisible(visible: Set<String>, order: [String]) -> String? {
+        order.first { visible.contains($0) }
+    }
+
+    /// After a tick, scroll to the new current leaf only when its top is at or below the
+    /// visible area's bottom edge; a leaf already on screen (or above) stays put.
+    public static func needsScroll(nodeTop: CGFloat, visibleBottom: CGFloat) -> Bool {
+        nodeTop >= visibleBottom
+    }
+
+    /// The paths whose frame (in the scroll view's coordinates) overlaps the band from
+    /// `top` (below the header) to `bottom` (above the bars).
+    public static func visible(frames: [String: CGRect], top: CGFloat, bottom: CGFloat) -> Set<String> {
+        Set(frames.filter { $0.value.maxY > top && $0.value.minY < bottom }.keys)
+    }
+}

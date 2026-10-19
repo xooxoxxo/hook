@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import RelayCore
 
@@ -110,5 +111,37 @@ private let nodes = DetailModel.nodes(
         #expect(Flow.primaryAction(draft: nil, choice: 1, sent: 0) == .sendAndDone)
         #expect(Flow.primaryAction(draft: nil, choice: 1, sent: 1) == .done)
         #expect(Flow.primaryAction(draft: nil, choice: nil, sent: 1) == .done)
+    }
+}
+
+@Suite struct ScrollAnchorTests {
+    private let order = ["1", "2", "3", "4", "verify"]
+
+    @Test func topVisibleIsTheFirstVisibleInOrder() {
+        #expect(Flow.topVisible(visible: ["3", "2"], order: order) == "2")
+        #expect(Flow.topVisible(visible: ["verify"], order: order) == "verify")
+    }
+
+    @Test func nothingVisibleOrUnknownPathsGiveNoAnchor() {
+        #expect(Flow.topVisible(visible: [], order: order) == nil)
+        #expect(Flow.topVisible(visible: ["2.1", "x"], order: order) == nil)
+    }
+
+    @Test func visibleIsEveryFrameOverlappingTheBand() {
+        let frames: [String: CGRect] = [
+            "1": CGRect(x: 0, y: -200, width: 348, height: 150),   // scrolled away above
+            "2": CGRect(x: 0, y: 20, width: 348, height: 80),      // under the 44 pt header, bottom still visible
+            "3": CGRect(x: 0, y: 300, width: 348, height: 80),
+            "4": CGRect(x: 0, y: 900, width: 348, height: 80),     // below the action bar
+        ]
+        #expect(Flow.visible(frames: frames, top: 44, bottom: 764) == ["2", "3"])
+        #expect(Flow.topVisible(visible: Flow.visible(frames: frames, top: 44, bottom: 764), order: order) == "2")
+    }
+
+    @Test func scrollOnlyWhenTheNewCurrentStartsBelowTheVisibleArea() {
+        #expect(Flow.needsScroll(nodeTop: 800, visibleBottom: 764))
+        #expect(Flow.needsScroll(nodeTop: 764, visibleBottom: 764))
+        #expect(!Flow.needsScroll(nodeTop: 500, visibleBottom: 764))
+        #expect(!Flow.needsScroll(nodeTop: -40, visibleBottom: 764))
     }
 }
