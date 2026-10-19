@@ -107,6 +107,51 @@ private let b = item("b", created: stamp(minutesAgo: 20), steps: 2)
     }
 
     /// Controller ruling (Task 27 review): a stale tick never reaches a count.
+    @Test func repeatedTicksBuildTheTreeOnceUntilTheStepsChange() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let store = Store(defaults: defaults.defaults)
+        let fake = FakeQueueSource(items: [a])
+        await start(store, fake)
+        let base = store.stepTreeBuilds
+        #expect(store.ticks(for: "a") == [])
+        #expect(store.ticks(for: "a") == [])
+        #expect(store.stepTreeBuilds == base + 1)
+
+        // A tick saves and refills the cache: reads after it build nothing.
+        store.toggleTick("1", in: "a")
+        let afterToggle = store.stepTreeBuilds
+        #expect(store.ticks(for: "a") == ["1"])
+        #expect(store.ticks(for: "a") == ["1"])
+        #expect(store.stepTreeBuilds == afterToggle)
+
+        // A re-posted ask (new `updated`) refetches its detail, which drops the cache:
+        // the next read builds the tree once, later reads build nothing.
+        var touched = a
+        touched.updated = stamp(minutesAgo: 2)
+        await fake.setItems([touched])
+        await store.refresh()
+        let afterTouch = store.stepTreeBuilds
+        #expect(store.ticks(for: "a") == ["1"])
+        #expect(store.ticks(for: "a") == ["1"])
+        #expect(store.stepTreeBuilds <= afterTouch + 1)
+        let settled = store.stepTreeBuilds
+        #expect(store.ticks(for: "a") == ["1"])
+        #expect(store.stepTreeBuilds == settled)
+
+        // Edited steps are a miss: the tree is built once more (dropping the stale
+        // tick), then cached again.
+        var edited = touched
+        edited.payload.instructable?.steps[0] = Step(action: "Step 1, reworded")
+        edited.updated = stamp(minutesAgo: 1)
+        await fake.setItems([edited])
+        await store.refresh()
+        let afterEdit = store.stepTreeBuilds
+        #expect(store.ticks(for: "a") == [])
+        #expect(store.ticks(for: "a") == [])
+        #expect(store.stepTreeBuilds == afterEdit + 1)
+    }
+
     @Test func editedStepsCountOnlyTheRemainingMatchingLeaves() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }

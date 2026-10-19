@@ -19,9 +19,12 @@ import RelayCore
     @Published public var expandedDone: [String: Set<String>] = [:]
     /// The path of the top visible node per ask, for the detail's scroll position. Memory only.
     @Published public var detailAnchor: [String: String] = [:]
-    /// Tick paths as loaded from TickStore, per ask, with the step tree they were loaded
-    /// against; dropped when the ask's detail changes, and reloaded when the tree differs.
-    private var tickCache: [String: (nodes: [DetailModel.Node], ticks: Set<String>)] = [:]
+    /// Tick paths as loaded from TickStore, per ask, with the step source they were loaded
+    /// against; dropped when the ask's detail changes, and reloaded when the source differs.
+    /// Keyed on the source, not the tree: comparing it is cheap, building the tree hashes every step.
+    private var tickCache: [String: (source: StepSource, ticks: Set<String>)] = [:]
+    /// How many times a step tree was built; tests check the tick cache saves this work.
+    private(set) var stepTreeBuilds = 0
     /// Leaves ticked this session, in order, per ask (for ⇧⌘T).
     private var tickHistory: [String: [String]] = [:]
     /// The open detail. A forwarder for the 0.5 views until Task 52.
@@ -377,20 +380,27 @@ import RelayCore
         details[id]
     }
 
-    /// The ask's step tree: from the fetched detail, else from the list item (same nodes).
+    /// The ask's step tree: from the fetched detail's item, else from the list item.
+    /// Only the item shapes the nodes (events never do), so both give the same tree.
     func nodes(for id: String) -> [DetailModel.Node]? {
-        if let detail = details[id] { return DetailModel.make(detail).nodes }
         guard let item = item(for: id) else { return nil }
+        return stepTree(item)
+    }
+
+    private func stepTree(_ item: WireItem) -> [DetailModel.Node] {
+        stepTreeBuilds += 1
         return DetailModel.make(item: item, events: []).nodes
     }
 
     /// The ticked leaves of the ask's current tree whose fingerprint matches; a tick
     /// for a removed or edited step is dropped, so no count ever includes it.
+    /// Cheap on a hit: rows call this on every render, so the tree is built only on a miss.
     public func ticks(for id: String) -> Set<String> {
-        guard let nodes = nodes(for: id) else { return [] }
-        if let cached = tickCache[id], cached.nodes == nodes { return cached.ticks }
-        let loaded = TickStore.load(defaults, sourceKey: sourceKey, id: id, nodes: nodes)
-        tickCache[id] = (nodes, loaded)
+        guard let item = item(for: id) else { return [] }
+        let source = StepSource(item)
+        if let cached = tickCache[id], cached.source == source { return cached.ticks }
+        let loaded = TickStore.load(defaults, sourceKey: sourceKey, id: id, nodes: stepTree(item))
+        tickCache[id] = (source, loaded)
         return loaded
     }
 
@@ -427,7 +437,7 @@ import RelayCore
     private func setTicks(_ ticks: Set<String>, for id: String, nodes: [DetailModel.Node]) {
         objectWillChange.send()
         let leaves = ticks.intersection(Flow.leaves(of: nodes).map(\.path))
-        tickCache[id] = (nodes, leaves)
+        tickCache[id] = item(for: id).map { (StepSource($0), leaves) }
         TickStore.save(defaults, sourceKey: sourceKey, id: id, ticks: leaves, nodes: nodes)
     }
 
@@ -682,5 +692,22 @@ import RelayCore
         reachable = listOK && listenerProblem == nil
         problem = listenerProblem ?? listProblem
         onStateChange?()
+    }
+}
+
+/// What an ask's step tree is built from (DetailModel.make): the instructable's steps and
+/// verify, or a legacy ask's cmd. Equal sources give equal trees.
+struct StepSource: Equatable {
+    var steps: [Step]?
+    var verify: Step?
+    var cmd: String?
+
+    init(_ item: WireItem) {
+        if let ins = item.instructable {
+            steps = ins.steps
+            verify = ins.verify
+        } else {
+            cmd = item.payload.cmd
+        }
     }
 }
