@@ -144,4 +144,12 @@ private let nodes = DetailModel.nodes(
         #expect(!Flow.needsScroll(nodeTop: 500, visibleBottom: 764))
         #expect(!Flow.needsScroll(nodeTop: -40, visibleBottom: 764))
     }
+
+    @Test func unscrolledAskAnchorsOnTheTitleNotStepOne() {
+        let frames: [String: CGRect] = [
+            "title": CGRect(x: 0, y: 60, width: 348, height: 160),
+            "1": CGRect(x: 0, y: 240, width: 348, height: 80),
+        ]
+        #expect(Flow.topVisible(visible: Flow.visible(frames: frames, top: 44, bottom: 764), order: ["title"] + order) == "title")
+    }
 }

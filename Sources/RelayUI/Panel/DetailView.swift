@@ -13,6 +13,12 @@ struct DetailView<Model: PanelViewModel>: View {
     @FocusState private var replyFocused: Bool
     @State private var nodeFrames: [String: CGRect] = [:]
     @State private var viewportHeight: CGFloat = 0
+    /// False until restoreAnchor has issued its scroll: frame reports before that must not
+    /// overwrite the saved anchor, whichever of onAppear and onPreferenceChange runs first.
+    @State private var restored = false
+
+    /// The title block's anchor; never a step path (digits or "verify").
+    private static var titleAnchor: String { "title" }
 
     init(model: Model, id: String) {
         _model = ObservedObject(wrappedValue: model)
@@ -101,7 +107,7 @@ struct DetailView<Model: PanelViewModel>: View {
                     // Some SDKs mark this closure @Sendable; it always runs on the main thread.
                     MainActor.assumeIsolated {
                         nodeFrames = frames
-                        noteAnchor(frames, order: Flow.flattened(snapshot.model?.nodes ?? []).map(\.path))
+                        noteAnchor(frames, order: [Self.titleAnchor] + Flow.flattened(snapshot.model?.nodes ?? []).map(\.path))
                     }
                 }
                 .onAppear { restoreAnchor(proxy) }
@@ -117,18 +123,30 @@ struct DetailView<Model: PanelViewModel>: View {
     private var visibleBottom: CGFloat { viewportHeight - DS.Metric.actionBar }
 
     /// Saves the top visible node as this ask's anchor (memory only); writes only on change,
-    /// so scrolling doesn't republish the model every frame.
+    /// so scrolling doesn't republish the model every frame. The title block comes first in
+    /// `order`: while it is the top visible node the ask is unscrolled and stores no anchor
+    /// (Ruling R1). Does nothing until the saved anchor has been restored.
     private func noteAnchor(_ frames: [String: CGRect], order: [String]) {
+        guard restored else { return }
         let visible = Flow.visible(frames: frames, top: visibleTop, bottom: visibleBottom)
-        guard let anchor = Flow.topVisible(visible: visible, order: order), model.detailAnchor[id] != anchor else { return }
+        guard let top = Flow.topVisible(visible: visible, order: order) else { return }
+        let anchor: String? = top == Self.titleAnchor ? nil : top
+        guard model.detailAnchor[id] != anchor else { return }
         model.detailAnchor[id] = anchor
     }
 
-    /// Back to where you left this ask. The anchor is read now, before the first frame
-    /// report of the fresh view can overwrite it with the top node.
+    /// Back to where you left this ask. noteAnchor is gated on `restored`, so no frame report
+    /// can overwrite the anchor before this scroll is issued, in whichever order they run.
     private func restoreAnchor(_ proxy: ScrollViewProxy) {
-        guard let anchor = model.detailAnchor[id] else { return }
-        DispatchQueue.main.async { proxy.scrollTo(anchor, anchor: .top) }
+        guard !restored else { return }
+        guard let anchor = model.detailAnchor[id] else {
+            restored = true
+            return
+        }
+        DispatchQueue.main.async {
+            proxy.scrollTo(anchor, anchor: .top)
+            restored = true
+        }
     }
 
     /// After a tick: bring the new current leaf in only when it starts below the visible area
@@ -151,6 +169,11 @@ struct DetailView<Model: PanelViewModel>: View {
                     .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
             }
             titleBlock(snapshot)
+                .id(Self.titleAnchor)
+                .background(GeometryReader { geometry in
+                    Color.clear.preference(key: NodeFramesKey.self,
+                                           value: [Self.titleAnchor: geometry.frame(in: .named(detailScrollSpace))])
+                })
             stepsArea(snapshot, closed: closed)
             replySection(snapshot, closed: closed)
             repliesSection(snapshot)
