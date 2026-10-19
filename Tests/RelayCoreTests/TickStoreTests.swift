@@ -146,12 +146,24 @@ private let original = tree([
         }
     }
 
-    @Test func aV2KeyWinsAndV1IsLeftAlone() throws {
+    @Test func aV2KeyWinsAndV1IsDeleted() throws {
         try withDefaults { d in
             TickStore.save(d, sourceKey: "local", id: "a", ticks: ["2"], nodes: plain)
             d.set([0], forKey: "relay.ticks.local.a")
             #expect(TickStore.load(d, sourceKey: "local", id: "a", nodes: plain) == ["2"])
-            #expect(d.array(forKey: "relay.ticks.local.a") as? [Int] == [0])
+            #expect(d.object(forKey: "relay.ticks.local.a") == nil)
+        }
+    }
+
+    /// Unticking everything removes the v2 key; the 0.5 ticks must not come back.
+    @Test func unticksAllDoesNotResurrectV1() throws {
+        try withDefaults { d in
+            TickStore.save(d, sourceKey: "local", id: "a", ticks: ["2"], nodes: plain)
+            d.set([0], forKey: "relay.ticks.local.a")
+            #expect(TickStore.load(d, sourceKey: "local", id: "a", nodes: plain) == ["2"])
+            TickStore.save(d, sourceKey: "local", id: "a", ticks: [], nodes: plain)
+            #expect(TickStore.load(d, sourceKey: "local", id: "a", nodes: plain) == [])
+            #expect(d.object(forKey: "relay.ticks.local.a") == nil)
         }
     }
 

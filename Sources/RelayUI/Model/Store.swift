@@ -15,6 +15,15 @@ import RelayCore
     @Published public private(set) var details: [String: AskDetail] = [:]
     /// The highlighted row and the open detail (design §4.6).
     @Published public var navigation = PanelNavigation()
+    /// Done steps the owner expanded, by ask; node paths. Memory only, on purpose.
+    @Published public var expandedDone: [String: Set<String>] = [:]
+    /// The path of the top visible node per ask, for the detail's scroll position. Memory only.
+    @Published public var detailAnchor: [String: String] = [:]
+    /// Tick paths as loaded from TickStore, per ask, with the step tree they were loaded
+    /// against; dropped when the ask's detail changes, and reloaded when the tree differs.
+    private var tickCache: [String: (nodes: [DetailModel.Node], ticks: Set<String>)] = [:]
+    /// Leaves ticked this session, in order, per ask (for ⇧⌘T).
+    private var tickHistory: [String: [String]] = [:]
     /// The open detail. A forwarder for the 0.5 views until Task 52.
     public var selectedID: String? { navigation.selectedID }
     @Published public private(set) var grouping: QueueGrouping
@@ -50,6 +59,8 @@ import RelayCore
     private var watchTask: Task<Void, Never>?
     private var loadedOnce = false
     private var inFlight: Task<Void, Never>?
+    /// Bumped by every refresh that starts a list; only the latest one clears `inFlight`.
+    private var refreshCount = 0
     private var lastLinkRefresh: ContinuousClock.Instant?
     private var listOK = false
     private var listProblem: String? = Store.noSourceProblem
@@ -97,6 +108,10 @@ import RelayCore
         filter = PanelPrefs.filter(defaults, sourceKey: identity.key)
         lastListAt = nil
         details = [:]
+        tickCache = [:]
+        tickHistory = [:]
+        expandedDone = [:]
+        detailAnchor = [:]
         listed = []
         items = []
         sending = []
@@ -171,16 +186,22 @@ import RelayCore
     }
 
     /// One list of the queue. A call made while one runs waits for that one.
+    /// The list task clears `inFlight` itself as it ends: a caller that joined it may
+    /// resume first, and its next refresh must list again, not join the finished one.
     public func refresh() async {
         if let inFlight { return await inFlight.value }
-        let task = Task { await self.poll() }
+        refreshCount += 1
+        let token = refreshCount
+        let task = Task {
+            await self.poll()
+            if self.refreshCount == token {
+                self.inFlight = nil
+                self.refreshing = false
+            }
+        }
         inFlight = task
         refreshing = true
         await task.value
-        if inFlight == task {
-            inFlight = nil
-            refreshing = false
-        }
     }
 
     /// Whether a link from outside the app (loopback or relay://) may open `id`:
@@ -232,6 +253,7 @@ import RelayCore
             await loadClosed(from: source, generation: gen)
             guard gen == generation else { return }
             loadedOnce = true
+            pruneTicks()
         } catch {
             guard gen == generation else { return }
             listOK = false
@@ -331,6 +353,7 @@ import RelayCore
             let detail = try await source.get(id)
             guard gen == generation else { return }
             details[id] = detail
+            tickCache[id] = nil
         } catch QueueError.notFound {
             guard gen == generation else { return }
             await refresh()
@@ -352,6 +375,69 @@ import RelayCore
 
     public func detail(for id: String) -> AskDetail? {
         details[id]
+    }
+
+    /// The ask's step tree: from the fetched detail, else from the list item (same nodes).
+    func nodes(for id: String) -> [DetailModel.Node]? {
+        if let detail = details[id] { return DetailModel.make(detail).nodes }
+        guard let item = item(for: id) else { return nil }
+        return DetailModel.make(item: item, events: []).nodes
+    }
+
+    /// The ticked leaves of the ask's current tree whose fingerprint matches; a tick
+    /// for a removed or edited step is dropped, so no count ever includes it.
+    public func ticks(for id: String) -> Set<String> {
+        guard let nodes = nodes(for: id) else { return [] }
+        if let cached = tickCache[id], cached.nodes == nodes { return cached.ticks }
+        let loaded = TickStore.load(defaults, sourceKey: sourceKey, id: id, nodes: nodes)
+        tickCache[id] = (nodes, loaded)
+        return loaded
+    }
+
+    /// A leaf flips; a parent ticks or unticks all its sub-steps (Flow.toggle). Saves.
+    public func toggleTick(_ path: String, in id: String) {
+        guard let nodes = nodes(for: id), let node = Flow.flattened(nodes).first(where: { $0.path == path }) else { return }
+        let before = ticks(for: id)
+        let after = Flow.toggle(node, ticks: before)
+        let added = Flow.leaves(of: nodes).map(\.path).filter { after.contains($0) && !before.contains($0) }
+        tickHistory[id, default: []].append(contentsOf: added)
+        setTicks(after, for: id, nodes: nodes)
+    }
+
+    /// ⌘T: ticks the current leaf and returns its path; nil when every leaf is ticked.
+    @discardableResult public func tickCurrent(in id: String) -> String? {
+        guard let nodes = nodes(for: id) else { return nil }
+        let result = Flow.tickCurrent(ticks: ticks(for: id), nodes: nodes)
+        guard let path = result.path else { return nil }
+        tickHistory[id, default: []].append(path)
+        setTicks(result.ticks, for: id, nodes: nodes)
+        return path
+    }
+
+    /// ⇧⌘T: unticks the leaf ticked last this session, else the last ticked leaf in order.
+    @discardableResult public func untickLast(in id: String) -> String? {
+        guard let nodes = nodes(for: id) else { return nil }
+        let result = Flow.untickLast(ticks: ticks(for: id), history: tickHistory[id] ?? [], nodes: nodes)
+        guard let path = result.path else { return nil }
+        tickHistory[id]?.removeAll { $0 == path }
+        setTicks(result.ticks, for: id, nodes: nodes)
+        return path
+    }
+
+    private func setTicks(_ ticks: Set<String>, for id: String, nodes: [DetailModel.Node]) {
+        objectWillChange.send()
+        let leaves = ticks.intersection(Flow.leaves(of: nodes).map(\.path))
+        tickCache[id] = (nodes, leaves)
+        TickStore.save(defaults, sourceKey: sourceKey, id: id, ticks: leaves, nodes: nodes)
+    }
+
+    /// After a good list of this source: keeps ticks of open asks (held ones are still
+    /// listed), of Recently closed and of the open detail, whatever the filter.
+    func pruneTicks() {
+        guard reachable, !listed.isEmpty else { return }
+        var keep = Set(listed.map(\.id)).union(recentlyClosed.map(\.id)).union(sending)
+        if let selected = navigation.selectedID { keep.insert(selected) }
+        TickStore.prune(defaults, sourceKey: sourceKey, keep: keep)
     }
 
     /// Done or Skip, as the owner, held back for Undo: the ask leaves the list at
@@ -577,6 +663,7 @@ import RelayCore
             let detail = try await source.get(id)
             guard gen == generation else { return }
             details[id] = detail
+            tickCache[id] = nil
         } catch QueueError.notFound {
             guard gen == generation else { return }
             details[id] = nil

@@ -12,11 +12,14 @@ public enum TickStore {
     /// Called when the detail model is built, so the first frame is right. An entry
     /// whose leaf still has its fingerprint stays; else it moves to the one unticked
     /// leaf elsewhere with that fingerprint; else it is dropped. Changes are written back.
+    /// With a v2 key, any v1 key for the ask is deleted, so unticking everything (which
+    /// removes the v2 key) can't bring the 0.5 ticks back on the next load.
     public static func load(_ defaults: UserDefaults, sourceKey: String, id: String, nodes: [DetailModel.Node]) -> Set<String> {
         let key = key(sourceKey: sourceKey, id: id)
         guard let stored = defaults.dictionary(forKey: key) as? [String: String] else {
             return migrateV1(defaults, sourceKey: sourceKey, id: id, nodes: nodes) ?? []
         }
+        defaults.removeObject(forKey: legacyKey(sourceKey: sourceKey, id: id))
         let leaves = Flow.leaves(of: nodes)
         var byPath: [String: String] = [:]
         for leaf in leaves { byPath[leaf.path] = leaf.fingerprint }
