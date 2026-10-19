@@ -43,8 +43,34 @@ final class ServerRouting: Sendable {
     @Published private(set) var listenerState: ListenerState = .starting
     /// "mcp"/"cli" → last authenticated request; polled while the Connect tab is shown.
     @Published private(set) var lastSeen: [String: Date] = [:]
-    /// "Couldn't register this shortcut".
-    @Published var hotkeyStatus: String?
+    /// Why the shortcut isn't working (§4.8).
+    @Published var shortcutProblem: ShortcutProblem?
+    /// The old General tab's text view of `shortcutProblem`.
+    var hotkeyStatus: String? {
+        get { shortcutProblem?.text }
+        set { shortcutProblem = newValue == nil ? nil : .refused }
+    }
+    /// What the Settings and Welcome views read; only `refreshSettings()` writes it.
+    @Published var settings = SettingsSnapshot()
+    /// The Mailbox fields being edited; memory only.
+    @Published var draft = MailboxDraft()
+    /// Set by AppDelegate: what only the app shell can do.
+    var hooks = SettingsHooks()
+    weak var hotKeys: HotKeyManager?
+    weak var notifier: Notifier?
+    /// Set by AppDelegate on every presence change.
+    var presenceLine = "Home · active"
+    var away = false
+    var permission: NotificationPermission = .notDetermined
+    var loginError: String?
+    /// Names of displays seen in this run, for "<name> (not connected)".
+    var displayNames: [String: String] = [:]
+
+    /// `$HOME`, so a manual check can point it at a temp folder.
+    nonisolated static var home: URL {
+        ProcessInfo.processInfo.environment["HOME"].map { URL(fileURLWithPath: $0, isDirectory: true) }
+            ?? FileManager.default.homeDirectoryForCurrentUser
+    }
     /// The registered global shortcut, e.g. "⌃⌥⌘R"; nil when off or not registered.
     @Published private(set) var shortcutLabel: String?
 
@@ -146,8 +172,8 @@ final class ServerRouting: Sendable {
 
     /// Settings' "Send a test ask": project "Relay", one `echo relay-ok` step and
     /// a verify step, through the current source.
-    func sendTestAsk() async -> String {
-        guard let store else { return "Relay isn't ready yet" }
+    func sendTestAsk() async -> TestAskResult {
+        guard let store else { return .failed("Relay isn't ready yet") }
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "HH:mm:ss"
@@ -166,13 +192,13 @@ final class ServerRouting: Sendable {
             "verify": ["do": "Press Done on this ask in Relay"],
         ]
         guard let data = try? JSONSerialization.data(withJSONObject: instructable, options: [.sortedKeys]) else {
-            return "Couldn't build the test ask"
+            return .failed("Couldn't build the test ask")
         }
         do {
             let result = try await store.post(project: "Relay", instructable: data)
-            return result.deduped ? "Already waiting: \(result.item.id)" : "Sent: \(result.item.id)"
+            return result.deduped ? .alreadyWaiting(id: result.item.id) : .sent(id: result.item.id)
         } catch {
-            return error.localizedDescription
+            return .failed(UserFacingError.text(error))
         }
     }
 

@@ -64,7 +64,8 @@ import RelayUI
         model.store = store
         self.model = model
         self.store = store
-        settings = SettingsWindowController(model: model, hotKeys: hotKeys)
+        model.hotKeys = hotKeys
+        settings = SettingsWindowController(model: model)
 
         panel = makePanel(store: store, model: model)
 
@@ -83,10 +84,16 @@ import RelayUI
             self.refreshIfStale()
         }
         self.notifier = notifier
+        model.notifier = notifier
+        model.hooks = SettingsHooks(
+            redock: { [weak self] in self?.panel?.redock() },
+            showAsk: { [weak self] id in self?.showItem(id) },
+            showPanel: { [weak self] in self?.panel?.present(focus: true, animated: true) },
+            switchTab: { [weak self] tab in self?.settings?.show(tab: tab) },
+            applyShortcut: { [weak hotKeys] raw in hotKeys?.apply(raw) ?? false },
+            suspendShortcut: { [weak hotKeys] in hotKeys?.suspend() },
+            resumeShortcut: { [weak hotKeys] in hotKeys?.resume() })
         store.onCloseSent = { [weak self] id in self?.notifier?.remove(ids: [id]) }
-        settings?.setContent(.queue, SettingsWindowController.hosting(QueueTab(model: model, store: store)))
-        settings?.setContent(.notifications, SettingsWindowController.hosting(NotificationsTab(model: model, notifier: notifier)))
-        settings?.setContent(.connect, SettingsWindowController.hosting(ConnectTab(model: model)))
 
         model.onApply = { [weak self] _, new in
             self?.scheduleApply(new)
@@ -280,9 +287,9 @@ import RelayUI
         return panel
     }
 
-    /// Settings on a tab. A tab the window doesn't have yet (Panel, until Task 59) opens the last one used.
+    /// Settings on a tab, or on the remembered one when nil.
     private func showSettings(tab: SettingsTabID?) {
-        settings?.show(tab: tab.flatMap { SettingsTab(rawValue: $0.rawValue) })
+        settings?.show(tab: tab)
     }
 
     /// `sidebarEdge` and `appearance`.
@@ -476,6 +483,7 @@ import RelayUI
     /// config.json's problem shows in the status bar ("config.json has an error"), once (A7).
     private func configNoteChanged(_ note: String?) {
         store?.setConfigNote(note)
+        model?.refreshSettings()
     }
 
     // MARK: Menu bar
@@ -541,6 +549,7 @@ import RelayUI
         state.shortcut = label == HotKeyManager.offLabel ? nil : label
         state.awaySince = status.state == .away ? ClockText.time(status.since) : nil
         menuBar?.update(state)
+        model?.refreshSettings()
     }
 
     /// The shortcut's label for the menu bar's tooltip and, mirrored into the model,
@@ -590,7 +599,7 @@ import RelayUI
         updatePresenceMenu()
         guard let hotKeys else { return }
         // A later successful apply clears an earlier failure's red line.
-        model?.hotkeyStatus = hotKeys.apply(config?.hotkey ?? HotkeySpec.defaultString) ? nil : GeneralTab.shortcutFailed
+        model?.shortcutProblem = hotKeys.apply(config?.hotkey ?? HotkeySpec.defaultString) ? nil : .refused
         updateShortcutLabel()
     }
 
@@ -673,6 +682,9 @@ import RelayUI
         }
         if !away { awayFirstID = nil }
         _ = awayTally.arrived(held)
+        model?.presenceLine = PresenceLogic.statusLine(
+            state: status.state, reason: status.reason, since: ClockText.time(status.since))
+        model?.away = away
         updatePresenceMenu()
         updateMenuBar()
     }

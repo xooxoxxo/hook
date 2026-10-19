@@ -286,7 +286,11 @@ struct QueueTab: View {
         testResult = nil
         Task { @MainActor in
             let result = await model.sendTestAsk()
-            testResult = result
+            switch result {
+            case .sent(let id): testResult = "Sent: \(id)"
+            case .alreadyWaiting(let id): testResult = "Already waiting: \(id)"
+            case .failed(let reason): testResult = reason
+            }
             sending = false
         }
     }
