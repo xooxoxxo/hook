@@ -5,8 +5,11 @@ import UserNotifications
 /// Notifications for new asks. `NotifyPolicy` decides what to show and
 /// when; this class owns the flush timer and talks to UNUserNotificationCenter.
 @MainActor final class Notifier: NSObject, UNUserNotificationCenterDelegate {
-    /// Clicking an "N new asks" notification, which names no single ask.
-    var onOpenList: (@MainActor () -> Void)?
+    /// A click on "N new asks" (first nil) or on the away summary (first = the first ask
+    /// that arrived while away, selected in the list).
+    var onOpenList: (@MainActor (_ first: String?) -> Void)?
+    /// Authorization was requested in this run (Welcome, Settings or before the first post).
+    private var requested = false
     private let onOpen: @MainActor (String) -> Void
     private var policy = NotifyPolicy(settings: NotifySettings())
     private var settings = NotifySettings()
@@ -22,19 +25,41 @@ import UserNotifications
         if available { UNUserNotificationCenter.current().delegate = self }
     }
 
-    func requestAuthorization() {
+    /// Welcome page 2 and Settings → Notifications → Allow Notifications….
+    func requestAuthorization() async {
         guard available else { return }
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        requested = true
+        _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
+    }
+
+    func permission() async -> NotificationPermission {
+        guard available else { return .notDetermined }
+        let raw = await withCheckedContinuation { continuation in
+            UNUserNotificationCenter.current().getNotificationSettings { current in
+                continuation.resume(returning: current.authorizationStatus.rawValue)
+            }
+        }
+        return NotificationPermission(raw)
     }
 
     /// True only when the owner turned Relay's notifications off in System Settings.
+    /// Kept for the current Notifications tab until its redesign reads `permission()`.
     func authorizationDenied() async -> Bool {
-        guard available else { return false }
-        return await withCheckedContinuation { continuation in
-            UNUserNotificationCenter.current().getNotificationSettings { current in
-                continuation.resume(returning: current.authorizationStatus == .denied)
-            }
-        }
+        await permission() == .denied
+    }
+
+    /// Before the first notification Relay would post: ask once if never asked.
+    private func authorizeIfNeeded() async {
+        guard NotificationAuth.shouldRequest(status: await permission(), requestedBefore: requested) else { return }
+        await requestAuthorization()
+    }
+
+    /// Clears banners and queued requests for asks that closed, left or reopened.
+    func remove(ids: Set<String>) {
+        guard available, !ids.isEmpty else { return }
+        let list = Array(ids)
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: list)
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: list)
     }
 
     /// New asks from the Store diff. The Store never reports its first load or a
@@ -60,16 +85,16 @@ import UserNotifications
     }
 
     /// The one notification on return from away ("3 asks arrived while you were
-    /// away"). It names no ask, so a click opens the list.
-    func showReturnSummary(_ text: String, settings: NotifySettings) {
+    /// away"). A click opens the list with `first`, the first ask that arrived, selected.
+    func showReturnSummary(_ text: String, first: String?, settings: NotifySettings) {
         guard available, !quiet else { return }
         let note = UNMutableNotificationContent()
         note.title = "Relay"
         note.body = text
         note.threadIdentifier = "relay"
+        note.userInfo = first.map { ["first": $0] } ?? [:]
         if settings.sound { note.sound = .default }
-        UNUserNotificationCenter.current().add(
-            UNNotificationRequest(identifier: "relay.away.\(UUID().uuidString)", content: note, trigger: nil))
+        post(note, identifier: "relay.away.\(UUID().uuidString)")
     }
 
     private func perform(_ action: NotifyAction) {
@@ -98,23 +123,30 @@ import UserNotifications
     private func deliver(_ content: NotifyContent) {
         guard available, !quiet else { return }
         let note = UNMutableNotificationContent()
+        note.title = content.title
+        note.body = content.body
         let identifier: String
         switch content {
-        case let .single(id, project, title):
-            note.title = Sanitize.revealLine(project)
-            note.body = Sanitize.revealLine(title)
-            note.threadIdentifier = project
+        case let .single(id, project, _):
+            note.threadIdentifier = project.isEmpty ? "relay" : project
             note.userInfo = ["id": id]
             identifier = id
-        case .many(let count):
-            note.title = "Relay"
-            note.body = "\(count) new asks"
+        case .many:
             note.threadIdentifier = "relay"
             identifier = "relay.many.\(UUID().uuidString)"
         }
         if settings.sound { note.sound = .default }
-        UNUserNotificationCenter.current().add(
-            UNNotificationRequest(identifier: identifier, content: note, trigger: nil))
+        post(note, identifier: identifier)
+    }
+
+    /// No category, so no action buttons (§9.1). Inside the Task, `add(_:)` resolves to
+    /// its `async throws` overload; a refused post (permission denied) is dropped.
+    private func post(_ note: UNMutableNotificationContent, identifier: String) {
+        Task { @MainActor in
+            await authorizeIfNeeded()
+            try? await UNUserNotificationCenter.current().add(
+                UNNotificationRequest(identifier: identifier, content: note, trigger: nil))
+        }
     }
 
     nonisolated func userNotificationCenter(
@@ -123,9 +155,10 @@ import UserNotifications
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         let id = response.notification.request.content.userInfo["id"] as? String
+        let first = response.notification.request.content.userInfo["first"] as? String
         completionHandler()
         Task { @MainActor in
-            if let id { self.onOpen(id) } else { self.onOpenList?() }
+            if let id { self.onOpen(id) } else { self.onOpenList?(first) }
         }
     }
 

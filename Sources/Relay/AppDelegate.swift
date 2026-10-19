@@ -42,6 +42,11 @@ import RelayUI
     /// Away mode: the signals, the flag file and the asks counted while away.
     private let presence = PresenceMonitor()
     private var awayTally = AwayTally()
+    /// The first ask that arrived while away; the return summary click selects it.
+    private var awayFirstID: String?
+    /// Open (or held for Undo) and Recently closed ids at the last Store change.
+    private var lastOpenIDs: Set<String> = []
+    private var lastClosedIDs: Set<String> = []
     /// SIGTERM (`kill`, `launchctl bootout`) skips applicationWillTerminate, so it
     /// is caught here to clear the away flag first.
     private var termSource: (any DispatchSourceSignal)?
@@ -64,18 +69,21 @@ import RelayUI
         panel = makePanel(store: store, model: model)
 
         setUpMenuBar()
-        store.onStateChange = { [weak self] in self?.updateMenuBar() }
+        store.onStateChange = { [weak self] in self?.updateMenuBar(); self?.cleanUpNotifications() }
         store.onNewItems = { [weak self] items in
             self?.announce(items)
         }
+        // A click goes through the same check as a link: closed or unknown → Notice.
         let notifier = Notifier { [weak self] id in self?.openLink(id) }
-        notifier.onOpenList = { [weak self] in
-            self?.store?.back()
-            self?.panel?.present(focus: true, animated: true)
-            self?.refreshIfStale()
+        notifier.onOpenList = { [weak self] first in
+            guard let self, let store = self.store else { return }
+            if store.navigation.selectedID != nil { store.back() }
+            if let first { store.listSelection = first }
+            self.panel?.present(focus: true, animated: true)
+            self.refreshIfStale()
         }
-        notifier.requestAuthorization()
         self.notifier = notifier
+        store.onCloseSent = { [weak self] id in self?.notifier?.remove(ids: [id]) }
         settings?.setContent(.queue, SettingsWindowController.hosting(QueueTab(model: model, store: store)))
         settings?.setContent(.notifications, SettingsWindowController.hosting(NotificationsTab(model: model, notifier: notifier)))
         settings?.setContent(.connect, SettingsWindowController.hosting(ConnectTab(model: model)))
@@ -616,7 +624,11 @@ import RelayUI
     private func announce(_ items: [WireItem]) {
         let settings = model?.config?.notify ?? NotifySettings()
         let policy = NotifyPolicy(settings: settings)
-        guard awayTally.arrived(policy.notifiable(items).count) else { return }
+        let notifiable = policy.notifiable(items)
+        guard awayTally.arrived(notifiable.count) else {
+            if awayFirstID == nil { awayFirstID = notifiable.first?.id }
+            return
+        }
         notifier?.handle(newItems: items, settings: settings)
         guard let target = policy.slideInTarget(items), let panel, let store else { return }
         let home = presence.status.state == .home
@@ -633,6 +645,19 @@ import RelayUI
         }
     }
 
+    /// Removes notifications for asks that left the open list or were reopened. A close
+    /// held for Undo still counts as open; its notification goes when the close is sent.
+    private func cleanUpNotifications() {
+        guard let store, let notifier else { return }
+        let held = lastOpenIDs.filter { store.pending.contains($0) }
+        let open = Set(store.items.map(\.id)).union(held)
+        let reopened = open.subtracting(lastOpenIDs).intersection(lastClosedIDs)
+        let ids = NotificationCleanup.ids(previousOpen: lastOpenIDs, currentOpen: open, sent: [], reopened: Array(reopened))
+        lastOpenIDs = open
+        lastClosedIDs = Set(store.recentlyClosed.map(\.id))
+        notifier.remove(ids: ids)
+    }
+
     // MARK: Away mode
 
     /// Quiet or not, the menu bar, and the summary on return home.
@@ -643,8 +668,9 @@ import RelayUI
         store?.away = away
         let held = notifier?.setQuiet(away) ?? 0
         if let summary = awayTally.changed(to: status.state) {
-            notifier?.showReturnSummary(summary, settings: model?.config?.notify ?? NotifySettings())
+            notifier?.showReturnSummary(summary, first: awayFirstID, settings: model?.config?.notify ?? NotifySettings())
         }
+        if !away { awayFirstID = nil }
         _ = awayTally.arrived(held)
         updatePresenceMenu()
         updateMenuBar()

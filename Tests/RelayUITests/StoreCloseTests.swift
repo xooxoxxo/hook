@@ -173,6 +173,30 @@ private let abc = [item("a", created: stamp(minutesAgo: 10)), item("b", created:
         #expect(await fake.count("resolve a done") == 1)
     }
 
+    @Test func aQuitFlushCallsTheCleanUpHook() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, _) = await ready(defaults: defaults)
+        var sent: [String] = []
+        store.onCloseSent = { sent.append($0) }
+        store.close("a", .done)
+        store.close("b", .declined)
+        await store.sendAllPending()
+        #expect(Set(sent) == ["a", "b"])
+    }
+
+    @Test func aSwapFlushCallsTheCleanUpHook() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, fake) = await ready(defaults: defaults)
+        var sent: [String] = []
+        store.onCloseSent = { sent.append($0) }
+        store.close("a", .done)
+        store.swap(to: nil, identity: SourceIdentity(key: SourceKey.none, mailbox: nil), pollSeconds: 15)
+        #expect(await eventually { sent == ["a"] })
+        #expect(await fake.count("resolve a done") == 1)
+    }
+
     /// Ruling 2: the Undo bar stays, in its sending state, while the quit-time sends run.
     @Test func quitKeepsTheUndoBarWhileSending() async {
         let defaults = TestDefaults()

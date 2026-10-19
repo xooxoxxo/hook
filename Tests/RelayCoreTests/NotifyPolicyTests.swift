@@ -35,10 +35,13 @@ private func ask(_ id: String, urgency: String?, project: String? = "Acme") -> W
                 == .show(.single(id: "w", project: "Acme", title: "t-w")))
     }
 
-    @Test func aMissingProjectShowsRelay() {
+    @Test func aMissingProjectKeepsTheRawValueAndTitlesRelay() {
         var policy = NotifyPolicy(settings: NotifySettings())
-        #expect(policy.add([ask("a", urgency: "today", project: nil)], now: t0)
-                == .show(.single(id: "a", project: "Relay", title: "t-a")))
+        let action = policy.add([ask("a", urgency: "today", project: nil)], now: t0)
+        #expect(action == .show(.single(id: "a", project: "", title: "t-a")))
+        guard case .show(let content) = action else { return }
+        #expect(content.title == "Relay")
+        #expect(content.body == "t-a")
     }
 
     @Test func firstShowsAtOnceThenAsksWithinTheWindowFoldIntoOne() {
@@ -114,5 +117,45 @@ private func ask(_ id: String, urgency: String?, project: String? = "Acme") -> W
         #expect(policy.pendingCount == 2)
         _ = policy.flush(now: t0 + 3)
         #expect(policy.pendingCount == 0)
+    }
+
+    @Test func titlesAndBodiesAreRevealedLines() {
+        #expect(NotifyContent.single(id: "a", project: "Acme", title: "Rotate the key").title == "Acme")
+        #expect(NotifyContent.single(id: "a", project: "", title: "x").title == "Relay")
+        #expect(NotifyContent.single(id: "a", project: "  ", title: "x").title == "Relay")
+        #expect(NotifyContent.single(id: "a", project: "Ac\u{202E}me", title: "two\nlines").title == "Ac⟨U+202E⟩me")
+        #expect(NotifyContent.single(id: "a", project: "Acme", title: "two\nlines").body == "two⟨U+000A⟩lines")
+        #expect(NotifyContent.many(3).title == "Relay")
+        #expect(NotifyContent.many(3).body == "3 new asks")
+    }
+
+    @Test func cleanUpRemovesAsksThatLeftSentOrReopened() {
+        let ids = NotificationCleanup.ids(previousOpen: ["a", "b", "c"], currentOpen: ["b", "c", "d"],
+                                          sent: ["x"], reopened: ["r"])
+        #expect(ids == ["a", "x", "r"])
+        // A brand-new ask ("d") keeps its notification.
+        #expect(!ids.contains("d"))
+        #expect(NotificationCleanup.ids(previousOpen: [], currentOpen: ["n"], sent: [], reopened: []).isEmpty)
+    }
+
+    @Test func authorizationIsRequestedOnceAndOnlyWhenUndetermined() {
+        #expect(NotificationAuth.shouldRequest(status: .notDetermined, requestedBefore: false))
+        #expect(!NotificationAuth.shouldRequest(status: .notDetermined, requestedBefore: true))
+        #expect(!NotificationAuth.shouldRequest(status: .authorized, requestedBefore: false))
+        #expect(!NotificationAuth.shouldRequest(status: .denied, requestedBefore: false))
+    }
+
+    @Test func permissionMapsUNAuthorizationStatusRawValues() {
+        #expect(NotificationPermission(0) == .notDetermined)
+        #expect(NotificationPermission(1) == .denied)
+        #expect(NotificationPermission(2) == .authorized)
+        #expect(NotificationPermission(3) == .authorized)   // provisional
+        #expect(NotificationPermission(4) == .authorized)   // ephemeral
+        #expect(NotificationPermission(99) == .notDetermined)
+    }
+
+    @Test func soundFollowsTheSetting() {
+        #expect(!NotifySettings().sound)
+        #expect(NotifySettings(sound: true).sound)
     }
 }

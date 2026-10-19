@@ -47,7 +47,8 @@ public enum LinkCheck: Equatable, Sendable {
     public var afterClose: AfterClose = .next
     /// One Notice at a time; the newest replaces the older; only ✕ or its action clears it.
     @Published public private(set) var notice: PanelNotice?
-    /// A close was sent or an ask reopened: remove its delivered notification (Task 58).
+    /// A close reached the source (sent after Undo, at quit, or before a swap) or an ask was
+    /// reopened: remove its delivered notification.
     public var onCloseSent: (@MainActor (String) -> Void)?
     /// Text for VoiceOver to announce ("Ask reopened").
     public var onAnnounce: (@MainActor (String) -> Void)?
@@ -658,13 +659,17 @@ public enum LinkCheck: Equatable, Sendable {
         guard !all.isEmpty else { return }
         sendingUndo = shown
         publishState()
-        await withTaskGroup(of: Void.self) { group in
+        let sent = await withTaskGroup(of: String?.self) { group in
             for close in all {
                 group.addTask {
-                    _ = try? await source.resolve(close.id, verdict: close.verdict, note: close.note)
+                    (try? await source.resolve(close.id, verdict: close.verdict, note: close.note)) != nil ? close.id : nil
                 }
             }
+            var ids: [String] = []
+            for await id in group { if let id { ids.append(id) } }
+            return ids
         }
+        sent.forEach { onCloseSent?($0) }
         sendingUndo = nil
         publishState()
     }
@@ -807,10 +812,12 @@ public enum LinkCheck: Equatable, Sendable {
         ticker = nil
         let all = pending.drainAll()
         guard let old, !all.isEmpty else { return }
+        let onCloseSent = self.onCloseSent
         Task.detached {
             for close in all {
                 do {
                     _ = try await old.resolve(close.id, verdict: close.verdict, note: close.note)
+                    await onCloseSent?(close.id)
                 } catch {
                     NSLog("Relay: a held-back close couldn't be sent before the queue changed: %@",
                           error.localizedDescription)

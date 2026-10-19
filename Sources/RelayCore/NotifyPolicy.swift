@@ -2,6 +2,7 @@ import Foundation
 
 /// What one notification says: a single ask, or "N new asks".
 public enum NotifyContent: Sendable, Equatable {
+    /// `project` is the raw project string, "" when the ask has none; `threadIdentifier` uses it.
     case single(id: String, project: String, title: String)
     case many(Int)
 }
@@ -85,6 +86,58 @@ public struct NotifyPolicy: Sendable {
 
     private static func content(_ items: [WireItem]) -> NotifyContent {
         guard items.count == 1, let item = items.first else { return .many(items.count) }
-        return .single(id: item.id, project: item.projectId ?? "Relay", title: item.title)
+        return .single(id: item.id, project: item.projectId ?? "", title: item.title)
+    }
+}
+
+extension NotifyContent {
+    /// Single: the project as one revealed line, or "Relay" when it has none. Several: "Relay".
+    public var title: String {
+        switch self {
+        case .single(_, let project, _):
+            let trimmed = project.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? "Relay" : Sanitize.revealLine(project)
+        case .many:
+            return "Relay"
+        }
+    }
+
+    public var body: String {
+        switch self {
+        case .single(_, _, let title): Sanitize.revealLine(title)
+        case .many(let count): "\(count) new asks"
+        }
+    }
+}
+
+/// Which delivered or pending notifications to remove (§4.11): an ask that left the
+/// open list, whose close was sent, or that was reopened. New asks keep theirs.
+public enum NotificationCleanup {
+    public static func ids(previousOpen: Set<String>, currentOpen: Set<String>, sent: [String], reopened: [String]) -> Set<String> {
+        previousOpen.subtracting(currentOpen).union(sent).union(reopened)
+    }
+}
+
+/// macOS notification permission, from `UNAuthorizationStatus`.
+public enum NotificationPermission: Equatable, Sendable {
+    case authorized, denied, notDetermined
+
+    /// `UNAuthorizationStatus.rawValue`: 0 not determined, 1 denied, 2 authorized,
+    /// 3 provisional and 4 ephemeral (both allowed); anything else as not determined.
+    public init(_ status: Int) {
+        switch status {
+        case 1: self = .denied
+        case 2, 3, 4: self = .authorized
+        default: self = .notDetermined
+        }
+    }
+}
+
+/// When Relay asks for notification permission: never at launch; before the first
+/// notification it would post, once, and only while undetermined. Welcome page 2 and
+/// Settings ask directly.
+public enum NotificationAuth {
+    public static func shouldRequest(status: NotificationPermission, requestedBefore: Bool) -> Bool {
+        status == .notDetermined && !requestedBefore
     }
 }
