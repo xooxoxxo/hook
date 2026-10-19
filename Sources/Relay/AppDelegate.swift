@@ -482,13 +482,13 @@ import RelayUI
 
     @objc private func togglePanel() {
         guard let panel else { return }
-        let wasVisible = panel.isVisible
+        let wasShown = panel.isShown
         panel.toggle()
-        if !wasVisible, panel.isVisible { refreshIfStale() }
+        if !wasShown, panel.isShown { refreshIfStale() }
     }
 
     /// §4.1: showing the panel in mailbox mode refreshes a list older than 5 s. The rule
-    /// is `Store.refreshIfStale()` (Task 35); this only starts it.
+    /// is `Store.refreshIfStale()`; this only starts it.
     private func refreshIfStale() {
         guard let store else { return }
         Task { await store.refreshIfStale() }
@@ -510,7 +510,7 @@ import RelayUI
         guard awayTally.arrived(NotifyPolicy(settings: settings).notifiable(items).count) else { return }
         notifier?.handle(newItems: items, settings: settings)
         guard let target = NotifyPolicy(settings: settings).slideInTarget(items),
-              let panel, let store, !panel.isVisible else { return }
+              let panel, let store, !panel.isShown else { return }
         panel.present(focus: false, animated: false)
         Task { await store.focus(target.id) }
     }

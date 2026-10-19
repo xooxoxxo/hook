@@ -10,7 +10,7 @@ public enum ToggleAction: Equatable, Sendable {
 }
 
 /// The show / hide / toggle rule. Pure: the panel passes its state in. The refresh
-/// on show is `Store.refreshIfStale()` (Task 35).
+/// on show is `Store.refreshIfStale()`.
 public enum PanelToggle {
     /// A frame within this many points of the target counts as docked.
     public static let dockTolerance: CGFloat = 0.5

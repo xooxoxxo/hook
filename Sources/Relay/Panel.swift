@@ -24,6 +24,13 @@ import RelayUI
     /// doesn't order the panel out.
     private var fadeToken = 0
 
+    /// True while a hide's fade-out runs. The panel is still ordered in then, but it
+    /// is on its way out, so the toggle rule and a "now" ask treat it as hidden.
+    private(set) var isFadingOut = false
+
+    /// On screen and staying there: visible and not fading out.
+    var isShown: Bool { isVisible && !isFadingOut }
+
     /// Where the panel belongs now: the pinned (or main) display's docked frame on `edge`.
     var targetFrame: CGRect? {
         guard let screen = DockGeometry.target(screens: NSScreen.dockScreens, pinned: model?.config?.sidebarDisplay)
@@ -145,11 +152,13 @@ import RelayUI
         dock(edge: edge)
     }
 
-    /// Brings the panel in. `focus` false (a "now" ask before Task 55's slide-in)
+    /// Brings the panel in. `focus` false (a "now" ask's slide-in)
     /// leaves the frontmost app's focus alone; either way it stays until hidden.
     /// `animated` fades it in over `DS.Motion.fade` (instant under Reduce Motion).
+    /// A show during a hide's fade-out cancels it and fades back to full alpha.
     func present(focus: Bool, animated: Bool) {
         fadeToken += 1
+        isFadingOut = false
         dock(edge: edge)
         let duration = animated ? DS.appKitDuration(DS.Motion.fade) : 0
         if duration > 0, !isVisible || alphaValue < 1 {
@@ -177,9 +186,12 @@ import RelayUI
         let token = fadeToken
         let duration = animated ? DS.appKitDuration(DS.Motion.fade) : 0
         guard duration > 0 else {
+            isFadingOut = false
             orderOut(nil)
+            alphaValue = 1
             return
         }
+        isFadingOut = true
         NSAnimationContext.runAnimationGroup { context in
             context.duration = duration
             self.animator().alphaValue = 0
@@ -190,22 +202,18 @@ import RelayUI
 
     private func finishHide(_ token: Int) {
         guard token == fadeToken else { return }
+        isFadingOut = false
         orderOut(nil)
         alphaValue = 1
     }
 
     /// §4.1: show and focus; focus a visible unfocused panel; re-dock a misplaced one; hide a focused one.
+    /// A panel that is fading out counts as hidden, so a second press brings it back. Every
+    /// action but hide goes through `present`, which re-docks and cancels a fade-out.
     func toggle() {
-        switch PanelToggle.decide(visible: isVisible, isKey: isKeyWindow, frame: frame, target: targetFrame ?? frame) {
-        case .showAndFocus:
+        switch PanelToggle.decide(visible: isShown, isKey: isKeyWindow, frame: frame, target: targetFrame ?? frame) {
+        case .showAndFocus, .focus, .redockAndFocus:
             present(focus: true, animated: true)
-        case .focus:
-            orderFrontRegardless()
-            makeKey()
-        case .redockAndFocus:
-            dock(edge: edge)
-            orderFrontRegardless()
-            makeKey()
         case .hide:
             hide(animated: true)
         }
