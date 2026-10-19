@@ -1,5 +1,6 @@
 import Foundation
-import RelayCore
+@testable import RelayCore
+import SwiftUI
 import Testing
 @testable import RelayUI
 
@@ -164,5 +165,21 @@ private let three = [item("a", urgency: "now", created: stamp(minutesAgo: 10), s
         #expect(await eventually { store.stateTick == 1 })
         #expect(store.queue.content == .loading(stillTrying: true))
         store.swap(to: nil, identity: localIdentity, pollSeconds: 3600)
+    }
+}
+
+@MainActor @Suite struct PanelRootTests {
+    @Test func detailShowsOnlyWithAnOpenAsk() {
+        #expect(!PanelRoot<FixturePanelModel>.showsDetail(PanelNavigation()))
+        #expect(!PanelRoot<FixturePanelModel>.showsDetail(PanelNavigation(listSelection: "a1")))
+        #expect(PanelRoot<FixturePanelModel>.showsDetail(PanelNavigation(listSelection: "a1", selectedID: "a1")))
+        // An ask outside the filter (slide-in, link) opens with no list selection.
+        #expect(PanelRoot<FixturePanelModel>.showsDetail(PanelNavigation(selectedID: "outside")))
+    }
+
+    @Test func galleryOverridesDefaultToNothing() {
+        let overrides = EnvironmentValues().panelGallery
+        #expect(overrides == PanelGalleryOverrides())
+        #expect(overrides.now == nil && overrides.closedExpanded == nil && overrides.fromExpanded == nil && overrides.fullHeight == nil)
     }
 }
