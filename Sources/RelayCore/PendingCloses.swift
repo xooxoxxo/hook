@@ -35,6 +35,9 @@ public struct PendingCloses: Sendable {
     /// The most recently added.
     public var latest: PendingClose? { entries.last }
 
+    /// Every held id, in the order they were added.
+    public var ids: [String] { entries.map(\.id) }
+
     public func contains(_ id: String) -> Bool {
         entries.contains { $0.id == id }
     }

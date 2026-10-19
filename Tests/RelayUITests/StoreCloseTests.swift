@@ -115,6 +115,45 @@ private let abc = [item("a", created: stamp(minutesAgo: 10)), item("b", created:
         #expect(await eventually { sent == ["a"] })
     }
 
+    @Test func aCloseWhoseResolveIsInFlightStaysHeld() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let clock = TestClock()
+        let (store, fake) = await ready(clock: clock, defaults: defaults)
+        var sent: [String] = []
+        store.onCloseSent = { sent.append($0) }
+        store.close("a", .done)
+        #expect(store.heldCloseIDs == ["a"])
+        await fake.holdResolves()
+        clock.advance(11)
+        store.sendDue()
+        #expect(await eventually { await fake.count("resolve a done") == 1 })
+        #expect(!store.hasPendingCloses)
+        #expect(store.heldCloseIDs.contains("a"))
+        #expect(!store.items.contains { $0.id == "a" })
+        #expect(sent.isEmpty)
+        await fake.releaseResolves()
+        #expect(await eventually { sent == ["a"] })
+        #expect(!store.heldCloseIDs.contains("a"))
+    }
+
+    @Test func aFailedSendNeverCallsTheCleanUpHook() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let clock = TestClock()
+        let (store, fake) = await ready(clock: clock, defaults: defaults)
+        var sent: [String] = []
+        store.onCloseSent = { sent.append($0) }
+        await fake.failNext(QueueError.unreachable("timed out"), on: "resolve")
+        store.close("a", .done)
+        clock.advance(11)
+        store.sendDue()
+        #expect(await eventually { store.notice != nil })
+        #expect(await eventually { store.items.contains { $0.id == "a" } })
+        #expect(!store.heldCloseIDs.contains("a"))
+        #expect(sent.isEmpty)
+    }
+
     @Test func aFailedReopenPostsANotice() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }
@@ -195,6 +234,27 @@ private let abc = [item("a", created: stamp(minutesAgo: 10)), item("b", created:
         store.swap(to: nil, identity: SourceIdentity(key: SourceKey.none, mailbox: nil), pollSeconds: 15)
         #expect(await eventually { sent == ["a"] })
         #expect(await fake.count("resolve a done") == 1)
+    }
+
+    @Test func aQuitFlushHoldsEveryCloseUntilItsResolveAndCleansUpOnlyTheSentOnes() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, fake) = await ready(defaults: defaults)
+        var sent: [String] = []
+        store.onCloseSent = { sent.append($0) }
+        store.close("a", .done)
+        store.close("b", .declined)
+        await fake.failNext(QueueError.unreachable("timed out"), on: "resolve a")
+        await fake.holdResolves()
+        let sends = Task { await store.sendAllPending() }
+        #expect(await eventually { await fake.count("resolve") == 2 })
+        #expect(!store.hasPendingCloses)
+        #expect(store.heldCloseIDs == ["a", "b"])
+        #expect(sent.isEmpty)
+        await fake.releaseResolves()
+        await sends.value
+        #expect(sent == ["b"])
+        #expect(store.heldCloseIDs.isEmpty)
     }
 
     /// Ruling 2: the Undo bar stays, in its sending state, while the quit-time sends run.

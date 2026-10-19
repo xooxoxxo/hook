@@ -44,7 +44,7 @@ import RelayUI
     private var awayTally = AwayTally()
     /// The first ask that arrived while away; the return summary click selects it.
     private var awayFirstID: String?
-    /// Open (or held for Undo) and Recently closed ids at the last Store change.
+    /// Open (or held for Undo or sending) and Recently closed ids at the last Store change.
     private var lastOpenIDs: Set<String> = []
     private var lastClosedIDs: Set<String> = []
     /// SIGTERM (`kill`, `launchctl bootout`) skips applicationWillTerminate, so it
@@ -646,10 +646,11 @@ import RelayUI
     }
 
     /// Removes notifications for asks that left the open list or were reopened. A close
-    /// held for Undo still counts as open; its notification goes when the close is sent.
+    /// held for Undo or still sending counts as open; its notification goes once the
+    /// source confirms the close (onCloseSent).
     private func cleanUpNotifications() {
         guard let store, let notifier else { return }
-        let held = lastOpenIDs.filter { store.pending.contains($0) }
+        let held = lastOpenIDs.intersection(store.heldCloseIDs)
         let open = Set(store.items.map(\.id)).union(held)
         let reopened = open.subtracting(lastOpenIDs).intersection(lastClosedIDs)
         let ids = NotificationCleanup.ids(previousOpen: lastOpenIDs, currentOpen: open, sent: [], reopened: Array(reopened))

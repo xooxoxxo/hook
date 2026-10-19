@@ -140,6 +140,8 @@ public enum LinkCheck: Equatable, Sendable {
     var listed: [WireItem] = []
     /// Closes taken off `pending` whose send hasn't finished (or whose list hasn't caught up).
     private var sending: Set<String> = []
+    /// Closes the quit-time flush drained from `pending` whose resolves haven't all finished.
+    private var draining: Set<String> = []
     private var ticker: Task<Void, Never>?
     /// "id completedAt" → the closing event's actor, so each close is fetched once.
     private var closedActors: [String: String] = [:]
@@ -657,6 +659,7 @@ public enum LinkCheck: Equatable, Sendable {
         let shown = undoInfo
         let all = pending.drainAll()
         guard !all.isEmpty else { return }
+        draining = Set(all.map { $0.id })
         sendingUndo = shown
         publishState()
         let sent = await withTaskGroup(of: String?.self) { group in
@@ -669,12 +672,19 @@ public enum LinkCheck: Equatable, Sendable {
             for await id in group { if let id { ids.append(id) } }
             return ids
         }
+        draining = []
         sent.forEach { onCloseSent?($0) }
         sendingUndo = nil
         publishState()
     }
 
     public var hasPendingCloses: Bool { !pending.isEmpty }
+
+    /// Closes that are hidden but not yet resolved: held for Undo, sending, or in the
+    /// quit-time flush. Their notifications stay until the source confirms the close.
+    public var heldCloseIDs: Set<String> {
+        sending.union(draining).union(pending.ids)
+    }
 
     /// The actor of the event that closed `item` ("owner", "session"), once fetched.
     public func closedBy(_ item: WireItem) -> String? {
