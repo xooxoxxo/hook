@@ -1,12 +1,10 @@
 import AppKit
 import RelayCore
+import RelayUI
 
-/// Non-activating floating panel docked to the left or right edge of its pinned
-/// display (config `sidebarDisplay`, else the main display), on a
-/// sidebar-material background. No window buttons; the content starts at the
-/// top edge. It re-docks after display changes, wakes and Space switches.
+/// Non-activating, borderless floating panel docked flush to the left or right edge of its pinned display (config `sidebarDisplay`, else the main display), on a sidebar-material background. Square corners; no window buttons; the content starts at the top edge. It re-docks after display changes, wakes and Space switches.
 @MainActor final class SidePanel: NSPanel {
-    static let width: CGFloat = 380
+    static var width: CGFloat { DS.Metric.panelWidth }
 
     /// The edge from config `sidebarEdge`, set through `dock(edge:)`.
     private(set) var edge: SidebarEdge = .right
@@ -22,28 +20,36 @@ import RelayCore
     /// Re-docks wait meanwhile, so the panel stays under the pointer.
     private(set) var isDragging = false
 
+    /// Bumped by every show and hide, so a fade-out that finishes after a new show
+    /// doesn't order the panel out.
+    private var fadeToken = 0
+
+    /// Where the panel belongs now: the pinned (or main) display's docked frame on `edge`.
+    var targetFrame: CGRect? {
+        guard let screen = DockGeometry.target(screens: NSScreen.dockScreens, pinned: model?.config?.sidebarDisplay)
+        else { return nil }
+        return DockGeometry.frame(edge: edge, on: screen, width: Self.width)
+    }
+
     init(content: NSView) {
         super.init(
-            contentRect: NSRect(x: 0, y: 0, width: Self.width, height: 600),
-            styleMask: [.nonactivatingPanel, .titled, .closable, .fullSizeContentView],
+            contentRect: NSRect(x: 0, y: 0, width: Self.width, height: Self.width),
+            styleMask: [.nonactivatingPanel, .borderless, .fullSizeContentView],
             backing: .buffered,
             defer: false)
         isFloatingPanel = true
         level = .floating
         hidesOnDeactivate = false
         isReleasedWhenClosed = false
-        titleVisibility = .hidden
-        titlebarAppearsTransparent = true
+        hasShadow = true
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         isOpaque = false
         backgroundColor = .clear
-        // Docked, not a document window: no traffic lights, and AppKit doesn't
-        // move it. A header drag (PanelDragHandle) moves it and then re-docks.
-        // `.titled` stays for the rounded corners, shadow and key-window behaviour.
-        for kind in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
-            standardWindowButton(kind)?.isHidden = true
-        }
+        // Relay moves the panel itself: the header drag and PanelDock.
         isMovable = false
+        // Never shown (no title bar), but it names the window for VoiceOver and the Window menu.
+        title = "Relay"
+        setAccessibilityLabel("Relay")
 
         let background = NSVisualEffectView()
         background.material = .sidebar
@@ -72,14 +78,15 @@ import RelayCore
     }
 
     override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
 
     override func cancelOperation(_ sender: Any?) {
         if let keyRouter {
-            if !keyRouter.route(.escape, event: nil, in: self) { orderOut(nil) }
+            if !keyRouter.route(.escape, event: nil, in: self) { hide(animated: true) }
             return
         }
         if onEscape?() == true { return }
-        orderOut(nil)
+        hide(animated: true)
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
@@ -138,19 +145,69 @@ import RelayCore
         dock(edge: edge)
     }
 
-    /// Brings the panel in. `focus` false (slide-in for "now" asks) leaves the
-    /// frontmost app's focus alone; either way it stays until hidden.
-    func present(focus: Bool) {
+    /// Brings the panel in. `focus` false (a "now" ask before Task 55's slide-in)
+    /// leaves the frontmost app's focus alone; either way it stays until hidden.
+    /// `animated` fades it in over `DS.Motion.fade` (instant under Reduce Motion).
+    func present(focus: Bool, animated: Bool) {
+        fadeToken += 1
         dock(edge: edge)
-        orderFrontRegardless()
+        let duration = animated ? DS.appKitDuration(DS.Motion.fade) : 0
+        if duration > 0, !isVisible || alphaValue < 1 {
+            if !isVisible { alphaValue = 0 }
+            orderFrontRegardless()
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = duration
+                self.animator().alphaValue = 1
+            }
+        } else {
+            alphaValue = 1
+            orderFrontRegardless()
+        }
         if focus { makeKey() }
     }
 
     func show() {
-        present(focus: true)
+        present(focus: true, animated: true)
     }
 
+    /// Hotkey, icon click, Esc at the list, ⌘W and the header ✕ all hide through here.
+    func hide(animated: Bool) {
+        guard isVisible else { return }
+        fadeToken += 1
+        let token = fadeToken
+        let duration = animated ? DS.appKitDuration(DS.Motion.fade) : 0
+        guard duration > 0 else {
+            orderOut(nil)
+            return
+        }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = duration
+            self.animator().alphaValue = 0
+        } completionHandler: { [weak self] in
+            MainActor.assumeIsolated { self?.finishHide(token) }
+        }
+    }
+
+    private func finishHide(_ token: Int) {
+        guard token == fadeToken else { return }
+        orderOut(nil)
+        alphaValue = 1
+    }
+
+    /// §4.1: show and focus; focus a visible unfocused panel; re-dock a misplaced one; hide a focused one.
     func toggle() {
-        if isVisible { orderOut(nil) } else { present(focus: true) }
+        switch PanelToggle.decide(visible: isVisible, isKey: isKeyWindow, frame: frame, target: targetFrame ?? frame) {
+        case .showAndFocus:
+            present(focus: true, animated: true)
+        case .focus:
+            orderFrontRegardless()
+            makeKey()
+        case .redockAndFocus:
+            dock(edge: edge)
+            orderFrontRegardless()
+            makeKey()
+        case .hide:
+            hide(animated: true)
+        }
     }
 }

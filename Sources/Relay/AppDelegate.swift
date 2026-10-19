@@ -65,7 +65,8 @@ import RelayUI
         let notifier = Notifier { [weak self] id in self?.showItem(id) }
         notifier.onOpenList = { [weak self] in
             self?.store?.back()
-            self?.panel?.present(focus: true)
+            self?.panel?.present(focus: true, animated: true)
+            self?.refreshIfStale()
         }
         notifier.requestAuthorization()
         self.notifier = notifier
@@ -174,6 +175,7 @@ import RelayUI
     func showItem(_ id: String) {
         guard let store, let panel else { return }
         panel.show()
+        refreshIfStale()
         Task { await store.focus(id) }
     }
 
@@ -190,7 +192,7 @@ import RelayUI
         panel.connect(model)
         panel.keyRouter = PanelKeyRouter(model: store)
         store.shell = PanelShellActions(
-            hide: { [weak self] in self?.panel?.orderOut(nil) },
+            hide: { [weak self] in self?.panel?.hide(animated: true) },
             setUp: { [weak self] in self?.showWelcome() },
             quit: { NSApp.terminate(nil) },
             dock: { [weak self] edge in self?.model?.save(set: ["sidebarEdge": edge.rawValue]) },
@@ -479,7 +481,17 @@ import RelayUI
     }
 
     @objc private func togglePanel() {
-        panel?.toggle()
+        guard let panel else { return }
+        let wasVisible = panel.isVisible
+        panel.toggle()
+        if !wasVisible, panel.isVisible { refreshIfStale() }
+    }
+
+    /// §4.1: showing the panel in mailbox mode refreshes a list older than 5 s. The rule
+    /// is `Store.refreshIfStale()` (Task 35); this only starts it.
+    private func refreshIfStale() {
+        guard let store else { return }
+        Task { await store.refreshIfStale() }
     }
 
     @objc private func refreshNow() {
@@ -499,7 +511,7 @@ import RelayUI
         notifier?.handle(newItems: items, settings: settings)
         guard let target = NotifyPolicy(settings: settings).slideInTarget(items),
               let panel, let store, !panel.isVisible else { return }
-        panel.present(focus: false)
+        panel.present(focus: false, animated: false)
         Task { await store.focus(target.id) }
     }
 
