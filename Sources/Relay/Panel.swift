@@ -13,6 +13,8 @@ import RelayCore
     /// Esc goes to the content first: true means it was used (a detail went back
     /// to the list). Otherwise the panel hides.
     var onEscape: (@MainActor () -> Bool)?
+    /// The panel-wide keys (design §4.12); AppDelegate sets it once the panel hosts PanelRoot.
+    var keyRouter: PanelKeyRouter?
     /// Reads `sidebarDisplay` and saves a pin from a header drag; set by `connect(_:)`.
     private weak var model: AppModel?
     private var docker: PanelDocker?
@@ -72,8 +74,17 @@ import RelayCore
     override var canBecomeKey: Bool { true }
 
     override func cancelOperation(_ sender: Any?) {
+        if let keyRouter {
+            if !keyRouter.route(.escape, event: nil, in: self) { orderOut(nil) }
+            return
+        }
         if onEscape?() == true { return }
         orderOut(nil)
+    }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if let keyRouter, keyRouter.handle(event, in: self) { return true }
+        return super.performKeyEquivalent(with: event)
     }
 
     /// Full height of the pinned display's visible frame, 380 pt wide, on `edge`.

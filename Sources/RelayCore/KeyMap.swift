@@ -127,3 +127,79 @@ public enum KeyMap {
         }
     }
 }
+
+// MARK: Key events
+
+extension PanelKey {
+    /// kVK codes of the digit keys 1–6 (ANSI positions; 5 and 6 are swapped on the hardware).
+    static let digitCodes: [UInt16: Int] = [18: 1, 19: 2, 20: 3, 21: 4, 23: 5, 22: 6]
+
+    /// A key-down as a panel key, or nil when it is not one. Keys whose character is not
+    /// printable or moves with the layout (Esc, Return, Delete, arrows, "[", digits) are read
+    /// by kVK code; letters and "," by `characters` (charactersIgnoringModifiers), lowercased,
+    /// so ⇧⌘Z arriving as "Z" is still Z. Only the command, shift, option and control
+    /// modifiers count; the caller drops the others.
+    public init?(keyCode: UInt16, modifiers: KeyModifiers, characters: String?) {
+        let character = characters?.lowercased() ?? ""
+        switch modifiers {
+        case []:
+            switch keyCode {
+            case 53: self = .escape
+            case 36, 76: self = .returnKey
+            case 126: self = .up
+            case 125: self = .down
+            case 123: self = .left
+            case 124: self = .right
+            default:
+                guard let digit = Self.digitCodes[keyCode] else { return nil }
+                self = .digit(digit)
+            }
+        case [.option]:
+            guard keyCode == 36 || keyCode == 76 else { return nil }
+            self = .optionReturn
+        case [.command]:
+            switch keyCode {
+            case 36, 76: self = .cmdReturn
+            case 51: self = .cmdDelete
+            case 126: self = .cmdUp
+            case 125: self = .cmdDown
+            case 33: self = .cmdLeftBracket
+            default:
+                switch character {
+                case "w": self = .cmdW
+                case "r": self = .cmdR
+                case ",": self = .cmdComma
+                case "z": self = .cmdZ
+                case "q": self = .cmdQ
+                case "t": self = .cmdT
+                case "l": self = .cmdL
+                default: return nil
+                }
+            }
+        case [.shift, .command]:
+            switch character {
+            case "z": self = .shiftCmdZ
+            case "t": self = .shiftCmdT
+            case "c": self = .shiftCmdC
+            case "o": self = .shiftCmdO
+            case "r": self = .shiftCmdR
+            case "l": self = .shiftCmdL
+            default: return nil
+            }
+        case [.control, .command]:
+            switch keyCode {
+            case 123: self = .ctrlCmdLeft
+            case 124: self = .ctrlCmdRight
+            default:
+                switch character {
+                case "g": self = .ctrlCmdG
+                case "a": self = .ctrlCmdA
+                case "p": self = .ctrlCmdP
+                default: return nil
+                }
+            }
+        default:
+            return nil
+        }
+    }
+}

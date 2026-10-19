@@ -186,3 +186,76 @@ private func typing(_ c: KeyContext) -> KeyContext { var c = c; c.textFieldFocus
     }
 
 }
+
+@Suite struct PanelKeyEventTests {
+    private func key(_ code: UInt16, _ modifiers: KeyModifiers = [], _ characters: String? = nil) -> PanelKey? {
+        PanelKey(keyCode: code, modifiers: modifiers, characters: characters)
+    }
+
+    @Test func plainKeysByKeyCode() {
+        #expect(key(53) == .escape)
+        #expect(key(36, [], "\r") == .returnKey)
+        #expect(key(76, [], "\u{3}") == .returnKey)                   // keypad Enter
+        #expect(key(126) == .up)
+        #expect(key(125) == .down)
+        #expect(key(123) == .left)
+        #expect(key(124) == .right)
+    }
+
+    @Test func digitsOneToSixByKeyCode() {
+        #expect(key(18, [], "1") == .digit(1))
+        #expect(key(19, [], "2") == .digit(2))
+        #expect(key(20, [], "3") == .digit(3))
+        #expect(key(21, [], "4") == .digit(4))
+        #expect(key(23, [], "5") == .digit(5))
+        #expect(key(22, [], "6") == .digit(6))
+        #expect(key(26, [], "7") == nil)
+        #expect(key(18, .command, "1") == nil)
+    }
+
+    @Test func optionReturnIsTheNewLineKey() {
+        #expect(key(36, .option, "\r") == .optionReturn)
+        #expect(key(53, .option) == nil)
+    }
+
+    @Test func commandKeys() {
+        #expect(key(36, .command, "\r") == .cmdReturn)
+        #expect(key(51, .command, "\u{7F}") == .cmdDelete)
+        #expect(key(126, .command) == .cmdUp)
+        #expect(key(125, .command) == .cmdDown)
+        #expect(key(33, .command, "[") == .cmdLeftBracket)
+        #expect(key(13, .command, "w") == .cmdW)
+        #expect(key(15, .command, "r") == .cmdR)
+        #expect(key(43, .command, ",") == .cmdComma)
+        #expect(key(6, .command, "z") == .cmdZ)
+        #expect(key(12, .command, "q") == .cmdQ)
+        #expect(key(17, .command, "t") == .cmdT)
+        #expect(key(37, .command, "l") == .cmdL)
+        #expect(key(0, .command, "a") == nil)                         // ⌘A is Select All, not ours
+    }
+
+    @Test func shiftCommandKeysIgnoreTheShiftedCharacter() {
+        #expect(key(6, [.shift, .command], "Z") == .shiftCmdZ)
+        #expect(key(17, [.shift, .command], "T") == .shiftCmdT)
+        #expect(key(8, [.shift, .command], "C") == .shiftCmdC)
+        #expect(key(31, [.shift, .command], "O") == .shiftCmdO)
+        #expect(key(15, [.shift, .command], "R") == .shiftCmdR)
+        #expect(key(37, [.shift, .command], "L") == .shiftCmdL)
+    }
+
+    @Test func controlCommandKeys() {
+        #expect(key(123, [.control, .command]) == .ctrlCmdLeft)
+        #expect(key(124, [.control, .command]) == .ctrlCmdRight)
+        #expect(key(5, [.control, .command], "g") == .ctrlCmdG)
+        #expect(key(0, [.control, .command], "a") == .ctrlCmdA)
+        #expect(key(35, [.control, .command], "p") == .ctrlCmdP)
+    }
+
+    @Test func otherCombinationsAreNotPanelKeys() {
+        #expect(key(15, [.option, .command], "r") == nil)
+        #expect(key(15, [.control, .option, .command], "r") == nil)   // the global show/hide shortcut
+        #expect(key(36, [.shift], "\r") == nil)
+        #expect(key(15, [], "r") == nil)
+        #expect(key(15, .command, nil) == nil)
+    }
+}

@@ -74,5 +74,6 @@ public struct PanelRoot<Model: PanelViewModel>: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .animation(DS.motion(DS.Motion.push, reduce: reduceMotion), value: detailID)
+        .modifier(PanelKeys(model: model))
     }
 }
