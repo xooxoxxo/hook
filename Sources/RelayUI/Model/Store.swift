@@ -15,6 +15,20 @@ import RelayCore
     @Published public private(set) var details: [String: AskDetail] = [:]
     /// The highlighted row and the open detail (design §4.6).
     @Published public var navigation = PanelNavigation()
+    /// After Done or Skip in the detail; AppDelegate sets it from config.json.
+    public var afterClose: AfterClose = .next
+    /// One Notice at a time; the newest replaces the older; only ✕ or its action clears it.
+    @Published public private(set) var notice: PanelNotice?
+    /// A close was sent or an ask reopened: remove its delivered notification (Task 58).
+    public var onCloseSent: (@MainActor (String) -> Void)?
+    /// Text for VoiceOver to announce ("Ask reopened").
+    public var onAnnounce: (@MainActor (String) -> Void)?
+    /// The queueMoved Notice's "Show in Finder".
+    public var onShowInFinder: (@MainActor (String) -> Void)?
+    /// Closes whose send failed, by id, for the Notice's Retry.
+    private var failedCloses: [String: PendingClose] = [:]
+    /// The ask that was open when the source swapped; checked against the first list.
+    private var reloadCheckID: String?
     /// Done steps the owner expanded, by ask; node paths. Memory only, on purpose.
     @Published public var expandedDone: [String: Set<String>] = [:]
     /// The path of the top visible node per ask, for the detail's scroll position. Memory only.
@@ -99,6 +113,7 @@ import RelayCore
     /// filter (the open detail closes); 4 the next first load never
     /// notifies; 5 subscribe or poll, and refresh.
     public func swap(to source: (any QueueSource)?, identity: SourceIdentity, pollSeconds: Int) {
+        let openID = navigation.selectedID
         // Closes still held back belong to the old source: send them now.
         flushAll(to: self.source)
         generation += 1
@@ -107,7 +122,10 @@ import RelayCore
         inFlight = nil
         refreshing = false
 
-        navigation = PanelNavigation(listSelection: PanelPrefs.selection(defaults, sourceKey: identity.key))
+        navigation = PanelNavigation(listSelection: PanelPrefs.selection(defaults, sourceKey: identity.key), selectedID: openID)
+        reloadCheckID = openID
+        failedCloses = [:]
+        notice = nil
         filter = PanelPrefs.filter(defaults, sourceKey: identity.key)
         lastListAt = nil
         details = [:]
@@ -135,6 +153,12 @@ import RelayCore
         listProblem = source == nil ? Self.noSourceProblem : nil
         publishState()
 
+        // No source means no first list to check the open ask against: it closes now.
+        if source == nil, openID != nil {
+            reloadCheckID = nil
+            navigation.back()
+            post(.settingsReloaded)
+        }
         guard let source else { return }
         watchTask = watch(source)
     }
@@ -232,9 +256,21 @@ import RelayCore
             guard gen == generation else { return }
             let diff = QueueLogic.diff(old: listed, new: fresh)
             listed = fresh
+            if let id = reloadCheckID {
+                reloadCheckID = nil
+                if !fresh.contains(where: { $0.id == id }) {
+                    navigation.back()
+                    post(.settingsReloaded)
+                }
+            }
+            if let selected = navigation.selectedID, diff.removed.contains(selected),
+               !pending.contains(selected), !sending.contains(selected) {
+                post(.sessionClosed(id: selected))
+            }
             updateItems()
             listOK = true
             listProblem = nil
+            if showsOfflineNotice { notice = nil }
             lastListAt = now()
             for id in diff.removed where id != selectedID {
                 details[id] = nil
@@ -261,6 +297,10 @@ import RelayCore
             guard gen == generation else { return }
             listOK = false
             listProblem = error.localizedDescription
+            // Once per outage: repeated failed polls don't re-post it.
+            if loadedOnce, !showsOfflineNotice {
+                post(.offlineCached(since: ClockText.time(lastListAt ?? now())))
+            }
             publishState()
         }
     }
@@ -450,28 +490,77 @@ import RelayCore
         TickStore.prune(defaults, sourceKey: sourceKey, keep: keep)
     }
 
-    /// Done or Skip, as the owner, held back for Undo: the ask leaves the list at
-    /// once, the panel goes back to the queue, and the close is sent when its
-    /// deadline passes (or on quit).
-    public func close(_ id: String, _ verdict: Verdict, title: String) {
+    /// Done or Skip, held 10 s for Undo. In the detail, `afterClose` decides whether
+    /// the next ask opens; from the list, the next row is selected.
+    public func close(_ id: String, _ verdict: Verdict) {
         guard source != nil else { return }
-        pending.add(id: id, verdict: verdict, note: nil, title: title, now: now())
+        let order = visibleOrder
+        let inDetail = navigation.selectedID == id
+        pending.add(id: id, verdict: verdict, note: nil, title: item(for: id)?.title ?? "", now: now())
         recentlyClosed.removeAll { $0.id == id }
         actionError = nil
-        if selectedID == id {
-            navigation.back()
-            notFoundID = nil
-        }
+        if inDetail { notFoundID = nil }
+        navigation.afterClose(id, visibleOrder: order, setting: afterClose, inDetail: inDetail)
+        saveSelection()
+        if let next = navigation.selectedID { loadIfMissing(next) }
         updateItems()
         publishState()
         startTicker()
     }
 
-    /// Takes back the latest held-back close; the ask returns where it was.
-    public func undoLatest() {
-        guard pending.undoLatest() != nil else { return }
+    /// The 0.5 views' call.
+    public func close(_ id: String, _ verdict: Verdict, title: String) { close(id, verdict) }
+
+    /// Restores the latest held close; called again, the one before.
+    public func undo() {
+        guard let restored = pending.undoLatest() else { return }
         updateItems()
         publishState()
+        navigation.undoRestored(restored.id, visibleOrder: visibleOrder)
+        saveSelection()
+    }
+
+    /// The 0.5 views' call.
+    public func undoLatest() { undo() }
+
+    public var undoInfo: UndoInfo? {
+        guard let latest = pending.latest else { return nil }
+        return UndoInfo(verdict: latest.verdict, title: latest.title, deadline: latest.deadline, more: pending.count - 1)
+    }
+
+    public func post(_ notice: PanelNotice) { self.notice = notice }
+
+    public func dismissNotice() { notice = nil }
+
+    /// The Notice's button: Retry, Next Ask, Show Closed Ask, Try Again or Show in Finder.
+    public func performNoticeAction() async {
+        guard let current = notice else { return }
+        notice = nil
+        switch current {
+        case .actionFailed(_, let id, _, _):
+            guard let close = failedCloses.removeValue(forKey: id), let source else { return }
+            sending.insert(id)
+            updateItems()
+            publishState()
+            await send(close, via: source, generation: generation)
+        case .reopenFailed(let id, _, _):
+            await reopen(id)
+        case .sessionClosed(let id):
+            if let next = Flow.nextAsk(after: id, in: visibleOrder) { open(next) } else { back() }
+        case .noLongerOpen(let id, let canShowClosed):
+            if canShowClosed { open(id) }
+        case .offlineCached:
+            await refresh(manual: true)
+        case .queueMoved(let path):
+            onShowInFinder?(path)
+        case .storeFailed, .settingsReloaded:
+            break
+        }
+    }
+
+    private var showsOfflineNotice: Bool {
+        if case .offlineCached? = notice { return true }
+        return false
     }
 
     /// Before quitting: sends every held-back close at once. The caller caps the wait.
@@ -502,13 +591,17 @@ import RelayCore
         do {
             _ = try await source.reopen(id)
             guard gen == generation else { return }
-            details[id] = nil
             quietIDs.insert(id)
             recentlyClosed.removeAll { $0.id == id }
             await freshRefresh()
+            guard gen == generation else { return }
+            if navigation.selectedID == id { await load(id, from: source, generation: gen) }
+            onCloseSent?(id)
+            onAnnounce?("Ask reopened")
         } catch {
             guard gen == generation else { return }
             banner = "Reopen failed: \(error.localizedDescription)"
+            post(.reopenFailed(id: id, title: item(for: id)?.title ?? "", reason: UserFacingError.text(error)))
             noteStoreFailure(error)
         }
     }
@@ -572,8 +665,8 @@ import RelayCore
         }
     }
 
-    /// Returns true once nothing is held back.
-    private func sendDue() -> Bool {
+    /// Returns true once nothing is held back. Internal so tests can run it after moving the clock.
+    @discardableResult func sendDue() -> Bool {
         let due = pending.due(now: now())
         if let source {
             let gen = generation
@@ -599,6 +692,8 @@ import RelayCore
             await freshRefresh()
             guard gen == generation else { return }
             sending.remove(close.id)
+            failedCloses[close.id] = nil
+            onCloseSent?(close.id)
             updateItems()
         } catch {
             guard gen == generation else { return }
@@ -607,6 +702,8 @@ import RelayCore
             publishState()
             let label = close.verdict == .done ? "Done" : "Skip"
             banner = "\(label) failed for “\(close.title)”: \(error.localizedDescription)"
+            failedCloses[close.id] = close
+            post(.actionFailed(verdict: close.verdict, id: close.id, title: close.title, reason: UserFacingError.text(error)))
         }
     }
 
@@ -676,7 +773,8 @@ import RelayCore
             tickCache[id] = nil
         } catch QueueError.notFound {
             guard gen == generation else { return }
-            details[id] = nil
+            // The open ask keeps its cached detail when it leaves the queue (§4.7, "Ask closed while open").
+            if id != navigation.selectedID { details[id] = nil }
         } catch {
             // Keep the cached detail; the next refresh retries.
         }

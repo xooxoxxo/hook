@@ -30,6 +30,8 @@ public struct PendingCloses: Sendable {
 
     public var isEmpty: Bool { entries.isEmpty }
 
+    public var count: Int { entries.count }
+
     /// The most recently added.
     public var latest: PendingClose? { entries.last }
 
