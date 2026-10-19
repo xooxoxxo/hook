@@ -134,7 +134,9 @@ struct DetailView<Model: PanelViewModel>: View {
     @ViewBuilder private func stepsArea(_ snapshot: DetailSnapshot, closed: Bool) -> some View {
         switch snapshot.load {
         case .loaded:
-            EmptyView()
+            if let detail = snapshot.model, !detail.nodes.isEmpty {
+                DetailSteps(model: model, snapshot: snapshot, nodes: detail.nodes, readOnly: closed)
+            }
         case .loading, .timedOut:
             TimelineView(.periodic(from: Date(), by: DS.Motion.wakeRecheck)) { _ in
                 loadingView(model.detail(id)?.load ?? snapshot.load)

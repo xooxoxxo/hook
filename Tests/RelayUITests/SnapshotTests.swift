@@ -349,3 +349,59 @@ private let phase3Now = Date(timeIntervalSince1970: 1_792_143_600)
         #expect(DetailView<FixturePanelModel>.target(.outsideFilter) == nil)
     }
 }
+
+@MainActor @Suite struct DetailStepsSnapshotTests {
+    @Test func fixtureHasSubStepTwoACurrent() throws {
+        let snapshot = GalleryFixtures.detailSteps
+        let nodes = try #require(snapshot.model?.nodes)
+        #expect(snapshot.ticks == ["1", "2.2"])   // Task 39's certTicks: step 1 and 2b done, so 2a is current
+        #expect(snapshot.current == "2.1")
+        #expect(Flow.currentStep(ticks: snapshot.ticks, nodes: nodes) == snapshot.current)
+        #expect(snapshot.progress == Flow.progress(ticks: snapshot.ticks, nodes: nodes))
+        #expect(snapshot.progress.total == 8)
+        let parent = try #require(nodes.first { $0.path == "2" })
+        #expect(parent.children.map(\.path) == ["2.1", "2.2", "2.3"])
+        #expect(Flow.state(of: parent.children[0], ticks: snapshot.ticks, current: snapshot.current) == .current)
+        #expect(DetailSteps<FixturePanelModel>.progressText(snapshot.progress)
+                == "\(snapshot.progress.done) of 8 done")
+    }
+
+    @Test func rotorTitlesUseTheLabelAndASanitizedAction() {
+        let nodes = DetailModel.nodes(
+            steps: [Step(action: "Create the Slack app", substeps: [Step(action: "Click Create New App"),
+                                                                     Step(action: "Name\u{200B} it")])],
+            verify: Step(action: "Check the bot posts"))
+        let titles = Flow.flattened(nodes).map(DetailSteps<FixturePanelModel>.rotorTitle)
+        #expect(titles == ["1. Create the Slack app", "1a. Click Create New App", "1b. Name⟨U+200B⟩ it",
+                           "Verify. Check the bot posts"])
+    }
+
+    /// Ruling 2: a sub-step is a scroll and rotor target in its own right, by its own path.
+    @Test func aSubStepsScrollTargetIsItsOwnPath() throws {
+        let nodes = DetailModel.nodes(
+            steps: [Step(action: "Open the console"), Step(action: "Pick the project"),
+                    Step(action: "Create the app", substeps: [Step(action: "Click New App"), Step(action: "Name it Acme")])],
+            verify: nil)
+        let parent = try #require(nodes.first { $0.path == "3" })
+        #expect(parent.children.map(\.path) == ["3.1", "3.2"])   // what DetailSteps passes as childPaths
+        #expect(parent.children[1].id == "3.2")                  // the rotor entry id and the row's .id
+        #expect(Flow.flattened(nodes).map(\.id) == ["1", "2", "3", "3.1", "3.2"])
+    }
+
+    @Test func expansionTogglesOnePathAndKeepsTheRest() {
+        #expect(DetailSteps<FixturePanelModel>.toggled(nil, path: "1", expanded: true) == ["1"])
+        #expect(DetailSteps<FixturePanelModel>.toggled(["1", "2.1"], path: "1", expanded: false) == ["2.1"])
+        #expect(DetailSteps<FixturePanelModel>.toggled(["2"], path: "2.1", expanded: true) == ["2", "2.1"])
+    }
+
+    /// Task 16 ruling: `substeps: []` decodes as an empty list, and that step is a plain StepView.
+    @Test func anEmptySubstepsListRendersAsAPlainStep() throws {
+        let json = #"{"do": "Open the console", "substeps": []}"#
+        let step = try JSONDecoder().decode(Step.self, from: Data(json.utf8))
+        #expect(step.substeps == [])
+        let nodes = DetailModel.nodes(steps: [step], verify: nil)
+        #expect(nodes.map(\.path) == ["1"])
+        #expect(!DetailSteps<FixturePanelModel>.rendersAsParent(nodes[0]))
+        #expect(Flow.flattened(nodes).map(\.id) == ["1"])
+    }
+}

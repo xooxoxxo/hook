@@ -35,6 +35,8 @@ public struct TickButton: View {
             .accessibilityValue(value)
             .accessibilityHint(hint)
             .disabled(readOnly)
+            // One marker column per level: a wider glyph (verify's seal at a large text size) must not push its text off the edge.
+            .frame(width: DS.Metric.hit)
             .alignmentProbe(level.isSub ? .subMarker : .topMarker)
     }
 }

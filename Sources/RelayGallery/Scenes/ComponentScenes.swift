@@ -252,9 +252,9 @@ let sampleVerify = StepContent(action: "Check the release folder exists", place:
         StepView(content: c, level: level, state: state, total: 6, readOnly: readOnly, expanded: .constant(expanded),
                  onToggle: {}, onCopy: { _ in })
     }
-    func parent(_ states: [StepState], expanded: Bool = false) -> some View {
+    func parent(_ states: [StepState], expanded: Bool = false, readOnly: Bool = false) -> some View {
         ParentStepView(content: sampleParent, number: 2, total: 6, children: sampleSubs, childPaths: ["2.1", "2.2", "2.3"],
-                       childStates: states, readOnly: false,
+                       childStates: states, readOnly: readOnly,
                        expanded: .constant(expanded), childExpanded: { _ in .constant(false) },
                        onToggleParent: {}, onToggleChild: { _ in }, onCopy: { _ in })
     }
@@ -271,6 +271,7 @@ let sampleVerify = StepContent(action: "Check the release folder exists", place:
         Sample("StepView · verify current") { step(sampleVerify, .verify, .current) },
         Sample("StepView · verify done") { step(sampleVerify, .verify, .done) },
         Sample("StepView · read-only") { step(sampleStep4, .top(4), .todo, readOnly: true) },
+        Sample("ParentStepView · read-only") { parent([.done, .todo, .todo], readOnly: true) },
     ])
 }
 

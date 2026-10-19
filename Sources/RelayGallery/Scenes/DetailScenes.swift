@@ -102,6 +102,38 @@ let legacyJSON = #"""
     return FixturePanelModel(queue: queue, navigation: PanelNavigation(selectedID: id), status: readyStatus)
 }
 
+/// §3.5 detail-steps column check: markers on one centre per level, text on one edge per level.
+let stepColumnRules: [AlignmentRule] = [
+    .sameCentre(.topMarker, tolerance: 1),
+    .sameCentre(.subMarker, tolerance: 1),
+    .sameLeading(.topActionText, tolerance: 1),
+    .sameLeading(.subLabelText, tolerance: 1),
+]
+
+/// The same for scenes whose only parent is done and collapsed: no sub-step row is on screen,
+/// and a rule with no probe fails.
+let topColumnRules: [AlignmentRule] = [
+    .sameCentre(.topMarker, tolerance: 1),
+    .sameLeading(.topActionText, tolerance: 1),
+]
+
+let fullHeight = PanelGalleryOverrides(now: GalleryFixtures.now, fromExpanded: true, fullHeight: true)
+
+/// `base` with every leaf before `path` ticked, so `path` is the current leaf.
+func ticked(_ base: DetailSnapshot, before path: String) -> DetailSnapshot {
+    var snapshot = base
+    let nodes = base.model?.nodes ?? []
+    snapshot.ticks = Set(Flow.leaves(of: nodes).prefix { $0.path != path }.map(\.path))
+    snapshot.current = Flow.currentStep(ticks: snapshot.ticks, nodes: nodes)
+    snapshot.progress = Flow.progress(ticks: snapshot.ticks, nodes: nodes)
+    return snapshot
+}
+
+/// Every sub-step of step 2 ticked, step 1 too: the parent is done; 3 is current.
+@MainActor var substepsDone: DetailSnapshot {
+    ticked(GalleryFixtures.detailSteps, before: "3")
+}
+
 @MainActor let detailScenes: [GalleryScene] = [
     detailScene("detail-legacy", detailSnapshot(decodeDetail(legacyJSON), base: GalleryFixtures.detailSteps)),
     detailScene("detail-closed", closedDetail),
@@ -109,4 +141,22 @@ let legacyJSON = #"""
     detailScene("detail-loading", unloadedDetail(.loading)),
     detailScene("detail-load-failed", unloadedDetail(.timedOut)),
     panelScene("detail-notfound-closed", notFoundClosedModel()),
+    detailScene("detail-steps", GalleryFixtures.detailSteps, height: nil, rules: stepColumnRules, overrides: fullHeight),
+    detailScene("detail-steps-current-4", ticked(GalleryFixtures.detailSteps, before: "4"), height: nil,
+                rules: topColumnRules, overrides: fullHeight),
+    detailScene("detail-substeps-done", substepsDone, height: nil, rules: topColumnRules, overrides: fullHeight),
+    expandedSubstepsScene(),
+    detailScene("detail-limits", GalleryFixtures.limits, height: nil, overrides: fullHeight),
 ]
+
+/// detail-substeps-done with the done parent expanded: expansion is memory-only model state.
+@MainActor func expandedSubstepsScene() -> GalleryScene {
+    let snapshot = substepsDone
+    let model = FixturePanelModel(
+        queue: GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false),
+        details: [snapshot.id: snapshot],
+        navigation: PanelNavigation(listSelection: snapshot.id, selectedID: snapshot.id),
+        status: readyStatus)
+    model.expandedDone[snapshot.id] = ["2"]
+    return panelScene("detail-substeps-done-expanded", model, height: nil, rules: stepColumnRules, overrides: fullHeight)
+}

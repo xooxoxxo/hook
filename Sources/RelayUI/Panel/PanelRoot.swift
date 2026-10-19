@@ -37,6 +37,7 @@ extension EnvironmentValues {
 public struct PanelRoot<Model: PanelViewModel>: View {
     @ObservedObject private var model: Model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.panelGallery) private var gallery
 
     public init(model: Model) {
         _model = ObservedObject(wrappedValue: model)
@@ -47,10 +48,20 @@ public struct PanelRoot<Model: PanelViewModel>: View {
         navigation.selectedID != nil
     }
 
-    public var body: some View {
+    @ViewBuilder public var body: some View {
+        // A full-height gallery render sizes the scene to the detail; the queue's List would
+        // take every point it is offered (no app path sets fullHeight).
+        if gallery.fullHeight == true, let detailID = model.navigation.selectedID {
+            DetailView(model: model, id: detailID)
+        } else {
+            column
+        }
+    }
+
+    private var column: some View {
         let detailID = model.navigation.selectedID
         let detailShown = Self.showsDetail(model.navigation)
-        ZStack(alignment: .top) {
+        return ZStack(alignment: .top) {
             QueueView(model: model)
                 .opacity(detailShown ? 0 : 1)
                 .allowsHitTesting(!detailShown)
