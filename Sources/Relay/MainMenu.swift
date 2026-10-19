@@ -1,14 +1,17 @@
 import AppKit
 
 /// The main menu. Relay has no Dock icon, so it is never seen, but its key
-/// equivalents reach Relay's windows: Edit for text fields, and ⌘, for Settings.
-/// The panel's own keys (⌘R, ⌘W, ⌘Q, …) are handled by SidePanel (§4.12).
+/// equivalents reach Relay's windows: Edit for text fields, ⌘, for Settings and
+/// ⌘Q for Quit, so Settings and Welcome get them too. The panel's own keys
+/// (⌘R, ⌘W, ⌘Q, …) are handled first by SidePanel (§4.12).
 enum MainMenu {
     @MainActor static func install(settings: Selector, target: AnyObject) {
         let main = NSMenu()
 
         let app = NSMenu(title: "Relay")
         app.addItem(entry("Settings…", settings, ",", target: target))
+        app.addItem(.separator())
+        app.addItem(entry("Quit Relay", #selector(NSApplication.terminate(_:)), "q", target: NSApp))
         main.addItem(holder(app))
 
         let edit = NSMenu(title: "Edit")
