@@ -115,7 +115,12 @@ struct QueueView<Model: PanelViewModel>: View {
     }
 
     @ViewBuilder private func listArea(_ queue: QueueSnapshot) -> some View {
-        list(queue)
+        if let kind = PanelStateMapping.kind(queue.content, sourceName: queue.sourceName, updated: queue.updated) {
+            StateView(kind, actions: PanelStateMapping.actions(model))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            list(queue)
+        }
     }
 
     private func list(_ queue: QueueSnapshot) -> some View {
