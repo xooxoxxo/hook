@@ -2,36 +2,37 @@ import Foundation
 import RelayCore
 
 /// The app's state over one `QueueSource` at a time: the open queue, fetched
-/// details, the selection, and the owner's actions.
-@MainActor final class Store: ObservableObject {
+/// details, the selection, and the owner's actions. Lives in RelayUI so the
+/// gallery and tests can drive it; views reach it through PanelViewModel (Task 39).
+@MainActor public final class Store: ObservableObject {
     /// The open queue as shown: the source's list without the asks held back
     /// for Undo or being sent. Every list, count and badge reads this.
-    @Published private(set) var items: [WireItem] = []
+    @Published public private(set) var items: [WireItem] = []
     /// Done and Skip held back for `PendingCloses.delay` seconds so they can be undone.
-    @Published private(set) var pending = PendingCloses()
+    @Published public private(set) var pending = PendingCloses()
     /// Asks closed in the last 24 hours, newest first, without any still held back.
-    @Published private(set) var recentlyClosed: [WireItem] = []
-    @Published private(set) var details: [String: AskDetail] = [:]
-    @Published private(set) var selectedID: String?
-    @Published private(set) var notFoundID: String?
+    @Published public private(set) var recentlyClosed: [WireItem] = []
+    @Published public private(set) var details: [String: AskDetail] = [:]
+    @Published public private(set) var selectedID: String?
+    @Published public private(set) var notFoundID: String?
     /// The last list succeeded and the listener has no problem.
-    @Published private(set) var reachable = false
+    @Published public private(set) var reachable = false
     /// Why the source is offline; shown in the footer and the menu-bar tooltip.
-    @Published private(set) var problem: String?
-    @Published private(set) var busyID: String?
-    @Published private(set) var refreshing = false
+    @Published public private(set) var problem: String?
+    @Published public private(set) var busyID: String?
+    @Published public private(set) var refreshing = false
     /// "none", "local" or "mailbox:<host>"; ticks and the Connect tab key on it.
-    @Published private(set) var sourceKey = "none"
-    @Published var actionError: String?
+    @Published public private(set) var sourceKey = SourceKey.none
+    @Published public var actionError: String?
     /// One dismissible message: corrupt queue, save failed, config error, already running.
-    @Published var banner: String?
+    @Published public var banner: String?
 
     /// Items that appeared since the previous list (never on the first list after launch or a swap).
-    var onNewItems: (@MainActor ([WireItem]) -> Void)?
+    public var onNewItems: (@MainActor ([WireItem]) -> Void)?
     /// After items or reachability change; AppDelegate recomputes the menu bar.
-    var onStateChange: (@MainActor () -> Void)?
+    public var onStateChange: (@MainActor () -> Void)?
 
-    static let noSourceProblem = "No queue is set up"
+    public static let noSourceProblem = "No queue is set up"
 
     private var source: (any QueueSource)?
     private var pollSeconds = RelayConfig.defaultPollSeconds
@@ -54,14 +55,25 @@ import RelayCore
     /// Reopened asks: their return to the list is not a new ask to announce.
     private var quietIDs: Set<String> = []
 
-    static let closedWindow: TimeInterval = 24 * 3600
+    public static let closedWindow: TimeInterval = 24 * 3600
 
-    init() {}
+    let defaults: UserDefaults
+    /// The clock for held closes and staleness; tests pass their own.
+    let now: @MainActor () -> Date
+    /// What the Store shows now; a different identity swaps the source.
+    @Published public private(set) var identity = SourceIdentity(key: SourceKey.none, mailbox: nil)
+    /// The source has no change stream, so a timer lists every pollSeconds.
+    private var polling = false
+
+    public init(defaults: UserDefaults = .standard, now: @escaping @MainActor () -> Date = { Date() }) {
+        self.defaults = defaults
+        self.now = now
+    }
 
     /// Swap: 1 bump the generation; 2 stop the poll or stream; 3 clear
     /// the selection, details, items and not-found; 4 the next first load never
     /// notifies; 5 subscribe or poll, and refresh.
-    func swap(to source: (any QueueSource)?, sourceKey: String, pollSeconds: Int) {
+    public func swap(to source: (any QueueSource)?, identity: SourceIdentity, pollSeconds: Int) {
         // Closes still held back belong to the old source: send them now.
         flushAll(to: self.source)
         generation += 1
@@ -83,16 +95,32 @@ import RelayCore
         busyID = nil
 
         loadedOnce = false
+        polling = false
         self.source = source
-        self.sourceKey = sourceKey
+        self.identity = identity
+        self.sourceKey = identity.key
         self.pollSeconds = max(1, pollSeconds)
         listOK = false
         listProblem = source == nil ? Self.noSourceProblem : nil
         publishState()
 
         guard let source else { return }
-        let seconds = self.pollSeconds
-        watchTask = Task { [weak self] in
+        watchTask = watch(source)
+    }
+
+    /// A new interval restarts only the timer: no swap, so the selection, items,
+    /// details and held closes stay (M13). A source with a change stream ignores it.
+    public func setPollInterval(_ seconds: Int) {
+        let seconds = max(1, seconds)
+        guard seconds != pollSeconds else { return }
+        pollSeconds = seconds
+        guard polling, source != nil else { return }
+        watchTask?.cancel()
+        watchTask = pollTask(every: seconds, refreshFirst: false)
+    }
+
+    private func watch(_ source: any QueueSource) -> Task<Void, Never> {
+        Task { [weak self] in
             if let stream = await source.changes() {
                 await self?.refresh()
                 for await _ in stream {
@@ -100,25 +128,37 @@ import RelayCore
                     await self.refresh()
                 }
             } else {
-                while !Task.isCancelled {
-                    guard let self else { return }
-                    await self.refresh()
-                    try? await Task.sleep(for: .seconds(seconds))
-                }
+                guard !Task.isCancelled, let self else { return }
+                self.polling = true
+                // Read the interval now, not when watch started: a setPollInterval that ran
+                // while `changes()` was pending only stored it (polling was still false).
+                self.watchTask = self.pollTask(every: self.pollSeconds, refreshFirst: true)
+            }
+        }
+    }
+
+    private func pollTask(every seconds: Int, refreshFirst: Bool) -> Task<Void, Never> {
+        Task { [weak self] in
+            var wait = !refreshFirst
+            while !Task.isCancelled {
+                if wait { try? await Task.sleep(for: .seconds(seconds)) }
+                wait = true
+                guard !Task.isCancelled, let self else { return }
+                await self.refresh()
             }
         }
     }
 
     /// Local mode: a listener problem ("Port … is in use by another app",
     /// "Relay is already running") makes the source unreachable with that reason.
-    func setListenerProblem(_ text: String?) {
+    public func setListenerProblem(_ text: String?) {
         guard listenerProblem != text else { return }
         listenerProblem = text
         publishState()
     }
 
     /// One list of the queue. A call made while one runs waits for that one.
-    func refresh() async {
+    public func refresh() async {
         if let inFlight { return await inFlight.value }
         let task = Task { await self.poll() }
         inFlight = task
@@ -132,7 +172,7 @@ import RelayCore
 
     /// Whether a link from outside the app (loopback or relay://) may open `id`:
     /// it must be in the open queue, after at most one refresh per 5 seconds.
-    func acceptsLink(_ id: String) async -> Bool {
+    public func acceptsLink(_ id: String) async -> Bool {
         if items.contains(where: { $0.id == id }) { return true }
         if hidden.contains(id) { return false }
         let now = ContinuousClock.now
@@ -186,7 +226,7 @@ import RelayCore
         }
     }
 
-    func select(_ id: String?) {
+    public func select(_ id: String?) {
         selectedID = id
         notFoundID = nil
         actionError = nil
@@ -198,7 +238,7 @@ import RelayCore
 
     /// Deep link target: select the item, fetch it, and fall back to a refresh
     /// and then "not found" when the source does not know the id.
-    func focus(_ id: String) async {
+    public func focus(_ id: String) async {
         select(id)
         guard let source else {
             notFoundID = id
@@ -224,20 +264,20 @@ import RelayCore
         }
     }
 
-    func item(for id: String) -> WireItem? {
+    public func item(for id: String) -> WireItem? {
         details[id]?.item ?? listed.first { $0.id == id }
     }
 
-    func detail(for id: String) -> AskDetail? {
+    public func detail(for id: String) -> AskDetail? {
         details[id]
     }
 
     /// Done or Skip, as the owner, held back for Undo: the ask leaves the list at
     /// once, the panel goes back to the queue, and the close is sent when its
     /// deadline passes (or on quit).
-    func close(_ id: String, _ verdict: Verdict, title: String) {
+    public func close(_ id: String, _ verdict: Verdict, title: String) {
         guard source != nil else { return }
-        pending.add(id: id, verdict: verdict, note: nil, title: title, now: Date())
+        pending.add(id: id, verdict: verdict, note: nil, title: title, now: now())
         recentlyClosed.removeAll { $0.id == id }
         actionError = nil
         if selectedID == id {
@@ -250,14 +290,14 @@ import RelayCore
     }
 
     /// Takes back the latest held-back close; the ask returns where it was.
-    func undoLatest() {
+    public func undoLatest() {
         guard pending.undoLatest() != nil else { return }
         updateItems()
         publishState()
     }
 
     /// Before quitting: sends every held-back close at once. The caller caps the wait.
-    func sendAllPending() async {
+    public func sendAllPending() async {
         guard let source else { return }
         let all = pending.drainAll()
         guard !all.isEmpty else { return }
@@ -270,15 +310,15 @@ import RelayCore
         }
     }
 
-    var hasPendingCloses: Bool { !pending.isEmpty }
+    public var hasPendingCloses: Bool { !pending.isEmpty }
 
     /// The actor of the event that closed `item` ("owner", "session"), once fetched.
-    func closedBy(_ item: WireItem) -> String? {
+    public func closedBy(_ item: WireItem) -> String? {
         closedActors[Self.closedKey(item)]
     }
 
     /// Puts a closed ask back in the open queue, as the owner.
-    func reopen(_ id: String) async {
+    public func reopen(_ id: String) async {
         guard let source else { return }
         let gen = generation
         do {
@@ -323,7 +363,7 @@ import RelayCore
     }
 
     /// Every id the open list was refreshed with, pending ones included (for tick pruning).
-    var listedIDs: Set<String> { Set(listed.map(\.id)) }
+    public var listedIDs: Set<String> { Set(listed.map(\.id)) }
 
     private var hidden: Set<String> {
         var ids = sending
@@ -356,7 +396,7 @@ import RelayCore
 
     /// Returns true once nothing is held back.
     private func sendDue() -> Bool {
-        let due = pending.due(now: Date())
+        let due = pending.due(now: now())
         if let source {
             let gen = generation
             for close in due {
@@ -417,7 +457,7 @@ import RelayCore
     }
 
     /// Sends a reply event. Returns true on success so the caller can clear its field.
-    func reply(_ id: String, text: String) async -> Bool {
+    public func reply(_ id: String, text: String) async -> Bool {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let source, !trimmed.isEmpty, busyID == nil else { return false }
         let gen = generation
@@ -438,7 +478,7 @@ import RelayCore
     }
 
     /// Posts through the current source (Settings' "Send a test ask").
-    func post(project: String, instructable: Data) async throws -> PostResult {
+    public func post(project: String, instructable: Data) async throws -> PostResult {
         guard let source else { throw QueueError.unreachable(Self.noSourceProblem) }
         let gen = generation
         let result = try await source.post(project: project, instructable: instructable)
@@ -446,7 +486,7 @@ import RelayCore
         return result
     }
 
-    func menuBarState(showCount: Bool, away: Bool) -> MenuBarState {
+    public func menuBarState(showCount: Bool, away: Bool) -> MenuBarState {
         MenuBarState.from(items: items, reachable: reachable, showCount: showCount, offlineReason: problem, away: away)
     }
 

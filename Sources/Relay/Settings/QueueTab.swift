@@ -1,5 +1,6 @@
 import AppKit
 import RelayCore
+import RelayUI
 import SwiftUI
 
 /// Settings → Queue: where asks come from, and that source's settings.

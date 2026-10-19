@@ -20,6 +20,12 @@ public struct Step: Codable, Sendable, Equatable {
         case place = "where"
         case code, lang, expect, detail, url, substeps
     }
+
+    public init(action: String, place: String? = nil, code: String? = nil, lang: String? = nil, expect: String? = nil,
+                detail: String? = nil, url: String? = nil, substeps: [Step]? = nil) {
+        self.action = action; self.place = place; self.code = code; self.lang = lang; self.expect = expect
+        self.detail = detail; self.url = url; self.substeps = substeps
+    }
 }
 
 extension Step {
@@ -41,11 +47,15 @@ extension Step {
 public struct ReplySpec: Codable, Sendable, Equatable {
     public var prompt: String
     public var choices: [String]?
+
+    public init(prompt: String, choices: [String]? = nil) { self.prompt = prompt; self.choices = choices }
 }
 
 public struct LinkRef: Codable, Sendable, Equatable {
     public var label: String
     public var url: String
+
+    public init(label: String, url: String) { self.label = label; self.url = url }
 }
 
 public struct Origin: Codable, Sendable, Equatable {
@@ -70,6 +80,12 @@ public struct Instructable: Codable, Sendable, Equatable {
     public var reply: ReplySpec?
     public var links: [LinkRef]?
     public var from: Origin?
+
+    public init(v: Int? = nil, title: String, why: String? = nil, urgency: String? = nil, steps: [Step],
+                verify: Step? = nil, reply: ReplySpec? = nil, links: [LinkRef]? = nil, from: Origin? = nil) {
+        self.v = v; self.title = title; self.why = why; self.urgency = urgency; self.steps = steps
+        self.verify = verify; self.reply = reply; self.links = links; self.from = from
+    }
 }
 
 /// `item.payload` as the mailbox stores it. Legacy asks carry only why/cmd/link;
@@ -82,6 +98,10 @@ public struct Payload: Codable, Sendable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case why, cmd, link, instructable
+    }
+
+    public init(why: String? = nil, cmd: String? = nil, link: String? = nil, instructable: Instructable? = nil) {
+        self.why = why; self.cmd = cmd; self.link = link; self.instructable = instructable
     }
 }
 
@@ -110,6 +130,12 @@ public struct WireItem: Codable, Sendable, Equatable, Identifiable {
     /// When the ask was last closed; nil while it is open.
     public var completedAt: String? = nil
 
+    public init(id: String, title: String, status: String, projectId: String? = nil, created: String, updated: String,
+                payload: Payload, completedAt: String? = nil) {
+        self.id = id; self.title = title; self.status = status; self.projectId = projectId
+        self.created = created; self.updated = updated; self.payload = payload; self.completedAt = completedAt
+    }
+
     public var instructable: Instructable? { payload.instructable }
 
     /// "now", "today" or "whenever". Legacy asks count as "today".
@@ -124,6 +150,10 @@ public struct Event: Codable, Sendable, Equatable {
     public var text: String?
     public var at: String
 
+    public init(seq: Int, itemId: String, kind: String, actor: String, text: String? = nil, at: String) {
+        self.seq = seq; self.itemId = itemId; self.kind = kind; self.actor = actor; self.text = text; self.at = at
+    }
+
     /// The kinds an owner's action records: an answer, a close, or a reopen.
     public static let ownerKinds: Set<String> = ["reply", "resolved", "declined", "reopened"]
     /// The kinds that change whether an ask is open: a close or a reopen.
@@ -136,6 +166,8 @@ public struct Event: Codable, Sendable, Equatable {
 public struct AskDetail: Codable, Sendable, Equatable {
     public var item: WireItem
     public var events: [Event]
+
+    public init(item: WireItem, events: [Event]) { self.item = item; self.events = events }
 
     /// The owner's replies, oldest first.
     public var ownerReplies: [String] {

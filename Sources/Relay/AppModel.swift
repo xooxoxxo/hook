@@ -1,6 +1,7 @@
 import Foundation
 import os
 import RelayCore
+import RelayUI
 
 /// What the loopback listener's `@Sendable` callbacks read. AppDelegate updates
 /// it on every config apply; the lock makes reads safe from any thread.

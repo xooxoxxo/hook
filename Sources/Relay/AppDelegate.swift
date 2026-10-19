@@ -1,15 +1,9 @@
 import AppKit
 import SwiftUI
 import RelayCore
+import RelayUI
 
 @MainActor final class AppDelegate: NSObject, NSApplicationDelegate {
-    /// The source the Store currently shows; a swap happens only when it changes.
-    private struct AppliedSource: Equatable {
-        var key: String
-        var mailbox: MailboxSettings?
-        var pollSeconds: Int
-    }
-
     private var model: AppModel?
     private var store: Store?
     private var panel: SidePanel?
@@ -29,7 +23,7 @@ import RelayCore
     private var localAPIPort: Int?
     /// "Relay is already running", or why the local queue or token isn't available.
     private var localProblem: String?
-    private var applied: AppliedSource?
+    private var applied: SourceIdentity?
     /// Config applies run one after another (opening the queue is async).
     private var applyChain: Task<Void, Never>?
     private var shownConfigNote: String?
@@ -232,27 +226,28 @@ import RelayCore
                 let api = localAPI(for: queue, port: port, token: token)
                 model.localAPI = api
                 routing.update(ServerRouting.Routes(source: "local", api: api, token: token))
-                swapIfNeeded(AppliedSource(key: "local", mailbox: nil, pollSeconds: 0)) {
+                swapIfNeeded(SourceIdentity(key: SourceKey.local, mailbox: nil), pollSeconds: pollSeconds) {
                     LocalQueueSource(queue: queue)
                 }
             } else {
                 model.localAPI = nil
                 routing.update(ServerRouting.Routes(source: "none", api: nil, token: nil))
-                swapIfNeeded(AppliedSource(key: "none", mailbox: nil, pollSeconds: 0)) { nil }
+                swapIfNeeded(SourceIdentity(key: SourceKey.none, mailbox: nil), pollSeconds: pollSeconds) { nil }
             }
         case .mailbox(let settings):
             localProblem = nil
             model.localAPI = nil
             routing.update(ServerRouting.Routes(source: "mailbox", api: nil, token: nil))
-            let key = "mailbox:" + (settings.url.host() ?? "")
-            swapIfNeeded(AppliedSource(key: key, mailbox: settings, pollSeconds: pollSeconds)) {
+            let key = SourceKey.mailbox(settings)
+            SourceKey.migrate(.standard, from: SourceKey.legacyMailbox(settings), to: key)
+            swapIfNeeded(SourceIdentity(key: key, mailbox: settings), pollSeconds: pollSeconds) {
                 MailboxClient(settings: settings)
             }
         case .incomplete, .invalid:
             localProblem = nil
             model.localAPI = nil
             routing.update(ServerRouting.Routes(source: "none", api: nil, token: nil))
-            swapIfNeeded(AppliedSource(key: "none", mailbox: nil, pollSeconds: 0)) { nil }
+            swapIfNeeded(SourceIdentity(key: SourceKey.none, mailbox: nil), pollSeconds: pollSeconds) { nil }
         }
         restartServerIfNeeded(port: port)
         updateListenerProblem()
@@ -261,10 +256,15 @@ import RelayCore
         applyPanelSettings(config)
     }
 
-    private func swapIfNeeded(_ next: AppliedSource, make: () -> (any QueueSource)?) {
-        guard let store, applied != next else { return }
+    /// A new identity swaps the source; the same identity only applies the poll interval.
+    private func swapIfNeeded(_ next: SourceIdentity, pollSeconds: Int, make: () -> (any QueueSource)?) {
+        guard let store else { return }
+        guard applied != next else {
+            store.setPollInterval(pollSeconds)
+            return
+        }
         applied = next
-        store.swap(to: make(), sourceKey: next.key, pollSeconds: next.pollSeconds)
+        store.swap(to: make(), identity: next, pollSeconds: pollSeconds)
     }
 
     /// The one `LocalQueue`: opened on first use, then reused. A failed open is
