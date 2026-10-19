@@ -24,7 +24,55 @@ let readyStatus = PanelStatus.make(StatusInputs(sourceKey: galleryMailboxKey, re
         appKit: nil)
 }
 
+/// The §3.5 queue edge check: text on the gutter, counts and summaries on the trailing edge.
+let queueEdgeRules: [AlignmentRule] = [
+    .leading(.gutterText, x: DS.Space.gutter, tolerance: 1),
+    .trailing(.trailingEdge, x: DS.Metric.panelWidth - DS.Space.gutter, tolerance: 2),
+]
+
+/// A fixture model over `queue`, with the second visible row selected (the selected-row look).
+@MainActor func queueModel(_ queue: QueueSnapshot, notice: PanelNotice? = nil, undo: UndoInfo? = nil,
+                           status: PanelStatus = readyStatus) -> FixturePanelModel {
+    let order = QueueLayout.visibleOrder(queue.sections)
+    let selected = order.dropFirst().first ?? order.first
+    return FixturePanelModel(queue: queue, navigation: PanelNavigation(listSelection: selected),
+                             notice: notice, undo: undo, status: status)
+}
+
+/// The longest project name in the 12-project fixture (60 characters).
+@MainActor var longProjectName: String {
+    GalleryFixtures.manyProjects.map { $0.projectId ?? "" }.max { $0.count < $1.count } ?? ""
+}
+
+/// The 12-project fixture as a queue snapshot, built with the same layout logic the Store uses.
+@MainActor func limitsQueue(filter: String?) -> QueueSnapshot {
+    let items = GalleryFixtures.manyProjects
+    var queue = GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false)
+    queue.grouping = .project
+    queue.filter = filter
+    queue.sections = QueueLayout.sections(items: items, grouping: .project, filter: filter)
+    queue.rows = Dictionary(uniqueKeysWithValues: items.map { item in
+        (item.id, AskRowModel(id: item.id, title: item.title, project: item.projectId ?? "",
+                              urgency: Urgency(raw: item.instructable?.urgency), created: item.created,
+                              summary: QueueLayout.summary(for: item, ticked: [])))
+    })
+    queue.closed = []
+    queue.hidden = QueueLayout.hiddenCount(items: items, filter: filter)
+    queue.projects = QueueLayout.menuProjects(items: items, filter: filter)
+    let shown = QueueLayout.visibleOrder(queue.sections).count
+    queue.title = shown == 0 ? "Queue" : "\(shown) waiting"
+    queue.content = .list
+    return queue
+}
+
 @MainActor let queueScenes: [GalleryScene] = [
-    panelScene("queue", FixturePanelModel(
-        queue: GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false), status: readyStatus)),
+    panelScene("queue", queueModel(GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false)),
+               rules: queueEdgeRules),
+    panelScene("queue-urgency", queueModel(GalleryFixtures.queue(grouping: .urgency, filter: nil, closedExpanded: false)),
+               rules: queueEdgeRules),
+    panelScene("queue-closed-open", queueModel(GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: true)),
+               height: 820, rules: queueEdgeRules,
+               overrides: PanelGalleryOverrides(now: GalleryFixtures.now, closedExpanded: true)),
+    panelScene("queue-limits", queueModel(limitsQueue(filter: nil)), height: 1400, rules: queueEdgeRules),
+    panelScene("queue-limits-filtered", queueModel(limitsQueue(filter: longProjectName)), rules: queueEdgeRules),
 ]
