@@ -160,7 +160,7 @@ let nonWebLinksJSON = #"""
 
 @MainActor let detailScenes: [GalleryScene] = [
     detailScene("detail-legacy", detailSnapshot(decodeDetail(legacyJSON), base: GalleryFixtures.detailSteps)),
-    detailScene("detail-closed", closedDetail),
+    detailScene("detail-closed", closedDetail, height: nil, overrides: fullHeight),
     detailScene("detail-session-closed", sessionClosedDetail, notice: .sessionClosed(id: sessionClosedDetail.id)),
     detailScene("detail-loading", unloadedDetail(.loading)),
     detailScene("detail-load-failed", unloadedDetail(.timedOut)),
@@ -175,7 +175,46 @@ let nonWebLinksJSON = #"""
                 height: nil, overrides: fullHeight),
     detailScene("detail-links-nonweb", detailSnapshot(decodeDetail(nonWebLinksJSON), base: GalleryFixtures.detailSteps),
                 height: nil, overrides: fullHeight),
+    freeTypingScene(),
+    choiceScene("detail-choice", sent: false),
+    choiceScene("detail-choice-sent", sent: true),
 ]
+
+/// detail-steps with a draft typed into its reply field: the primary reads Send & Done.
+@MainActor func freeTypingScene() -> GalleryScene {
+    var snapshot = GalleryFixtures.detailSteps
+    let draft = "C0123ABCDEF"
+    snapshot.primary = Flow.primaryAction(draft: draft, choice: nil, sent: nil)
+    let model = FixturePanelModel(
+        queue: GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false),
+        details: [snapshot.id: snapshot],
+        navigation: PanelNavigation(listSelection: snapshot.id, selectedID: snapshot.id), status: readyStatus)
+    model.drafts[snapshot.id] = draft
+    // Full height, like the step scenes: at 820 pt the Reply section sits below the fold.
+    return panelScene("detail-free-typing", model, height: nil, rules: [], overrides: fullHeight)
+}
+
+/// The choice fixture with the first choice picked; `sent` also marks it sent by a reply event.
+@MainActor func choiceScene(_ name: String, sent: Bool) -> GalleryScene {
+    var snapshot = GalleryFixtures.detailChoice
+    let choices = snapshot.model?.reply?.choices ?? []
+    if sent, let first = choices.first {
+        snapshot.sentChoices = [0]
+        snapshot.latestSentChoice = 0
+        snapshot.replies = [ReplyLine(id: 1, text: ReplyText.display(ReplyText.wire(choice: first)), time: "09:12")]
+    } else {
+        snapshot.sentChoices = []
+        snapshot.latestSentChoice = nil
+        snapshot.replies = []
+    }
+    snapshot.primary = Flow.primaryAction(draft: nil, choice: 0, sent: snapshot.latestSentChoice)
+    let model = FixturePanelModel(
+        queue: GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false),
+        details: [snapshot.id: snapshot],
+        navigation: PanelNavigation(listSelection: snapshot.id, selectedID: snapshot.id), status: readyStatus)
+    model.pendingChoice[snapshot.id] = 0
+    return panelScene(name, model, height: 820, rules: [], overrides: PanelGalleryOverrides(now: GalleryFixtures.now))
+}
 
 /// detail-substeps-done with the done parent expanded: expansion is memory-only model state.
 @MainActor func expandedSubstepsScene() -> GalleryScene {

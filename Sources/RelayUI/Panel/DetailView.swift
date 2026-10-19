@@ -3,13 +3,14 @@ import RelayCore
 import SwiftUI
 
 /// One ask (design §4.4). A ScrollView with the header pinned on top and the Undo and
-/// action bars pinned below; the sections are added by Tasks 47–49.
+/// action bars pinned below: title, steps (Task 47), reply and your replies (Task 49), links and From (Task 48).
 struct DetailView<Model: PanelViewModel>: View {
     @ObservedObject private var model: Model
     let id: String
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.panelGallery) private var gallery
     @AppStorage("relay.detail.fromExpanded") private var storedFromExpanded = false
+    @FocusState private var replyFocused: Bool
 
     init(model: Model, id: String) {
         _model = ObservedObject(wrappedValue: model)
@@ -33,9 +34,26 @@ struct DetailView<Model: PanelViewModel>: View {
         return nil
     }
 
+    /// An open ask with a free-text reply whose steps are only informational (no step, sub-step
+    /// or verify has code, a url or sub-steps) focuses its field when it opens (§4.5, Ruling 1).
+    /// With choices there is no field to focus. An empty sub-step list is no sub-steps.
+    static func focusesReplyOnOpen(_ snapshot: DetailSnapshot) -> Bool {
+        guard snapshot.closedText == nil, let detail = snapshot.model, let reply = detail.reply,
+              (reply.choices ?? []).isEmpty else { return false }
+        return Flow.flattened(detail.nodes).allSatisfy {
+            $0.content.code == nil && $0.content.url == nil && $0.children.isEmpty
+        }
+    }
+
     var body: some View {
         if let snapshot = model.detail(id) {
             frame(snapshot)
+                .onAppear {
+                    if Self.focusesReplyOnOpen(snapshot) { replyFocused = true }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .relayFocusReply)) { _ in
+                    if model.detail(id)?.model?.reply != nil { replyFocused = true }
+                }
         } else {
             notFound
         }
@@ -85,6 +103,8 @@ struct DetailView<Model: PanelViewModel>: View {
             }
             titleBlock(snapshot)
             stepsArea(snapshot, closed: closed)
+            replySection(snapshot, closed: closed)
+            repliesSection(snapshot)
             linksSection(snapshot)
             fromSection(snapshot)
         }
@@ -128,6 +148,24 @@ struct DetailView<Model: PanelViewModel>: View {
                     .font(DS.Font.body)
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    @ViewBuilder private func replySection(_ snapshot: DetailSnapshot, closed: Bool) -> some View {
+        if let spec = snapshot.model?.reply {
+            DetailReply(model: model, snapshot: snapshot, spec: spec, closed: closed, isFocused: $replyFocused)
+        }
+    }
+
+    @ViewBuilder private func repliesSection(_ snapshot: DetailSnapshot) -> some View {
+        if !snapshot.replies.isEmpty {
+            VStack(alignment: .leading, spacing: DS.Space.inline) {
+                Text("Your replies")
+                    .font(DS.Font.heading)
+                    .accessibilityAddTraits(.isHeader)
+                    .accessibilityHeading(.h2)
+                RepliesList(snapshot.replies)
             }
         }
     }

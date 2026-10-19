@@ -193,10 +193,11 @@ private let phase3Now = Date(timeIntervalSince1970: 1_792_143_600)
     let fake: FakeQueueSource
     let suite: String
 
-    static func make(_ items: [WireItem], details: [String: AskDetail] = [:]) async -> PanelTestEnv {
+    static func make(_ items: [WireItem], details: [String: AskDetail] = [:],
+                     sentHold: Duration = .seconds(4)) async -> PanelTestEnv {
         let suite = "relay.test.phase3." + UUID().uuidString
         let fake = FakeQueueSource(items: items, details: details)
-        let store = Store(defaults: UserDefaults(suiteName: suite)!, now: { phase3Now })
+        let store = Store(defaults: UserDefaults(suiteName: suite)!, now: { phase3Now }, sentHold: sentHold)
         store.swap(to: fake, identity: SourceIdentity(key: "mailbox:mailbox.example#personal", mailbox: nil),
                    pollSeconds: 3600)
         await store.refresh(manual: false)
@@ -423,5 +424,86 @@ private let phase3Now = Date(timeIntervalSince1970: 1_792_143_600)
         #expect(nodes.map(\.path) == ["1"])
         #expect(!DetailSteps<FixturePanelModel>.rendersAsParent(nodes[0]))
         #expect(Flow.flattened(nodes).map(\.id) == ["1"])
+    }
+}
+
+@MainActor @Suite struct DetailReplySnapshotTests {
+    private func replyItem(_ id: String, choices: [String]?, steps: [Step] = []) -> WireItem {
+        let ins = Instructable(v: 1, title: "Pick where the example repo lives", steps: steps,
+                               reply: ReplySpec(prompt: "Where should it live?", choices: choices))
+        return WireItem(id: id, title: ins.title, status: "open", projectId: "Acme",
+                        created: "2026-10-16T08:00:00+00:00", updated: "2026-10-16T08:00:00+00:00",
+                        payload: Payload(instructable: ins))
+    }
+
+    @Test func primaryFlipsWithANonBlankDraft() async {
+        let free = replyItem("r1", choices: nil)
+        let env = await PanelTestEnv.make([free], details: ["r1": AskDetail(item: free, events: [])])
+        defer { env.tearDown() }
+        #expect(env.store.detail("r1")?.primary == .done)
+        env.store.drafts["r1"] = "C0123ABCDEF"
+        #expect(env.store.detail("r1")?.primary == .sendAndDone)
+        env.store.drafts["r1"] = "   "
+        #expect(env.store.detail("r1")?.primary == .done)
+    }
+
+    @Test func latestSentChoiceDisablesSendAndAnotherPickReenablesIt() async {
+        let choice = replyItem("c1", choices: ["Option A", "Option B"])
+        let events = [Event(seq: 1, itemId: "c1", kind: "reply", actor: "owner", text: "choice: Option B",
+                            at: "2026-10-16T09:12:00+00:00")]
+        let env = await PanelTestEnv.make([choice], details: ["c1": AskDetail(item: choice, events: events)])
+        defer { env.tearDown() }
+        let sent = env.store.detail("c1")
+        #expect(sent?.sentChoices == [1])
+        #expect(sent?.latestSentChoice == 1)
+        env.store.pendingChoice["c1"] = 1
+        #expect(env.store.detail("c1")?.primary == .done)
+        #expect(!ChoiceGroup.canSend(picked: 1, latestSent: 1, sending: false))
+        env.store.pendingChoice["c1"] = 0
+        #expect(env.store.detail("c1")?.primary == .sendAndDone)
+        #expect(ChoiceGroup.canSend(picked: 0, latestSent: 1, sending: false))
+    }
+
+    /// Task 38 ruling: the detail's reply state reads the Store's send state, .sent and then
+    /// .idle once the hold elapses.
+    @Test func theDetailShowsSentAndThenIdleAfterTheHold() async {
+        let free = replyItem("r1", choices: nil)
+        let env = await PanelTestEnv.make([free], details: ["r1": AskDetail(item: free, events: [])],
+                                          sentHold: .milliseconds(20))
+        defer { env.tearDown() }
+        #expect(env.store.detail("r1")?.reply == .idle)
+        env.store.drafts["r1"] = "C0123ABCDEF"
+        #expect(await env.store.sendReply("r1"))
+        guard case .sent = env.store.detail("r1")?.reply else {
+            Issue.record("expected .sent, got \(String(describing: env.store.detail("r1")?.reply))")
+            return
+        }
+        #expect(await eventually { env.store.detail("r1")?.reply == .idle })
+    }
+
+    @Test func anEmptyFieldStoresNoDraft() {
+        #expect(DetailReply<FixturePanelModel>.storedDraft("") == nil)
+        #expect(DetailReply<FixturePanelModel>.storedDraft("  ") == "  ")
+        #expect(DetailReply<FixturePanelModel>.storedDraft("C07") == "C07")
+    }
+
+    /// Ruling 1: an open ask with a free reply whose steps have no code, url or sub-steps.
+    @Test func onlyAnOpenFreeReplyAskWithInformationalStepsFocusesTheField() {
+        var snapshot = GalleryFixtures.detailSteps
+        snapshot.closedText = nil
+        let reply = ReplySpec(prompt: "Paste the channel ID", choices: nil)
+        snapshot.model?.reply = reply
+        #expect(!DetailView<FixturePanelModel>.focusesReplyOnOpen(snapshot))      // its steps have code, a url and sub-steps
+        snapshot.model?.nodes = DetailModel.nodes(steps: [Step(action: "Look up the channel ID in Slack")], verify: nil)
+        #expect(DetailView<FixturePanelModel>.focusesReplyOnOpen(snapshot))       // one informational step
+        // Task 16 ruling: an empty substeps list is no sub-steps.
+        snapshot.model?.nodes = DetailModel.nodes(steps: [Step(action: "Look up the channel ID in Slack", substeps: [])],
+                                                  verify: nil)
+        #expect(DetailView<FixturePanelModel>.focusesReplyOnOpen(snapshot))
+        snapshot.model?.reply = ReplySpec(prompt: "Which one?", choices: ["A", "B"])
+        #expect(!DetailView<FixturePanelModel>.focusesReplyOnOpen(snapshot))      // choices: no field
+        snapshot.model?.reply = reply
+        snapshot.closedText = "Done by you · 16 Oct, 06:12"
+        #expect(!DetailView<FixturePanelModel>.focusesReplyOnOpen(snapshot))      // closed: Reply anyway is collapsed
     }
 }
