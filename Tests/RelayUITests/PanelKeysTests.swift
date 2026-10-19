@@ -28,4 +28,14 @@ import Testing
         #expect(KeyResponder.modifiers([.command, .shift, .capsLock, .function, .numericPad]) == [.command, .shift])
         #expect(KeyResponder.modifiers([.control, .option]) == [.control, .option])
     }
+
+    /// The router's guard: only ⌘ combinations go through performKeyEquivalent (rule 1).
+    @Test func onlyCommandCombinationsReachTheRouter() {
+        #expect(KeyResponder.isCommandCombination([.command]))
+        #expect(KeyResponder.isCommandCombination([.command, .shift, .numericPad, .function]))
+        #expect(!KeyResponder.isCommandCombination([]))                       // Return, digits, Esc
+        #expect(!KeyResponder.isCommandCombination([.numericPad, .function])) // arrows
+        #expect(!KeyResponder.isCommandCombination([.option]))                // ⌥Return
+        #expect(!KeyResponder.isCommandCombination([.control, .shift, .capsLock]))
+    }
 }

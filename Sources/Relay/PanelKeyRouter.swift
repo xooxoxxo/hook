@@ -19,9 +19,13 @@ import RelayUI
         KeyResponder.textFieldFocused(window)
     }
 
-    /// True when the key was the panel's (performed, or handed to text editing).
+    /// True when the key was the panel's (performed, or handed to text editing). Only ⌘
+    /// combinations are taken here (routing rule 1): a plain key AppKit offers as a key
+    /// equivalent stays with PanelKeys, which knows the focused closed-today header. Esc comes
+    /// through SidePanel.cancelOperation, which calls route directly.
     func handle(_ event: NSEvent, in window: NSWindow) -> Bool {
         guard event.type == .keyDown,
+              KeyResponder.isCommandCombination(event.modifierFlags),
               let key = PanelKey(keyCode: event.keyCode, modifiers: KeyResponder.modifiers(event.modifierFlags),
                                  characters: event.charactersIgnoringModifiers)
         else { return false }

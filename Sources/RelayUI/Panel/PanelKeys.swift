@@ -22,6 +22,12 @@ public enum KeyResponder {
         if flags.contains(.control) { modifiers.insert(.control) }
         return modifiers
     }
+
+    /// True when the flags hold ⌘. Only ⌘ combinations belong to the window's key-equivalent
+    /// path; plain keys (Return, arrows, digits, Esc) are PanelKeys' or the focused view's.
+    public static func isCommandCombination(_ flags: NSEvent.ModifierFlags) -> Bool {
+        modifiers(flags).contains(.command)
+    }
 }
 
 /// The plain panel keys (design §4.12): Esc, Return, ⌥Return, ← / →, 1–6, when the focused
