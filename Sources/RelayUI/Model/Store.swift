@@ -63,6 +63,25 @@ import RelayCore
     private(set) var stepTreeBuilds = 0
     /// Leaves ticked this session, in order, per ask (for ⇧⌘T).
     private var tickHistory: [String: [String]] = [:]
+    /// Set by AppDelegate: the config note, presence and quit-time sends, for the status bar.
+    @Published public var configNote: String?
+    @Published public var away = false
+    @Published public var sendingCloses = 0
+    public var shell = PanelShellActions.none
+    private var detailRequestedAt: [String: Date] = [:]
+    private var detailFailed: Set<String> = []
+    private var swappedAt: Date?
+    /// Bumped when a load has waited `DetailLoadState.timeout`, so views read the
+    /// snapshots again and "Still trying…" / "Couldn't load" show with no other change (N9).
+    @Published public private(set) var stateTick = 0
+    /// The wait behind `stateTick`; tests pass an immediate one.
+    let timeoutSleep: @Sendable (Duration) async -> Void
+    /// The pending timeout waits, by token; a swap cancels them all.
+    private var stateTimers: [UUID: Task<Void, Never>] = [:]
+    /// The real timeout wait, a nonisolated function for the same reason as `taskSleep`.
+    nonisolated static func timeoutTaskSleep(_ duration: Duration) async {
+        try? await Task.sleep(for: duration)
+    }
     /// The open detail. A forwarder for the 0.5 views until Task 52.
     public var selectedID: String? { navigation.selectedID }
     @Published public private(set) var grouping: QueueGrouping
@@ -94,18 +113,18 @@ import RelayCore
     private var source: (any QueueSource)?
     private var pollSeconds = RelayConfig.defaultPollSeconds
     /// Bumped by every swap; results started under an older value are dropped.
-    private var generation = 0
+    var generation = 0
     private var watchTask: Task<Void, Never>?
-    private var loadedOnce = false
+    var loadedOnce = false
     private var inFlight: Task<Void, Never>?
     /// Bumped by every refresh that starts a list; only the latest one clears `inFlight`.
     private var refreshCount = 0
     private var lastLinkRefresh: ContinuousClock.Instant?
-    private var listOK = false
-    private var listProblem: String? = Store.noSourceProblem
-    private var listenerProblem: String?
+    var listOK = false
+    var listProblem: String? = Store.noSourceProblem
+    var listenerProblem: String?
     /// The source's open list, pending asks included.
-    private var listed: [WireItem] = []
+    var listed: [WireItem] = []
     /// Closes taken off `pending` whose send hasn't finished (or whose list hasn't caught up).
     private var sending: Set<String> = []
     private var ticker: Task<Void, Never>?
@@ -126,11 +145,13 @@ import RelayCore
 
     public init(defaults: UserDefaults = .standard, now: @escaping @MainActor () -> Date = { Date() },
                 sentHold: Duration = .seconds(4),
-                sleep: (@Sendable (Duration) async throws -> Void)? = nil) {
+                sleep: (@Sendable (Duration) async throws -> Void)? = nil,
+                timeoutSleep: (@Sendable (Duration) async -> Void)? = nil) {
         self.defaults = defaults
         self.now = now
         self.sentHold = sentHold
         self.sleep = sleep ?? Store.taskSleep
+        self.timeoutSleep = timeoutSleep ?? Store.timeoutTaskSleep
         self.grouping = PanelPrefs.grouping(defaults)
     }
 
@@ -170,6 +191,11 @@ import RelayCore
         recentlyClosed = []
         closedActors = [:]
         quietIDs = []
+        swappedAt = now()
+        detailRequestedAt = [:]
+        detailFailed = []
+        stateTimers.values.forEach { $0.cancel() }
+        stateTimers = [:]
         notFoundID = nil
         actionError = nil
         busyID = nil
@@ -191,7 +217,18 @@ import RelayCore
             post(.settingsReloaded)
         }
         guard let source else { return }
+        scheduleTimeoutTick()
         watchTask = watch(source)
+    }
+
+    /// One wait of `DetailLoadState.timeout`, then a `stateTick` bump. The next swap cancels it.
+    private func scheduleTimeoutTick() {
+        let token = UUID(), sleep = timeoutSleep
+        stateTimers[token] = Task { [weak self] in
+            await sleep(.seconds(DetailLoadState.timeout))
+            guard !Task.isCancelled, let self, self.stateTimers.removeValue(forKey: token) != nil else { return }
+            self.stateTick += 1
+        }
     }
 
     /// A new interval restarts only the timer: no swap, so the selection, items,
@@ -351,6 +388,10 @@ import RelayCore
         saveSelection()
         notFoundID = nil
         actionError = nil
+        if details[id] == nil {
+            detailRequestedAt[id] = now()
+            scheduleTimeoutTick()
+        }
         loadIfMissing(id)
     }
 
@@ -881,12 +922,15 @@ import RelayCore
             guard gen == generation else { return }
             details[id] = detail
             tickCache[id] = nil
+            detailFailed.remove(id)
         } catch QueueError.notFound {
             guard gen == generation else { return }
             // The open ask keeps its cached detail when it leaves the queue (§4.7, "Ask closed while open").
             if id != navigation.selectedID { details[id] = nil }
         } catch {
             // Keep the cached detail; the next refresh retries.
+            guard gen == generation else { return }
+            if details[id] == nil { detailFailed.insert(id) }
         }
     }
 
@@ -917,5 +961,108 @@ struct StepSource: Equatable {
         } else {
             cmd = item.payload.cmd
         }
+    }
+}
+
+extension Store: PanelViewModel {
+    public var queue: QueueSnapshot {
+        QueueSnapshot.build(
+            open: items, closed: recentlyClosed, grouping: grouping, filter: filter,
+            ticks: { self.ticks(for: $0) }, drafts: drafts, closedBy: { self.closedBy($0) },
+            sourceKey: sourceKey, loadedOnce: loadedOnce, reachable: reachable, problem: listProblem,
+            waitedTenSeconds: swappedAt.map { now().timeIntervalSince($0) >= DetailLoadState.timeout } ?? false,
+            manualRefreshing: manualRefreshing, updated: lastListAt.map { ClockText.time($0) } ?? "")
+    }
+
+    public func detail(_ id: String) -> DetailSnapshot? {
+        guard let item = item(for: id) else { return nil }
+        let (previous, next) = navigation.neighbours(of: id, visibleOrder: visibleOrder, closedOrder: closedShown.map(\.id))
+        let load = DetailLoadState.resolve(hasModel: details[id] != nil, requestedAt: detailRequestedAt[id], now: now(),
+                                           failed: detailFailed.contains(id))
+        return DetailSnapshot.build(
+            item: item, detail: details[id], ticks: ticks(for: id), load: load, reply: replyStates[id] ?? .idle,
+            draft: drafts[id], pendingChoice: pendingChoice[id], busy: busyID == id, previous: previous, next: next,
+            closedBy: closedBy(item))
+    }
+
+    public var status: PanelStatus {
+        PanelStatus.make(StatusInputs(
+            sourceKey: sourceKey, reachable: reachable, loadedOnce: loadedOnce, problem: listOK ? nil : listProblem,
+            configNote: configNote, listenerNote: listenerProblem, away: away, sendingCloses: sendingCloses))
+    }
+
+    public func keyContext(textFieldFocused: Bool, popoverOpen: Bool, closedHeaderFocused: Bool) -> KeyContext {
+        let selected = listSelection.flatMap { item(for: $0) }
+        let opened = navigation.selectedID.flatMap { item(for: $0) }
+        return KeyContext(
+            mode: opened == nil ? .list : .detail, textFieldFocused: textFieldFocused, popoverOpen: popoverOpen,
+            undoAvailable: !pending.isEmpty, filterOn: filter != nil,
+            selectionOpen: selected.map { $0.status == "open" },
+            selectionHasProject: !(selected?.projectId ?? "").isEmpty, closedHeaderFocused: closedHeaderFocused,
+            askOpen: opened.map { $0.status == "open" } ?? true, askHasProject: !(opened?.projectId ?? "").isEmpty,
+            choiceCount: opened?.instructable?.reply?.choices?.count ?? 0,
+            hasDraftOrPick: opened.map { primaryAction(for: $0.id) == .sendAndDone } ?? false)
+    }
+
+    /// The ask a key acts on: the open detail, else the selected row.
+    private var target: String? { navigation.selectedID ?? listSelection }
+
+    public func perform(_ command: PanelCommand) {
+        switch command {
+        case .closePopover, .endEditing, .focusReply, .setClosedExpanded:
+            break   // view state: the view handles these before calling perform
+        case .back: back()
+        case .hide: shell.hide()
+        case .refresh: refresh()
+        case .openSettings: shell.openSettings(nil)
+        case .undoClose: undo()
+        case .quit: shell.quit()
+        case .dock(let edge): shell.dock(edge)
+        case .switchGrouping: setGrouping(grouping == .project ? .urgency : .project)
+        case .clearFilter: setFilter(nil)
+        case .showOnlyProject:
+            if let id = target, let project = item(for: id)?.projectId, !project.isEmpty { setFilter(project) }
+        case .openSelection: if let id = listSelection { open(id) }
+        case .done: if let id = target { close(id, .done) }
+        case .sendAndDone: if let id = target { sendAndDone(id) }
+        case .skip: if let id = target { close(id, .declined) }
+        case .reopen: if let id = target { reopen(id) }
+        case .copyLink: if let id = target { copyLink(id) }
+        case .previousAsk, .nextAsk:
+            guard let id = navigation.selectedID else { return }
+            let (previous, next) = navigation.neighbours(of: id, visibleOrder: visibleOrder, closedOrder: closedShown.map(\.id))
+            if case .ask(let other) = command == .previousAsk ? previous : next { open(other) }
+        case .tickCurrent: if let id = navigation.selectedID { tickCurrent(in: id) }
+        case .untickLast: if let id = navigation.selectedID { untickLast(in: id) }
+        case .copyCurrentCode:
+            if let leaf = currentLeaf, let code = leaf.code { shell.copy(Sanitize.copyText(code)) }
+        case .openCurrentURL:
+            if let leaf = currentLeaf, let raw = leaf.url, LinkDisplay.isWeb(raw), let url = URL(string: raw) { shell.openURL(url) }
+        case .pickChoice(let index): if let id = target { pendingChoice[id] = index }
+        }
+    }
+
+    private var currentLeaf: DetailModel.Node? {
+        guard let id = navigation.selectedID, let nodes = nodes(for: id),
+              let path = Flow.currentStep(ticks: ticks(for: id), nodes: nodes) else { return nil }
+        return Flow.leaves(of: nodes).first { $0.path == path }
+    }
+
+    public func refresh() { Task { await refresh(manual: true) } }
+    public func reopen(_ id: String) { Task { await reopen(id) } }
+    public func sendReply(_ id: String) { Task { _ = await sendReply(id) } }
+    public func sendChoice(_ id: String) { Task { _ = await sendChoice(id) } }
+    public func sendAndDone(_ id: String) { Task { await sendAndDone(id) } }
+    public func performNoticeAction() { Task { await performNoticeAction() } }
+
+    public func copyLink(_ id: String) { shell.copy("relay://i/\(id)") }
+
+    public func retryDetail(_ id: String) {
+        detailFailed.remove(id)
+        detailRequestedAt[id] = now()
+        scheduleTimeoutTick()
+        guard let source else { return }
+        let gen = generation
+        Task { await self.load(id, from: source, generation: gen) }
     }
 }
