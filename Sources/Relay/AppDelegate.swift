@@ -510,18 +510,30 @@ import RelayUI
 
     // MARK: Notifications
 
-    /// New asks from the Store diff. A new "now" ask also slides the
-    /// sidebar in on that ask without taking focus, unless the sidebar is already up.
-    /// While away, the asks are only counted, and only those whose urgency is
-    /// switched on in Notifications, so the summary covers what would have notified.
+    /// New asks from the Store diff. While away they are only counted (no banner, no
+    /// sound, no slide-in), and only those whose urgency is switched on in Notifications,
+    /// so the summary covers what would have notified. Home: notifications per Settings,
+    /// and the first "now" ask of the batch, from any project, filtered out or not, slides
+    /// the hidden panel in on that ask without focus. A visible panel never moves;
+    /// VoiceOver hears about the ask.
     private func announce(_ items: [WireItem]) {
         let settings = model?.config?.notify ?? NotifySettings()
-        guard awayTally.arrived(NotifyPolicy(settings: settings).notifiable(items).count) else { return }
+        let policy = NotifyPolicy(settings: settings)
+        guard awayTally.arrived(policy.notifiable(items).count) else { return }
         notifier?.handle(newItems: items, settings: settings)
-        guard let target = NotifyPolicy(settings: settings).slideInTarget(items),
-              let panel, let store, !panel.isShown else { return }
-        panel.present(focus: false, animated: false)
-        Task { await store.focus(target.id) }
+        guard let target = policy.slideInTarget(items), let panel, let store else { return }
+        let home = presence.status.state == .home
+        if SlideIn.shouldSlide(home: home, slideInOn: settings.slideIn, panelVisible: panel.isShown) {
+            panel.slideIn()
+            Task { await store.focus(target.id) }
+        } else if home, panel.isShown {
+            let text = SlideIn.announcement(
+                title: target.title, project: target.projectId ?? "",
+                outsideFilter: !QueueLayout.matches(target, filter: store.filter))
+            NSAccessibility.post(
+                element: panel, notification: .announcementRequested,
+                userInfo: [.announcement: text, .priority: NSAccessibilityPriorityLevel.high.rawValue])
+        }
     }
 
     // MARK: Away mode
@@ -530,6 +542,8 @@ import RelayUI
     /// Asks that were waiting in the batch window when Relay went away join the count.
     private func presenceChanged(to status: PresenceMonitor.Status) {
         let away = status.state == .away
+        // The Store's away flag: the status bar reads "Away · …" with the moon (§4.3).
+        store?.away = away
         let held = notifier?.setQuiet(away) ?? 0
         if let summary = awayTally.changed(to: status.state) {
             notifier?.showReturnSummary(summary, settings: model?.config?.notify ?? NotifySettings())

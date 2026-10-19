@@ -26,9 +26,13 @@ import RelayUI
     /// Bumped by every show and hide, so a fade-out that finishes after a new show
     /// doesn't order the panel out.
     private var fadeToken = 0
+    /// True from a slide-in until the panel hides; that hide reverses the slide.
+    /// Focusing the panel ends it, so a focused panel fades when it hides.
+    private(set) var slidIn = false
 
-    /// True while a hide's fade-out runs. The panel is still ordered in then, but it
-    /// is on its way out, so the toggle rule and a "now" ask treat it as hidden.
+    /// True while a hide's fade-out (or a slide-in's reverse) runs. The panel is still
+    /// ordered in then, but it is on its way out, so the toggle rule and a "now" ask
+    /// treat it as hidden.
     private(set) var isFadingOut = false
 
     /// On screen and staying there: visible and not fading out.
@@ -196,13 +200,14 @@ import RelayUI
         dock(edge: edge)
     }
 
-    /// Brings the panel in. `focus` false (a "now" ask's slide-in)
-    /// leaves the frontmost app's focus alone; either way it stays until hidden.
+    /// Brings the panel in. `focus` false leaves the frontmost app's focus alone;
+    /// either way it stays until hidden. `focus` true ends a slide-in.
     /// `animated` fades it in over `DS.Motion.fade` (instant under Reduce Motion).
     /// A show during a hide's fade-out cancels it and fades back to full alpha.
     func present(focus: Bool, animated: Bool) {
         fadeToken += 1
         isFadingOut = false
+        if focus { slidIn = false }
         // A visible panel off its docked frame (the toggle's re-dock case) snaps back.
         dock(edge: edge, animated: true)
         let duration = animated ? DS.appKitDuration(DS.Motion.fade) : 0
@@ -220,6 +225,36 @@ import RelayUI
         if focus { makeKey() }
     }
 
+    /// A "now" ask while the panel is hidden: from beyond the edge to the docked frame,
+    /// 0.25 s ease-out, never key, so Terminal keeps typing. Under Reduce Motion it fades
+    /// in at the docked frame over 0.12 s. A panel that is fading out counts as hidden.
+    func slideIn() {
+        guard !isShown else { return }
+        fadeToken += 1
+        isFadingOut = false
+        dock(edge: edge)
+        let docked = targetFrame ?? frame
+        slidIn = true
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            setFrame(docked, display: false)
+            if !isVisible { alphaValue = 0 }
+            orderFrontRegardless()
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = DS.appKitDuration(DS.Motion.slideIn)
+                self.animator().alphaValue = 1
+            }
+            return
+        }
+        alphaValue = 1
+        setFrame(SlideIn.offscreenFrame(docked: docked, edge: edge), display: false)
+        orderFrontRegardless()
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = DS.appKitDuration(DS.Motion.slideIn)
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            self.animator().setFrame(docked, display: true)
+        }
+    }
+
     func show() {
         present(focus: true, animated: true)
     }
@@ -227,6 +262,11 @@ import RelayUI
     /// Hotkey, icon click, Esc at the list, ⌘W and the header ✕ all hide through here.
     func hide(animated: Bool) {
         guard isVisible else { return }
+        if slidIn, animated {
+            slideOut()
+            return
+        }
+        slidIn = false
         fadeToken += 1
         let token = fadeToken
         let duration = animated ? DS.appKitDuration(DS.Motion.fade) : 0
@@ -243,6 +283,40 @@ import RelayUI
         } completionHandler: { [weak self] in
             MainActor.assumeIsolated { self?.finishHide(token) }
         }
+    }
+
+    /// The hide after a slide-in reverses it: back beyond the edge, 0.25 s ease-out.
+    /// Under Reduce Motion the slide-in was a 0.12 s fade, so its reverse is too.
+    private func slideOut() {
+        slidIn = false
+        fadeToken += 1
+        let token = fadeToken
+        isFadingOut = true
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = DS.appKitDuration(DS.Motion.slideIn)
+                self.animator().alphaValue = 0
+            } completionHandler: { [weak self] in
+                MainActor.assumeIsolated { self?.finishHide(token) }
+            }
+            return
+        }
+        let docked = targetFrame ?? frame
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = DS.appKitDuration(DS.Motion.slideIn)
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            self.animator().setFrame(SlideIn.offscreenFrame(docked: docked, edge: self.edge), display: true)
+        } completionHandler: { [weak self] in
+            MainActor.assumeIsolated { self?.finishSlideOut(token, docked: docked) }
+        }
+    }
+
+    /// Orders the slid-out panel out and puts it back on its docked frame for the next show.
+    private func finishSlideOut(_ token: Int, docked: CGRect) {
+        guard token == fadeToken else { return }
+        isFadingOut = false
+        orderOut(nil)
+        setFrame(docked, display: false)
     }
 
     private func finishHide(_ token: Int) {

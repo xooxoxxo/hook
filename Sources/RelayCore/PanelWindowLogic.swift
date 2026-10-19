@@ -29,3 +29,24 @@ public enum PanelToggle {
             .allSatisfy { abs($0) <= dockTolerance }
     }
 }
+
+/// The slide-in for a "now" ask (§4.11). Pure: the panel animates the frames.
+public enum SlideIn {
+    /// Just beyond the docked frame's screen edge, so the slide covers the panel's width.
+    public static func offscreenFrame(docked: CGRect, edge: SidebarEdge) -> CGRect {
+        let dx = edge == .left ? -docked.width : docked.width
+        return docked.offsetBy(dx: dx, dy: 0)
+    }
+
+    /// Home, "Slide the panel in" on, and the panel hidden. A visible panel never moves.
+    public static func shouldSlide(home: Bool, slideInOn: Bool, panelVisible: Bool) -> Bool {
+        home && slideInOn && !panelVisible
+    }
+
+    /// The VoiceOver announcement when a "now" ask arrives while the panel is up.
+    public static func announcement(title: String, project: String, outsideFilter: Bool) -> String {
+        let title = Sanitize.revealLine(title)
+        guard outsideFilter else { return "New Now ask: \(title)" }
+        return "New Now ask in \(Sanitize.revealLine(project)): \(title)"
+    }
+}
