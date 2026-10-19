@@ -422,27 +422,72 @@ import RelayUI
 
     private func setUpMenuBar() {
         menuBar = MenuBarController(
+            inputs: { [weak self] in self?.menuInputs() ?? MenuInputs(
+                notSetUp: true, panelVisible: false, shortcut: nil, statusLine: "No queue set up",
+                presenceLine: "", presence: .auto, displays: [], pinned: nil) },
             onToggle: { [weak self] in self?.togglePanel() },
-            onRefresh: { [weak self] in self?.refreshNow() },
-            onSettings: { [weak self] in self?.showSettings(nil) },
-            onPresence: { [weak self] mode in self?.model?.save(set: ["presence": mode.rawValue]) },
-            onQuit: { NSApp.terminate(nil) })
-        MainMenu.install(settings: #selector(showSettings(_:)), refresh: #selector(refreshNow), target: self)
+            onAction: { [weak self] action in self?.perform(action) })
+        MainMenu.install(settings: #selector(showSettings(_:)), target: self)
         updateMenuBar()
         updateShortcutLabel()
     }
 
-    /// Count badge, dimming and tooltip, after every Store change.
-    private func updateMenuBar() {
-        guard let store else { return }
-        menuBar?.update(store.menuBarState(showCount: showCount, away: presence.status.state == .away))
+    /// What the menu-bar menu shows, read on every open.
+    private func menuInputs() -> MenuInputs {
+        let status = presence.status
+        let label = hotKeys?.label ?? HotKeyManager.offLabel
+        let shortcut = label == HotKeyManager.offLabel
+            ? nil : HotkeySpec.parse(model?.config?.hotkey ?? HotkeySpec.defaultString)
+        return MenuInputs(
+            notSetUp: (store?.sourceKey ?? SourceKey.none) == SourceKey.none,
+            panelVisible: panel?.isShown ?? false,
+            shortcut: shortcut,
+            statusLine: MenuStatusLine.text(
+                sourceKey: store?.sourceKey ?? SourceKey.none, reachable: store?.reachable ?? false,
+                updated: store?.lastListAt.map { ClockText.time($0) }),
+            presenceLine: PresenceLogic.statusLine(
+                state: status.state, reason: status.reason, since: ClockText.time(status.since)),
+            presence: presence.mode,
+            displays: NSScreen.screens.compactMap { screen in
+                screen.displayUUID.map { MenuDisplay(id: $0, name: screen.localizedName) }
+            },
+            pinned: model?.config?.sidebarDisplay)
     }
 
-    /// "Shortcut: ⌃⌥⌘R", or "Shortcut: (not set)" when off or not registered.
-    /// Also mirrored into the model for the sidebar footer's hint.
+    private func perform(_ action: MenuAction) {
+        switch action {
+        case .setUp: showWelcome()
+        case .togglePanel: togglePanel()
+        case .setPresence(let mode): model?.save(set: ["presence": mode.rawValue])
+        case .refresh: refreshNow()
+        case .dock(let edge): panel?.dock(edge)
+        case .pinDisplay(let id):
+            if let id { model?.save(set: ["sidebarDisplay": id]) } else { model?.save(set: [:], remove: ["sidebarDisplay"]) }
+        case .redock: panel?.redock()
+        case .settings: showSettings(nil)
+        case .about:
+            NSApp.activate()
+            NSApp.orderFrontStandardAboutPanel(nil)
+        case .quit: NSApp.terminate(nil)
+        }
+    }
+
+    /// Badge, dimming, tooltip and VO label, after every Store change.
+    private func updateMenuBar() {
+        guard let store else { return }
+        let status = presence.status
+        var state = store.menuBarState(showCount: showCount, away: status.state == .away)
+        let label = hotKeys?.label ?? HotKeyManager.offLabel
+        state.shortcut = label == HotKeyManager.offLabel ? nil : label
+        state.awaySince = status.state == .away ? ClockText.time(status.since) : nil
+        menuBar?.update(state)
+    }
+
+    /// The shortcut's label for the menu bar's tooltip and, mirrored into the model,
+    /// the sidebar footer's hint; nil there when off or not registered.
     private func updateShortcutLabel() {
         let label = hotKeys?.label ?? HotKeyManager.offLabel
-        menuBar?.setShortcutLabel("Shortcut: " + label)
+        updateMenuBar()
         model?.setShortcutLabel(label == HotKeyManager.offLabel ? nil : label)
     }
 
@@ -503,7 +548,7 @@ import RelayUI
         Task { await store.refreshIfStale() }
     }
 
-    @objc private func refreshNow() {
+    private func refreshNow() {
         guard let store else { return }
         Task { await store.refresh() }
     }
@@ -553,11 +598,8 @@ import RelayUI
         updateMenuBar()
     }
 
+    /// The menu reads presence on every open; the status item's tooltip and dimming follow it.
     private func updatePresenceMenu() {
-        let status = presence.status
-        let since = status.since.formatted(date: .omitted, time: .shortened)
-        menuBar?.setPresence(
-            line: PresenceLogic.statusLine(state: status.state, reason: status.reason, since: since),
-            mode: presence.mode)
+        updateMenuBar()
     }
 }

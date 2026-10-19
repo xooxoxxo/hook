@@ -2,44 +2,47 @@ import AppKit
 import RelayCore
 import RelayUI
 
-/// The status item: the template "checklist" symbol with a red
-/// badge on its top-right corner while any ask is open (the count when it fits
-/// in one digit, else a plain dot), dimming when the source is unreachable, a
-/// fainter symbol while away, and the right-click menu. Left click toggles the sidebar.
+/// The status item: the template "checklist" symbol with a red badge on its
+/// top-right corner while any ask is open (the count when it fits in one digit,
+/// else a plain dot). The symbol looks disabled while offline or away; the badge
+/// dims only while offline. The tooltip is always set. Left click toggles the
+/// sidebar; right click or control-click opens the menu (§4.10), rebuilt from
+/// `MenuBarMenu.entries` on every open.
 @MainActor final class MenuBarController: NSObject {
-    private let item: NSStatusItem
+    private var item: NSStatusItem
     /// A template image can't carry colour, so the badge is its own view.
-    private let badge: BadgeView
-    private var shortcutLabel = "Shortcut: (not set)"
-    private var presenceLine = "Home · active"
-    private var presenceMode: PresenceMode = .auto
-    private let onPresence: @MainActor (PresenceMode) -> Void
+    private let badge = BadgeView(frame: .zero)
+    private var state = MenuBarState()
+    private let inputs: @MainActor () -> MenuInputs
     private let onToggle: @MainActor () -> Void
-    private let onRefresh: @MainActor () -> Void
-    private let onSettings: @MainActor () -> Void
-    private let onQuit: @MainActor () -> Void
+    private let onAction: @MainActor (MenuAction) -> Void
 
-    init(
-        onToggle: @escaping @MainActor () -> Void,
-        onRefresh: @escaping @MainActor () -> Void,
-        onSettings: @escaping @MainActor () -> Void,
-        onPresence: @escaping @MainActor (PresenceMode) -> Void,
-        onQuit: @escaping @MainActor () -> Void
-    ) {
-        self.onPresence = onPresence
+    init(inputs: @escaping @MainActor () -> MenuInputs,
+         onToggle: @escaping @MainActor () -> Void,
+         onAction: @escaping @MainActor (MenuAction) -> Void) {
+        self.inputs = inputs
         self.onToggle = onToggle
-        self.onRefresh = onRefresh
-        self.onSettings = onSettings
-        self.onQuit = onQuit
-        badge = BadgeView(frame: .zero)
-        let image = NSImage(systemSymbolName: "checklist", accessibilityDescription: "Relay")
-        image?.isTemplate = true
-        // Fixed width with room on the right, so the badge overlaps only the
-        // symbol's corner and is never clipped by the button's bounds.
-        item = NSStatusBar.system.statusItem(withLength: (image?.size.width ?? 16) + 8)
+        self.onAction = onAction
+        item = Self.makeItem()
         super.init()
+        configure()
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(screenParametersChanged),
+            name: NSApplication.didChangeScreenParametersNotification, object: nil)
+        update(MenuBarState())
+    }
+
+    /// The template "checklist" symbol, `symbolWidth + 8` wide so the badge never clips.
+    private static func makeItem() -> NSStatusItem {
+        let image = NSImage(systemSymbolName: DS.Symbol.menuBar, accessibilityDescription: "Relay")
+        image?.isTemplate = true
+        let item = NSStatusBar.system.statusItem(withLength: (image?.size.width ?? 16) + 8)
+        item.button?.image = image
+        return item
+    }
+
+    private func configure() {
         guard let button = item.button else { return }
-        button.image = image
         button.title = ""
         button.imagePosition = .imageOnly
         button.target = self
@@ -52,29 +55,30 @@ import RelayUI
         NotificationCenter.default.addObserver(
             self, selector: #selector(buttonFrameChanged(_:)),
             name: NSView.frameDidChangeNotification, object: button)
-        update(MenuBarState())
+    }
+
+    /// A menu bar rebuilt after a display change can leave the button without a window.
+    @objc private func screenParametersChanged() {
+        guard item.button?.window == nil else { return }
+        if let old = item.button {
+            NotificationCenter.default.removeObserver(self, name: NSView.frameDidChangeNotification, object: old)
+        }
+        NSStatusBar.system.removeStatusItem(item)
+        item = Self.makeItem()
+        configure()
+        update(state)
     }
 
     func update(_ state: MenuBarState) {
+        self.state = state
         guard let button = item.button else { return }
-        button.appearsDisabled = state.symbolDimmed
-        button.toolTip = state.tooltip
+        button.appearsDisabled = state.symbolDimmed        // offline or away
+        button.toolTip = state.tooltip                      // always
         button.setAccessibilityLabel(state.accessibilityLabel)
         badge.badge = state.badge
-        badge.dimmed = state.dimmed
+        badge.dimmed = state.dimmed                         // 0.5 only offline; away keeps full alpha
         button.layoutSubtreeIfNeeded()
         placeBadge(in: button)
-    }
-
-    func setShortcutLabel(_ text: String) {
-        shortcutLabel = text
-    }
-
-    /// The menu's presence line ("Away · screen locked · since 10:22") and the
-    /// ticked item in Presence.
-    func setPresence(line: String, mode: PresenceMode) {
-        presenceLine = line
-        presenceMode = mode
     }
 
     /// Over the symbol's top-right corner, clamped inside the button's bounds.
@@ -105,46 +109,51 @@ import RelayUI
     }
 
     private func makeMenu() -> NSMenu {
+        Self.menu(MenuBarMenu.entries(inputs()), target: self)
+    }
+
+    private static func menu(_ entries: [MenuEntry], target: MenuBarController) -> NSMenu {
         let menu = NSMenu()
         menu.autoenablesItems = false
-        let status = NSMenuItem(title: presenceLine, action: nil, keyEquivalent: "")
-        status.isEnabled = false
-        menu.addItem(status)
-        let presence = NSMenuItem(title: "Presence", action: nil, keyEquivalent: "")
-        presence.isEnabled = true
-        let choices = NSMenu()
-        choices.autoenablesItems = false
-        for (mode, title) in [(PresenceMode.auto, "Automatic"), (.home, "Home"), (.away, "Away")] {
-            let choice = entry(title, #selector(presenceClicked(_:)))
-            choice.representedObject = mode.rawValue
-            choice.state = mode == presenceMode ? .on : .off
-            choices.addItem(choice)
+        for entry in entries {
+            switch entry {
+            case .separator:
+                menu.addItem(.separator())
+            case let .submenu(title, inner):
+                let holder = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+                holder.submenu = Self.menu(inner, target: target)
+                menu.addItem(holder)
+            case let .item(title, action, key, modifiers, enabled, checked):
+                let item = NSMenuItem(title: title, action: action == nil ? nil : #selector(chosen(_:)),
+                                      keyEquivalent: key ?? "")
+                item.keyEquivalentModifierMask = Self.flags(modifiers)
+                item.target = action == nil ? nil : target
+                item.representedObject = action.map(ActionBox.init)
+                item.isEnabled = enabled
+                item.state = checked ? .on : .off
+                menu.addItem(item)
+            }
         }
-        presence.submenu = choices
-        menu.addItem(presence)
-        menu.addItem(.separator())
-        menu.addItem(entry("Refresh", #selector(refreshClicked)))
-        menu.addItem(entry("Settings…", #selector(settingsClicked)))
-        let shortcut = NSMenuItem(title: shortcutLabel, action: nil, keyEquivalent: "")
-        shortcut.isEnabled = false
-        menu.addItem(shortcut)
-        menu.addItem(.separator())
-        menu.addItem(entry("Quit Relay", #selector(quitClicked)))
         return menu
     }
 
-    private func entry(_ title: String, _ action: Selector) -> NSMenuItem {
-        let entry = NSMenuItem(title: title, action: action, keyEquivalent: "")
-        entry.target = self
-        entry.isEnabled = true
-        return entry
+    private static func flags(_ modifiers: KeyModifiers) -> NSEvent.ModifierFlags {
+        var flags: NSEvent.ModifierFlags = []
+        if modifiers.contains(.command) { flags.insert(.command) }
+        if modifiers.contains(.shift) { flags.insert(.shift) }
+        if modifiers.contains(.option) { flags.insert(.option) }
+        if modifiers.contains(.control) { flags.insert(.control) }
+        return flags
     }
 
-    @objc private func refreshClicked() { onRefresh() }
-    @objc private func settingsClicked() { onSettings() }
-    @objc private func quitClicked() { onQuit() }
-    @objc private func presenceClicked(_ sender: NSMenuItem) {
-        guard let raw = sender.representedObject as? String, let mode = PresenceMode(rawValue: raw) else { return }
-        onPresence(mode)
+    @objc private func chosen(_ sender: NSMenuItem) {
+        guard let box = sender.representedObject as? ActionBox else { return }
+        onAction(box.action)
     }
+}
+
+/// A `MenuAction` carried in `NSMenuItem.representedObject`.
+private final class ActionBox: NSObject {
+    let action: MenuAction
+    init(_ action: MenuAction) { self.action = action }
 }

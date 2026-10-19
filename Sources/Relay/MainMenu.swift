@@ -1,16 +1,14 @@
 import AppKit
 
-/// The main menu. Relay has no Dock icon, so the menu is never seen,
-/// but its key equivalents reach Relay's windows: ⌘C/⌘V in text fields,
-/// ⌘, for Settings, ⌘R to refresh, ⌘Q to quit.
+/// The main menu. Relay has no Dock icon, so it is never seen, but its key
+/// equivalents reach Relay's windows: Edit for text fields, and ⌘, for Settings.
+/// The panel's own keys (⌘R, ⌘W, ⌘Q, …) are handled by SidePanel (§4.12).
 enum MainMenu {
-    @MainActor static func install(settings: Selector, refresh: Selector, target: AnyObject) {
+    @MainActor static func install(settings: Selector, target: AnyObject) {
         let main = NSMenu()
 
         let app = NSMenu(title: "Relay")
         app.addItem(entry("Settings…", settings, ",", target: target))
-        app.addItem(.separator())
-        app.addItem(entry("Quit Relay", #selector(NSApplication.terminate(_:)), "q"))
         main.addItem(holder(app))
 
         let edit = NSMenu(title: "Edit")
@@ -25,14 +23,10 @@ enum MainMenu {
         edit.addItem(entry("Select All", #selector(NSText.selectAll(_:)), "a"))
         main.addItem(holder(edit))
 
-        let queue = NSMenu(title: "Queue")
-        queue.addItem(entry("Refresh", refresh, "r", target: target))
-        main.addItem(holder(queue))
-
         NSApp.mainMenu = main
     }
 
-    /// `target` nil sends the action down the responder chain (Edit items, Quit).
+    /// `target` nil sends the action down the responder chain (the Edit items).
     @MainActor private static func entry(_ title: String, _ action: Selector, _ key: String,
                                          target: AnyObject? = nil) -> NSMenuItem {
         let entry = NSMenuItem(title: title, action: action, keyEquivalent: key)
