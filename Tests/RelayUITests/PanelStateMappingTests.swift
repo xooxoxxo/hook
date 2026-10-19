@@ -37,4 +37,11 @@ import Testing
     @Test func notSetUp() {
         #expect(kind(.notSetUp) == .notSetUp)
     }
+
+    /// A7: the not-set-up panel never shows one string twice; the StateView title and the
+    /// status bar text differ.
+    @Test func notSetUpTitleAndStatusDiffer() {
+        let status = PanelStatus.make(StatusInputs(sourceKey: SourceKey.none, reachable: false, loadedOnce: false))
+        #expect(StateView.title(.notSetUp) != status.text)
+    }
 }

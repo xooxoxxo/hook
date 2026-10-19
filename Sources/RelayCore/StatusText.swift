@@ -51,7 +51,7 @@ public struct PanelStatus: Equatable, Sendable {
         let name = local ? "This Mac" : "Mailbox"
         var status: PanelStatus
         if inputs.sourceKey == SourceKey.none {
-            status = PanelStatus(symbol: .notSetUp, text: "No queue set up", detail: .notSetUp)
+            status = PanelStatus(symbol: .notSetUp, text: "Not set up", detail: .notSetUp)
         } else if let note = inputs.configNote {
             status = PanelStatus(symbol: .down, text: "config.json has an error", detail: .config(note: note))
         } else if !inputs.reachable, let problem = inputs.problem {

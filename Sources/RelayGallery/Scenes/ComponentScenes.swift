@@ -198,7 +198,7 @@ let longProject = "Quarterly planning for the public launch of the pricing page"
         Sample("StatusBar · ready") { status(.ok, "Mailbox · ready") },
         Sample("StatusBar · connecting") { status(.connecting, "Mailbox · connecting…") },
         Sample("StatusBar · offline") { status(.down, "Mailbox · offline") },
-        Sample("StatusBar · not set up") { status(.notSetUp, "No queue set up") },
+        Sample("StatusBar · not set up") { status(.notSetUp, "Not set up") },
         Sample("StatusBar · away") { status(.away, "Away · Mailbox · ready") },
         Sample("StatusDetails · updated") { details(readyStatus, updated: "10:42") },
         Sample("StatusDetails · offline") { details(offlineStatus(loadedOnce: true), updated: "09:22") },

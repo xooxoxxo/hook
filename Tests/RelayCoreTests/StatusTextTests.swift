@@ -25,13 +25,13 @@ private func status(_ key: String = "mailbox:m#p", reachable: Bool = true, loade
         #expect(status(listener: "Port 47823 is in use by another app")
             == PanelStatus(symbol: .down, text: "Links aren't working", detail: .listener(note: "Port 47823 is in use by another app")))
         #expect(status(SourceKey.none, reachable: false, loadedOnce: false, problem: "No queue is set up")
-            == PanelStatus(symbol: .notSetUp, text: "No queue set up", detail: .notSetUp))
+            == PanelStatus(symbol: .notSetUp, text: "Not set up", detail: .notSetUp))
     }
 
     @Test func priority() {
         #expect(status(reachable: false, problem: "x", config: "c", listener: "l", sending: 2).text == "Sending 2 closes…")
         #expect(status(sending: 1) == PanelStatus(symbol: .connecting, text: "Sending 1 close…", detail: .none))
-        #expect(status(SourceKey.none, reachable: false, config: "c").text == "No queue set up")
+        #expect(status(SourceKey.none, reachable: false, config: "c").text == "Not set up")
         #expect(status(reachable: false, problem: "x", config: "c", listener: "l").text == "config.json has an error")
         #expect(status(reachable: false, problem: "x", listener: "l").text == "Mailbox · offline")
     }
@@ -40,7 +40,7 @@ private func status(_ key: String = "mailbox:m#p", reachable: Bool = true, loade
         #expect(status(away: true) == PanelStatus(symbol: .away, text: "Away · Mailbox · ready", detail: .updated))
         #expect(status(reachable: false, problem: "x", away: true) == PanelStatus(symbol: .down, text: "Away · Mailbox · offline", detail: .unreachable(reason: "x")))
         #expect(status(reachable: false, loadedOnce: false, away: true).symbol == .away)
-        #expect(status(SourceKey.none, reachable: false, away: true).text == "Away · No queue set up")
+        #expect(status(SourceKey.none, reachable: false, away: true).text == "Away · Not set up")
     }
 }
 

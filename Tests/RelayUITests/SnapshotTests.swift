@@ -267,8 +267,8 @@ private let phase3Now = Date(timeIntervalSince1970: 1_792_143_600)
         #expect(StatusDetails.message(status(.listener(note: "Port 47823 is in use by another app"), "Links aren't working"), updated: "")
                 == "Port 47823 is in use by another app")
         // Not set up: a click on the status opens setup directly (design §4.3), so there is no popover line.
-        #expect(StatusDetails.message(status(.notSetUp, "No queue set up"), updated: "") == nil)
-        #expect(StatusDetails.opensSetUp(status(.notSetUp, "No queue set up")))
+        #expect(StatusDetails.message(status(.notSetUp, "Not set up"), updated: "") == nil)
+        #expect(StatusDetails.opensSetUp(status(.notSetUp, "Not set up")))
         #expect(!StatusDetails.opensSetUp(status(.updated, "Mailbox · ready")))
     }
 
