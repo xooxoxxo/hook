@@ -109,9 +109,9 @@ struct QueueView<Model: PanelViewModel>: View {
                 .focused($listFocused)
                 .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: queue.grouping)
                 .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: queue.filter)
-                .onAppear { listFocused = true }
+                .onAppear { if model.navigation.selectedID == nil { listFocused = true } }
                 .onChange(of: activeState) { _, state in
-                    if state == .key { listFocused = true }
+                    if state == .key, model.navigation.selectedID == nil { listFocused = true }
                 }
                 .onChange(of: model.navigation.selectedID) { old, new in
                     // Back: the row you came from is centred only when it is off-screen
