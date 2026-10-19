@@ -105,14 +105,18 @@ public struct RepoState: Equatable, Sendable {
     public var skill: ConnectInfo.SkillState?
     public var cliFound: Bool
     public var lastCall: Date?
+    /// The last failed skill install, one sentence; nil after a successful one.
+    public var skillError: String?
     public init(repoPath: String? = nil, mcpCommand: String? = nil, claudeMdAvailable: Bool = false,
-                skill: ConnectInfo.SkillState? = nil, cliFound: Bool = false, lastCall: Date? = nil) {
+                skill: ConnectInfo.SkillState? = nil, cliFound: Bool = false, lastCall: Date? = nil,
+                skillError: String? = nil) {
         self.repoPath = repoPath
         self.mcpCommand = mcpCommand
         self.claudeMdAvailable = claudeMdAvailable
         self.skill = skill
         self.cliFound = cliFound
         self.lastCall = lastCall
+        self.skillError = skillError
     }
 }
 

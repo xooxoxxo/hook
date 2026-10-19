@@ -46,7 +46,8 @@ extension AppModel: SettingsViewModel {
                 repoPath: repo, mcpCommand: repo.map { ConnectInfo.mcpCommand(repoPath: $0) },
                 claudeMdAvailable: repo.flatMap { ConnectInfo.claudeMdSection(repoPath: $0) } != nil,
                 skill: repo.map { ConnectInfo.skillState(home: home, repoPath: $0) },
-                cliFound: ConnectInfo.cliInstalled(home: home), lastCall: lastSeen["mcp"]),
+                cliFound: ConnectInfo.cliInstalled(home: home), lastCall: lastSeen["mcp"],
+                skillError: skillError),
             localQueuePath: (dataDirectory.appending(path: "queue.json").path as NSString).abbreviatingWithTildeInPath,
             now: settings.now)
         guard next != settings else { return }
@@ -79,8 +80,11 @@ extension AppModel: SettingsViewModel {
             if let path = Self.chooseFolder() { save(set: ["repoPath": path]) }
         case .installSkill:
             if let repo = settings.repo.repoPath {
-                do { try ConnectInfo.installSkill(home: Self.home, repoPath: repo) } catch {
-                    NSLog("Relay: %@", UserFacingError.text(error))
+                do {
+                    try ConnectInfo.installSkill(home: Self.home, repoPath: repo)
+                    skillError = nil
+                } catch {
+                    skillError = "Couldn't install the skill. " + UserFacingError.text(error)
                 }
             }
         case .copyClaudeMdSection:

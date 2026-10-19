@@ -36,6 +36,9 @@ import SwiftUI
         select(shown)
         // §4.8: the permission is re-read every time the Notifications tab opens.
         if shown == .notifications { Task { await model.refreshPermission() } }
+        // Closing the window stops last-call polling, and re-selecting the already
+        // selected tab fires no didSelect, so every show sets it again.
+        model.setLastSeenPolling(shown == .connect)
         model.refreshSettings()
         if !window.isVisible { window.center() }
         NSApp.activate()

@@ -63,6 +63,7 @@ final class ServerRouting: Sendable {
     var away = false
     var permission: NotificationPermission = .notDetermined
     var loginError: String?
+    var skillError: String?
     /// Names of displays seen in this run, for "<name> (not connected)".
     var displayNames: [String: String] = [:]
 

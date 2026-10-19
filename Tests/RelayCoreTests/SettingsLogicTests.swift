@@ -83,4 +83,11 @@ private let legacyKey = "relay.settings.tab"
         let snapshot = SettingsSnapshot()
         #expect(snapshot.config == nil && snapshot.sourceKey == SourceKey.none && snapshot.displays.isEmpty)
     }
+
+    @Test func aSkillErrorChangesTheRepoState() {
+        #expect(RepoState().skillError == nil)
+        let failed = RepoState(repoPath: "~/src/relay", skillError: "Couldn't install the skill. Disk full.")
+        #expect(failed != RepoState(repoPath: "~/src/relay"))
+        #expect(failed.skillError == "Couldn't install the skill. Disk full.")
+    }
 }
