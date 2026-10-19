@@ -5,6 +5,14 @@ public enum ProbeRole: String, Sendable, CaseIterable {
     case gutterText, trailingEdge, topMarker, subMarker, topActionText, subLabelText, settingsTrailing, mailboxField
 }
 
+/// How the alignment check measures a probe. `.ink` scans the pixels inside the probe's frame;
+/// `.frame` takes the frame's own edges, for text that can begin or end with a digit (a tabular
+/// digit's side bearings sit 1.5–2.5 pt inside its advance) and for bordered controls whose bezel
+/// is too faint for the scan.
+public enum ProbeMeasure: Sendable {
+    case ink, frame
+}
+
 /// A probed view's frame in the window frame view's space (`.global`), in points, top-left origin,
 /// title bar included. In a borderless window that is the content view's space.
 public struct ProbeFrame: Equatable, Sendable {
@@ -12,11 +20,13 @@ public struct ProbeFrame: Equatable, Sendable {
     /// Groups probes that must agree among themselves (one Settings section).
     public var group: String
     public var frame: CGRect
+    public var measure: ProbeMeasure
 
-    public init(role: ProbeRole, group: String, frame: CGRect) {
+    public init(role: ProbeRole, group: String, frame: CGRect, measure: ProbeMeasure = .ink) {
         self.role = role
         self.group = group
         self.frame = frame
+        self.measure = measure
     }
 }
 
@@ -66,6 +76,7 @@ extension EnvironmentValues {
 private struct AlignmentProbeModifier: ViewModifier {
     let role: ProbeRole
     let group: String
+    let measure: ProbeMeasure
     @Environment(\.alignmentProbesEnabled) private var enabled
     @Environment(\.alignmentProbeSink) private var sink
     @State private var id = UUID()
@@ -73,7 +84,7 @@ private struct AlignmentProbeModifier: ViewModifier {
     func body(content: Content) -> some View {
         if enabled {
             content.background(GeometryReader { proxy in
-                let frame = ProbeFrame(role: role, group: group, frame: proxy.frame(in: .global))
+                let frame = ProbeFrame(role: role, group: group, frame: proxy.frame(in: .global), measure: measure)
                 Color.clear
                     .preference(key: AlignmentProbeKey.self, value: [frame])
                     .onAppear { sink?.record(id, frame) }
@@ -87,7 +98,8 @@ private struct AlignmentProbeModifier: ViewModifier {
 
 extension View {
     /// Marks this view for the gallery's alignment check; does nothing in the app.
-    public func alignmentProbe(_ role: ProbeRole, group: String = "") -> some View {
-        modifier(AlignmentProbeModifier(role: role, group: group))
+    /// `measure: .frame` checks the view's frame instead of its ink (see `ProbeMeasure`).
+    public func alignmentProbe(_ role: ProbeRole, group: String = "", measure: ProbeMeasure = .ink) -> some View {
+        modifier(AlignmentProbeModifier(role: role, group: group, measure: measure))
     }
 }

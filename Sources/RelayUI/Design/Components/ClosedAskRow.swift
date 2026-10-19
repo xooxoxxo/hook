@@ -34,7 +34,7 @@ public struct ClosedAskRow: View {
                 Button("Reopen", action: onReopen)
                     .controlSize(DS.Control.inline)
                     .help("Put it back in the queue")
-                    .alignmentProbe(.trailingEdge)
+                    .alignmentProbe(.trailingEdge, measure: .frame)
             }
             .accessibilityElement(children: .combine)
             .accessibilityLabel(Self.accessibilityText(row: row, closedLine: closedLine))

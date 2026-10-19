@@ -21,7 +21,7 @@ public struct SectionHeader: View {
             Spacer()
             Text("\(count)")
                 .monospacedDigit()
-                .alignmentProbe(.trailingEdge)
+                .alignmentProbe(.trailingEdge, measure: .frame)
         }
         .foregroundStyle(DS.Color.secondary)
         .padding(.leading, DS.Space.sectionHeaderLead)

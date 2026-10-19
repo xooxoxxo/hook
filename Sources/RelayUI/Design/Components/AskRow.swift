@@ -35,7 +35,7 @@ public struct AskRow: View {
                         Image(systemName: DS.Symbol.draft).help("Unsent reply")
                     }
                     Spacer(minLength: DS.Space.inline)
-                    summaryView.alignmentProbe(.trailingEdge)
+                    summaryView.alignmentProbe(.trailingEdge, measure: .frame)
                 }
                 .font(DS.Font.meta)
                 .foregroundStyle(DS.Color.secondary)

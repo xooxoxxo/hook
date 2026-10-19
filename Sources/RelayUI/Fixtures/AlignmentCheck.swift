@@ -127,7 +127,8 @@ public enum AlignmentCheck {
     /// How far, in points, a probe may overhang the capture and still count as inside it (rounding).
     static let edgeSlack: CGFloat = 0.5
 
-    /// Checks `rules` against the probes. A probe whose frame runs past the capture's edges (a List
+    /// Checks `rules` against the probes, each by its ink or, for a `.frame` probe, by its frame's
+    /// edges. A probe whose frame runs past the capture's edges (a List
     /// row cut off at the bottom) is skipped: the visible strip holds no full glyph, so measuring it
     /// would report a false "no ink". A rule whose probes are all clipped fails.
     public static func verify(_ probes: [ProbeFrame], bitmap: InkBitmap, rules: [AlignmentRule]) -> [AlignmentFailure] {
@@ -145,9 +146,15 @@ public enum AlignmentCheck {
                 failures.append(AlignmentFailure(rule: rule, detail: detail))
                 continue
             }
-            func measure(_ scan: (InkBitmap, CGRect, Int) -> CGFloat?) -> [(ProbeFrame, CGFloat)]? {
+            /// Each probe's value: its ink by `scan`, or its frame by `edge` for a `.frame` probe.
+            func measure(_ scan: (InkBitmap, CGRect, Int) -> CGFloat?,
+                         _ edge: (CGRect) -> CGFloat) -> [(ProbeFrame, CGFloat)]? {
                 var values: [(ProbeFrame, CGFloat)] = []
                 for p in mine {
+                    if p.measure == .frame {
+                        values.append((p, edge(p.frame)))
+                        continue
+                    }
                     guard let value = scan(bitmap, p.frame, threshold) else {
                         failures.append(AlignmentFailure(rule: rule, detail: "no ink in \(p.role.rawValue) at \(format(rect: p.frame))"))
                         return nil
@@ -158,21 +165,21 @@ public enum AlignmentCheck {
             }
             switch rule {
             case let .leading(_, x, tolerance):
-                for (p, value) in measure(InkScan.firstInkX) ?? [] where abs(value - x) > tolerance {
+                for (p, value) in measure(InkScan.firstInkX, \.minX) ?? [] where abs(value - x) > tolerance {
                     failures.append(AlignmentFailure(rule: rule, detail: "starts at \(format(value)), expected \(format(x)) ± \(format(tolerance)) (\(format(rect: p.frame)))"))
                 }
             case let .trailing(_, x, tolerance):
-                for (p, value) in measure(InkScan.lastInkX) ?? [] where abs(value - x) > tolerance {
+                for (p, value) in measure(InkScan.lastInkX, \.maxX) ?? [] where abs(value - x) > tolerance {
                     failures.append(AlignmentFailure(rule: rule, detail: "ends at \(format(value)), expected \(format(x)) ± \(format(tolerance)) (\(format(rect: p.frame)))"))
                 }
             case let .sameCentre(_, tolerance):
-                let values = measure(InkScan.centreX)
+                let values = measure(InkScan.centreX, \.midX)
                 spread(values, tolerance, rule, "centres", &failures)
             case let .sameLeading(_, tolerance):
-                let values = measure(InkScan.firstInkX)
+                let values = measure(InkScan.firstInkX, \.minX)
                 spread(values, tolerance, rule, "starts", &failures)
             case let .sameTrailingPerGroup(_, tolerance):
-                guard let values = measure(InkScan.lastInkX) else { continue }
+                guard let values = measure(InkScan.lastInkX, \.maxX) else { continue }
                 for group in Set(values.map(\.0.group)).sorted() {
                     spread(values.filter { $0.0.group == group }, tolerance, rule, "ends in \(group)", &failures)
                 }

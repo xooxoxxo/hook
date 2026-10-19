@@ -38,7 +38,7 @@ public struct ListHeaderBar: View {
                     .font(DS.Font.listTitle)
                     .monospacedDigit()
                     .accessibilityAddTraits(.isHeader)
-                    .alignmentProbe(.gutterText)
+                    .alignmentProbe(.gutterText, measure: .frame)
                 Spacer()
                 HStack(alignment: .center, spacing: DS.Space.inline) {
                     if refreshing {

@@ -17,8 +17,9 @@ private func paint(_ bitmap: InkBitmap, columns: Range<Int>, rows: Range<Int>) -
     return InkBitmap(width: bitmap.width, height: bitmap.height, scale: bitmap.scale, pixels: pixels)
 }
 
-private func probe(_ role: ProbeRole, _ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat, group: String = "") -> ProbeFrame {
-    ProbeFrame(role: role, group: group, frame: CGRect(x: x, y: y, width: w, height: h))
+private func probe(_ role: ProbeRole, _ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat, group: String = "",
+                   measure: ProbeMeasure = .ink) -> ProbeFrame {
+    ProbeFrame(role: role, group: group, frame: CGRect(x: x, y: y, width: w, height: h), measure: measure)
 }
 
 @Suite struct AlignmentCheckTests {
@@ -98,6 +99,47 @@ private func probe(_ role: ProbeRole, _ x: CGFloat, _ y: CGFloat, _ w: CGFloat, 
         let failures = AlignmentCheck.verify([probe(.gutterText, 0, 8, 50, 16)], bitmap: ink,
                                              rules: [.leading(.gutterText, x: 16, tolerance: 1)])
         #expect(failures.map(\.detail) == ["no gutterText probe inside the capture (1 clipped)"])
+    }
+
+    @Test func probesMeasureInkByDefault() {
+        #expect(ProbeFrame(role: .gutterText, group: "", frame: .zero).measure == .ink)
+    }
+
+    @Test func aFrameProbeIsMeasuredByItsFrameNotItsInk() {
+        // The frame spans 14-22 pt; the ink inside it spans 16-20 pt (side bearings).
+        let framed = [probe(.trailingEdge, 14, 0, 8, 10, measure: .frame)]
+        #expect(AlignmentCheck.verify(framed, bitmap: ink, rules: [.leading(.trailingEdge, x: 14, tolerance: 1)]).isEmpty)
+        #expect(AlignmentCheck.verify(framed, bitmap: ink, rules: [.trailing(.trailingEdge, x: 22, tolerance: 2)]).isEmpty)
+        let late = AlignmentCheck.verify(framed, bitmap: ink, rules: [.leading(.trailingEdge, x: 16, tolerance: 1)])
+        #expect(late.map(\.detail) == ["starts at 14.0, expected 16.0 ± 1.0 ((14.0, 0.0, 8.0×10.0))"])
+        let early = AlignmentCheck.verify(framed, bitmap: ink, rules: [.trailing(.trailingEdge, x: 20, tolerance: 1)])
+        #expect(early.map(\.detail) == ["ends at 22.0, expected 20.0 ± 1.0 ((14.0, 0.0, 8.0×10.0))"])
+        // The same rect measured by ink gives the ink's edges.
+        let inked = [probe(.trailingEdge, 14, 0, 8, 10)]
+        #expect(AlignmentCheck.verify(inked, bitmap: ink, rules: [.trailing(.trailingEdge, x: 20, tolerance: 1)]).isEmpty)
+    }
+
+    @Test func aFrameProbeNeedsNoInk() {
+        // A blank rect (a faint bezel the scan can't see) still measures by its frame.
+        let blank = [probe(.trailingEdge, 25, 0, 20, 10, measure: .frame)]
+        #expect(AlignmentCheck.verify(blank, bitmap: ink, rules: [.trailing(.trailingEdge, x: 45, tolerance: 2)]).isEmpty)
+        // An ink probe over the same rect still reports no ink.
+        let inked = [probe(.trailingEdge, 25, 0, 20, 10)]
+        #expect(AlignmentCheck.verify(inked, bitmap: ink, rules: [.trailing(.trailingEdge, x: 45, tolerance: 2)])
+            .first?.detail.contains("no ink") == true)
+    }
+
+    @Test func frameAndInkProbesMixInOneRule() {
+        // An ink probe starting at 16 pt and a frame probe whose frame starts at 16 pt agree;
+        // centres compare the ink's centre (18) with the frame's (16 + 4 / 2 = 18).
+        let mixed = [probe(.subMarker, 0, 0, 50, 5), probe(.subMarker, 16, 5, 4, 5, measure: .frame)]
+        #expect(AlignmentCheck.verify(mixed, bitmap: ink, rules: [.sameLeading(.subMarker, tolerance: 0)]).isEmpty)
+        #expect(AlignmentCheck.verify(mixed, bitmap: ink, rules: [.sameCentre(.subMarker, tolerance: 0)]).isEmpty)
+        let offset = [probe(.subMarker, 0, 0, 50, 5), probe(.subMarker, 19, 5, 4, 5, measure: .frame)]
+        #expect(AlignmentCheck.verify(offset, bitmap: ink, rules: [.sameLeading(.subMarker, tolerance: 1)]).count == 1)
+        // A clipped frame probe is skipped like an ink one.
+        let clipped = [probe(.gutterText, 0, 0, 50, 5), probe(.gutterText, 30, 8, 4, 16, measure: .frame)]
+        #expect(AlignmentCheck.verify(clipped, bitmap: ink, rules: [.leading(.gutterText, x: 16, tolerance: 1)]).isEmpty)
     }
 
     @Test func failuresDescribeTheRule() {
