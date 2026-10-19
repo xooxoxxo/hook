@@ -9,6 +9,7 @@ struct DetailView<Model: PanelViewModel>: View {
     let id: String
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.panelGallery) private var gallery
+    @AppStorage("relay.detail.fromExpanded") private var storedFromExpanded = false
 
     init(model: Model, id: String) {
         _model = ObservedObject(wrappedValue: model)
@@ -84,6 +85,8 @@ struct DetailView<Model: PanelViewModel>: View {
             }
             titleBlock(snapshot)
             stepsArea(snapshot, closed: closed)
+            linksSection(snapshot)
+            fromSection(snapshot)
         }
         .padding(.horizontal, DS.Space.gutter)
         .padding(.vertical, DS.Space.bodyV)
@@ -126,6 +129,40 @@ struct DetailView<Model: PanelViewModel>: View {
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
             }
+        }
+    }
+
+    private var fromExpanded: Binding<Bool> {
+        Binding(get: { gallery.fromExpanded ?? storedFromExpanded }, set: { storedFromExpanded = $0 })
+    }
+
+    @ViewBuilder private func linksSection(_ snapshot: DetailSnapshot) -> some View {
+        if let links = snapshot.model?.links, !links.isEmpty {
+            VStack(alignment: .leading, spacing: DS.Space.inline) {
+                Text("Links")
+                    .font(DS.Font.heading)
+                    .accessibilityAddTraits(.isHeader)
+                    .accessibilityHeading(.h2)
+                ForEach(links.indices, id: \.self) { index in
+                    linkRow(links[index])
+                }
+            }
+        }
+    }
+
+    /// "label · host" for a web link; a non-web one is shown as text, never opened (§4.4).
+    @ViewBuilder private func linkRow(_ link: LinkRef) -> some View {
+        if LinkDisplay.isWeb(link.url), let url = URL(string: link.url) {
+            OpenLink(title: LinkDisplay.linkTitle(label: link.label, url: link.url), url: url)
+        } else {
+            RefusedLink(text: LinkDisplay.refusedText(label: link.label), raw: link.url)
+        }
+    }
+
+    /// Only when the ask has a usable origin (M10).
+    @ViewBuilder private func fromSection(_ snapshot: DetailSnapshot) -> some View {
+        if let origin = snapshot.model?.origin {
+            FromDisclosure(origin: origin, expanded: fromExpanded, onCopy: { model.shell.copy($0) })
         }
     }
 

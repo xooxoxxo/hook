@@ -134,6 +134,30 @@ func ticked(_ base: DetailSnapshot, before path: String) -> DetailSnapshot {
     ticked(GalleryFixtures.detailSteps, before: "3")
 }
 
+/// Hidden characters in a title, a place and a code block (they show as ⟨U+…⟩).
+let hiddenCharsJSON = #"""
+{"item": {"id": "00000000-0000-4000-8000-0000000000b1", "title": "Check the token\u202e name before saving",
+  "status": "open", "projectId": "Northwind", "created": "2026-10-16T09:10:00+00:00", "updated": "2026-10-16T09:10:00+00:00",
+  "payload": {"instructable": {"v": 1, "title": "Check the token\u202e name before saving", "urgency": "today",
+    "why": "The pasted value had characters you can't see.",
+    "steps": [{"do": "Run the check", "where": "Mac\u2066 terminal", "code": "echo token\u200b-ok", "expect": "token-ok"}]}}},
+ "events": []}
+"""#
+
+/// Non-web and punycode links, as a step URL and in Links.
+let nonWebLinksJSON = #"""
+{"item": {"id": "00000000-0000-4000-8000-0000000000c1", "title": "Read the brief and the product page",
+  "status": "open", "projectId": "Acme", "created": "2026-10-16T09:20:00+00:00", "updated": "2026-10-16T09:20:00+00:00",
+  "payload": {"instructable": {"v": 1, "title": "Read the brief and the product page", "urgency": "whenever",
+    "steps": [{"do": "Open the brief", "url": "ftp://files.example.com/brief.pdf"},
+              {"do": "Open the product page", "url": "https://xn--bcher-kva.example.com/apps"}],
+    "links": [{"label": "Brief", "url": "ftp://files.example.com/brief.pdf"},
+              {"label": "Product page", "url": "https://xn--bcher-kva.example.com/apps"},
+              {"label": "API docs", "url": "https://www.example.com/docs"}],
+    "from": {"session": "1b2c3d4e-0000-4000-8000-000000000001", "host": "example-mac", "cwd": "/work/acme"}}}},
+ "events": []}
+"""#
+
 @MainActor let detailScenes: [GalleryScene] = [
     detailScene("detail-legacy", detailSnapshot(decodeDetail(legacyJSON), base: GalleryFixtures.detailSteps)),
     detailScene("detail-closed", closedDetail),
@@ -147,6 +171,10 @@ func ticked(_ base: DetailSnapshot, before path: String) -> DetailSnapshot {
     detailScene("detail-substeps-done", substepsDone, height: nil, rules: topColumnRules, overrides: fullHeight),
     expandedSubstepsScene(),
     detailScene("detail-limits", GalleryFixtures.limits, height: nil, overrides: fullHeight),
+    detailScene("detail-hidden-chars", detailSnapshot(decodeDetail(hiddenCharsJSON), base: GalleryFixtures.detailSteps),
+                height: nil, overrides: fullHeight),
+    detailScene("detail-links-nonweb", detailSnapshot(decodeDetail(nonWebLinksJSON), base: GalleryFixtures.detailSteps),
+                height: nil, overrides: fullHeight),
 ]
 
 /// detail-substeps-done with the done parent expanded: expansion is memory-only model state.
