@@ -506,4 +506,31 @@ private let phase3Now = Date(timeIntervalSince1970: 1_792_143_600)
         snapshot.closedText = "Done by you · 16 Oct, 06:12"
         #expect(!DetailView<FixturePanelModel>.focusesReplyOnOpen(snapshot))      // closed: Reply anyway is collapsed
     }
+
+    /// Ruling 1 on a first open of an uncached ask: Store.open loads the detail lazily, so the
+    /// predicate starts false and turns true once the AskDetail arrives. DetailView's
+    /// onChange(of:initial:) relies on that transition.
+    @Test func focusOnOpenTurnsTrueWhenTheLazyDetailArrives() async {
+        let free = replyItem("r1", choices: nil, steps: [Step(action: "Look up the channel ID in Slack")])
+        let fake = FakeQueueSource(items: [free])
+        // The first refresh's prefetch misses, so nothing is cached when the ask opens.
+        await fake.failNext(QueueError.notFound, on: "get r1")
+        let suite = "relay.test.phase3." + UUID().uuidString
+        let store = Store(defaults: UserDefaults(suiteName: suite)!, now: { phase3Now })
+        defer { UserDefaults().removePersistentDomain(forName: suite) }
+        store.swap(to: fake, identity: SourceIdentity(key: "mailbox:mailbox.example#personal", mailbox: nil),
+                   pollSeconds: 3600)
+        await store.refresh(manual: false)
+        #expect(await fake.count("get r1") == 1)
+        store.open("r1")
+        guard let loading = store.detail("r1") else {
+            Issue.record("expected a loading snapshot")
+            return
+        }
+        #expect(loading.model == nil)
+        #expect(!DetailView<FixturePanelModel>.focusesReplyOnOpen(loading))
+        #expect(await eventually {
+            store.detail("r1").map(DetailView<FixturePanelModel>.focusesReplyOnOpen) == true
+        })
+    }
 }

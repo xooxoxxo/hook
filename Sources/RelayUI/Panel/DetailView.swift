@@ -48,8 +48,10 @@ struct DetailView<Model: PanelViewModel>: View {
     var body: some View {
         if let snapshot = model.detail(id) {
             frame(snapshot)
-                .onAppear {
-                    if Self.focusesReplyOnOpen(snapshot) { replyFocused = true }
+                // Runs on appear (cached detail) and again when a lazily loaded detail turns the
+                // predicate true; polls that keep it true don't re-fire, so a field left stays left.
+                .onChange(of: Self.focusesReplyOnOpen(snapshot), initial: true) { _, focuses in
+                    if focuses { replyFocused = true }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .relayFocusReply)) { _ in
                     if model.detail(id)?.model?.reply != nil { replyFocused = true }
