@@ -150,21 +150,20 @@ public enum SubLine {
     }
 }
 
-/// A card's age: "now", "5m", "2h", "3d". Parsed to `Date`, so the Mac's time
-/// zone never matters.
+/// A row's age: "now", "12 min ago", "3 h ago", "2 d ago". Parsed to Date, so the Mac's time zone never matters.
 public enum RelativeAge {
     public static func text(created: String, now: Date) -> String {
         guard let date = Timestamp.date(created) else { return "" }
         let seconds = max(0, now.timeIntervalSince(date))
         if seconds < 60 { return "now" }
-        if seconds < 3600 { return "\(Int(seconds / 60))m" }
-        if seconds < 86400 { return "\(Int(seconds / 3600))h" }
-        return "\(Int(seconds / 86400))d"
+        if seconds < 3600 { return "\(Int(seconds / 60)) min ago" }
+        if seconds < 86400 { return "\(Int(seconds / 3600)) h ago" }
+        return "\(Int(seconds / 86400)) d ago"
     }
 }
 
 /// How a row in "Closed today" says when and how the ask was closed:
-/// "Done 5m ago", "Skipped 1h ago", "Closed by the session 2h ago".
+/// "Done 5 min ago", "Skipped 1 h ago", "Closed by the session 2 h ago".
 public enum ClosedLine {
     /// `closedBy` is the actor of the closing event ("owner", "session"), when known.
     public static func text(status: String, closedBy: String?, completedAt: String?, now: Date) -> String {
@@ -184,8 +183,40 @@ public enum ClosedLine {
 
     static func ago(_ seconds: TimeInterval) -> String {
         if seconds < 60 { return "just now" }
-        if seconds < 3600 { return "\(Int(seconds / 60))m ago" }
-        if seconds < 86400 { return "\(Int(seconds / 3600))h ago" }
-        return "\(Int(seconds / 86400))d ago"
+        if seconds < 3600 { return "\(Int(seconds / 60)) min ago" }
+        if seconds < 86400 { return "\(Int(seconds / 3600)) h ago" }
+        return "\(Int(seconds / 86400)) d ago"
+    }
+}
+
+/// "10:42": the locale's hour and minute (en_GB "09:05", en_US "9:05 AM").
+public enum ClockText {
+    public static func time(_ date: Date, locale: Locale = .current, timeZone: TimeZone = .current) -> String {
+        date.formatted(Date.FormatStyle(locale: locale, timeZone: timeZone).hour().minute())
+    }
+
+    /// "" for a stamp that doesn't parse.
+    public static func time(_ stamp: String, locale: Locale = .current, timeZone: TimeZone = .current) -> String {
+        Timestamp.date(stamp).map { time($0, locale: locale, timeZone: timeZone) } ?? ""
+    }
+}
+
+/// The closed detail's action-bar line: "Done by you · 11 Oct, 14:32".
+public enum ClosedText {
+    public static func detail(status: String, closedBy: String?, closedAt: String?,
+                              locale: Locale = .current, timeZone: TimeZone = .current) -> String {
+        let who: String
+        if closedBy == "session" {
+            who = "Closed by the session"
+        } else {
+            switch status {
+            case "done": who = "Done by you"
+            case "dismissed": who = "Skipped by you"
+            default: return "Closed"
+            }
+        }
+        guard let closedAt, let date = Timestamp.date(closedAt) else { return who }
+        let style = Date.FormatStyle(locale: locale, timeZone: timeZone).day().month(.abbreviated).hour().minute()
+        return who + " · " + date.formatted(style)
     }
 }

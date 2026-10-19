@@ -177,12 +177,12 @@ private func legacy(cmd: String? = nil, link: String? = nil) -> WireItem {
     @Test func boundaries() throws {
         #expect(try age(0) == "now")
         #expect(try age(59) == "now")
-        #expect(try age(60) == "1m")
-        #expect(try age(3599) == "59m")
-        #expect(try age(3600) == "1h")
-        #expect(try age(86399) == "23h")
-        #expect(try age(86400) == "1d")
-        #expect(try age(3 * 86400 + 5) == "3d")
+        #expect(try age(60) == "1 min ago")
+        #expect(try age(3599) == "59 min ago")
+        #expect(try age(3600) == "1 h ago")
+        #expect(try age(86399) == "23 h ago")
+        #expect(try age(86400) == "1 d ago")
+        #expect(try age(3 * 86400 + 5) == "3 d ago")
         #expect(try age(-120) == "now")
     }
 
@@ -199,8 +199,41 @@ private func legacy(cmd: String? = nil, link: String? = nil) -> WireItem {
         calendar.timeZone = istanbul
         // 15:30 in Istanbul is 12:30 UTC.
         let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 10, day: 11, hour: 15, minute: 30)))
-        #expect(RelativeAge.text(created: "2026-10-11T09:30:00+00:00", now: now) == "3h")
-        #expect(RelativeAge.text(created: "2026-10-11T09:30:00Z", now: now) == "3h")
+        #expect(RelativeAge.text(created: "2026-10-11T09:30:00+00:00", now: now) == "3 h ago")
+        #expect(RelativeAge.text(created: "2026-10-11T09:30:00Z", now: now) == "3 h ago")
         #expect(RelativeAge.text(created: "2026-10-11T12:29:30+00:00", now: now) == "now")
+    }
+}
+
+@Suite struct ClockTextTests {
+    private let gb = Locale(identifier: "en_GB")
+    private let utc = TimeZone(identifier: "UTC")!
+
+    @Test func shortTime() throws {
+        let date = try #require(Timestamp.date("2026-10-11T14:32:00+00:00"))
+        #expect(ClockText.time(date, locale: gb, timeZone: utc) == "14:32")
+        #expect(ClockText.time("2026-10-11T09:05:00+00:00", locale: gb, timeZone: utc) == "09:05")
+        #expect(ClockText.time("2026-10-11T09:05:00+03:00", locale: gb, timeZone: utc) == "06:05")
+        #expect(ClockText.time("yesterday", locale: gb, timeZone: utc) == "")
+    }
+}
+
+@Suite struct ClosedTextTests {
+    private let gb = Locale(identifier: "en_GB")
+    private let utc = TimeZone(identifier: "UTC")!
+    private let at = "2026-10-11T14:32:00+00:00"
+
+    @Test func whoAndWhen() {
+        let done = ClosedText.detail(status: "done", closedBy: "owner", closedAt: at, locale: gb, timeZone: utc)
+        #expect(done.hasPrefix("Done by you · 11 Oct"))
+        #expect(done.hasSuffix("14:32"))
+        #expect(ClosedText.detail(status: "dismissed", closedBy: nil, closedAt: at, locale: gb, timeZone: utc).hasPrefix("Skipped by you · 11 Oct"))
+        #expect(ClosedText.detail(status: "done", closedBy: "session", closedAt: at, locale: gb, timeZone: utc).hasPrefix("Closed by the session · 11 Oct"))
+    }
+
+    @Test func withoutATimeOrAStatus() {
+        #expect(ClosedText.detail(status: "done", closedBy: "owner", closedAt: nil, locale: gb, timeZone: utc) == "Done by you")
+        #expect(ClosedText.detail(status: "done", closedBy: nil, closedAt: "yesterday", locale: gb, timeZone: utc) == "Done by you")
+        #expect(ClosedText.detail(status: "open", closedBy: nil, closedAt: at, locale: gb, timeZone: utc) == "Closed")
     }
 }
