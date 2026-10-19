@@ -183,3 +183,54 @@ private let three = [item("a", urgency: "now", created: stamp(minutesAgo: 10), s
         #expect(overrides.now == nil && overrides.closedExpanded == nil && overrides.fromExpanded == nil && overrides.fullHeight == nil)
     }
 }
+
+/// 2026-10-16T09:40:00Z, the gallery clock.
+private let phase3Now = Date(timeIntervalSince1970: 1_792_143_600)
+
+/// A Store over a fake mailbox source, listed once, on its own throwaway defaults suite.
+@MainActor struct PanelTestEnv {
+    let store: Store
+    let fake: FakeQueueSource
+    let suite: String
+
+    static func make(_ items: [WireItem], details: [String: AskDetail] = [:]) async -> PanelTestEnv {
+        let suite = "relay.test.phase3." + UUID().uuidString
+        let fake = FakeQueueSource(items: items, details: details)
+        let store = Store(defaults: UserDefaults(suiteName: suite)!, now: { phase3Now })
+        store.swap(to: fake, identity: SourceIdentity(key: "mailbox:mailbox.example#personal", mailbox: nil),
+                   pollSeconds: 3600)
+        await store.refresh(manual: false)
+        return PanelTestEnv(store: store, fake: fake, suite: suite)
+    }
+
+    func tearDown() {
+        UserDefaults().removePersistentDomain(forName: suite)
+    }
+}
+
+@MainActor @Suite struct QueueHeaderSnapshotTests {
+    @Test func filteredTitleCountsTheProjectOnlyAndHiddenCountsNow() async {
+        let env = await PanelTestEnv.make([
+            item("a1", project: "Acme", created: "2026-10-16T08:00:00+00:00"),
+            item("a2", project: "Acme", created: "2026-10-16T08:10:00+00:00"),
+            item("n1", project: "Northwind", urgency: "now", created: "2026-10-16T08:20:00+00:00"),
+            item("t1", project: "Atlas", created: "2026-10-16T08:30:00+00:00"),
+        ])
+        defer { env.tearDown() }
+        #expect(env.store.queue.title == "4 waiting")
+        env.store.setFilter("Acme")
+        let queue = env.store.queue
+        #expect(queue.title == "2 waiting")
+        #expect(queue.filter == "Acme")
+        #expect(queue.hidden == HiddenCount(total: 2, now: 1))
+        #expect(queue.sections.count == 1)
+        #expect(queue.sections.first?.header == nil)
+        #expect(queue.projects.map(\.name) == ["Acme", "Atlas", "Northwind"])
+    }
+
+    @Test func filterAnnouncementSanitizesTheProject() {
+        #expect(QueueView<FixturePanelModel>.filterAnnouncement("Acme") == "Showing only Acme")
+        #expect(QueueView<FixturePanelModel>.filterAnnouncement("Ac\u{202E}me") == "Showing only Ac⟨U+202E⟩me")
+        #expect(QueueView<FixturePanelModel>.filterAnnouncement(nil) == "Showing all projects")
+    }
+}

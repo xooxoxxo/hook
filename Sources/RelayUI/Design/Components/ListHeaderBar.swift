@@ -15,6 +15,7 @@ public struct ListHeaderBar: View {
     let onRefresh: () -> Void
     let onHide: () -> Void
     let onDock: (SidebarEdge) -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     public init(title: String, refreshing: Bool, updated: String, grouping: Binding<QueueGrouping>, filter: Binding<String?>,
                 projects: [MenuProject], hidden: HiddenCount,
@@ -52,7 +53,7 @@ public struct ListHeaderBar: View {
             }
             if let project = filter.wrappedValue {
                 FilterRow(project: project, hidden: hidden, onClear: { filter.wrappedValue = nil })
-                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
             }
         }
         .motion(DS.Motion.reveal, value: filter.wrappedValue)

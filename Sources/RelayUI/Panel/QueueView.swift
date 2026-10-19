@@ -72,15 +72,24 @@ struct QueueView<Model: PanelViewModel>: View {
         }
     }
 
+    /// VO announcement when the project filter changes (design §4.3).
+    static func filterAnnouncement(_ filter: String?) -> String {
+        filter.map { "Showing only " + line($0) } ?? "Showing all projects"
+    }
+
     private func header(_ queue: QueueSnapshot) -> some View {
-        PanelHeader(onDock: { model.shell.dock($0) }) {
-            Text(queue.title)
-                .font(DS.Font.listTitle)
-                .monospacedDigit()
-                .accessibilityAddTraits(.isHeader)
-                .alignmentProbe(.gutterText, measure: .frame)
-            Spacer()
-        }
+        ListHeaderBar(
+            title: queue.title, refreshing: queue.manualRefreshing, updated: queue.updated,
+            grouping: Binding(get: { model.queue.grouping }, set: { model.setGrouping($0) }),
+            filter: Binding(get: { model.queue.filter }, set: { model.setFilter($0) }),
+            projects: queue.projects, hidden: queue.hidden,
+            onRefresh: { model.refresh() },
+            onHide: { model.shell.hide() },
+            onDock: { model.shell.dock($0) })
+            .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: queue.filter)
+            .onChange(of: queue.filter) { _, filter in
+                AccessibilityNotification.Announcement(Self.filterAnnouncement(filter)).post()
+            }
     }
 
     @ViewBuilder private func listArea(_ queue: QueueSnapshot) -> some View {

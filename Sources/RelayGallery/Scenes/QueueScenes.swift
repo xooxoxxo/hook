@@ -65,6 +65,13 @@ let queueEdgeRules: [AlignmentRule] = [
     return queue
 }
 
+/// A project whose filter hides a "now" ask in another project (computed, so it follows the fixture).
+@MainActor var hiddenNowFilter: String {
+    QueueLayout.menuProjects(items: GalleryFixtures.open, filter: nil).map(\.name).first {
+        QueueLayout.hiddenCount(items: GalleryFixtures.open, filter: $0).now > 0
+    } ?? "Relay"
+}
+
 @MainActor let queueScenes: [GalleryScene] = [
     panelScene("queue", queueModel(GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false)),
                rules: queueEdgeRules),
@@ -75,4 +82,11 @@ let queueEdgeRules: [AlignmentRule] = [
                overrides: PanelGalleryOverrides(now: GalleryFixtures.now, closedExpanded: true)),
     panelScene("queue-limits", queueModel(limitsQueue(filter: nil)), height: 1400, rules: queueEdgeRules),
     panelScene("queue-limits-filtered", queueModel(limitsQueue(filter: longProjectName)), rules: queueEdgeRules),
+    panelScene("queue-filtered", queueModel(GalleryFixtures.queue(grouping: .urgency, filter: "Acme", closedExpanded: false)),
+               rules: queueEdgeRules),
+    panelScene("queue-filtered-project", queueModel(GalleryFixtures.queue(grouping: .project, filter: "Acme", closedExpanded: true)),
+               height: 820, rules: queueEdgeRules,
+               overrides: PanelGalleryOverrides(now: GalleryFixtures.now, closedExpanded: true)),
+    panelScene("queue-filtered-hidden-now", queueModel(GalleryFixtures.queue(grouping: .project, filter: hiddenNowFilter, closedExpanded: false)),
+               rules: queueEdgeRules),
 ]
