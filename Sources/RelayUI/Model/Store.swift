@@ -20,8 +20,19 @@ import RelayCore
     /// The picked, unsent choice index per ask. Memory only.
     @Published public var pendingChoice: [String: Int] = [:]
     @Published public private(set) var replyStates: [String: ReplyBoxState] = [:]
-    /// How long "Sent 10:42" stays in the reply box.
-    static let sentHold: Duration = .seconds(4)
+    /// How long "Sent 10:42" stays in the reply box; tests pass a short one.
+    let sentHold: Duration
+    /// The wait behind `sentHold`; tests pass one they release by hand.
+    let sleep: @Sendable (Duration) async throws -> Void
+    /// The running "Sent" reset per ask. A new send cancels the old one, so an
+    /// earlier timer never clears a later send's caption.
+    private var sentResets: [String: (token: UUID, task: Task<Void, Never>)] = [:]
+    /// The real wait. A nonisolated function, not a closure literal in the init's
+    /// default argument: that literal aborted the Swift 6.2 runtime ("freed pointer
+    /// was not the last allocation") when the sleep finished.
+    nonisolated static func taskSleep(_ duration: Duration) async throws {
+        try await Task.sleep(for: duration)
+    }
     /// After Done or Skip in the detail; AppDelegate sets it from config.json.
     public var afterClose: AfterClose = .next
     /// One Notice at a time; the newest replaces the older; only ✕ or its action clears it.
@@ -113,9 +124,13 @@ import RelayCore
     /// The source has no change stream, so a timer lists every pollSeconds.
     private var polling = false
 
-    public init(defaults: UserDefaults = .standard, now: @escaping @MainActor () -> Date = { Date() }) {
+    public init(defaults: UserDefaults = .standard, now: @escaping @MainActor () -> Date = { Date() },
+                sentHold: Duration = .seconds(4),
+                sleep: (@Sendable (Duration) async throws -> Void)? = nil) {
         self.defaults = defaults
         self.now = now
+        self.sentHold = sentHold
+        self.sleep = sleep ?? Store.taskSleep
         self.grouping = PanelPrefs.grouping(defaults)
     }
 
@@ -147,6 +162,8 @@ import RelayCore
         expandedDone = [:]
         detailAnchor = [:]
         replyStates = [:]
+        sentResets.values.forEach { $0.task.cancel() }
+        sentResets = [:]
         listed = []
         items = []
         sending = []
@@ -810,16 +827,21 @@ import RelayCore
     }
 
     private func send(_ text: String, for id: String, onSuccess: () -> Void) async -> Bool {
+        sentResets.removeValue(forKey: id)?.task.cancel()
         replyStates[id] = .sending
         switch await deliver(id, text: text) {
         case .success:
             onSuccess()
-            let state = ReplyBoxState.sent(at: ClockText.time(now()))
-            replyStates[id] = state
-            Task { [weak self] in
-                try? await Task.sleep(for: Self.sentHold)
-                if self?.replyStates[id] == state { self?.replyStates[id] = .idle }
+            replyStates[id] = .sent(at: ClockText.time(now()))
+            let hold = sentHold, sleep = sleep, token = UUID()
+            let reset = Task { [weak self] in
+                try? await sleep(hold)
+                // Only the newest send's timer may clear the caption.
+                guard !Task.isCancelled, let self, self.sentResets[id]?.token == token else { return }
+                self.sentResets[id] = nil
+                if case .sent = self.replyStates[id] { self.replyStates[id] = .idle }
             }
+            sentResets[id] = (token, reset)
             return true
         case .failure(let error):
             replyStates[id] = .failed(reason: UserFacingError.text(error))

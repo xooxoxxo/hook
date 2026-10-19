@@ -106,4 +106,53 @@ private let plain = [item("a", created: stamp(minutesAgo: 10)), item("b", create
         #expect(!values.contains { $0.contains("a private note only in memory") })
         #expect(!defaults.defaults.dictionaryRepresentation().keys.contains { $0.contains("draft") || $0.contains("choice") })
     }
+
+    @Test func theSentCaptionReturnsToIdleAfterTheHold() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let store = Store(defaults: defaults.defaults, sentHold: .milliseconds(20))
+        await start(store, FakeQueueSource(items: plain))
+        store.drafts["a"] = "short hold"
+        #expect(await store.sendReply("a"))
+        guard case .sent = store.replyStates["a"] else {
+            Issue.record("expected .sent, got \(String(describing: store.replyStates["a"]))")
+            return
+        }
+        #expect(await eventually { store.replyStates["a"] == .idle })
+    }
+
+    @Test func anEarlierTimerDoesNotClearALaterSend() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let gate = SleepGate()
+        let clock = TestClock()
+        let store = Store(defaults: defaults.defaults, now: { clock.now }, sleep: { _ in await gate.wait() })
+        await start(store, FakeQueueSource(items: plain))
+        store.drafts["a"] = "first"
+        #expect(await store.sendReply("a"))
+        store.drafts["a"] = "second"
+        #expect(await store.sendReply("a"))
+        // Both sends fall in the same minute, so their .sent states are equal.
+        let sent = ReplyBoxState.sent(at: ClockText.time(clock.now))
+        #expect(store.replyStates["a"] == sent)
+        #expect(await eventually { await gate.waiting == 2 })
+        await gate.release(0)
+        // Give the first timer every chance to run.
+        for _ in 0..<20 { await Task.yield() }
+        try? await Task.sleep(for: .milliseconds(30))
+        #expect(store.replyStates["a"] == sent)
+        await gate.release(1)
+        #expect(await eventually { store.replyStates["a"] == .idle })
+    }
+}
+
+/// A sleep the test ends by hand, in the order the sleeps started.
+private actor SleepGate {
+    private var continuations: [CheckedContinuation<Void, Never>?] = []
+    var waiting: Int { continuations.count }
+    func wait() async { await withCheckedContinuation { continuations.append($0) } }
+    func release(_ index: Int) {
+        continuations[index]?.resume()
+        continuations[index] = nil
+    }
 }
