@@ -1,6 +1,16 @@
 import Foundation
 import RelayCore
 
+/// What `Store.checkLink(_:)` found for a link's ask.
+public enum LinkCheck: Equatable, Sendable {
+    /// In the open queue.
+    case open
+    /// Held back, or a list that succeeded doesn't have it.
+    case closed
+    /// Not checked: no source yet, a check ran in the last 5 seconds, or the list failed.
+    case unknown
+}
+
 /// The app's state over one `QueueSource` at a time: the open queue, fetched
 /// details, the selection, and the owner's actions. Lives in RelayUI so the
 /// gallery and tests can drive it; views reach it through PanelViewModel (Task 39).
@@ -299,16 +309,20 @@ import RelayCore
         await task.value
     }
 
-    /// Whether a link from outside the app (loopback or relay://) may open `id`:
-    /// it must be in the open queue, after at most one refresh per 5 seconds.
-    public func acceptsLink(_ id: String) async -> Bool {
-        if items.contains(where: { $0.id == id }) { return true }
-        if hidden.contains(id) { return false }
+    /// What a link from outside the app (loopback, relay:// or a notification click)
+    /// finds for `id`: `.open` when it is in the open queue, `.closed` when it is held
+    /// back or a fresh list confirms it is gone, `.unknown` when nothing was checked
+    /// (no source yet, a refresh in the last 5 seconds, or the list failed).
+    public func checkLink(_ id: String) async -> LinkCheck {
+        if items.contains(where: { $0.id == id }) { return .open }
+        if hidden.contains(id) { return .closed }
+        guard source != nil else { return .unknown }
         let now = ContinuousClock.now
-        if let last = lastLinkRefresh, now - last < .seconds(5) { return false }
+        if let last = lastLinkRefresh, now - last < .seconds(5) { return .unknown }
         lastLinkRefresh = now
         await refresh()
-        return items.contains { $0.id == id }
+        if items.contains(where: { $0.id == id }) { return .open }
+        return listOK ? .closed : .unknown
     }
 
     private func poll() async {

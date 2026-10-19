@@ -108,9 +108,13 @@ import RelayUI
         applyGeneral(model.config)
         scheduleApply(model.config)
 
-        if let id = pendingLink {
-            pendingLink = nil
-            openLink(id)
+        // A link that launched the app is checked against the configured source, so it
+        // waits for the first apply (the source swap is async).
+        Task { @MainActor [weak self] in
+            await self?.applyChain?.value
+            guard let self, let id = self.pendingLink else { return }
+            self.pendingLink = nil
+            self.openLink(id)
         }
         if pendingShow {
             pendingShow = false
@@ -129,7 +133,8 @@ import RelayUI
               let show = URL(string: "relay://show") else { return false }
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = false
-        NSWorkspace.shared.open([show], withApplicationAt: appURL, configuration: configuration) { _, _ in
+        NSWorkspace.shared.open([show], withApplicationAt: appURL, configuration: configuration) { _, error in
+            if let error { NSLog("Relay: hand-off to running copy failed: %@", error.localizedDescription) }
             DispatchQueue.main.async { exit(0) }
         }
         return true
@@ -193,18 +198,24 @@ import RelayUI
     }
 
     /// A link from outside the app (relay://, the loopback server, a notification click)
-    /// opens an ask in the open queue; for a closed or unknown one the panel shows on the
-    /// list with "This ask is no longer open." (§4.7).
+    /// opens an ask in the open queue. An ask confirmed closed shows the list with
+    /// "This ask is no longer open." (§4.7); one that couldn't be checked (no source yet,
+    /// a check in the last 5 seconds, an unreachable source) opens directly, and the
+    /// detail's not-found view covers it if it is really gone. A config apply still
+    /// running is waited for first, so the check runs against the applied source.
     func openLink(_ id: String) {
         guard let store else {
             pendingLink = id
             return
         }
-        Task {
-            if await store.acceptsLink(id) {
-                showItem(id)
-            } else {
-                showNoLongerOpen(id)
+        Task { [weak self] in
+            await self?.applyChain?.value
+            guard let self else { return }
+            switch await store.checkLink(id) {
+            case .open, .unknown:
+                self.showItem(id)
+            case .closed:
+                self.showNoLongerOpen(id)
             }
         }
     }
