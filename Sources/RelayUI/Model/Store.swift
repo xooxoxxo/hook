@@ -67,6 +67,8 @@ import RelayCore
     @Published public var configNote: String?
     @Published public var away = false
     @Published public var sendingCloses = 0
+    /// The Undo bar as it was when the quit-time sends began; `undoInfo` while they run.
+    @Published private var sendingUndo: UndoInfo?
     public var shell = PanelShellActions.none
     private var detailRequestedAt: [String: Date] = [:]
     private var detailFailed: Set<String> = []
@@ -601,6 +603,7 @@ import RelayCore
     public func undoLatest() { undo() }
 
     public var undoInfo: UndoInfo? {
+        if let sendingUndo { return sendingUndo }
         guard let latest = pending.latest else { return nil }
         return UndoInfo(verdict: latest.verdict, title: latest.title, deadline: latest.deadline, more: pending.count - 1)
     }
@@ -648,10 +651,15 @@ import RelayCore
     }
 
     /// Before quitting: sends every held-back close at once. The caller caps the wait.
+    /// The Undo bar shown while they go (ruling 2: "Sending", Undo disabled) is the one from
+    /// before the drain, kept in `sendingUndo` until every send has finished.
     public func sendAllPending() async {
         guard let source else { return }
+        let shown = undoInfo
         let all = pending.drainAll()
         guard !all.isEmpty else { return }
+        sendingUndo = shown
+        publishState()
         await withTaskGroup(of: Void.self) { group in
             for close in all {
                 group.addTask {
@@ -659,6 +667,8 @@ import RelayCore
                 }
             }
         }
+        sendingUndo = nil
+        publishState()
     }
 
     public var hasPendingCloses: Bool { !pending.isEmpty }

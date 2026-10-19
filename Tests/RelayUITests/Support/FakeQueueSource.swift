@@ -9,6 +9,8 @@ actor FakeQueueSource: QueueSource {
     private var closedItems: [WireItem] = []
     private var failures: [(call: String?, error: any Error)] = []
     private var listDelay: Duration = .zero
+    private var resolvesHeld = false
+    private var heldResolves: [CheckedContinuation<Void, Never>] = []
     private(set) var calls: [String] = []
     private(set) var replies: [String: [String]] = [:]
 
@@ -21,6 +23,15 @@ actor FakeQueueSource: QueueSource {
     func setClosed(_ items: [WireItem]) { closedItems = items }
     func setListDelay(_ delay: Duration) { listDelay = delay }
     func setDetail(_ detail: AskDetail) { details[detail.item.id] = detail }
+
+    /// While held, every `resolve` waits after it is recorded until `releaseResolves()`.
+    func holdResolves() { resolvesHeld = true }
+    func releaseResolves() {
+        resolvesHeld = false
+        let waiting = heldResolves
+        heldResolves = []
+        waiting.forEach { $0.resume() }
+    }
 
     /// `call` matches a prefix of the recorded call ("resolve", "reply a"); nil matches any call.
     func failNext(_ error: any Error, on call: String? = nil) { failures.append((call, error)) }
@@ -54,6 +65,7 @@ actor FakeQueueSource: QueueSource {
 
     func resolve(_ id: String, verdict: Verdict, note: String?) async throws -> WireItem {
         try record("resolve \(id) \(verdict.rawValue)")
+        if resolvesHeld { await withCheckedContinuation { heldResolves.append($0) } }
         guard let index = items.firstIndex(where: { $0.id == id }) else { throw QueueError.notFound }
         var closed = items.remove(at: index)
         closed.status = verdict == .done ? "done" : "dismissed"

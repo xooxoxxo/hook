@@ -154,6 +154,26 @@ private let abc = [item("a", created: stamp(minutesAgo: 10)), item("b", created:
         #expect(await fake.count("resolve a done") == 1)
     }
 
+    /// Ruling 2: the Undo bar stays, in its sending state, while the quit-time sends run.
+    @Test func quitKeepsTheUndoBarWhileSending() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, fake) = await ready(defaults: defaults)
+        store.close("a", .done)
+        store.close("b", .declined)
+        let shown = store.undoInfo
+        #expect(shown?.title == "Ask b")
+        #expect(shown?.more == 1)
+        await fake.holdResolves()
+        let sends = Task { await store.sendAllPending() }
+        #expect(await eventually { await fake.count("resolve") == 2 })
+        #expect(store.undoInfo == shown)
+        #expect(!store.hasPendingCloses)
+        await fake.releaseResolves()
+        await sends.value
+        #expect(store.undoInfo == nil)
+    }
+
     @Test func theSessionClosingTheOpenAskPostsANotice() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }

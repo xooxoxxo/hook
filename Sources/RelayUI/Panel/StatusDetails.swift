@@ -3,14 +3,14 @@ import SwiftUI
 
 /// The status bar's popover (design §4.3 table, "Click" column). Its line never repeats the
 /// status bar's own text (A7); every reason goes through UserFacingError (A2).
-struct StatusDetails: View {
+public struct StatusDetails: View {
     let status: PanelStatus
     let updated: String
     let onTryAgain: () -> Void
     let onSettings: () -> Void
     let onShowConfig: () -> Void
 
-    init(status: PanelStatus, updated: String, onTryAgain: @escaping () -> Void, onSettings: @escaping () -> Void,
+    public init(status: PanelStatus, updated: String, onTryAgain: @escaping () -> Void, onSettings: @escaping () -> Void,
          onShowConfig: @escaping () -> Void) {
         self.status = status
         self.updated = updated
@@ -20,13 +20,13 @@ struct StatusDetails: View {
     }
 
     /// Not set up: the status click opens Welcome (or Settings → Queue) instead of a popover (§4.3).
-    static func opensSetUp(_ status: PanelStatus) -> Bool {
+    public static func opensSetUp(_ status: PanelStatus) -> Bool {
         if case .notSetUp = status.detail { return true }
         return false
     }
 
     /// The popover's one line of text, or nil when there is nothing to add.
-    static func message(_ status: PanelStatus, updated: String) -> String? {
+    public static func message(_ status: PanelStatus, updated: String) -> String? {
         switch status.detail {
         case .updated, .none: return updated.isEmpty ? nil : "Updated " + updated
         case .unreachable(let reason): return UserFacingError.text(reason)
@@ -36,7 +36,7 @@ struct StatusDetails: View {
         }
     }
 
-    var body: some View {
+    public var body: some View {
         VStack(alignment: .leading, spacing: DS.Space.inline) {
             if let message = Self.message(status, updated: updated) {
                 Text(message)

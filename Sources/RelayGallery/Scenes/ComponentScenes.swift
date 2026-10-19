@@ -179,6 +179,16 @@ let longProject = "Quarterly planning for the public launch of the pricing page"
         StatusBar(symbol: symbol, text: text, onSettings: {}) { Text("Updated 09:40") }
     }
     let actionError = "Couldn't send Done for “Send the release notes draft”. The mailbox didn't answer within 10 seconds."
+    // StatusBar's popover wrapper, so the samples have the popover's padding and width.
+    func details(_ status: PanelStatus, updated: String = "") -> some View {
+        StatusDetails(status: status, updated: updated, onTryAgain: {}, onSettings: {}, onShowConfig: {})
+            .padding(DS.Space.popover)
+            .frame(width: DS.Metric.helpWidth)
+    }
+    let configError = PanelStatus.make(StatusInputs(sourceKey: galleryMailboxKey, reachable: true, loadedOnce: true,
+                                                    configNote: "pollSeconds: must be a whole number from 5 to 3600"))
+    let listenerDown = PanelStatus.make(StatusInputs(sourceKey: galleryMailboxKey, reachable: true, loadedOnce: true,
+                                                     listenerNote: "Port 47823 is in use by another app"))
     return SheetSection(title: "Bars", samples: [
         Sample("UndoBar · one") { UndoBar(undo: UndoInfo(verdict: .done, title: "Rotate the mailbox token", deadline: soon, more: 0), onUndo: {}) },
         Sample("UndoBar · several") { UndoBar(undo: UndoInfo(verdict: .declined, title: "Rotate the mailbox token", deadline: soon, more: 1), onUndo: {}) },
@@ -190,6 +200,10 @@ let longProject = "Quarterly planning for the public launch of the pricing page"
         Sample("StatusBar · offline") { status(.down, "Mailbox · offline") },
         Sample("StatusBar · not set up") { status(.notSetUp, "No queue set up") },
         Sample("StatusBar · away") { status(.away, "Away · Mailbox · ready") },
+        Sample("StatusDetails · updated") { details(readyStatus, updated: "10:42") },
+        Sample("StatusDetails · offline") { details(offlineStatus(loadedOnce: true), updated: "09:22") },
+        Sample("StatusDetails · config error") { details(configError) },
+        Sample("StatusDetails · listener") { details(listenerDown) },
         Sample("ActionBar · open") { ActionBar(mode: .open(.done), onSkip: {}, onPrimary: {}, onReopen: {}) },
         Sample("ActionBar · Send & Done") { ActionBar(mode: .open(.sendAndDone), onSkip: {}, onPrimary: {}, onReopen: {}) },
         Sample("ActionBar · busy") { ActionBar(mode: .busy(.done), onSkip: {}, onPrimary: {}, onReopen: {}) },
