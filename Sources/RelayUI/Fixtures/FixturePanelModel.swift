@@ -13,6 +13,7 @@ public final class FixturePanelModel: PanelViewModel {
     @Published public var notice: PanelNotice?
     @Published public var undoInfo: UndoInfo?
     @Published public var status: PanelStatus
+    @Published public var sendingCloses = 0
     public var shell = PanelShellActions.none
     private let details: [String: DetailSnapshot]
 

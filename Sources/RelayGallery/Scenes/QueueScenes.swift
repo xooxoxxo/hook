@@ -24,6 +24,14 @@ let readyStatus = PanelStatus.make(StatusInputs(sourceKey: galleryMailboxKey, re
         appKit: nil)
 }
 
+/// The gallery's offline reason (generic, the transport's own timeout wording).
+let offlineReason = "The mailbox didn't answer within 10 seconds."
+
+/// "Mailbox · offline" (or "· connecting…" before a first list), from the app's own logic.
+func offlineStatus(loadedOnce: Bool) -> PanelStatus {
+    PanelStatus.make(StatusInputs(sourceKey: galleryMailboxKey, reachable: false, loadedOnce: loadedOnce, problem: offlineReason))
+}
+
 /// The §3.5 queue edge check: text on the gutter, counts and summaries on the trailing edge.
 let queueEdgeRules: [AlignmentRule] = [
     .leading(.gutterText, x: DS.Space.gutter, tolerance: 1),
@@ -88,5 +96,14 @@ let queueEdgeRules: [AlignmentRule] = [
                height: 820, rules: queueEdgeRules,
                overrides: PanelGalleryOverrides(now: GalleryFixtures.now, closedExpanded: true)),
     panelScene("queue-filtered-hidden-now", queueModel(GalleryFixtures.queue(grouping: .project, filter: hiddenNowFilter, closedExpanded: false)),
+               rules: queueEdgeRules),
+    panelScene("queue-undo", queueModel(GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false),
+               undo: UndoInfo(verdict: .done, title: "Rotate the example token", deadline: Date().addingTimeInterval(8), more: 1)),
+               rules: queueEdgeRules),
+    panelScene("queue-notice", queueModel(GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false),
+               notice: .actionFailed(verdict: .done, id: "gallery-failed", title: "Send the logo image", reason: offlineReason)),
+               rules: queueEdgeRules),
+    panelScene("queue-offline-stale", queueModel(GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false),
+               notice: .offlineCached(since: "09:22"), status: offlineStatus(loadedOnce: true)),
                rules: queueEdgeRules),
 ]

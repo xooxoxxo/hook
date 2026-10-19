@@ -573,6 +573,7 @@ import RelayCore
         let order = visibleOrder
         let inDetail = navigation.selectedID == id
         pending.add(id: id, verdict: verdict, note: nil, title: item(for: id)?.title ?? "", now: now())
+        onAnnounce?(UndoBar.announcement(for: verdict))
         recentlyClosed.removeAll { $0.id == id }
         actionError = nil
         if inDetail { notFoundID = nil }

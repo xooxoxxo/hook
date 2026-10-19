@@ -7,14 +7,17 @@ public struct StatusBar<Details: View>: View {
     let symbol: StatusSymbol
     let text: String
     let onSettings: () -> Void
+    /// Set for the one state whose click opens setup instead of the popover (§4.3 "not set up").
+    let onActivate: (() -> Void)?
     let details: () -> Details
     @State private var showDetails = false
 
-    public init(symbol: StatusSymbol, text: String, onSettings: @escaping () -> Void,
+    public init(symbol: StatusSymbol, text: String, onSettings: @escaping () -> Void, onActivate: (() -> Void)? = nil,
                 @ViewBuilder details: @escaping () -> Details) {
         self.symbol = symbol
         self.text = text
         self.onSettings = onSettings
+        self.onActivate = onActivate
         self.details = details
     }
 
@@ -22,7 +25,9 @@ public struct StatusBar<Details: View>: View {
         VStack(spacing: 0) {
             Divider()
             HStack(alignment: .center, spacing: DS.Space.inline) {
-                Button { showDetails = true } label: {
+                Button {
+                    if let onActivate { onActivate() } else { showDetails = true }
+                } label: {
                     Label {
                         Text(text).foregroundStyle(DS.Color.secondary)
                     } icon: {

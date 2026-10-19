@@ -4,13 +4,18 @@ import SwiftUI
 
 /// Design/UndoBar (design §4.3, §4.6): "Done · <title>" with a live countdown to the undo
 /// deadline and an Undo button (rule A6). The title is ask text, so it goes through `line()`.
-/// Keys (⌘Z) are attached by the panel, not here.
+/// Keys (⌘Z) are attached by the panel, not here. While held closes are sent on quit
+/// (`sending`), a labelled spinner replaces the countdown and Undo is off. The "Done." /
+/// "Skipped." announcement is posted by the Store when the close is held, never here, so
+/// moving between the queue and an ask doesn't repeat it.
 public struct UndoBar: View {
     let undo: UndoInfo
+    let sending: Bool
     let onUndo: () -> Void
 
-    public init(undo: UndoInfo, onUndo: @escaping () -> Void) {
+    public init(undo: UndoInfo, sending: Bool = false, onUndo: @escaping () -> Void) {
         self.undo = undo
+        self.sending = sending
         self.onUndo = onUndo
     }
 
@@ -25,12 +30,22 @@ public struct UndoBar: View {
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Spacer(minLength: DS.Space.inline)
-                    // The upper bound never drops below the lower one, so the range can't invert.
-                    Text(timerInterval: context.date...max(context.date, undo.deadline), countsDown: true)
-                        .monospacedDigit()
+                    if sending {
+                        // Bounded by the quit-time cap on sending (N9).
+                        HStack(spacing: DS.Space.inline) {
+                            ProgressView().controlSize(.mini)
+                            Text(Self.sendingText)
+                        }
                         .foregroundStyle(DS.Color.secondary)
+                    } else {
+                        // The upper bound never drops below the lower one, so the range can't invert.
+                        Text(timerInterval: context.date...max(context.date, undo.deadline), countsDown: true)
+                            .monospacedDigit()
+                            .foregroundStyle(DS.Color.secondary)
+                    }
                     Button("Undo", action: onUndo)
                         .controlSize(DS.Control.inline)
+                        .disabled(sending)
                         .help("Undo (⌘Z)")
                 }
                 .font(DS.Font.meta)
@@ -39,16 +54,20 @@ public struct UndoBar: View {
                 .background(DS.Color.bar)
             }
             .accessibilityElement(children: .combine)
-            .accessibilityLabel(Self.accessibilityText(undo, secondsLeft: Self.secondsLeft(until: undo.deadline, now: context.date)))
+            .accessibilityLabel(Self.accessibilityText(undo, sending: sending,
+                                                       secondsLeft: Self.secondsLeft(until: undo.deadline, now: context.date)))
             .accessibilityAddTraits(.isButton)
             // VO-Space on the combined element runs Undo, whatever the child Button does.
-            .accessibilityAction { onUndo() }
+            .accessibilityAction { if !sending { onUndo() } }
         }
-        .onAppear { AccessibilityNotification.Announcement(Self.announcement(undo.verdict)).post() }
     }
 
+    /// The label beside the spinner while held closes are sent on quit.
+    public static let sendingText = "Sending"
+
     /// "Done. Undo available for 10 seconds." or "Skipped. …"; the hold is `DS.Motion.undoHold`.
-    public static func announcement(_ verdict: Verdict) -> String {
+    /// The Store posts it once, when the close is held.
+    public static func announcement(for verdict: Verdict) -> String {
         "\(word(verdict)). Undo available for \(Int(DS.Motion.undoHold)) seconds."
     }
 
@@ -59,9 +78,11 @@ public struct UndoBar: View {
         word(undo.verdict) + " · " + line(undo.title) + (undo.more > 0 ? " · +\(undo.more) more" : "")
     }
 
-    /// "Done: <title>. Undo, 8 seconds left", for VoiceOver.
-    public static func accessibilityText(_ undo: UndoInfo, secondsLeft: Int) -> String {
-        "\(word(undo.verdict)): \(line(undo.title)). Undo, \(secondsLeft) \(secondsLeft == 1 ? "second" : "seconds") left"
+    /// "Done: <title>. Undo, 8 seconds left", or "Done: <title>. Sending" while sending, for VoiceOver.
+    public static func accessibilityText(_ undo: UndoInfo, sending: Bool = false, secondsLeft: Int) -> String {
+        let head = "\(word(undo.verdict)): \(line(undo.title)). "
+        if sending { return head + sendingText }
+        return head + "Undo, \(secondsLeft) \(secondsLeft == 1 ? "second" : "seconds") left"
     }
 
     /// Whole seconds until `deadline`, rounded up, never below 0.

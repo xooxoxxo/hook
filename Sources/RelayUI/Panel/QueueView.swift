@@ -15,7 +15,7 @@ extension FocusedValues {
     }
 }
 
-/// The queue (design §4.3): header, List, then (Task 43) bars. One content edge: rows have
+/// The queue (design §4.3): header, Notice, List, Undo bar and status bar. One content edge: rows have
 /// zero horizontal inset and nothing in the List is a DisclosureGroup, so every text starts
 /// on the gutter and every count ends at panelWidth − gutter.
 struct QueueView<Model: PanelViewModel>: View {
@@ -66,10 +66,32 @@ struct QueueView<Model: PanelViewModel>: View {
 
     var body: some View {
         let queue = model.queue
+        let status = model.status
         VStack(spacing: 0) {
             header(queue)
+            if let notice = model.notice {
+                Notice(kind: notice.kind, text: notice.text, actionTitle: notice.actionTitle,
+                       onAction: { model.performNoticeAction() }, onDismiss: { model.dismissNotice() })
+                    .padding(.horizontal, DS.Space.gutter)
+                    .padding(.top, DS.Space.inline)
+                    .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
+            }
             listArea(queue)
+            if let undo = model.undoInfo {
+                UndoBar(undo: undo, sending: model.sendingCloses > 0, onUndo: { model.undo() })
+                    .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+            }
+            StatusBar(symbol: status.symbol, text: status.text, onSettings: { model.shell.openSettings(nil) },
+                      onActivate: StatusDetails.opensSetUp(status) ? { model.shell.setUp() } : nil) {
+                StatusDetails(
+                    status: status, updated: queue.updated,
+                    onTryAgain: { model.refresh() },
+                    onSettings: { model.shell.openSettings(.queue) },
+                    onShowConfig: { NSWorkspace.shared.activateFileViewerSelecting([RelayConfig.path()]) })
+            }
         }
+        .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: model.notice)
+        .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: model.undoInfo)
     }
 
     /// VO announcement when the project filter changes (design §4.3).

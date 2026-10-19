@@ -234,3 +234,66 @@ private let phase3Now = Date(timeIntervalSince1970: 1_792_143_600)
         #expect(QueueView<FixturePanelModel>.filterAnnouncement(nil) == "Showing all projects")
     }
 }
+
+@MainActor @Suite struct QueueBarsSnapshotTests {
+    @Test func offlineWithACacheKeepsTheListAndSaysSoOnce() async {
+        let env = await PanelTestEnv.make([item("a1", created: "2026-10-16T08:00:00+00:00")])
+        defer { env.tearDown() }
+        await env.fake.failNext(QueueError.unreachable("The mailbox didn't answer within 10 seconds."))
+        await env.store.refresh(manual: false)
+        #expect(env.store.queue.content == .list)
+        guard case .offlineCached = env.store.notice else {
+            Issue.record("expected .offlineCached, got \(String(describing: env.store.notice))")
+            return
+        }
+        #expect(env.store.status.text == "Mailbox · offline")
+        #expect(env.store.notice?.text != env.store.status.text)
+        #expect(StatusDetails.message(env.store.status, updated: "09:40") != env.store.status.text)
+    }
+
+    @Test func popoverLinePerDetail() {
+        func status(_ detail: StatusDetail, _ text: String) -> PanelStatus {
+            var status = PanelStatus.make(StatusInputs(sourceKey: "mailbox:mailbox.example#personal", reachable: true, loadedOnce: true))
+            status.detail = detail
+            status.text = text
+            return status
+        }
+        #expect(StatusDetails.message(status(.updated, "Mailbox · ready"), updated: "10:42") == "Updated 10:42")
+        #expect(StatusDetails.message(status(.updated, "Mailbox · ready"), updated: "") == nil)
+        #expect(StatusDetails.message(status(.unreachable(reason: "timed out\nretry"), "Mailbox · offline"), updated: "10:42")
+                == "timed out⟨U+000A⟩retry")
+        #expect(StatusDetails.message(status(.config(note: "port: must be 1–65535"), "config.json has an error"), updated: "")
+                == "port: must be 1–65535")
+        #expect(StatusDetails.message(status(.listener(note: "Port 47823 is in use by another app"), "Links aren't working"), updated: "")
+                == "Port 47823 is in use by another app")
+        // Not set up: a click on the status opens setup directly (design §4.3), so there is no popover line.
+        #expect(StatusDetails.message(status(.notSetUp, "No queue set up"), updated: "") == nil)
+        #expect(StatusDetails.opensSetUp(status(.notSetUp, "No queue set up")))
+        #expect(!StatusDetails.opensSetUp(status(.updated, "Mailbox · ready")))
+    }
+
+    /// Controller ruling (Task 10 review): the Undo announcement follows the verdict and is
+    /// posted once, when the held close is added; undoing or re-showing the bar never repeats it.
+    @Test func undoAnnouncementIsPostedOncePerHeldClose() async {
+        let env = await PanelTestEnv.make([
+            item("a1", created: "2026-10-16T08:00:00+00:00"),
+            item("a2", created: "2026-10-16T08:10:00+00:00"),
+        ])
+        defer { env.tearDown() }
+        var announced: [String] = []
+        env.store.onAnnounce = { announced.append($0) }
+        env.store.close("a1", .done)
+        env.store.close("a2", .declined)
+        env.store.undo()
+        #expect(announced == ["Done. Undo available for 10 seconds.", "Skipped. Undo available for 10 seconds."])
+    }
+
+    /// Controller ruling (Task 10 review): while held closes are sent on quit, the Undo bar
+    /// shows "Sending" instead of the countdown, and Undo is off.
+    @Test func undoBarSendingState() {
+        let undo = UndoInfo(verdict: .done, title: "Store the key", deadline: Date(timeIntervalSince1970: 1_000), more: 0)
+        #expect(UndoBar.sendingText == "Sending")
+        #expect(UndoBar.accessibilityText(undo, sending: true, secondsLeft: 8) == "Done: Store the key. Sending")
+        #expect(UndoBar.accessibilityText(undo, sending: false, secondsLeft: 8) == "Done: Store the key. Undo, 8 seconds left")
+    }
+}

@@ -40,6 +40,8 @@ public struct PanelShellActions: Sendable {
     var notice: PanelNotice? { get }
     var undoInfo: UndoInfo? { get }
     var status: PanelStatus { get }
+    /// Held closes being sent on quit; the Undo bar shows "Sending" while it is above 0.
+    var sendingCloses: Int { get }
     var shell: PanelShellActions { get }
     func keyContext(textFieldFocused: Bool, popoverOpen: Bool, closedHeaderFocused: Bool) -> KeyContext
     func perform(_ command: PanelCommand)

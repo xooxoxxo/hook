@@ -182,6 +182,9 @@ let longProject = "Quarterly planning for the public launch of the pricing page"
     return SheetSection(title: "Bars", samples: [
         Sample("UndoBar · one") { UndoBar(undo: UndoInfo(verdict: .done, title: "Rotate the mailbox token", deadline: soon, more: 0), onUndo: {}) },
         Sample("UndoBar · several") { UndoBar(undo: UndoInfo(verdict: .declined, title: "Rotate the mailbox token", deadline: soon, more: 1), onUndo: {}) },
+        Sample("UndoBar · sending (quit)") {
+            UndoBar(undo: UndoInfo(verdict: .done, title: "Rotate the mailbox token", deadline: soon, more: 1), sending: true, onUndo: {})
+        },
         Sample("StatusBar · ready") { status(.ok, "Mailbox · ready") },
         Sample("StatusBar · connecting") { status(.connecting, "Mailbox · connecting…") },
         Sample("StatusBar · offline") { status(.down, "Mailbox · offline") },
