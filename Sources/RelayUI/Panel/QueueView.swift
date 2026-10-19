@@ -143,6 +143,16 @@ struct QueueView<Model: PanelViewModel>: View {
                 .scrollContentBackground(.hidden)
                 .environment(\.defaultMinListRowHeight, DS.Metric.rowMinHeight)
                 .focused($listFocused)
+                .contextMenu(forSelectionType: String.self) { ids in
+                    if let id = ids.first, let row = Self.rowModel(id, in: queue) {
+                        RowContextMenu(entries: QueueContextMenu.entries(for: row, filter: queue.filter)) { command in
+                            perform(command, on: row)
+                        }
+                    }
+                } primaryAction: { ids in
+                    // Return or a double-click on a row.
+                    if let id = ids.first { model.open(id) }
+                }
                 .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: queue.grouping)
                 .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: queue.filter)
                 .onAppear { if model.navigation.selectedID == nil { listFocused = true } }
@@ -163,6 +173,25 @@ struct QueueView<Model: PanelViewModel>: View {
                     if let id = model.listSelection { proxy.scrollTo(id) }
                 }
             }
+        }
+    }
+
+    /// The open or closed row with this id.
+    static func rowModel(_ id: String, in queue: QueueSnapshot) -> AskRowModel? {
+        queue.rows[id] ?? queue.closed.first { $0.id == id }
+    }
+
+    private func perform(_ command: ContextCommand, on row: AskRowModel) {
+        switch command {
+        case .open: model.open(row.id)
+        case .done: model.close(row.id, .done)
+        case .skip: model.close(row.id, .declined)
+        case .reopen: model.reopen(row.id)
+        case .showOnly(let project): model.setFilter(project)
+        case .showAll: model.setFilter(nil)
+        case .copyLink: model.copyLink(row.id)
+        case .copyResume:
+            if let resume = row.resumeCommand { model.shell.copy(resume) }
         }
     }
 
