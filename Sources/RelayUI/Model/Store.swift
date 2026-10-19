@@ -13,7 +13,16 @@ import RelayCore
     /// Asks closed in the last 24 hours, newest first, without any still held back.
     @Published public private(set) var recentlyClosed: [WireItem] = []
     @Published public private(set) var details: [String: AskDetail] = [:]
-    @Published public private(set) var selectedID: String?
+    /// The highlighted row and the open detail (design §4.6).
+    @Published public var navigation = PanelNavigation()
+    /// The open detail. A forwarder for the 0.5 views until Task 52.
+    public var selectedID: String? { navigation.selectedID }
+    @Published public private(set) var grouping: QueueGrouping
+    /// The raw project string; nil = All Projects.
+    @Published public private(set) var filter: String?
+    @Published public private(set) var manualRefreshing = false
+    /// When the last list came back.
+    public private(set) var lastListAt: Date?
     @Published public private(set) var notFoundID: String?
     /// The last list succeeded and the listener has no problem.
     @Published public private(set) var reachable = false
@@ -68,10 +77,12 @@ import RelayCore
     public init(defaults: UserDefaults = .standard, now: @escaping @MainActor () -> Date = { Date() }) {
         self.defaults = defaults
         self.now = now
+        self.grouping = PanelPrefs.grouping(defaults)
     }
 
-    /// Swap: 1 bump the generation; 2 stop the poll or stream; 3 clear
-    /// the selection, details, items and not-found; 4 the next first load never
+    /// Swap: 1 bump the generation; 2 stop the poll or stream; 3 clear the
+    /// details, items and not-found, and restore the source's saved selection and
+    /// filter (the open detail closes); 4 the next first load never
     /// notifies; 5 subscribe or poll, and refresh.
     public func swap(to source: (any QueueSource)?, identity: SourceIdentity, pollSeconds: Int) {
         // Closes still held back belong to the old source: send them now.
@@ -82,7 +93,9 @@ import RelayCore
         inFlight = nil
         refreshing = false
 
-        selectedID = nil
+        navigation = PanelNavigation(listSelection: PanelPrefs.selection(defaults, sourceKey: identity.key))
+        filter = PanelPrefs.filter(defaults, sourceKey: identity.key)
+        lastListAt = nil
         details = [:]
         listed = []
         items = []
@@ -198,6 +211,7 @@ import RelayCore
             updateItems()
             listOK = true
             listProblem = nil
+            lastListAt = now()
             for id in diff.removed where id != selectedID {
                 details[id] = nil
             }
@@ -226,14 +240,82 @@ import RelayCore
         }
     }
 
+    /// The 0.5 views' entry point.
     public func select(_ id: String?) {
-        selectedID = id
+        if let id { open(id) } else { back() }
+    }
+
+    public func open(_ id: String) {
+        let listed = visibleOrder.contains(id) || closedShown.contains { $0.id == id }
+        navigation.open(id, listed: listed)
+        saveSelection()
         notFoundID = nil
         actionError = nil
-        if let id, details[id] == nil, let source {
-            let gen = generation
-            Task { await self.load(id, from: source, generation: gen) }
+        loadIfMissing(id)
+    }
+
+    public func back() {
+        navigation.back()
+        notFoundID = nil
+        actionError = nil
+    }
+
+    func loadIfMissing(_ id: String) {
+        guard details[id] == nil, let source else { return }
+        let gen = generation
+        Task { await self.load(id, from: source, generation: gen) }
+    }
+
+    public var listSelection: String? {
+        get { navigation.listSelection }
+        set {
+            navigation.listSelection = newValue
+            saveSelection()
         }
+    }
+
+    private func saveSelection() {
+        PanelPrefs.setSelection(navigation.listSelection, defaults, sourceKey: sourceKey)
+    }
+
+    public func settleSelection() {
+        navigation.settle(visibleOrder: visibleOrder, closedOrder: closedShown.map(\.id))
+        saveSelection()
+    }
+
+    public func setGrouping(_ grouping: QueueGrouping) {
+        self.grouping = grouping
+        PanelPrefs.setGrouping(grouping, defaults)
+    }
+
+    public func setFilter(_ project: String?) {
+        filter = project
+        PanelPrefs.setFilter(project, defaults, sourceKey: sourceKey)
+        navigation.filterChanged(visibleOrder: visibleOrder, closedOrder: closedShown.map(\.id))
+        saveSelection()
+    }
+
+    public var sections: [QueueSection] { QueueLayout.sections(items: items, grouping: grouping, filter: filter) }
+    public var visibleOrder: [String] { QueueLayout.visibleOrder(sections) }
+    public var closedShown: [WireItem] { QueueLayout.closed(recentlyClosed, filter: filter) }
+    public var hiddenCount: HiddenCount { QueueLayout.hiddenCount(items: items, filter: filter) }
+    public var menuProjects: [MenuProject] { QueueLayout.menuProjects(items: items, filter: filter) }
+
+    /// The header spinner shows only for this one; background polls change nothing there.
+    public func refresh(manual: Bool) async {
+        if manual { manualRefreshing = true }
+        await refresh()
+        if manual { manualRefreshing = false }
+    }
+
+    /// How old the last list may be before showing the panel in mailbox mode lists again.
+    public static let staleAfter: TimeInterval = 5
+
+    /// Showing the panel in mailbox mode lists again when the last list is older than `staleAfter`.
+    public func refreshIfStale() async {
+        guard sourceKey.hasPrefix("mailbox:") else { return }
+        if let last = lastListAt, now().timeIntervalSince(last) <= Self.staleAfter { return }
+        await refresh()
     }
 
     /// Deep link target: select the item, fetch it, and fall back to a refresh
@@ -265,7 +347,7 @@ import RelayCore
     }
 
     public func item(for id: String) -> WireItem? {
-        details[id]?.item ?? listed.first { $0.id == id }
+        details[id]?.item ?? listed.first { $0.id == id } ?? recentlyClosed.first { $0.id == id }
     }
 
     public func detail(for id: String) -> AskDetail? {
@@ -281,7 +363,7 @@ import RelayCore
         recentlyClosed.removeAll { $0.id == id }
         actionError = nil
         if selectedID == id {
-            selectedID = nil
+            navigation.back()
             notFoundID = nil
         }
         updateItems()
