@@ -102,3 +102,31 @@ public struct DragTracker: Sendable {
         dragging = false
     }
 }
+
+extension DockGeometry {
+    /// A config change docks the panel only when it moves it: the edge or the pinned
+    /// display. A missing config means the defaults (right edge, main display).
+    public static func needsDock(old: RelayConfig?, new: RelayConfig?) -> Bool {
+        (old?.sidebarEdge ?? .right) != (new?.sidebarEdge ?? .right)
+            || old?.sidebarDisplay != new?.sidebarDisplay
+    }
+
+    /// Where the panel sits mid-drag: the frame at drag start moved by the pointer's
+    /// travel, at its docked size (it never resizes until the snap).
+    public static func dragFrame(start: CGRect, delta: CGSize) -> CGRect {
+        CGRect(x: start.minX + delta.width, y: start.minY + delta.height, width: start.width, height: start.height)
+    }
+
+    /// The display the panel is on: the one holding its centre, else the one it overlaps
+    /// most, else nil. ⌃⌘← / ⌃⌘→ dock on this display.
+    public static func currentScreenID(frame: CGRect, screens: [DockScreen]) -> String? {
+        let centre = CGPoint(x: frame.midX, y: frame.midY)
+        if let screen = screens.first(where: { $0.frame.contains(centre) }) { return screen.id }
+        let overlaps = screens.map { screen -> (String, CGFloat) in
+            let common = screen.frame.intersection(frame)
+            return (screen.id, common.isNull ? 0 : common.width * common.height)
+        }
+        guard let best = overlaps.max(by: { $0.1 < $1.1 }), best.1 > 0 else { return nil }
+        return best.0
+    }
+}

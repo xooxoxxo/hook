@@ -28,6 +28,9 @@ import RelayUI
     /// because the swap clears any Notice posted before it.
     private var queueMovedPath: String?
     private var applied: SourceIdentity?
+    /// The config the panel was last docked for; `applyPanelSettings` docks only when it moves the panel.
+    private var dockedConfig: RelayConfig?
+    private var dockedOnce = false
     /// Config applies run one after another (opening the queue is async).
     private var applyChain: Task<Void, Never>?
     /// A link that arrived before launch finished.
@@ -184,18 +187,20 @@ import RelayUI
     /// The side panel around PanelRoot. Keys go through PanelKeyRouter (design §4.12);
     /// the panel's own actions (hide, dock, Settings, copy, open) come back here.
     private func makePanel(store: Store, model: AppModel) -> SidePanel {
-        let hosting = NSHostingView(rootView: PanelRoot(model: store))
+        let ref = PanelRef()
+        let hosting = NSHostingView(rootView: PanelRoot(model: store).environment(\.panelDragActions, .panel(ref)))
         hosting.sizingOptions = []
         // No title-bar inset: the content starts at the panel's top edge.
         hosting.safeAreaRegions = []
         let panel = SidePanel(content: hosting)
+        ref.panel = panel
         panel.connect(model)
         panel.keyRouter = PanelKeyRouter(model: store)
         store.shell = PanelShellActions(
             hide: { [weak self] in self?.panel?.hide(animated: true) },
             setUp: { [weak self] in self?.showWelcome() },
             quit: { NSApp.terminate(nil) },
-            dock: { [weak self] edge in self?.model?.save(set: ["sidebarEdge": edge.rawValue]) },
+            dock: { [weak self] edge in self?.panel?.dock(edge) },
             openSettings: { [weak self] tab in self?.showSettings(tab: tab) },
             copy: { text in
                 NSPasteboard.general.clearContents()
@@ -222,7 +227,11 @@ import RelayUI
 
     /// `sidebarEdge` and `appearance`.
     private func applyPanelSettings(_ config: RelayConfig?) {
-        panel?.dock(edge: config?.sidebarEdge ?? .right)
+        if !dockedOnce || DockGeometry.needsDock(old: dockedConfig, new: config) {
+            panel?.dock(edge: config?.sidebarEdge ?? .right, animated: true)
+            dockedOnce = true
+        }
+        dockedConfig = config
         switch config?.appearance ?? .system {
         case .system: NSApp.appearance = nil
         case .light: NSApp.appearance = NSAppearance(named: .aqua)

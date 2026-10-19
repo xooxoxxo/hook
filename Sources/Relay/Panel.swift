@@ -1,4 +1,5 @@
 import AppKit
+import QuartzCore
 import RelayCore
 import RelayUI
 
@@ -19,6 +20,8 @@ import RelayUI
     /// True from the first move of a header drag until `pin(at:)` or a hide.
     /// Re-docks wait meanwhile, so the panel stays under the pointer.
     private(set) var isDragging = false
+    /// The frame when the current header drag began; the drag moves it by the pointer's travel.
+    private var dragStart: CGRect?
 
     /// Bumped by every show and hide, so a fade-out that finishes after a new show
     /// doesn't order the panel out.
@@ -72,9 +75,9 @@ import RelayUI
         ])
         contentView = background
         dock(edge: .right)
-        docker = PanelDocker { [weak self] in
+        docker = PanelDocker(window: self) { [weak self] in
             guard let self else { return }
-            self.dock(edge: self.edge)
+            self.dock(edge: self.edge, animated: true)
         }
     }
 
@@ -101,22 +104,61 @@ import RelayUI
         return super.performKeyEquivalent(with: event)
     }
 
-    /// Full height of the pinned display's visible frame, 380 pt wide, on `edge`.
-    /// A pinned display that isn't connected falls back to the main display;
-    /// the pin is kept, so the panel goes back when it reconnects. Runs while
-    /// hidden too, so the next show is already in place.
-    func dock(edge: SidebarEdge) {
+    /// Full height of the pinned display's visible frame, `DS.Metric.panelWidth` wide, on `edge`.
+    /// A pinned display that isn't connected falls back to the main display; the pin
+    /// is kept, so the panel goes back when it reconnects. Runs while hidden too, so
+    /// the next show is already in place. A visible panel snaps when `animated`.
+    func dock(edge: SidebarEdge, animated: Bool = false) {
         self.edge = edge
-        guard !isDragging else { return }
-        guard let screen = DockGeometry.target(screens: NSScreen.dockScreens, pinned: model?.config?.sidebarDisplay)
-        else { return }
-        let frame = DockGeometry.frame(edge: edge, on: screen, width: Self.width)
-        if frame != self.frame { setFrame(frame, display: true) }
+        guard !isDragging, let frame = targetFrame, frame != self.frame else { return }
+        if animated, isVisible {
+            snap(to: frame)
+        } else {
+            setFrame(frame, display: true)
+        }
     }
 
-    /// A header drag moved the panel; holds off re-docks until it ends.
+    /// `DS.Motion.snap`: 0.20 s ease-out, instant under Reduce Motion.
+    private func snap(to frame: CGRect) {
+        let duration = DS.appKitDuration(DS.Motion.snap)
+        guard duration > 0 else {
+            setFrame(frame, display: true)
+            return
+        }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = duration
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            self.animator().setFrame(frame, display: true)
+        }
+    }
+
+    /// ⌃⌘← / ⌃⌘→, the menu's Dock Left / Dock Right and the header's VoiceOver actions:
+    /// pins `edge` on the display the panel is on now. The save is the pin.
+    func dock(_ edge: SidebarEdge) {
+        var set: [String: Any] = ["sidebarEdge": edge.rawValue]
+        if let display = DockGeometry.currentScreenID(frame: frame, screens: NSScreen.dockScreens) {
+            set["sidebarDisplay"] = display
+        }
+        model?.save(set: set)
+        dock(edge: model?.config?.sidebarEdge ?? edge, animated: true)
+    }
+
+    /// Double-click on the header, the menu's Re-dock Now and Settings → Panel → Re-dock Now.
+    func redock() {
+        dock(edge: model?.config?.sidebarEdge ?? edge, animated: true)
+    }
+
+    /// A header drag passed the 3 pt threshold; re-docks wait until it ends.
     func beginDrag() {
         isDragging = true
+        dragStart = frame
+        NSCursor.closedHand.set()
+    }
+
+    /// The pointer moved `delta` (screen points, y up) since the press.
+    func drag(by delta: CGSize) {
+        guard isDragging, let dragStart else { return }
+        setFrame(DockGeometry.dragFrame(start: dragStart, delta: delta), display: true)
     }
 
     /// The end of a header drag at `point` (screen coordinates): pins the panel
@@ -125,12 +167,14 @@ import RelayUI
     /// where the reloaded config says, so a save that fails, or a reload that
     /// keeps the last good config, slides the panel back to its old spot.
     func pin(at point: NSPoint) {
+        guard isDragging else { return }
         let screens = NSScreen.dockScreens
         let snap = DockGeometry.snap(point: point, screens: screens)
         if let snap, let model {
             model.save(set: ["sidebarEdge": snap.edge.rawValue, "sidebarDisplay": snap.screenID])
         }
         isDragging = false
+        dragStart = nil
         let pinned: (edge: SidebarEdge, display: String?)
         if let model {
             pinned = (model.config?.sidebarEdge ?? edge, model.config?.sidebarDisplay)
@@ -140,8 +184,7 @@ import RelayUI
         edge = pinned.edge
         guard let screen = DockGeometry.target(screens: screens, pinned: pinned.display) else { return }
         let frame = DockGeometry.frame(edge: pinned.edge, on: screen, width: Self.width)
-        let animate = !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        if frame != self.frame { setFrame(frame, display: true, animate: animate) }
+        if frame != self.frame { self.snap(to: frame) }
     }
 
     /// Hiding mid-drag ends the drag: the panel goes back to its pinned spot.
@@ -149,6 +192,7 @@ import RelayUI
         super.orderOut(sender)
         guard isDragging else { return }
         isDragging = false
+        dragStart = nil
         dock(edge: edge)
     }
 
@@ -159,7 +203,8 @@ import RelayUI
     func present(focus: Bool, animated: Bool) {
         fadeToken += 1
         isFadingOut = false
-        dock(edge: edge)
+        // A visible panel off its docked frame (the toggle's re-dock case) snaps back.
+        dock(edge: edge, animated: true)
         let duration = animated ? DS.appKitDuration(DS.Motion.fade) : 0
         if duration > 0, !isVisible || alphaValue < 1 {
             if !isVisible { alphaValue = 0 }
@@ -217,5 +262,21 @@ import RelayUI
         case .hide:
             hide(animated: true)
         }
+    }
+}
+
+/// Lets the SwiftUI header reach the panel before the panel exists.
+@MainActor final class PanelRef {
+    weak var panel: SidePanel?
+}
+
+extension PanelDragActions {
+    /// Header press → drag → snap and pin; a double-click re-docks to the saved spot.
+    @MainActor static func panel(_ ref: PanelRef) -> PanelDragActions {
+        PanelDragActions(
+            began: { ref.panel?.beginDrag() },
+            moved: { ref.panel?.drag(by: $0) },
+            ended: { ref.panel?.pin(at: $0) },
+            doubleClicked: { ref.panel?.redock() })
     }
 }
