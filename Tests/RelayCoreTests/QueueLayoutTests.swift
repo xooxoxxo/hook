@@ -86,3 +86,74 @@ private func ids(_ sections: [QueueSection]) -> [[String]] { sections.map { $0.i
         #expect(!QueueLayout.matches(items[0], filter: "acme"))
     }
 }
+
+@Suite struct QueueFilterTests {
+    private let items = [ask("a1", "Acme", "today", hoursAgo: 1), ask("a2", "Acme", "now", hoursAgo: 2),
+                         ask("n1", "Northwind", "now", hoursAgo: 3), ask("r1", "Relay", "whenever", hoursAgo: 4)]
+
+    @Test func hiddenCount() {
+        #expect(QueueLayout.hiddenCount(items: items, filter: nil) == .zero)
+        #expect(QueueLayout.hiddenCount(items: items, filter: "Acme") == HiddenCount(total: 2, now: 1))
+        #expect(QueueLayout.hiddenCount(items: items, filter: "Northwind") == HiddenCount(total: 3, now: 1))
+        #expect(QueueLayout.hiddenCount(items: items, filter: "Relay") == HiddenCount(total: 3, now: 2))
+    }
+
+    @Test func menuProjects() {
+        #expect(QueueLayout.menuProjects(items: items, filter: nil)
+            == [MenuProject(name: "Acme", open: 2), MenuProject(name: "Northwind", open: 1), MenuProject(name: "Relay", open: 1)])
+        #expect(QueueLayout.menuProjects(items: items, filter: "Atlas")
+            == [MenuProject(name: "Acme", open: 2), MenuProject(name: "Atlas", open: 0),
+                MenuProject(name: "Northwind", open: 1), MenuProject(name: "Relay", open: 1)])
+        #expect(QueueLayout.menuProjects(items: [ask("x", nil, "today", hoursAgo: 1)], filter: nil) == [MenuProject(name: "", open: 1)])
+    }
+
+    @Test func closedFollowsTheFilter() {
+        let closed = [ask("c1", "Acme", "today", hoursAgo: 1), ask("c2", "Relay", "today", hoursAgo: 2)]
+        #expect(QueueLayout.closed(closed, filter: nil).map(\.id) == ["c1", "c2"])
+        #expect(QueueLayout.closed(closed, filter: "Relay").map(\.id) == ["c2"])
+        #expect(QueueLayout.closed(closed, filter: "Atlas").isEmpty)
+    }
+
+    @Test func filterWorksInBothGroupings() {
+        #expect(QueueLayout.visibleOrder(QueueLayout.sections(items: items, grouping: .project, filter: "Acme")) == ["a2", "a1"])
+        #expect(QueueLayout.visibleOrder(QueueLayout.sections(items: items, grouping: .urgency, filter: "Acme")) == ["a2", "a1"])
+    }
+}
+
+@Suite struct RowSummaryTests {
+    private let eight = [Step(action: "1"), Step(action: "2", substeps: (1...4).map { Step(action: "s\($0)") }),
+                         Step(action: "3"), Step(action: "4")]
+
+    @Test func leafCountMatchesTheTree() {
+        let item = ask("a", "Acme", "today", hoursAgo: 1, steps: eight, verify: Step(action: "Check"))
+        let ins = item.instructable!
+        #expect(QueueLayout.leafCount(ins) == 8)
+        #expect(QueueLayout.leafCount(ins) == Flow.leaves(of: DetailModel.nodes(steps: ins.steps, verify: ins.verify)).count)
+        let empty = Instructable(v: 1, title: "t", steps: [Step(action: "a", substeps: [])])
+        #expect(QueueLayout.leafCount(empty) == 1)
+        let many = Instructable(v: 1, title: "t", steps: [Step(action: "a", substeps: (1...12).map { Step(action: "\($0)") })])
+        #expect(QueueLayout.leafCount(many) == 10)
+    }
+
+    @Test func stepsCountTickedLeaves() {
+        let item = ask("a", "Acme", "today", hoursAgo: 1, steps: eight, verify: Step(action: "Check"))
+        #expect(QueueLayout.summary(for: item, ticked: []) == .steps(done: 0, total: 8))
+        #expect(QueueLayout.summary(for: item, ticked: ["1", "2.1"]) == .steps(done: 2, total: 8))
+        #expect(QueueLayout.summary(for: item, ticked: ["1", "2.1"]).text == "2 of 8")
+    }
+
+    @Test func steplessAndLegacyAsks() {
+        let choose = ask("c", "Acme", "today", hoursAgo: 1, steps: [], reply: ReplySpec(prompt: "Pick", choices: ["a", "b", "c"]))
+        #expect(QueueLayout.summary(for: choose, ticked: []) == .choose(3))
+        let reply = ask("r", "Acme", "today", hoursAgo: 1, steps: [], reply: ReplySpec(prompt: "Say", choices: nil))
+        #expect(QueueLayout.summary(for: reply, ticked: []) == .reply)
+        #expect(QueueLayout.summary(for: ask("n", "Acme", "today", hoursAgo: 1, steps: []), ticked: []) == .none)
+        func legacy(cmd: String?, link: String?) -> WireItem {
+            WireItem(id: "l", title: "L", status: "open", projectId: "Acme", created: "2026-10-16T09:00:00+00:00",
+                     updated: "2026-10-16T09:00:00+00:00", payload: Payload(why: nil, cmd: cmd, link: link, instructable: nil))
+        }
+        #expect(QueueLayout.summary(for: legacy(cmd: "ls", link: nil), ticked: []) == .legacyCmd)
+        #expect(QueueLayout.summary(for: legacy(cmd: " ", link: "https://example.com"), ticked: []) == .legacyLink)
+        #expect(QueueLayout.summary(for: legacy(cmd: nil, link: nil), ticked: []) == .none)
+    }
+}

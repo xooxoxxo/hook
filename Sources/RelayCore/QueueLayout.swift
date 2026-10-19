@@ -89,3 +89,54 @@ public enum QueueLayout {
         Timestamp.date(item.created) ?? .distantPast
     }
 }
+
+extension QueueLayout {
+    /// Open asks outside the filter, and how many of them are "now".
+    public static func hiddenCount(items: [WireItem], filter: String?) -> HiddenCount {
+        guard filter != nil else { return .zero }
+        let hidden = items.filter { !matches($0, filter: filter) }
+        return HiddenCount(total: hidden.count, now: hidden.filter { bucket($0) == .now }.count)
+    }
+
+    /// Every project with an open ask, by name; the filtered project always appears.
+    public static func menuProjects(items: [WireItem], filter: String?) -> [MenuProject] {
+        var counts: [String: Int] = [:]
+        for item in items { counts[item.projectId ?? "", default: 0] += 1 }
+        if let filter, counts[filter] == nil { counts[filter] = 0 }
+        return counts.keys
+            .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+            .map { MenuProject(name: $0, open: counts[$0]!) }
+    }
+
+    /// Recently closed, inside the filter.
+    public static func closed(_ items: [WireItem], filter: String?) -> [WireItem] {
+        items.filter { matches($0, filter: filter) }
+    }
+
+    /// Leaves without building nodes: a step's sub-steps (at most ten) or the step; then verify.
+    public static func leafCount(_ instructable: Instructable) -> Int {
+        let steps = instructable.steps.reduce(0) { sum, step in
+            sum + min(max(step.substeps?.count ?? 0, 1), StepLevel.letters.count)
+        }
+        return steps + (instructable.verify == nil ? 0 : 1)
+    }
+
+    public static func summary(for item: WireItem, ticked: Set<String>) -> RowSummary {
+        guard let ins = item.instructable else {
+            if present(item.payload.cmd) { return .legacyCmd }
+            if present(item.payload.link) { return .legacyLink }
+            return .none
+        }
+        if !ins.steps.isEmpty {
+            let total = leafCount(ins)
+            return .steps(done: min(ticked.count, total), total: total)
+        }
+        if let choices = ins.reply?.choices, !choices.isEmpty { return .choose(choices.count) }
+        return ins.reply == nil ? .none : .reply
+    }
+
+    private static func present(_ value: String?) -> Bool {
+        guard let value else { return false }
+        return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+}
