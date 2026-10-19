@@ -11,6 +11,8 @@ actor FakeQueueSource: QueueSource {
     private var listDelay: Duration = .zero
     private var resolvesHeld = false
     private var heldResolves: [CheckedContinuation<Void, Never>] = []
+    private var repliesHeld = false
+    private var heldReplies: [CheckedContinuation<Void, Never>] = []
     private(set) var calls: [String] = []
     private(set) var replies: [String: [String]] = [:]
 
@@ -30,6 +32,16 @@ actor FakeQueueSource: QueueSource {
         resolvesHeld = false
         let waiting = heldResolves
         heldResolves = []
+        waiting.forEach { $0.resume() }
+    }
+
+    /// While held, every `reply` waits before it is recorded (so `failNext` still applies) until `releaseReplies()`.
+    func holdReplies() { repliesHeld = true }
+    var heldReplyCount: Int { heldReplies.count }
+    func releaseReplies() {
+        repliesHeld = false
+        let waiting = heldReplies
+        heldReplies = []
         waiting.forEach { $0.resume() }
     }
 
@@ -75,6 +87,7 @@ actor FakeQueueSource: QueueSource {
     }
 
     func reply(_ id: String, text: String) async throws -> WireItem {
+        if repliesHeld { await withCheckedContinuation { heldReplies.append($0) } }
         try record("reply \(id)")
         guard let item = (items + closedItems).first(where: { $0.id == id }) else { throw QueueError.notFound }
         var detail = details[id] ?? AskDetail(item: item, events: [])

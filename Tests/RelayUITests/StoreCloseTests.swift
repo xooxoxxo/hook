@@ -21,9 +21,9 @@ private let abc = [item("a", created: stamp(minutesAgo: 10)), item("b", created:
         let (store, _) = await ready(defaults: defaults)
         store.open("a")
         store.close("a", .done)
-        #expect(store.selectedID == "b")
+        #expect(store.navigation.selectedID == "b")
         store.close("b", .done)
-        #expect(store.selectedID == "c")
+        #expect(store.navigation.selectedID == "c")
         store.close("c", .declined)
         #expect(store.navigation == PanelNavigation(listSelection: nil, selectedID: nil))
         #expect(store.items.isEmpty)
@@ -140,7 +140,7 @@ private let abc = [item("a", created: stamp(minutesAgo: 10)), item("b", created:
         store.onAnnounce = { announced.append($0) }
         store.open("c")
         await store.reopen("c")
-        #expect(store.selectedID == "c")
+        #expect(store.navigation.selectedID == "c")
         #expect(store.item(for: "c")?.status == "open")
         #expect(announced == ["Ask reopened"])
     }
@@ -185,7 +185,7 @@ private let abc = [item("a", created: stamp(minutesAgo: 10)), item("b", created:
         #expect(store.notice == .sessionClosed(id: "a"))
         #expect(store.details["a"] != nil)
         await store.performNoticeAction()
-        #expect(store.selectedID == "b")
+        #expect(store.navigation.selectedID == "b")
     }
 
     @Test func aSwapKeepsTheOpenAskWhenTheNewSourceHasIt() async {
@@ -194,10 +194,10 @@ private let abc = [item("a", created: stamp(minutesAgo: 10)), item("b", created:
         let (store, _) = await ready(defaults: defaults)
         store.open("a")
         await start(store, FakeQueueSource(items: abc), identity: mailboxIdentity)
-        #expect(store.selectedID == "a")
+        #expect(store.navigation.selectedID == "a")
         #expect(store.notice == nil)
         await start(store, FakeQueueSource(items: [item("z", created: stamp(minutesAgo: 5))]), identity: localIdentity)
-        #expect(store.selectedID == nil)
+        #expect(store.navigation.selectedID == nil)
         #expect(store.notice == .settingsReloaded)
     }
 
@@ -207,7 +207,7 @@ private let abc = [item("a", created: stamp(minutesAgo: 10)), item("b", created:
         let (store, _) = await ready(defaults: defaults)
         store.open("a")
         store.swap(to: nil, identity: SourceIdentity(key: SourceKey.none, mailbox: nil), pollSeconds: 15)
-        #expect(store.selectedID == nil)
+        #expect(store.navigation.selectedID == nil)
         #expect(store.notice == .settingsReloaded)
     }
 
@@ -288,7 +288,7 @@ private let abc = [item("a", created: stamp(minutesAgo: 10)), item("b", created:
         await store.refresh()
         #expect(store.notice == .sessionClosed(id: "b"))
         await store.performNoticeAction()
-        #expect(store.selectedID == "c")
+        #expect(store.navigation.selectedID == "c")
     }
 
     @Test func oneNoticeAtATime() async {

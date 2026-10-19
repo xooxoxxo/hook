@@ -105,7 +105,7 @@ private let threeAcme = [item("a", created: stamp(minutesAgo: 10)), item("b", cr
         store.listSelection = "a"
         store.open("b")
         #expect(store.navigation == PanelNavigation(listSelection: "b", selectedID: "b"))
-        #expect(store.selectedID == "b")
+        #expect(store.navigation.selectedID == "b")
         store.back()
         #expect(store.navigation == PanelNavigation(listSelection: "b", selectedID: nil))
         store.open("n")

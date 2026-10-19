@@ -51,7 +51,7 @@ private let plain = [item("a", created: stamp(minutesAgo: 10)), item("b", create
         await store.sendAndDone("a")
         #expect(store.drafts["a"] == "hello")
         #expect(store.pending.isEmpty)
-        #expect(store.selectedID == "a")
+        #expect(store.navigation.selectedID == "a")
         #expect(store.replyStates["a"] == .failed(reason: "timed out"))
     }
 
@@ -66,7 +66,7 @@ private let plain = [item("a", created: stamp(minutesAgo: 10)), item("b", create
         await store.sendAndDone("a")
         #expect(await fake.replies["a"] == ["done here"])
         #expect(store.pending.contains("a"))
-        #expect(store.selectedID == "b")
+        #expect(store.navigation.selectedID == "b")
         await store.sendAndDone("b")
         #expect(store.pending.contains("b"))
         #expect(await fake.replies["b"] == nil)
@@ -143,6 +143,46 @@ private let plain = [item("a", created: stamp(minutesAgo: 10)), item("b", create
         #expect(store.replyStates["a"] == sent)
         await gate.release(1)
         #expect(await eventually { store.replyStates["a"] == .idle })
+    }
+
+    /// A reply that comes back after a swap belongs to the old source: no state, no Notice.
+    @Test func aReplyThatFinishesAfterASwapChangesNothing() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let store = Store(defaults: defaults.defaults)
+        let old = FakeQueueSource(items: plain)
+        await start(store, old)
+        store.open("a")
+        await old.holdReplies()
+        store.drafts["a"] = "late"
+        let send = Task { await store.sendReply("a") }
+        #expect(await eventually { await old.heldReplyCount == 1 })
+        #expect(store.replyStates["a"] == .sending)
+        store.swap(to: FakeQueueSource(items: plain), identity: mailboxIdentity, pollSeconds: 3600)
+        await old.releaseReplies()
+        #expect(await send.value == false)
+        #expect(await old.replies["a"] == ["late"])
+        #expect(store.replyStates["a"] == nil)
+        #expect(store.notice == nil)
+    }
+
+    /// The same for a send that fails after the swap: the old source's error posts nothing.
+    @Test func aReplyThatFailsAfterASwapChangesNothing() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let store = Store(defaults: defaults.defaults)
+        let old = FakeQueueSource(items: plain)
+        await start(store, old)
+        await old.holdReplies()
+        await old.failNext(QueueError.storeFailed("disk full"), on: "reply")
+        store.drafts["a"] = "late"
+        let send = Task { await store.sendReply("a") }
+        #expect(await eventually { await old.heldReplyCount == 1 })
+        store.swap(to: FakeQueueSource(items: plain), identity: mailboxIdentity, pollSeconds: 3600)
+        await old.releaseReplies()
+        #expect(await send.value == false)
+        #expect(store.replyStates["a"] == nil)
+        #expect(store.notice == nil)
     }
 }
 

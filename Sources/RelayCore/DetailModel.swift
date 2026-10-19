@@ -16,11 +16,9 @@ public struct DetailModel: Sendable, Equatable {
         public var content: StepContent
         public var children: [Node]
         public var fingerprint: String
-        /// The top-level position (0-based), the old `Ticks` index. Removed with the old DetailView (Task 52).
-        public var index: Int
 
         public init(path: String, label: String, kind: StepFingerprint.Kind, number: Int, content: StepContent,
-                    children: [Node] = [], fingerprint: String, index: Int) {
+                    children: [Node] = [], fingerprint: String) {
             self.path = path
             self.label = label
             self.kind = kind
@@ -28,7 +26,6 @@ public struct DetailModel: Sendable, Equatable {
             self.content = content
             self.children = children
             self.fingerprint = fingerprint
-            self.index = index
         }
 
         public var id: String { path }
@@ -89,18 +86,16 @@ public struct DetailModel: Sendable, Equatable {
                     path: "\(number).\(position + 1)", label: "\(number)" + StepLevel.letters[position], kind: .sub,
                     number: number, content: subContent,
                     fingerprint: StepFingerprint.make(kind: .sub, action: sub.action, place: subContent.place,
-                                                      code: subContent.code, parent: fingerprint),
-                    index: index)
+                                                      code: subContent.code, parent: fingerprint))
             }
             nodes.append(Node(path: "\(number)", label: "\(number)", kind: .step, number: number, content: content,
-                              children: Array(subs), fingerprint: fingerprint, index: index))
+                              children: Array(subs), fingerprint: fingerprint))
         }
         if let verify {
             let content = content(verify)
             nodes.append(Node(
                 path: "verify", label: "Verify", kind: .verify, number: steps.count + 1, content: content,
-                fingerprint: StepFingerprint.make(kind: .verify, action: verify.action, place: content.place, code: content.code),
-                index: steps.count))
+                fingerprint: StepFingerprint.make(kind: .verify, action: verify.action, place: content.place, code: content.code)))
         }
         return nodes
     }
@@ -133,7 +128,7 @@ public struct DetailModel: Sendable, Equatable {
             why = present(item.payload.why)
             if let cmd = present(item.payload.cmd) {
                 nodes = [Node(path: "1", label: "1", kind: .step, number: 1, content: StepContent(action: "Run this", code: cmd),
-                              fingerprint: StepFingerprint.make(kind: .step, action: "Run this", place: nil, code: cmd), index: 0)]
+                              fingerprint: StepFingerprint.make(kind: .step, action: "Run this", place: nil, code: cmd))]
             }
             if let link = present(item.payload.link) {
                 links = [LinkRef(label: "Link", url: link)]
@@ -167,43 +162,5 @@ public struct DetailModel: Sendable, Equatable {
     private static func present(_ value: String?) -> String? {
         guard let value, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
         return value
-    }
-}
-
-/// Ticked timeline nodes, per source and ask, in UserDefaults as `[Int]`
-/// under `relay.ticks.<sourceKey>.<id>`.
-public enum Ticks {
-    static let prefix = "relay.ticks."
-
-    public static func key(sourceKey: String, id: String) -> String {
-        prefix + sourceKey + "." + id
-    }
-
-    public static func load(_ defaults: UserDefaults, sourceKey: String, id: String) -> Set<Int> {
-        let stored = defaults.array(forKey: key(sourceKey: sourceKey, id: id)) as? [Int] ?? []
-        return Set(stored.filter { $0 >= 0 })
-    }
-
-    /// An empty set removes the key.
-    public static func save(_ defaults: UserDefaults, sourceKey: String, id: String, ticks: Set<Int>) {
-        let key = key(sourceKey: sourceKey, id: id)
-        if ticks.isEmpty {
-            defaults.removeObject(forKey: key)
-        } else {
-            defaults.set(ticks.sorted(), forKey: key)
-        }
-    }
-
-    /// Removes this source's keys whose id isn't in `ids`. Call it only after a
-    /// successful list of the same source. Ids never contain ".", so a remainder
-    /// with a dot belongs to another source whose key starts the same way.
-    public static func prune(_ defaults: UserDefaults, sourceKey: String, keep ids: Set<String>) {
-        let own = prefix + sourceKey + "."
-        for key in defaults.dictionaryRepresentation().keys where key.hasPrefix(own) {
-            let id = String(key.dropFirst(own.count))
-            if !id.contains("."), !ids.contains(id) {
-                defaults.removeObject(forKey: key)
-            }
-        }
     }
 }

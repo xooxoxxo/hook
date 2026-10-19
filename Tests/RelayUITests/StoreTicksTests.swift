@@ -66,7 +66,7 @@ private let b = item("b", created: stamp(minutesAgo: 20), steps: 2)
         TickStore.save(d, sourceKey: "local", id: "c", ticks: ["1"], nodes: one)
         TickStore.save(d, sourceKey: "local", id: "z", ticks: ["1"], nodes: one)
         store.setFilter("Northwind")
-        store.close("b", .done, title: "Ask b")
+        store.close("b", .done)
 
         await store.refresh()
 

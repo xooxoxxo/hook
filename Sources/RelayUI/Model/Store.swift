@@ -65,6 +65,12 @@ import RelayCore
     private var tickHistory: [String: [String]] = [:]
     /// Set by AppDelegate: the config note, presence and quit-time sends, for the status bar.
     @Published public var configNote: String?
+    /// config.json's problem, from AppModel; the status bar shows it ("config.json has an error").
+    /// Assigning only on change keeps a reload with the same problem from republishing.
+    public func setConfigNote(_ note: String?) {
+        guard configNote != note else { return }
+        configNote = note
+    }
     @Published public var away = false
     @Published public var sendingCloses = 0
     /// The Undo bar as it was when the quit-time sends began; `undoInfo` while they run.
@@ -84,8 +90,6 @@ import RelayCore
     nonisolated static func timeoutTaskSleep(_ duration: Duration) async {
         try? await Task.sleep(for: duration)
     }
-    /// The open detail. A forwarder for the 0.5 views until Task 52.
-    public var selectedID: String? { navigation.selectedID }
     @Published public private(set) var grouping: QueueGrouping
     /// The raw project string; nil = All Projects.
     @Published public private(set) var filter: String?
@@ -97,13 +101,9 @@ import RelayCore
     @Published public private(set) var reachable = false
     /// Why the source is offline; shown in the footer and the menu-bar tooltip.
     @Published public private(set) var problem: String?
-    @Published public private(set) var busyID: String?
     @Published public private(set) var refreshing = false
     /// "none", "local" or "mailbox:<host>"; ticks and the Connect tab key on it.
     @Published public private(set) var sourceKey = SourceKey.none
-    @Published public var actionError: String?
-    /// One dismissible message: corrupt queue, save failed, config error, already running.
-    @Published public var banner: String?
 
     /// Items that appeared since the previous list (never on the first list after launch or a swap).
     public var onNewItems: (@MainActor ([WireItem]) -> Void)?
@@ -199,8 +199,6 @@ import RelayCore
         stateTimers.values.forEach { $0.cancel() }
         stateTimers = [:]
         notFoundID = nil
-        actionError = nil
-        busyID = nil
 
         loadedOnce = false
         polling = false
@@ -345,12 +343,12 @@ import RelayCore
             offlineNoticed = false
             if showsOfflineNotice { notice = nil }
             lastListAt = now()
-            for id in diff.removed where id != selectedID {
+            for id in diff.removed where id != navigation.selectedID {
                 details[id] = nil
             }
             publishState()
             var toLoad = diff.added + diff.changed
-            if let selected = selectedID, !toLoad.contains(selected) {
+            if let selected = navigation.selectedID, !toLoad.contains(selected) {
                 toLoad.append(selected)
             }
             for id in toLoad {
@@ -379,17 +377,11 @@ import RelayCore
         }
     }
 
-    /// The 0.5 views' entry point.
-    public func select(_ id: String?) {
-        if let id { open(id) } else { back() }
-    }
-
     public func open(_ id: String) {
         let listed = visibleOrder.contains(id) || closedShown.contains { $0.id == id }
         navigation.open(id, listed: listed)
         saveSelection()
         notFoundID = nil
-        actionError = nil
         if details[id] == nil {
             detailRequestedAt[id] = now()
             scheduleTimeoutTick()
@@ -400,7 +392,6 @@ import RelayCore
     public func back() {
         navigation.back()
         notFoundID = nil
-        actionError = nil
     }
 
     func loadIfMissing(_ id: String) {
@@ -464,7 +455,7 @@ import RelayCore
     /// Deep link target: select the item, fetch it, and fall back to a refresh
     /// and then "not found" when the source does not know the id.
     public func focus(_ id: String) async {
-        select(id)
+        open(id)
         guard let source else {
             notFoundID = id
             return
@@ -577,7 +568,6 @@ import RelayCore
         pending.add(id: id, verdict: verdict, note: nil, title: item(for: id)?.title ?? "", now: now())
         onAnnounce?(UndoBar.announcement(for: verdict))
         recentlyClosed.removeAll { $0.id == id }
-        actionError = nil
         if inDetail { notFoundID = nil }
         navigation.afterClose(id, visibleOrder: order, setting: afterClose, inDetail: inDetail)
         saveSelection()
@@ -587,9 +577,6 @@ import RelayCore
         startTicker()
     }
 
-    /// The 0.5 views' call.
-    public func close(_ id: String, _ verdict: Verdict, title: String) { close(id, verdict) }
-
     /// Restores the latest held close; called again, the one before.
     public func undo() {
         guard let restored = pending.undoLatest() else { return }
@@ -598,9 +585,6 @@ import RelayCore
         navigation.undoRestored(restored.id, visibleOrder: visibleOrder)
         saveSelection()
     }
-
-    /// The 0.5 views' call.
-    public func undoLatest() { undo() }
 
     public var undoInfo: UndoInfo? {
         if let sendingUndo { return sendingUndo }
@@ -694,7 +678,6 @@ import RelayCore
             onAnnounce?("Ask reopened")
         } catch {
             guard gen == generation else { return }
-            banner = "Reopen failed: \(error.localizedDescription)"
             post(.reopenFailed(id: id, title: item(for: id)?.title ?? "", reason: UserFacingError.text(error)))
             noteStoreFailure(error)
         }
@@ -777,7 +760,7 @@ import RelayCore
     }
 
     /// The resolve itself. The ask stays hidden until a list that started after
-    /// the send has come back; on failure it reappears and the banner says why.
+    /// the send has come back; on failure it reappears and a Notice says why.
     private func send(_ close: PendingClose, via source: any QueueSource, generation gen: Int) async {
         do {
             _ = try await source.resolve(close.id, verdict: close.verdict, note: close.note)
@@ -794,8 +777,6 @@ import RelayCore
             sending.remove(close.id)
             updateItems()
             publishState()
-            let label = close.verdict == .done ? "Done" : "Skip"
-            banner = "\(label) failed for “\(close.title)”: \(error.localizedDescription)"
             failedCloses[close.id] = close
             post(.actionFailed(verdict: close.verdict, id: close.id, title: close.title, reason: UserFacingError.text(error)))
         }
@@ -825,31 +806,18 @@ import RelayCore
         }
     }
 
-    /// The 0.5 views' reply call.
-    public func reply(_ id: String, text: String) async -> Bool {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, busyID == nil else { return false }
-        actionError = nil
-        switch await deliver(id, text: trimmed) {
-        case .success: return true
-        case .failure(let error):
-            actionError = "Reply failed: \(error.localizedDescription)"
-            return false
-        }
-    }
-
     /// Sends one reply event and reloads the ask, so its events (and sent choices) update.
+    /// A send that finishes after a swap comes back as a CancellationError and changes nothing.
     private func deliver(_ id: String, text: String) async -> Result<Void, any Error> {
         guard let source else { return .failure(QueueError.unreachable(Self.noSourceProblem)) }
         let gen = generation
-        busyID = id
-        defer { if gen == generation { busyID = nil } }
         do {
             _ = try await source.reply(id, text: text)
             guard gen == generation else { return .failure(CancellationError()) }
             await load(id, from: source, generation: gen)
             return .success(())
         } catch {
+            guard gen == generation else { return .failure(CancellationError()) }
             noteStoreFailure(error)
             return .failure(error)
         }
@@ -881,7 +849,11 @@ import RelayCore
     private func send(_ text: String, for id: String, onSuccess: () -> Void) async -> Bool {
         sentResets.removeValue(forKey: id)?.task.cancel()
         replyStates[id] = .sending
-        switch await deliver(id, text: text) {
+        let gen = generation
+        let result = await deliver(id, text: text)
+        // A swap while the send was out cleared this ask's state; the old source's answer writes nothing.
+        guard gen == generation else { return false }
+        switch result {
         case .success:
             onSuccess()
             replyStates[id] = .sent(at: ClockText.time(now()))
@@ -947,7 +919,7 @@ import RelayCore
 
     private func noteStoreFailure(_ error: any Error) {
         if case QueueError.storeFailed? = error as? QueueError {
-            banner = error.localizedDescription
+            post(.storeFailed(reason: UserFacingError.text(error)))
         }
     }
 
@@ -992,7 +964,7 @@ extension Store: PanelViewModel {
                                            failed: detailFailed.contains(id))
         return DetailSnapshot.build(
             item: item, detail: details[id], ticks: ticks(for: id), load: load, reply: replyStates[id] ?? .idle,
-            draft: drafts[id], pendingChoice: pendingChoice[id], busy: busyID == id, previous: previous, next: next,
+            draft: drafts[id], pendingChoice: pendingChoice[id], busy: replyStates[id] == .sending, previous: previous, next: next,
             closedBy: closedBy(item))
     }
 

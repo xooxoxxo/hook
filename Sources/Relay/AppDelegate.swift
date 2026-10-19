@@ -7,6 +7,7 @@ import RelayUI
     private var model: AppModel?
     private var store: Store?
     private var panel: SidePanel?
+    private var panelKeyObserver: (any NSObjectProtocol)?
     private var hotKeys: HotKeyManager?
     private var settings: SettingsWindowController?
     private var welcome: WelcomeWindowController?
@@ -23,10 +24,12 @@ import RelayUI
     private var localAPIPort: Int?
     /// "Relay is already running", or why the local queue or token isn't available.
     private var localProblem: String?
+    /// Where a corrupt queue.json was moved; posted as a Notice once the store shows the local queue,
+    /// because the swap clears any Notice posted before it.
+    private var queueMovedPath: String?
     private var applied: SourceIdentity?
     /// Config applies run one after another (opening the queue is async).
     private var applyChain: Task<Void, Never>?
-    private var shownConfigNote: String?
     /// A link that arrived before launch finished.
     private var pendingLink: String?
     /// Quit is waiting on held-back closes; set once the reply has been sent.
@@ -61,7 +64,7 @@ import RelayUI
         }
         let notifier = Notifier { [weak self] id in self?.showItem(id) }
         notifier.onOpenList = { [weak self] in
-            self?.store?.select(nil)
+            self?.store?.back()
             self?.panel?.present(focus: true)
         }
         notifier.requestAuthorization()
@@ -109,6 +112,7 @@ import RelayUI
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard let store, store.hasPendingCloses else { return .terminateNow }
         terminationAnswered = false
+        store.sendingCloses = store.pending.count
         Task {
             await store.sendAllPending()
             answerTermination()
@@ -142,6 +146,7 @@ import RelayUI
     private func answerTermination() {
         guard !terminationAnswered else { return }
         terminationAnswered = true
+        store?.sendingCloses = 0
         NSApp.reply(toApplicationShouldTerminate: true)
     }
 
@@ -174,22 +179,43 @@ import RelayUI
 
     // MARK: Panel
 
-    /// The sidebar panel around RootView. Esc in a detail goes back to the list.
+    /// The side panel around PanelRoot. Keys go through PanelKeyRouter (design §4.12);
+    /// the panel's own actions (hide, dock, Settings, copy, open) come back here.
     private func makePanel(store: Store, model: AppModel) -> SidePanel {
-        let hosting = NSHostingView(rootView: RootView(store: store, model: model, onSettings: { [weak self] in
-            self?.showSettings(nil)
-        }))
+        let hosting = NSHostingView(rootView: PanelRoot(model: store))
         hosting.sizingOptions = []
         // No title-bar inset: the content starts at the panel's top edge.
         hosting.safeAreaRegions = []
         let panel = SidePanel(content: hosting)
         panel.connect(model)
-        panel.onEscape = { [weak store] in
-            guard let store, store.selectedID != nil else { return false }
-            store.select(nil)
-            return true
+        panel.keyRouter = PanelKeyRouter(model: store)
+        store.shell = PanelShellActions(
+            hide: { [weak self] in self?.panel?.orderOut(nil) },
+            setUp: { [weak self] in self?.showWelcome() },
+            quit: { NSApp.terminate(nil) },
+            dock: { [weak self] edge in self?.model?.save(set: ["sidebarEdge": edge.rawValue]) },
+            openSettings: { [weak self] tab in self?.showSettings(tab: tab) },
+            copy: { text in
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(text, forType: .string)
+            },
+            openURL: { url in NSWorkspace.shared.open(url) })
+        // Task 37's two shell hooks: VoiceOver's "Ask reopened", and the queueMoved Notice's Show in Finder.
+        store.onAnnounce = { text in AccessibilityNotification.Announcement(text).post() }
+        store.onShowInFinder = { path in
+            NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+        }
+        // Whenever the panel becomes key, the selection is the last one if still shown, else the first row.
+        panelKeyObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didBecomeKeyNotification, object: panel, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.store?.settleSelection() }
         }
         return panel
+    }
+
+    /// Settings on a tab. A tab the window doesn't have yet (Panel, until Task 59) opens the last one used.
+    private func showSettings(tab: SettingsTabID?) {
+        settings?.show(tab: tab.flatMap { SettingsTab(rawValue: $0.rawValue) })
     }
 
     /// `sidebarEdge` and `appearance`.
@@ -229,6 +255,10 @@ import RelayUI
                 swapIfNeeded(SourceIdentity(key: SourceKey.local, mailbox: nil), pollSeconds: pollSeconds) {
                     LocalQueueSource(queue: queue)
                 }
+                if let moved = queueMovedPath {
+                    queueMovedPath = nil
+                    store?.post(.queueMoved(path: moved))
+                }
             } else {
                 model.localAPI = nil
                 routing.update(ServerRouting.Routes(source: "none", api: nil, token: nil))
@@ -254,6 +284,7 @@ import RelayUI
         showCount = config?.showCount ?? true
         updateMenuBar()
         applyPanelSettings(config)
+        store?.afterClose = config?.afterClose ?? .next
     }
 
     /// A new identity swaps the source; the same identity only applies the poll interval.
@@ -281,13 +312,13 @@ import RelayUI
             localQueue = queue
             localProblem = nil
             if case .recovered(let moved) = outcome {
-                showBanner("queue.json couldn't be read, so it was moved to \(moved). A new queue has started.")
+                queueMovedPath = moved
             }
             return queue
         } catch LocalQueueError.locked {
             let text = "Relay is already running"
             localProblem = text
-            showBanner(text)
+            logProblem(text)
         } catch {
             let reason: String
             if case .storeFailed(let text)? = error as? LocalQueueError {
@@ -297,7 +328,7 @@ import RelayUI
             }
             let text = "Couldn't open the queue: \(reason)"
             localProblem = text
-            showBanner(text)
+            logProblem(text)
         }
         return nil
     }
@@ -312,7 +343,7 @@ import RelayUI
         } catch {
             let text = "Couldn't create the local token at \(token.file.path)"
             localProblem = text
-            showBanner(text)
+            logProblem(text)
             return nil
         }
     }
@@ -350,14 +381,11 @@ import RelayUI
         updateListenerProblem()
     }
 
-    /// Local mode: the queue and the listener must both be up.
+    /// The status bar's listener line, in every mode. In local mode a queue or token
+    /// problem (`localProblem`) comes first; `apply` clears `localProblem` in the other modes.
     private func updateListenerProblem() {
         guard let store, let model else { return }
-        guard case .local = model.resolvedSource else {
-            store.setListenerProblem(nil)
-            return
-        }
-        if let localProblem {
+        if case .local = model.resolvedSource, let localProblem {
             store.setListenerProblem(localProblem)
         } else if case .failed(let text) = model.listenerState {
             store.setListenerProblem(text)
@@ -366,22 +394,17 @@ import RelayUI
         }
     }
 
-    // MARK: Banner
+    // MARK: Problems
 
-    private func showBanner(_ text: String) {
-        store?.banner = text
+    /// A local-queue problem. It reaches the status bar through `setListenerProblem`
+    /// (`localProblem`), once (A7); the log keeps it too.
+    private func logProblem(_ text: String) {
         NSLog("Relay: %@", text)
     }
 
-    /// Mirrors the config note into the banner; clears the banner only if it still shows the old note.
+    /// config.json's problem shows in the status bar ("config.json has an error"), once (A7).
     private func configNoteChanged(_ note: String?) {
-        guard let store else { return }
-        if let note {
-            showBanner(note)
-        } else if store.banner != nil, store.banner == shownConfigNote {
-            store.banner = nil
-        }
-        shownConfigNote = note
+        store?.setConfigNote(note)
     }
 
     // MARK: Menu bar

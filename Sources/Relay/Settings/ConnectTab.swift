@@ -1,5 +1,6 @@
 import AppKit
 import RelayCore
+import RelayUI
 import SwiftUI
 
 /// Settings → Connect: what to paste into Claude Code on this Mac, the
@@ -39,7 +40,8 @@ struct ConnectTab: View {
             if let repoPath {
                 block("Add Relay to Claude Code (MCP)",
                       help: "Run this once in Terminal. Every Claude Code session on this Mac then has relay_post, relay_status and relay_list.") {
-                    CodeBlock(code: ConnectInfo.mcpCommand(repoPath: repoPath), lang: "bash")
+                    CodeBlock(code: ConnectInfo.mcpCommand(repoPath: repoPath), copyLabel: "Copy the MCP command",
+                              onCopy: { Self.copy($0) })
                 }
             } else {
                 Text(Self.noRepoNote)
@@ -48,12 +50,12 @@ struct ConnectTab: View {
 
             block("CLI",
                   help: "If MCP servers are blocked here, Claude can use the CLI. The relay command posts the same asks. install.sh links it into ~/.local/bin.") {
-                CodeBlock(code: ConnectInfo.cliExample(), lang: "bash")
+                CodeBlock(code: ConnectInfo.cliExample(), copyLabel: "Copy the CLI example", onCopy: { Self.copy($0) })
             }
 
             block("Replies hook (optional)",
                   help: "Shows answers in every session. Add this to ~/.claude/settings.json. Before each prompt it prints answers given since the last one. It always exits 0, so it never blocks a prompt.") {
-                CodeBlock(code: ConnectInfo.hookSnippet(), lang: "json")
+                CodeBlock(code: ConnectInfo.hookSnippet(), copyLabel: "Copy the hook settings", onCopy: { Self.copy($0) })
             }
 
             if repoPath != nil {
@@ -174,6 +176,11 @@ struct ConnectTab: View {
             skillError = error.localizedDescription
         }
         refresh()
+    }
+
+    private static func copy(_ text: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
     }
 
     private func copySection() {

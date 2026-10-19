@@ -91,11 +91,11 @@ private let three = [item("a", urgency: "now", created: stamp(minutesAgo: 10), s
         store.perform(.copyLink)
         #expect(copied == ["relay://i/n"])
         store.perform(.openSelection)
-        #expect(store.selectedID == "n")
+        #expect(store.navigation.selectedID == "n")
         store.perform(.pickChoice(1))
         #expect(store.pendingChoice["n"] == 1)
         store.perform(.back)
-        #expect(store.selectedID == nil)
+        #expect(store.navigation.selectedID == nil)
     }
 
     @Test func fixturesBuild() {

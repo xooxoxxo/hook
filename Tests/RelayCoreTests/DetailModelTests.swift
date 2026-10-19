@@ -184,51 +184,6 @@ private func minimal(from: Origin? = nil) -> Payload {
     }
 }
 
-@Suite struct TicksTests {
-    private func withDefaults(_ body: (UserDefaults) throws -> Void) throws {
-        let suite = "relay.tests.ticks.\(UUID().uuidString)"
-        let defaults = try #require(UserDefaults(suiteName: suite))
-        defer { defaults.removePersistentDomain(forName: suite) }
-        try body(defaults)
-    }
-
-    @Test func keyFormat() {
-        #expect(Ticks.key(sourceKey: "local", id: askID) == "relay.ticks.local.\(askID)")
-        #expect(Ticks.key(sourceKey: "mailbox:mail.example.com", id: "a") == "relay.ticks.mailbox:mail.example.com.a")
-    }
-
-    @Test func saveAndLoad() throws {
-        try withDefaults { defaults in
-            #expect(Ticks.load(defaults, sourceKey: "local", id: "a").isEmpty)
-            Ticks.save(defaults, sourceKey: "local", id: "a", ticks: [2, 0])
-            #expect(Ticks.load(defaults, sourceKey: "local", id: "a") == [0, 2])
-            #expect(defaults.array(forKey: "relay.ticks.local.a") as? [Int] == [0, 2])
-            #expect(Ticks.load(defaults, sourceKey: "mailbox:mail.example.com", id: "a").isEmpty)
-            Ticks.save(defaults, sourceKey: "local", id: "a", ticks: [])
-            #expect(defaults.object(forKey: "relay.ticks.local.a") == nil)
-        }
-    }
-
-    @Test func pruneTouchesOnlyItsOwnSource() throws {
-        try withDefaults { defaults in
-            Ticks.save(defaults, sourceKey: "local", id: "a", ticks: [0])
-            Ticks.save(defaults, sourceKey: "local", id: "b", ticks: [1])
-            Ticks.save(defaults, sourceKey: "mailbox:mail.example.com", id: "a", ticks: [0])
-            Ticks.save(defaults, sourceKey: "mailbox:mail.example.com.other", id: "c", ticks: [0])
-
-            Ticks.prune(defaults, sourceKey: "local", keep: ["a"])
-            #expect(Ticks.load(defaults, sourceKey: "local", id: "a") == [0])
-            #expect(Ticks.load(defaults, sourceKey: "local", id: "b").isEmpty)
-            #expect(Ticks.load(defaults, sourceKey: "mailbox:mail.example.com", id: "a") == [0])
-
-            Ticks.prune(defaults, sourceKey: "mailbox:mail.example.com", keep: [])
-            #expect(Ticks.load(defaults, sourceKey: "mailbox:mail.example.com", id: "a").isEmpty)
-            #expect(Ticks.load(defaults, sourceKey: "mailbox:mail.example.com.other", id: "c") == [0])
-            #expect(Ticks.load(defaults, sourceKey: "local", id: "a") == [0])
-        }
-    }
-}
-
 @Suite struct NodeTreeTests {
     private let steps = [
         Step(action: "Create a channel", place: "Slack"),
@@ -246,13 +201,12 @@ private func minimal(from: Origin? = nil) -> Payload {
         #expect(nodes[1].children.map(\.path) == ["2.1", "2.2", "2.3"])
         #expect(nodes[1].children.map(\.label) == ["2a", "2b", "2c"])
         #expect(nodes[1].children.map(\.level) == [.sub(2, 0), .sub(2, 1), .sub(2, 2)])
-        #expect(nodes[1].children.allSatisfy { $0.kind == .sub && $0.number == 2 && $0.index == 1 })
+        #expect(nodes[1].children.allSatisfy { $0.kind == .sub && $0.number == 2 })
         #expect(nodes[1].isParent && !nodes[0].isParent && !nodes[2].isParent)
         #expect(nodes[2].children.isEmpty)
         #expect(nodes[3].isVerify && nodes[3].children.isEmpty && nodes[3].number == 4 && nodes[3].level == .verify)
         #expect(nodes[0].level == .top(1))
         #expect(nodes[1].children[1].content.place == nil)
-        #expect(nodes.map(\.index) == [0, 1, 2, 3])
         #expect(nodes.map(\.id) == nodes.map(\.path))
     }
 
