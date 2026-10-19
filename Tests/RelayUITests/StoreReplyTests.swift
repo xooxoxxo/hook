@@ -55,6 +55,23 @@ private let plain = [item("a", created: stamp(minutesAgo: 10)), item("b", create
         #expect(store.replyStates["a"] == .failed(reason: "timed out"))
     }
 
+    @Test func aReplyThatFailsToSaveShowsInTheReplyBoxOnly() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let store = Store(defaults: defaults.defaults)
+        let fake = FakeQueueSource(items: plain)
+        await start(store, fake)
+        await fake.failNext(QueueError.storeFailed("disk full"), on: "reply")
+        store.drafts["a"] = "hello"
+        #expect(!(await store.sendReply("a")))
+        guard case .failed(let reason)? = store.replyStates["a"] else {
+            Issue.record("expected a failed reply state, got \(String(describing: store.replyStates["a"]))")
+            return
+        }
+        #expect(reason.contains("disk full"))
+        #expect(store.notice == nil)
+    }
+
     @Test func sendAndDoneSendsThenCloses() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }

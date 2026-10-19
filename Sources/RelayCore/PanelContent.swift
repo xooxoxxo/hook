@@ -25,6 +25,10 @@ public enum PanelContent: Equatable, Sendable {
 public enum PanelNotice: Equatable, Sendable {
     case actionFailed(verdict: Verdict, id: String, title: String, reason: String)
     case reopenFailed(id: String, title: String, reason: String)
+    /// No caller yet: a reopen or reply that fails to save already shows its error in its own
+    /// Notice or ReplyBox (A7). A future poster passes the raw reason
+    /// (`case QueueError.storeFailed(let reason)` → `.storeFailed(reason: reason)`), never
+    /// `UserFacingError.text(error)`, which would double the "Couldn't save the queue" prefix.
     case storeFailed(reason: String)
     case queueMoved(path: String)
     case settingsReloaded

@@ -129,6 +129,25 @@ private let abc = [item("a", created: stamp(minutesAgo: 10)), item("b", created:
         #expect(await eventually { store.items.contains { $0.id == "c" } })
     }
 
+    @Test func aReopenThatFailsToSaveShowsOnlyTheRetryNotice() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let store = Store(defaults: defaults.defaults)
+        let fake = FakeQueueSource(items: [item("a", created: stamp(minutesAgo: 10))])
+        await fake.setClosed([closed(item("c", created: stamp(minutesAgo: 90)))])
+        await start(store, fake)
+        await fake.failNext(QueueError.storeFailed("disk full"), on: "reopen")
+        await store.reopen("c")
+        guard case .reopenFailed(let id, _, _)? = store.notice else {
+            Issue.record("expected a reopenFailed Notice, got \(String(describing: store.notice))")
+            return
+        }
+        #expect(id == "c")
+        #expect(store.notice?.actionTitle == "Retry")
+        let text = store.notice?.text ?? ""
+        #expect(text.components(separatedBy: "disk full").count - 1 == 1)
+    }
+
     @Test func aReopenedAskStaysOpenInPlace() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }

@@ -679,7 +679,6 @@ import RelayCore
         } catch {
             guard gen == generation else { return }
             post(.reopenFailed(id: id, title: item(for: id)?.title ?? "", reason: UserFacingError.text(error)))
-            noteStoreFailure(error)
         }
     }
 
@@ -818,7 +817,6 @@ import RelayCore
             return .success(())
         } catch {
             guard gen == generation else { return .failure(CancellationError()) }
-            noteStoreFailure(error)
             return .failure(error)
         }
     }
@@ -914,12 +912,6 @@ import RelayCore
             // Keep the cached detail; the next refresh retries.
             guard gen == generation else { return }
             if details[id] == nil { detailFailed.insert(id) }
-        }
-    }
-
-    private func noteStoreFailure(_ error: any Error) {
-        if case QueueError.storeFailed? = error as? QueueError {
-            post(.storeFailed(reason: UserFacingError.text(error)))
         }
     }
 
