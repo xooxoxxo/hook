@@ -33,7 +33,7 @@ private func legacy(cmd: String? = nil, link: String? = nil) -> WireItem {
         #expect(state.badge == .none)
         #expect(!state.dimmed)
         #expect(state.accessibilityLabel == "Relay, 0 waiting")
-        #expect(state.tooltip == nil)
+        #expect(state.tooltip == "Relay · nothing waiting")
     }
 
     @Test(arguments: [
@@ -66,7 +66,8 @@ private func legacy(cmd: String? = nil, link: String? = nil) -> WireItem {
                         if nowCount > 0 { label += ", 1 now" }
                         if !reachable { label += ", offline" }
                         #expect(state.accessibilityLabel == label)
-                        #expect(state.tooltip == (reachable ? nil : "timed out"))
+                        let waiting = count == 0 ? "nothing waiting" : "3 waiting" + (nowCount > 0 ? ", 1 now" : "")
+                        #expect(state.tooltip == (reachable ? "Relay · " + waiting : "Relay · offline: timed out"))
                     }
                 }
             }
@@ -78,7 +79,19 @@ private func legacy(cmd: String? = nil, link: String? = nil) -> WireItem {
         #expect(state.badge == .number(3))
         #expect(state.dimmed)
         #expect(state.accessibilityLabel == "Relay, 3 waiting, 1 now, offline")
-        #expect(state.tooltip == "timed out")
+        #expect(state.tooltip == "Relay · offline: timed out")
+    }
+
+    @Test func tooltipForms() {
+        #expect(MenuBarState(count: 5, nowCount: 1, shortcut: "⌃⌥⌘R").tooltip == "Relay · 5 waiting, 1 now · ⌃⌥⌘R")
+        #expect(MenuBarState(count: 0, shortcut: "⌃⌥⌘R").tooltip == "Relay · nothing waiting · ⌃⌥⌘R")
+        #expect(MenuBarState(count: 2).tooltip == "Relay · 2 waiting")
+        #expect(MenuBarState(count: 2, reachable: false, offlineReason: "a\nb", shortcut: "⌃⌥⌘R").tooltip == "Relay · offline: a⟨U+000A⟩b")
+        #expect(MenuBarState(count: 2, reachable: false).tooltip == "Relay · offline")
+        #expect(MenuBarState(count: 5, away: true, awaySince: "10:22").tooltip == "Relay · away since 10:22 · 5 waiting")
+        #expect(MenuBarState(count: 5, away: true, shortcut: "⌃⌥⌘R", awaySince: "10:22").tooltip == "Relay · away since 10:22 · 5 waiting · ⌃⌥⌘R")
+        #expect(MenuBarState(count: 0, away: true).tooltip == "Relay · away · nothing waiting")
+        #expect(MenuBarState(count: 1, reachable: false, offlineReason: "x", away: true).tooltip == "Relay · offline: x")
     }
 
     @Test func fromItemsCountsNowAsks() {

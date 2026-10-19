@@ -19,6 +19,10 @@ public struct MenuBarState: Sendable, Equatable {
     public var offlineReason: String?
     /// Away mode: the symbol is de-emphasised; the badge is unchanged.
     public var away: Bool
+    /// The global shortcut's label ("⌃⌥⌘R"); nil when none is set.
+    public var shortcut: String?
+    /// When the owner went away, in the locale's short time ("10:22").
+    public var awaySince: String?
 
     public init(
         count: Int = 0,
@@ -26,7 +30,9 @@ public struct MenuBarState: Sendable, Equatable {
         reachable: Bool = true,
         showCount: Bool = true,
         offlineReason: String? = nil,
-        away: Bool = false
+        away: Bool = false,
+        shortcut: String? = nil,
+        awaySince: String? = nil
     ) {
         self.count = count
         self.nowCount = nowCount
@@ -34,6 +40,8 @@ public struct MenuBarState: Sendable, Equatable {
         self.showCount = showCount
         self.offlineReason = offlineReason
         self.away = away
+        self.shortcut = shortcut
+        self.awaySince = awaySince
     }
 
     /// `items` is the open list.
@@ -69,9 +77,19 @@ public struct MenuBarState: Sendable, Equatable {
         return label
     }
 
-    public var tooltip: String? {
-        if dimmed { return offlineReason }
-        return away ? "Away" : nil
+    /// Always set: "Relay · 5 waiting, 1 now · ⌃⌥⌘R", "Relay · offline: <reason>",
+    /// "Relay · away since 10:22 · 5 waiting". The reason is revealed (one line).
+    public var tooltip: String {
+        if dimmed {
+            return "Relay · offline" + (offlineReason.map { ": " + Sanitize.revealLine($0) } ?? "")
+        }
+        var waiting = count == 0 ? "nothing waiting" : "\(count) waiting"
+        if count > 0, nowCount > 0 { waiting += ", \(nowCount) now" }
+        var parts = ["Relay"]
+        if away { parts.append("away" + (awaySince.map { " since " + $0 } ?? "")) }
+        parts.append(waiting)
+        if let shortcut { parts.append(shortcut) }
+        return parts.joined(separator: " · ")
     }
 }
 

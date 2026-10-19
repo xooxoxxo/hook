@@ -398,7 +398,7 @@ import RelayCore
         updateShortcutLabel()
     }
 
-    /// Count, "now" dot, dimming and tooltip, after every Store change.
+    /// Count badge, dimming and tooltip, after every Store change.
     private func updateMenuBar() {
         guard let store else { return }
         menuBar?.update(store.menuBarState(showCount: showCount, away: presence.status.state == .away))
