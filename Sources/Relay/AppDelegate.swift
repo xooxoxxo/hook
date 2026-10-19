@@ -35,6 +35,8 @@ import RelayUI
     private var applyChain: Task<Void, Never>?
     /// A link that arrived before launch finished.
     private var pendingLink: String?
+    /// A relay://show that arrived before launch finished.
+    private var pendingShow = false
     /// Quit is waiting on held-back closes; set once the reply has been sent.
     private var terminationAnswered = false
     /// Away mode: the signals, the flag file and the asks counted while away.
@@ -45,6 +47,7 @@ import RelayUI
     private var termSource: (any DispatchSourceSignal)?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if handOffToRunningRelay() { return }
         let hotKeys = HotKeyManager { [weak self] in self?.togglePanel() }
         hotKeys.onLabelChange = { [weak self] in self?.updateShortcutLabel() }
         self.hotKeys = hotKeys
@@ -65,7 +68,7 @@ import RelayUI
         store.onNewItems = { [weak self] items in
             self?.announce(items)
         }
-        let notifier = Notifier { [weak self] id in self?.showItem(id) }
+        let notifier = Notifier { [weak self] id in self?.openLink(id) }
         notifier.onOpenList = { [weak self] in
             self?.store?.back()
             self?.panel?.present(focus: true, animated: true)
@@ -109,6 +112,27 @@ import RelayUI
             pendingLink = nil
             openLink(id)
         }
+        if pendingShow {
+            pendingShow = false
+            panel?.present(focus: true, animated: true)
+        }
+    }
+
+    /// A second copy (another path, or a manual `open -n`) hands `relay://show` to the
+    /// running Relay and exits before it opens the queue, the port or the status item.
+    private func handOffToRunningRelay() -> Bool {
+        guard let bundleID = Bundle.main.bundleIdentifier else { return false }
+        let running = NSWorkspace.shared.runningApplications.map { ($0.bundleIdentifier, $0.processIdentifier) }
+        guard let pid = SingleInstance.other(bundleID: bundleID, myPID: ProcessInfo.processInfo.processIdentifier,
+                                              running: running),
+              let other = NSRunningApplication(processIdentifier: pid), let appURL = other.bundleURL,
+              let show = URL(string: "relay://show") else { return false }
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = false
+        NSWorkspace.shared.open([show], withApplicationAt: appURL, configuration: configuration) { _, _ in
+            DispatchQueue.main.async { exit(0) }
+        }
+        return true
     }
 
     /// Held-back Done and Skip are sent before quitting, with a 3 s cap so
@@ -154,25 +178,42 @@ import RelayUI
         NSApp.reply(toApplicationShouldTerminate: true)
     }
 
-    /// relay://i/<uuid>
+    /// relay://show and relay://i/<uuid>.
     func application(_ application: NSApplication, open urls: [URL]) {
-        for url in urls where url.scheme == "relay" && url.host() == "i" {
-            if let id = QueueLogic.normalizedID(url.lastPathComponent) {
+        for url in urls {
+            switch RelayURL.parse(url) {
+            case .show:
+                if let panel { panel.present(focus: true, animated: true) } else { pendingShow = true }
+            case .open(let id):
                 openLink(id)
+            case nil:
+                break
             }
         }
     }
 
-    /// A link from outside the app (relay:// or the loopback server) brings
-    /// Relay forward only for an id in the open queue.
+    /// A link from outside the app (relay://, the loopback server, a notification click)
+    /// opens an ask in the open queue; for a closed or unknown one the panel shows on the
+    /// list with "This ask is no longer open." (§4.7).
     func openLink(_ id: String) {
         guard let store else {
             pendingLink = id
             return
         }
         Task {
-            if await store.acceptsLink(id) { showItem(id) }
+            if await store.acceptsLink(id) {
+                showItem(id)
+            } else {
+                showNoLongerOpen(id)
+            }
         }
+    }
+
+    private func showNoLongerOpen(_ id: String) {
+        guard let store, let panel else { return }
+        if store.navigation.selectedID != nil { store.back() }
+        panel.present(focus: true, animated: true)
+        store.post(.noLongerOpen(id: id, canShowClosed: store.recentlyClosed.contains { $0.id == id }))
     }
 
     func showItem(_ id: String) {

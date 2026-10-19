@@ -41,3 +41,28 @@ public enum LinkPolicy {
         return .open(id: id)
     }
 }
+
+/// What a relay:// URL asks for.
+public enum RelayURLAction: Equatable, Sendable {
+    /// relay://show: present the panel with focus (a second launch sends this).
+    case show
+    /// relay://i/<uuid>: open that ask.
+    case open(id: String)
+}
+
+public enum RelayURL {
+    /// relay://show and relay://i/<uuid> (case-insensitive scheme and host, id normalized); else nil.
+    public static func parse(_ url: URL) -> RelayURLAction? {
+        guard url.scheme?.lowercased() == "relay", let host = url.host()?.lowercased() else { return nil }
+        let parts = url.path().split(separator: "/", omittingEmptySubsequences: true).map(String.init)
+        switch host {
+        case "show":
+            return parts.isEmpty ? .show : nil
+        case "i":
+            guard parts.count == 1, let id = QueueLogic.normalizedID(parts[0]) else { return nil }
+            return .open(id: id)
+        default:
+            return nil
+        }
+    }
+}

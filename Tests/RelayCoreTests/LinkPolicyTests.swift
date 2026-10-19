@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import RelayCore
 
@@ -43,4 +44,31 @@ private func decide(_ headers: [String: String], method: String = "GET") -> Link
 
 @Test func postIsNotFound() {
     #expect(decide(["Host": "127.0.0.1:47823"], method: "POST") == .notFound)
+}
+
+@Suite struct LinkPolicyTests {
+    private func parse(_ text: String) -> RelayURLAction? {
+        URL(string: text).flatMap(RelayURL.parse)
+    }
+
+    @Test func showOpensThePanel() {
+        #expect(parse("relay://show") == .show)
+        #expect(parse("RELAY://SHOW") == .show)
+        #expect(parse("relay://show/") == .show)
+    }
+
+    @Test func anAskLinkCarriesTheNormalizedID() {
+        #expect(parse("relay://i/" + id) == .open(id: id))
+        #expect(parse("relay://i/" + id.uppercased()) == .open(id: id))
+    }
+
+    @Test func everythingElseIsRefused() {
+        #expect(parse("relay://i/") == nil)
+        #expect(parse("relay://i/not-a-uuid") == nil)
+        #expect(parse("relay://i/\(id)/extra") == nil)
+        #expect(parse("relay://show/extra") == nil)
+        #expect(parse("relay://settings") == nil)
+        #expect(parse("https://i/" + id) == nil)
+        #expect(parse("relay:show") == nil)
+    }
 }
