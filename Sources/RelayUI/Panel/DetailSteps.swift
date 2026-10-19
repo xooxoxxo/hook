@@ -38,6 +38,18 @@ struct DetailSteps<Model: PanelViewModel>: View {
         !node.children.isEmpty
     }
 
+    /// The Steps rotor's entries: every node that is on screen, in reading order. A parent whose
+    /// sub-steps are all done collapses (ParentStepView) and its sub-step rows are not rendered
+    /// unless the parent is expanded, so they are left out then; the parent itself stays.
+    static func rotorNodes(_ nodes: [DetailModel.Node], ticks: Set<String>, current: String?,
+                           expanded: Set<String>) -> [DetailModel.Node] {
+        nodes.flatMap { node -> [DetailModel.Node] in
+            guard rendersAsParent(node) else { return [node] }
+            let allDone = node.children.allSatisfy { Flow.state(of: $0, ticks: ticks, current: current) == .done }
+            return allDone && !expanded.contains(node.path) ? [node] : [node] + node.children
+        }
+    }
+
     /// "Step 3 of 5": top-level steps plus verify.
     private var total: Int { snapshot.model?.stepTotal ?? nodes.count }
 
@@ -64,7 +76,8 @@ struct DetailSteps<Model: PanelViewModel>: View {
         .animation(DS.motion(DS.Motion.step, reduce: reduceMotion), value: snapshot.current)
         .animation(DS.motion(DS.Motion.step, reduce: reduceMotion), value: snapshot.ticks)
         .accessibilityRotor("Steps") {
-            ForEach(Flow.flattened(nodes)) { node in
+            ForEach(Self.rotorNodes(nodes, ticks: snapshot.ticks, current: snapshot.current,
+                                    expanded: model.expandedDone[snapshot.id] ?? [])) { node in
                 AccessibilityRotorEntry(Text(Self.rotorTitle(node)), id: node.path)
             }
         }

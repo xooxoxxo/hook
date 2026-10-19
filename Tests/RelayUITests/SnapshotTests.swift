@@ -394,6 +394,26 @@ private let phase3Now = Date(timeIntervalSince1970: 1_792_143_600)
         #expect(DetailSteps<FixturePanelModel>.toggled(["2"], path: "2.1", expanded: true) == ["2", "2.1"])
     }
 
+    /// A done parent collapses and its sub-step rows are not rendered, so the rotor leaves them out
+    /// until the parent is expanded; an open parent keeps them.
+    @Test func theRotorSkipsTheSubStepsOfADoneCollapsedParent() {
+        let nodes = DetailModel.nodes(
+            steps: [Step(action: "Open the console"),
+                    Step(action: "Create the app", substeps: [Step(action: "Click New App"), Step(action: "Name it Acme")]),
+                    Step(action: "Copy the key", substeps: [Step(action: "Open Keys"), Step(action: "Click Copy")])],
+            verify: Step(action: "Check the key is saved"))
+        let ticks: Set<String> = ["1", "2.1", "2.2", "3.1"]
+        let current = Flow.currentStep(ticks: ticks, nodes: nodes)
+        #expect(current == "3.2")
+        let collapsed = DetailSteps<FixturePanelModel>.rotorNodes(nodes, ticks: ticks, current: current, expanded: [])
+        #expect(collapsed.map(\.path) == ["1", "2", "3", "3.1", "3.2", "verify"])
+        let expanded = DetailSteps<FixturePanelModel>.rotorNodes(nodes, ticks: ticks, current: current, expanded: ["2"])
+        #expect(expanded.map(\.path) == Flow.flattened(nodes).map(\.path))
+        // A sub-step's own expansion doesn't bring back the rows of its collapsed parent.
+        let childOnly = DetailSteps<FixturePanelModel>.rotorNodes(nodes, ticks: ticks, current: current, expanded: ["2.1"])
+        #expect(childOnly.map(\.path) == ["1", "2", "3", "3.1", "3.2", "verify"])
+    }
+
     /// Task 16 ruling: `substeps: []` decodes as an empty list, and that step is a plain StepView.
     @Test func anEmptySubstepsListRendersAsAPlainStep() throws {
         let json = #"{"do": "Open the console", "substeps": []}"#
