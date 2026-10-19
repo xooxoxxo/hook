@@ -162,7 +162,7 @@ public enum RelativeAge {
     }
 }
 
-/// How a row in "Closed today" says when and how the ask was closed:
+/// How a row in "Recently closed" says when and how the ask was closed:
 /// "Done 5 min ago", "Skipped 1 h ago", "Closed by the session 2 h ago".
 public enum ClosedLine {
     /// `closedBy` is the actor of the closing event ("owner", "session"), when known.
