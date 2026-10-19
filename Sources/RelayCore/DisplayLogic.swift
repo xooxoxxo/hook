@@ -234,7 +234,9 @@ public enum ClosedText {
             }
         }
         guard let closedAt, let date = Timestamp.date(closedAt) else { return who }
-        let style = Date.FormatStyle(locale: locale, timeZone: timeZone).day().month(.abbreviated).hour().minute()
-        return who + " · " + date.formatted(style)
+        // Day and time are joined here, not by one combined style: ICU joins those with
+        // " at " on recent macOS, and the design's line is "11 Oct, 14:32" (§4.4).
+        let day = date.formatted(Date.FormatStyle(locale: locale, timeZone: timeZone).day().month(.abbreviated))
+        return who + " · " + day + ", " + ClockText.time(date, locale: locale, timeZone: timeZone)
     }
 }

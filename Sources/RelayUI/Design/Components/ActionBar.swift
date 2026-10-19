@@ -11,8 +11,8 @@ public enum ActionBarMode: Equatable, Sendable {
     case closed(String)
 }
 
-/// Design/ActionBar (design §4.4): the detail's bottom bar. Keys (⌘↩, ⌘⌫, ⇧⌘R) are
-/// attached by the panel, not here; the help strings name them.
+/// Design/ActionBar (design §4.4): the detail's bottom bar. The open state carries ⌘↩ and
+/// ⌘⌫; ⇧⌘R (Reopen) is attached by the panel. The help strings name them.
 public struct ActionBar: View {
     let mode: ActionBarMode
     let onSkip: () -> Void
@@ -34,11 +34,11 @@ public struct ActionBar: View {
                 switch mode {
                 case let .open(action):
                     Spacer()
-                    buttons(action)
+                    buttons(action, keyed: true)
                 case let .busy(action):
                     ProgressView().controlSize(DS.Control.inline).accessibilityLabel("Sending")
                     Spacer()
-                    buttons(action).disabled(true)
+                    buttons(action, keyed: false).disabled(true)
                 case let .closed(text):
                     Text(text).font(DS.Font.meta).foregroundStyle(DS.Color.secondary).monospacedDigit()
                     Spacer()
@@ -52,11 +52,17 @@ public struct ActionBar: View {
         }
     }
 
-    @ViewBuilder private func buttons(_ action: PrimaryAction) -> some View {
-        Button("Skip", action: onSkip).help(Self.skipHelp)
+    /// Skip and the primary. Only `.open` carries ⌘⌫ and ⌘↩ (busy is disabled, closed has
+    /// no primary). From Task 52 the panel's key router consumes ⌘↩ and ⌘⌫ before the view
+    /// hierarchy, so these never fire inside a text field.
+    @ViewBuilder private func buttons(_ action: PrimaryAction, keyed: Bool) -> some View {
+        Button("Skip", action: onSkip)
+            .help(Self.skipHelp)
+            .keyboardShortcut(keyed ? KeyboardShortcut(.delete, modifiers: .command) : nil)
         Button(action.title, action: onPrimary)
             .buttonStyle(.borderedProminent)
             .help(Self.primaryHelp(action))
+            .keyboardShortcut(keyed ? KeyboardShortcut(.return, modifiers: .command) : nil)
     }
 
     public static func primaryHelp(_ action: PrimaryAction) -> String {

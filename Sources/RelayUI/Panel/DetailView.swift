@@ -2,11 +2,13 @@ import AppKit
 import RelayCore
 import SwiftUI
 
-/// One ask (design §4.4). Stub until Task 46: the title, or the not-found state when the
-/// model has no snapshot for `id` (§4.7 "Not found").
+/// One ask (design §4.4). A ScrollView with the header pinned on top and the Undo and
+/// action bars pinned below; the sections are added by Tasks 47–49.
 struct DetailView<Model: PanelViewModel>: View {
     @ObservedObject private var model: Model
     let id: String
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.panelGallery) private var gallery
 
     init(model: Model, id: String) {
         _model = ObservedObject(wrappedValue: model)
@@ -18,11 +20,21 @@ struct DetailView<Model: PanelViewModel>: View {
         queue.closed.contains { $0.id == id }
     }
 
+    /// Closed: its text and Reopen. Open: the primary title (Flow.primaryAction), busy while sending.
+    static func actionMode(_ snapshot: DetailSnapshot) -> ActionBarMode {
+        if let closedText = snapshot.closedText { return .closed(closedText) }
+        return snapshot.busy ? .busy(snapshot.primary) : .open(snapshot.primary)
+    }
+
+    /// The ask a header chevron opens; nil at the ends and outside the filter (disabled).
+    static func target(_ neighbour: Neighbour) -> String? {
+        if case .ask(let id) = neighbour { return id }
+        return nil
+    }
+
     var body: some View {
         if let snapshot = model.detail(id) {
-            Text(line(snapshot.row.title))
-                .font(DS.Font.askTitle)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            frame(snapshot)
         } else {
             notFound
         }
@@ -36,16 +48,136 @@ struct DetailView<Model: PanelViewModel>: View {
                 // Esc goes back in detail (§4.12), so Hide names ⌘W (Task 9 ruling, N8).
                 IconButton(DS.Symbol.hide, label: "Hide Relay", help: DetailHeaderBar.hideHelp) { model.shell.hide() }
             }
-            StateView(
-                .notFound(canShowClosed: Self.isRecentlyClosed(id, in: model.queue)),
-                actions: StateActions(
-                    settings: { model.shell.openSettings(.queue) },
-                    tryAgain: { model.refresh() },
-                    setUp: { model.shell.setUp() },
-                    showAll: { model.setFilter(nil) },
-                    backToQueue: { model.back() },
-                    showClosed: { model.open(id) }))
+            StateView(.notFound(canShowClosed: Self.isRecentlyClosed(id, in: model.queue)),
+                      actions: PanelStateMapping.actions(model, closedID: id))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    /// The gallery renders full height without a ScrollView (offscreen, a ScrollView has no
+    /// height of its own); the app always scrolls.
+    @ViewBuilder private func frame(_ snapshot: DetailSnapshot) -> some View {
+        if gallery.fullHeight == true {
+            VStack(spacing: 0) {
+                header(snapshot)
+                content(snapshot)
+                bottomBars(snapshot)
+            }
+        } else {
+            ScrollViewReader { _ in
+                ScrollView {
+                    content(snapshot)
+                }
+                .safeAreaInset(edge: .top, spacing: 0) { header(snapshot) }
+                .safeAreaInset(edge: .bottom, spacing: 0) { bottomBars(snapshot) }
+            }
+        }
+    }
+
+    private func content(_ snapshot: DetailSnapshot) -> some View {
+        let closed = snapshot.closedText != nil
+        return VStack(alignment: .leading, spacing: DS.Space.section) {
+            if let notice = model.notice {
+                Notice(kind: notice.kind, text: notice.text, actionTitle: notice.actionTitle,
+                       onAction: { model.performNoticeAction() }, onDismiss: { model.dismissNotice() })
+                    .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
+            }
+            titleBlock(snapshot)
+            stepsArea(snapshot, closed: closed)
+        }
+        .padding(.horizontal, DS.Space.gutter)
+        .padding(.vertical, DS.Space.bodyV)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: model.notice)
+    }
+
+    private func header(_ snapshot: DetailSnapshot) -> some View {
+        TimelineView(.everyMinute) { context in
+            DetailHeaderBar(
+                project: snapshot.row.project, urgency: snapshot.row.urgency,
+                age: RelativeAge.text(created: snapshot.row.created, now: gallery.now ?? context.date),
+                previous: snapshot.previous, next: snapshot.next,
+                onBack: { model.back() },
+                onPrevious: { if let other = Self.target(snapshot.previous) { model.open(other) } },
+                onNext: { if let other = Self.target(snapshot.next) { model.open(other) } },
+                onHide: { model.shell.hide() },
+                onDock: { model.shell.dock($0) })
+        }
+    }
+
+    private func titleBlock(_ snapshot: DetailSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: DS.Space.inline) {
+            Text(line(snapshot.model?.title ?? snapshot.row.title))
+                .font(DS.Font.askTitle)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityHeading(.h1)
+            if let why = snapshot.model?.why {
+                Text(prose(why))
+                    .font(DS.Font.body)
+                    .foregroundStyle(DS.Color.secondary)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            ForEach(Array((snapshot.model?.notes ?? []).enumerated()), id: \.offset) { _, note in
+                Text(prose(note))
+                    .font(DS.Font.body)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    /// Until the detail loads: a labelled spinner, then after 10 s (DetailLoadState) the
+    /// failure line and Try Again. While loading, the snapshot is re-read once a second.
+    @ViewBuilder private func stepsArea(_ snapshot: DetailSnapshot, closed: Bool) -> some View {
+        switch snapshot.load {
+        case .loaded:
+            EmptyView()
+        case .loading, .timedOut:
+            TimelineView(.periodic(from: Date(), by: DS.Motion.wakeRecheck)) { _ in
+                loadingView(model.detail(id)?.load ?? snapshot.load)
+            }
+        }
+    }
+
+    @ViewBuilder private func loadingView(_ state: DetailLoadState) -> some View {
+        switch state {
+        case .timedOut:
+            VStack(alignment: .leading, spacing: DS.Space.inline) {
+                Text("Couldn't load this ask.")
+                    .foregroundStyle(DS.Color.secondary)
+                Button("Try Again") { model.retryDetail(id) }
+                    .controlSize(DS.Control.form)
+            }
+        case .loading:
+            ProgressView { Text("Loading steps…") }
+                .controlSize(DS.Control.inline)
+                .accessibilityLabel("Loading steps")
+        case .loaded:
+            EmptyView()
+        }
+    }
+
+    private func bottomBars(_ snapshot: DetailSnapshot) -> some View {
+        VStack(spacing: 0) {
+            if let undo = model.undoInfo {
+                UndoBar(undo: undo, sending: model.sendingCloses > 0, onUndo: { model.undo() })
+                    .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+            }
+            ActionBar(mode: Self.actionMode(snapshot),
+                      onSkip: { model.close(id, .declined) },
+                      onPrimary: { primary(snapshot) },
+                      onReopen: { model.reopen(id) })
+        }
+        .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: model.undoInfo)
+    }
+
+    private func primary(_ snapshot: DetailSnapshot) {
+        switch snapshot.primary {
+        case .done: model.close(id, .done)
+        case .sendAndDone: model.sendAndDone(id)
         }
     }
 }

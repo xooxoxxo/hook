@@ -297,3 +297,55 @@ private let phase3Now = Date(timeIntervalSince1970: 1_792_143_600)
         #expect(UndoBar.accessibilityText(undo, sending: false, secondsLeft: 8) == "Done: Store the key. Undo, 8 seconds left")
     }
 }
+
+@MainActor @Suite struct DetailFrameSnapshotTests {
+    private let closedID = "6f1c2b0e-8a1d-4c55-9a77-0d2f3c4b5a61"
+    private let closedAt = "2026-10-16T06:12:00+00:00"
+
+    @Test func closedSnapshotSaysWhoClosedItAndWhen() async {
+        let ins = Instructable(v: 1, title: "Rotate the example token", steps: [Step(action: "Open the key page")])
+        let closed = WireItem(id: closedID, title: ins.title, status: "done", projectId: "Acme",
+                              created: "2026-10-16T05:00:00+00:00", updated: closedAt,
+                              payload: Payload(instructable: ins), completedAt: closedAt)
+        let events = [Event(seq: 1, itemId: closedID, kind: "resolved", actor: "owner", text: nil, at: closedAt)]
+        let env = await PanelTestEnv.make([], details: [closedID: AskDetail(item: closed, events: events)])
+        defer { env.tearDown() }
+        await env.store.focus(closedID)
+        let snapshot = env.store.detail(closedID)
+        #expect(snapshot?.closedText == ClosedText.detail(status: "done", closedBy: "owner", closedAt: closedAt))
+        #expect(ClosedText.detail(status: "done", closedBy: "owner", closedAt: closedAt,
+                                  locale: Locale(identifier: "en_GB"), timeZone: TimeZone(identifier: "UTC")!)
+                == "Done by you · 16 Oct, 06:12")
+        if let snapshot {
+            #expect(DetailView<FixturePanelModel>.actionMode(snapshot) == .closed(snapshot.closedText ?? ""))
+        }
+    }
+
+    @Test func legacyCommandIsOneNode() {
+        let legacy = WireItem(id: "l1", title: "Check the version", status: "open", projectId: "Atlas",
+                              created: "2026-10-16T07:40:00+00:00", updated: "2026-10-16T07:40:00+00:00",
+                              payload: Payload(why: "Before the rotation.", cmd: "relay --version"))
+        let model = DetailModel.make(item: legacy, events: [])
+        #expect(model.nodes.count == 1)
+        #expect(model.nodes.first?.path == "1")
+        #expect(Flow.leaves(of: model.nodes).map(\.path) == ["1"])
+    }
+
+    @Test func actionModeFollowsBusyAndPrimary() {
+        var snapshot = GalleryFixtures.detailSteps
+        snapshot.closedText = nil
+        snapshot.busy = false
+        snapshot.primary = .done
+        #expect(DetailView<FixturePanelModel>.actionMode(snapshot) == .open(.done))
+        snapshot.primary = .sendAndDone
+        #expect(DetailView<FixturePanelModel>.actionMode(snapshot) == .open(.sendAndDone))
+        snapshot.busy = true
+        #expect(DetailView<FixturePanelModel>.actionMode(snapshot) == .busy(.sendAndDone))
+    }
+
+    @Test func neighbourTargets() {
+        #expect(DetailView<FixturePanelModel>.target(.ask("a2")) == "a2")
+        #expect(DetailView<FixturePanelModel>.target(.end) == nil)
+        #expect(DetailView<FixturePanelModel>.target(.outsideFilter) == nil)
+    }
+}
