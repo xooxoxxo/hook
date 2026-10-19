@@ -15,6 +15,13 @@ import RelayCore
     @Published public private(set) var details: [String: AskDetail] = [:]
     /// The highlighted row and the open detail (design §4.6).
     @Published public var navigation = PanelNavigation()
+    /// Unsent reply text per ask. Memory only: the owner's text is never written to disk unasked.
+    @Published public var drafts: [String: String] = [:]
+    /// The picked, unsent choice index per ask. Memory only.
+    @Published public var pendingChoice: [String: Int] = [:]
+    @Published public private(set) var replyStates: [String: ReplyBoxState] = [:]
+    /// How long "Sent 10:42" stays in the reply box.
+    static let sentHold: Duration = .seconds(4)
     /// After Done or Skip in the detail; AppDelegate sets it from config.json.
     public var afterClose: AfterClose = .next
     /// One Notice at a time; the newest replaces the older; only ✕ or its action clears it.
@@ -139,6 +146,7 @@ import RelayCore
         tickHistory = [:]
         expandedDone = [:]
         detailAnchor = [:]
+        replyStates = [:]
         listed = []
         items = []
         sending = []
@@ -748,25 +756,88 @@ import RelayCore
         }
     }
 
-    /// Sends a reply event. Returns true on success so the caller can clear its field.
+    /// The 0.5 views' reply call.
     public func reply(_ id: String, text: String) async -> Bool {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let source, !trimmed.isEmpty, busyID == nil else { return false }
-        let gen = generation
-        busyID = id
+        guard !trimmed.isEmpty, busyID == nil else { return false }
         actionError = nil
-        defer { if gen == generation { busyID = nil } }
-        do {
-            _ = try await source.reply(id, text: trimmed)
-            guard gen == generation else { return false }
-            await load(id, from: source, generation: gen)
-            return true
-        } catch {
-            guard gen == generation else { return false }
+        switch await deliver(id, text: trimmed) {
+        case .success: return true
+        case .failure(let error):
             actionError = "Reply failed: \(error.localizedDescription)"
-            noteStoreFailure(error)
             return false
         }
+    }
+
+    /// Sends one reply event and reloads the ask, so its events (and sent choices) update.
+    private func deliver(_ id: String, text: String) async -> Result<Void, any Error> {
+        guard let source else { return .failure(QueueError.unreachable(Self.noSourceProblem)) }
+        let gen = generation
+        busyID = id
+        defer { if gen == generation { busyID = nil } }
+        do {
+            _ = try await source.reply(id, text: text)
+            guard gen == generation else { return .failure(CancellationError()) }
+            await load(id, from: source, generation: gen)
+            return .success(())
+        } catch {
+            noteStoreFailure(error)
+            return .failure(error)
+        }
+    }
+
+    public func sendReply(_ id: String) async -> Bool {
+        let text = (drafts[id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, replyStates[id] != .sending else { return false }
+        return await send(text, for: id) { self.drafts[id] = nil }
+    }
+
+    public func sendChoice(_ id: String) async -> Bool {
+        guard let index = pendingChoice[id], let choices = item(for: id)?.instructable?.reply?.choices,
+              choices.indices.contains(index), replyStates[id] != .sending else { return false }
+        return await send(ReplyText.wire(choice: choices[index]), for: id) { self.pendingChoice[id] = nil }
+    }
+
+    /// ⌘↩ / the primary button: Done, or send first and close only when the send worked.
+    public func sendAndDone(_ id: String) async {
+        guard primaryAction(for: id) == .sendAndDone else {
+            close(id, .done)
+            return
+        }
+        let hasText = !(drafts[id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let sent = hasText ? await sendReply(id) : await sendChoice(id)
+        if sent { close(id, .done) }
+    }
+
+    private func send(_ text: String, for id: String, onSuccess: () -> Void) async -> Bool {
+        replyStates[id] = .sending
+        switch await deliver(id, text: text) {
+        case .success:
+            onSuccess()
+            let state = ReplyBoxState.sent(at: ClockText.time(now()))
+            replyStates[id] = state
+            Task { [weak self] in
+                try? await Task.sleep(for: Self.sentHold)
+                if self?.replyStates[id] == state { self?.replyStates[id] = .idle }
+            }
+            return true
+        case .failure(let error):
+            replyStates[id] = .failed(reason: UserFacingError.text(error))
+            return false
+        }
+    }
+
+    public func primaryAction(for id: String) -> PrimaryAction {
+        Flow.primaryAction(draft: drafts[id], choice: pendingChoice[id], sent: latestSentChoice(for: id))
+    }
+
+    public func replyLines(for id: String) -> [ReplyLine] {
+        ReplyText.lines(events: details[id]?.events ?? [])
+    }
+
+    public func latestSentChoice(for id: String) -> Int? {
+        guard let choices = item(for: id)?.instructable?.reply?.choices else { return nil }
+        return ReplyText.latestSentChoice(events: details[id]?.events ?? [], choices: choices)
     }
 
     /// Posts through the current source (Settings' "Send a test ask").
