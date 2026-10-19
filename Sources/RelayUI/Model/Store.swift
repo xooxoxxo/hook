@@ -29,6 +29,10 @@ import RelayCore
     private var failedCloses: [String: PendingClose] = [:]
     /// The ask that was open when the source swapped; checked against the first list.
     private var reloadCheckID: String?
+    /// The offline Notice was posted in this outage; reset by a good list or a swap.
+    private var offlineNoticed = false
+    /// The ask after the one the session closed, taken from the order before it left the list.
+    private var sessionClosedNext: String?
     /// Done steps the owner expanded, by ask; node paths. Memory only, on purpose.
     @Published public var expandedDone: [String: Set<String>] = [:]
     /// The path of the top visible node per ask, for the detail's scroll position. Memory only.
@@ -126,6 +130,8 @@ import RelayCore
         reloadCheckID = openID
         failedCloses = [:]
         notice = nil
+        offlineNoticed = false
+        sessionClosedNext = nil
         filter = PanelPrefs.filter(defaults, sourceKey: identity.key)
         lastListAt = nil
         details = [:]
@@ -265,11 +271,14 @@ import RelayCore
             }
             if let selected = navigation.selectedID, diff.removed.contains(selected),
                !pending.contains(selected), !sending.contains(selected) {
+                // visibleOrder still holds the closed ask here: updateItems() hasn't run yet.
+                sessionClosedNext = Flow.nextAsk(after: selected, in: visibleOrder)
                 post(.sessionClosed(id: selected))
             }
             updateItems()
             listOK = true
             listProblem = nil
+            offlineNoticed = false
             if showsOfflineNotice { notice = nil }
             lastListAt = now()
             for id in diff.removed where id != selectedID {
@@ -298,7 +307,8 @@ import RelayCore
             listOK = false
             listProblem = error.localizedDescription
             // Once per outage: repeated failed polls don't re-post it.
-            if loadedOnce, !showsOfflineNotice {
+            if loadedOnce, !offlineNoticed {
+                offlineNoticed = true
                 post(.offlineCached(since: ClockText.time(lastListAt ?? now())))
             }
             publishState()
@@ -545,8 +555,15 @@ import RelayCore
             await send(close, via: source, generation: generation)
         case .reopenFailed(let id, _, _):
             await reopen(id)
-        case .sessionClosed(let id):
-            if let next = Flow.nextAsk(after: id, in: visibleOrder) { open(next) } else { back() }
+        case .sessionClosed:
+            if let next = sessionClosedNext, visibleOrder.contains(next) {
+                open(next)
+            } else if let first = visibleOrder.first {
+                open(first)
+            } else {
+                back()
+            }
+            sessionClosedNext = nil
         case .noLongerOpen(let id, let canShowClosed):
             if canShowClosed { open(id) }
         case .offlineCached:

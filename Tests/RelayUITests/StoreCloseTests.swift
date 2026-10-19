@@ -213,6 +213,64 @@ private let abc = [item("a", created: stamp(minutesAgo: 10)), item("b", created:
         #expect(store.notice == .settingsReloaded)
     }
 
+    @Test func aDismissedOfflineNoticeStaysDismissedForTheOutage() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let clock = TestClock()
+        let (store, fake) = await ready(clock: clock, defaults: defaults)
+        await fake.failNext(QueueError.unreachable("down"), on: "list")
+        await store.refresh()
+        #expect(store.notice == .offlineCached(since: ClockText.time(clock.now)))
+        store.dismissNotice()
+        await fake.failNext(QueueError.unreachable("down"), on: "list")
+        await store.refresh()
+        #expect(store.notice == nil)
+
+        await store.refresh()
+        #expect(store.notice == nil)
+        let since = ClockText.time(clock.now)
+        clock.advance(60)
+        await fake.failNext(QueueError.unreachable("down"), on: "list")
+        await store.refresh()
+        #expect(store.notice == .offlineCached(since: since))
+    }
+
+    @Test func aFailedPollDuringAnOutageKeepsTheRetryNotice() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let clock = TestClock()
+        let (store, fake) = await ready(clock: clock, defaults: defaults)
+        await fake.failNext(QueueError.unreachable("down"), on: "list")
+        await store.refresh()
+        #expect(store.notice == .offlineCached(since: ClockText.time(clock.now)))
+
+        await fake.failNext(QueueError.unreachable("timed out"), on: "resolve")
+        store.close("a", .done)
+        clock.advance(11)
+        store.sendDue()
+        let failed = PanelNotice.actionFailed(verdict: .done, id: "a", title: "Ask a", reason: "timed out")
+        #expect(await eventually { store.notice == failed })
+
+        await fake.failNext(QueueError.unreachable("down"), on: "list")
+        await store.refresh()
+        #expect(store.notice == failed)
+        await store.performNoticeAction()
+        #expect(await eventually { await fake.count("resolve a done") == 2 })
+    }
+
+    @Test func nextAskAfterTheSessionClosedTheMiddleAskOpensTheOneAfterIt() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, fake) = await ready(defaults: defaults)
+        store.open("b")
+        #expect(await eventually { store.details["b"] != nil })
+        await fake.setItems([abc[0], abc[2]])
+        await store.refresh()
+        #expect(store.notice == .sessionClosed(id: "b"))
+        await store.performNoticeAction()
+        #expect(store.selectedID == "c")
+    }
+
     @Test func oneNoticeAtATime() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }
