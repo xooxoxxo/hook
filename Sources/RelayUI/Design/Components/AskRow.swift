@@ -77,7 +77,7 @@ public struct AskRow: View, Equatable {
         let title = Text(line(row.title))
             .font(DS.Font.cardTitle)
             .foregroundStyle(DS.Color.primary)
-            .lineLimit(2)
+            .lineLimit(2, reservesSpace: true)
             .multilineTextAlignment(.leading)
             .fixedSize(horizontal: false, vertical: true)
             .alignmentProbe(.cardText)

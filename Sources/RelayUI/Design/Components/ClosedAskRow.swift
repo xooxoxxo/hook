@@ -43,7 +43,7 @@ public struct ClosedAskRow: View, Equatable {
                 HStack(alignment: .center, spacing: DS.Space.inline) {
                     Text(line(row.title))
                         .font(DS.Font.body)
-                        .lineLimit(2)
+                        .lineLimit(2, reservesSpace: true)
                         .fixedSize(horizontal: false, vertical: true)
                         .alignmentProbe(.cardText)
                     Spacer(minLength: DS.Space.inline)
