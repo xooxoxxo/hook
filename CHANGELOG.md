@@ -3,6 +3,12 @@
 All notable changes to Relay are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## [0.6.2] - 2026-10-20
+
+### Fixed
+
+- The queue scrolls more smoothly and Relay uses less memory and CPU: a check that finds nothing new no longer redraws the panel, and moving through the list redraws only the cards that changed.
+
 ## [0.6.1] - 2026-10-20
 
 ### Changed
