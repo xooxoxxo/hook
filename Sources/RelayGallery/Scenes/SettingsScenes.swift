@@ -4,7 +4,7 @@ import RelayUI
 import SwiftUI
 
 /// Every control in a section ends on one trailing edge. SettingsRow probes its
-/// help slot as `.settingsTrailing`; the grouped Form gives every section the same width.
+/// control as `.settingsTrailing`; the grouped Form gives every section the same width.
 let settingsRules: [AlignmentRule] = [.sameTrailingPerGroup(.settingsTrailing, tolerance: 1)]
 
 /// A Settings scene: the real toolbar-tab window chrome around `view` on `tab`.
