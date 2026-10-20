@@ -47,7 +47,8 @@ public struct QueueSnapshot: Equatable, Sendable {
         let isClosed = item.status != "open"
         return AskRowModel(
             id: item.id, title: item.title, project: item.projectId ?? "", urgency: Urgency(raw: item.urgency),
-            created: item.created, summary: QueueLayout.summary(for: item, ticked: ticked), hasDraft: hasDraft,
+            created: item.created, summary: QueueLayout.summary(for: item, ticked: ticked),
+            subline: SubLine.text(for: item, ticked: ticked), hasDraft: hasDraft,
             closed: isClosed ? ClosedInfo(status: item.status, closedBy: closedBy, completedAt: item.completedAt) : nil,
             resumeCommand: AskOrigin(from: item.instructable?.from)?.resumeCommand)
     }

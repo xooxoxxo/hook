@@ -53,6 +53,15 @@ public enum GalleryFixtures {
         steps: [Step(action: "Pick where the nightly backups are kept")],
         reply: ReplySpec(prompt: "Which region should the backups use?", choices: ["Europe", "North America"])))
 
+    /// A title longer than two card lines, in a long-named project: the queue scenes show the
+    /// title cut off after two lines and the project name giving way to the urgency and age.
+    public static let longAsk = ask("atlas-long", "Atlas warehouse migration and quarterly capacity review", "today",
+                                    hoursAgo: 11, Instructable(
+        v: 1, title: "Approve the firewall change for the Atlas staging hosts, then agree the maintenance window with the on-call engineer",
+        urgency: "today",
+        steps: [Step(action: "Review the firewall change", place: "Firewall console"),
+                Step(action: "Agree the maintenance window", place: "Team calendar")]))
+
     public static let open: [WireItem] = [
         cert, region,
         ask("acme-3", "Acme", "today", hoursAgo: 10, Instructable(v: 1, title: "Review the onboarding checklist",
@@ -61,6 +70,7 @@ public enum GalleryFixtures {
                                                                        urgency: "whenever", steps: steps(2, "Write section"))),
         ask("northwind-1", "Northwind", "whenever", hoursAgo: 48, Instructable(v: 1, title: "Pick a colour for the dashboard theme",
                                                                                urgency: "whenever", steps: steps(3, "Compare option"))),
+        longAsk,
     ]
 
     public static let closed: [WireItem] = [

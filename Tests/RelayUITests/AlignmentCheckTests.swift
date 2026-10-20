@@ -144,7 +144,7 @@ private func probe(_ role: ProbeRole, _ x: CGFloat, _ y: CGFloat, _ w: CGFloat, 
 
     @Test func theXLVariantMeasuresGutterTextByItsFrame() {
         // At 1.35x a capital's side bearing puts the ink past a frame that sits on the rule.
-        #expect(AlignmentCheck.xlFrameRoles == [.gutterText])
+        #expect(AlignmentCheck.xlFrameRoles == [.gutterText, .cardText])
         let probes = [probe(.gutterText, 14, 0, 30, 10), probe(.subMarker, 14, 0, 30, 10)]
         let rules: [AlignmentRule] = [.leading(.gutterText, x: 14, tolerance: 1), .leading(.subMarker, x: 14, tolerance: 1)]
         #expect(AlignmentCheck.verify(probes, bitmap: ink, rules: rules).count == 2)

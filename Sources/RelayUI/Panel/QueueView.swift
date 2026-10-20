@@ -2,8 +2,8 @@ import AppKit
 import RelayCore
 import SwiftUI
 
-/// Present while the Recently closed header has keyboard focus; PanelKeys turns ← / →
-/// into collapse / expand only then.
+/// True while the Recently closed header has keyboard focus (false elsewhere in the List);
+/// PanelKeys turns ← / → into collapse / expand only then.
 struct ClosedHeaderFocusedKey: FocusedValueKey {
     typealias Value = Bool
 }
@@ -15,13 +15,20 @@ extension FocusedValues {
     }
 }
 
-/// The queue: header, Notice, List, Undo bar and status bar. One content edge: rows have
-/// zero horizontal inset and nothing in the List is a DisclosureGroup, so every text starts
-/// on the gutter and every count ends at panelWidth − gutter.
+/// The queue: header, Notice, List, Undo bar and status bar. Each ask is a card (CardBackground
+/// as its row background, the card content inset by `cardInsetH`/`cardInsetV`), so card text
+/// starts at `cardText` and ends at panelWidth − `cardText`. Section headers and the other
+/// rows keep zero horizontal inset, so their text starts on the gutter and their counts end
+/// at panelWidth − gutter. Nothing in the List is a DisclosureGroup.
 struct QueueView<Model: PanelViewModel>: View {
     @ObservedObject private var model: Model
     @AppStorage("relay.closedToday.expanded") private var storedClosedExpanded = false
     @FocusState private var listFocused: Bool
+    /// The Recently closed header's focus, published by the List as `relayClosedHeaderFocused`.
+    /// Never set a focused value inside a List row: on macOS each row has its own hosting
+    /// view, and a focused value there leaves every row needing constraints after each layout
+    /// pass, until AppKit stops the loop by raising an exception.
+    @FocusState private var closedHeaderFocused: Bool
     /// Rows the List has on screen (List rows appear and disappear as they scroll); Back
     /// scrolls only when the row it returns to isn't one of them.
     @State private var visibleRows: Set<String> = []
@@ -36,6 +43,11 @@ struct QueueView<Model: PanelViewModel>: View {
     static var rowInsets: EdgeInsets {
         EdgeInsets(top: DS.Space.rowInsetV, leading: DS.Space.rowInsetH,
                    bottom: DS.Space.rowInsetV, trailing: DS.Space.rowInsetH)
+    }
+
+    static var cardInsets: EdgeInsets {
+        EdgeInsets(top: DS.Space.cardInsetV, leading: DS.Space.cardInsetH,
+                   bottom: DS.Space.cardInsetV, trailing: DS.Space.cardInsetH)
     }
 
     /// VO announcement when the grouping switches.
@@ -143,6 +155,7 @@ struct QueueView<Model: PanelViewModel>: View {
                 .scrollContentBackground(.hidden)
                 .environment(\.defaultMinListRowHeight, DS.Metric.rowMinHeight)
                 .focused($listFocused)
+                .focusedValue(\.relayClosedHeaderFocused, closedHeaderFocused)
                 .contextMenu(forSelectionType: String.self) { ids in
                     if let id = ids.first, let row = Self.rowModel(id, in: queue) {
                         RowContextMenu(entries: QueueContextMenu.entries(for: row, filter: queue.filter)) { command in
@@ -209,16 +222,25 @@ struct QueueView<Model: PanelViewModel>: View {
         }
     }
 
+    /// An Urgency section header already says Now or Today, so its cards show only the symbol.
+    static func headerNamesUrgency(_ section: QueueSection) -> Bool {
+        if case .urgency? = section.header { return true }
+        return false
+    }
+
     private func rows(_ section: QueueSection, queue: QueueSnapshot, now: Date) -> some View {
-        ForEach(section.items) { item in
+        let urgencyInHeader = Self.headerNamesUrgency(section)
+        return ForEach(section.items) { item in
             if let row = queue.rows[item.id] {
-                AskRow(row: row, age: RelativeAge.text(created: row.created, now: now), grouping: queue.grouping,
-                       selected: model.listSelection == row.id,
+                AskRow(row: row, age: RelativeAge.text(created: row.created, now: now),
+                       compactAge: RelativeAge.compact(created: row.created, now: now),
+                       urgencyInHeader: urgencyInHeader,
                        onShowOnlyProject: { model.setFilter(row.project) })
                     .simultaneousGesture(TapGesture().onEnded {
                         if ListClick.tapOpens(openDetail: model.navigation.selectedID) { model.open(row.id) }
                     })
-                    .listRowInsets(Self.rowInsets)
+                    .listRowInsets(Self.cardInsets)
+                    .listRowBackground(CardBackground(selected: model.listSelection == row.id))
                     .tag(row.id)
                     .onAppear { visibleRows.insert(row.id) }
                     .onDisappear { visibleRows.remove(row.id) }
@@ -238,7 +260,8 @@ struct QueueView<Model: PanelViewModel>: View {
                                                     completedAt: row.closed?.completedAt, now: now),
                         onReopen: { model.reopen(row.id) },
                         onShowOnlyProject: { model.setFilter(row.project) })
-                        .listRowInsets(Self.rowInsets)
+                        .listRowInsets(Self.cardInsets)
+                        .listRowBackground(CardBackground(selected: model.listSelection == row.id, quiet: true))
                         .tag(row.id)
                         .onAppear { visibleRows.insert(row.id) }
                         .onDisappear { visibleRows.remove(row.id) }
@@ -246,7 +269,7 @@ struct QueueView<Model: PanelViewModel>: View {
             }
         } header: {
             ClosedGroupHeader(count: closed.count, expanded: closedExpanded)
-                .focusedValue(\.relayClosedHeaderFocused, true)
+                .focused($closedHeaderFocused)
         }
         .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: closedExpanded.wrappedValue)
     }

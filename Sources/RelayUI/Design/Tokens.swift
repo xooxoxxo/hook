@@ -1,4 +1,5 @@
 import AppKit
+import RelayCore
 import SwiftUI
 
 // Design/Tokens.swift. Every size, colour, font, symbol and duration the views use lives here; scripts/check-tokens.sh fails a literal anywhere else.
@@ -29,6 +30,21 @@ public enum DS {
         public static let currentBleed: CGFloat = 9
         public static let emptyLine: CGFloat = 24
         public static let popover: CGFloat = 16
+        /// A queue card's content inset.
+        public static let cardPadding: CGFloat = 12
+        /// The gap between two queue cards.
+        public static let cardGap: CGFloat = 8
+        /// A queue card's edge, from the panel edge.
+        public static let cardEdge: CGFloat = 10
+        /// Between the monogram and the project name in a card's top row.
+        public static let cardMeta: CGFloat = 6
+        /// The card row's List inset: leading/trailing puts the card text `cardPadding` inside
+        /// the card edge (the stock row content already sits on the gutter at inset 0);
+        /// top/bottom is half the gap plus the padding.
+        public static let cardInsetH: CGFloat = cardEdge + cardPadding - gutter
+        public static let cardInsetV: CGFloat = cardGap / 2 + cardPadding
+        /// Where card text starts, and (mirrored) where its trailing text ends.
+        public static let cardText: CGFloat = cardEdge + cardPadding
     }
 
     public enum Metric {
@@ -53,6 +69,13 @@ public enum DS {
         public static let recorderMin: CGFloat = 130
         /// The List's `defaultMinListRowHeight`, = hit.
         public static let rowMinHeight: CGFloat = 28
+        public static let cardRadius: CGFloat = 8
+        public static let cardBorder: CGFloat = 0.5
+        /// The card hairline under Increase Contrast.
+        public static let cardBorderContrast: CGFloat = 1
+        public static let cardSelectedBorder: CGFloat = 2
+        public static let monogram: CGFloat = 18
+        public static let monogramRadius: CGFloat = 5
     }
 
     public enum Font {
@@ -77,6 +100,10 @@ public enum DS {
         public static var caption: SwiftUI.Font { style(.caption, .caption1) }
         public static var welcomeTitle: SwiftUI.Font { style(.title2, .title2).weight(.semibold) }
         public static var badgeDigit: NSFont { .monospacedDigitSystemFont(ofSize: 9, weight: .bold) }
+        /// A queue card's title.
+        public static var cardTitle: SwiftUI.Font { style(.headline, .headline) }
+        /// The monogram's two letters, sized to `Metric.monogram`.
+        public static var monogram: SwiftUI.Font { .system(size: 8, weight: .bold) }
     }
 
     public enum Color {
@@ -104,6 +131,35 @@ public enum DS {
         public static let panelStandInOpaque = SwiftUI.Color(nsColor: .windowBackgroundColor)
         /// Gallery canvas behind multi-panel scenes.
         public static let canvas = SwiftUI.Color(nsColor: .underPageBackgroundColor)
+        /// `light` under Aqua, `dark` under Dark Aqua (each with its high-contrast form).
+        static func adaptive(light: NSColor, dark: NSColor) -> SwiftUI.Color {
+            SwiftUI.Color(nsColor: NSColor(name: nil) { appearance in
+                appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light
+            })
+        }
+
+        /// A queue card: near-white over the light panel, a faint lift over the dark one.
+        public static let cardFill = adaptive(light: .white.withAlphaComponent(0.75), dark: .white.withAlphaComponent(0.07))
+        /// A recently closed card, clearly quieter than an open one: over the dark panel almost
+        /// no lift (`cardStrokeQuiet` draws its edge); over the light one a little lighter than the panel.
+        public static let cardFillQuiet = adaptive(light: .white.withAlphaComponent(0.35), dark: .white.withAlphaComponent(0.015))
+        public static let cardStroke = SwiftUI.Color.primary.opacity(0.08)
+        /// A recently closed card's hairline. Its fill is close to the panel's, so in light mode
+        /// the line is a little firmer than `cardStroke`, or the card's edge would vanish.
+        public static let cardStrokeQuiet = adaptive(light: .black.withAlphaComponent(0.14), dark: .white.withAlphaComponent(0.09))
+        /// The card hairline under Increase Contrast.
+        public static let cardStrokeContrast = SwiftUI.Color.primary.opacity(0.4)
+        /// The selected card: an accent tint under an accent border.
+        public static let cardSelectedFill = SwiftUI.Color.accentColor.opacity(0.14)
+        public static let cardSelectedStroke = SwiftUI.Color.accentColor
+        /// The monogram colours; `Monogram.colorIndex` picks one per project.
+        public static let monogramPalette: [SwiftUI.Color] = [.blue, .indigo, .purple, .pink, .orange, .green, .teal, .brown]
+        public static let monogramText = SwiftUI.Color.white
+        /// A closed card's monogram.
+        public static let monogramQuietOpacity: Double = 0.6
+        public static func monogram(_ project: String) -> SwiftUI.Color {
+            monogramPalette[Monogram.colorIndex(project) % monogramPalette.count]
+        }
         /// The panel's backdrop material.
         public static var panelMaterial: NSVisualEffectView.Material { .sidebar }
     }

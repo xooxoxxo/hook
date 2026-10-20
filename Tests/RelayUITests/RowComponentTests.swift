@@ -20,6 +20,43 @@ private func row(_ summary: RowSummary = .steps(done: 2, total: 8), urgency: Urg
             == "so⟨U+000A⟩on. Renew the staging certificate. No project, now")
     }
 
+    /// The top row shows the symbol and word for Now and Today, only the symbol under an Urgency
+    /// header, nothing for Whenever, and an unknown urgency's raw string either way.
+    @Test func cardUrgencyMark() {
+        #expect(CardUrgency.mark(.now, headerNamesIt: false) == .symbolAndWord)
+        #expect(CardUrgency.mark(.today, headerNamesIt: false) == .symbolAndWord)
+        #expect(CardUrgency.mark(.whenever, headerNamesIt: false) == .hidden)
+        #expect(CardUrgency.mark(.now, headerNamesIt: true) == .symbol)
+        #expect(CardUrgency.mark(.today, headerNamesIt: true) == .symbol)
+        #expect(CardUrgency.mark(.whenever, headerNamesIt: true) == .hidden)
+        #expect(CardUrgency.mark(.unknown("soon"), headerNamesIt: false) == .raw)
+        #expect(CardUrgency.mark(.unknown("soon"), headerNamesIt: true) == .raw)
+    }
+
+    @Test func onlyUrgencyHeadersNameTheUrgency() {
+        #expect(QueueView<FixturePanelModel>.headerNamesUrgency(QueueSection(header: .urgency(.now), items: [])))
+        #expect(QueueView<FixturePanelModel>.headerNamesUrgency(QueueSection(header: .urgency(.whenever), items: [])))
+        #expect(!QueueView<FixturePanelModel>.headerNamesUrgency(QueueSection(header: .project("Acme"), items: [])))
+        #expect(!QueueView<FixturePanelModel>.headerNamesUrgency(QueueSection(header: nil, items: [])))
+    }
+
+    /// VoiceOver keeps the urgency word and the full age, though the top row shows less.
+    @Test func voiceOverKeepsUrgencyAndFullAge() {
+        #expect(AskRow.accessibilityText(row: row(.steps(done: 0, total: 2), urgency: .whenever), age: "2 d ago")
+            == "Whenever. Renew the staging certificate. Acme, 2 d ago. 2 steps")
+        #expect(AskRow.accessibilityText(row: row(.steps(done: 0, total: 2), urgency: .today), age: "5 min ago")
+            == "Today. Renew the staging certificate. Acme, 5 min ago. 2 steps")
+    }
+
+    @Test func askRowReadsTheSubline() {
+        #expect(AskRow.accessibilityText(row: row(.steps(done: 0, total: 4), urgency: .today), age: "now")
+            == "Today. Renew the staging certificate. Acme, now. 4 steps")
+        var choose = row(.steps(done: 0, total: 1), urgency: .today)
+        choose.subline = "Choose 1 of 3"
+        #expect(AskRow.accessibilityText(row: choose, age: "now")
+            == "Today. Renew the staging certificate. Acme, now. Choose 1 of 3")
+    }
+
     @Test func askRowSanitizesTitleAndProject() {
         let text = AskRow.accessibilityText(row: row(project: "Ac\u{202E}me", title: "T\nX"), age: "now")
         #expect(text == "Now. T⟨U+000A⟩X. Ac⟨U+202E⟩me, now. 2 of 8 steps done")

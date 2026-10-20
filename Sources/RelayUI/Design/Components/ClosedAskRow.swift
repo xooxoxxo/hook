@@ -1,7 +1,9 @@
 import RelayCore
 import SwiftUI
 
-/// Design/ClosedAskRow: a recently closed ask, in `secondary`, with Reopen.
+/// Design/ClosedAskRow: a recently closed ask's card content, quieter than an open one
+/// (CardBackground draws it with `quiet`): a faded monogram, the project and how it closed,
+/// then the title in `secondary` beside Reopen.
 public struct ClosedAskRow: View {
     let row: AskRowModel
     let closedLine: String
@@ -18,24 +20,36 @@ public struct ClosedAskRow: View {
 
     public var body: some View {
         showOnlyAction(
-            HStack(alignment: .center, spacing: DS.Space.inline) {
-                VStack(alignment: .leading, spacing: DS.Space.rowLine) {
+            VStack(alignment: .leading, spacing: DS.Space.rowLine) {
+                HStack(alignment: .center, spacing: DS.Space.cardMeta) {
+                    MonogramBadge(project: row.project, quiet: true)
+                        .alignmentProbe(.cardText, measure: .frame)
+                    Text(SectionHeader.displayName(row.project))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Spacer(minLength: DS.Space.inline)
+                    Text(closedLine)
+                        .lineLimit(1)
+                        .monospacedDigit()
+                        .layoutPriority(1)
+                        .alignmentProbe(.cardTrailing, measure: .frame)
+                }
+                .font(DS.Font.meta)
+                HStack(alignment: .center, spacing: DS.Space.inline) {
                     Text(line(row.title))
                         .font(DS.Font.body)
-                        .foregroundStyle(DS.Color.secondary)
-                        .lineLimit(1)
-                        .alignmentProbe(.gutterText)
-                    Text(line(row.project.isEmpty ? "—" : row.project) + " · " + closedLine)
-                        .font(DS.Font.meta)
-                        .foregroundStyle(DS.Color.secondary)
-                        .monospacedDigit()
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .alignmentProbe(.cardText)
+                    Spacer(minLength: DS.Space.inline)
+                    Button("Reopen", action: onReopen)
+                        .controlSize(DS.Control.inline)
+                        .help("Put it back in the queue")
+                        .alignmentProbe(.cardTrailing, measure: .frame)
                 }
-                Spacer(minLength: DS.Space.inline)
-                Button("Reopen", action: onReopen)
-                    .controlSize(DS.Control.inline)
-                    .help("Put it back in the queue")
-                    .alignmentProbe(.trailingEdge, measure: .frame)
             }
+            .foregroundStyle(DS.Color.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
             .accessibilityLabel(Self.accessibilityText(row: row, closedLine: closedLine))
             .accessibilityAction(named: "Reopen", onReopen)

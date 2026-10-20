@@ -129,7 +129,7 @@ public enum AlignmentCheck {
 
     /// Roles the `--xl` variant measures by frame: at 1.35x a capital's left side bearing
     /// (C, P, R) puts the ink past a frame that sits exactly on the rule.
-    public static let xlFrameRoles: Set<ProbeRole> = [.gutterText]
+    public static let xlFrameRoles: Set<ProbeRole> = [.gutterText, .cardText]
 
     /// The probes with every probe of `roles` measured by its frame; the others keep their measure.
     public static func measuringByFrame(_ probes: [ProbeFrame], roles: Set<ProbeRole>) -> [ProbeFrame] {

@@ -27,7 +27,7 @@ Commands start Relay if it isn't running, except `relay replies --hook` and `rel
 | `relay done <id> [note]`, `relay skip <id> [note]` | `done <id>` / `skipped <id>`, or `already <status> (by <actor>) <id>` |
 | `relay replies [--new] [--hook]` | One line per new owner answer |
 | `relay wait <id> [--timeout SECONDS] [--interval SECONDS] [--after SEQ]` | See [below](#relay-wait) |
-| `relay --version` | `relay 0.6.0` |
+| `relay --version` | `relay 0.6.1` |
 
 Exit codes: 0 success, 1 refused or not found, 2 no config or Relay unreachable, 3 `relay wait` timed out.
 

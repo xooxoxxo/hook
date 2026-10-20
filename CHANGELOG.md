@@ -3,6 +3,18 @@
 All notable changes to Relay are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## [0.6.1] - 2026-10-20
+
+### Changed
+
+- The queue shows one card per ask again, as in 0.5: the project badge, project and age on top, a bold title over up to two lines, and a short line such as "Choose 1 of 3" or "2 of 7". Grouping, the filter, keys and sub-steps stay as in 0.6.0.
+
+### Fixed
+
+- Relay no longer crashes a few seconds after launch when the queue is short and an ask was closed in the last 24 hours.
+- Opening Relay while it is quitting, or opening two copies at once, no longer leaves no Relay running.
+- Relay quits when stopped with `kill` or `launchctl` (as an update does) while a Done or Skip is held, instead of hanging.
+
 ## [0.6.0] - 2026-10-20
 
 ### Added

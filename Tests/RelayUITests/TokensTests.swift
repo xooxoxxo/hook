@@ -1,4 +1,5 @@
 import AppKit
+import RelayCore
 import SwiftUI
 import Testing
 @testable import RelayUI
@@ -20,6 +21,36 @@ import Testing
         #expect([m.rowProgress, m.codeRadius, m.helpWidth, m.settingsWidth, m.settingsInset, m.fieldWide, m.welcomeWidth]
             == [44, 6, 300, 600, 120, 320, 480])
         #expect([m.badge, m.badgeDot, m.dragThreshold, m.recorderMin, m.rowMinHeight] == [13, 7, 3, 130, 28])
+    }
+
+    @Test func cardGeometry() {
+        let s = DS.Space.self, m = DS.Metric.self
+        #expect([s.cardPadding, s.cardGap, s.cardEdge, s.cardMeta] == [12, 8, 10, 6])
+        #expect([m.cardRadius, m.cardBorder, m.cardBorderContrast, m.cardSelectedBorder, m.monogram, m.monogramRadius]
+            == [8, 0.5, 1, 2, 18, 5])
+        // Card text sits cardPadding inside the card edge; the stock row content starts on the gutter.
+        #expect(s.cardText == 22)
+        #expect(s.gutter + s.cardInsetH == s.cardEdge + s.cardPadding)
+        #expect(s.cardInsetV == s.cardGap / 2 + s.cardPadding)
+        #expect(DS.Color.monogramPalette.count == Monogram.paletteCount)
+    }
+
+    /// A closed card's fill is well under an open card's in both appearances; in light mode its
+    /// hairline is firmer than an open card's, so its edge still shows against the panel.
+    @Test func closedCardsAreQuieter() {
+        func alpha(_ color: SwiftUI.Color, _ name: NSAppearance.Name) -> CGFloat {
+            var value: CGFloat = -1
+            NSAppearance(named: name)?.performAsCurrentDrawingAppearance {
+                value = NSColor(color).usingColorSpace(.deviceRGB)?.alphaComponent ?? -1
+            }
+            return value
+        }
+        for name in [NSAppearance.Name.aqua, .darkAqua] {
+            let open = alpha(DS.Color.cardFill, name), closed = alpha(DS.Color.cardFillQuiet, name)
+            #expect(closed >= 0 && closed <= open / 2, "\(name.rawValue): \(closed) vs \(open)")
+        }
+        #expect(alpha(DS.Color.cardStrokeQuiet, .aqua) > alpha(DS.Color.cardStroke, .aqua))
+        #expect(alpha(DS.Color.cardStrokeQuiet, .darkAqua) > 0)
     }
 
     @Test func derivedTokensHold() {

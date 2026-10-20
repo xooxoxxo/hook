@@ -1,8 +1,35 @@
+import Foundation
+
 /// Which running app counts as another Relay. The launch check runs before
 /// the loopback server and the queue lock.
 public enum SingleInstance {
-    /// The pid of a running app with Relay's bundle id that isn't this process; nil when none.
-    public static func other(bundleID: String, myPID: Int32, running: [(bundleID: String?, pid: Int32)]) -> Int32? {
-        running.first { $0.bundleID == bundleID && $0.pid != myPID }?.pid
+    /// A running app as the launch check sees it.
+    public struct Copy: Equatable, Sendable {
+        public var bundleID: String?
+        public var pid: Int32
+        /// When its process started; nil when unknown.
+        public var started: Date?
+
+        public init(bundleID: String?, pid: Int32, started: Date?) {
+            self.bundleID = bundleID
+            self.pid = pid
+            self.started = started
+        }
+
+        /// Earlier start first; a copy without a start time counts as started last; the pid breaks ties.
+        func startedBefore(_ other: Copy) -> Bool {
+            let mine = started ?? .distantFuture, theirs = other.started ?? .distantFuture
+            return mine != theirs ? mine < theirs : pid < other.pid
+        }
+    }
+
+    /// The pid of the copy to hand off to: the earliest-started other app with Relay's bundle id,
+    /// if it started before `me`. A copy that started later hands off to this one instead, so two
+    /// copies started together never both quit. nil when there is none.
+    public static func older(than me: Copy, running: [Copy]) -> Int32? {
+        running
+            .filter { $0.bundleID != nil && $0.bundleID == me.bundleID && $0.pid != me.pid && $0.startedBefore(me) }
+            .min { $0.startedBefore($1) }?
+            .pid
     }
 }

@@ -2,7 +2,7 @@ import SwiftUI
 
 /// What a probe marks, for the gallery's alignment check.
 public enum ProbeRole: String, Sendable, CaseIterable {
-    case gutterText, trailingEdge, topMarker, subMarker, topActionText, subLabelText, settingsTrailing, mailboxField
+    case gutterText, trailingEdge, cardText, cardTrailing, cardEdge, topMarker, subMarker, topActionText, subLabelText, settingsTrailing, mailboxField
 }
 
 /// How the alignment check measures a probe. `.ink` scans the pixels inside the probe's frame;

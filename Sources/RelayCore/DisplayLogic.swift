@@ -93,15 +93,102 @@ public struct MenuBarState: Sendable, Equatable {
     }
 }
 
+/// The two-letter project badge on a queue card.
+public enum Monogram {
+    public static let paletteCount = 8
+
+    public static func letters(_ project: String) -> String {
+        var words: [String] = []
+        var current = ""
+        for character in project {
+            if character.isLetter || character.isNumber {
+                current.append(character)
+            } else if !current.isEmpty {
+                words.append(current)
+                current = ""
+            }
+        }
+        if !current.isEmpty { words.append(current) }
+        switch words.count {
+        case 0:
+            return "?"
+        case 1:
+            return String(words[0].prefix(2)).uppercased()
+        default:
+            return (String(words[0].prefix(1)) + String(words[1].prefix(1))).uppercased()
+        }
+    }
+
+    /// Stable across launches and machines, unlike `hashValue`.
+    public static func colorIndex(_ project: String) -> Int {
+        Int(fnv1a32(Array(project.lowercased().utf8)) % UInt32(paletteCount))
+    }
+
+    public static func fnv1a32(_ bytes: [UInt8]) -> UInt32 {
+        var hash: UInt32 = 2_166_136_261
+        for byte in bytes {
+            hash ^= UInt32(byte)
+            hash = hash &* 16_777_619
+        }
+        return hash
+    }
+}
+
+/// The one-line summary under a card's title: "Choose 1 of 3", "7 steps · Terminal, Safari",
+/// "Reply", "1 step" or "Link"; once a leaf is ticked, the progress "2 of 7". Steps count
+/// leaves (a step's sub-steps, then verify), as the progress does.
+public enum SubLine {
+    public static func text(for item: WireItem, ticked: Set<String> = []) -> String {
+        let ins = item.instructable
+        return text(QueueLayout.summary(for: item, ticked: ticked),
+                    choices: ins?.reply?.choices?.count ?? 0, places: ins.map(places) ?? [])
+    }
+
+    /// `choices` is the reply's choice count; `places` the steps' distinct `where`s, in order.
+    public static func text(_ summary: RowSummary, choices: Int = 0, places: [String] = []) -> String {
+        guard case let .steps(done, total) = summary else { return summary.text }
+        if done > 0 { return summary.text }
+        if choices > 0 { return RowSummary.choose(choices).text }
+        var text = total == 1 ? "1 step" : "\(total) steps"
+        if !places.isEmpty {
+            text += " · " + places.prefix(2).map(Sanitize.revealLine).joined(separator: ", ")
+            if places.count > 2 { text += " +\(places.count - 2)" }
+        }
+        return text
+    }
+
+    /// Each step's `where`, then its sub-steps', trimmed, blank and repeated ones left out.
+    public static func places(_ instructable: Instructable) -> [String] {
+        var out: [String] = []
+        for step in instructable.steps {
+            for place in [step.place] + (step.substeps ?? []).map(\.place) {
+                guard let place = place?.trimmingCharacters(in: .whitespaces), !place.isEmpty,
+                      !out.contains(place) else { continue }
+                out.append(place)
+            }
+        }
+        return out
+    }
+}
+
 /// A row's age: "now", "12 min ago", "3 h ago", "2 d ago". Parsed to Date, so the Mac's time zone never matters.
 public enum RelativeAge {
     public static func text(created: String, now: Date) -> String {
+        format(created: created, now: now, minutes: " min ago", hours: " h ago", days: " d ago")
+    }
+
+    /// The same age for a queue card's top row: "now", "12m", "3h", "2d". VoiceOver keeps `text`.
+    public static func compact(created: String, now: Date) -> String {
+        format(created: created, now: now, minutes: "m", hours: "h", days: "d")
+    }
+
+    private static func format(created: String, now: Date, minutes: String, hours: String, days: String) -> String {
         guard let date = Timestamp.date(created) else { return "" }
         let seconds = max(0, now.timeIntervalSince(date))
         if seconds < 60 { return "now" }
-        if seconds < 3600 { return "\(Int(seconds / 60)) min ago" }
-        if seconds < 86400 { return "\(Int(seconds / 3600)) h ago" }
-        return "\(Int(seconds / 86400)) d ago"
+        if seconds < 3600 { return "\(Int(seconds / 60))" + minutes }
+        if seconds < 86400 { return "\(Int(seconds / 3600))" + hours }
+        return "\(Int(seconds / 86400))" + days
     }
 }
 

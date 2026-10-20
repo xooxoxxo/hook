@@ -82,6 +82,9 @@ struct MiniList<Content: View>: View {
 let rowInsets = EdgeInsets(top: DS.Space.rowInsetV, leading: DS.Space.rowInsetH,
                            bottom: DS.Space.rowInsetV, trailing: DS.Space.rowInsetH)
 
+let cardInsets = EdgeInsets(top: DS.Space.cardInsetV, leading: DS.Space.cardInsetH,
+                            bottom: DS.Space.cardInsetV, trailing: DS.Space.cardInsetH)
+
 let sampleRows: [AskRowModel] = [
     AskRowModel(id: "r1", title: "Renew the staging certificate and the deploy key", project: "Acme", urgency: .now,
                 created: "2026-10-16T06:40:00Z", summary: .steps(done: 2, total: 8)),
@@ -102,10 +105,15 @@ let sampleClosed = AskRowModel(id: "c1", title: "Store the API key", project: "A
                                closed: ClosedInfo(status: "done", closedBy: "owner", completedAt: "2026-10-16T06:40:00Z"))
 
 @MainActor func rows() -> SheetSection {
-    func askRow(_ row: AskRowModel, _ grouping: QueueGrouping, age: String, selected: String? = nil) -> some View {
-        MiniList(height: 64, selection: selected) {
-            AskRow(row: row, age: age, grouping: grouping, selected: row.id == selected, onShowOnlyProject: {})
-                .listRowInsets(rowInsets).tag(row.id)
+    /// The card on the gallery clock; `urgencyInHeader` as under an Urgency section header.
+    func askRow(_ row: AskRowModel, selected: String? = nil, urgencyInHeader: Bool = false) -> some View {
+        MiniList(height: 104, selection: selected) {
+            AskRow(row: row, age: RelativeAge.text(created: row.created, now: GalleryFixtures.now),
+                   compactAge: RelativeAge.compact(created: row.created, now: GalleryFixtures.now),
+                   urgencyInHeader: urgencyInHeader, onShowOnlyProject: {})
+                .listRowInsets(cardInsets)
+                .listRowBackground(CardBackground(selected: row.id == selected))
+                .tag(row.id)
         }
     }
     return SheetSection(title: "Rows", samples: [
@@ -122,16 +130,29 @@ let sampleClosed = AskRowModel(id: "c1", title: "Store the API key", project: "A
                 Section { EmptyView() } header: { SectionHeader(name: "", count: 1) }
             }
         },
-        Sample("AskRow · Project grouping, now with progress") { askRow(sampleRows[0], .project, age: "3 h ago") },
-        Sample("AskRow · Project grouping, today") { askRow(sampleRows[1], .project, age: "9 h ago") },
-        Sample("AskRow · Project grouping, whenever") { askRow(sampleRows[3], .project, age: "1 d ago") },
-        Sample("AskRow · Urgency grouping, project on line 2") { askRow(sampleRows[0], .urgency, age: "3 h ago") },
-        Sample("AskRow · selected") { askRow(sampleRows[1], .project, age: "9 h ago", selected: "r2") },
-        Sample("AskRow · draft pending") { askRow(sampleRows[2], .project, age: "10 h ago") },
-        Sample("AskRow · choice summary") { askRow(sampleRows[4], .project, age: "5 h ago") },
-        Sample("AskRow · reply summary, unknown urgency") { askRow(sampleRows[5], .project, age: "1 d ago") },
+        Sample("MonogramBadge · palette, no project, closed") {
+            HStack(spacing: DS.Space.inline) {
+                ForEach(["Acme", "Relay", "Northwind", "Atlas", "Bluebird", "Fjord", "Kestrel", "Central Time"], id: \.self) {
+                    MonogramBadge(project: $0)
+                }
+                MonogramBadge(project: "")
+                MonogramBadge(project: "Acme", quiet: true)
+            }
+        },
+        Sample("AskRow · now with progress") { askRow(sampleRows[0]) },
+        Sample("AskRow · now, under an Urgency header") { askRow(sampleRows[0], urgencyInHeader: true) },
+        Sample("AskRow · today, one step") { askRow(sampleRows[1]) },
+        Sample("AskRow · whenever (no urgency mark)") { askRow(sampleRows[3]) },
+        Sample("AskRow · selected") { askRow(sampleRows[1], selected: "r2") },
+        Sample("AskRow · draft pending") { askRow(sampleRows[2]) },
+        Sample("AskRow · choice summary") { askRow(sampleRows[4]) },
+        Sample("AskRow · reply summary, unknown urgency") { askRow(sampleRows[5]) },
         Sample("ClosedAskRow") {
-            MiniList(height: 64) { ClosedAskRow(row: sampleClosed, closedLine: "Done 3 h ago", onReopen: {}, onShowOnlyProject: {}).listRowInsets(rowInsets) }
+            MiniList(height: 96) {
+                ClosedAskRow(row: sampleClosed, closedLine: "Done 3 h ago", onReopen: {}, onShowOnlyProject: {})
+                    .listRowInsets(cardInsets)
+                    .listRowBackground(CardBackground(selected: false, quiet: true))
+            }
         },
         Sample("ClosedGroupHeader · collapsed, expanded") {
             MiniList(height: 72) {

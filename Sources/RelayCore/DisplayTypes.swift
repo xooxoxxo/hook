@@ -200,6 +200,8 @@ public struct AskRowModel: Equatable, Sendable, Identifiable {
     public var urgency: Urgency
     public var created: String
     public var summary: RowSummary
+    /// The card's line under the title (`SubLine`).
+    public var subline: String
     public var hasDraft: Bool
     public var closed: ClosedInfo?
     public var resumeCommand: String?
@@ -207,13 +209,15 @@ public struct AskRowModel: Equatable, Sendable, Identifiable {
     public var isOpen: Bool { closed == nil }
 
     public init(id: String, title: String, project: String, urgency: Urgency, created: String,
-                summary: RowSummary, hasDraft: Bool = false, closed: ClosedInfo? = nil, resumeCommand: String? = nil) {
+                summary: RowSummary, subline: String? = nil, hasDraft: Bool = false, closed: ClosedInfo? = nil,
+                resumeCommand: String? = nil) {
         self.id = id
         self.title = title
         self.project = project
         self.urgency = urgency
         self.created = created
         self.summary = summary
+        self.subline = subline ?? SubLine.text(summary)
         self.hasDraft = hasDraft
         self.closed = closed
         self.resumeCommand = resumeCommand

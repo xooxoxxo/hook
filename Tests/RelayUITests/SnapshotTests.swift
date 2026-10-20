@@ -100,8 +100,13 @@ private let three = [item("a", urgency: "now", created: stamp(minutesAgo: 10), s
 
     @Test func fixturesBuild() {
         #expect(GalleryFixtures.now == Timestamp.date("2026-10-16T09:40:00+00:00"))
-        #expect(GalleryFixtures.open.count == 5)
-        #expect(Set(GalleryFixtures.open.compactMap(\.projectId)) == ["Acme", "Relay", "Northwind"])
+        #expect(GalleryFixtures.open.count == 6)
+        let long = GalleryFixtures.longAsk
+        let longProject = long.projectId ?? ""
+        #expect(Set(GalleryFixtures.open.compactMap(\.projectId)) == ["Acme", "Relay", "Northwind", longProject])
+        // Past two card lines, within the validator's 120; a long project, within its 60.
+        #expect((100...120).contains(long.title.count))
+        #expect((50...60).contains(longProject.count))
         let steps = GalleryFixtures.detailSteps
         #expect(steps.progress == StepProgress(done: 2, total: 8))
         #expect(steps.model?.nodes.map(\.path) == ["1", "2", "3", "4", "5", "verify"])
@@ -119,11 +124,18 @@ private let three = [item("a", urgency: "now", created: stamp(minutesAgo: 10), s
         #expect(limits.model?.nodes.contains { $0.content.code?.count == 4000 } == true)
 
         let queue = GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: true)
-        #expect(queue.title == "5 waiting")
-        #expect(queue.sections.count == 3)
+        #expect(queue.title == "6 waiting")
+        #expect(queue.sections.count == 4)
         #expect(queue.rows["acme-1"]?.summary == .steps(done: 2, total: 8))
         #expect(queue.closed.count == 2)
-        #expect(GalleryFixtures.queue(grouping: .project, filter: "Acme", closedExpanded: false).hidden == HiddenCount(total: 2, now: 0))
+        #expect(GalleryFixtures.queue(grouping: .project, filter: "Acme", closedExpanded: false).hidden == HiddenCount(total: 3, now: 0))
+        // In both groupings the long ask comes after the three Acme asks, so the queue scenes
+        // still select the second card, "Choose the backup region".
+        for grouping in QueueGrouping.allCases {
+            let order = QueueLayout.visibleOrder(GalleryFixtures.queue(grouping: grouping, filter: nil, closedExpanded: false).sections)
+            #expect(order.dropFirst().first == "acme-2")
+            #expect((order.firstIndex(of: long.id) ?? 0) > 2)
+        }
         #expect(Set(GalleryFixtures.manyProjects.compactMap(\.projectId)).count == 12)
         #expect(GalleryFixtures.manyProjects.contains { $0.projectId?.count == 60 })
     }

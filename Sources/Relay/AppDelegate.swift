@@ -6,6 +6,8 @@ import RelayUI
 @MainActor final class AppDelegate: NSObject, NSApplicationDelegate {
     /// The longest a quit waits for held closes to reach the source.
     static let quitDrainTimeout: Duration = .seconds(3)
+    /// How long a copy that handed off waits to see the running copy stay; longer than a quit takes.
+    static let handOffGrace: Duration = quitDrainTimeout + .seconds(1)
 
     private var model: AppModel?
     private var store: Store?
@@ -56,6 +58,11 @@ import RelayUI
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if handOffToRunningRelay() { return }
+        startUp()
+    }
+
+    /// Everything after the single-instance check: the model, panel, menu bar, presence and the first apply.
+    private func startUp() {
         let hotKeys = HotKeyManager { [weak self] in self?.togglePanel() }
         hotKeys.onLabelChange = { [weak self] in self?.updateShortcutLabel() }
         self.hotKeys = hotKeys
@@ -140,21 +147,51 @@ import RelayUI
     }
 
     /// A second copy (another path, or a manual `open -n`) hands `relay://show` to the
-    /// running Relay and exits before it opens the queue, the port or the status item.
+    /// copy that started first and exits before it opens the queue, the port or the status
+    /// item. Only an earlier copy counts, so two copies started together never both leave.
     private func handOffToRunningRelay() -> Bool {
         guard let bundleID = Bundle.main.bundleIdentifier else { return false }
-        let running = NSWorkspace.shared.runningApplications.map { ($0.bundleIdentifier, $0.processIdentifier) }
-        guard let pid = SingleInstance.other(bundleID: bundleID, myPID: ProcessInfo.processInfo.processIdentifier,
-                                              running: running),
+        let myPID = ProcessInfo.processInfo.processIdentifier
+        let running = NSWorkspace.shared.runningApplications.map {
+            SingleInstance.Copy(bundleID: $0.bundleIdentifier, pid: $0.processIdentifier,
+                                started: Self.startTime(of: $0.processIdentifier))
+        }
+        let mine = SingleInstance.Copy(bundleID: bundleID, pid: myPID, started: Self.startTime(of: myPID))
+        guard let pid = SingleInstance.older(than: mine, running: running),
               let other = NSRunningApplication(processIdentifier: pid), let appURL = other.bundleURL,
               let show = URL(string: "relay://show") else { return false }
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = false
         NSWorkspace.shared.open([show], withApplicationAt: appURL, configuration: configuration) { _, error in
             if let error { NSLog("Relay: hand-off to running copy failed: %@", error.localizedDescription) }
-            DispatchQueue.main.async { exit(0) }
+            Task { @MainActor [weak self] in await self?.leaveUnlessQuit(pid) }
         }
         return true
+    }
+
+    /// Exits once the copy this one handed off to has stayed up for `handOffGrace`. A copy
+    /// that was quitting (an update, or a quit still sending held closes) is gone by then,
+    /// and this copy starts instead, so a launch during a quit never leaves no Relay running.
+    private func leaveUnlessQuit(_ pid: pid_t) async {
+        func gone() -> Bool { NSRunningApplication(processIdentifier: pid)?.isTerminated ?? true }
+        let deadline = ContinuousClock.now + Self.handOffGrace
+        while !gone(), ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        guard gone() else { exit(0) }
+        NSLog("Relay: the running copy quit during the hand-off; starting")
+        startUp()
+    }
+
+    /// When a process started, from the kernel. Launch Services' `launchDate` is nil for
+    /// a copy started without it (a binary run directly), so it can't order every copy.
+    private static func startTime(of pid: pid_t) -> Date? {
+        var info = kinfo_proc()
+        var size = MemoryLayout<kinfo_proc>.stride
+        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, pid]
+        guard sysctl(&mib, u_int(mib.count), &info, &size, nil, 0) == 0, size > 0 else { return nil }
+        let start = info.kp_proc.p_un.__p_starttime
+        return Date(timeIntervalSince1970: TimeInterval(start.tv_sec) + TimeInterval(start.tv_usec) / 1_000_000)
     }
 
     /// Held-back Done and Skip are sent before quitting, with a 3 s cap so
@@ -186,7 +223,10 @@ import RelayUI
         source.setEventHandler { [weak self] in
             MainActor.assumeIsolated {
                 self?.presence.stop()
-                NSApp.terminate(nil)
+                // terminate(_:) waits in a nested event loop while held closes are sent. Inside
+                // this main-queue handler that loop can't run main-queue work, so the send never
+                // finished and Relay never quit; from a run-loop block it can.
+                RunLoop.main.perform { MainActor.assumeIsolated { NSApp.terminate(nil) } }
             }
         }
         source.resume()

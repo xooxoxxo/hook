@@ -18,8 +18,9 @@ A "now" ask slides the hidden panel in on that ask without taking focus from the
 
 ## The queue
 
+- Each ask is a **card**: the project's badge and name, the urgency for Now and Today asks, the age ("3h"), the title, and what the ask wants ("Choose 1 of 3", "4 steps · Terminal", "Reply") or, once you tick something, how far along it is ("2 of 7").
 - **Group by** Project (the default) or Urgency, from the filter button in the header or with ⌃⌘G. In Project grouping, each project is a section with its open count; projects with a "now" ask come first.
-- **Filter** to one project from the same button, from a row's context menu (Show Only …) or with ⌃⌘P. The project shows under the header with a ✕ to show all projects again (⌃⌘A), and "2 more in other projects" when others wait. Grouping and filter are remembered on this Mac.
+- **Filter** to one project from the same button, from a card's context menu (Show Only …) or with ⌃⌘P. The project shows under the header with a ✕ to show all projects again (⌃⌘A), and "2 more in other projects" when others wait. Grouping and filter are remembered on this Mac.
 - **Recently closed** lists asks closed in the last 24 hours, each with **Reopen**. It follows the filter.
 - The status bar at the bottom says whether the queue is reachable; click it for details.
 
