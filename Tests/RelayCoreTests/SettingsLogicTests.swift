@@ -9,6 +9,7 @@ private func scratchDefaults() -> (UserDefaults, String) {
 }
 
 private let legacyKey = "relay.settings.tab"
+private let home = "/home/tester"
 
 private func screen(_ id: String, primary: Bool) -> DockScreen {
     DockScreen(id: id, frame: CGRect(x: 0, y: 0, width: 1440, height: 900),
@@ -142,5 +143,87 @@ private func screen(_ id: String, primary: Bool) -> DockScreen {
         #expect(object["whenever"] as? Bool == true)
         #expect(object["sound"] as? Bool == true)
         #expect(object["slideIn"] as? Bool == false)
+    }
+
+    @Test func pollAndKeepLabels() {
+        #expect(ChoiceLabel.pollChoices == [5, 15, 30, 60, 300])
+        #expect(ChoiceLabel.pollChoices.map(ChoiceLabel.poll) == ["5 seconds", "15 seconds", "30 seconds", "1 minute", "5 minutes"])
+        #expect(ChoiceLabel.poll(20) == "20 seconds (from config.json)")
+        #expect(ChoiceLabel.poll(120) == "120 seconds (from config.json)")
+        #expect(ChoiceLabel.keepChoices == [3, 7, 14, 30, 90])
+        #expect(ChoiceLabel.keepDays(14) == "14 days")
+        #expect(ChoiceLabel.keepDays(45) == "45 days (from config.json)")
+    }
+
+    @Test func tildePathsRoundTrip() {
+        #expect(TildePath.abbreviate("/home/tester/.config/relay/token", home: home) == "~/.config/relay/token")
+        #expect(TildePath.expand("~/.config/relay/token", home: home) == "/home/tester/.config/relay/token")
+        #expect(TildePath.expand(TildePath.abbreviate("/home/tester/a b/c", home: home), home: home) == "/home/tester/a b/c")
+        #expect(TildePath.expand("~", home: home) == home)
+        #expect(TildePath.abbreviate(home, home: home) == "~")
+        #expect(TildePath.abbreviate("/home/testerX/a", home: home) == "/home/testerX/a")
+        #expect(TildePath.expand("/opt/token", home: home) == "/opt/token")
+        #expect(TildePath.expand("~other/token", home: home) == "~other/token")
+    }
+
+    @Test func aDraftStartsFromTheConfig() {
+        let config = RelayConfig(source: .mailbox, mailboxURL: "https://mailbox.example:8790",
+                                 tokenFile: "/home/tester/.config/relay/mailbox-token", context: "work")
+        #expect(MailboxDraft(config: config, home: home)
+            == MailboxDraft(address: "https://mailbox.example:8790", tokenFile: "~/.config/relay/mailbox-token", context: "work"))
+        #expect(MailboxDraft(config: RelayConfig(mailboxURL: "https://m.example", tokenFile: "/t"), home: home).context == "")
+        #expect(MailboxDraft(config: nil, home: home) == MailboxDraft())
+    }
+
+    @Test func aDraftIsDirtyOnlyWhenAFieldDiffers() {
+        let config = RelayConfig(source: .mailbox, mailboxURL: "https://mailbox.example:8790",
+                                 tokenFile: "/home/tester/.config/relay/mailbox-token")
+        var draft = MailboxDraft(config: config, home: home)
+        #expect(!draft.isDirty(against: config, home: home))
+        draft.address += "  "
+        #expect(!draft.isDirty(against: config, home: home))
+        draft.tokenFile = "/home/tester/.config/relay/mailbox-token"
+        #expect(!draft.isDirty(against: config, home: home))
+        draft.context = "personal"
+        #expect(!draft.isDirty(against: config, home: home))
+        draft.context = "work"
+        #expect(draft.isDirty(against: config, home: home))
+        #expect(MailboxDraft(address: "https://m.example").isDirty(against: nil, home: home))
+        #expect(!MailboxDraft().isDirty(against: nil, home: home))
+    }
+
+    @Test func errorsNameTheBadField() {
+        let valid = MailboxDraft(address: "https://mailbox.example:8790", tokenFile: "~/token")
+        #expect(valid.errors().address == nil && valid.errors().tokenFile == nil)
+        #expect(MailboxDraft(tokenFile: "~/t").errors().address == "Enter the mailbox address.")
+        for bad in ["mailbox.example", "ftp://mailbox.example", "http://", "https:// x"] {
+            #expect(MailboxDraft(address: bad, tokenFile: "~/t").errors().address
+                == "The address must start with http:// or https://.")
+        }
+        #expect(MailboxDraft(address: "https://m.example", tokenFile: "  ").errors().tokenFile == "Enter the token file.")
+    }
+
+    @Test func changesSaveTheMailboxAndExpandTheTilde() {
+        let work = MailboxDraft(address: " https://mailbox.example:8790 ", tokenFile: "~/.config/relay/token", context: " work ")
+        let saved = work.changes(home: home)
+        #expect(NSDictionary(dictionary: saved.set) == NSDictionary(dictionary: [
+            "source": "mailbox", "mailboxURL": "https://mailbox.example:8790",
+            "tokenFile": "/home/tester/.config/relay/token", "context": "work",
+        ]))
+        #expect(saved.remove.isEmpty)
+        let personal = MailboxDraft(address: "https://m.example", tokenFile: "/t", context: "").changes(home: home)
+        #expect(personal.set["context"] == nil)
+        #expect(personal.remove == ["context"])
+    }
+
+    @Test func connectionNotesShowAsOneRevealedLine() {
+        let problems = ConnectionStatus.problems(
+            configNote: "config.json isn't valid JSON:\nUnexpected character \u{202E} at line 3",
+            listenerNote: "Port 47823 is in use by another app")
+        #expect(problems == [
+            "config.json isn't valid JSON:⟨U+000A⟩Unexpected character ⟨U+202E⟩ at line 3",
+            "Port 47823 is in use by another app",
+        ])
+        #expect(ConnectionStatus.problems(configNote: nil, listenerNote: nil).isEmpty)
     }
 }

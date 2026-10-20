@@ -1,5 +1,6 @@
 import AppKit
 import RelayCore
+import RelayUI
 import SwiftUI
 
 /// The first-launch window: "Where do asks come from?". Start writes
@@ -46,12 +47,12 @@ private struct WelcomeView: View {
                 HStack(spacing: 6) {
                     RadioButton(title: "This Mac only", isOn: choice == .local) { pick(.local) }
                         .fixedSize()
-                    HelpButton(QueueTab.localHelp)
+                    HelpButton(QueueHelp.local)
                 }
                 HStack(spacing: 6) {
                     RadioButton(title: "Mailbox", isOn: choice == .mailbox) { pick(.mailbox) }
                         .fixedSize()
-                    HelpButton(QueueTab.mailboxHelp)
+                    HelpButton(QueueHelp.mailbox)
                 }
                 if choice == .mailbox {
                     Form {
@@ -61,7 +62,7 @@ private struct WelcomeView: View {
                                 TextField("Token file:", text: $tokenFile, prompt: Text("Path to the file that holds the token"))
                                     .labelsHidden()
                                 Button("Choose…") {
-                                    if let path = QueueTab.chooseTokenFile() { tokenFile = path }
+                                    if let path = AppModel.chooseTokenFile() { tokenFile = path }
                                 }
                             }
                         }
@@ -100,7 +101,7 @@ private struct WelcomeView: View {
         case .local:
             model.save(set: ["source": SourceKind.local.rawValue])
         case .mailbox:
-            if let reason = QueueTab.mailboxProblem(address: address, tokenFile: tokenFile) {
+            if let reason = { let e = MailboxDraft(address: address, tokenFile: tokenFile).errors(); return e.address ?? e.tokenFile }() {
                 problem = reason
                 return
             }
@@ -229,5 +230,48 @@ extension View {
     func settingsPage() -> some View {
         padding(SettingsLayout.padding)
             .frame(width: SettingsLayout.width, alignment: .leading)
+    }
+}
+
+/// A native radio button. SwiftUI's radio-group picker can't put a "?" next to
+/// each option, so each option is its own NSButton and `isOn` keeps them exclusive.
+struct RadioButton: NSViewRepresentable {
+    let title: String
+    let isOn: Bool
+    let action: @MainActor () -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    func makeNSView(context: Context) -> NSButton {
+        let button = NSButton(radioButtonWithTitle: title, target: context.coordinator,
+                              action: #selector(Coordinator.clicked(_:)))
+        button.setContentHuggingPriority(.required, for: .horizontal)
+        configure(button, context.coordinator)
+        return button
+    }
+
+    func updateNSView(_ button: NSButton, context: Context) {
+        configure(button, context.coordinator)
+    }
+
+    private func configure(_ button: NSButton, _ coordinator: Coordinator) {
+        button.title = title
+        button.state = isOn ? .on : .off
+        coordinator.isOn = isOn
+        coordinator.action = action
+    }
+
+    @MainActor final class Coordinator: NSObject {
+        var isOn = false
+        var action: (@MainActor () -> Void)?
+
+        /// AppKit turns a clicked radio on by itself; the state is put back to what
+        /// SwiftUI says, which the re-render then updates if the action changed it.
+        @objc func clicked(_ sender: NSButton) {
+            action?()
+            sender.state = isOn ? .on : .off
+        }
     }
 }

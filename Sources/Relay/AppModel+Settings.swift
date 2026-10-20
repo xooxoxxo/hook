@@ -25,9 +25,7 @@ extension AppModel: SettingsViewModel {
             if let id = screen.displayUUID { displayNames[id] = screen.localizedName }
         }
         let repo = config?.repoPath?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
-        var problems: [String] = []
-        if let configNote { problems.append(UserFacingError.text(configNote)) }
-        if let listenerNote { problems.append(UserFacingError.text(listenerNote)) }
+        let problems = ConnectionStatus.problems(configNote: configNote, listenerNote: listenerNote)
         let sourceKey = store?.sourceKey ?? SourceKey.none
         var next = SettingsSnapshot(
             config: config,
@@ -73,7 +71,7 @@ extension AppModel: SettingsViewModel {
                 NSWorkspace.shared.open(dataDirectory)
             }
         case .chooseTokenFile:
-            if let path = Self.chooseTokenFile() { draft.tokenFile = (path as NSString).abbreviatingWithTildeInPath }
+            if let path = Self.chooseTokenFile() { draft.tokenFile = TildePath.abbreviate(path, home: Self.home.path) }
         case .chooseRepoFolder:
             if let path = Self.chooseFolder() { save(set: ["repoPath": path]) }
         case .installSkill:
@@ -141,20 +139,35 @@ extension AppModel: SettingsViewModel {
         refreshSettings()
     }
 
-    /// Saves the draft as the mailbox source.
+    /// Validates and saves the draft, then waits up to 10 s for the new source's first list.
     func connect() async -> String? {
-        let address = draft.address.trimmingCharacters(in: .whitespacesAndNewlines)
-        let token = (draft.tokenFile.trimmingCharacters(in: .whitespacesAndNewlines) as NSString).expandingTildeInPath
-        let context = draft.context.trimmingCharacters(in: .whitespacesAndNewlines)
-        var set: [String: Any] = ["source": SourceKind.mailbox.rawValue, "mailboxURL": address, "tokenFile": token]
-        if !context.isEmpty { set["context"] = context }
-        save(set: set, remove: context.isEmpty ? ["context"] : [])
-        return configNote.map { UserFacingError.text($0) }
+        let errors = draft.errors()
+        if let first = errors.address ?? errors.tokenFile { return first }
+        let change = draft.changes(home: Self.home.path)
+        save(set: change.set, remove: change.remove)
+        if let note = configNote, note.hasPrefix("Couldn't save") { return UserFacingError.text(note) }
+        guard case .mailbox(let settings)? = config?.resolvedSource() else { return configNote.map { UserFacingError.text($0) } }
+        let key = SourceKey.mailbox(settings)
+        let deadline = Date().addingTimeInterval(MailboxDraft.connectTimeout)
+        while Date() < deadline {
+            if let store, store.sourceKey == key {
+                if store.reachable { return nil }
+                if let problem = store.problem { return UserFacingError.text(problem) }
+            }
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+        return MailboxDraft.noAnswer
+    }
+
+    /// Unsaved values stay until the Settings window closes (§4.8).
+    func resetDraft() {
+        draft = MailboxDraft(config: config, home: Self.home.path)
     }
 
     /// Settings closed: stop polling the Connect tab's last call.
     func settingsWindowClosed() {
         setLastSeenPolling(false)
+        resetDraft()
     }
 
     func refreshPermission() async {
@@ -178,8 +191,7 @@ extension AppModel: SettingsViewModel {
         switch tab {
         case .general: return SettingsWindowController.hosting(GeneralTab(model: self))
         case .panel: return SettingsWindowController.hosting(PanelTab(model: self))
-        case .queue:
-            if let store { return SettingsWindowController.hosting(QueueTab(model: self, store: store)) }
+        case .queue: return SettingsWindowController.hosting(QueueTab(model: self))
         case .notifications:
             if let notifier { return SettingsWindowController.hosting(NotificationsTab(model: self, notifier: notifier)) }
         case .connect:

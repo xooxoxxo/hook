@@ -222,3 +222,107 @@ extension NotifySettings {
         ["now": now, "today": today, "whenever": whenever, "sound": sound, "slideIn": slideIn]
     }
 }
+
+// MARK: Queue
+
+/// Picker titles for Settings → Queue. A hand-edited value outside the choices is listed too.
+public enum ChoiceLabel {
+    public static let pollChoices = [5, 15, 30, 60, 300]
+    public static let keepChoices = [3, 7, 14, 30, 90]
+
+    public static func poll(_ seconds: Int) -> String {
+        switch seconds {
+        case 60: "1 minute"
+        case 300: "5 minutes"
+        case _ where pollChoices.contains(seconds): "\(seconds) seconds"
+        default: "\(seconds) seconds (from config.json)"
+        }
+    }
+
+    public static func keepDays(_ days: Int) -> String {
+        keepChoices.contains(days) ? "\(days) days" : "\(days) days (from config.json)"
+    }
+}
+
+/// `~` for the home folder, both ways; `~user` forms are left alone.
+public enum TildePath {
+    public static func expand(_ path: String, home: String) -> String {
+        if path == "~" { return home }
+        if path.hasPrefix("~/") { return home + path.dropFirst() }
+        return path
+    }
+
+    public static func abbreviate(_ path: String, home: String) -> String {
+        if path == home { return "~" }
+        if path.hasPrefix(home + "/") { return "~" + path.dropFirst(home.count) }
+        return path
+    }
+}
+
+extension MailboxDraft {
+    /// The longest Connect waits for the first list.
+    public static let connectTimeout: TimeInterval = 10
+    /// Connect's reason when the mailbox didn't answer in time.
+    public static let noAnswer = "no answer within 10 seconds"
+
+    /// The fields as the saved config fills them; the default context shows as empty.
+    public init(config: RelayConfig?, home: String) {
+        let context = config?.context ?? RelayConfig.defaultContext
+        self.init(address: config?.mailboxURL ?? "",
+                  tokenFile: TildePath.abbreviate(config?.tokenFile ?? "", home: home),
+                  context: context == RelayConfig.defaultContext ? "" : context)
+    }
+
+    /// Differs from the saved config, ignoring surrounding spaces, `~` spelling and an
+    /// empty context standing for the default.
+    public func isDirty(against config: RelayConfig?, home: String) -> Bool {
+        normalized(home: home) != MailboxDraft(config: config, home: home).normalized(home: home)
+    }
+
+    /// One caption per field, or nil.
+    public func errors() -> (address: String?, tokenFile: String?) {
+        let address = self.address.trimmingCharacters(in: .whitespacesAndNewlines)
+        let token = tokenFile.trimmingCharacters(in: .whitespacesAndNewlines)
+        var addressError: String?
+        if address.isEmpty {
+            addressError = "Enter the mailbox address."
+        } else if let url = URL(string: address), let scheme = url.scheme?.lowercased(),
+                  scheme == "http" || scheme == "https", let host = url.host(), !host.isEmpty {
+            addressError = nil
+        } else {
+            addressError = "The address must start with http:// or https://."
+        }
+        return (addressError, token.isEmpty ? "Enter the token file." : nil)
+    }
+
+    /// The merge-save for Connect: the mailbox source, the trimmed address, the expanded
+    /// token path, and the context (an empty one removes the key).
+    public func changes(home: String) -> (set: [String: Any], remove: [String]) {
+        let fields = normalized(home: home)
+        var set: [String: Any] = ["source": SourceKind.mailbox.rawValue, "mailboxURL": fields.address, "tokenFile": fields.tokenFile]
+        guard !fields.context.isEmpty else { return (set, ["context"]) }
+        set["context"] = fields.context
+        return (set, [])
+    }
+
+    private func normalized(home: String) -> MailboxDraft {
+        let context = self.context.trimmingCharacters(in: .whitespacesAndNewlines)
+        return MailboxDraft(
+            address: address.trimmingCharacters(in: .whitespacesAndNewlines),
+            tokenFile: TildePath.expand(tokenFile.trimmingCharacters(in: .whitespacesAndNewlines), home: home),
+            context: context == RelayConfig.defaultContext ? "" : context)
+    }
+}
+
+extension TestAskResult {
+    /// How long the result line stays.
+    public static let hold: TimeInterval = 30
+}
+
+extension ConnectionStatus {
+    /// Settings → Queue → Connection's red captions: the config and listener notes, each
+    /// one revealed line (a config note can embed a JSON parser message).
+    public static func problems(configNote: String?, listenerNote: String?) -> [String] {
+        [configNote, listenerNote].compactMap { $0 }.map { UserFacingError.text($0) }
+    }
+}

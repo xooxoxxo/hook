@@ -30,5 +30,21 @@ let settingsRules: [AlignmentRule] = [.sameTrailingPerGroup(.settingsTrailing, t
                 DisplayOption(id: "D2", title: "Projector (not connected)", connected: false),
             ])))
         },
+        settingsScene("settings-queue-local", tab: .queue) {
+            QueueTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(config: SettingsFixtures.localConfig)))
+        },
+        settingsScene("settings-queue-mailbox", tab: .queue,
+                      rules: settingsRules + [.sameLeading(.mailboxField, tolerance: 1)]) {
+            QueueTab(model: FixtureSettingsModel(
+                settings: SettingsFixtures.snapshot(),
+                draft: MailboxDraft(address: "https://mailbox.example:8790", tokenFile: "~/.config/relay/mailbox-token")))
+        },
+        settingsScene("settings-queue-unsaved", tab: .queue,
+                      rules: settingsRules + [.sameLeading(.mailboxField, tolerance: 1)]) {
+            QueueTab(model: FixtureSettingsModel(
+                settings: SettingsFixtures.snapshot(problems: ["Port 47823 is in use by another app"]),
+                draft: MailboxDraft(address: "https://mailbox.example:8791", tokenFile: "~/.config/relay/mailbox-token",
+                                    context: "work")))
+        },
     ]
 }
