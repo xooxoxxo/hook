@@ -148,7 +148,7 @@ public enum LinkCheck: Equatable, Sendable {
     /// Reopened asks: their return to the list is not a new ask to announce.
     private var quietIDs: Set<String> = []
 
-    public static let closedWindow: TimeInterval = 24 * 3600
+    public static let closedWindow: TimeInterval = DS.Timing.closedWindow
 
     let defaults: UserDefaults
     /// The clock for held closes and staleness; tests pass their own.
@@ -159,7 +159,7 @@ public enum LinkCheck: Equatable, Sendable {
     private var polling = false
 
     public init(defaults: UserDefaults = .standard, now: @escaping @MainActor () -> Date = { Date() },
-                sentHold: Duration = .seconds(4),
+                sentHold: Duration = .seconds(DS.Motion.sentHold),
                 sleep: (@Sendable (Duration) async throws -> Void)? = nil,
                 timeoutSleep: (@Sendable (Duration) async -> Void)? = nil) {
         self.defaults = defaults
@@ -321,7 +321,7 @@ public enum LinkCheck: Equatable, Sendable {
         if hidden.contains(id) { return .closed }
         guard source != nil else { return .unknown }
         let now = ContinuousClock.now
-        if let last = lastLinkRefresh, now - last < .seconds(5) { return .unknown }
+        if let last = lastLinkRefresh, now - last < .seconds(DS.Timing.linkRecheck) { return .unknown }
         lastLinkRefresh = now
         await refresh()
         if items.contains(where: { $0.id == id }) { return .open }
@@ -460,7 +460,7 @@ public enum LinkCheck: Equatable, Sendable {
     }
 
     /// How old the last list may be before showing the panel in mailbox mode lists again.
-    public static let staleAfter: TimeInterval = 5
+    public static let staleAfter: TimeInterval = DS.Timing.staleList
 
     /// Showing the panel in mailbox mode lists again when the last list is older than `staleAfter`.
     public func refreshIfStale() async {
@@ -760,7 +760,7 @@ public enum LinkCheck: Equatable, Sendable {
         guard ticker == nil else { return }
         ticker = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
+                try? await Task.sleep(for: .seconds(DS.Timing.holdTick))
                 guard let self else { return }
                 if self.sendDue() {
                     self.ticker = nil

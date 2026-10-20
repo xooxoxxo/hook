@@ -47,6 +47,7 @@ public struct ChoiceGroup: View {
             }
             .pickerStyle(.radioGroup)
             .labelsHidden()
+            .fixedSize(horizontal: false, vertical: true)
             .accessibilityHint(Self.hint(count: choices.count))
             HStack {
                 Spacer()

@@ -362,6 +362,7 @@ struct ComponentsSheet: View {
         Sample("StateView · offline") { state(.offline(title: "Can't reach the mailbox", reason: "The mailbox didn't answer within 10 seconds.")) },
         Sample("StateView · not set up") { state(.notSetUp) },
         Sample("StateView · not found") { state(.notFound(canShowClosed: true)) },
+        // MailboxFields needs the Settings width (fieldWide); the settings-queue and welcome scenes show it.
         Sample("SettingsRow · help, none, error") {
             Form {
                 Section("Shortcut") {
@@ -373,13 +374,9 @@ struct ComponentsSheet: View {
                         Picker("Appearance", selection: .constant(0)) { Text("System").tag(0) }.labelsHidden().fixedSize()
                     }
                 }
-                Section("Mailbox") {
-                    MailboxFields(address: .constant("https://mailbox.example:8790"), tokenFile: .constant(""),
-                                  context: .constant(""), addressError: nil, tokenFileError: nil, onChooseTokenFile: {})
-                }
             }
             .formStyle(.grouped)
-            .frame(height: 470)
+            .frame(height: 260)
         },
     ])
 }

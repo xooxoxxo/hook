@@ -224,7 +224,7 @@ func tabSymbol(_ id: SettingsTabID) -> String {
 }
 
 /// Renders `scene` in light and dark: `<scene>-<theme><suffix>.png`, 2×, into options.outDir,
-/// and checks the scene's alignment rules against each capture.
+/// and checks the scene's alignment rules against each capture (under --xl, gutterText by frame).
 @MainActor func render(_ scene: GalleryScene, options: GalleryOptions) -> RenderResult {
     var files: [String] = []
     var failures: [AlignmentFailure] = []
@@ -246,7 +246,10 @@ func tabSymbol(_ id: SettingsTabID) -> String {
         files.append(file)
         guard !scene.rules.isEmpty else { continue }
         if let bitmap = InkBitmap(captured.rep) {
-            failures += AlignmentCheck.verify(captured.probes, bitmap: bitmap, rules: scene.rules)
+            let probes = options.xl
+                ? AlignmentCheck.measuringByFrame(captured.probes, roles: AlignmentCheck.xlFrameRoles)
+                : captured.probes
+            failures += AlignmentCheck.verify(probes, bitmap: bitmap, rules: scene.rules)
                 .map { AlignmentFailure(rule: $0.rule, detail: "\(file): \($0.detail)") }
         } else {
             failures += scene.rules.map { AlignmentFailure(rule: $0, detail: "\(file): can't read the bitmap") }

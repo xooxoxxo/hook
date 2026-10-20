@@ -174,6 +174,22 @@ public enum DS {
         public static let wakeRecheck: TimeInterval = 1.0
         public static let copiedFor: TimeInterval = 1.5
         public static let undoHold: TimeInterval = 10
+        /// How long the reply caption reads "Sent 10:42" after a send.
+        public static let sentHold: TimeInterval = 4
+    }
+
+    /// Store and Settings timings that are not animations.
+    public enum Timing {
+        /// How far back a closed ask still shows under "Closed today".
+        public static let closedWindow: TimeInterval = 24 * 3600
+        /// How old the last mailbox list may be before showing the panel lists again.
+        public static let staleList: TimeInterval = 5
+        /// The shortest gap between two refreshes made by a link check.
+        public static let linkRecheck: TimeInterval = 5
+        /// How often held-back closes are checked for being due.
+        public static let holdTick: TimeInterval = 1
+        /// How often the Connect tab's "Last call" relative time re-renders.
+        public static let lastCallRefresh: TimeInterval = 30
     }
 
     /// The animation to use: `animation`, or `Motion.reduced` under Reduce Motion.

@@ -21,7 +21,7 @@ jobs:
         run: swift build
 
       - name: Token lint
-        run: ./scripts/test-check-tokens.sh && ./scripts/check-tokens.sh Sources/RelayUI
+        run: ./scripts/test-check-tokens.sh && ./scripts/check-tokens.sh
 
       - name: Gallery builds
         run: swift build --product RelayGallery

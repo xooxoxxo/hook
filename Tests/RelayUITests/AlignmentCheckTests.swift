@@ -142,6 +142,18 @@ private func probe(_ role: ProbeRole, _ x: CGFloat, _ y: CGFloat, _ w: CGFloat, 
         #expect(AlignmentCheck.verify(clipped, bitmap: ink, rules: [.leading(.gutterText, x: 16, tolerance: 1)]).isEmpty)
     }
 
+    @Test func theXLVariantMeasuresGutterTextByItsFrame() {
+        // At 1.35x a capital's side bearing puts the ink past a frame that sits on the rule.
+        #expect(AlignmentCheck.xlFrameRoles == [.gutterText])
+        let probes = [probe(.gutterText, 14, 0, 30, 10), probe(.subMarker, 14, 0, 30, 10)]
+        let rules: [AlignmentRule] = [.leading(.gutterText, x: 14, tolerance: 1), .leading(.subMarker, x: 14, tolerance: 1)]
+        #expect(AlignmentCheck.verify(probes, bitmap: ink, rules: rules).count == 2)
+        let xl = AlignmentCheck.measuringByFrame(probes, roles: AlignmentCheck.xlFrameRoles)
+        #expect(xl.map(\.measure) == [.frame, .ink])
+        #expect(xl.map(\.frame) == probes.map(\.frame))
+        #expect(AlignmentCheck.verify(xl, bitmap: ink, rules: rules).map(\.rule) == [.leading(.subMarker, x: 14, tolerance: 1)])
+    }
+
     @Test func failuresDescribeTheRule() {
         let failure = AlignmentFailure(rule: .leading(.gutterText, x: 16, tolerance: 1), detail: "no ink")
         #expect(failure.description == "leading(gutterText, x: 16.0, tolerance: 1.0): no ink")

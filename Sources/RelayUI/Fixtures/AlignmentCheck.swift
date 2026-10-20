@@ -127,6 +127,19 @@ public enum AlignmentCheck {
     /// How far, in points, a probe may overhang the capture and still count as inside it (rounding).
     static let edgeSlack: CGFloat = 0.5
 
+    /// Roles the `--xl` variant measures by frame: at 1.35x a capital's left side bearing
+    /// (C, P, R) puts the ink past a frame that sits exactly on the rule.
+    public static let xlFrameRoles: Set<ProbeRole> = [.gutterText]
+
+    /// The probes with every probe of `roles` measured by its frame; the others keep their measure.
+    public static func measuringByFrame(_ probes: [ProbeFrame], roles: Set<ProbeRole>) -> [ProbeFrame] {
+        probes.map { probe in
+            var probe = probe
+            if roles.contains(probe.role) { probe.measure = .frame }
+            return probe
+        }
+    }
+
     /// Checks `rules` against the probes, each by its ink or, for a `.frame` probe, by its frame's
     /// edges. A probe whose frame runs past the capture's edges (a List
     /// row cut off at the bottom) is skipped: the visible strip holds no full glyph, so measuring it

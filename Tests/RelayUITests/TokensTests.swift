@@ -35,12 +35,21 @@ import Testing
         #expect(DS.Motion.reduced == .easeOut(duration: 0.12))
         #expect([DS.Motion.slideIn, DS.Motion.fade, DS.Motion.snap, DS.Motion.redockDebounce] == [0.25, 0.12, 0.20, 0.25])
         #expect([DS.Motion.wakeRecheck, DS.Motion.copiedFor, DS.Motion.undoHold] == [1.0, 1.5, 10])
+        #expect(DS.Motion.sentHold == 4)
         #expect(DS.motion(DS.Motion.push, reduce: true) == DS.Motion.reduced)
         #expect(DS.motion(DS.Motion.push, reduce: false) == DS.Motion.push)
         #expect(DS.appKitDuration(DS.Motion.snap, reduce: true) == 0)
         #expect(DS.appKitDuration(DS.Motion.fade, reduce: true) == 0)
         #expect(DS.appKitDuration(DS.Motion.slideIn, reduce: true) == DS.Motion.fade)
         #expect(DS.appKitDuration(DS.Motion.snap, reduce: false) == DS.Motion.snap)
+    }
+
+    @Test func timing() {
+        #expect(DS.Timing.closedWindow == 24 * 3600)
+        #expect(DS.Timing.staleList == 5)
+        #expect(DS.Timing.linkRecheck == 5)
+        #expect(DS.Timing.holdTick == 1)
+        #expect(DS.Timing.lastCallRefresh == 30)
     }
 
     @Test func controlSizes() {

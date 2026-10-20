@@ -40,7 +40,7 @@ public struct ConnectTab<Model: SettingsViewModel>: View {
                 }
                 .disabled(!hasRepo)
                 SettingsRow("Last call") {
-                    TimelineView(.periodic(from: .now, by: 30)) { context in
+                    TimelineView(.periodic(from: .now, by: DS.Timing.lastCallRefresh)) { context in
                         Text(lastCall(now: gallery.now ?? context.date))
                             .foregroundStyle(DS.Color.secondary).monospacedDigit()
                     }

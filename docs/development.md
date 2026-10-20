@@ -46,6 +46,10 @@ Menus are checked with `screencapture -w`.
 shapes outside `Sources/RelayUI/Design/`, and on switch toggles or Liquid Glass
 calls anywhere; CI runs it with its self-test.
 
+### Review rule
+
+A pull request that changes `Sources/RelayUI/` attaches the before and after PNGs of every scene it touches (`scripts/gallery.sh <scene…>`, light and dark), plus one `screencapture -l <windowID>` of the running panel per theme over a real desktop. Menus (the queue menu, the row context menu, the menu-bar menu) are checked with `screencapture -w`. `./scripts/check-tokens.sh` must print nothing: outside `Sources/RelayUI/Design/`, no literal sizes, colours, durations or shapes.
+
 ## CI
 
 [CI](../.github/workflows/ci.yml) runs on pushes to `main` and on pull requests. It builds, runs the Swift, client and MCP tests (again on `/usr/bin/python3` if it is 3.9+), and runs the installer tests.
