@@ -49,6 +49,8 @@ import RelayUI
     private var awayTally = AwayTally()
     /// The first ask that arrived while away; the return summary click selects it.
     private var awayFirstID: String?
+    /// What the last Settings rebuild read from the Store.
+    private var settingsStoreInputs: SettingsStoreInputs?
     /// Open (or held for Undo or sending) and Recently closed ids at the last Store change.
     private var lastOpenIDs: Set<String> = []
     private var lastClosedIDs: Set<String> = []
@@ -80,7 +82,7 @@ import RelayUI
         panel = makePanel(store: store, model: model)
 
         setUpMenuBar()
-        store.onStateChange = { [weak self] in self?.updateMenuBar(); self?.cleanUpNotifications() }
+        store.onStateChange = { [weak self] in self?.storeStateChanged() }
         store.onNewItems = { [weak self] items in
             self?.announce(items)
         }
@@ -582,8 +584,22 @@ import RelayUI
         }
     }
 
+    /// After every list, close, undo and send. Settings is rebuilt only when what it reads
+    /// from the Store changed: the rebuild reads files and screens, and polls mostly change nothing.
+    private func storeStateChanged() {
+        updateMenuBar(refreshingSettings: false)
+        if let store {
+            let inputs = SettingsStoreInputs(store)
+            if inputs != settingsStoreInputs {
+                settingsStoreInputs = inputs
+                model?.refreshSettings()
+            }
+        }
+        cleanUpNotifications()
+    }
+
     /// Badge, dimming, tooltip and VO label, after every Store change.
-    private func updateMenuBar() {
+    private func updateMenuBar(refreshingSettings: Bool = true) {
         guard let store else { return }
         let status = presence.status
         var state = store.menuBarState(showCount: showCount, away: status.state == .away)
@@ -591,7 +607,7 @@ import RelayUI
         state.shortcut = label == HotKeyManager.offLabel ? nil : label
         state.awaySince = status.state == .away ? ClockText.time(status.since) : nil
         menuBar?.update(state)
-        model?.refreshSettings()
+        if refreshingSettings { model?.refreshSettings() }
     }
 
     /// The shortcut's label for the menu bar's tooltip and, mirrored into the model,
@@ -735,5 +751,22 @@ import RelayUI
     /// The menu reads presence on every open; the status item's tooltip and dimming follow it.
     private func updatePresenceMenu() {
         updateMenuBar()
+    }
+}
+
+/// The Store values `AppModel.refreshSettings()` reads.
+private struct SettingsStoreInputs: Equatable {
+    var sourceKey: String
+    var reachable: Bool
+    var listed: Bool
+    var waiting: Int
+    var problem: String?
+
+    @MainActor init(_ store: Store) {
+        sourceKey = store.sourceKey
+        reachable = store.reachable
+        listed = store.lastListAt != nil
+        waiting = store.items.count
+        problem = store.problem
     }
 }
