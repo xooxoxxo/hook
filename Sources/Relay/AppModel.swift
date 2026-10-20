@@ -45,11 +45,6 @@ final class ServerRouting: Sendable {
     @Published private(set) var lastSeen: [String: Date] = [:]
     /// Why the shortcut isn't working (§4.8).
     @Published var shortcutProblem: ShortcutProblem?
-    /// The old General tab's text view of `shortcutProblem`.
-    var hotkeyStatus: String? {
-        get { shortcutProblem?.text }
-        set { shortcutProblem = newValue == nil ? nil : .refused }
-    }
     /// What the Settings and Welcome views read; only `refreshSettings()` writes it.
     @Published var settings = SettingsSnapshot()
     /// The Mailbox fields being edited; memory only.

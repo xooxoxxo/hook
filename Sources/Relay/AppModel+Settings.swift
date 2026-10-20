@@ -118,10 +118,14 @@ extension AppModel: SettingsViewModel {
             }
         case .beginShortcut:
             shortcutProblem = nil
+            hotKeys?.onResumeFailed = { [weak self] in
+                self?.shortcutProblem = .resumeFailed
+                self?.refreshSettings()
+            }
             hooks.suspendShortcut()
         case .recordShortcut(let spec):
             let registered = spec.map { hooks.applyShortcut($0.canonical) } ?? false
-            shortcutProblem = spec == nil ? .unsupportedKey : (registered ? nil : .refused)
+            shortcutProblem = ShortcutProblem.forRecording(spec, registered: registered)
             if registered, let spec { save(set: ["hotkey": spec.canonical]) } else { hooks.resumeShortcut() }
         case .cancelShortcut:
             hooks.resumeShortcut()
@@ -174,8 +178,7 @@ extension AppModel: SettingsViewModel {
     /// One tab's content: each case builds one tab, so a tab's view changes here only.
     func settingsTab(_ tab: SettingsTabID) -> NSViewController {
         switch tab {
-        case .general:
-            if let hotKeys { return SettingsWindowController.hosting(GeneralTab(model: self, hotKeys: hotKeys)) }
+        case .general: return SettingsWindowController.hosting(GeneralTab(model: self))
         case .panel:
             break
         case .queue:

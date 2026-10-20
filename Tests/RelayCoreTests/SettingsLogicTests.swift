@@ -90,4 +90,17 @@ private let legacyKey = "relay.settings.tab"
         #expect(failed != RepoState(repoPath: "~/src/relay"))
         #expect(failed.skillError == "Couldn't install the skill. Disk full.")
     }
+
+    @Test func shortcutProblemsHaveTheSpecTexts() {
+        #expect(ShortcutProblem.unsupportedKey.text == "That key can't be used. Pick a letter, a digit, Space, ` or F1–F12.")
+        #expect(ShortcutProblem.refused.text == "macOS refused this shortcut. Another app may be using it.")
+        #expect(ShortcutProblem.resumeFailed.text == "The shortcut was turned off because macOS refused it again. Record it again.")
+    }
+
+    @Test func aRecordingMapsToAProblem() {
+        let spec = HotkeySpec.parse("ctrl+opt+cmd+r")
+        #expect(ShortcutProblem.forRecording(nil, registered: false) == .unsupportedKey)
+        #expect(ShortcutProblem.forRecording(spec, registered: false) == .refused)
+        #expect(ShortcutProblem.forRecording(spec, registered: true) == nil)
+    }
 }

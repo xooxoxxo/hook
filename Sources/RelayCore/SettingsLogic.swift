@@ -192,3 +192,11 @@ public enum SettingsAction: Equatable {
     case redockNow, requestNotifications, openNotificationSettings, sendTestNotification, openLoginItems, setLogin(Bool)
     case beginShortcut, recordShortcut(HotkeySpec?), cancelShortcut, clearShortcut, showAsk(String), switchTab(SettingsTabID), showPanel
 }
+
+extension ShortcutProblem {
+    /// The recorder's result: nil spec = a key Relay can't use; a spec macOS refused = refused.
+    public static func forRecording(_ spec: HotkeySpec?, registered: Bool) -> ShortcutProblem? {
+        guard spec != nil else { return .unsupportedKey }
+        return registered ? nil : .refused
+    }
+}

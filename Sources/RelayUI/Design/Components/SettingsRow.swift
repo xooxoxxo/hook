@@ -37,7 +37,8 @@ public struct SettingsRow<Control: View>: View {
                     control
                     helpSlot
                 }
-                .alignmentProbe(.settingsTrailing, group: group)
+                // The help slot is the row's trailing edge; an empty one has no ink to scan.
+                .alignmentProbe(.settingsTrailing, group: group, measure: .frame)
                 if let error {
                     Text(error)
                         .font(DS.Font.caption)

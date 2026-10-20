@@ -15,4 +15,13 @@ let settingsRules: [AlignmentRule] = [.sameTrailingPerGroup(.settingsTrailing, t
 }
 
 /// One entry per Settings tab state.
-@MainActor var settingsScenes: [GalleryScene] { [] }
+@MainActor var settingsScenes: [GalleryScene] {
+    [
+        settingsScene("settings-general", tab: .general) {
+            GeneralTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot()))
+        },
+        settingsScene("settings-readonly", tab: .general) {
+            GeneralTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(readOnly: true)))
+        },
+    ]
+}

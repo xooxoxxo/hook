@@ -79,6 +79,8 @@ import RelayCore
     }
     /// After `label` changed (a change here, in the recorder, or a failed resume).
     var onLabelChange: (@MainActor () -> Void)?
+    /// The shortcut couldn't be registered again after recording (macOS refused it).
+    var onResumeFailed: (@MainActor () -> Void)?
     private let action: @MainActor () -> Void
     private var hotKey: GlobalHotKey?
     private var spec: HotkeySpec?
@@ -132,6 +134,7 @@ import RelayCore
         if hotKey == nil {
             self.spec = nil
             label = Self.offLabel
+            onResumeFailed?()
         }
     }
 
