@@ -23,6 +23,30 @@ let settingsRules: [AlignmentRule] = [.sameTrailingPerGroup(.settingsTrailing, t
         settingsScene("settings-readonly", tab: .general) {
             GeneralTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(readOnly: true)))
         },
+        settingsScene("settings-general-shortcut-unsupported", tab: .general) {
+            GeneralTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(shortcutProblem: .unsupportedKey)))
+        },
+        settingsScene("settings-general-shortcut-refused", tab: .general) {
+            GeneralTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(shortcutProblem: .refused)))
+        },
+        settingsScene("settings-general-shortcut-resumefailed", tab: .general) {
+            GeneralTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(shortcutProblem: .resumeFailed)))
+        },
+        settingsScene("settings-general-login-error", tab: .general) {
+            GeneralTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(login: LoginState(
+                on: false, error: "Couldn't change the login item. The file couldn't be saved."))))
+        },
+        settingsScene("settings-general-needs-approval", tab: .general) {
+            GeneralTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(login: LoginState(
+                on: true, needsApproval: true))))
+        },
+        settingsScene("settings-general-away", tab: .general) {
+            GeneralTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(away: true)))
+        },
+        settingsScene("settings-general-away-manual", tab: .general) {
+            GeneralTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(
+                config: SettingsFixtures.manualAwayConfig, away: true, presenceLine: "Away · set by you · since 10:22")))
+        },
         settingsScene("settings-panel", tab: .panel) {
             PanelTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(displays: [
                 DisplayOption(id: nil, title: "Main display", connected: true),
@@ -51,6 +75,15 @@ let settingsRules: [AlignmentRule] = [.sameTrailingPerGroup(.settingsTrailing, t
         },
         settingsScene("settings-notifications-denied", tab: .notifications) {
             NotificationsTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(permission: .denied)))
+        },
+        settingsScene("settings-notifications-notdetermined", tab: .notifications) {
+            NotificationsTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(permission: .notDetermined)))
+        },
+        settingsScene("settings-notifications-sent", tab: .notifications) {
+            NotificationsTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot()), sent: true)
+        },
+        settingsScene("settings-notifications-readonly", tab: .notifications) {
+            NotificationsTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(readOnly: true)))
         },
         settingsScene("settings-connect", tab: .connect) {
             ConnectTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(config: SettingsFixtures.localConfig)))

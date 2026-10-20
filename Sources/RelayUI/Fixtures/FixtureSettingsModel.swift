@@ -26,6 +26,12 @@ public enum SettingsFixtures {
         source: .mailbox, mailboxURL: "https://mailbox.example:8790",
         tokenFile: "~/.config/relay/mailbox-token", repoPath: repoPath)
     public static let localConfig = RelayConfig(source: .local, repoPath: repoPath)
+    /// The mailbox config with Presence set to Away by hand, so "Away after" is hidden.
+    public static let manualAwayConfig: RelayConfig = {
+        var config = mailboxConfig
+        config.presence = .away
+        return config
+    }()
     public static let repo = RepoState(
         repoPath: repoPath,
         mcpCommand: #"claude mcp add --scope user relay -- python3 "$HOME/src/relay/mcp/relay_mcp.py""#,
@@ -33,8 +39,10 @@ public enum SettingsFixtures {
         lastCall: GalleryFixtures.now.addingTimeInterval(-120))
 
     public static func snapshot(config: RelayConfig? = mailboxConfig, readOnly: Bool = false, away: Bool = false,
+                                presenceLine: String? = nil,
                                 permission: NotificationPermission = .authorized, repo: RepoState = repo,
-                                shortcutProblem: ShortcutProblem? = nil, problems: [String] = [],
+                                shortcutProblem: ShortcutProblem? = nil, login: LoginState = LoginState(on: true),
+                                problems: [String] = [],
                                 displays: [DisplayOption] = [
                                     DisplayOption(id: nil, title: "Main display", connected: true),
                                     DisplayOption(id: "D1", title: "Studio Display", connected: true),
@@ -48,8 +56,8 @@ public enum SettingsFixtures {
         return SettingsSnapshot(
             config: config, readOnly: readOnly, version: "0.6.0",
             shortcutLabel: "⌃⌥⌘R", shortcutProblem: shortcutProblem,
-            presenceLine: away ? "Away · screen locked · since 10:22" : "Home · active", away: away,
-            login: LoginState(on: true), displays: displays, sourceKey: sourceKey,
+            presenceLine: presenceLine ?? (away ? "Away · screen locked · since 10:22" : "Home · active"), away: away,
+            login: login, displays: displays, sourceKey: sourceKey,
             connection: ConnectionStatus.line(sourceKey: sourceKey, reachable: true, loadedOnce: true, waiting: 5, problem: nil),
             connectionProblems: problems, permission: permission, repo: repo,
             localQueuePath: "~/Library/Application Support/Relay/queue.json", now: GalleryFixtures.now)

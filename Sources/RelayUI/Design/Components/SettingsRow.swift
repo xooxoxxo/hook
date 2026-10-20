@@ -32,7 +32,9 @@ public struct SettingsRow<Control: View>: View {
 
     public var body: some View {
         LabeledContent(label) {
-            VStack(alignment: .leading, spacing: DS.Space.rowLine) {
+            // Trailing, so a caption wider than the control can't pull the help slot off the
+            // section's trailing edge.
+            VStack(alignment: .trailing, spacing: DS.Space.rowLine) {
                 HStack(spacing: DS.Space.inline) {
                     control
                     helpSlot

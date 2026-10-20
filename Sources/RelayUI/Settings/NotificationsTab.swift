@@ -7,8 +7,10 @@ public struct NotificationsTab<Model: SettingsViewModel>: View {
     @State private var sent = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    public init(model: Model) {
+    /// `sent` starts the tab with the "Sent." caption showing (the gallery's after-test state).
+    public init(model: Model, sent: Bool = false) {
         _model = ObservedObject(wrappedValue: model)
+        _sent = State(initialValue: sent)
     }
 
     private var notify: NotifySettings { model.settings.config?.notify ?? NotifySettings() }
