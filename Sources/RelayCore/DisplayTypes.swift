@@ -182,12 +182,15 @@ public struct UndoInfo: Equatable, Sendable {
 public struct ClosedInfo: Equatable, Sendable {
     public var status: String
     public var closedBy: String?
-    public var completedAt: String?
+    public var completedAt: String? { didSet { completedDate = completedAt.flatMap(Timestamp.date) } }
+    /// `completedAt` parsed, once.
+    public private(set) var completedDate: Date?
 
     public init(status: String, closedBy: String?, completedAt: String?) {
         self.status = status
         self.closedBy = closedBy
         self.completedAt = completedAt
+        completedDate = completedAt.flatMap(Timestamp.date)
     }
 }
 
@@ -198,7 +201,9 @@ public struct AskRowModel: Equatable, Sendable, Identifiable {
     /// The raw project string; "" when the ask has none.
     public var project: String
     public var urgency: Urgency
-    public var created: String
+    public var created: String { didSet { createdDate = Timestamp.date(created) } }
+    /// `created` parsed, once: the queue's ages read it on every render.
+    public private(set) var createdDate: Date?
     public var summary: RowSummary
     /// The card's line under the title (`SubLine`).
     public var subline: String
@@ -216,6 +221,7 @@ public struct AskRowModel: Equatable, Sendable, Identifiable {
         self.project = project
         self.urgency = urgency
         self.created = created
+        createdDate = Timestamp.date(created)
         self.summary = summary
         self.subline = subline ?? SubLine.text(summary)
         self.hasDraft = hasDraft

@@ -174,16 +174,25 @@ public enum SubLine {
 /// A row's age: "now", "12 min ago", "3 h ago", "2 d ago". Parsed to Date, so the Mac's time zone never matters.
 public enum RelativeAge {
     public static func text(created: String, now: Date) -> String {
-        format(created: created, now: now, minutes: " min ago", hours: " h ago", days: " d ago")
+        text(created: Timestamp.date(created), now: now)
     }
 
     /// The same age for a queue card's top row: "now", "12m", "3h", "2d". VoiceOver keeps `text`.
     public static func compact(created: String, now: Date) -> String {
+        compact(created: Timestamp.date(created), now: now)
+    }
+
+    /// From a stamp parsed already; "" when it didn't parse.
+    public static func text(created: Date?, now: Date) -> String {
+        format(created: created, now: now, minutes: " min ago", hours: " h ago", days: " d ago")
+    }
+
+    public static func compact(created: Date?, now: Date) -> String {
         format(created: created, now: now, minutes: "m", hours: "h", days: "d")
     }
 
-    private static func format(created: String, now: Date, minutes: String, hours: String, days: String) -> String {
-        guard let date = Timestamp.date(created) else { return "" }
+    private static func format(created: Date?, now: Date, minutes: String, hours: String, days: String) -> String {
+        guard let date = created else { return "" }
         let seconds = max(0, now.timeIntervalSince(date))
         if seconds < 60 { return "now" }
         if seconds < 3600 { return "\(Int(seconds / 60))" + minutes }
@@ -197,6 +206,11 @@ public enum RelativeAge {
 public enum ClosedLine {
     /// `closedBy` is the actor of the closing event ("owner", "session"), when known.
     public static func text(status: String, closedBy: String?, completedAt: String?, now: Date) -> String {
+        text(status: status, closedBy: closedBy, completed: completedAt.flatMap(Timestamp.date), now: now)
+    }
+
+    /// From a stamp parsed already; nil leaves the time out.
+    public static func text(status: String, closedBy: String?, completed: Date?, now: Date) -> String {
         let how: String
         if closedBy == "session" {
             how = "Closed by the session"
@@ -207,7 +221,7 @@ public enum ClosedLine {
             default: how = "Closed"
             }
         }
-        guard let stamp = completedAt, let date = Timestamp.date(stamp) else { return how }
+        guard let date = completed else { return how }
         return how + " " + ago(max(0, now.timeIntervalSince(date)))
     }
 

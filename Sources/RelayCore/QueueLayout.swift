@@ -45,15 +45,18 @@ public enum QueueLayout {
             if filter != nil || order.count == 1 {
                 return [QueueSection(header: nil, items: rowOrder(shown))]
             }
-            let sorted = order.sorted { a, b in
-                let ga = groups[a]!, gb = groups[b]!
-                let nowA = ga.contains { bucket($0) == .now }, nowB = gb.contains { bucket($0) == .now }
-                if nowA != nowB { return nowA }
-                let newestA = ga.map(createdDate).max()!, newestB = gb.map(createdDate).max()!
-                if newestA != newestB { return newestA > newestB }
-                return a.localizedStandardCompare(b) == .orderedAscending
+            // Each group's sort keys are worked out once, not on every comparison.
+            let keys = order.map { project in
+                let group = groups[project]!
+                return (project: project, hasNow: group.contains { bucket($0) == .now },
+                        newest: group.map(createdDate).max()!)
             }
-            return sorted.map { QueueSection(header: .project($0), items: rowOrder(groups[$0]!)) }
+            let sorted = keys.sorted { a, b in
+                if a.hasNow != b.hasNow { return a.hasNow }
+                if a.newest != b.newest { return a.newest > b.newest }
+                return a.project.localizedStandardCompare(b.project) == .orderedAscending
+            }
+            return sorted.map { QueueSection(header: .project($0.project), items: rowOrder(groups[$0.project]!)) }
         }
     }
 
@@ -69,13 +72,14 @@ public enum QueueLayout {
 
     /// Urgency rank (unknown counts as today), then created newest first; ties keep source order.
     static func rowOrder(_ items: [WireItem]) -> [WireItem] {
-        items.enumerated().sorted { a, b in
-            let ra = Urgency(raw: a.element.urgency).rank, rb = Urgency(raw: b.element.urgency).rank
-            if ra != rb { return ra < rb }
-            let da = createdDate(a.element), db = createdDate(b.element)
-            if da != db { return da > db }
-            return a.offset < b.offset
-        }.map(\.element)
+        items.enumerated()
+            .map { (item: $0.element, offset: $0.offset, rank: Urgency(raw: $0.element.urgency).rank, created: createdDate($0.element)) }
+            .sorted { a, b in
+                if a.rank != b.rank { return a.rank < b.rank }
+                if a.created != b.created { return a.created > b.created }
+                return a.offset < b.offset
+            }
+            .map(\.item)
     }
 
     /// The Urgency section an ask goes in; unknown urgencies go in Today.
