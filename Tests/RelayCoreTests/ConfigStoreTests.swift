@@ -262,3 +262,18 @@ private let mailboxProblem = ResolvedSource.invalid("mailbox needs an http(s) ma
         #expect(current.note == nil)
     }
 }
+
+@Suite struct ConfigWatchRuleTests {
+    @Test func aDeletedOrRenamedFolderIsWatchedAgain() {
+        #expect(ConfigWatchRule.needsRearm(.delete))
+        #expect(ConfigWatchRule.needsRearm(.rename))
+        #expect(ConfigWatchRule.needsRearm([.write, .rename]))
+    }
+
+    @Test func ordinaryChangesKeepTheSource() {
+        #expect(!ConfigWatchRule.needsRearm(.write))
+        #expect(!ConfigWatchRule.needsRearm([.write, .extend, .attrib]))
+        #expect(!ConfigWatchRule.needsRearm(.link))
+        #expect(!ConfigWatchRule.needsRearm([]))
+    }
+}

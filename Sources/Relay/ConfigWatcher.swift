@@ -3,7 +3,8 @@ import RelayCore
 
 /// Watches config.json. The directory is watched
 /// because an atomic rename replaces the file's inode; the file itself is
-/// watched too, because an in-place edit only touches the file. Events are
+/// watched too, because an in-place edit only touches the file. The directory
+/// source is re-made after the folder itself is deleted or renamed. Events are
 /// debounced for 300 ms. Bytes identical to the last delivered state, or to
 /// the app's own last write, are not delivered.
 @MainActor final class ConfigWatcher {
@@ -13,6 +14,7 @@ import RelayCore
     private let onChange: @MainActor (ConfigLoad) -> Void
     private var directorySource: (any DispatchSourceFileSystemObject)?
     private var fileSource: (any DispatchSourceFileSystemObject)?
+    private var directoryNeedsRearm = false
     private var pending: Task<Void, Never>?
     private var lastBytes: Data?
     private var ownWrite: Data?
@@ -25,9 +27,7 @@ import RelayCore
     func start() {
         stop()
         lastBytes = try? Data(contentsOf: url)
-        directorySource = Self.watch(url.deletingLastPathComponent().path) { [weak self] in
-            self?.changed()
-        }
+        armDirectorySource()
         armFileSource()
     }
 
@@ -55,6 +55,7 @@ import RelayCore
     }
 
     private func fire() {
+        if directorySource == nil || directoryNeedsRearm { armDirectorySource() }
         armFileSource()
         let bytes = try? Data(contentsOf: url)
         if let own = ownWrite, bytes == own {
@@ -67,16 +68,25 @@ import RelayCore
         onChange(ConfigStore.load(url))
     }
 
-    /// The file's inode changes on every atomic save, so its source is re-made.
-    private func armFileSource() {
-        fileSource?.cancel()
-        fileSource = Self.watch(url.path) { [weak self] in
+    /// The folder is watched because an atomic save renames over the file. A folder that
+    /// was itself deleted or renamed (or didn't exist yet) is watched again on the next event.
+    private func armDirectorySource() {
+        directorySource?.cancel()
+        directoryNeedsRearm = false
+        directorySource = Self.watch(url.deletingLastPathComponent().path) { [weak self] event in
+            if ConfigWatchRule.needsRearm(event) { self?.directoryNeedsRearm = true }
             self?.changed()
         }
     }
 
+    /// The file's inode changes on every atomic save, so its source is re-made.
+    private func armFileSource() {
+        fileSource?.cancel()
+        fileSource = Self.watch(url.path) { [weak self] _ in self?.changed() }
+    }
+
     private static func watch(
-        _ path: String, _ handler: @escaping @MainActor () -> Void
+        _ path: String, _ handler: @escaping @MainActor (DispatchSource.FileSystemEvent) -> Void
     ) -> (any DispatchSourceFileSystemObject)? {
         let fd = Darwin.open(path, O_EVTONLY)
         guard fd >= 0 else { return nil }
@@ -84,8 +94,9 @@ import RelayCore
             fileDescriptor: fd,
             eventMask: [.write, .extend, .delete, .rename, .attrib, .link],
             queue: .main)
-        source.setEventHandler {
-            MainActor.assumeIsolated { handler() }
+        source.setEventHandler { [weak source] in
+            let event = source?.data ?? []
+            MainActor.assumeIsolated { handler(event) }
         }
         source.setCancelHandler {
             Darwin.close(fd)
