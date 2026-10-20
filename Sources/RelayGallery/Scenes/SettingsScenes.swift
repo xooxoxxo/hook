@@ -29,13 +29,16 @@ let settingsRules: [AlignmentRule] = [.sameTrailingPerGroup(.settingsTrailing, t
         settingsScene("settings-general-shortcut-refused", tab: .general) {
             GeneralTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(shortcutProblem: .refused)))
         },
+        // A failed resume turns the shortcut off, so the field reads "Not set".
         settingsScene("settings-general-shortcut-resumefailed", tab: .general) {
-            GeneralTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(shortcutProblem: .resumeFailed)))
+            GeneralTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(
+                shortcutLabel: nil, shortcutProblem: .resumeFailed)))
         },
         settingsScene("settings-general-login-error", tab: .general) {
             GeneralTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(login: LoginState(
                 on: false, error: "Couldn't change the login item. The file couldn't be saved."))))
         },
+        // View-supported only: login is a LaunchAgent, so the app never reports needsApproval today.
         settingsScene("settings-general-needs-approval", tab: .general) {
             GeneralTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(login: LoginState(
                 on: true, needsApproval: true))))

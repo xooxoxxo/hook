@@ -41,6 +41,7 @@ public enum SettingsFixtures {
     public static func snapshot(config: RelayConfig? = mailboxConfig, readOnly: Bool = false, away: Bool = false,
                                 presenceLine: String? = nil,
                                 permission: NotificationPermission = .authorized, repo: RepoState = repo,
+                                shortcutLabel: String? = "⌃⌥⌘R",
                                 shortcutProblem: ShortcutProblem? = nil, login: LoginState = LoginState(on: true),
                                 problems: [String] = [],
                                 displays: [DisplayOption] = [
@@ -55,7 +56,7 @@ public enum SettingsFixtures {
         }
         return SettingsSnapshot(
             config: config, readOnly: readOnly, version: "0.6.0",
-            shortcutLabel: "⌃⌥⌘R", shortcutProblem: shortcutProblem,
+            shortcutLabel: shortcutLabel, shortcutProblem: shortcutProblem,
             presenceLine: presenceLine ?? (away ? "Away · screen locked · since 10:22" : "Home · active"), away: away,
             login: login, displays: displays, sourceKey: sourceKey,
             connection: ConnectionStatus.line(sourceKey: sourceKey, reachable: true, loadedOnce: true, waiting: 5, problem: nil),
