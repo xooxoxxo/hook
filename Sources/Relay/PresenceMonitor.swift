@@ -9,6 +9,10 @@ import RelayCore
 /// `PresenceLogic`, and keeps the away flag file in step. AppDelegate applies
 /// the effects through `onChange`.
 @MainActor final class PresenceMonitor {
+    /// How often presence is re-checked between lock, sleep and session notifications;
+    /// idle time and Screen Sharing are only seen on this poll.
+    static let pollInterval: Duration = .seconds(30)
+
     /// The current decision; `since` is when `state` last changed.
     struct Status: Equatable {
         var state: PresenceState
@@ -48,7 +52,7 @@ import RelayCore
         observe()
         pollTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(30))
+                try? await Task.sleep(for: Self.pollInterval)
                 self?.refresh()
             }
         }

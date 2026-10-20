@@ -36,6 +36,11 @@ final class ServerRouting: Sendable {
 /// The config lifecycle (load, live reload, merge-save) and the state the
 /// Settings and Welcome windows show. AppDelegate applies what it publishes.
 @MainActor final class AppModel: ObservableObject {
+    /// How often the loopback API's last-seen time is read for Settings → Connect.
+    static let lastSeenPoll: Duration = .seconds(5)
+    /// How often Connect checks whether the new source has answered.
+    static let connectPoll: Duration = .milliseconds(250)
+
     /// The last good config.
     @Published private(set) var config: RelayConfig?
     /// "config.json has an error: …", "config.json is missing", or a save failure.
@@ -224,7 +229,7 @@ final class ServerRouting: Sendable {
                         self?.refreshSettings()   // the Connect tab reads the snapshot, not lastSeen
                     }
                 }
-                try? await Task.sleep(for: .seconds(5))
+                try? await Task.sleep(for: Self.lastSeenPoll)
             }
         }
     }

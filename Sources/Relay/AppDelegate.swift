@@ -4,6 +4,9 @@ import RelayCore
 import RelayUI
 
 @MainActor final class AppDelegate: NSObject, NSApplicationDelegate {
+    /// The longest a quit waits for held closes to reach the source.
+    static let quitDrainTimeout: Duration = .seconds(3)
+
     private var model: AppModel?
     private var store: Store?
     private var panel: SidePanel?
@@ -165,7 +168,7 @@ import RelayUI
             answerTermination()
         }
         Task {
-            try? await Task.sleep(for: .seconds(3))
+            try? await Task.sleep(for: Self.quitDrainTimeout)
             answerTermination()
         }
         return .terminateLater

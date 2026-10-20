@@ -164,7 +164,7 @@ extension AppModel: SettingsViewModel {
                 if store.reachable { return nil }
                 if let problem = store.problem { return UserFacingError.text(problem) }
             }
-            try? await Task.sleep(for: .milliseconds(250))
+            try? await Task.sleep(for: Self.connectPoll)
         }
         return MailboxDraft.noAnswer
     }
