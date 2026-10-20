@@ -326,7 +326,7 @@ import RelayUI
         alphaValue = 1
     }
 
-    /// The shortcut or a left click: show and focus; focus a visible unfocused panel; re-dock a misplaced one; hide a focused one.
+    /// Called by the shortcut, a left click on the status item and the menu's Show/Hide Panel item: show and focus; focus a visible unfocused panel; re-dock a misplaced one; hide a focused one.
     /// A panel that is fading out counts as hidden, so a second press brings it back. Every
     /// action but hide goes through `present`, which re-docks and cancels a fade-out.
     func toggle() {

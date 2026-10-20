@@ -1,7 +1,7 @@
 #!/bin/bash
-# Principle 5 (design §1) and rules N1, N6, N10 (§3.3): outside
-# Sources/RelayUI/Design/ no literal sizes, colours, durations or custom shapes;
-# nowhere a switch toggle or a Liquid Glass call. Prints path:line:text per hit.
+# Checks the UI code for hard-coded styling: outside Sources/RelayUI/Design/ there
+# must be no literal sizes, colours, durations or custom shapes (they belong in the
+# design tokens), and nowhere a switch-style toggle or a Liquid Glass call. Prints path:line:text per hit.
 # Exit 0 clean, 1 on any hit, 2 when a path doesn't exist.
 set -u
 cd "$(dirname "$0")/.." || exit 2
