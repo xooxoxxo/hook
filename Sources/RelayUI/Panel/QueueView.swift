@@ -20,8 +20,20 @@ extension FocusedValues {
 /// starts at `cardText` and ends at panelWidth − `cardText`. Section headers and the other
 /// rows keep zero horizontal inset, so their text starts on the gutter and their counts end
 /// at panelWidth − gutter. Nothing in the List is a DisclosureGroup.
-struct QueueView<Model: PanelViewModel>: View {
-    @ObservedObject private var model: Model
+///
+/// It doesn't observe the model: PanelRoot hands it the values it draws, and as an
+/// EquatableView it re-renders only when one of them changes, so a draft keystroke, a
+/// detail load or a list that changes nothing never reaches the List. The model is only
+/// for actions.
+struct QueueView<Model: PanelViewModel>: View, Equatable {
+    private let model: Model
+    private let queue: QueueSnapshot
+    private let status: PanelStatus
+    private let notice: PanelNotice?
+    private let undo: UndoInfo?
+    private let sending: Bool
+    private let listSelection: String?
+    private let selectedID: String?
     @AppStorage("relay.closedToday.expanded") private var storedClosedExpanded = false
     @FocusState private var listFocused: Bool
     /// The Recently closed header's focus, published by the List as `relayClosedHeaderFocused`.
@@ -30,14 +42,30 @@ struct QueueView<Model: PanelViewModel>: View {
     /// pass, until AppKit stops the loop by raising an exception.
     @FocusState private var closedHeaderFocused: Bool
     /// Rows the List has on screen (List rows appear and disappear as they scroll); Back
-    /// scrolls only when the row it returns to isn't one of them.
-    @State private var visibleRows: Set<String> = []
+    /// scrolls only when the row it returns to isn't one of them. A reference, so rows
+    /// scrolling in and out never invalidate the view.
+    @State private var visibleRows = VisibleRows()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.controlActiveState) private var activeState
     @Environment(\.panelGallery) private var gallery
 
     init(model: Model) {
-        _model = ObservedObject(wrappedValue: model)
+        self.model = model
+        queue = model.queue
+        status = model.status
+        notice = model.notice
+        undo = model.undoInfo
+        sending = model.sendingCloses > 0
+        listSelection = model.listSelection
+        selectedID = model.navigation.selectedID
+    }
+
+    nonisolated static func == (a: Self, b: Self) -> Bool {
+        MainActor.assumeIsolated {
+            a.model === b.model && a.queue == b.queue && a.status == b.status && a.notice == b.notice
+                && a.undo == b.undo && a.sending == b.sending && a.listSelection == b.listSelection
+                && a.selectedID == b.selectedID
+        }
     }
 
     static var rowInsets: EdgeInsets {
@@ -77,11 +105,9 @@ struct QueueView<Model: PanelViewModel>: View {
     }
 
     var body: some View {
-        let queue = model.queue
-        let status = model.status
         VStack(spacing: 0) {
             header(queue)
-            if let notice = model.notice {
+            if let notice {
                 Notice(kind: notice.kind, text: notice.text, actionTitle: notice.actionTitle,
                        onAction: { model.performNoticeAction() }, onDismiss: { model.dismissNotice() })
                     .padding(.horizontal, DS.Space.gutter)
@@ -89,8 +115,8 @@ struct QueueView<Model: PanelViewModel>: View {
                     .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
             }
             listArea(queue)
-            if let undo = model.undoInfo {
-                UndoBar(undo: undo, sending: model.sendingCloses > 0, onUndo: { model.undo() })
+            if let undo {
+                UndoBar(undo: undo, sending: sending, onUndo: { model.undo() })
                     .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
             }
             StatusBar(symbol: status.symbol, text: status.text, onSettings: { model.shell.openSettings(nil) },
@@ -102,8 +128,8 @@ struct QueueView<Model: PanelViewModel>: View {
                     onShowConfig: { NSWorkspace.shared.activateFileViewerSelecting([RelayConfig.path()]) })
             }
         }
-        .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: model.notice)
-        .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: model.undoInfo)
+        .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: notice)
+        .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: undo)
     }
 
     /// VO announcement when the project filter changes.
@@ -114,8 +140,9 @@ struct QueueView<Model: PanelViewModel>: View {
     private func header(_ queue: QueueSnapshot) -> some View {
         ListHeaderBar(
             title: queue.title, refreshing: queue.manualRefreshing, updated: queue.updated,
-            grouping: Binding(get: { model.queue.grouping }, set: { model.setGrouping($0) }),
-            filter: Binding(get: { model.queue.filter }, set: { model.setFilter($0) }),
+            // The snapshot this render holds, not `model.queue`: the header reads these often.
+            grouping: Binding(get: { queue.grouping }, set: { model.setGrouping($0) }),
+            filter: Binding(get: { queue.filter }, set: { model.setFilter($0) }),
             projects: queue.projects, hidden: queue.hidden,
             onRefresh: { model.refresh() },
             onHide: { model.shell.hide() },
@@ -153,6 +180,7 @@ struct QueueView<Model: PanelViewModel>: View {
                 }
                 .listStyle(.sidebar)
                 .scrollContentBackground(.hidden)
+                .cardListHighlightOff()
                 .environment(\.defaultMinListRowHeight, DS.Metric.rowMinHeight)
                 .focused($listFocused)
                 .focusedValue(\.relayClosedHeaderFocused, closedHeaderFocused)
@@ -168,15 +196,15 @@ struct QueueView<Model: PanelViewModel>: View {
                 }
                 .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: queue.grouping)
                 .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: queue.filter)
-                .onAppear { if model.navigation.selectedID == nil { listFocused = true } }
+                .onAppear { if selectedID == nil { listFocused = true } }
                 .onChange(of: activeState) { _, state in
                     if state == .key, model.navigation.selectedID == nil { listFocused = true }
                 }
-                .onChange(of: model.navigation.selectedID) { old, new in
+                .onChange(of: selectedID) { old, new in
                     // Back: the row you came from is centred only when it is off-screen,
                     // and the List takes focus.
                     guard old != nil, new == nil else { return }
-                    if let id = model.listSelection, !visibleRows.contains(id) {
+                    if let id = model.listSelection, !visibleRows.ids.contains(id) {
                         proxy.scrollTo(id, anchor: .center)
                     }
                     listFocused = true
@@ -232,18 +260,19 @@ struct QueueView<Model: PanelViewModel>: View {
         let urgencyInHeader = Self.headerNamesUrgency(section)
         return ForEach(section.items) { item in
             if let row = queue.rows[item.id] {
-                AskRow(row: row, age: RelativeAge.text(created: row.created, now: now),
-                       compactAge: RelativeAge.compact(created: row.created, now: now),
+                AskRow(row: row, age: RelativeAge.text(created: row.createdDate, now: now),
+                       compactAge: RelativeAge.compact(created: row.createdDate, now: now),
                        urgencyInHeader: urgencyInHeader,
                        onShowOnlyProject: { model.setFilter(row.project) })
+                    .equatable()
                     .simultaneousGesture(TapGesture().onEnded {
                         if ListClick.tapOpens(openDetail: model.navigation.selectedID) { model.open(row.id) }
                     })
                     .listRowInsets(Self.cardInsets)
-                    .listRowBackground(CardBackground(selected: model.listSelection == row.id))
+                    .listRowBackground(CardBackground(selected: listSelection == row.id).equatable())
                     .tag(row.id)
-                    .onAppear { visibleRows.insert(row.id) }
-                    .onDisappear { visibleRows.remove(row.id) }
+                    .onAppear { visibleRows.ids.insert(row.id) }
+                    .onDisappear { visibleRows.ids.remove(row.id) }
             }
         }
     }
@@ -257,14 +286,15 @@ struct QueueView<Model: PanelViewModel>: View {
                     ClosedAskRow(
                         row: row,
                         closedLine: ClosedLine.text(status: row.closed?.status ?? "", closedBy: row.closed?.closedBy,
-                                                    completedAt: row.closed?.completedAt, now: now),
+                                                    completed: row.closed?.completedDate, now: now),
                         onReopen: { model.reopen(row.id) },
                         onShowOnlyProject: { model.setFilter(row.project) })
+                        .equatable()
                         .listRowInsets(Self.cardInsets)
-                        .listRowBackground(CardBackground(selected: model.listSelection == row.id, quiet: true))
+                        .listRowBackground(CardBackground(selected: listSelection == row.id, quiet: true).equatable())
                         .tag(row.id)
-                        .onAppear { visibleRows.insert(row.id) }
-                        .onDisappear { visibleRows.remove(row.id) }
+                        .onAppear { visibleRows.ids.insert(row.id) }
+                        .onDisappear { visibleRows.ids.remove(row.id) }
                 }
             }
         } header: {
@@ -273,4 +303,9 @@ struct QueueView<Model: PanelViewModel>: View {
         }
         .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: closedExpanded.wrappedValue)
     }
+}
+
+/// The ids of the rows on screen, kept out of SwiftUI's change tracking.
+final class VisibleRows {
+    var ids: Set<String> = []
 }

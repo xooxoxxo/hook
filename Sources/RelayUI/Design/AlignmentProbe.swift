@@ -73,25 +73,37 @@ extension EnvironmentValues {
     }
 }
 
+/// Off (the app), it reads one environment value and adds nothing; the state and the
+/// GeometryReader live in `AlignmentProbeReader`, built only when probes are on.
 private struct AlignmentProbeModifier: ViewModifier {
     let role: ProbeRole
     let group: String
     let measure: ProbeMeasure
     @Environment(\.alignmentProbesEnabled) private var enabled
-    @Environment(\.alignmentProbeSink) private var sink
-    @State private var id = UUID()
 
     func body(content: Content) -> some View {
         if enabled {
-            content.background(GeometryReader { proxy in
-                let frame = ProbeFrame(role: role, group: group, frame: proxy.frame(in: .global), measure: measure)
-                Color.clear
-                    .preference(key: AlignmentProbeKey.self, value: [frame])
-                    .onAppear { sink?.record(id, frame) }
-                    .onChange(of: frame) { _, new in sink?.record(id, new) }
-            })
+            content.background(AlignmentProbeReader(role: role, group: group, measure: measure))
         } else {
             content
+        }
+    }
+}
+
+private struct AlignmentProbeReader: View {
+    let role: ProbeRole
+    let group: String
+    let measure: ProbeMeasure
+    @Environment(\.alignmentProbeSink) private var sink
+    @State private var id = UUID()
+
+    var body: some View {
+        GeometryReader { proxy in
+            let frame = ProbeFrame(role: role, group: group, frame: proxy.frame(in: .global), measure: measure)
+            Color.clear
+                .preference(key: AlignmentProbeKey.self, value: [frame])
+                .onAppear { sink?.record(id, frame) }
+                .onChange(of: frame) { _, new in sink?.record(id, new) }
         }
     }
 }

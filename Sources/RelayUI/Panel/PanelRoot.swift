@@ -63,6 +63,7 @@ public struct PanelRoot<Model: PanelViewModel>: View {
         let detailShown = Self.showsDetail(model.navigation)
         return ZStack(alignment: .top) {
             QueueView(model: model)
+                .equatable()
                 .opacity(detailShown ? 0 : 1)
                 .allowsHitTesting(!detailShown)
                 .accessibilityHidden(detailShown)

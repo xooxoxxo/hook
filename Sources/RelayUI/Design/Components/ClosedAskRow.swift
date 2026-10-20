@@ -4,7 +4,8 @@ import SwiftUI
 /// Design/ClosedAskRow: a recently closed ask's card content, quieter than an open one
 /// (CardBackground draws it with `quiet`): a faded monogram, the project and how it closed,
 /// then the title in `secondary` beside Reopen.
-public struct ClosedAskRow: View {
+/// Equatable on what it draws (not the actions), so the List skips cards that didn't change.
+public struct ClosedAskRow: View, Equatable {
     let row: AskRowModel
     let closedLine: String
     let onReopen: () -> Void
@@ -16,6 +17,10 @@ public struct ClosedAskRow: View {
         self.closedLine = closedLine
         self.onReopen = onReopen
         self.onShowOnlyProject = onShowOnlyProject
+    }
+
+    nonisolated public static func == (a: ClosedAskRow, b: ClosedAskRow) -> Bool {
+        a.row == b.row && a.closedLine == b.closedLine
     }
 
     public var body: some View {

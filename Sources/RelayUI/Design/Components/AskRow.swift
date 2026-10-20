@@ -5,7 +5,8 @@ import SwiftUI
 /// Top row: the project's monogram and name, then the urgency (as `CardUrgency` says) and the
 /// compact age; then the title over up to two lines; then the subline (what the ask wants, or
 /// its progress) and the draft mark. VoiceOver reads the urgency and the full age.
-public struct AskRow: View {
+/// Equatable on what it draws (not the action), so the List skips cards that didn't change.
+public struct AskRow: View, Equatable {
     let row: AskRowModel
     let age: String
     let compactAge: String
@@ -21,6 +22,10 @@ public struct AskRow: View {
         self.compactAge = compactAge
         self.urgencyInHeader = urgencyInHeader
         self.onShowOnlyProject = onShowOnlyProject
+    }
+
+    nonisolated public static func == (a: AskRow, b: AskRow) -> Bool {
+        a.row == b.row && a.age == b.age && a.compactAge == b.compactAge && a.urgencyInHeader == b.urgencyInHeader
     }
 
     public var body: some View {

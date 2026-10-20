@@ -73,6 +73,7 @@ struct MiniList<Content: View>: View {
         List(selection: .constant(selection)) { content }
             .listStyle(.sidebar)
             .scrollContentBackground(.hidden)
+            .cardListHighlightOff()
             .scrollDisabled(true)
             .environment(\.defaultMinListRowHeight, DS.Metric.rowMinHeight)
             .frame(height: height)
