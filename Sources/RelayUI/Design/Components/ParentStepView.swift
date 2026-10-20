@@ -4,7 +4,7 @@ import SwiftUI
 /// The detail ScrollView's coordinate space; node frames are reported in it.
 let detailScrollSpace = "relay.detail.scroll"
 
-/// Each step node's frame, by path, in `detailScrollSpace`: top-level nodes (DetailView) and sub-steps (ParentStepView).
+/// Each step node's frame, by path, in `detailScrollSpace`: top-level nodes (DetailSteps) and sub-steps (ParentStepView).
 struct NodeFramesKey: PreferenceKey {
     static let defaultValue: [String: CGRect] = [:]
     static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {

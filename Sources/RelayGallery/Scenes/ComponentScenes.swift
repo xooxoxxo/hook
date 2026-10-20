@@ -18,7 +18,7 @@ struct SheetSection {
     let samples: [Sample]
 }
 
-/// The sheet's sections in reading order, one per component.
+/// The sheet's sections in reading order, one per group of components.
 @MainActor func sheetSections() -> [SheetSection] {
     [typeRamp(), controls(), rows(), headers(), bars(), codeAndLinks(), steps(), reply(), states()]
 }

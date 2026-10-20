@@ -38,7 +38,7 @@ final class ServerRouting: Sendable {
 @MainActor final class AppModel: ObservableObject {
     /// How often the loopback API's last-seen time is read for Settings → Connect.
     static let lastSeenPoll: Duration = .seconds(5)
-    /// How often Connect checks whether the new source has answered.
+    /// How often Connect (Queue tab and Welcome) checks whether the new mailbox has answered.
     static let connectPoll: Duration = .milliseconds(250)
 
     /// The last good config.
