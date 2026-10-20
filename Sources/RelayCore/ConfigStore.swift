@@ -75,3 +75,12 @@ public enum ConfigReload {
         }
     }
 }
+
+/// Whether the watched config folder's own source has to be made again.
+public enum ConfigWatchRule {
+    /// The folder was deleted or renamed: its file descriptor now points at the old
+    /// inode, so the directory source must be made again on the path.
+    public static func needsRearm(_ event: DispatchSource.FileSystemEvent) -> Bool {
+        event.contains(.delete) || event.contains(.rename)
+    }
+}

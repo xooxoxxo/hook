@@ -52,3 +52,81 @@ public enum DockGeometry {
         return (dx * dx + dy * dy).squareRoot()
     }
 }
+
+/// What one pointer event on the panel header means.
+public enum DragEvent: Equatable, Sendable { case began, moved(CGSize), ended(CGPoint), click, doubleClick }
+
+/// The header's press-drag-release logic, in screen points. Under `threshold`
+/// of travel a press is a click; past it the panel follows the pointer.
+public struct DragTracker: Sendable {
+    public let threshold: CGFloat
+    private var start: CGPoint?
+    private var dragging = false
+
+    public init(threshold: CGFloat) {
+        self.threshold = threshold
+    }
+
+    public mutating func mouseDown(at point: CGPoint, clickCount: Int) -> DragEvent? {
+        dragging = false
+        if clickCount >= 2 {
+            start = nil
+            return .doubleClick
+        }
+        start = point
+        return nil
+    }
+
+    /// `.began` once, when the travel first reaches `threshold`; every later call `.moved`
+    /// with the offset from the press. Call again after `.began` to get the first `.moved`.
+    public mutating func mouseDragged(to point: CGPoint) -> DragEvent? {
+        guard let start else { return nil }
+        let delta = CGSize(width: point.x - start.x, height: point.y - start.y)
+        if !dragging {
+            guard max(abs(delta.width), abs(delta.height)) >= threshold else { return nil }
+            dragging = true
+            return .began
+        }
+        return .moved(delta)
+    }
+
+    public mutating func mouseUp(at point: CGPoint) -> DragEvent? {
+        defer { cancel() }
+        guard start != nil else { return nil }
+        return dragging ? .ended(point) : .click
+    }
+
+    /// Drops the press (the view left its window, or the panel was hidden).
+    public mutating func cancel() {
+        start = nil
+        dragging = false
+    }
+}
+
+extension DockGeometry {
+    /// A config change docks the panel only when it moves it: the edge or the pinned
+    /// display. A missing config means the defaults (right edge, main display).
+    public static func needsDock(old: RelayConfig?, new: RelayConfig?) -> Bool {
+        (old?.sidebarEdge ?? .right) != (new?.sidebarEdge ?? .right)
+            || old?.sidebarDisplay != new?.sidebarDisplay
+    }
+
+    /// Where the panel sits mid-drag: the frame at drag start moved by the pointer's
+    /// travel, at its docked size (it never resizes until the snap).
+    public static func dragFrame(start: CGRect, delta: CGSize) -> CGRect {
+        CGRect(x: start.minX + delta.width, y: start.minY + delta.height, width: start.width, height: start.height)
+    }
+
+    /// The display the panel is on: the one holding its centre, else the one it overlaps
+    /// most, else nil. ⌃⌘← / ⌃⌘→ dock on this display.
+    public static func currentScreenID(frame: CGRect, screens: [DockScreen]) -> String? {
+        let centre = CGPoint(x: frame.midX, y: frame.midY)
+        if let screen = screens.first(where: { $0.frame.contains(centre) }) { return screen.id }
+        let overlaps = screens.map { screen -> (String, CGFloat) in
+            let common = screen.frame.intersection(frame)
+            return (screen.id, common.isNull ? 0 : common.width * common.height)
+        }
+        guard let best = overlaps.max(by: { $0.1 < $1.1 }), best.1 > 0 else { return nil }
+        return best.0
+    }
+}

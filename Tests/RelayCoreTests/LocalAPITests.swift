@@ -238,6 +238,27 @@ private func details(_ response: HTTPResponse) -> [String] {
         let dedupe = await h.send("POST", "/asks", body: askBody(title: "Ask 0"))
         #expect(dedupe.status == 200)
     }
+
+    @Test func postWithSubstepsIsAccepted() async throws {
+        let h = try await harness()
+        let ins = #"{"v":1,"title":"Set up Slack","steps":[{"do":"Create the app","substeps":[{"do":"Click New"},{"do":"Name it"}]}]}"#
+        let response = await h.send("POST", "/asks", body: #"{"project":"Acme","instructable":\#(ins)}"#)
+        #expect(response.status == 201)
+        guard case .array(let steps)? = try json(response)["item"]?["payload"]?["instructable"]?["steps"],
+              case .array(let subs)? = steps.first?["substeps"] else {
+            Issue.record("the stored instructable lost its substeps")
+            return
+        }
+        #expect(subs.map { $0["do"] } == [.string("Click New"), .string("Name it")])
+    }
+
+    @Test func postWithNestedSubstepsIsRefused() async throws {
+        let h = try await harness()
+        let ins = #"{"v":1,"title":"Set up Slack","steps":[{"do":"a","substeps":[{"do":"b","substeps":[{"do":"c"}]}]}]}"#
+        let response = await h.send("POST", "/asks", body: #"{"project":"Acme","instructable":\#(ins)}"#)
+        #expect(response.status == 400)
+        #expect(details(response) == ["steps[0].substeps[0].substeps: unknown key"])
+    }
 }
 
 @Suite struct LocalAPIReadTests {

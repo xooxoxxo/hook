@@ -111,3 +111,91 @@ private let above = DockScreen(
         #expect(snap(0, 0, []) == nil)
     }
 }
+
+@Suite struct DragTrackerTests {
+    @Test func underTheThresholdIsAClick() {
+        var tracker = DragTracker(threshold: 3)
+        #expect(tracker.mouseDown(at: CGPoint(x: 10, y: 10), clickCount: 1) == nil)
+        #expect(tracker.mouseDragged(to: CGPoint(x: 12, y: 11)) == nil)
+        #expect(tracker.mouseUp(at: CGPoint(x: 12, y: 11)) == .click)
+    }
+
+    @Test func pastTheThresholdItDrags() {
+        var tracker = DragTracker(threshold: 3)
+        _ = tracker.mouseDown(at: CGPoint(x: 10, y: 10), clickCount: 1)
+        #expect(tracker.mouseDragged(to: CGPoint(x: 13, y: 10)) == .began)
+        #expect(tracker.mouseDragged(to: CGPoint(x: 13, y: 10)) == .moved(CGSize(width: 3, height: 0)))
+        #expect(tracker.mouseDragged(to: CGPoint(x: 40, y: -5)) == .moved(CGSize(width: 30, height: -15)))
+        #expect(tracker.mouseUp(at: CGPoint(x: 41, y: -5)) == .ended(CGPoint(x: 41, y: -5)))
+    }
+
+    @Test func aVerticalDragCountsToo() {
+        var tracker = DragTracker(threshold: 3)
+        _ = tracker.mouseDown(at: .zero, clickCount: 1)
+        #expect(tracker.mouseDragged(to: CGPoint(x: 0, y: -3)) == .began)
+    }
+
+    @Test func doubleClickRedocksAndItsMouseUpIsSilent() {
+        var tracker = DragTracker(threshold: 3)
+        #expect(tracker.mouseDown(at: .zero, clickCount: 2) == .doubleClick)
+        #expect(tracker.mouseDragged(to: CGPoint(x: 50, y: 0)) == nil)
+        #expect(tracker.mouseUp(at: .zero) == nil)
+    }
+
+    @Test func aStrayUpOrDragDoesNothing() {
+        var tracker = DragTracker(threshold: 3)
+        #expect(tracker.mouseDragged(to: CGPoint(x: 9, y: 9)) == nil)
+        #expect(tracker.mouseUp(at: .zero) == nil)
+        _ = tracker.mouseDown(at: .zero, clickCount: 1)
+        _ = tracker.mouseDragged(to: CGPoint(x: 5, y: 0))
+        tracker.cancel()
+        #expect(tracker.mouseUp(at: .zero) == nil)
+    }
+}
+
+@Suite struct DockTests {
+    @Test func onlyTheEdgeOrTheDisplayNeedsADock() {
+        let base = RelayConfig()
+        #expect(!DockGeometry.needsDock(old: base, new: base))
+        #expect(!DockGeometry.needsDock(old: nil, new: base))          // both mean right edge, main display
+        #expect(DockGeometry.needsDock(old: base, new: RelayConfig(sidebarEdge: .left)))
+        #expect(DockGeometry.needsDock(old: base, new: RelayConfig(sidebarDisplay: "LEFT")))
+        #expect(DockGeometry.needsDock(old: RelayConfig(sidebarDisplay: "LEFT"), new: base))
+        #expect(DockGeometry.needsDock(old: RelayConfig(sidebarDisplay: "LEFT"), new: nil))
+    }
+
+    @Test func unrelatedKeysNeverDock() {
+        let base = RelayConfig()
+        let edited = RelayConfig(pollSeconds: 30, showCount: false, appearance: .dark,
+                                 notify: NotifySettings(sound: true), presence: .away)
+        #expect(!DockGeometry.needsDock(old: base, new: edited))
+    }
+
+    @Test func aDragFollowsThePointerAtTheDockedSize() {
+        let start = CGRect(x: 1060, y: 70, width: 380, height: 805)
+        #expect(DockGeometry.dragFrame(start: start, delta: CGSize(width: -600, height: 20))
+            == CGRect(x: 460, y: 90, width: 380, height: 805))
+        #expect(DockGeometry.dragFrame(start: start, delta: .zero) == start)
+        // Across onto a display at negative x, still 380 × 805.
+        #expect(DockGeometry.dragFrame(start: start, delta: CGSize(width: -2500, height: -40))
+            == CGRect(x: -1440, y: 30, width: 380, height: 805))
+    }
+
+    @Test func theCurrentDisplayHoldsThePanelsCentre() {
+        let onPrimaryRight = CGRect(x: 1060, y: 70, width: 380, height: 805)
+        #expect(DockGeometry.currentScreenID(frame: onPrimaryRight, screens: [primary, leftOfPrimary]) == "PRIMARY")
+        let onLeft = CGRect(x: -1920, y: 0, width: 380, height: 1080)
+        #expect(DockGeometry.currentScreenID(frame: onLeft, screens: [primary, leftOfPrimary]) == "LEFT")
+        let onTop = CGRect(x: 1060, y: 900, width: 380, height: 900)
+        #expect(DockGeometry.currentScreenID(frame: onTop, screens: [primary, above]) == "ABOVE")
+    }
+
+    @Test func aCentreInAGapPicksTheLargestOverlap() {
+        // Centre at x = 1530 sits in the gap between PRIMARY (ends 1440) and RIGHT (starts 1640).
+        let straddling = CGRect(x: 1340, y: 100, width: 380, height: 600)
+        #expect(DockGeometry.currentScreenID(frame: straddling, screens: [primary, farRight]) == "PRIMARY")
+        let nowhere = CGRect(x: 9000, y: 9000, width: 380, height: 600)
+        #expect(DockGeometry.currentScreenID(frame: nowhere, screens: [primary, farRight]) == nil)
+        #expect(DockGeometry.currentScreenID(frame: straddling, screens: []) == nil)
+    }
+}

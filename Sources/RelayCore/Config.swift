@@ -33,6 +33,14 @@ public enum AppearanceSetting: String, Sendable, Equatable, Codable {
     case dark
 }
 
+/// What the panel does after Done or Skip in an ask (Settings → Panel).
+public enum AfterClose: String, Sendable, Equatable, Codable {
+    /// Open the next ask in the visible order (the default).
+    case next
+    /// Go back to the queue with that row selected.
+    case queue
+}
+
 /// `notify` in config.json: which urgencies notify, and how.
 public struct NotifySettings: Sendable, Equatable, Codable {
     public var now: Bool
@@ -130,11 +138,13 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
     /// The UUID of the display the sidebar is pinned to; set by dragging the
     /// panel. nil, or a display that isn't connected, means the main display.
     public var sidebarDisplay: String?
+    /// After Done or Skip: open the next ask, or go back to the queue.
+    public var afterClose: AfterClose
 
     enum CodingKeys: String, CodingKey {
         case source, mailboxURL, tokenFile, context, port, pollSeconds, hotkey, keepDays
         case showCount, sidebarEdge, appearance, notify, presence, awayAfterMinutes, repoPath
-        case sidebarDisplay
+        case sidebarDisplay, afterClose
     }
 
     public init(
@@ -153,7 +163,8 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
         presence: PresenceMode = .auto,
         awayAfterMinutes: Int = PresenceLogic.defaultAwayAfterMinutes,
         repoPath: String? = nil,
-        sidebarDisplay: String? = nil
+        sidebarDisplay: String? = nil,
+        afterClose: AfterClose = .next
     ) {
         self.source = source
         self.mailboxURL = mailboxURL
@@ -171,6 +182,7 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
         self.awayAfterMinutes = awayAfterMinutes
         self.repoPath = repoPath
         self.sidebarDisplay = sidebarDisplay
+        self.afterClose = afterClose
     }
 
     /// A missing, null, wrong-typed or out-of-range key takes its default.
@@ -204,6 +216,7 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
         sidebarDisplay = c.lenient(String.self, .sidebarDisplay)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .flatMap { $0.isEmpty ? nil : $0 }
+        afterClose = c.lenient(String.self, .afterClose).flatMap(AfterClose.init(rawValue:)) ?? .next
     }
 
     /// `source` when present; else mailbox when `mailboxURL` is present; else incomplete.

@@ -342,7 +342,7 @@ enum QueueFixture {
         #expect(await reopened.get(open.id) != nil)
     }
 
-    /// Review Focus 3: a Mac whose time zone isn't UTC.
+    /// A Mac whose time zone isn't UTC.
     @Test func timestampsAndDedupeIgnoreTheLocalTimeZone() async throws {
         // Set for the rest of the test process on purpose: correct code never reads
         // it, and restoring it could race another test that sets the same zone.
@@ -378,7 +378,7 @@ enum QueueFixture {
         #expect(after.item.created == "2026-10-04T05:00:00+00:00")
     }
 
-    /// Review Focus 4: two sessions posting the same ask at the same moment.
+    /// Two sessions posting the same ask at the same moment.
     @Test func concurrentIdenticalPostsCreateOneItem() async throws {
         let dir = QueueFixture.directory()
         defer { QueueFixture.remove(dir) }

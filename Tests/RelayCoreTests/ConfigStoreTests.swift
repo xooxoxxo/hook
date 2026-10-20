@@ -94,6 +94,14 @@ private let mailboxProblem = ResolvedSource.invalid("mailbox needs an http(s) ma
         #expect(RelayConfig.path(environment: environment).path == "/tmp/relay-example/config.json")
         #expect(RelayConfig.directory(environment: environment).path == "/tmp/relay-example")
     }
+
+    @Test(arguments: [
+        ("{}", AfterClose.next), (#"{"afterClose":"queue"}"#, .queue), (#"{"afterClose":"next"}"#, .next),
+        (#"{"afterClose":"bogus"}"#, .next), (#"{"afterClose":3}"#, .next), (#"{"afterClose":null}"#, .next),
+    ])
+    func afterCloseDecodesLeniently(_ json: String, _ expected: AfterClose) throws {
+        #expect(try decode(json).afterClose == expected)
+    }
 }
 
 @Suite struct ConfigStoreTests {
@@ -195,9 +203,22 @@ private let mailboxProblem = ResolvedSource.invalid("mailbox needs an http(s) ma
         #expect(try mode(url.deletingLastPathComponent()) == 0o700)
         #expect(ConfigStore.load(url) == .loaded(RelayConfig(source: .local)))
     }
+
+    @Test func afterCloseMergesIntoTheOtherKeys() throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let url = root.appending(path: "config.json")
+        try PrivateFile.write(Data(#"{"source":"local","port":47901,"futureKey":true}"#.utf8), to: url)
+
+        try ConfigStore.merge(set: ["afterClose": AfterClose.queue.rawValue], into: url)
+        #expect(ConfigStore.load(url) == .loaded(RelayConfig(source: .local, port: 47901, afterClose: .queue)))
+        let object = try #require(try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        #expect(object["futureKey"] as? Bool == true)
+        #expect(object["afterClose"] as? String == "queue")
+    }
 }
 
-/// Review Focus 5: a hand-edited config.json that stops parsing while the app runs.
+/// A hand-edited config.json that stops parsing while the app runs.
 @Suite struct ConfigReloadTests {
     @Test func theLastGoodConfigStaysWhileTheFileIsBroken() {
         let good = RelayConfig(source: .local, port: 47901)
@@ -239,5 +260,20 @@ private let mailboxProblem = ResolvedSource.invalid("mailbox needs an http(s) ma
         current = ConfigReload.next(lastGood: current.config, load: ConfigStore.load(url))
         #expect(current.config?.port == 47902)
         #expect(current.note == nil)
+    }
+}
+
+@Suite struct ConfigWatchRuleTests {
+    @Test func aDeletedOrRenamedFolderIsWatchedAgain() {
+        #expect(ConfigWatchRule.needsRearm(.delete))
+        #expect(ConfigWatchRule.needsRearm(.rename))
+        #expect(ConfigWatchRule.needsRearm([.write, .rename]))
+    }
+
+    @Test func ordinaryChangesKeepTheSource() {
+        #expect(!ConfigWatchRule.needsRearm(.write))
+        #expect(!ConfigWatchRule.needsRearm([.write, .extend, .attrib]))
+        #expect(!ConfigWatchRule.needsRearm(.link))
+        #expect(!ConfigWatchRule.needsRearm([]))
     }
 }

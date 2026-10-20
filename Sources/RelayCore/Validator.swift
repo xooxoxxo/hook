@@ -21,7 +21,13 @@ public enum Validator {
     static let urgencies: Set<String> = ["now", "today", "whenever"]
 
     static let topKeys: Set<String> = ["v", "title", "why", "urgency", "steps", "verify", "reply", "links", "from"]
-    static let stepKeys: Set<String> = ["do", "where", "code", "lang", "expect", "detail", "url"]
+    /// A sub-step, or verify.
+    static let leafKeys: Set<String> = ["do", "where", "code", "lang", "expect", "detail", "url"]
+    /// An entry of `steps`.
+    static let stepKeys: Set<String> = leafKeys.union(["substeps"])
+    static let maxSubsteps = 10
+    /// Steps plus sub-steps per instructable; verify isn't counted.
+    static let maxStepTotal = 60
     static let replyKeys: Set<String> = ["prompt", "choices"]
     static let linkKeys: Set<String> = ["label", "url"]
     static let fromKeys = ["session", "host", "cwd"]
@@ -60,13 +66,20 @@ public enum Validator {
 
         if case .array(let steps)? = present(object["steps"]), (1...maxSteps).contains(steps.count) {
             for (index, item) in steps.enumerated() {
-                step(&errors, "steps[\(index)]", item)
+                step(&errors, "steps[\(index)]", item, allowed: stepKeys)
+            }
+            let total = steps.count + steps.reduce(0) { sum, item in
+                if case .object(let members) = item, case .array(let subs)? = members["substeps"] { return sum + subs.count }
+                return sum
+            }
+            if total > maxStepTotal {
+                errors.append("steps: more than \(maxStepTotal) steps and sub-steps in total")
             }
         } else {
             errors.append("steps: must be a list of 1 to \(maxSteps) steps")
         }
         if let verify = present(object["verify"]) {
-            step(&errors, "verify", verify)
+            step(&errors, "verify", verify, allowed: leafKeys)
         }
 
         if let replyValue = present(object["reply"]),
@@ -243,14 +256,23 @@ public enum Validator {
         return !kept.precomposedStringWithCompatibilityMapping.unicodeScalars.contains { forbidden.contains($0) }
     }
 
-    /// `_step`: `do` required, the rest optional.
-    static func step(_ errors: inout [String], _ path: String, _ value: JSONValue) {
-        guard let step = keys(&errors, path, value, allowed: stepKeys) else { return }
+    /// `_step`: `do` required, the rest optional; a `steps` entry may hold 1 to 10
+    /// sub-steps, each checked as a leaf (so nesting is an unknown key).
+    static func step(_ errors: inout [String], _ path: String, _ value: JSONValue, allowed: Set<String>) {
+        guard let step = keys(&errors, path, value, allowed: allowed) else { return }
         for field in stepFields {
             text(&errors, "\(path).\(field.name)", step[field.name], limit: field.limit,
                  required: field.name == "do", kind: field.kind)
         }
         url(&errors, "\(path).url", step["url"])
+        guard allowed.contains("substeps"), let subsValue = present(step["substeps"]) else { return }
+        guard case .array(let subs) = subsValue, (1...maxSubsteps).contains(subs.count) else {
+            errors.append("\(path).substeps: must be a list of 1 to \(maxSubsteps) steps")
+            return
+        }
+        for (index, sub) in subs.enumerated() {
+            Self.step(&errors, "\(path).substeps[\(index)]", sub, allowed: leafKeys)
+        }
     }
 
     /// `_keys`: the members of an object, after reporting each unknown key;

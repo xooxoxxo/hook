@@ -11,6 +11,29 @@ public enum FieldClass: Sendable {
 }
 
 /// Makes characters that render invisibly, or reorder text, visible as "⟨U+XXXX⟩".
+///
+/// Where ask-derived text is shown, and the helper it goes through (the places that
+/// already sanitized text in 0.5 stay as they were). `line()` is `revealLine`,
+/// `prose()` is `reveal(_:as: .prose).text`, both in RelayUI's Sanitized.swift.
+///
+/// | Text | Helper |
+/// |---|---|
+/// | AskRow and closed-row VoiceOver labels (title, project) | `line()` |
+/// | Detail header meta (project, unknown urgency) | `line()` |
+/// | Undo bar title, Notice "<title>", "New Now ask" announcement | `line()` |
+/// | Every error reason (Notice, status popover, Settings status, ReplyBox, Welcome) | `UserFacingError.text` → `revealLine` |
+/// | "You chose: X" | `revealLine(X)` (ReplyText.display) |
+/// | Choice radio labels | `line()` |
+/// | From Folder / Host / Session | `line()` each, wrapped |
+/// | Non-web URL and link shown as text | `line()` |
+/// | Menu-bar tooltip reason | `revealLine` (MenuBarState.tooltip) |
+/// | Project section header, QueueMenu items, FilterToken, "Show Only <project>", "Nothing waiting in <project>", "New Now ask in <project>", "Showing only <project>" | `line()`; the filter stores and compares the raw string |
+/// | ReplyBox and ChoiceGroup prompt | `prose()`; its VoiceOver label and the picker label use `line()` |
+/// | RepliesList reply text | `prose()` |
+/// | FromDisclosure title | `line()` |
+/// | Sub-step place, action, detail, URL, code, expect | as a step's: `line()`, `prose()`, `CodeBlock` |
+/// | Telegram sub-step lines (mailbox) | `html.escape`, as the step lines |
+/// | The owner's own draft | not sanitized |
 public enum Sanitize {
     public static func reveal(_ s: String, as cls: FieldClass) -> (text: String, hidden: Bool) {
         var text = ""

@@ -3,6 +3,35 @@
 All notable changes to Relay are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## [0.6.0] - 2026-10-20
+
+### Added
+
+- Steps can have indented, tickable sub-steps (`substeps`).
+- Group the queue by project or by urgency, and filter it to one project (⌃⌘G, ⌃⌘P, ⌃⌘A). Both are remembered on this Mac, and a filtered-out "now" ask still notifies and slides in.
+- After Done or Skip, the panel opens the next ask; Settings › Panel › After Done or Skip (config `afterClose`) can go back to the queue instead.
+- A Panel tab in Settings: edge, display, Re-dock Now, slide-in and After Done or Skip.
+- Keys for ticking (⌘T, ⇧⌘T), the previous and next ask (⌘↑, ⌘↓), copying the current code (⇧⌘C), opening its link (⇧⌘O), copying an ask's link (⇧⌘L), the reply field (⌘L), choices (1–6) and docking (⌃⌘←, ⌃⌘→).
+- The menu-bar menu has Show/Hide Relay with the shortcut, the queue status, a Panel submenu with the displays, and About Relay. The icon's tooltip always says what is waiting.
+- Opening a second copy of Relay brings the running one forward (`relay://show`).
+
+### Changed
+
+- A new native look for the panel, Settings and Welcome: stock controls, more space, and a panel with square corners flush with the screen edge.
+- "Closed today" is now "Recently closed": the last 24 hours, following the project filter.
+- Ticks are kept per step and checked against the step's text, so an edited or re-posted ask never shows a tick on the wrong step. Existing ticks carry over.
+- Mailbox settings are saved with Connect, which checks the connection once; Revert drops the edits.
+- Welcome has two pages: where asks come from, then the shortcut, notifications, Claude Code and login.
+- Relay asks for notification permission before its first notification instead of at launch, and removes a notification once its ask closes.
+- A link or notification for an ask that is no longer open shows the list with a note instead of doing nothing.
+
+### Fixed
+
+- Editing unrelated settings no longer re-docks the panel; the shortcut or icon re-docks a panel that is out of place instead of hiding it.
+- Changing the mailbox check interval no longer reloads the queue.
+- Config edits are still picked up after the config folder was replaced.
+- Error messages in the panel and Settings show as one line, with hidden characters revealed.
+
 ## [0.5.1] - 2026-10-16
 
 ### Fixed

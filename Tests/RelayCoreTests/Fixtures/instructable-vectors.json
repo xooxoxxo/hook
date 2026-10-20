@@ -5512,6 +5512,977 @@
    ],
    "cleaned": null,
    "pyBytes": null
+  },
+  {
+   "name": "substeps-valid-three",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Set up the Slack app",
+    "steps": [
+     {
+      "do": "Create the app",
+      "where": "api.example.com",
+      "substeps": [
+       {
+        "do": "Click Create New App",
+        "url": "https://api.example.com/apps"
+       },
+       {
+        "do": "Name it Acme"
+       },
+       {
+        "do": "Add the chat:write scope",
+        "code": "chat:write",
+        "lang": "text"
+       }
+      ]
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Set up the Slack app",
+    "steps": [
+     {
+      "do": "Create the app",
+      "where": "api.example.com",
+      "substeps": [
+       {
+        "do": "Click Create New App",
+        "url": "https://api.example.com/apps"
+       },
+       {
+        "do": "Name it Acme"
+       },
+       {
+        "do": "Add the chat:write scope",
+        "code": "chat:write",
+        "lang": "text"
+       }
+      ]
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": null
+  },
+  {
+   "name": "substeps-empty",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Set up the Slack app",
+    "steps": [
+     {
+      "do": "a",
+      "substeps": []
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].substeps: must be a list of 1 to 10 steps"
+   ],
+   "cleaned": null,
+   "pyBytes": null
+  },
+  {
+   "name": "substeps-eleven",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Set up the Slack app",
+    "steps": [
+     {
+      "do": "a",
+      "substeps": [
+       {
+        "do": "s"
+       },
+       {
+        "do": "s"
+       },
+       {
+        "do": "s"
+       },
+       {
+        "do": "s"
+       },
+       {
+        "do": "s"
+       },
+       {
+        "do": "s"
+       },
+       {
+        "do": "s"
+       },
+       {
+        "do": "s"
+       },
+       {
+        "do": "s"
+       },
+       {
+        "do": "s"
+       },
+       {
+        "do": "s"
+       }
+      ]
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].substeps: must be a list of 1 to 10 steps"
+   ],
+   "cleaned": null,
+   "pyBytes": null
+  },
+  {
+   "name": "substeps-not-a-list",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Set up the Slack app",
+    "steps": [
+     {
+      "do": "a",
+      "substeps": "x"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].substeps: must be a list of 1 to 10 steps"
+   ],
+   "cleaned": null,
+   "pyBytes": null
+  },
+  {
+   "name": "substeps-null",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Set up the Slack app",
+    "steps": [
+     {
+      "do": "a",
+      "substeps": null
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Set up the Slack app",
+    "steps": [
+     {
+      "do": "a",
+      "substeps": null
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": null
+  },
+  {
+   "name": "substeps-nested",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Set up the Slack app",
+    "steps": [
+     {
+      "do": "a",
+      "substeps": [
+       {
+        "do": "b",
+        "substeps": [
+         {
+          "do": "c"
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].substeps[0].substeps: unknown key"
+   ],
+   "cleaned": null,
+   "pyBytes": null
+  },
+  {
+   "name": "substeps-on-verify",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Set up the Slack app",
+    "steps": [
+     {
+      "do": "a"
+     }
+    ],
+    "verify": {
+     "do": "Check",
+     "substeps": [
+      {
+       "do": "x"
+      }
+     ]
+    }
+   },
+   "valid": false,
+   "errors": [
+    "verify.substeps: unknown key"
+   ],
+   "cleaned": null,
+   "pyBytes": null
+  },
+  {
+   "name": "substeps-unknown-key",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Set up the Slack app",
+    "steps": [
+     {
+      "do": "a",
+      "substeps": [
+       {
+        "do": "b",
+        "colour": "red"
+       }
+      ]
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].substeps[0].colour: unknown key"
+   ],
+   "cleaned": null,
+   "pyBytes": null
+  },
+  {
+   "name": "substeps-newline-do",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Set up the Slack app",
+    "steps": [
+     {
+      "do": "a",
+      "substeps": [
+       {
+        "do": "b"
+       },
+       {
+        "do": "line one\nline two"
+       }
+      ]
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].substeps[1].do: must be a single line"
+   ],
+   "cleaned": null,
+   "pyBytes": null
+  },
+  {
+   "name": "substeps-long-do",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Set up the Slack app",
+    "steps": [
+     {
+      "do": "a",
+      "substeps": [
+       {
+        "do": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+       }
+      ]
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].substeps[0].do: longer than 300 characters"
+   ],
+   "cleaned": null,
+   "pyBytes": null
+  },
+  {
+   "name": "substeps-bad-url",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Set up the Slack app",
+    "steps": [
+     {
+      "do": "a",
+      "substeps": [
+       {
+        "do": "b",
+        "url": "ftp://files.example.com"
+       }
+      ]
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].substeps[0].url: must be an http(s) URL"
+   ],
+   "cleaned": null,
+   "pyBytes": null
+  },
+  {
+   "name": "substeps-total-60",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Set up the Slack app",
+    "steps": [
+     {
+      "do": "s0",
+      "substeps": [
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       }
+      ]
+     },
+     {
+      "do": "s1",
+      "substeps": [
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       }
+      ]
+     },
+     {
+      "do": "s2",
+      "substeps": [
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       }
+      ]
+     },
+     {
+      "do": "s3",
+      "substeps": [
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       }
+      ]
+     },
+     {
+      "do": "s4"
+     },
+     {
+      "do": "s5"
+     },
+     {
+      "do": "s6"
+     },
+     {
+      "do": "s7"
+     },
+     {
+      "do": "s8"
+     },
+     {
+      "do": "s9"
+     },
+     {
+      "do": "s10"
+     },
+     {
+      "do": "s11"
+     },
+     {
+      "do": "s12"
+     },
+     {
+      "do": "s13"
+     },
+     {
+      "do": "s14"
+     },
+     {
+      "do": "s15"
+     },
+     {
+      "do": "s16"
+     },
+     {
+      "do": "s17"
+     },
+     {
+      "do": "s18"
+     },
+     {
+      "do": "s19"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Set up the Slack app",
+    "steps": [
+     {
+      "do": "s0",
+      "substeps": [
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       }
+      ]
+     },
+     {
+      "do": "s1",
+      "substeps": [
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       }
+      ]
+     },
+     {
+      "do": "s2",
+      "substeps": [
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       }
+      ]
+     },
+     {
+      "do": "s3",
+      "substeps": [
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       }
+      ]
+     },
+     {
+      "do": "s4"
+     },
+     {
+      "do": "s5"
+     },
+     {
+      "do": "s6"
+     },
+     {
+      "do": "s7"
+     },
+     {
+      "do": "s8"
+     },
+     {
+      "do": "s9"
+     },
+     {
+      "do": "s10"
+     },
+     {
+      "do": "s11"
+     },
+     {
+      "do": "s12"
+     },
+     {
+      "do": "s13"
+     },
+     {
+      "do": "s14"
+     },
+     {
+      "do": "s15"
+     },
+     {
+      "do": "s16"
+     },
+     {
+      "do": "s17"
+     },
+     {
+      "do": "s18"
+     },
+     {
+      "do": "s19"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": null
+  },
+  {
+   "name": "substeps-total-61",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Set up the Slack app",
+    "steps": [
+     {
+      "do": "s0",
+      "substeps": [
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       }
+      ]
+     },
+     {
+      "do": "s1",
+      "substeps": [
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       }
+      ]
+     },
+     {
+      "do": "s2",
+      "substeps": [
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       }
+      ]
+     },
+     {
+      "do": "s3",
+      "substeps": [
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       },
+       {
+        "do": "t"
+       }
+      ]
+     },
+     {
+      "do": "s4",
+      "substeps": [
+       {
+        "do": "t"
+       }
+      ]
+     },
+     {
+      "do": "s5"
+     },
+     {
+      "do": "s6"
+     },
+     {
+      "do": "s7"
+     },
+     {
+      "do": "s8"
+     },
+     {
+      "do": "s9"
+     },
+     {
+      "do": "s10"
+     },
+     {
+      "do": "s11"
+     },
+     {
+      "do": "s12"
+     },
+     {
+      "do": "s13"
+     },
+     {
+      "do": "s14"
+     },
+     {
+      "do": "s15"
+     },
+     {
+      "do": "s16"
+     },
+     {
+      "do": "s17"
+     },
+     {
+      "do": "s18"
+     },
+     {
+      "do": "s19"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps: more than 60 steps and sub-steps in total"
+   ],
+   "cleaned": null,
+   "pyBytes": null
+  },
+  {
+   "name": "substeps-secret-code",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Set up the Slack app",
+    "steps": [
+     {
+      "do": "a",
+      "substeps": [
+       {
+        "do": "b"
+       },
+       {
+        "do": "c"
+       },
+       {
+        "do": "d",
+        "code": "ghp_example"
+       }
+      ]
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].substeps[2].code: secret-like value"
+   ],
+   "cleaned": null,
+   "pyBytes": null
   }
  ]
 }

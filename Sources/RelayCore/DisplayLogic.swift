@@ -19,6 +19,10 @@ public struct MenuBarState: Sendable, Equatable {
     public var offlineReason: String?
     /// Away mode: the symbol is de-emphasised; the badge is unchanged.
     public var away: Bool
+    /// The global shortcut's label ("⌃⌥⌘R"); nil when none is set.
+    public var shortcut: String?
+    /// When the owner went away, in the locale's short time ("10:22").
+    public var awaySince: String?
 
     public init(
         count: Int = 0,
@@ -26,7 +30,9 @@ public struct MenuBarState: Sendable, Equatable {
         reachable: Bool = true,
         showCount: Bool = true,
         offlineReason: String? = nil,
-        away: Bool = false
+        away: Bool = false,
+        shortcut: String? = nil,
+        awaySince: String? = nil
     ) {
         self.count = count
         self.nowCount = nowCount
@@ -34,6 +40,8 @@ public struct MenuBarState: Sendable, Equatable {
         self.showCount = showCount
         self.offlineReason = offlineReason
         self.away = away
+        self.shortcut = shortcut
+        self.awaySince = awaySince
     }
 
     /// `items` is the open list.
@@ -69,102 +77,36 @@ public struct MenuBarState: Sendable, Equatable {
         return label
     }
 
-    public var tooltip: String? {
-        if dimmed { return offlineReason }
-        return away ? "Away" : nil
+    /// Always set: "Relay · 5 waiting, 1 now · ⌃⌥⌘R", "Relay · offline: <reason>",
+    /// "Relay · away since 10:22 · 5 waiting". The reason is revealed (one line).
+    public var tooltip: String {
+        if dimmed {
+            return "Relay · offline" + (offlineReason.map { ": " + Sanitize.revealLine($0) } ?? "")
+        }
+        var waiting = count == 0 ? "nothing waiting" : "\(count) waiting"
+        if count > 0, nowCount > 0 { waiting += ", \(nowCount) now" }
+        var parts = ["Relay"]
+        if away { parts.append("away" + (awaySince.map { " since " + $0 } ?? "")) }
+        parts.append(waiting)
+        if let shortcut { parts.append(shortcut) }
+        return parts.joined(separator: " · ")
     }
 }
 
-/// The two-letter project badge on cards and in the detail header.
-public enum Monogram {
-    public static let paletteCount = 8
-
-    public static func letters(_ project: String) -> String {
-        var words: [String] = []
-        var current = ""
-        for character in project {
-            if character.isLetter || character.isNumber {
-                current.append(character)
-            } else if !current.isEmpty {
-                words.append(current)
-                current = ""
-            }
-        }
-        if !current.isEmpty { words.append(current) }
-        switch words.count {
-        case 0:
-            return "?"
-        case 1:
-            return String(words[0].prefix(2)).uppercased()
-        default:
-            return (String(words[0].prefix(1)) + String(words[1].prefix(1))).uppercased()
-        }
-    }
-
-    /// Stable across launches and machines, unlike `hashValue`.
-    public static func colorIndex(_ project: String) -> Int {
-        Int(fnv1a32(Array(project.lowercased().utf8)) % UInt32(paletteCount))
-    }
-
-    public static func fnv1a32(_ bytes: [UInt8]) -> UInt32 {
-        var hash: UInt32 = 2_166_136_261
-        for byte in bytes {
-            hash ^= UInt32(byte)
-            hash = hash &* 16_777_619
-        }
-        return hash
-    }
-}
-
-/// The one-line summary under a card's title.
-public enum SubLine {
-    public static func text(for item: WireItem) -> String {
-        guard let ins = item.instructable else {
-            if present(item.payload.cmd) { return "1 step" }
-            if present(item.payload.link) { return "Link" }
-            return ""
-        }
-        if let choices = ins.reply?.choices, !choices.isEmpty {
-            return "Choose 1 of \(choices.count)"
-        }
-        if !ins.steps.isEmpty {
-            var text = ins.steps.count == 1 ? "1 step" : "\(ins.steps.count) steps"
-            var places: [String] = []
-            for step in ins.steps {
-                guard let place = step.place?.trimmingCharacters(in: .whitespaces),
-                      !place.isEmpty, !places.contains(place) else { continue }
-                places.append(place)
-            }
-            if !places.isEmpty {
-                text += " · " + places.prefix(2).map(Sanitize.revealLine).joined(separator: ", ")
-                if places.count > 2 { text += " +\(places.count - 2)" }
-            }
-            return text
-        }
-        return ins.reply != nil ? "Reply" : ""
-    }
-
-    private static func present(_ value: String?) -> Bool {
-        guard let value else { return false }
-        return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-}
-
-/// A card's age: "now", "5m", "2h", "3d". Parsed to `Date`, so the Mac's time
-/// zone never matters.
+/// A row's age: "now", "12 min ago", "3 h ago", "2 d ago". Parsed to Date, so the Mac's time zone never matters.
 public enum RelativeAge {
     public static func text(created: String, now: Date) -> String {
         guard let date = Timestamp.date(created) else { return "" }
         let seconds = max(0, now.timeIntervalSince(date))
         if seconds < 60 { return "now" }
-        if seconds < 3600 { return "\(Int(seconds / 60))m" }
-        if seconds < 86400 { return "\(Int(seconds / 3600))h" }
-        return "\(Int(seconds / 86400))d"
+        if seconds < 3600 { return "\(Int(seconds / 60)) min ago" }
+        if seconds < 86400 { return "\(Int(seconds / 3600)) h ago" }
+        return "\(Int(seconds / 86400)) d ago"
     }
 }
 
-/// How a row in "Closed today" says when and how the ask was closed:
-/// "Done 5m ago", "Skipped 1h ago", "Closed by the session 2h ago".
+/// How a row in "Recently closed" says when and how the ask was closed:
+/// "Done 5 min ago", "Skipped 1 h ago", "Closed by the session 2 h ago".
 public enum ClosedLine {
     /// `closedBy` is the actor of the closing event ("owner", "session"), when known.
     public static func text(status: String, closedBy: String?, completedAt: String?, now: Date) -> String {
@@ -184,8 +126,42 @@ public enum ClosedLine {
 
     static func ago(_ seconds: TimeInterval) -> String {
         if seconds < 60 { return "just now" }
-        if seconds < 3600 { return "\(Int(seconds / 60))m ago" }
-        if seconds < 86400 { return "\(Int(seconds / 3600))h ago" }
-        return "\(Int(seconds / 86400))d ago"
+        if seconds < 3600 { return "\(Int(seconds / 60)) min ago" }
+        if seconds < 86400 { return "\(Int(seconds / 3600)) h ago" }
+        return "\(Int(seconds / 86400)) d ago"
+    }
+}
+
+/// "10:42": the locale's hour and minute (en_GB "09:05", en_US "9:05 AM").
+public enum ClockText {
+    public static func time(_ date: Date, locale: Locale = .current, timeZone: TimeZone = .current) -> String {
+        date.formatted(Date.FormatStyle(locale: locale, timeZone: timeZone).hour().minute())
+    }
+
+    /// "" for a stamp that doesn't parse.
+    public static func time(_ stamp: String, locale: Locale = .current, timeZone: TimeZone = .current) -> String {
+        Timestamp.date(stamp).map { time($0, locale: locale, timeZone: timeZone) } ?? ""
+    }
+}
+
+/// The closed detail's action-bar line: "Done by you · 11 Oct, 14:32".
+public enum ClosedText {
+    public static func detail(status: String, closedBy: String?, closedAt: String?,
+                              locale: Locale = .current, timeZone: TimeZone = .current) -> String {
+        let who: String
+        if closedBy == "session" {
+            who = "Closed by the session"
+        } else {
+            switch status {
+            case "done": who = "Done by you"
+            case "dismissed": who = "Skipped by you"
+            default: return "Closed"
+            }
+        }
+        guard let closedAt, let date = Timestamp.date(closedAt) else { return who }
+        // Day and time are joined here, not by one combined style: ICU joins those with
+        // " at " on recent macOS, and the design's line is "11 Oct, 14:32".
+        let day = date.formatted(Date.FormatStyle(locale: locale, timeZone: timeZone).day().month(.abbreviated))
+        return who + " · " + day + ", " + ClockText.time(date, locale: locale, timeZone: timeZone)
     }
 }

@@ -1,0 +1,71 @@
+import SwiftUI
+
+private struct SettingsSectionKey: EnvironmentKey {
+    static let defaultValue = ""
+}
+
+extension EnvironmentValues {
+    /// The Settings section a row sits in; groups its `settingsTrailing` probe.
+    /// A Settings section sets `.environment(\.settingsSection, "<section header>")`.
+    public var settingsSection: String {
+        get { self[SettingsSectionKey.self] }
+        set { self[SettingsSectionKey.self] = newValue }
+    }
+}
+
+/// One Settings row. Every row ends in a hit-wide help slot (HelpButton or empty), so all
+/// controls in a section share one trailing edge. An error shows as a red
+/// caption under the control.
+public struct SettingsRow<Control: View>: View {
+    let label: String
+    let help: String?
+    let error: String?
+    let control: Control
+    @Environment(\.settingsSection) private var group
+
+    public init(_ label: String, help: String? = nil, error: String? = nil, @ViewBuilder control: () -> Control) {
+        self.label = label
+        self.help = help
+        self.error = error
+        self.control = control()
+    }
+
+    public var body: some View {
+        LabeledContent(label) {
+            // Trailing, so a caption wider than the control can't pull the help slot off the
+            // section's trailing edge.
+            VStack(alignment: .trailing, spacing: DS.Space.rowLine) {
+                HStack(spacing: DS.Space.inline) {
+                    control
+                    helpSlot
+                }
+                // The help slot is the row's trailing edge; an empty one has no ink to scan.
+                .alignmentProbe(.settingsTrailing, group: group, measure: .frame)
+                if let error {
+                    Text(error)
+                        .font(DS.Font.caption)
+                        .foregroundStyle(DS.Color.error)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private var helpSlot: some View {
+        if let help {
+            HelpButton(rowLabel: label, text: help).frame(width: DS.Metric.hit)
+        } else {
+            Color.clear.frame(width: DS.Metric.hit).accessibilityHidden(true)
+        }
+    }
+}
+
+public extension View {
+    /// A label-less rounded text field of a fixed width, for Settings rows.
+    func settingsField(width: CGFloat) -> some View {
+        labelsHidden()
+            .textFieldStyle(.roundedBorder)
+            .multilineTextAlignment(.leading)
+            .frame(width: width)
+    }
+}

@@ -129,4 +129,20 @@ private let minimal: [String: JSONValue] = [
     func looksSecret(_ text: String, _ expected: Bool) {
         #expect(Validator.looksSecret(text) == expected)
     }
+
+    @Test func substepCasesAreInTheFixture() throws {
+        let names = Set(try loadVectors().map(\.name))
+        for name in ["substeps-valid-three", "substeps-empty", "substeps-eleven", "substeps-null", "substeps-nested",
+                     "substeps-on-verify", "substeps-unknown-key", "substeps-newline-do", "substeps-total-60",
+                     "substeps-total-61", "substeps-secret-code"] {
+            #expect(names.contains(name), "\(name)")
+        }
+    }
+
+    @Test func stepAndLeafKeys() {
+        #expect(Validator.leafKeys == ["do", "where", "code", "lang", "expect", "detail", "url"])
+        #expect(Validator.stepKeys == Validator.leafKeys.union(["substeps"]))
+        #expect(Validator.maxSubsteps == 10)
+        #expect(Validator.maxStepTotal == 60)
+    }
 }

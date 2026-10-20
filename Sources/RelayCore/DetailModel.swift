@@ -3,32 +3,52 @@ import Foundation
 /// What the detail view shows for one ask. Strings stay raw; the
 /// view passes every one through `Sanitize`.
 public struct DetailModel: Sendable, Equatable {
-    /// One timeline entry: a step, or the verify check (always last).
-    public struct Node: Sendable, Equatable {
-        /// 0-based position in the timeline; also the tick number.
-        public var index: Int
-        public var isVerify: Bool
-        public var action: String
-        public var place: String?
-        public var code: String?
-        public var lang: String?
-        public var expect: String?
-        public var detail: String?
-        public var url: String?
+    /// One node of the step tree: a step, one of its sub-steps, or verify (always last).
+    public struct Node: Sendable, Equatable, Identifiable {
+        /// "3", "3.2" (second sub-step of step 3), "verify". The tick key.
+        public var path: String
+        /// "3", "3b", "Verify".
+        public var label: String
+        public var kind: StepFingerprint.Kind
+        /// The 1-based top-level number; a sub-step carries its parent's; verify is steps.count + 1.
+        public var number: Int
+        /// Raw values, blank ones already nil.
+        public var content: StepContent
+        public var children: [Node]
+        public var fingerprint: String
 
-        public init(index: Int, isVerify: Bool = false, action: String, place: String? = nil,
-                    code: String? = nil, lang: String? = nil, expect: String? = nil, detail: String? = nil,
-                    url: String? = nil) {
-            self.index = index
-            self.isVerify = isVerify
-            self.action = action
-            self.place = place
-            self.code = code
-            self.lang = lang
-            self.expect = expect
-            self.detail = detail
-            self.url = url
+        public init(path: String, label: String, kind: StepFingerprint.Kind, number: Int, content: StepContent,
+                    children: [Node] = [], fingerprint: String) {
+            self.path = path
+            self.label = label
+            self.kind = kind
+            self.number = number
+            self.content = content
+            self.children = children
+            self.fingerprint = fingerprint
         }
+
+        public var id: String { path }
+        public var isVerify: Bool { kind == .verify }
+        public var isParent: Bool { !children.isEmpty }
+
+        public var level: StepLevel {
+            switch kind {
+            case .step: return .top(number)
+            case .verify: return .verify
+            case .sub:
+                let position = path.split(separator: ".").last.flatMap { Int($0) } ?? 1
+                return .sub(number, position - 1)
+            }
+        }
+
+        public var action: String { content.action }
+        public var place: String? { content.place }
+        public var code: String? { content.code }
+        public var lang: String? { content.lang }
+        public var expect: String? { content.expect }
+        public var detail: String? { content.detail }
+        public var url: String? { content.url }
     }
 
     public var id: String
@@ -50,6 +70,41 @@ public struct DetailModel: Sendable, Equatable {
     public var closedBy: String?
     public var closedAt: String?
 
+    /// Top-level steps plus verify: the "of 5" in "Step 3 of 5".
+    public var stepTotal: Int { nodes.count }
+
+    /// Steps in order, each with its sub-steps (at most ten), then verify.
+    public static func nodes(steps: [Step], verify: Step?) -> [Node] {
+        var nodes: [Node] = []
+        for (index, step) in steps.enumerated() {
+            let number = index + 1
+            let content = content(step)
+            let fingerprint = StepFingerprint.make(kind: .step, action: step.action, place: content.place, code: content.code)
+            let subs = (step.substeps ?? []).prefix(StepLevel.letters.count).enumerated().map { position, sub in
+                let subContent = Self.content(sub)
+                return Node(
+                    path: "\(number).\(position + 1)", label: "\(number)" + StepLevel.letters[position], kind: .sub,
+                    number: number, content: subContent,
+                    fingerprint: StepFingerprint.make(kind: .sub, action: sub.action, place: subContent.place,
+                                                      code: subContent.code, parent: fingerprint))
+            }
+            nodes.append(Node(path: "\(number)", label: "\(number)", kind: .step, number: number, content: content,
+                              children: Array(subs), fingerprint: fingerprint))
+        }
+        if let verify {
+            let content = content(verify)
+            nodes.append(Node(
+                path: "verify", label: "Verify", kind: .verify, number: steps.count + 1, content: content,
+                fingerprint: StepFingerprint.make(kind: .verify, action: verify.action, place: content.place, code: content.code)))
+        }
+        return nodes
+    }
+
+    private static func content(_ step: Step) -> StepContent {
+        StepContent(action: step.action, place: present(step.place), detail: present(step.detail), url: present(step.url),
+                    code: present(step.code), lang: present(step.lang), expect: present(step.expect))
+    }
+
     public static func make(_ detail: AskDetail) -> DetailModel {
         make(item: detail.item, events: detail.events)
     }
@@ -64,12 +119,7 @@ public struct DetailModel: Sendable, Equatable {
 
         if let ins = item.instructable {
             why = present(ins.why)
-            for step in ins.steps {
-                nodes.append(node(step, index: nodes.count, isVerify: false))
-            }
-            if let verify = ins.verify {
-                nodes.append(node(verify, index: nodes.count, isVerify: true))
-            }
+            nodes = Self.nodes(steps: ins.steps, verify: ins.verify)
             links = ins.links ?? []
             reply = ins.reply
             origin = AskOrigin(from: ins.from)
@@ -77,7 +127,8 @@ public struct DetailModel: Sendable, Equatable {
             // A legacy ask (posted without an instructable): why, cmd, link, steps events.
             why = present(item.payload.why)
             if let cmd = present(item.payload.cmd) {
-                nodes.append(Node(index: 0, action: "Run this", code: cmd))
+                nodes = [Node(path: "1", label: "1", kind: .step, number: 1, content: StepContent(action: "Run this", code: cmd),
+                              fingerprint: StepFingerprint.make(kind: .step, action: "Run this", place: nil, code: cmd))]
             }
             if let link = present(item.payload.link) {
                 links = [LinkRef(label: "Link", url: link)]
@@ -107,53 +158,9 @@ public struct DetailModel: Sendable, Equatable {
             closedAt: closing?.at)
     }
 
-    private static func node(_ step: Step, index: Int, isVerify: Bool) -> Node {
-        Node(index: index, isVerify: isVerify, action: step.action, place: present(step.place),
-             code: present(step.code), lang: present(step.lang), expect: present(step.expect),
-             detail: present(step.detail), url: present(step.url))
-    }
-
     /// The value unchanged, or nil when it is absent or only whitespace.
     private static func present(_ value: String?) -> String? {
         guard let value, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
         return value
-    }
-}
-
-/// Ticked timeline nodes, per source and ask, in UserDefaults as `[Int]`
-/// under `relay.ticks.<sourceKey>.<id>`.
-public enum Ticks {
-    static let prefix = "relay.ticks."
-
-    public static func key(sourceKey: String, id: String) -> String {
-        prefix + sourceKey + "." + id
-    }
-
-    public static func load(_ defaults: UserDefaults, sourceKey: String, id: String) -> Set<Int> {
-        let stored = defaults.array(forKey: key(sourceKey: sourceKey, id: id)) as? [Int] ?? []
-        return Set(stored.filter { $0 >= 0 })
-    }
-
-    /// An empty set removes the key.
-    public static func save(_ defaults: UserDefaults, sourceKey: String, id: String, ticks: Set<Int>) {
-        let key = key(sourceKey: sourceKey, id: id)
-        if ticks.isEmpty {
-            defaults.removeObject(forKey: key)
-        } else {
-            defaults.set(ticks.sorted(), forKey: key)
-        }
-    }
-
-    /// Removes this source's keys whose id isn't in `ids`. Call it only after a
-    /// successful list of the same source. Ids never contain ".", so a remainder
-    /// with a dot belongs to another source whose key starts the same way.
-    public static func prune(_ defaults: UserDefaults, sourceKey: String, keep ids: Set<String>) {
-        let own = prefix + sourceKey + "."
-        for key in defaults.dictionaryRepresentation().keys where key.hasPrefix(own) {
-            let id = String(key.dropFirst(own.count))
-            if !id.contains("."), !ids.contains(id) {
-                defaults.removeObject(forKey: key)
-            }
-        }
     }
 }

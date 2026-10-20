@@ -122,7 +122,7 @@ public enum ConnectInfo {
 
     /// "MCP last call" on the Connect tab.
     public static func lastCall(_ date: Date?, now: Date) -> String {
-        guard let date else { return "not seen yet" }
+        guard let date else { return "Not seen yet" }
         let seconds = max(0, Int(now.timeIntervalSince(date)))
         switch seconds {
         case ..<60: return "just now"
@@ -130,6 +130,13 @@ public enum ConnectInfo {
         case ..<86400: return "\(seconds / 3600) h ago"
         default: return "\(seconds / 86400) d ago"
         }
+    }
+
+    /// Choose Repo Folder…: an absolute folder (after `~` expansion) holding mcp/relay_mcp.py.
+    public static func isRepo(_ path: String, fileExists: (String) -> Bool) -> Bool {
+        let folder = normalized(path)
+        guard folder.hasPrefix("/") else { return false }
+        return fileExists(folder + "/mcp/relay_mcp.py")
     }
 
     /// Trimmed, `~` expanded, no trailing slash.

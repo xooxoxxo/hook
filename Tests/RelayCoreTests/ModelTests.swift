@@ -56,3 +56,51 @@ import Testing
     #expect(config.pollSeconds == 15)
     #expect(RelayConfig.path(environment: ["RELAY_CONFIG": "/tmp/r.json"]).path == "/tmp/r.json")
 }
+
+private func decodeInstructable(_ json: String) throws -> Instructable {
+    try JSONDecoder().decode(Instructable.self, from: Data(json.utf8))
+}
+
+@Test func substepsDecode() throws {
+    let ins = try decodeInstructable("""
+    {"v":1,"title":"Set up Slack","steps":[
+      {"do":"Create the app","where":"api.example.com","substeps":[
+        {"do":"Click Create New App","url":"https://api.example.com/apps"},
+        {"do":"Name it Acme"},
+        {"do":"Add the scope","code":"chat:write","lang":"text"}]},
+      {"do":"Invite the bot"}]}
+    """)
+    #expect(ins.steps[0].substeps?.map(\.action) == ["Click Create New App", "Name it Acme", "Add the scope"])
+    #expect(ins.steps[0].substeps?[0].url == "https://api.example.com/apps")
+    #expect(ins.steps[0].substeps?[2].code == "chat:write")
+    #expect(ins.steps[0].place == "api.example.com")
+    #expect(ins.steps[1].substeps == nil)
+}
+
+@Test func nullSubstepsIsNil() throws {
+    let ins = try decodeInstructable(#"{"v":1,"title":"T","steps":[{"do":"a","substeps":null}]}"#)
+    #expect(ins.steps[0].substeps == nil)
+    #expect(ins.steps[0].action == "a")
+}
+
+@Test func malformedSubstepsKeepTheInstructable() throws {
+    let wrongType = try decodeInstructable(#"{"v":1,"title":"T","steps":[{"do":"a","where":"w","substeps":"x"}]}"#)
+    #expect(wrongType.steps[0].substeps == nil)
+    #expect(wrongType.steps[0].place == "w")
+    let badItem = try decodeInstructable(#"{"v":1,"title":"T","steps":[{"do":"a","substeps":[{"where":"no do"}]}]}"#)
+    #expect(badItem.steps[0].substeps == nil)
+    #expect(badItem.steps[0].action == "a")
+}
+
+@Test func aStepWithoutDoStillFailsAsToday() {
+    #expect(throws: DecodingError.self) {
+        _ = try decodeInstructable(#"{"v":1,"title":"T","steps":[{"where":"w"}]}"#)
+    }
+}
+
+@Test func substepsRoundTrip() throws {
+    let step = Step(action: "Parent", substeps: [Step(action: "Child", code: "ls")])
+    let data = try JSONEncoder().encode(step)
+    #expect(try JSONDecoder().decode(Step.self, from: data) == step)
+    #expect(String(decoding: data, as: UTF8.self).contains(#""substeps""#))
+}

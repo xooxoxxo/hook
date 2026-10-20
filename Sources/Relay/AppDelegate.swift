@@ -1,18 +1,16 @@
 import AppKit
 import SwiftUI
 import RelayCore
+import RelayUI
 
 @MainActor final class AppDelegate: NSObject, NSApplicationDelegate {
-    /// The source the Store currently shows; a swap happens only when it changes.
-    private struct AppliedSource: Equatable {
-        var key: String
-        var mailbox: MailboxSettings?
-        var pollSeconds: Int
-    }
+    /// The longest a quit waits for held closes to reach the source.
+    static let quitDrainTimeout: Duration = .seconds(3)
 
     private var model: AppModel?
     private var store: Store?
     private var panel: SidePanel?
+    private var panelKeyObserver: (any NSObjectProtocol)?
     private var hotKeys: HotKeyManager?
     private var settings: SettingsWindowController?
     private var welcome: WelcomeWindowController?
@@ -29,22 +27,35 @@ import RelayCore
     private var localAPIPort: Int?
     /// "Relay is already running", or why the local queue or token isn't available.
     private var localProblem: String?
-    private var applied: AppliedSource?
+    /// Where a corrupt queue.json was moved; posted as a Notice once the store shows the local queue,
+    /// because the swap clears any Notice posted before it.
+    private var queueMovedPath: String?
+    private var applied: SourceIdentity?
+    /// The config the panel was last docked for; `applyPanelSettings` docks only when it moves the panel.
+    private var dockedConfig: RelayConfig?
+    private var dockedOnce = false
     /// Config applies run one after another (opening the queue is async).
     private var applyChain: Task<Void, Never>?
-    private var shownConfigNote: String?
     /// A link that arrived before launch finished.
     private var pendingLink: String?
+    /// A relay://show that arrived before launch finished.
+    private var pendingShow = false
     /// Quit is waiting on held-back closes; set once the reply has been sent.
     private var terminationAnswered = false
     /// Away mode: the signals, the flag file and the asks counted while away.
     private let presence = PresenceMonitor()
     private var awayTally = AwayTally()
+    /// The first ask that arrived while away; the return summary click selects it.
+    private var awayFirstID: String?
+    /// Open (or held for Undo or sending) and Recently closed ids at the last Store change.
+    private var lastOpenIDs: Set<String> = []
+    private var lastClosedIDs: Set<String> = []
     /// SIGTERM (`kill`, `launchctl bootout`) skips applicationWillTerminate, so it
     /// is caught here to clear the away flag first.
     private var termSource: (any DispatchSourceSignal)?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if handOffToRunningRelay() { return }
         let hotKeys = HotKeyManager { [weak self] in self?.togglePanel() }
         hotKeys.onLabelChange = { [weak self] in self?.updateShortcutLabel() }
         self.hotKeys = hotKeys
@@ -56,30 +67,40 @@ import RelayCore
         model.store = store
         self.model = model
         self.store = store
-        settings = SettingsWindowController(model: model, hotKeys: hotKeys)
+        model.hotKeys = hotKeys
+        settings = SettingsWindowController(model: model)
 
         panel = makePanel(store: store, model: model)
 
         setUpMenuBar()
-        store.onStateChange = { [weak self] in self?.updateMenuBar() }
+        store.onStateChange = { [weak self] in self?.updateMenuBar(); self?.cleanUpNotifications() }
         store.onNewItems = { [weak self] items in
             self?.announce(items)
         }
-        let notifier = Notifier { [weak self] id in self?.showItem(id) }
-        notifier.onOpenList = { [weak self] in
-            self?.store?.select(nil)
-            self?.panel?.present(focus: true)
+        // A click goes through the same check as a link: closed or unknown → Notice.
+        let notifier = Notifier { [weak self] id in self?.openLink(id) }
+        notifier.onOpenList = { [weak self] first in
+            guard let self, let store = self.store else { return }
+            if store.navigation.selectedID != nil { store.back() }
+            if let first { store.listSelection = first }
+            self.panel?.present(focus: true, animated: true)
+            self.refreshIfStale()
         }
-        notifier.requestAuthorization()
         self.notifier = notifier
-        settings?.setContent(.queue, SettingsWindowController.hosting(QueueTab(model: model, store: store)))
-        settings?.setContent(.notifications, SettingsWindowController.hosting(NotificationsTab(model: model, notifier: notifier)))
-        settings?.setContent(.connect, SettingsWindowController.hosting(ConnectTab(model: model)))
+        model.notifier = notifier
+        model.hooks = SettingsHooks(
+            redock: { [weak self] in self?.panel?.redock() },
+            showAsk: { [weak self] id in self?.showItem(id) },
+            showPanel: { [weak self] in self?.panel?.present(focus: true, animated: true) },
+            switchTab: { [weak self] tab in self?.settings?.show(tab: tab) },
+            applyShortcut: { [weak hotKeys] raw in hotKeys?.apply(raw) ?? false },
+            suspendShortcut: { [weak hotKeys] in hotKeys?.suspend() },
+            resumeShortcut: { [weak hotKeys] in hotKeys?.resume() })
+        store.onCloseSent = { [weak self] id in self?.notifier?.remove(ids: [id]) }
 
         model.onApply = { [weak self] _, new in
             self?.scheduleApply(new)
             self?.applyGeneral(new)
-            self?.closeWelcomeIfReady(new)
         }
         model.onNoteChange = { [weak self] note in
             self?.configNoteChanged(note)
@@ -104,10 +125,36 @@ import RelayCore
         applyGeneral(model.config)
         scheduleApply(model.config)
 
-        if let id = pendingLink {
-            pendingLink = nil
-            openLink(id)
+        // A link that launched the app is checked against the configured source, so it
+        // waits for the first apply (the source swap is async).
+        Task { @MainActor [weak self] in
+            await self?.applyChain?.value
+            guard let self, let id = self.pendingLink else { return }
+            self.pendingLink = nil
+            self.openLink(id)
         }
+        if pendingShow {
+            pendingShow = false
+            panel?.present(focus: true, animated: true)
+        }
+    }
+
+    /// A second copy (another path, or a manual `open -n`) hands `relay://show` to the
+    /// running Relay and exits before it opens the queue, the port or the status item.
+    private func handOffToRunningRelay() -> Bool {
+        guard let bundleID = Bundle.main.bundleIdentifier else { return false }
+        let running = NSWorkspace.shared.runningApplications.map { ($0.bundleIdentifier, $0.processIdentifier) }
+        guard let pid = SingleInstance.other(bundleID: bundleID, myPID: ProcessInfo.processInfo.processIdentifier,
+                                              running: running),
+              let other = NSRunningApplication(processIdentifier: pid), let appURL = other.bundleURL,
+              let show = URL(string: "relay://show") else { return false }
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = false
+        NSWorkspace.shared.open([show], withApplicationAt: appURL, configuration: configuration) { _, error in
+            if let error { NSLog("Relay: hand-off to running copy failed: %@", error.localizedDescription) }
+            DispatchQueue.main.async { exit(0) }
+        }
+        return true
     }
 
     /// Held-back Done and Skip are sent before quitting, with a 3 s cap so
@@ -115,12 +162,13 @@ import RelayCore
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard let store, store.hasPendingCloses else { return .terminateNow }
         terminationAnswered = false
+        store.sendingCloses = store.pending.count
         Task {
             await store.sendAllPending()
             answerTermination()
         }
         Task {
-            try? await Task.sleep(for: .seconds(3))
+            try? await Task.sleep(for: Self.quitDrainTimeout)
             answerTermination()
         }
         return .terminateLater
@@ -148,59 +196,111 @@ import RelayCore
     private func answerTermination() {
         guard !terminationAnswered else { return }
         terminationAnswered = true
+        store?.sendingCloses = 0
         NSApp.reply(toApplicationShouldTerminate: true)
     }
 
-    /// relay://i/<uuid>
+    /// relay://show and relay://i/<uuid>.
     func application(_ application: NSApplication, open urls: [URL]) {
-        for url in urls where url.scheme == "relay" && url.host() == "i" {
-            if let id = QueueLogic.normalizedID(url.lastPathComponent) {
+        for url in urls {
+            switch RelayURL.parse(url) {
+            case .show:
+                if let panel { panel.present(focus: true, animated: true) } else { pendingShow = true }
+            case .open(let id):
                 openLink(id)
+            case nil:
+                break
             }
         }
     }
 
-    /// A link from outside the app (relay:// or the loopback server) brings
-    /// Relay forward only for an id in the open queue.
+    /// A link from outside the app (relay://, the loopback server, a notification click)
+    /// opens an ask in the open queue. An ask confirmed closed shows the list with
+    /// "This ask is no longer open."; one that couldn't be checked (no source yet,
+    /// a check in the last 5 seconds, an unreachable source) opens directly, and the
+    /// detail's not-found view covers it if it is really gone. A config apply still
+    /// running is waited for first, so the check runs against the applied source.
     func openLink(_ id: String) {
         guard let store else {
             pendingLink = id
             return
         }
-        Task {
-            if await store.acceptsLink(id) { showItem(id) }
+        Task { [weak self] in
+            await self?.applyChain?.value
+            guard let self else { return }
+            switch await store.checkLink(id) {
+            case .open, .unknown:
+                self.showItem(id)
+            case .closed:
+                self.showNoLongerOpen(id)
+            }
         }
+    }
+
+    private func showNoLongerOpen(_ id: String) {
+        guard let store, let panel else { return }
+        if store.navigation.selectedID != nil { store.back() }
+        panel.present(focus: true, animated: true)
+        store.post(.noLongerOpen(id: id, canShowClosed: store.recentlyClosed.contains { $0.id == id }))
     }
 
     func showItem(_ id: String) {
         guard let store, let panel else { return }
         panel.show()
+        refreshIfStale()
         Task { await store.focus(id) }
     }
 
     // MARK: Panel
 
-    /// The sidebar panel around RootView. Esc in a detail goes back to the list.
+    /// The side panel around PanelRoot. Keys go through PanelKeyRouter;
+    /// the panel's own actions (hide, dock, Settings, copy, open) come back here.
     private func makePanel(store: Store, model: AppModel) -> SidePanel {
-        let hosting = NSHostingView(rootView: RootView(store: store, model: model, onSettings: { [weak self] in
-            self?.showSettings(nil)
-        }))
+        let ref = PanelRef()
+        let hosting = NSHostingView(rootView: PanelRoot(model: store).environment(\.panelDragActions, .panel(ref)))
         hosting.sizingOptions = []
         // No title-bar inset: the content starts at the panel's top edge.
         hosting.safeAreaRegions = []
         let panel = SidePanel(content: hosting)
+        ref.panel = panel
         panel.connect(model)
-        panel.onEscape = { [weak store] in
-            guard let store, store.selectedID != nil else { return false }
-            store.select(nil)
-            return true
+        panel.keyRouter = PanelKeyRouter(model: store)
+        store.shell = PanelShellActions(
+            hide: { [weak self] in self?.panel?.hide(animated: true) },
+            setUp: { [weak self] in self?.setUp() },
+            quit: { NSApp.terminate(nil) },
+            dock: { [weak self] edge in self?.panel?.dock(edge) },
+            openSettings: { [weak self] tab in self?.showSettings(tab: tab) },
+            copy: { text in
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(text, forType: .string)
+            },
+            openURL: { url in NSWorkspace.shared.open(url) })
+        // The two shell hooks the Store calls: VoiceOver's "Ask reopened", and the queueMoved Notice's Show in Finder.
+        store.onAnnounce = { text in AccessibilityNotification.Announcement(text).post() }
+        store.onShowInFinder = { path in
+            NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+        }
+        // Whenever the panel becomes key, the selection is the last one if still shown, else the first row.
+        panelKeyObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didBecomeKeyNotification, object: panel, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.store?.settleSelection() }
         }
         return panel
     }
 
+    /// Settings on a tab, or on the remembered one when nil.
+    private func showSettings(tab: SettingsTabID?) {
+        settings?.show(tab: tab)
+    }
+
     /// `sidebarEdge` and `appearance`.
     private func applyPanelSettings(_ config: RelayConfig?) {
-        panel?.dock(edge: config?.sidebarEdge ?? .right)
+        if !dockedOnce || DockGeometry.needsDock(old: dockedConfig, new: config) {
+            panel?.dock(edge: config?.sidebarEdge ?? .right, animated: true)
+            dockedOnce = true
+        }
+        dockedConfig = config
         switch config?.appearance ?? .system {
         case .system: NSApp.appearance = nil
         case .light: NSApp.appearance = NSAppearance(named: .aqua)
@@ -232,39 +332,50 @@ import RelayCore
                 let api = localAPI(for: queue, port: port, token: token)
                 model.localAPI = api
                 routing.update(ServerRouting.Routes(source: "local", api: api, token: token))
-                swapIfNeeded(AppliedSource(key: "local", mailbox: nil, pollSeconds: 0)) {
+                swapIfNeeded(SourceIdentity(key: SourceKey.local, mailbox: nil), pollSeconds: pollSeconds) {
                     LocalQueueSource(queue: queue)
+                }
+                if let moved = queueMovedPath {
+                    queueMovedPath = nil
+                    store?.post(.queueMoved(path: moved))
                 }
             } else {
                 model.localAPI = nil
                 routing.update(ServerRouting.Routes(source: "none", api: nil, token: nil))
-                swapIfNeeded(AppliedSource(key: "none", mailbox: nil, pollSeconds: 0)) { nil }
+                swapIfNeeded(SourceIdentity(key: SourceKey.none, mailbox: nil), pollSeconds: pollSeconds) { nil }
             }
         case .mailbox(let settings):
             localProblem = nil
             model.localAPI = nil
             routing.update(ServerRouting.Routes(source: "mailbox", api: nil, token: nil))
-            let key = "mailbox:" + (settings.url.host() ?? "")
-            swapIfNeeded(AppliedSource(key: key, mailbox: settings, pollSeconds: pollSeconds)) {
+            let key = SourceKey.mailbox(settings)
+            SourceKey.migrate(.standard, from: SourceKey.legacyMailbox(settings), to: key)
+            swapIfNeeded(SourceIdentity(key: key, mailbox: settings), pollSeconds: pollSeconds) {
                 MailboxClient(settings: settings)
             }
         case .incomplete, .invalid:
             localProblem = nil
             model.localAPI = nil
             routing.update(ServerRouting.Routes(source: "none", api: nil, token: nil))
-            swapIfNeeded(AppliedSource(key: "none", mailbox: nil, pollSeconds: 0)) { nil }
+            swapIfNeeded(SourceIdentity(key: SourceKey.none, mailbox: nil), pollSeconds: pollSeconds) { nil }
         }
         restartServerIfNeeded(port: port)
         updateListenerProblem()
         showCount = config?.showCount ?? true
         updateMenuBar()
         applyPanelSettings(config)
+        store?.afterClose = config?.afterClose ?? .next
     }
 
-    private func swapIfNeeded(_ next: AppliedSource, make: () -> (any QueueSource)?) {
-        guard let store, applied != next else { return }
+    /// A new identity swaps the source; the same identity only applies the poll interval.
+    private func swapIfNeeded(_ next: SourceIdentity, pollSeconds: Int, make: () -> (any QueueSource)?) {
+        guard let store else { return }
+        guard applied != next else {
+            store.setPollInterval(pollSeconds)
+            return
+        }
         applied = next
-        store.swap(to: make(), sourceKey: next.key, pollSeconds: next.pollSeconds)
+        store.swap(to: make(), identity: next, pollSeconds: pollSeconds)
     }
 
     /// The one `LocalQueue`: opened on first use, then reused. A failed open is
@@ -281,13 +392,13 @@ import RelayCore
             localQueue = queue
             localProblem = nil
             if case .recovered(let moved) = outcome {
-                showBanner("queue.json couldn't be read, so it was moved to \(moved). A new queue has started.")
+                queueMovedPath = moved
             }
             return queue
         } catch LocalQueueError.locked {
             let text = "Relay is already running"
             localProblem = text
-            showBanner(text)
+            logProblem(text)
         } catch {
             let reason: String
             if case .storeFailed(let text)? = error as? LocalQueueError {
@@ -297,7 +408,7 @@ import RelayCore
             }
             let text = "Couldn't open the queue: \(reason)"
             localProblem = text
-            showBanner(text)
+            logProblem(text)
         }
         return nil
     }
@@ -312,7 +423,7 @@ import RelayCore
         } catch {
             let text = "Couldn't create the local token at \(token.file.path)"
             localProblem = text
-            showBanner(text)
+            logProblem(text)
             return nil
         }
     }
@@ -350,14 +461,11 @@ import RelayCore
         updateListenerProblem()
     }
 
-    /// Local mode: the queue and the listener must both be up.
+    /// The status bar's listener line, in every mode. In local mode a queue or token
+    /// problem (`localProblem`) comes first; `apply` clears `localProblem` in the other modes.
     private func updateListenerProblem() {
         guard let store, let model else { return }
-        guard case .local = model.resolvedSource else {
-            store.setListenerProblem(nil)
-            return
-        }
-        if let localProblem {
+        if case .local = model.resolvedSource, let localProblem {
             store.setListenerProblem(localProblem)
         } else if case .failed(let text) = model.listenerState {
             store.setListenerProblem(text)
@@ -366,49 +474,91 @@ import RelayCore
         }
     }
 
-    // MARK: Banner
+    // MARK: Problems
 
-    private func showBanner(_ text: String) {
-        store?.banner = text
+    /// A local-queue problem. It reaches the status bar through `setListenerProblem`
+    /// (`localProblem`), once; the log keeps it too.
+    private func logProblem(_ text: String) {
         NSLog("Relay: %@", text)
     }
 
-    /// Mirrors the config note into the banner; clears the banner only if it still shows the old note.
+    /// config.json's problem shows in the status bar ("config.json has an error"), once.
     private func configNoteChanged(_ note: String?) {
-        guard let store else { return }
-        if let note {
-            showBanner(note)
-        } else if store.banner != nil, store.banner == shownConfigNote {
-            store.banner = nil
-        }
-        shownConfigNote = note
+        store?.setConfigNote(note)
+        model?.refreshSettings()
     }
 
     // MARK: Menu bar
 
     private func setUpMenuBar() {
         menuBar = MenuBarController(
+            inputs: { [weak self] in self?.menuInputs() ?? MenuInputs(
+                notSetUp: true, panelVisible: false, shortcut: nil, statusLine: "No queue set up",
+                presenceLine: "", presence: .auto, displays: [], pinned: nil) },
             onToggle: { [weak self] in self?.togglePanel() },
-            onRefresh: { [weak self] in self?.refreshNow() },
-            onSettings: { [weak self] in self?.showSettings(nil) },
-            onPresence: { [weak self] mode in self?.model?.save(set: ["presence": mode.rawValue]) },
-            onQuit: { NSApp.terminate(nil) })
-        MainMenu.install(settings: #selector(showSettings(_:)), refresh: #selector(refreshNow), target: self)
+            onAction: { [weak self] action in self?.perform(action) })
+        MainMenu.install(settings: #selector(showSettings(_:)), target: self)
         updateMenuBar()
         updateShortcutLabel()
     }
 
-    /// Count, "now" dot, dimming and tooltip, after every Store change.
-    private func updateMenuBar() {
-        guard let store else { return }
-        menuBar?.update(store.menuBarState(showCount: showCount, away: presence.status.state == .away))
+    /// What the menu-bar menu shows, read on every open.
+    private func menuInputs() -> MenuInputs {
+        let status = presence.status
+        let label = hotKeys?.label ?? HotKeyManager.offLabel
+        let shortcut = label == HotKeyManager.offLabel
+            ? nil : HotkeySpec.parse(model?.config?.hotkey ?? HotkeySpec.defaultString)
+        return MenuInputs(
+            notSetUp: (store?.sourceKey ?? SourceKey.none) == SourceKey.none,
+            panelVisible: panel?.isShown ?? false,
+            shortcut: shortcut,
+            statusLine: MenuStatusLine.text(
+                sourceKey: store?.sourceKey ?? SourceKey.none, reachable: store?.reachable ?? false,
+                updated: store?.lastListAt.map { ClockText.time($0) }),
+            presenceLine: PresenceLogic.statusLine(
+                state: status.state, reason: status.reason, since: ClockText.time(status.since)),
+            presence: presence.mode,
+            displays: NSScreen.screens.compactMap { screen in
+                screen.displayUUID.map { MenuDisplay(id: $0, name: screen.localizedName) }
+            },
+            pinned: model?.config?.sidebarDisplay)
     }
 
-    /// "Shortcut: ⌃⌥⌘R", or "Shortcut: (not set)" when off or not registered.
-    /// Also mirrored into the model for the sidebar footer's hint.
+    private func perform(_ action: MenuAction) {
+        switch action {
+        case .setUp: setUp()
+        case .togglePanel: togglePanel()
+        case .setPresence(let mode): model?.save(set: ["presence": mode.rawValue])
+        case .refresh: refreshNow()
+        case .dock(let edge): panel?.dock(edge)
+        case .pinDisplay(let id):
+            if let id { model?.save(set: ["sidebarDisplay": id]) } else { model?.save(set: [:], remove: ["sidebarDisplay"]) }
+        case .redock: panel?.redock()
+        case .settings: showSettings(nil)
+        case .about:
+            NSApp.activate()
+            NSApp.orderFrontStandardAboutPanel(nil)
+        case .quit: NSApp.terminate(nil)
+        }
+    }
+
+    /// Badge, dimming, tooltip and VO label, after every Store change.
+    private func updateMenuBar() {
+        guard let store else { return }
+        let status = presence.status
+        var state = store.menuBarState(showCount: showCount, away: status.state == .away)
+        let label = hotKeys?.label ?? HotKeyManager.offLabel
+        state.shortcut = label == HotKeyManager.offLabel ? nil : label
+        state.awaySince = status.state == .away ? ClockText.time(status.since) : nil
+        menuBar?.update(state)
+        model?.refreshSettings()
+    }
+
+    /// The shortcut's label for the menu bar's tooltip and, mirrored into the model,
+    /// the sidebar footer's hint; nil there when off or not registered.
     private func updateShortcutLabel() {
         let label = hotKeys?.label ?? HotKeyManager.offLabel
-        menuBar?.setShortcutLabel("Shortcut: " + label)
+        updateMenuBar()
         model?.setShortcutLabel(label == HotKeyManager.offLabel ? nil : label)
     }
 
@@ -417,24 +567,25 @@ import RelayCore
         settings?.show()
     }
 
-    /// First launch with no usable config.
+    /// First run, "Set Up Relay…", and the panel's Set Up… before Welcome was finished.
     private func showWelcome() {
         guard let model else { return }
-        let welcome = self.welcome ?? WelcomeWindowController(model: model)
+        let welcome = self.welcome ?? WelcomeWindowController(model: model) { [weak self] in
+            self?.panel?.present(focus: true, animated: true)
+        }
         self.welcome = welcome
         welcome.show()
     }
 
-    /// Welcome closes itself once a config resolves to a source: after Start, or
-    /// when install.sh writes config.json while it's open. The controller is kept,
-    /// because Start's button action may still be running when this is called.
-    private func closeWelcomeIfReady(_ config: RelayConfig?) {
-        guard let welcome, let config else { return }
-        switch config.resolvedSource() {
-        case .local, .mailbox:
-            welcome.close()
-        case .incomplete, .invalid:
-            break
+    /// The Not set up state's Set Up…: Welcome until a config exists, then Settings → Queue.
+    /// An unreadable config.json opens Settings → Queue too, never Welcome over the broken file.
+    private func setUp() {
+        if model?.configNote?.hasPrefix("config.json has an error") == true {
+            settings?.show(tab: .queue)
+        } else if model?.config?.resolvedSource() == nil || model?.config?.resolvedSource() == .incomplete {
+            showWelcome()
+        } else {
+            settings?.show(tab: .queue)
         }
     }
 
@@ -451,33 +602,73 @@ import RelayCore
         updatePresenceMenu()
         guard let hotKeys else { return }
         // A later successful apply clears an earlier failure's red line.
-        model?.hotkeyStatus = hotKeys.apply(config?.hotkey ?? HotkeySpec.defaultString) ? nil : GeneralTab.shortcutFailed
+        model?.shortcutProblem = hotKeys.apply(config?.hotkey ?? HotkeySpec.defaultString) ? nil : .refused
         updateShortcutLabel()
     }
 
     @objc private func togglePanel() {
-        panel?.toggle()
+        guard let panel else { return }
+        let wasShown = panel.isShown
+        panel.toggle()
+        if !wasShown, panel.isShown { refreshIfStale() }
     }
 
-    @objc private func refreshNow() {
+    /// Showing the panel in mailbox mode refreshes a list older than 5 s. The rule
+    /// is `Store.refreshIfStale()`; this only starts it.
+    private func refreshIfStale() {
+        guard let store else { return }
+        Task { await store.refreshIfStale() }
+    }
+
+    private func refreshNow() {
         guard let store else { return }
         Task { await store.refresh() }
     }
 
     // MARK: Notifications
 
-    /// New asks from the Store diff. A new "now" ask also slides the
-    /// sidebar in on that ask without taking focus, unless the sidebar is already up.
-    /// While away, the asks are only counted, and only those whose urgency is
-    /// switched on in Notifications, so the summary covers what would have notified.
+    /// New asks from the Store diff. While away they are only counted (no banner, no
+    /// sound, no slide-in), and only those whose urgency is switched on in Notifications,
+    /// so the summary covers what would have notified. Home: notifications per Settings,
+    /// and the first "now" ask of the batch, from any project, filtered out or not, slides
+    /// the hidden panel in on that ask without focus. A visible panel never moves;
+    /// VoiceOver hears about the ask.
     private func announce(_ items: [WireItem]) {
         let settings = model?.config?.notify ?? NotifySettings()
-        guard awayTally.arrived(NotifyPolicy(settings: settings).notifiable(items).count) else { return }
+        let policy = NotifyPolicy(settings: settings)
+        let notifiable = policy.notifiable(items)
+        guard awayTally.arrived(notifiable.count) else {
+            if awayFirstID == nil { awayFirstID = notifiable.first?.id }
+            return
+        }
         notifier?.handle(newItems: items, settings: settings)
-        guard let target = NotifyPolicy(settings: settings).slideInTarget(items),
-              let panel, let store, !panel.isVisible else { return }
-        panel.present(focus: false)
-        Task { await store.focus(target.id) }
+        guard let target = policy.slideInTarget(items), let panel, let store else { return }
+        let home = presence.status.state == .home
+        if SlideIn.shouldSlide(home: home, slideInOn: settings.slideIn, panelVisible: panel.isShown) {
+            panel.slideIn()
+            Task { await store.focus(target.id) }
+        } else if home, panel.isShown {
+            let text = SlideIn.announcement(
+                title: target.title, project: target.projectId ?? "",
+                outsideFilter: !QueueLayout.matches(target, filter: store.filter))
+            NSAccessibility.post(
+                element: panel, notification: .announcementRequested,
+                userInfo: [.announcement: text, .priority: NSAccessibilityPriorityLevel.high.rawValue])
+        }
+    }
+
+    /// Removes notifications for asks that left the open list or were reopened. A close
+    /// held for Undo or still sending counts as open; its notification goes once the
+    /// source confirms the close (onCloseSent).
+    private func cleanUpNotifications() {
+        guard let store, let notifier else { return }
+        let held = lastOpenIDs.intersection(store.heldCloseIDs)
+        let open = Set(store.items.map(\.id)).union(held)
+        let reopened = open.subtracting(lastOpenIDs).intersection(lastClosedIDs)
+        let ids = NotificationCleanup.ids(previousOpen: lastOpenIDs, currentOpen: open, sent: [], reopened: Array(reopened))
+        lastOpenIDs = open
+        lastClosedIDs = Set(store.recentlyClosed.map(\.id))
+        notifier.remove(ids: ids)
     }
 
     // MARK: Away mode
@@ -486,20 +677,23 @@ import RelayCore
     /// Asks that were waiting in the batch window when Relay went away join the count.
     private func presenceChanged(to status: PresenceMonitor.Status) {
         let away = status.state == .away
+        // The Store's away flag: the status bar reads "Away · …" with the moon.
+        store?.away = away
         let held = notifier?.setQuiet(away) ?? 0
         if let summary = awayTally.changed(to: status.state) {
-            notifier?.showReturnSummary(summary, settings: model?.config?.notify ?? NotifySettings())
+            notifier?.showReturnSummary(summary, first: awayFirstID, settings: model?.config?.notify ?? NotifySettings())
         }
+        if !away { awayFirstID = nil }
         _ = awayTally.arrived(held)
+        model?.presenceLine = PresenceLogic.statusLine(
+            state: status.state, reason: status.reason, since: ClockText.time(status.since))
+        model?.away = away
         updatePresenceMenu()
         updateMenuBar()
     }
 
+    /// The menu reads presence on every open; the status item's tooltip and dimming follow it.
     private func updatePresenceMenu() {
-        let status = presence.status
-        let since = status.since.formatted(date: .omitted, time: .shortened)
-        menuBar?.setPresence(
-            line: PresenceLogic.statusLine(state: status.state, reason: status.reason, since: since),
-            mode: presence.mode)
+        updateMenuBar()
     }
 }
