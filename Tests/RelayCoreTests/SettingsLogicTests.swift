@@ -226,4 +226,16 @@ private func screen(_ id: String, primary: Bool) -> DockScreen {
         ])
         #expect(ConnectionStatus.problems(configNote: nil, listenerNote: nil).isEmpty)
     }
+
+    @Test func thePermissionRowSaysWhatToDo() {
+        #expect(NotificationPermission.authorized.statusText == "Allowed")
+        #expect(NotificationPermission.authorized.action == nil)
+        #expect(NotificationPermission.denied.statusText == "Turned off in System Settings")
+        #expect(NotificationPermission.denied.action == .openNotificationSettings)
+        #expect(NotificationPermission.denied.actionTitle == "Open System Settings")
+        #expect(NotificationPermission.notDetermined.statusText == nil)
+        #expect(NotificationPermission.notDetermined.action == .requestNotifications)
+        #expect(NotificationPermission.notDetermined.actionTitle == "Allow Notifications…")
+        #expect(NotificationPermission.sentFor == 5)
+    }
 }

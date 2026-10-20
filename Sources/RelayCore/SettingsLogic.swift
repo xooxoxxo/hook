@@ -326,3 +326,33 @@ extension ConnectionStatus {
         [configNote, listenerNote].compactMap { $0 }.map { UserFacingError.text($0) }
     }
 }
+
+extension NotificationPermission {
+    /// How long "Sent." stays after Send a Test Notification.
+    public static let sentFor: TimeInterval = 5
+
+    /// The Permission row's text; nil when it is only a button.
+    public var statusText: String? {
+        switch self {
+        case .authorized: "Allowed"
+        case .denied: "Turned off in System Settings"
+        case .notDetermined: nil
+        }
+    }
+
+    public var action: SettingsAction? {
+        switch self {
+        case .authorized: nil
+        case .denied: .openNotificationSettings
+        case .notDetermined: .requestNotifications
+        }
+    }
+
+    public var actionTitle: String? {
+        switch self {
+        case .authorized: nil
+        case .denied: "Open System Settings"
+        case .notDetermined: "Allow Notifications…"
+        }
+    }
+}

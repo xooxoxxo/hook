@@ -193,11 +193,23 @@ extension AppModel: SettingsViewModel {
         case .panel: return SettingsWindowController.hosting(PanelTab(model: self))
         case .queue: return SettingsWindowController.hosting(QueueTab(model: self))
         case .notifications:
-            if let notifier { return SettingsWindowController.hosting(NotificationsTab(model: self, notifier: notifier)) }
+            if permissionObserver == nil { watchPermission() }
+            Task { @MainActor in await refreshPermission() }
+            return SettingsWindowController.hosting(NotificationsTab(model: self))
         case .connect:
             return SettingsWindowController.hosting(ConnectTab(model: self))
         }
-        return NSHostingController(rootView: EmptyView())
+    }
+
+    /// Settings → Notifications opened, or Relay became active: macOS may have changed it.
+    func watchPermission() {
+        permissionObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                Task { @MainActor in await self.refreshPermission() }
+            }
+        }
     }
 
     /// The token file's path. The panel never reads the file.

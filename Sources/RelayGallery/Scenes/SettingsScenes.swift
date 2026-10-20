@@ -46,5 +46,11 @@ let settingsRules: [AlignmentRule] = [.sameTrailingPerGroup(.settingsTrailing, t
                 draft: MailboxDraft(address: "https://mailbox.example:8791", tokenFile: "~/.config/relay/mailbox-token",
                                     context: "work")))
         },
+        settingsScene("settings-notifications", tab: .notifications) {
+            NotificationsTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(away: true)))
+        },
+        settingsScene("settings-notifications-denied", tab: .notifications) {
+            NotificationsTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(permission: .denied)))
+        },
     ]
 }

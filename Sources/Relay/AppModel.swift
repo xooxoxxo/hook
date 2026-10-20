@@ -57,6 +57,8 @@ final class ServerRouting: Sendable {
     var presenceLine = "Home · active"
     var away = false
     var permission: NotificationPermission = .notDetermined
+    /// Re-reads `permission` whenever Relay becomes active; set once by `watchPermission()`.
+    var permissionObserver: (any NSObjectProtocol)?
     var loginError: String?
     var skillError: String?
     /// Names of displays seen in this run, for "<name> (not connected)".
