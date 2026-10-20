@@ -52,5 +52,14 @@ let settingsRules: [AlignmentRule] = [.sameTrailingPerGroup(.settingsTrailing, t
         settingsScene("settings-notifications-denied", tab: .notifications) {
             NotificationsTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(permission: .denied)))
         },
+        settingsScene("settings-connect", tab: .connect) {
+            ConnectTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(config: SettingsFixtures.localConfig)))
+                .environment(\.panelGallery, PanelGalleryOverrides(now: GalleryFixtures.now))
+        },
+        settingsScene("settings-connect-norepo", tab: .connect) {
+            ConnectTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(
+                config: RelayConfig(source: .local), repo: RepoState(cliFound: false))))
+                .environment(\.panelGallery, PanelGalleryOverrides(now: GalleryFixtures.now))
+        },
     ]
 }

@@ -219,7 +219,10 @@ final class ServerRouting: Sendable {
             while !Task.isCancelled {
                 if let api = self?.localAPI {
                     let seen = await api.lastSeen()
-                    self?.lastSeen = seen
+                    if self?.lastSeen != seen {
+                        self?.lastSeen = seen
+                        self?.refreshSettings()   // the Connect tab reads the snapshot, not lastSeen
+                    }
                 }
                 try? await Task.sleep(for: .seconds(5))
             }

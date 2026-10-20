@@ -29,6 +29,7 @@ public struct CodeBlock: View {
             HStack(alignment: .firstTextBaseline, spacing: DS.Space.inline) {
                 Text(verbatim: shown)
                     .font(DS.Font.code)
+                    .multilineTextAlignment(.leading)   // a grouped Form's trailing column would right-align it
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)

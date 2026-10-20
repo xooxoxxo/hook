@@ -73,7 +73,17 @@ extension AppModel: SettingsViewModel {
         case .chooseTokenFile:
             if let path = Self.chooseTokenFile() { draft.tokenFile = TildePath.abbreviate(path, home: Self.home.path) }
         case .chooseRepoFolder:
-            if let path = Self.chooseFolder() { save(set: ["repoPath": path]) }
+            if let path = Self.chooseFolder() {
+                if ConnectInfo.isRepo(path, fileExists: { FileManager.default.fileExists(atPath: $0) }) {
+                    skillError = nil   // it was about the old repo
+                    save(set: ["repoPath": path])
+                } else {
+                    let alert = NSAlert()
+                    alert.messageText = "That folder isn't the Relay repo."
+                    alert.informativeText = "It has no mcp/relay_mcp.py."
+                    alert.runModal()
+                }
+            }
         case .installSkill:
             if let repo = settings.repo.repoPath {
                 do {
@@ -196,8 +206,7 @@ extension AppModel: SettingsViewModel {
             if permissionObserver == nil { watchPermission() }
             Task { @MainActor in await refreshPermission() }
             return SettingsWindowController.hosting(NotificationsTab(model: self))
-        case .connect:
-            return SettingsWindowController.hosting(ConnectTab(model: self))
+        case .connect: return SettingsWindowController.hosting(ConnectTab(model: self))
         }
     }
 
