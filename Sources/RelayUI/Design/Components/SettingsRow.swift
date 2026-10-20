@@ -13,9 +13,8 @@ extension EnvironmentValues {
     }
 }
 
-/// One Settings row. Every row ends in a hit-wide help slot (HelpButton or empty), so all
-/// controls in a section share one trailing edge. An error shows as a red
-/// caption under the control.
+/// One Settings row. The help "?" (when given) sits right after the label text; the control
+/// keeps the section's trailing edge. An error shows as a red caption under the control.
 public struct SettingsRow<Control: View>: View {
     let label: String
     let help: String?
@@ -31,16 +30,12 @@ public struct SettingsRow<Control: View>: View {
     }
 
     public var body: some View {
-        LabeledContent(label) {
-            // Trailing, so a caption wider than the control can't pull the help slot off the
+        LabeledContent {
+            // Trailing, so a caption wider than the control can't pull the control off the
             // section's trailing edge.
             VStack(alignment: .trailing, spacing: DS.Space.rowLine) {
-                HStack(spacing: DS.Space.inline) {
-                    control
-                    helpSlot
-                }
-                // The help slot is the row's trailing edge; an empty one has no ink to scan.
-                .alignmentProbe(.settingsTrailing, group: group, measure: .frame)
+                control
+                    .alignmentProbe(.settingsTrailing, group: group, measure: .frame)
                 if let error {
                     Text(error)
                         .font(DS.Font.caption)
@@ -48,14 +43,13 @@ public struct SettingsRow<Control: View>: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
-        }
-    }
-
-    @ViewBuilder private var helpSlot: some View {
-        if let help {
-            HelpButton(rowLabel: label, text: help).frame(width: DS.Metric.hit)
-        } else {
-            Color.clear.frame(width: DS.Metric.hit).accessibilityHidden(true)
+        } label: {
+            HStack(spacing: DS.Space.inline) {
+                Text(label)
+                if let help {
+                    HelpButton(rowLabel: label, text: help)
+                }
+            }
         }
     }
 }
