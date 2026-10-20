@@ -1,7 +1,7 @@
 import RelayCore
 import SwiftUI
 
-/// Design/QueueMenu (design §4.1): the header's one icon-only pull-down (rule A3), a stock
+/// Design/QueueMenu: the header's one icon-only pull-down, a stock
 /// `Menu` with Group by and Project sections. The symbol fills in the accent while a filter is on.
 public struct QueueMenu: View {
     let grouping: Binding<QueueGrouping>
@@ -34,7 +34,7 @@ public struct QueueMenu: View {
         } label: {
             Image(systemName: filtered ? DS.Symbol.filterOn : DS.Symbol.filter)
                 .foregroundStyle(filtered ? DS.Color.accent : DS.Color.secondary)
-                // Rule A3: the frame and shape sit inside the label, so the click region is
+                // The frame and shape sit inside the label, so the click region is
                 // the 28 pt square. `.borderlessButton` would draw the label as a glyph-sized
                 // NSPopUpButton that ignores this frame, and clicks on the padding around it
                 // would reach the header's drag handle. A plain-styled button menu lets

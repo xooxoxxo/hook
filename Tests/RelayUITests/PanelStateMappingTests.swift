@@ -21,7 +21,7 @@ import Testing
         #expect(kind(.emptyFiltered(project: "Atlas")) == .emptyFiltered(project: "Atlas", updated: "09:40"))
     }
 
-    /// Principle 4: a filtered empty list is never the bare "Nothing waiting".
+    /// A filtered empty list is never the bare "Nothing waiting".
     @Test func filteredEmptyIsNeverTheBareEmpty() {
         #expect(kind(.emptyFiltered(project: "Atlas")) != .empty(updated: "09:40"))
     }
@@ -38,7 +38,7 @@ import Testing
         #expect(kind(.notSetUp) == .notSetUp)
     }
 
-    /// A7: the not-set-up panel never shows one string twice; the StateView title and the
+    /// The not-set-up panel never shows one string twice; the StateView title and the
     /// status bar text differ.
     @Test func notSetUpTitleAndStatusDiffer() {
         let status = PanelStatus.make(StatusInputs(sourceKey: SourceKey.none, reachable: false, loadedOnce: false))

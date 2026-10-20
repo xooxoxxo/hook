@@ -151,7 +151,7 @@ private let three = [item("a", urgency: "now", created: stamp(minutesAgo: 10), s
         #expect(model.navigation.listSelection == "acme-2")
     }
 
-    /// Controller ruling (Task 14 review): the 10 s "Still trying…" flip happens with no other state change.
+    /// The 10 s "Still trying…" flip happens with no other state change.
     @Test func theStillTryingFlipNeedsNoOtherChange() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }
@@ -267,13 +267,13 @@ private let phase3Now = Date(timeIntervalSince1970: 1_792_143_600)
                 == "port: must be 1–65535")
         #expect(StatusDetails.message(status(.listener(note: "Port 47823 is in use by another app"), "Links aren't working"), updated: "")
                 == "Port 47823 is in use by another app")
-        // Not set up: a click on the status opens setup directly (design §4.3), so there is no popover line.
+        // Not set up: a click on the status opens setup directly, so there is no popover line.
         #expect(StatusDetails.message(status(.notSetUp, "Not set up"), updated: "") == nil)
         #expect(StatusDetails.opensSetUp(status(.notSetUp, "Not set up")))
         #expect(!StatusDetails.opensSetUp(status(.updated, "Mailbox · ready")))
     }
 
-    /// Controller ruling (Task 10 review): the Undo announcement follows the verdict and is
+    /// The Undo announcement follows the verdict and is
     /// posted once, when the held close is added; undoing or re-showing the bar never repeats it.
     @Test func undoAnnouncementIsPostedOncePerHeldClose() async {
         let env = await PanelTestEnv.make([
@@ -289,7 +289,7 @@ private let phase3Now = Date(timeIntervalSince1970: 1_792_143_600)
         #expect(announced == ["Done. Undo available for 10 seconds.", "Skipped. Undo available for 10 seconds."])
     }
 
-    /// Controller ruling (Task 10 review): while held closes are sent on quit, the Undo bar
+    /// While held closes are sent on quit, the Undo bar
     /// shows "Sending" instead of the countdown, and Undo is off.
     @Test func undoBarSendingState() {
         let undo = UndoInfo(verdict: .done, title: "Store the key", deadline: Date(timeIntervalSince1970: 1_000), more: 0)
@@ -355,7 +355,7 @@ private let phase3Now = Date(timeIntervalSince1970: 1_792_143_600)
     @Test func fixtureHasSubStepTwoACurrent() throws {
         let snapshot = GalleryFixtures.detailSteps
         let nodes = try #require(snapshot.model?.nodes)
-        #expect(snapshot.ticks == ["1", "2.2"])   // Task 39's certTicks: step 1 and 2b done, so 2a is current
+        #expect(snapshot.ticks == ["1", "2.2"])   // certTicks: step 1 and 2b done, so 2a is current
         #expect(snapshot.current == "2.1")
         #expect(Flow.currentStep(ticks: snapshot.ticks, nodes: nodes) == snapshot.current)
         #expect(snapshot.progress == Flow.progress(ticks: snapshot.ticks, nodes: nodes))
@@ -377,7 +377,7 @@ private let phase3Now = Date(timeIntervalSince1970: 1_792_143_600)
                            "Verify. Check the bot posts"])
     }
 
-    /// Ruling 2: a sub-step is a scroll and rotor target in its own right, by its own path.
+    /// A sub-step is a scroll and rotor target in its own right, by its own path.
     @Test func aSubStepsScrollTargetIsItsOwnPath() throws {
         let nodes = DetailModel.nodes(
             steps: [Step(action: "Open the console"), Step(action: "Pick the project"),
@@ -415,7 +415,7 @@ private let phase3Now = Date(timeIntervalSince1970: 1_792_143_600)
         #expect(childOnly.map(\.path) == ["1", "2", "3", "3.1", "3.2", "verify"])
     }
 
-    /// Task 16 ruling: `substeps: []` decodes as an empty list, and that step is a plain StepView.
+    /// `substeps: []` decodes as an empty list, and that step is a plain StepView.
     @Test func anEmptySubstepsListRendersAsAPlainStep() throws {
         let json = #"{"do": "Open the console", "substeps": []}"#
         let step = try JSONDecoder().decode(Step.self, from: Data(json.utf8))
@@ -464,7 +464,7 @@ private let phase3Now = Date(timeIntervalSince1970: 1_792_143_600)
         #expect(ChoiceGroup.canSend(picked: 0, latestSent: 1, sending: false))
     }
 
-    /// Task 38 ruling: the detail's reply state reads the Store's send state, .sent and then
+    /// The detail's reply state reads the Store's send state, .sent and then
     /// .idle once the hold elapses.
     @Test func theDetailShowsSentAndThenIdleAfterTheHold() async {
         let free = replyItem("r1", choices: nil)
@@ -487,7 +487,7 @@ private let phase3Now = Date(timeIntervalSince1970: 1_792_143_600)
         #expect(DetailReply<FixturePanelModel>.storedDraft("C07") == "C07")
     }
 
-    /// Ruling 1: an open ask with a free reply whose steps have no code, url or sub-steps.
+    /// An open ask with a free reply whose steps have no code, url or sub-steps.
     @Test func onlyAnOpenFreeReplyAskWithInformationalStepsFocusesTheField() {
         var snapshot = GalleryFixtures.detailSteps
         snapshot.closedText = nil
@@ -496,7 +496,7 @@ private let phase3Now = Date(timeIntervalSince1970: 1_792_143_600)
         #expect(!DetailView<FixturePanelModel>.focusesReplyOnOpen(snapshot))      // its steps have code, a url and sub-steps
         snapshot.model?.nodes = DetailModel.nodes(steps: [Step(action: "Look up the channel ID in Slack")], verify: nil)
         #expect(DetailView<FixturePanelModel>.focusesReplyOnOpen(snapshot))       // one informational step
-        // Task 16 ruling: an empty substeps list is no sub-steps.
+        // An empty substeps list is no sub-steps.
         snapshot.model?.nodes = DetailModel.nodes(steps: [Step(action: "Look up the channel ID in Slack", substeps: [])],
                                                   verify: nil)
         #expect(DetailView<FixturePanelModel>.focusesReplyOnOpen(snapshot))
@@ -507,7 +507,7 @@ private let phase3Now = Date(timeIntervalSince1970: 1_792_143_600)
         #expect(!DetailView<FixturePanelModel>.focusesReplyOnOpen(snapshot))      // closed: Reply anyway is collapsed
     }
 
-    /// Ruling 1 on a first open of an uncached ask: Store.open loads the detail lazily, so the
+    /// Reply focus on a first open of an uncached ask: Store.open loads the detail lazily, so the
     /// predicate starts false and turns true once the AskDetail arrives. DetailView's
     /// onChange(of:initial:) relies on that transition.
     @Test func focusOnOpenTurnsTrueWhenTheLazyDetailArrives() async {

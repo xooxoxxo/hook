@@ -14,7 +14,7 @@ extension EnvironmentValues {
 }
 
 /// One Settings row. Every row ends in a hit-wide help slot (HelpButton or empty), so all
-/// controls in a section share one trailing edge (design §4.8). An error shows as a red
+/// controls in a section share one trailing edge. An error shows as a red
 /// caption under the control.
 public struct SettingsRow<Control: View>: View {
     let label: String

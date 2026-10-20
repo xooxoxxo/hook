@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Design/ClosedGroupHeader (design §4.2): the Recently closed section's header is its
+/// Design/ClosedGroupHeader: the Recently closed section's header is its
 /// disclosure, laid out like a SectionHeader. The closed rows are the section's own rows.
 public struct ClosedGroupHeader: View {
     let count: Int

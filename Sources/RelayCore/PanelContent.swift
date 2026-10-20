@@ -1,10 +1,10 @@
 import Foundation
 
-/// Which one of the §4.7 states fills the list area. Each state has one place and one text.
+/// Which one of the panel's states fills the list area. Each state has one place and one text.
 public enum PanelContent: Equatable, Sendable {
     case loading(stillTrying: Bool), notSetUp, offline(local: Bool, reason: String), empty, emptyFiltered(project: String), list
 
-    /// Principle 4: "Nothing waiting" only after the source answered with an empty list.
+    /// "Nothing waiting" only after the source answered with an empty list.
     public static func resolve(sourceKey: String, loadedOnce: Bool, reachable: Bool, problem: String?, waitedTenSeconds: Bool,
                                filter: String?, shownOpen: Int, shownClosed: Int) -> PanelContent {
         if sourceKey == SourceKey.none { return .notSetUp }
@@ -21,12 +21,12 @@ public enum PanelContent: Equatable, Sendable {
     }
 }
 
-/// The one Notice the panel shows at a time (design §4.7). Texts are display-ready.
+/// The one Notice the panel shows at a time. Texts are display-ready.
 public enum PanelNotice: Equatable, Sendable {
     case actionFailed(verdict: Verdict, id: String, title: String, reason: String)
     case reopenFailed(id: String, title: String, reason: String)
     /// No caller yet: a reopen or reply that fails to save already shows its error in its own
-    /// Notice or ReplyBox (A7). A future poster passes the raw reason
+    /// Notice or ReplyBox. A future poster passes the raw reason
     /// (`case QueueError.storeFailed(let reason)` → `.storeFailed(reason: reason)`), never
     /// `UserFacingError.text(error)`, which would double the "Couldn't save the queue" prefix.
     case storeFailed(reason: String)

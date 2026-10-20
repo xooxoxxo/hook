@@ -3,7 +3,7 @@ import SwiftUI
 
 public enum ReplyBoxState: Equatable, Sendable { case idle, sending, sent(at: String), failed(reason: String) }
 
-/// Design/ReplyBox (design §3.2, §4.5): the ask's reply prompt, a growing field (Return sends,
+/// Design/ReplyBox: the ask's reply prompt, a growing field (Return sends,
 /// ⌥Return adds a line), a status caption and Send, a spinner while sending, or Retry after a failure.
 public struct ReplyBox: View {
     let prompt: String

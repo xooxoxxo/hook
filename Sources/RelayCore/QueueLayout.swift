@@ -23,7 +23,7 @@ public struct QueueSection: Equatable, Sendable, Identifiable {
     }
 }
 
-/// How the open queue is sectioned and ordered (design §4.3).
+/// How the open queue is sectioned and ordered.
 public enum QueueLayout {
     public static func sections(items: [WireItem], grouping: QueueGrouping, filter: String?) -> [QueueSection] {
         let shown = items.filter { matches($0, filter: filter) }

@@ -1,7 +1,7 @@
 import CryptoKit
 import Foundation
 
-/// A tick's guard (design §8): a stored tick applies to a leaf only when the leaf's
+/// A tick's guard: a stored tick applies to a leaf only when the leaf's
 /// fingerprint matches, so a re-posted ask never shows a tick on a different step.
 public enum StepFingerprint {
     public enum Kind: String, Sendable { case step, sub, verify }

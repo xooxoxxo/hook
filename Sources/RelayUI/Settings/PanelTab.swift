@@ -1,7 +1,7 @@
 import RelayCore
 import SwiftUI
 
-/// Settings → Panel (§4.8): the edge and display the panel docks to, sliding in on Now asks,
+/// Settings → Panel: the edge and display the panel docks to, sliding in on Now asks,
 /// and what Done or Skip opens next. Every control writes config.json through the model.
 public struct PanelTab<Model: SettingsViewModel>: View {
     @ObservedObject private var model: Model
@@ -71,7 +71,7 @@ public struct PanelTab<Model: SettingsViewModel>: View {
     }
 }
 
-/// The Panel tab's "?" texts (§4.8).
+/// The Panel tab's "?" texts.
 public enum PanelHelp {
     public static let edge = "You can also drag the panel by its top bar to either edge of any display. It stays there until you move it."
     public static let display = "If this display is disconnected, Relay uses the main display until it comes back."

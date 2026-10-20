@@ -8,7 +8,7 @@ public enum PanelHeaderActions {
     public static let dragHelp = "Drag to the left or right edge of any display to pin Relay there"
 }
 
-/// Design/PanelHeader (design §3.2): the 44 pt bar on top of the list and the detail. Empty
+/// Design/PanelHeader: the 44 pt bar on top of the list and the detail. Empty
 /// header space is the drag surface; VoiceOver gets the two dock actions instead of the drag.
 public struct PanelHeader<Content: View>: View {
     let onDock: (SidebarEdge) -> Void

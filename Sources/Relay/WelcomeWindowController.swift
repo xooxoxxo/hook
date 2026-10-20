@@ -3,7 +3,7 @@ import RelayCore
 import RelayUI
 import SwiftUI
 
-/// The first-run window "Welcome to Relay" (§4.9): shown for a missing or incomplete
+/// The first-run window "Welcome to Relay": shown for a missing or incomplete
 /// config, and again from the menu's "Set Up Relay…" or the panel's Not set up state.
 @MainActor final class WelcomeWindowController {
     private let window: NSWindow

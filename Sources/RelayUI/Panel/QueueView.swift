@@ -3,7 +3,7 @@ import RelayCore
 import SwiftUI
 
 /// Present while the Recently closed header has keyboard focus; PanelKeys turns ← / →
-/// into collapse / expand only then (design §4.12).
+/// into collapse / expand only then.
 struct ClosedHeaderFocusedKey: FocusedValueKey {
     typealias Value = Bool
 }
@@ -15,7 +15,7 @@ extension FocusedValues {
     }
 }
 
-/// The queue (design §4.3): header, Notice, List, Undo bar and status bar. One content edge: rows have
+/// The queue: header, Notice, List, Undo bar and status bar. One content edge: rows have
 /// zero horizontal inset and nothing in the List is a DisclosureGroup, so every text starts
 /// on the gutter and every count ends at panelWidth − gutter.
 struct QueueView<Model: PanelViewModel>: View {
@@ -23,7 +23,7 @@ struct QueueView<Model: PanelViewModel>: View {
     @AppStorage("relay.closedToday.expanded") private var storedClosedExpanded = false
     @FocusState private var listFocused: Bool
     /// Rows the List has on screen (List rows appear and disappear as they scroll); Back
-    /// scrolls only when the row it returns to isn't one of them (design §4.6).
+    /// scrolls only when the row it returns to isn't one of them.
     @State private var visibleRows: Set<String> = []
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.controlActiveState) private var activeState
@@ -38,7 +38,7 @@ struct QueueView<Model: PanelViewModel>: View {
                    bottom: DS.Space.rowInsetV, trailing: DS.Space.rowInsetH)
     }
 
-    /// VO announcement when the grouping switches (design §4.3).
+    /// VO announcement when the grouping switches.
     static func groupingAnnouncement(_ grouping: QueueGrouping) -> String {
         grouping == .project ? "Grouped by project" : "Grouped by urgency"
     }
@@ -94,7 +94,7 @@ struct QueueView<Model: PanelViewModel>: View {
         .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: model.undoInfo)
     }
 
-    /// VO announcement when the project filter changes (design §4.3).
+    /// VO announcement when the project filter changes.
     static func filterAnnouncement(_ filter: String?) -> String {
         filter.map { "Showing only " + line($0) } ?? "Showing all projects"
     }
@@ -160,8 +160,8 @@ struct QueueView<Model: PanelViewModel>: View {
                     if state == .key, model.navigation.selectedID == nil { listFocused = true }
                 }
                 .onChange(of: model.navigation.selectedID) { old, new in
-                    // Back: the row you came from is centred only when it is off-screen
-                    // (design §4.6), and the List takes focus.
+                    // Back: the row you came from is centred only when it is off-screen,
+                    // and the List takes focus.
                     guard old != nil, new == nil else { return }
                     if let id = model.listSelection, !visibleRows.contains(id) {
                         proxy.scrollTo(id, anchor: .center)

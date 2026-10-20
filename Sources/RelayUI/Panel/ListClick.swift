@@ -1,6 +1,6 @@
 import AppKit
 
-/// Click versus key in the queue (design §4.3). The List calls its selection binding's
+/// Click versus key in the queue. The List calls its selection binding's
 /// setter only for changes it makes itself, so `opensOnSelection` is asked only about
 /// those; programmatic selection (Back, After Done, Undo) never opens an ask.
 enum ListClick {

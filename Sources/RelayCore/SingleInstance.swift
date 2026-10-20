@@ -1,4 +1,4 @@
-/// Which running app counts as another Relay (§4.10). The launch check runs before
+/// Which running app counts as another Relay. The launch check runs before
 /// the loopback server and the queue lock.
 public enum SingleInstance {
     /// The pid of a running app with Relay's bundle id that isn't this process; nil when none.

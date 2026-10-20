@@ -32,7 +32,7 @@ func offlineStatus(loadedOnce: Bool) -> PanelStatus {
     PanelStatus.make(StatusInputs(sourceKey: galleryMailboxKey, reachable: false, loadedOnce: loadedOnce, problem: offlineReason))
 }
 
-/// The §3.5 queue edge check: text on the gutter, counts and summaries on the trailing edge.
+/// The queue edge check: text on the gutter, counts and summaries on the trailing edge.
 let queueEdgeRules: [AlignmentRule] = [
     .leading(.gutterText, x: DS.Space.gutter, tolerance: 1),
     .trailing(.trailingEdge, x: DS.Metric.panelWidth - DS.Space.gutter, tolerance: 2),

@@ -6,7 +6,7 @@ extension Notification.Name {
     public static let relayFocusReply = Notification.Name("relay.panel.focusReply")
 }
 
-/// The Reply section (design §4.5). The draft and the picked choice live in the model, in
+/// The Reply section. The draft and the picked choice live in the model, in
 /// memory only, so they survive back, another ask and a poll; the send state and the sent
 /// choices come from the snapshot (reply events), never from view state.
 struct DetailReply<Model: PanelViewModel>: View {

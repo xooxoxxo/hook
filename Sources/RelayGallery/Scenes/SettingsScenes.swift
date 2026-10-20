@@ -3,7 +3,7 @@ import RelayCore
 import RelayUI
 import SwiftUI
 
-/// Every control in a section ends on one trailing edge (§3.5). SettingsRow probes its
+/// Every control in a section ends on one trailing edge. SettingsRow probes its
 /// help slot as `.settingsTrailing`; the grouped Form gives every section the same width.
 let settingsRules: [AlignmentRule] = [.sameTrailingPerGroup(.settingsTrailing, tolerance: 1)]
 

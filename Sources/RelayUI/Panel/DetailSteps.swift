@@ -1,7 +1,7 @@
 import RelayCore
 import SwiftUI
 
-/// The Steps section (design §4.4): heading with the leaf count, then each node: a step,
+/// The Steps section: heading with the leaf count, then each node: a step,
 /// a parent with its indented sub-steps, verify last. Ticks and done-step expansion live
 /// in the model (ticks in UserDefaults, expansion in memory), so they survive back and forth.
 struct DetailSteps<Model: PanelViewModel>: View {
@@ -22,7 +22,7 @@ struct DetailSteps<Model: PanelViewModel>: View {
         "\(progress.done) of \(progress.total) done"
     }
 
-    /// "3. Create the Slack app", "3a. Click Create New App" (design §4.14 rotor).
+    /// "3. Create the Slack app", "3a. Click Create New App" (the VoiceOver rotor).
     static func rotorTitle(_ node: DetailModel.Node) -> String {
         node.label + ". " + line(node.content.action)
     }
@@ -33,7 +33,7 @@ struct DetailSteps<Model: PanelViewModel>: View {
         return paths
     }
 
-    /// A parent only with sub-steps: `substeps: []` decodes as an empty list and is a plain step (Task 16 ruling).
+    /// A parent only with sub-steps: `substeps: []` decodes as an empty list and is a plain step.
     static func rendersAsParent(_ node: DetailModel.Node) -> Bool {
         !node.children.isEmpty
     }

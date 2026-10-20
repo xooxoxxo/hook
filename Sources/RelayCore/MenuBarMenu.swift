@@ -46,7 +46,7 @@ public struct MenuInputs: Equatable, Sendable {
     }
 }
 
-/// The menu-bar menu, §4.10 items 1–14, rebuilt on every open.
+/// The menu-bar menu, all fourteen items, rebuilt on every open.
 public enum MenuBarMenu {
     /// NSLeftArrowFunctionKey and NSRightArrowFunctionKey.
     static let leftArrow = "\u{F702}"

@@ -1,7 +1,7 @@
 import RelayCore
 import SwiftUI
 
-/// Settings → Notifications (§4.8): which urgencies notify, sound, permission and a test.
+/// Settings → Notifications: which urgencies notify, sound, permission and a test.
 public struct NotificationsTab<Model: SettingsViewModel>: View {
     @ObservedObject private var model: Model
     @State private var sent = false
@@ -102,7 +102,7 @@ public struct PermissionControl<Model: SettingsViewModel>: View {
     }
 }
 
-/// The Notifications tab's "?" text (§4.8).
+/// The Notifications tab's "?" text.
 public enum NotificationsHelp {
     public static let kinds = "Each ask says how urgent it is. Now: the session is blocked on you. Today: needed today. Whenever: no rush. Relay notifies only for the kinds you tick."
 }

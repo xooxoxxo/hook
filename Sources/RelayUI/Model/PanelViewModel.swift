@@ -26,7 +26,7 @@ public struct PanelShellActions: Sendable {
                                                copy: { _ in }, openURL: { _ in })
 }
 
-/// The panel views' only way to the model (design §3.4). The Store conforms;
+/// The panel views' only way to the model. The Store conforms;
 /// FixturePanelModel serves the gallery.
 @MainActor public protocol PanelViewModel: ObservableObject {
     var queue: QueueSnapshot { get }

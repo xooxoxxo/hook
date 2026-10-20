@@ -1,6 +1,6 @@
 import Foundation
 
-/// Panel view state that survives a relaunch (design §4.6, §8). UserDefaults, not
+/// Panel view state that survives a relaunch. UserDefaults, not
 /// config.json: no other tool reads it. Never pruned.
 public enum PanelPrefs {
     public static let groupingKey = "relay.queue.grouping"

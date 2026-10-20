@@ -6,7 +6,7 @@ import RelayUI
 /// top-right corner while any ask is open (the count when it fits in one digit,
 /// else a plain dot). The symbol looks disabled while offline or away; the badge
 /// dims only while offline. The tooltip is always set. Left click toggles the
-/// sidebar; right click or control-click opens the menu (§4.10), rebuilt from
+/// sidebar; right click or control-click opens the menu, rebuilt from
 /// `MenuBarMenu.entries` on every open.
 @MainActor final class MenuBarController: NSObject {
     private var item: NSStatusItem

@@ -48,7 +48,7 @@ final class ServerRouting: Sendable {
     @Published private(set) var listenerState: ListenerState = .starting
     /// "mcp"/"cli" → last authenticated request; polled while the Connect tab is shown.
     @Published private(set) var lastSeen: [String: Date] = [:]
-    /// Why the shortcut isn't working (§4.8).
+    /// Why the shortcut isn't working.
     @Published var shortcutProblem: ShortcutProblem?
     /// What the Settings and Welcome views read; only `refreshSettings()` writes it.
     @Published var settings = SettingsSnapshot()

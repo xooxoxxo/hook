@@ -2,7 +2,7 @@ import AppKit
 import RelayCore
 import SwiftUI
 
-/// Welcome (§4.9): page 1 picks the source; page 2 offers the shortcut, notifications,
+/// Welcome: page 1 picks the source; page 2 offers the shortcut, notifications,
 /// Claude Code and login. 480 pt wide, a grouped Form, pages switched in place.
 public struct WelcomeView<Model: SettingsViewModel>: View {
     @ObservedObject private var model: Model

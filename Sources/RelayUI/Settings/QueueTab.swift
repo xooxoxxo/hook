@@ -2,7 +2,7 @@ import Foundation
 import RelayCore
 import SwiftUI
 
-/// Settings → Queue (§4.8): where asks come from, that source's settings, and the
+/// Settings → Queue: where asks come from, that source's settings, and the
 /// connection. Mailbox fields are a draft until Connect validates and saves them.
 /// There is no read-only section: Queue is where config problems are fixed.
 public struct QueueTab<Model: SettingsViewModel>: View {
@@ -185,7 +185,7 @@ public struct QueueTab<Model: SettingsViewModel>: View {
         guard errors.address == nil, errors.tokenFile == nil else { return }
         connecting = true
         Task { @MainActor in
-            _ = await model.connect()     // a failure shows in Connection → Status (A7)
+            _ = await model.connect()     // a failure shows in Connection → Status, once
             connecting = false
         }
     }
@@ -228,7 +228,7 @@ enum QueueSourceRadio {
     }
 }
 
-/// The Queue tab's "?" texts (§4.8); Welcome uses the same ones.
+/// The Queue tab's "?" texts; Welcome uses the same ones.
 public enum QueueHelp {
     public static let local = "Asks are stored in a file on this Mac and never leave it. Claude Code sessions on this Mac send them to Relay with the relay command or the MCP server."
     public static let mailbox = "Asks come from a mailbox server you run. Relay checks it on a timer and sends your answers back to it. The token file holds the mailbox's access token; Relay reads it only to talk to the mailbox and never shows it."

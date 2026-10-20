@@ -169,7 +169,7 @@ extension AppModel: SettingsViewModel {
         return MailboxDraft.noAnswer
     }
 
-    /// Unsaved values stay until the Settings window closes (§4.8).
+    /// Unsaved values stay until the Settings window closes.
     func resetDraft() {
         draft = MailboxDraft(config: config, home: Self.home.path)
     }

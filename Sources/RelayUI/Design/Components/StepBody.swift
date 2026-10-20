@@ -1,7 +1,7 @@
 import RelayCore
 import SwiftUI
 
-/// Design/StepBody (design §3.2): a step's detail, link, command and expected output, in that
+/// Design/StepBody: a step's detail, link, command and expected output, in that
 /// order. It is a `Group`, so its parts sit in the caller's `VStack(spacing: stepPart)`.
 public struct StepBody: View {
     let content: StepContent

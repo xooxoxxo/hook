@@ -30,7 +30,7 @@ public enum KeyResponder {
     }
 }
 
-/// The plain panel keys (design §4.12): Esc, Return, ⌥Return, ← / →, 1–6, when the focused
+/// The plain panel keys: Esc, Return, ⌥Return, ← / →, 1–6, when the focused
 /// view didn't take them. ⌘ combinations arrive through SidePanel.performKeyEquivalent.
 public struct PanelKeys: ViewModifier {
     private let model: any PanelViewModel

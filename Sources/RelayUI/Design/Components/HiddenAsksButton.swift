@@ -1,7 +1,7 @@
 import RelayCore
 import SwiftUI
 
-/// Design/HiddenAsksButton (design §4.1): how many open asks the filter hides, with the `now`
+/// Design/HiddenAsksButton: how many open asks the filter hides, with the `now`
 /// symbol when some of them are "now". It stays whole; the FilterToken gives way instead.
 public struct HiddenAsksButton: View {
     let hidden: HiddenCount

@@ -1,8 +1,8 @@
 import RelayCore
 import SwiftUI
 
-/// The status bar's popover (design §4.3 table, "Click" column). Its line never repeats the
-/// status bar's own text (A7); every reason goes through UserFacingError (A2).
+/// The status bar's popover, opened by clicking the status. Its line never repeats the
+/// status bar's own text; every reason goes through UserFacingError.
 public struct StatusDetails: View {
     let status: PanelStatus
     let updated: String
@@ -19,7 +19,7 @@ public struct StatusDetails: View {
         self.onShowConfig = onShowConfig
     }
 
-    /// Not set up: the status click opens Welcome (or Settings → Queue) instead of a popover (§4.3).
+    /// Not set up: the status click opens Welcome (or Settings → Queue) instead of a popover.
     public static func opensSetUp(_ status: PanelStatus) -> Bool {
         if case .notSetUp = status.detail { return true }
         return false
@@ -61,7 +61,7 @@ public struct StatusDetails: View {
         }
         .font(DS.Font.prose)
         .controlSize(DS.Control.form)
-        // StatusBar (Task 10) wraps the popover in DS.Space.popover padding and DS.Metric.helpWidth,
+        // StatusBar wraps the popover in DS.Space.popover padding and DS.Metric.helpWidth,
         // so this view only keeps its content leading inside that frame.
         .frame(maxWidth: .infinity, alignment: .leading)
     }

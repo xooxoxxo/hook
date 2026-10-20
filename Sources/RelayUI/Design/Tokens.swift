@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-// Design/Tokens.swift (design §3.1). Every size, colour, font, symbol and duration the views use lives here; scripts/check-tokens.sh fails a literal anywhere else.
+// Design/Tokens.swift. Every size, colour, font, symbol and duration the views use lives here; scripts/check-tokens.sh fails a literal anywhere else.
 
 public enum DS {
     public enum Space {
@@ -56,7 +56,7 @@ public enum DS {
     }
 
     public enum Font {
-        /// Gallery-only text multiplier for --xl. macOS ignores .dynamicTypeSize for text styles, so RelayGallery sets this once before rendering. Relay never sets it, and at 1 every token is exactly its stock text style (§3.1).
+        /// Gallery-only text multiplier for --xl. macOS ignores .dynamicTypeSize for text styles, so RelayGallery sets this once before rendering. Relay never sets it, and at 1 every token is exactly its stock text style.
         nonisolated(unsafe) public static var galleryScale: CGFloat = 1
 
         /// The stock text style `s`, or under `galleryScale` the same style's NSFont scaled, which keeps its weight (headline's bold).
@@ -94,13 +94,13 @@ public enum DS {
         public static let bar = Material.bar
         public static var badge: NSColor { .systemRed }
         public static var badgeText: NSColor { .white }
-        /// Badge alpha while offline (§4.10).
+        /// Badge alpha while offline.
         public static let badgeDimmedAlpha: CGFloat = 0.5
         /// Gallery stand-in for the panel's sidebar material, which does not render offscreen:
         /// the window background, translucent over `canvas` (which plays the desktop behind the panel).
         public static let panelStandIn = SwiftUI.Color(nsColor: .windowBackgroundColor).opacity(0.8)
         /// Gallery stand-in under --reduce-transparency: the opaque window background the
-        /// material falls back to (§3.5).
+        /// material falls back to.
         public static let panelStandInOpaque = SwiftUI.Color(nsColor: .windowBackgroundColor)
         /// Gallery canvas behind multi-panel scenes.
         public static let canvas = SwiftUI.Color(nsColor: .underPageBackgroundColor)

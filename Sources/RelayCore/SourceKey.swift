@@ -1,7 +1,7 @@
 import Foundation
 
 /// The namespace for per-source UserDefaults keys (ticks, selection, filter).
-/// A mailbox key includes the port, path and context (M14), so two mailboxes on
+/// A mailbox key includes the port, path and context, so two mailboxes on
 /// one host, or one mailbox under two contexts, never share ticks.
 public enum SourceKey {
     public static let none = "none"
@@ -44,8 +44,8 @@ public enum SourceKey {
     }
 }
 
-/// What the Store shows; a change swaps the source. `pollSeconds` isn't part of it
-/// (M13): a new interval only restarts the timer.
+/// What the Store shows; a change swaps the source. `pollSeconds` isn't part of it:
+/// a new interval only restarts the timer.
 public struct SourceIdentity: Equatable, Sendable {
     public var key: String
     public var mailbox: MailboxSettings?

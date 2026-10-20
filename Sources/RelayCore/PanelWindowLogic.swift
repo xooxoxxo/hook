@@ -1,7 +1,7 @@
 import CoreGraphics
 import Foundation
 
-/// What the global shortcut or a left click on the menu-bar icon does to the panel (§4.1).
+/// What the global shortcut or a left click on the menu-bar icon does to the panel.
 public enum ToggleAction: Equatable, Sendable {
     case showAndFocus
     case focus
@@ -30,7 +30,7 @@ public enum PanelToggle {
     }
 }
 
-/// The slide-in for a "now" ask (§4.11). Pure: the panel animates the frames.
+/// The slide-in for a "now" ask. Pure: the panel animates the frames.
 public enum SlideIn {
     /// Just beyond the docked frame's screen edge, so the slide covers the panel's width.
     public static func offscreenFrame(docked: CGRect, edge: SidebarEdge) -> CGRect {

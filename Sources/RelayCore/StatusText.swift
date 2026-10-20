@@ -1,6 +1,6 @@
 import Foundation
 
-/// What the status bar needs to know (design §4.3, status table).
+/// What the status bar needs to know.
 public struct StatusInputs: Equatable, Sendable {
     public var sourceKey: String
     public var reachable: Bool

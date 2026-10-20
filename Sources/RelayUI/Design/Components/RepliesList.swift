@@ -1,7 +1,7 @@
 import RelayCore
 import SwiftUI
 
-/// Design/RepliesList (design §3.2, §4.5): the replies already sent, each with its local time.
+/// Design/RepliesList: the replies already sent, each with its local time.
 public struct RepliesList: View {
     let replies: [ReplyLine]
 

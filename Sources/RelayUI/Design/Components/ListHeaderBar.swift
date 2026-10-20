@@ -1,7 +1,7 @@
 import RelayCore
 import SwiftUI
 
-/// Design/ListHeaderBar (design §4.1): the queue's header. The title ("5 waiting" / "Queue")
+/// Design/ListHeaderBar: the queue's header. The title ("5 waiting" / "Queue")
 /// sits on the gutter; the refresh spinner, QueueMenu, Refresh and Hide sit on the right.
 /// While a project filter is on, the FilterRow shows under the bar.
 public struct ListHeaderBar: View {

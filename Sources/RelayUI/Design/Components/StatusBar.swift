@@ -1,13 +1,13 @@
 import RelayCore
 import SwiftUI
 
-/// Design/StatusBar (design §4.3): the queue's state on the left, which opens a details
-/// popover, and Settings on the right. The one place a persistent problem shows in the panel (rule A7).
+/// Design/StatusBar: the queue's state on the left, which opens a details
+/// popover, and Settings on the right. The one place a persistent problem shows in the panel.
 public struct StatusBar<Details: View>: View {
     let symbol: StatusSymbol
     let text: String
     let onSettings: () -> Void
-    /// Set for the one state whose click opens setup instead of the popover (§4.3 "not set up").
+    /// Set for the one state whose click opens setup instead of the popover.
     let onActivate: (() -> Void)?
     let details: () -> Details
     @State private var showDetails = false

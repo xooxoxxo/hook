@@ -9,7 +9,7 @@ public struct KeyModifiers: OptionSet, Sendable, Hashable {
     public static let control = KeyModifiers(rawValue: 1 << 3)
 }
 
-/// The keys the panel listens for (design §4.12).
+/// The keys the panel listens for.
 public enum PanelKey: Hashable, Sendable {
     case escape, returnKey, optionReturn, up, down, left, right, digit(Int)
     case cmdW, cmdR, cmdComma, cmdZ, shiftCmdZ, cmdQ, cmdReturn, cmdDelete, cmdLeftBracket, cmdUp, cmdDown, cmdT, cmdL
@@ -59,7 +59,7 @@ public enum PanelCommand: Equatable, Sendable {
     case previousAsk, nextAsk, tickCurrent, untickLast, copyCurrentCode, openCurrentURL, focusReply, pickChoice(Int)
 }
 
-/// The single source for §4.12. Inside a focused text field the text-editing
+/// The single source for the panel's keys. Inside a focused text field the text-editing
 /// meaning wins (⌘Z, ⇧⌘Z, ⌘⌫, ⌘↑/⌘↓, Return): those return nil and go on to the field.
 public enum KeyMap {
     public static func command(for key: PanelKey, in c: KeyContext) -> PanelCommand? {

@@ -1,7 +1,7 @@
 import RelayCore
 import SwiftUI
 
-/// Design/SectionHeader (design §3.2): a queue section's name and count, in `secondary`.
+/// Design/SectionHeader: a queue section's name and count, in `secondary`.
 /// The name is a project (or "No project") or an urgency word.
 public struct SectionHeader: View {
     let name: String

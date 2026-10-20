@@ -12,7 +12,7 @@ import RelayUI
     /// Esc goes to the content first: true means it was used (a detail went back
     /// to the list). Otherwise the panel hides.
     var onEscape: (@MainActor () -> Bool)?
-    /// The panel-wide keys (design §4.12); AppDelegate sets it once the panel hosts PanelRoot.
+    /// The panel-wide keys; AppDelegate sets it once the panel hosts PanelRoot.
     var keyRouter: PanelKeyRouter?
     /// Reads `sidebarDisplay` and saves a pin from a header drag; set by `connect(_:)`.
     private weak var model: AppModel?
@@ -326,7 +326,7 @@ import RelayUI
         alphaValue = 1
     }
 
-    /// §4.1: show and focus; focus a visible unfocused panel; re-dock a misplaced one; hide a focused one.
+    /// The shortcut or a left click: show and focus; focus a visible unfocused panel; re-dock a misplaced one; hide a focused one.
     /// A panel that is fading out counts as hidden, so a second press brings it back. Every
     /// action but hide goes through `present`, which re-docks and cancels a fade-out.
     func toggle() {

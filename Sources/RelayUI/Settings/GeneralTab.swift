@@ -1,7 +1,7 @@
 import RelayCore
 import SwiftUI
 
-/// Settings → General (§4.8): shortcut, presence, login and the menu-bar badge, appearance
+/// Settings → General: shortcut, presence, login and the menu-bar badge, appearance
 /// and version. Every control but the login item writes config.json through the model.
 public struct GeneralTab<Model: SettingsViewModel>: View {
     @ObservedObject private var model: Model
@@ -103,7 +103,7 @@ public struct GeneralTab<Model: SettingsViewModel>: View {
     }
 }
 
-/// The General tab's "?" texts (§4.8).
+/// The General tab's "?" texts.
 public enum GeneralHelp {
     public static let shortcut = "Click the field, then press the new keys. Use at least one of ⌘, ⌃ or ⌥ with a letter, a digit, Space, ` or F1–F12. Esc cancels. ⊗ turns the shortcut off."
     public static let presence = "Relay marks you away when the screen locks, the displays sleep, you're connected over Screen Sharing, or you haven't touched the Mac for this long. While you're away, Relay doesn't slide the panel in or show notifications; asks still reach anything your mailbox forwards them to. Relay also creates ~/.local/state/relay/away, so other tools can tell. For example, ssh can skip the 1Password agent."

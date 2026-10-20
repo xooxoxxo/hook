@@ -13,7 +13,7 @@ public enum LinkCheck: Equatable, Sendable {
 
 /// The app's state over one `QueueSource` at a time: the open queue, fetched
 /// details, the selection, and the owner's actions. Lives in RelayUI so the
-/// gallery and tests can drive it; views reach it through PanelViewModel (Task 39).
+/// gallery and tests can drive it; views reach it through PanelViewModel.
 @MainActor public final class Store: ObservableObject {
     /// The open queue as shown: the source's list without the asks held back
     /// for Undo or being sent. Every list, count and badge reads this.
@@ -23,7 +23,7 @@ public enum LinkCheck: Equatable, Sendable {
     /// Asks closed in the last 24 hours, newest first, without any still held back.
     @Published public private(set) var recentlyClosed: [WireItem] = []
     @Published public private(set) var details: [String: AskDetail] = [:]
-    /// The highlighted row and the open detail (design §4.6).
+    /// The highlighted row and the open detail.
     @Published public var navigation = PanelNavigation()
     /// Unsent reply text per ask. Memory only: the owner's text is never written to disk unasked.
     @Published public var drafts: [String: String] = [:]
@@ -91,7 +91,7 @@ public enum LinkCheck: Equatable, Sendable {
     private var detailFailed: Set<String> = []
     private var swappedAt: Date?
     /// Bumped when a load has waited `DS.Timing.detailLoadTimeout`, so views read the
-    /// snapshots again and "Still trying…" / "Couldn't load" show with no other change (N9).
+    /// snapshots again and "Still trying…" / "Couldn't load" show with no other change.
     @Published public private(set) var stateTick = 0
     /// The wait behind `stateTick`; tests pass an immediate one.
     let timeoutSleep: @Sendable (Duration) async -> Void
@@ -245,7 +245,7 @@ public enum LinkCheck: Equatable, Sendable {
     }
 
     /// A new interval restarts only the timer: no swap, so the selection, items,
-    /// details and held closes stay (M13). A source with a change stream ignores it.
+    /// details and held closes stay. A source with a change stream ignores it.
     public func setPollInterval(_ seconds: Int) {
         let seconds = max(1, seconds)
         guard seconds != pollSeconds else { return }
@@ -652,7 +652,7 @@ public enum LinkCheck: Equatable, Sendable {
     }
 
     /// Before quitting: sends every held-back close at once. The caller caps the wait.
-    /// The Undo bar shown while they go (ruling 2: "Sending", Undo disabled) is the one from
+    /// The Undo bar shown while they go ("Sending", Undo disabled) is the one from
     /// before the drain, kept in `sendingUndo` until every send has finished.
     public func sendAllPending() async {
         guard let source else { return }
@@ -937,7 +937,7 @@ public enum LinkCheck: Equatable, Sendable {
             detailFailed.remove(id)
         } catch QueueError.notFound {
             guard gen == generation else { return }
-            // The open ask keeps its cached detail when it leaves the queue (§4.7, "Ask closed while open").
+            // The open ask keeps its cached detail when it leaves the queue, so it can still show as closed.
             if id != navigation.selectedID { details[id] = nil }
         } catch {
             // Keep the cached detail; the next refresh retries.

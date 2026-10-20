@@ -12,8 +12,8 @@ public enum FieldClass: Sendable {
 
 /// Makes characters that render invisibly, or reorder text, visible as "⟨U+XXXX⟩".
 ///
-/// Where ask-derived text is shown, and the helper it goes through (design §4.15;
-/// the 0.5 places in map-panel §5 stay as they were). `line()` is `revealLine`,
+/// Where ask-derived text is shown, and the helper it goes through (the places that
+/// already sanitized text in 0.5 stay as they were). `line()` is `revealLine`,
 /// `prose()` is `reveal(_:as: .prose).text`, both in RelayUI's Sanitized.swift.
 ///
 /// | Text | Helper |

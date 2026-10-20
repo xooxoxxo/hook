@@ -94,15 +94,15 @@ let legacyJSON = #"""
     return snapshot
 }
 
-/// Not found, but the ask is in Recently closed, so "Show Closed Ask" is offered (§4.7;
-/// controller ruling from Task 40). Without it is "state-notfound" (StateScenes).
+/// Not found, but the ask is in Recently closed, so "Show Closed Ask" is offered.
+/// Without it is "state-notfound" (StateScenes).
 @MainActor func notFoundClosedModel() -> FixturePanelModel {
     let queue = GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false)
     let id = queue.closed.first?.id ?? "acme-c1"
     return FixturePanelModel(queue: queue, navigation: PanelNavigation(selectedID: id), status: readyStatus)
 }
 
-/// §3.5 detail-steps column check: markers on one centre per level, text on one edge per level.
+/// The detail-steps column check: markers on one centre per level, text on one edge per level.
 let stepColumnRules: [AlignmentRule] = [
     .sameCentre(.topMarker, tolerance: 1),
     .sameCentre(.subMarker, tolerance: 1),

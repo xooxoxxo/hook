@@ -1,7 +1,7 @@
 import RelayCore
 import SwiftUI
 
-/// Design/FilterToken (design §4.1): the filtered project's name and a clear mark, as one
+/// Design/FilterToken: the filtered project's name and a clear mark, as one
 /// bordered button that shows all projects again. A long name truncates inside the token.
 public struct FilterToken: View {
     let project: String

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Every icon-only button (rule A3): label required, `.help` with its key, 28 pt hit area.
+/// Every icon-only button: label required, `.help` with its key, 28 pt hit area.
 /// Takes no ask text. Disable it with `.disabled(_:)`; the tint drops while disabled.
 public struct IconButton: View {
     let symbol: String
@@ -31,7 +31,7 @@ public struct IconButton: View {
                 }
             }
             // The frame and shape sit inside the label: a borderless button takes clicks
-            // only over its label, so this makes the click region the 28 pt square (rule A3).
+            // only over its label, so this makes the click region the 28 pt square.
             .frame(minWidth: DS.Metric.hit, minHeight: DS.Metric.hit)
             .contentShape(.rect)
         }

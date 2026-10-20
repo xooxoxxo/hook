@@ -2,8 +2,8 @@ import AppKit
 import RelayCore
 import SwiftUI
 
-/// Settings → Connect (§4.8): what to paste into Claude Code on this Mac. No inline
-/// heading or paragraphs (N2): every explanation is behind a "?".
+/// Settings → Connect: what to paste into Claude Code on this Mac. No inline
+/// heading or paragraphs: every explanation is behind a "?".
 public struct ConnectTab<Model: SettingsViewModel>: View {
     @ObservedObject private var model: Model
     @State private var copiedSection = false
@@ -114,7 +114,7 @@ public struct ConnectTab<Model: SettingsViewModel>: View {
     }
 }
 
-/// The Connect tab's "?" texts (§4.8).
+/// The Connect tab's "?" texts.
 public enum ConnectHelp {
     public static let mcp = "Run this once in Terminal. Every Claude Code session on this Mac then has relay_post, relay_status and relay_list."
     public static let claudeMd = "Copies docs/claude-md-section.md from the repo. Paste it into ~/.claude/CLAUDE.md on this Mac."

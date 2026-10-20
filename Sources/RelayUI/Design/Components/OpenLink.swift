@@ -2,7 +2,7 @@ import AppKit
 import RelayCore
 import SwiftUI
 
-/// Design/OpenLink (design §3.2): a web link that opens in the browser. Only build one for a
+/// Design/OpenLink: a web link that opens in the browser. Only build one for a
 /// URL `LinkDisplay.isWeb` accepts; anything else is a `RefusedLink`. `title` is already
 /// sanitized (`LinkDisplay.stepTitle` or `LinkDisplay.linkTitle`).
 public struct OpenLink: View {

@@ -1,7 +1,7 @@
 import RelayCore
 import SwiftUI
 
-/// Design/FilterRow (design §4.1): the 32 pt row under the list header while a project filter
+/// Design/FilterRow: the 32 pt row under the list header while a project filter
 /// is on: the FilterToken on the left, the hidden-asks count on the right. Both clear the filter.
 public struct FilterRow: View {
     let project: String

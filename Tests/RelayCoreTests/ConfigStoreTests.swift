@@ -218,7 +218,7 @@ private let mailboxProblem = ResolvedSource.invalid("mailbox needs an http(s) ma
     }
 }
 
-/// Review Focus 5: a hand-edited config.json that stops parsing while the app runs.
+/// A hand-edited config.json that stops parsing while the app runs.
 @Suite struct ConfigReloadTests {
     @Test func theLastGoodConfigStaysWhileTheFileIsBroken() {
         let good = RelayConfig(source: .local, port: 47901)

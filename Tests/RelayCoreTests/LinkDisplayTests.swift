@@ -56,7 +56,7 @@ import Testing
         #expect(LinkDisplay.linkTitle(label: "API docs", url: "https://www.example.com/docs") == "API docs · example.com")
     }
 
-    /// M10: an ask without a usable origin has no From section.
+    /// An ask without a usable origin has no From section.
     @Test func noOriginNoFrom() {
         let ins = Instructable(v: 1, title: "Rotate the example token", steps: [Step(action: "Open the key page")],
                                from: Origin(session: "not a session id", host: "  ", cwd: nil))

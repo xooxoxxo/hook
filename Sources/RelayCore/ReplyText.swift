@@ -1,6 +1,6 @@
 import Foundation
 
-/// A choice reply travels as "choice: X" (unchanged, M24) and shows as "You chose: X".
+/// A choice reply travels as "choice: X" (unchanged from 0.5) and shows as "You chose: X".
 public enum ReplyText {
     public static let prefix = "choice: "
 

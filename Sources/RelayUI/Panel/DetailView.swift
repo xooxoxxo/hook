@@ -2,8 +2,8 @@ import AppKit
 import RelayCore
 import SwiftUI
 
-/// One ask (design §4.4). A ScrollView with the header pinned on top and the Undo and
-/// action bars pinned below: title, steps (Task 47), reply and your replies (Task 49), links and From (Task 48).
+/// One ask. A ScrollView with the header pinned on top and the Undo and
+/// action bars pinned below: title, steps, reply and your replies, links and From.
 struct DetailView<Model: PanelViewModel>: View {
     @ObservedObject private var model: Model
     let id: String
@@ -43,7 +43,7 @@ struct DetailView<Model: PanelViewModel>: View {
     }
 
     /// An open ask with a free-text reply whose steps are only informational (no step, sub-step
-    /// or verify has code, a url or sub-steps) focuses its field when it opens (§4.5, Ruling 1).
+    /// or verify has code, a url or sub-steps) focuses its field when it opens.
     /// With choices there is no field to focus. An empty sub-step list is no sub-steps.
     static func focusesReplyOnOpen(_ snapshot: DetailSnapshot) -> Bool {
         guard snapshot.closedText == nil, let detail = snapshot.model, let reply = detail.reply,
@@ -74,7 +74,7 @@ struct DetailView<Model: PanelViewModel>: View {
             PanelHeader(onDock: { model.shell.dock($0) }) {
                 IconButton(DS.Symbol.back, label: "Back to the queue", help: "Back to the queue (Esc)") { model.back() }
                 Spacer()
-                // Esc goes back in detail (§4.12), so Hide names ⌘W (Task 9 ruling, N8).
+                // Esc goes back in detail, so Hide names ⌘W: one key never has two meanings.
                 IconButton(DS.Symbol.hide, label: "Hide Relay", help: DetailHeaderBar.hideHelp) { model.shell.hide() }
             }
             StateView(.notFound(canShowClosed: Self.isRecentlyClosed(id, in: model.queue)),
@@ -125,7 +125,7 @@ struct DetailView<Model: PanelViewModel>: View {
     /// Saves the top visible node as this ask's anchor (memory only); writes only on change,
     /// so scrolling doesn't republish the model every frame. The title block comes first in
     /// `order`: while it is the top visible node the ask is unscrolled and stores no anchor
-    /// (Ruling R1). Does nothing until the saved anchor has been restored.
+    /// at all. Does nothing until the saved anchor has been restored.
     private func noteAnchor(_ frames: [String: CGRect], order: [String]) {
         guard restored else { return }
         let visible = Flow.visible(frames: frames, top: visibleTop, bottom: visibleBottom)
@@ -149,9 +149,9 @@ struct DetailView<Model: PanelViewModel>: View {
         }
     }
 
-    /// After a tick: bring the new current leaf in only when it starts below the visible area
-    /// (design §4.4). A sub-step row has its own `.id(path)` and frame (Task 12), so the
-    /// leaf itself is the target, never its parent (Ruling 2).
+    /// After a tick: bring the new current leaf in only when it starts below the visible area.
+    /// A sub-step row has its own `.id(path)` and frame, so the
+    /// leaf itself is the target, never its parent.
     private func scrollToCurrent(_ current: String?, proxy: ScrollViewProxy) {
         guard let current, let frame = nodeFrames[current] else { return }
         guard Flow.needsScroll(nodeTop: frame.minY, visibleBottom: visibleBottom) else { return }
@@ -260,7 +260,7 @@ struct DetailView<Model: PanelViewModel>: View {
         }
     }
 
-    /// "label · host" for a web link; a non-web one is shown as text, never opened (§4.4).
+    /// "label · host" for a web link; a non-web one is shown as text, never opened.
     @ViewBuilder private func linkRow(_ link: LinkRef) -> some View {
         if LinkDisplay.isWeb(link.url), let url = URL(string: link.url) {
             OpenLink(title: LinkDisplay.linkTitle(label: link.label, url: link.url), url: url)
@@ -269,7 +269,7 @@ struct DetailView<Model: PanelViewModel>: View {
         }
     }
 
-    /// Only when the ask has a usable origin (M10).
+    /// Only when the ask has a usable origin.
     @ViewBuilder private func fromSection(_ snapshot: DetailSnapshot) -> some View {
         if let origin = snapshot.model?.origin {
             FromDisclosure(origin: origin, expanded: fromExpanded, onCopy: { model.shell.copy($0) })

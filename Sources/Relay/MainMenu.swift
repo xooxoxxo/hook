@@ -3,7 +3,7 @@ import AppKit
 /// The main menu. Relay has no Dock icon, so it is never seen, but its key
 /// equivalents reach Relay's windows: Edit for text fields, ⌘, for Settings and
 /// ⌘Q for Quit, so Settings and Welcome get them too. The panel's own keys
-/// (⌘R, ⌘W, ⌘Q, …) are handled first by SidePanel (§4.12).
+/// (⌘R, ⌘W, ⌘Q, …) are handled first by SidePanel.
 enum MainMenu {
     @MainActor static func install(settings: Selector, target: AnyObject) {
         let main = NSMenu()

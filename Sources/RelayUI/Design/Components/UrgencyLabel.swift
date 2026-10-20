@@ -21,7 +21,7 @@ public func urgencyText(_ urgency: Urgency, prominent: Bool = false) -> Text {
 /// The urgency word as VoiceOver and plain text say it.
 func urgencyWord(_ urgency: Urgency) -> String { line(urgency.word) }
 
-/// Design/UrgencyLabel (design §3.2): symbol and word in the urgency's colour; an unknown
+/// Design/UrgencyLabel: symbol and word in the urgency's colour; an unknown
 /// urgency shows its revealed raw string in `secondary`, with no symbol.
 public struct UrgencyLabel: View {
     let urgency: Urgency

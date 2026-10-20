@@ -1,6 +1,6 @@
 import Foundation
 
-/// Welcome's two pages (§4.9). Pure: the view feeds it Start, the first list, the 10 s
+/// Welcome's two pages. Pure: the view feeds it Start, the first list, the 10 s
 /// timer and config changes.
 public struct WelcomeFlow: Equatable, Sendable {
     public enum Page: Sendable { case source, ready }

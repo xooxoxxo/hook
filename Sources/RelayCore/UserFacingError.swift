@@ -1,6 +1,6 @@
 import Foundation
 
-/// Every error that reaches a `Text` (rule A2): one revealed line, so a reason from
+/// Every error that reaches a `Text`: one revealed line, so a reason from
 /// the mailbox or the disk can't break the layout or hide characters.
 public enum UserFacingError {
     public static func text(_ error: any Error) -> String {

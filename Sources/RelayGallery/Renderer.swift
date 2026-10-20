@@ -51,14 +51,14 @@ struct RenderResult {
     if options.contrast { root = AnyView(root.environment(\._colorSchemeContrast, .increased)) }
     if options.reduceTransparency { root = AnyView(root.environment(\._accessibilityReduceTransparency, true)) }
     if options.xl {
-        // .dynamicTypeSize is kept as spec §3.5 asks, but it is a no-op on macOS 14 to 26:
+        // .dynamicTypeSize is kept for when macOS honours it, but it is a no-op on macOS 14 to 26:
         // DS.Font.galleryScale (set in main.swift) does the work. The body font lets text
         // without a token inherit the scaled body.
         root = AnyView(root.dynamicTypeSize(.xxxLarge).font(DS.Font.body))
     }
     if standIn {
         // The material stand-in is translucent over the canvas; Reduce Transparency swaps
-        // it for the opaque window background, as the real panel material does (§3.5).
+        // it for the opaque window background, as the real panel material does.
         root = options.reduceTransparency
             ? AnyView(root.background(DS.Color.panelStandInOpaque))
             : AnyView(root.background(DS.Color.panelStandIn).background(DS.Color.canvas))

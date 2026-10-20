@@ -1,7 +1,7 @@
 import RelayCore
 import SwiftUI
 
-/// Design/Notice (design §4.7): one one-off failure or piece of news (rule A7), with an
+/// Design/Notice: one one-off failure or piece of news, with an
 /// optional action and a Dismiss button. VoiceOver announces it when it appears.
 ///
 /// `text` is already sanitized (`PanelNotice.text`), so it is shown as is.

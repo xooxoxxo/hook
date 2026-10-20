@@ -1,6 +1,6 @@
 import Foundation
 
-/// What a row's context menu item does (design §4.3 "Context menu").
+/// What a row's context menu item does.
 public enum ContextCommand: Equatable, Sendable {
     case open, done, skip, reopen, showOnly(String), showAll, copyLink, copyResume
 }
@@ -11,7 +11,7 @@ public enum ContextMenuEntry: Equatable, Sendable {
     case separator
 }
 
-/// A queue row's context menu as data. Every item also has a panel key (§4.12).
+/// A queue row's context menu as data. Every item also has a panel key.
 public enum QueueContextMenu {
     public static let projectTitleMax = 40
 
@@ -34,7 +34,7 @@ public enum QueueContextMenu {
     }
 
     /// "Show Only <project>", or "Show All Projects" while the filter is already that
-    /// project; nothing for an ask without a project. The title is sanitized (§4.15);
+    /// project; nothing for an ask without a project. The title is sanitized;
     /// the command carries the raw project, which is what the filter stores.
     static func projectEntry(_ project: String, filter: String?) -> ContextMenuEntry? {
         guard !project.isEmpty else { return nil }

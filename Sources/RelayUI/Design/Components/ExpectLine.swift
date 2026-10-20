@@ -2,7 +2,7 @@ import AppKit
 import RelayCore
 import SwiftUI
 
-/// Design/ExpectLine (design §3.2): what a step's command should print, "Expect: <expect>".
+/// Design/ExpectLine: what a step's command should print, "Expect: <expect>".
 public struct ExpectLine: View {
     let expect: String
 

@@ -125,7 +125,7 @@ private func legacy(cmd: String? = nil, link: String? = nil) -> WireItem {
         #expect(RelativeAge.text(created: "", now: Date()) == "")
     }
 
-    /// Review Focus 3: a Mac in Europe/Istanbul (UTC+3) shows the same age.
+    /// A Mac in Europe/Istanbul (UTC+3) shows the same age.
     @Test func ignoresTheLocalTimeZone() throws {
         let istanbul = try #require(TimeZone(identifier: "Europe/Istanbul"))
         NSTimeZone.default = istanbul

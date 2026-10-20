@@ -1,7 +1,7 @@
 import RelayCore
 import SwiftUI
 
-/// Design/StepView (design §3.2, §4.4): a leaf node, that is a step without sub-steps, a sub-step,
+/// Design/StepView: a leaf node, that is a step without sub-steps, a sub-step,
 /// or verify. Todo and current show the whole column; done collapses into a disclosure.
 public struct StepView: View {
     let content: StepContent
@@ -102,7 +102,7 @@ public struct StepView: View {
         return URL(string: raw)
     }
 
-    /// VoiceOver's custom actions and the context menu, where they apply (spec §4.4 Ticking, §4.14).
+    /// VoiceOver's custom actions and the context menu, where they apply.
     @ViewBuilder private func actions(_ view: some View) -> some View {
         let withActions = view.accessibilityActions {
             if !readOnly { Button(StepAccessibility.markAction(state)) { toggle() } }

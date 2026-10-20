@@ -110,7 +110,7 @@ extension NotifyContent {
     }
 }
 
-/// Which delivered or pending notifications to remove (§4.11): an ask that left the
+/// Which delivered or pending notifications to remove: an ask that left the
 /// open list, whose close was sent, or that was reopened. New asks keep theirs.
 public enum NotificationCleanup {
     public static func ids(previousOpen: Set<String>, currentOpen: Set<String>, sent: [String], reopened: [String]) -> Set<String> {

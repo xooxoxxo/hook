@@ -85,7 +85,7 @@ private func minimal(from: Origin? = nil) -> Payload {
         #expect(DetailModel.make(AskDetail(item: ask(minimal()), events: [])).origin == nil)
     }
 
-    /// Review Focus 1: a legacy mailbox ask with only why, cmd and link (no instructable).
+    /// A legacy mailbox ask with only why, cmd and link (no instructable).
     @Test func legacyCmdAndLinkAsk() {
         let payload = Payload(why: "It expires Friday", cmd: "relay --version", link: "https://example.com/x",
                               instructable: nil)

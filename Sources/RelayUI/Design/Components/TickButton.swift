@@ -1,7 +1,7 @@
 import RelayCore
 import SwiftUI
 
-/// Design/TickButton (design §3.2, §4.4): a step's marker, an `IconButton` that ticks or unticks it.
+/// Design/TickButton: a step's marker, an `IconButton` that ticks or unticks it.
 /// The marker's symbol and colour come from `DS.Symbol.marker` and `DS.Color.marker`.
 /// `label` is already sanitized (the caller passes `line(action)`).
 public struct TickButton: View {

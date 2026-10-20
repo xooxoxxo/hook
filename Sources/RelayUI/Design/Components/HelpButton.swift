@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// The "?" (stock HelpLink) that opens a 300 pt selectable popover. Rule N2:
-/// explanations live here, never inline. `text` is Relay's own copy, not ask text.
+/// The "?" (stock HelpLink) that opens a 300 pt selectable popover.
+/// Explanations live here, never inline. `text` is Relay's own copy, not ask text.
 public struct HelpButton: View {
     let rowLabel: String
     let text: String

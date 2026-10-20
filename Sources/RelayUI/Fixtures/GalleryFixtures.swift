@@ -70,7 +70,7 @@ public enum GalleryFixtures {
             status: "done", completedHoursAgo: 2),
     ]
 
-    /// Step 1 and sub-step 2b done: 2a is the current step (design §4.4).
+    /// Step 1 and sub-step 2b done: 2a is the current step.
     static let certTicks: Set<String> = ["1", "2.2"]
     static let drafts = ["acme-3": "Two items still need an owner"]
 
@@ -93,7 +93,7 @@ public enum GalleryFixtures {
         item: region, detail: AskDetail(item: region, events: []), ticks: [], load: .loaded, reply: .idle, draft: nil,
         pendingChoice: nil, busy: false, previous: .ask("acme-1"), next: .ask("acme-3"), closedBy: nil)
 
-    /// Every validator maximum (M7, §7): 120-char title; 20 steps, 4 of them with 10 sub-steps (60 in all);
+    /// Every validator maximum: 120-char title; 20 steps, 4 of them with 10 sub-steps (60 in all);
     /// a 1500-char detail; a 4000-char code block; 6 choices of 60; 10 links.
     public static let limitsItem: WireItem = {
         let title = String(String(repeating: "Rotate every example key on the staging hosts and confirm ", count: 3).prefix(120))

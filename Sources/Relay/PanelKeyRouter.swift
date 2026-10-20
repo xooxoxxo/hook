@@ -2,11 +2,11 @@ import AppKit
 import RelayCore
 import RelayUI
 
-/// The panel-wide keys (design §4.12). SidePanel hands every key equivalent, and every Esc
+/// The panel-wide keys. SidePanel hands every key equivalent, and every Esc
 /// nothing else took, here first. KeyMap decides; this finds the context and carries the
 /// command out. Commands on the window itself are done here, the rest by the model.
 @MainActor final class PanelKeyRouter {
-    /// Keys text editing also uses; inside a field they keep their text meaning (Principle 3).
+    /// Keys text editing also uses; inside a field they keep their text meaning.
     static let textEditingKeys: Set<PanelKey> = [.cmdZ, .shiftCmdZ, .cmdDelete, .cmdUp, .cmdDown]
 
     private let model: any PanelViewModel

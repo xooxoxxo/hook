@@ -1,7 +1,7 @@
 import RelayCore
 import SwiftUI
 
-/// The first Section of every tab but Queue while config.json is missing or unreadable (§4.8).
+/// The first Section of every tab but Queue while config.json is missing or unreadable.
 /// It has no ✕: the state lasts until the file is fixed.
 public struct ReadOnlySection: View {
     public static let text = "Settings can't be changed until config.json is fixed."

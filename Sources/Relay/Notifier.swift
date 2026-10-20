@@ -139,7 +139,7 @@ import UserNotifications
         post(note, identifier: identifier)
     }
 
-    /// No category, so no action buttons (§9.1). Inside the Task, `add(_:)` resolves to
+    /// No category, so no action buttons. Inside the Task, `add(_:)` resolves to
     /// its `async throws` overload; a refused post (permission denied) is dropped.
     private func post(_ note: UNMutableNotificationContent, identifier: String) {
         Task { @MainActor in

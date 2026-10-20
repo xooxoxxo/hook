@@ -30,7 +30,7 @@ extension EnvironmentValues {
     }
 }
 
-/// The panel's one column (design §4.6). The queue is always mounted; an open ask pushes
+/// The panel's one column. The queue is always mounted; an open ask pushes
 /// its detail on top. While the detail shows, the list is transparent, ignores clicks and
 /// is hidden from VoiceOver, but it is never removed, so its selection, scroll offset and
 /// focus survive the push, a poll that re-sections and a grouping switch.

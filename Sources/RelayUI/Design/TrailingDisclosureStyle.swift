@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Design/TrailingDisclosureStyle (design §3.2): the label is a plain button that toggles the group,
+/// Design/TrailingDisclosureStyle: the label is a plain button that toggles the group,
 /// with a small trailing chevron, so the label text starts on the same x as its siblings' text.
 public struct TrailingDisclosureStyle: DisclosureGroupStyle {
     public init() {}

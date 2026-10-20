@@ -58,7 +58,7 @@ private func text(_ response: HTTPResponse) -> String {
 }
 
 @Suite struct LinkPageTests {
-    /// Screen readers hear the note change to "You can close this tab." (M32).
+    /// Screen readers hear the note change to "You can close this tab."
     @Test func theNoteIsAStatusRegion() {
         let body = String(decoding: LinkPage.response(status: 200).body, as: UTF8.self)
         #expect(body.contains(#"<p id="note" role="status">This tab closes by itself.</p>"#))

@@ -11,7 +11,7 @@ public enum ActionBarMode: Equatable, Sendable {
     case closed(String)
 }
 
-/// Design/ActionBar (design §4.4): the detail's bottom bar. The open state carries ⌘↩ and
+/// Design/ActionBar: the detail's bottom bar. The open state carries ⌘↩ and
 /// ⌘⌫; ⇧⌘R (Reopen) is attached by the panel. The help strings name them.
 public struct ActionBar: View {
     let mode: ActionBarMode
@@ -53,7 +53,7 @@ public struct ActionBar: View {
     }
 
     /// Skip and the primary. Only `.open` carries ⌘⌫ and ⌘↩ (busy is disabled, closed has
-    /// no primary). From Task 52 the panel's key router consumes ⌘↩ and ⌘⌫ before the view
+    /// no primary). The panel's key router consumes ⌘↩ and ⌘⌫ before the view
     /// hierarchy, so these never fire inside a text field.
     @ViewBuilder private func buttons(_ action: PrimaryAction, keyed: Bool) -> some View {
         Button("Skip", action: onSkip)

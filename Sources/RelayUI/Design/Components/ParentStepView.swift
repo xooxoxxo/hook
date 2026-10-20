@@ -4,7 +4,7 @@ import SwiftUI
 /// The detail ScrollView's coordinate space; node frames are reported in it.
 let detailScrollSpace = "relay.detail.scroll"
 
-/// Each step node's frame, by path, in `detailScrollSpace`: top-level nodes (Task 50) and sub-steps (ParentStepView).
+/// Each step node's frame, by path, in `detailScrollSpace`: top-level nodes (DetailView) and sub-steps (ParentStepView).
 struct NodeFramesKey: PreferenceKey {
     static let defaultValue: [String: CGRect] = [:]
     static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
@@ -12,7 +12,7 @@ struct NodeFramesKey: PreferenceKey {
     }
 }
 
-/// Design/ParentStepView (design §4.4): a step with sub-steps. The parent tick is derived from
+/// Design/ParentStepView: a step with sub-steps. The parent tick is derived from
 /// its sub-steps; ticking it ticks or unticks them all. Once every sub-step is done the parent
 /// collapses into a disclosure.
 public struct ParentStepView: View {

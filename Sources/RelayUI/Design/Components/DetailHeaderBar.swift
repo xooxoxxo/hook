@@ -1,7 +1,7 @@
 import RelayCore
 import SwiftUI
 
-/// Design/DetailHeaderBar (design §4.3): Back, the ask's project · urgency · age on one
+/// Design/DetailHeaderBar: Back, the ask's project · urgency · age on one
 /// baseline, then Previous, Next and Hide. Previous and Next are disabled unless the
 /// neighbour is an ask in the (filtered) queue.
 public struct DetailHeaderBar: View {
@@ -66,7 +66,7 @@ public struct DetailHeaderBar: View {
         (project.isEmpty ? "—" : line(project)) + " · " + urgencyWord(urgency) + " · " + age
     }
 
-    /// Esc goes back to the list in detail (§4.12), so Hide names ⌘W here (N8).
+    /// Esc goes back to the list in detail, so Hide names ⌘W here.
     public static let hideHelp = "Hide (⌘W)"
 
     public static func neighbourHelp(_ n: Neighbour, previous: Bool) -> String {

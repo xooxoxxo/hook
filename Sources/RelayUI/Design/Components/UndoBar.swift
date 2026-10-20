@@ -2,8 +2,8 @@ import Foundation
 import RelayCore
 import SwiftUI
 
-/// Design/UndoBar (design §4.3, §4.6): "Done · <title>" with a live countdown to the undo
-/// deadline and an Undo button (rule A6). The title is ask text, so it goes through `line()`.
+/// Design/UndoBar: "Done · <title>" with a live countdown to the undo
+/// deadline and an Undo button. The title is ask text, so it goes through `line()`.
 /// Keys (⌘Z) are attached by the panel, not here. While held closes are sent on quit
 /// (`sending`), a labelled spinner replaces the countdown and Undo is off. The "Done." /
 /// "Skipped." announcement is posted by the Store when the close is held, never here, so
@@ -20,7 +20,7 @@ public struct UndoBar: View {
     }
 
     public var body: some View {
-        // The label's seconds-left value is redrawn at each instant it changes (rule A6), so
+        // The label's seconds-left value is redrawn at each instant it changes, so
         // VoiceOver and the visible countdown agree. The explicit schedule ends at the deadline.
         TimelineView(.explicit(Self.ticks(until: undo.deadline, now: Date()))) { context in
             VStack(spacing: 0) {
@@ -31,7 +31,7 @@ public struct UndoBar: View {
                         .truncationMode(.middle)
                     Spacer(minLength: DS.Space.inline)
                     if sending {
-                        // Bounded by the quit-time cap on sending (N9).
+                        // Bounded by the quit-time cap on sending.
                         HStack(spacing: DS.Space.inline) {
                             ProgressView().controlSize(.mini)
                             Text(Self.sendingText)

@@ -15,7 +15,7 @@ import SwiftUI
     return queue
 }
 
-/// Filtered to a project with no asks while the other projects keep theirs (§4.7 "Filtered, empty").
+/// Filtered to a project with no asks while the other projects keep theirs.
 @MainActor func filteredEmptyQueue() -> QueueSnapshot {
     let project = "Atlas"
     var queue = stateQueue(.emptyFiltered(project: project))

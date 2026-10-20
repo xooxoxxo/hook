@@ -2,7 +2,7 @@ import AppKit
 import RelayCore
 import SwiftUI
 
-/// Design/CodeBlock (design §3.2, §4.15): a command, wrapped (never scrolled sideways), with
+/// Design/CodeBlock: a command, wrapped (never scrolled sideways), with
 /// hidden characters revealed as "⟨U+XXXX⟩" and a Copy button that copies exactly what is shown.
 public struct CodeBlock: View {
     let code: String

@@ -1,7 +1,7 @@
 import RelayCore
 import SwiftUI
 
-/// Design/AskRow (design §4.2): an open ask in the queue. Line 1 is the title alone in both
+/// Design/AskRow: an open ask in the queue. Line 1 is the title alone in both
 /// groupings; line 2 shows what the grouping doesn't (urgency in Project grouping, project
 /// in Urgency grouping), then the age, the draft mark and the summary.
 public struct AskRow: View {

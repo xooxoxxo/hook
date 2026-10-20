@@ -257,7 +257,7 @@ private let abc = [item("a", created: stamp(minutesAgo: 10)), item("b", created:
         #expect(store.heldCloseIDs.isEmpty)
     }
 
-    /// Ruling 2: the Undo bar stays, in its sending state, while the quit-time sends run.
+    /// The Undo bar stays, in its sending state, while the quit-time sends run.
     @Test func quitKeepsTheUndoBarWhileSending() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }

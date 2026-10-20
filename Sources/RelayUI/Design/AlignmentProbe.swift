@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// What a probe marks, for the gallery's alignment check (design §3.5).
+/// What a probe marks, for the gallery's alignment check.
 public enum ProbeRole: String, Sendable, CaseIterable {
     case gutterText, trailingEdge, topMarker, subMarker, topActionText, subLabelText, settingsTrailing, mailboxField
 }

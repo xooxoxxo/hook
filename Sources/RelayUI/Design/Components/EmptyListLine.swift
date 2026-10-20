@@ -1,7 +1,7 @@
 import RelayCore
 import SwiftUI
 
-/// Design/EmptyListLine (design §4.2): the in-list line when no open ask is shown but some
+/// Design/EmptyListLine: the in-list line when no open ask is shown but some
 /// recently closed are. With a filter on it names the project and offers Show All Projects.
 public struct EmptyListLine: View {
     let project: String?

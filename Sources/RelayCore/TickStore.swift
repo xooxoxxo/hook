@@ -1,6 +1,6 @@
 import Foundation
 
-/// Ticked leaves per source and ask (design §8): `relay.ticks.v2.<sourceKey>.<askId>`
+/// Ticked leaves per source and ask: `relay.ticks.v2.<sourceKey>.<askId>`
 /// holds `[path: fingerprint]`, one entry per ticked leaf. Parents are derived, never stored.
 public enum TickStore {
     public static let prefix = "relay.ticks.v2."

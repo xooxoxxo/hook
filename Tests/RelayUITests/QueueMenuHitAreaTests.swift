@@ -4,7 +4,7 @@ import SwiftUI
 import Testing
 @testable import RelayUI
 
-/// Rule A3: QueueMenu's click region is the 28 pt square. A `.borderlessButton` menu
+/// QueueMenu's click region is the 28 pt square. A `.borderlessButton` menu
 /// becomes a glyph-sized NSPopUpButton (measured 26 × 15 pt) and the padding around it
 /// passes clicks to the header's drag handle, so the label must be drawn by SwiftUI.
 @Suite @MainActor struct QueueMenuHitAreaTests {

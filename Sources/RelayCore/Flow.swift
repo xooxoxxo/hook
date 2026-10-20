@@ -10,7 +10,7 @@ public struct StepProgress: Equatable, Sendable {
     }
 }
 
-/// The step and ask order rules (design §4.4, §4.6). Tick state is keyed by leaf path; a
+/// The step and ask order rules. Tick state is keyed by leaf path; a
 /// parent is never ticked as a unit, its state is derived from its sub-steps.
 public enum Flow {
     /// Each step's sub-steps when it has them, else the step; then verify.
@@ -92,7 +92,7 @@ extension Flow {
     }
 }
 
-// MARK: Scroll anchors (design §4.6 "Detail scroll per ask")
+// MARK: Scroll anchors
 
 extension Flow {
     /// The anchor that restores a detail's scroll position: the first node in `order` that

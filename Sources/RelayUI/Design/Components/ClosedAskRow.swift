@@ -1,7 +1,7 @@
 import RelayCore
 import SwiftUI
 
-/// Design/ClosedAskRow (design §4.2): a recently closed ask, in `secondary`, with Reopen.
+/// Design/ClosedAskRow: a recently closed ask, in `secondary`, with Reopen.
 public struct ClosedAskRow: View {
     let row: AskRowModel
     let closedLine: String

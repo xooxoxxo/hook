@@ -1,7 +1,7 @@
 import RelayCore
 import SwiftUI
 
-/// Design/ChoiceGroup (design §3.2, §4.5): the ask's choices as a radio group, numbered for the
+/// Design/ChoiceGroup: the ask's choices as a radio group, numbered for the
 /// 1–9 keys, with "Sent" after each choice already sent and Send (a spinner while sending).
 public struct ChoiceGroup: View {
     let prompt: String

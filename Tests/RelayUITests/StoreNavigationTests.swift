@@ -170,7 +170,7 @@ private let threeAcme = [item("a", created: stamp(minutesAgo: 10)), item("b", cr
         #expect(!store.manualRefreshing)
     }
 
-    /// N9: the spinner ends on failure too; a list that never answers is bounded by the transport's timeout.
+    /// The spinner ends on failure too; a list that never answers is bounded by the transport's timeout.
     @Test func theSpinnerEndsWhenTheListFails() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }

@@ -2,7 +2,7 @@ import AppKit
 import RelayCore
 import SwiftUI
 
-/// Design/RefusedLink (design §3.2): a link that won't open (not http or https), shown grey
+/// Design/RefusedLink: a link that won't open (not http or https), shown grey
 /// with its raw address under it so the owner can still read it.
 ///
 /// `text` is already sanitized (`LinkDisplay.refusedText`); `raw` goes through `line()`.

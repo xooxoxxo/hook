@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The panel's full-area states (design §4.7). Each case carries its own texts.
+/// The panel's full-area states. Each case carries its own texts.
 public enum StateKind: Equatable, Sendable {
     /// `source` is the raw source name ("Mailbox" / "This Mac"); described as "From <source>".
     case loading(source: String, stillTrying: Bool)
@@ -106,7 +106,7 @@ public struct StateView: View {
     }
 
     /// `reason` arrives through UserFacingError.text, already one revealed line. `source` is the
-    /// raw source name ("Mailbox" / "This Mac"), as Task 44 passes it.
+    /// raw source name ("Mailbox" / "This Mac"), as the panel passes it.
     public static func description(_ kind: StateKind) -> String {
         switch kind {
         case let .loading(source, stillTrying): return stillTrying ? "Still trying…" : "From " + source

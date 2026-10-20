@@ -3,7 +3,7 @@ import RelayCore
 import RelayUI
 import SwiftUI
 
-/// Settings (§4.8): a stock toolbar-tab window with five tabs, 600 pt content, the window
+/// Settings: a stock toolbar-tab window with five tabs, 600 pt content, the window
 /// title = the tab name. The tab is remembered by id; ⌘1–⌘5 switch tabs, ⌘W closes.
 /// Tabs are built on first show from `AppModel.settingsTab(_:)`.
 @MainActor final class SettingsWindowController: NSObject, NSWindowDelegate {
@@ -34,7 +34,7 @@ import SwiftUI
         buildIfNeeded()
         let shown = tab ?? SettingsTabID.restore(.standard)
         select(shown)
-        // §4.8: the permission is re-read every time the Notifications tab opens.
+        // The permission is re-read every time the Notifications tab opens.
         if shown == .notifications { Task { await model.refreshPermission() } }
         // Closing the window stops last-call polling, and re-selecting the already
         // selected tab fires no didSelect, so every show sets it again.
@@ -105,7 +105,7 @@ import SwiftUI
     }
 }
 
-/// ⌘1–⌘5 pick a tab and ⌘W closes, with no menu holding them (§4.12).
+/// ⌘1–⌘5 pick a tab and ⌘W closes, with no menu holding them.
 final class SettingsWindow: NSWindow {
     var onTab: (@MainActor (SettingsTabID) -> Void)?
 

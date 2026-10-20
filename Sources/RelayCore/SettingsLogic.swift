@@ -61,7 +61,7 @@ extension SettingsTabID {
 
 // MARK: Snapshot parts
 
-/// Why the global shortcut isn't working (§4.8); a red caption under the recorder.
+/// Why the global shortcut isn't working; a red caption under the recorder.
 public enum ShortcutProblem: Equatable, Sendable {
     case unsupportedKey, refused, resumeFailed
 
@@ -201,7 +201,7 @@ extension ShortcutProblem {
     }
 }
 
-/// Settings → Panel → Display (§4.8).
+/// Settings → Panel → Display.
 public enum DisplayChoice {
     /// "Main display" (removes `sidebarDisplay`), then each connected display by name. A pinned
     /// display that isn't connected stays listed, disabled, so the pin is visible and kept.

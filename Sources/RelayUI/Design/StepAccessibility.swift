@@ -1,7 +1,7 @@
 import RelayCore
 import SwiftUI
 
-/// The words VoiceOver, help and Copy buttons use for steps (design §3.2, §4.14).
+/// The words VoiceOver, help and Copy buttons use for steps.
 public enum StepAccessibility {
     public static func hint(level: StepLevel, total: Int) -> String {
         switch level {
@@ -12,7 +12,7 @@ public enum StepAccessibility {
 
     public static func value(_ state: StepState) -> String { state == .done ? "Done" : "Not done" }
 
-    /// The tick's value: `value(_:)`, plus the current-step cue on the current step (spec §4.14),
+    /// The tick's value: `value(_:)`, plus the current-step cue on the current step,
     /// so the cue sits on the one element that owns the state instead of every child of the box.
     public static func tickValue(_ state: StepState) -> String {
         state == .current ? "Not done, current step" : value(state)
@@ -51,7 +51,7 @@ public enum StepAccessibility {
         done == total ? "Mark all not done" : "Mark all done"
     }
 
-    /// The step context menu's one item (spec §4.4 Ticking).
+    /// The step context menu's one item.
     public static func contextTitle(_ state: StepState) -> String { state == .done ? "Mark as Not Done" : "Mark as Done" }
 
     /// The parent row's context menu item.

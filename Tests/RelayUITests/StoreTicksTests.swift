@@ -106,7 +106,7 @@ private let b = item("b", created: stamp(minutesAgo: 20), steps: 2)
         #expect(relayKeys.allSatisfy { $0.hasPrefix("relay.panel.selection.") || $0.hasPrefix("relay.queue.") })
     }
 
-    /// Controller ruling (Task 27 review): a stale tick never reaches a count.
+    /// A stale tick never reaches a count.
     @Test func repeatedTicksBuildTheTreeOnceUntilTheStepsChange() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }

@@ -1,6 +1,6 @@
 import Foundation
 
-/// The panel's two pieces of navigation state (design §4.6): the highlighted row
+/// The panel's two pieces of navigation state: the highlighted row
 /// and the open detail. Pure, so every rule here is tested without views.
 public struct PanelNavigation: Equatable, Sendable {
     public var listSelection: String?

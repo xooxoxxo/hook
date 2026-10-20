@@ -216,7 +216,7 @@ import RelayUI
 
     /// A link from outside the app (relay://, the loopback server, a notification click)
     /// opens an ask in the open queue. An ask confirmed closed shows the list with
-    /// "This ask is no longer open." (§4.7); one that couldn't be checked (no source yet,
+    /// "This ask is no longer open."; one that couldn't be checked (no source yet,
     /// a check in the last 5 seconds, an unreachable source) opens directly, and the
     /// detail's not-found view covers it if it is really gone. A config apply still
     /// running is waited for first, so the check runs against the applied source.
@@ -253,7 +253,7 @@ import RelayUI
 
     // MARK: Panel
 
-    /// The side panel around PanelRoot. Keys go through PanelKeyRouter (design §4.12);
+    /// The side panel around PanelRoot. Keys go through PanelKeyRouter;
     /// the panel's own actions (hide, dock, Settings, copy, open) come back here.
     private func makePanel(store: Store, model: AppModel) -> SidePanel {
         let ref = PanelRef()
@@ -276,7 +276,7 @@ import RelayUI
                 NSPasteboard.general.setString(text, forType: .string)
             },
             openURL: { url in NSWorkspace.shared.open(url) })
-        // Task 37's two shell hooks: VoiceOver's "Ask reopened", and the queueMoved Notice's Show in Finder.
+        // The two shell hooks the Store calls: VoiceOver's "Ask reopened", and the queueMoved Notice's Show in Finder.
         store.onAnnounce = { text in AccessibilityNotification.Announcement(text).post() }
         store.onShowInFinder = { path in
             NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
@@ -477,12 +477,12 @@ import RelayUI
     // MARK: Problems
 
     /// A local-queue problem. It reaches the status bar through `setListenerProblem`
-    /// (`localProblem`), once (A7); the log keeps it too.
+    /// (`localProblem`), once; the log keeps it too.
     private func logProblem(_ text: String) {
         NSLog("Relay: %@", text)
     }
 
-    /// config.json's problem shows in the status bar ("config.json has an error"), once (A7).
+    /// config.json's problem shows in the status bar ("config.json has an error"), once.
     private func configNoteChanged(_ note: String?) {
         store?.setConfigNote(note)
         model?.refreshSettings()
@@ -578,7 +578,7 @@ import RelayUI
     }
 
     /// The Not set up state's Set Up…: Welcome until a config exists, then Settings → Queue.
-    /// An unreadable config.json opens Settings → Queue too (§4.9), never Welcome over the broken file.
+    /// An unreadable config.json opens Settings → Queue too, never Welcome over the broken file.
     private func setUp() {
         if model?.configNote?.hasPrefix("config.json has an error") == true {
             settings?.show(tab: .queue)
@@ -613,7 +613,7 @@ import RelayUI
         if !wasShown, panel.isShown { refreshIfStale() }
     }
 
-    /// §4.1: showing the panel in mailbox mode refreshes a list older than 5 s. The rule
+    /// Showing the panel in mailbox mode refreshes a list older than 5 s. The rule
     /// is `Store.refreshIfStale()`; this only starts it.
     private func refreshIfStale() {
         guard let store else { return }
@@ -677,7 +677,7 @@ import RelayUI
     /// Asks that were waiting in the batch window when Relay went away join the count.
     private func presenceChanged(to status: PresenceMonitor.Status) {
         let away = status.state == .away
-        // The Store's away flag: the status bar reads "Away · …" with the moon (§4.3).
+        // The Store's away flag: the status bar reads "Away · …" with the moon.
         store?.away = away
         let held = notifier?.setQuiet(away) ?? 0
         if let summary = awayTally.changed(to: status.state) {

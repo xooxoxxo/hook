@@ -1,7 +1,7 @@
 import RelayCore
 import SwiftUI
 
-/// Design/FromDisclosure (design §3.2, §4.4): where the ask came from. Collapsed it names the
+/// Design/FromDisclosure: where the ask came from. Collapsed it names the
 /// session (or folder, or host); expanded it lists Folder, Host and Session and, when the origin
 /// allows one, the resume command as a CodeBlock.
 public struct FromDisclosure: View {

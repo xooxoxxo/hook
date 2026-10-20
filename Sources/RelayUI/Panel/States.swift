@@ -1,8 +1,8 @@
 import RelayCore
 import SwiftUI
 
-/// Which StateView takes the list area (design §4.7). Each state has one place and one
-/// text; the list itself (`.list`) has none. Reasons go through UserFacingError (A2).
+/// Which StateView takes the list area. Each state has one place and one
+/// text; the list itself (`.list`) has none. Reasons go through UserFacingError.
 enum PanelStateMapping {
     static func kind(_ content: PanelContent, sourceName: String, updated: String) -> StateKind? {
         switch content {
