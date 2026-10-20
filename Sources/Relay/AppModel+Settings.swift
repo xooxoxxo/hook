@@ -55,12 +55,10 @@ extension AppModel: SettingsViewModel {
         settings = next
     }
 
-    /// "Main display", then each connected display.
+    /// "Main display", then each connected display by name; a pinned display that is gone
+    /// stays listed as not connected.
     func settingsDisplays() -> [DisplayOption] {
-        [DisplayOption(id: nil, title: "Main display", connected: true)]
-            + NSScreen.screens.compactMap { screen in
-                screen.displayUUID.map { DisplayOption(id: $0, title: screen.localizedName, connected: true) }
-            }
+        DisplayChoice.options(screens: NSScreen.dockScreens, names: displayNames, pinned: config?.sidebarDisplay)
     }
 
     func perform(_ action: SettingsAction) {
@@ -179,8 +177,7 @@ extension AppModel: SettingsViewModel {
     func settingsTab(_ tab: SettingsTabID) -> NSViewController {
         switch tab {
         case .general: return SettingsWindowController.hosting(GeneralTab(model: self))
-        case .panel:
-            break
+        case .panel: return SettingsWindowController.hosting(PanelTab(model: self))
         case .queue:
             if let store { return SettingsWindowController.hosting(QueueTab(model: self, store: store)) }
         case .notifications:

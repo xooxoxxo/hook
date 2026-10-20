@@ -23,5 +23,12 @@ let settingsRules: [AlignmentRule] = [.sameTrailingPerGroup(.settingsTrailing, t
         settingsScene("settings-readonly", tab: .general) {
             GeneralTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(readOnly: true)))
         },
+        settingsScene("settings-panel", tab: .panel) {
+            PanelTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(displays: [
+                DisplayOption(id: nil, title: "Main display", connected: true),
+                DisplayOption(id: "D1", title: "Studio Display", connected: true),
+                DisplayOption(id: "D2", title: "Projector (not connected)", connected: false),
+            ])))
+        },
     ]
 }

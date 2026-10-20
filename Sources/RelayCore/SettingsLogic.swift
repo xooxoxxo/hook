@@ -200,3 +200,25 @@ extension ShortcutProblem {
         return registered ? nil : .refused
     }
 }
+
+/// Settings → Panel → Display (§4.8).
+public enum DisplayChoice {
+    /// "Main display" (removes `sidebarDisplay`), then each connected display by name. A pinned
+    /// display that isn't connected stays listed, disabled, so the pin is visible and kept.
+    public static func options(screens: [DockScreen], names: [String: String], pinned: String?) -> [DisplayOption] {
+        var options = [DisplayOption(id: nil, title: "Main display", connected: true)]
+        options += screens.map { DisplayOption(id: $0.id, title: names[$0.id] ?? "Display", connected: true) }
+        if let pinned, !screens.contains(where: { $0.id == pinned }) {
+            options.append(DisplayOption(id: pinned, title: "\(names[pinned] ?? "Pinned display") (not connected)",
+                                         connected: false))
+        }
+        return options
+    }
+}
+
+extension NotifySettings {
+    /// The `notify` object as config.json holds it; Settings saves the whole object.
+    public var configObject: [String: Any] {
+        ["now": now, "today": today, "whenever": whenever, "sound": sound, "slideIn": slideIn]
+    }
+}
