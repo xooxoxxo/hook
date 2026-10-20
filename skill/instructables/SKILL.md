@@ -26,6 +26,18 @@ on you" line in chat alone gets lost.
 - **steps** (1–20): one action per step. `do` says exactly what to click or type, in
   order (site → page → menu → button). `where` names the place: "Slack desktop",
   "Mac terminal", "GitHub → Settings".
+- **substeps**: when a step needs more than one action, use `substeps` instead of listing
+  actions in `do` or `detail`. Keep the parent to `do` and `where`. Each sub-step is a step
+  (same keys; 1–10 per step; they can't nest, and `verify` can't have them), shown indented
+  as "3a", "3b" and ticked one by one. Steps plus sub-steps: at most 60.
+
+  ```json
+  {"do": "Create the Slack app for Acme", "where": "api.slack.com", "substeps": [
+    {"do": "Click Create New App, then From scratch", "url": "https://api.slack.com/apps"},
+    {"do": "Name it Acme and pick your workspace"},
+    {"do": "Under OAuth & Permissions, add the chat:write scope", "code": "chat:write", "lang": "text"}
+  ]}
+  ```
 - **detail**: longer instructions for one step (at most 1500 chars, line breaks
   allowed), shown as wrapped text under `do`.
 - **code**: the exact command or text to paste. Make it complete, with nothing for
