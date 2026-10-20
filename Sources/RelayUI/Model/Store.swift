@@ -90,7 +90,7 @@ public enum LinkCheck: Equatable, Sendable {
     private var detailRequestedAt: [String: Date] = [:]
     private var detailFailed: Set<String> = []
     private var swappedAt: Date?
-    /// Bumped when a load has waited `DetailLoadState.timeout`, so views read the
+    /// Bumped when a load has waited `DS.Timing.detailLoadTimeout`, so views read the
     /// snapshots again and "Still trying…" / "Couldn't load" show with no other change (N9).
     @Published public private(set) var stateTick = 0
     /// The wait behind `stateTick`; tests pass an immediate one.
@@ -234,11 +234,11 @@ public enum LinkCheck: Equatable, Sendable {
         watchTask = watch(source)
     }
 
-    /// One wait of `DetailLoadState.timeout`, then a `stateTick` bump. The next swap cancels it.
+    /// One wait of `DS.Timing.detailLoadTimeout`, then a `stateTick` bump. The next swap cancels it.
     private func scheduleTimeoutTick() {
         let token = UUID(), sleep = timeoutSleep
         stateTimers[token] = Task { [weak self] in
-            await sleep(.seconds(DetailLoadState.timeout))
+            await sleep(.seconds(DS.Timing.detailLoadTimeout))
             guard !Task.isCancelled, let self, self.stateTimers.removeValue(forKey: token) != nil else { return }
             self.stateTick += 1
         }
@@ -976,7 +976,7 @@ extension Store: PanelViewModel {
             open: items, closed: recentlyClosed, grouping: grouping, filter: filter,
             ticks: { self.ticks(for: $0) }, drafts: drafts, closedBy: { self.closedBy($0) },
             sourceKey: sourceKey, loadedOnce: loadedOnce, reachable: reachable, problem: listProblem,
-            waitedTenSeconds: swappedAt.map { now().timeIntervalSince($0) >= DetailLoadState.timeout } ?? false,
+            waitedTenSeconds: swappedAt.map { now().timeIntervalSince($0) >= DS.Timing.detailLoadTimeout } ?? false,
             manualRefreshing: manualRefreshing, updated: lastListAt.map { ClockText.time($0) } ?? "")
     }
 
@@ -984,7 +984,7 @@ extension Store: PanelViewModel {
         guard let item = item(for: id) else { return nil }
         let (previous, next) = navigation.neighbours(of: id, visibleOrder: visibleOrder, closedOrder: closedShown.map(\.id))
         let load = DetailLoadState.resolve(hasModel: details[id] != nil, requestedAt: detailRequestedAt[id], now: now(),
-                                           failed: detailFailed.contains(id))
+                                           failed: detailFailed.contains(id), timeout: DS.Timing.detailLoadTimeout)
         return DetailSnapshot.build(
             item: item, detail: details[id], ticks: ticks(for: id), load: load, reply: replyStates[id] ?? .idle,
             draft: drafts[id], pendingChoice: pendingChoice[id], busy: replyStates[id] == .sending, previous: previous, next: next,

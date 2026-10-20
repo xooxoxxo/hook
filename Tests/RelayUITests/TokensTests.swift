@@ -50,6 +50,7 @@ import Testing
         #expect(DS.Timing.linkRecheck == 5)
         #expect(DS.Timing.holdTick == 1)
         #expect(DS.Timing.lastCallRefresh == 30)
+        #expect(DS.Timing.detailLoadTimeout == 10)
     }
 
     @Test func controlSizes() {

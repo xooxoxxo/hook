@@ -76,14 +76,14 @@ public enum PanelNotice: Equatable, Sendable {
     }
 }
 
-/// The Steps area while an ask's detail is fetched: "Loading steps…", then after 10 s
-/// (or a failed fetch) "Couldn't load this ask." with Try Again.
+/// The Steps area while an ask's detail is fetched: "Loading steps…", then after
+/// `timeout` (or a failed fetch) "Couldn't load this ask." with Try Again. The caller
+/// owns the wait length, so the UI keeps it with its other timing tokens.
 public enum DetailLoadState: Equatable, Sendable {
     case loaded, loading, timedOut
 
-    public static let timeout: TimeInterval = 10
-
-    public static func resolve(hasModel: Bool, requestedAt: Date?, now: Date, failed: Bool) -> DetailLoadState {
+    public static func resolve(hasModel: Bool, requestedAt: Date?, now: Date, failed: Bool,
+                               timeout: TimeInterval) -> DetailLoadState {
         if hasModel { return .loaded }
         if failed { return .timedOut }
         if let requestedAt, now.timeIntervalSince(requestedAt) >= timeout { return .timedOut }

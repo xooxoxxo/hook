@@ -80,10 +80,10 @@ private func content(_ key: String = "mailbox:m#p", loadedOnce: Bool = true, rea
     private let t0 = Date(timeIntervalSince1970: 1_000)
 
     @Test func states() {
-        #expect(DetailLoadState.resolve(hasModel: true, requestedAt: t0, now: t0.addingTimeInterval(60), failed: true) == .loaded)
-        #expect(DetailLoadState.resolve(hasModel: false, requestedAt: t0, now: t0.addingTimeInterval(9.9), failed: false) == .loading)
-        #expect(DetailLoadState.resolve(hasModel: false, requestedAt: t0, now: t0.addingTimeInterval(10), failed: false) == .timedOut)
-        #expect(DetailLoadState.resolve(hasModel: false, requestedAt: t0, now: t0, failed: true) == .timedOut)
-        #expect(DetailLoadState.resolve(hasModel: false, requestedAt: nil, now: t0, failed: false) == .loading)
+        #expect(DetailLoadState.resolve(hasModel: true, requestedAt: t0, now: t0.addingTimeInterval(60), failed: true, timeout: 10) == .loaded)
+        #expect(DetailLoadState.resolve(hasModel: false, requestedAt: t0, now: t0.addingTimeInterval(9.9), failed: false, timeout: 10) == .loading)
+        #expect(DetailLoadState.resolve(hasModel: false, requestedAt: t0, now: t0.addingTimeInterval(10), failed: false, timeout: 10) == .timedOut)
+        #expect(DetailLoadState.resolve(hasModel: false, requestedAt: t0, now: t0, failed: true, timeout: 10) == .timedOut)
+        #expect(DetailLoadState.resolve(hasModel: false, requestedAt: nil, now: t0, failed: false, timeout: 10) == .loading)
     }
 }
