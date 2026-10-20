@@ -55,7 +55,7 @@ public enum LinkPage {
         <body>
         <main>
         <div class="mark">\(mark)</div>
-        <div><h1>Handed to Relay</h1><p id="note">This tab closes by itself.</p></div>
+        <div><h1>Handed to Relay</h1><p id="note" role="status">This tab closes by itself.</p></div>
         </main>
         <script>\(script)</script>
         </body>
