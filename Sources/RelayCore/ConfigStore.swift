@@ -76,7 +76,7 @@ public enum ConfigReload {
     }
 }
 
-/// When the watched config folder's own source is dead (map-shell P18).
+/// Whether the watched config folder's own source has to be made again.
 public enum ConfigWatchRule {
     /// The folder was deleted or renamed: its file descriptor now points at the old
     /// inode, so the directory source must be made again on the path.

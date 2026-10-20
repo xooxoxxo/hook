@@ -6,9 +6,11 @@ import RelayCore
 /// watched too, because an in-place edit only touches the file. The directory
 /// source is re-made after the folder itself is deleted or renamed. Events are
 /// debounced for 300 ms. Bytes identical to the last delivered state, or to
-/// the app's own last write, are not delivered.
+/// the app's own last write, are not delivered. While the folder is missing,
+/// the watcher retries every second until it can watch it again.
 @MainActor final class ConfigWatcher {
     static let debounce: Duration = .milliseconds(300)
+    static let rearmRetry: Duration = .seconds(1)
 
     private let url: URL
     private let onChange: @MainActor (ConfigLoad) -> Void
@@ -16,6 +18,7 @@ import RelayCore
     private var fileSource: (any DispatchSourceFileSystemObject)?
     private var directoryNeedsRearm = false
     private var pending: Task<Void, Never>?
+    private var retry: Task<Void, Never>?
     private var lastBytes: Data?
     private var ownWrite: Data?
 
@@ -29,11 +32,14 @@ import RelayCore
         lastBytes = try? Data(contentsOf: url)
         armDirectorySource()
         armFileSource()
+        scheduleRetryIfUnwatched()
     }
 
     func stop() {
         pending?.cancel()
         pending = nil
+        retry?.cancel()
+        retry = nil
         directorySource?.cancel()
         directorySource = nil
         fileSource?.cancel()
@@ -57,6 +63,7 @@ import RelayCore
     private func fire() {
         if directorySource == nil || directoryNeedsRearm { armDirectorySource() }
         armFileSource()
+        scheduleRetryIfUnwatched()
         let bytes = try? Data(contentsOf: url)
         if let own = ownWrite, bytes == own {
             ownWrite = nil
@@ -68,14 +75,27 @@ import RelayCore
         onChange(ConfigStore.load(url))
     }
 
-    /// The folder is watched because an atomic save renames over the file. A folder that
-    /// was itself deleted or renamed (or didn't exist yet) is watched again on the next event.
+    /// The folder is watched because an atomic save renames over the file. A folder that was itself deleted or renamed is watched again on its path; while the path is missing, the watcher retries every second until the folder is back.
     private func armDirectorySource() {
         directorySource?.cancel()
         directoryNeedsRearm = false
         directorySource = Self.watch(url.deletingLastPathComponent().path) { [weak self] event in
             if ConfigWatchRule.needsRearm(event) { self?.directoryNeedsRearm = true }
             self?.changed()
+        }
+    }
+
+    /// With no folder source, no event can arrive, so a timer tries again.
+    private func scheduleRetryIfUnwatched() {
+        retry?.cancel()
+        guard directorySource == nil else {
+            retry = nil
+            return
+        }
+        retry = Task { [weak self] in
+            try? await Task.sleep(for: Self.rearmRetry)
+            guard !Task.isCancelled else { return }
+            self?.fire()
         }
     }
 
