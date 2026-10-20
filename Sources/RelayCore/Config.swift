@@ -53,7 +53,7 @@ public struct NotifySettings: Sendable, Equatable, Codable {
         case now, today, whenever, sound, slideIn
     }
 
-    public init(now: Bool = true, today: Bool = true, whenever: Bool = false, sound: Bool = false, slideIn: Bool = true) {
+    public init(now: Bool = true, today: Bool = true, whenever: Bool = false, sound: Bool = true, slideIn: Bool = true) {
         self.now = now
         self.today = today
         self.whenever = whenever

@@ -155,7 +155,7 @@ private func ask(_ id: String, urgency: String?, project: String? = "Acme") -> W
     }
 
     @Test func soundFollowsTheSetting() {
-        #expect(!NotifySettings().sound)
-        #expect(NotifySettings(sound: true).sound)
+        #expect(NotifySettings().sound)
+        #expect(!NotifySettings(sound: false).sound)
     }
 }

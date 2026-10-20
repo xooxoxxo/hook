@@ -3,6 +3,16 @@
 All notable changes to Relay are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## [0.6.3] - 2026-10-20
+
+### Changed
+
+- New asks play a sound by default (Settings › Notifications › Play a sound).
+
+### Fixed
+
+- Settings: each help "?" sits right after its label instead of in a column at the far edge.
+
 ## [0.6.2] - 2026-10-20
 
 ### Fixed
