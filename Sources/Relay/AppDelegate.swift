@@ -98,7 +98,6 @@ import RelayUI
         model.onApply = { [weak self] _, new in
             self?.scheduleApply(new)
             self?.applyGeneral(new)
-            self?.closeWelcomeIfReady(new)
         }
         model.onNoteChange = { [weak self] note in
             self?.configNoteChanged(note)
@@ -265,7 +264,7 @@ import RelayUI
         panel.keyRouter = PanelKeyRouter(model: store)
         store.shell = PanelShellActions(
             hide: { [weak self] in self?.panel?.hide(animated: true) },
-            setUp: { [weak self] in self?.showWelcome() },
+            setUp: { [weak self] in self?.setUp() },
             quit: { NSApp.terminate(nil) },
             dock: { [weak self] edge in self?.panel?.dock(edge) },
             openSettings: { [weak self] tab in self?.showSettings(tab: tab) },
@@ -524,7 +523,7 @@ import RelayUI
 
     private func perform(_ action: MenuAction) {
         switch action {
-        case .setUp: showWelcome()
+        case .setUp: setUp()
         case .togglePanel: togglePanel()
         case .setPresence(let mode): model?.save(set: ["presence": mode.rawValue])
         case .refresh: refreshNow()
@@ -565,24 +564,25 @@ import RelayUI
         settings?.show()
     }
 
-    /// First launch with no usable config.
+    /// First run, "Set Up Relay…", and the panel's Set Up… before Welcome was finished.
     private func showWelcome() {
         guard let model else { return }
-        let welcome = self.welcome ?? WelcomeWindowController(model: model)
+        let welcome = self.welcome ?? WelcomeWindowController(model: model) { [weak self] in
+            self?.panel?.present(focus: true, animated: true)
+        }
         self.welcome = welcome
         welcome.show()
     }
 
-    /// Welcome closes itself once a config resolves to a source: after Start, or
-    /// when install.sh writes config.json while it's open. The controller is kept,
-    /// because Start's button action may still be running when this is called.
-    private func closeWelcomeIfReady(_ config: RelayConfig?) {
-        guard let welcome, let config else { return }
-        switch config.resolvedSource() {
-        case .local, .mailbox:
-            welcome.close()
-        case .incomplete, .invalid:
-            break
+    /// The Not set up state's Set Up…: Welcome until a config exists, then Settings → Queue.
+    /// An unreadable config.json opens Settings → Queue too (§4.9), never Welcome over the broken file.
+    private func setUp() {
+        if model?.configNote?.hasPrefix("config.json has an error") == true {
+            settings?.show(tab: .queue)
+        } else if model?.config?.resolvedSource() == nil || model?.config?.resolvedSource() == .incomplete {
+            showWelcome()
+        } else {
+            settings?.show(tab: .queue)
         }
     }
 

@@ -51,4 +51,32 @@ final class BadgeStrip: NSView {
         standIn: false,
         view: { AnyView(EmptyView()) },
         appKit: { BadgeStrip(frame: .zero) }),
+    GalleryScene(name: "welcome-1", size: .wide(width: DS.Metric.welcomeWidth, height: nil), standIn: false, rules: [],
+                 view: { welcomeWindow(WelcomeView(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(config: nil)),
+                                             onDone: {}, onQuit: {})) }, appKit: nil),
+    GalleryScene(name: "welcome-1-mailbox-error", size: .wide(width: DS.Metric.welcomeWidth, height: nil), standIn: false,
+                 rules: [.sameLeading(.mailboxField, tolerance: 1)],
+                 view: {
+                     var flow = WelcomeFlow()
+                     flow.startTapped(isMailbox: true)
+                     flow.firstList(ok: false, reason: "unauthorized")
+                     return welcomeWindow(WelcomeView(
+                         model: FixtureSettingsModel(
+                             settings: SettingsFixtures.snapshot(config: RelayConfig(mailboxURL: "https://mailbox.example:8790")),
+                             draft: MailboxDraft(address: "https://mailbox.example:8790", tokenFile: "~/.config/relay/mailbox-token")),
+                         initialFlow: flow, onDone: {}, onQuit: {}))
+                 }, appKit: nil),
+    GalleryScene(name: "welcome-2", size: .wide(width: DS.Metric.welcomeWidth, height: nil), standIn: false, rules: [],
+                 view: {
+                     var flow = WelcomeFlow()
+                     flow.startTapped(isMailbox: false)
+                     return welcomeWindow(WelcomeView(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(permission: .notDetermined)),
+                                                initialFlow: flow, onDone: {}, onQuit: {}))
+                 }, appKit: nil),
 ]
+
+/// The window background the real Welcome window paints behind its title and buttons;
+/// offscreen, only the grouped Form paints its own.
+@MainActor private func welcomeWindow(_ view: some View) -> AnyView {
+    AnyView(view.background(DS.Color.panelStandInOpaque))
+}
