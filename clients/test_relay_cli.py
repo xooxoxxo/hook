@@ -104,6 +104,14 @@ class CliTest(unittest.TestCase):
         self.assertEqual(self.run_cli("post", "Acme", "--json", "-", stdin=io.StringIO('{"v":1}')),
                          (1, "", "refused: invalid instructable\n  steps: required\n  title: too long\n"))
 
+    def test_post_help_explains_substeps(self):
+        # argparse wraps help at the terminal width and breaks after the hyphen in "sub-steps"
+        # at some widths; pin the width so the joined text compares the same everywhere.
+        with mock.patch.dict(os.environ, {"COLUMNS": "80"}):
+            code, out, err = self.run_cli("post", "--help")
+        self.assertEqual((code, err), (0, ""))
+        self.assertIn(" ".join(relay_cli.SUBSTEPS_SENTENCE.split()), " ".join(out.split()))
+
     def test_post_bad_input(self):
         code, out, err = self.run_cli("post", "Acme", "--json", "-", stdin=io.StringIO("{nope"))
         self.assertEqual((code, out), (1, ""))

@@ -11,7 +11,10 @@ An ask is a `project` plus an instructable: a JSON object with a title and numbe
   "steps": [
     {"do": "Open Slack → + next to Channels → Create channel", "where": "Slack"},
     {"do": "Check Node", "where": "Terminal", "code": "node --version", "lang": "bash", "expect": "v22.13 or higher"},
-    {"do": "Create the Slack app", "where": "Browser", "url": "https://api.slack.com/apps", "detail": "Choose From scratch, name it Acme Brief and pick the Acme workspace.\nLeave every other setting as it is."}
+    {"do": "Create the Slack app", "where": "Browser", "substeps": [
+      {"do": "Click Create New App, then From scratch", "url": "https://api.slack.com/apps"},
+      {"do": "Name it Acme Brief and pick the Acme workspace"}
+    ]}
   ],
   "verify": {"do": "Confirm it worked", "expect": "The channel is listed"},
   "reply": {"prompt": "Which channel?", "choices": ["#acme-brief", "#acme-team"]},
@@ -28,7 +31,7 @@ An ask is a `project` plus an instructable: a JSON object with a title and numbe
 | `why` | ≤ 300 |
 | `urgency` | `now`, `today` (default) or `whenever` |
 | `steps` | Required, 1–20 Steps |
-| `verify` | One Step |
+| `verify` | One Step without `substeps` |
 | `reply` | `prompt` ≤ 300, `choices` 0–6 strings of ≤ 60 |
 | `links` | 0–10 `{label ≤ 60, url}` |
 | `from` | `{session, host, cwd}`, filled in by the poster |
@@ -40,10 +43,11 @@ A **Step** is a JSON object with these keys:
 | `do` | Required, ≤ 300, one line: the action |
 | `where` | ≤ 60, one line: the app or place |
 | `detail` | ≤ 1500, line breaks allowed: longer instructions, shown as wrapped text under `do` |
-| `code` | ≤ 4000: only the exact text to copy. `text` (or no `lang`) wraps; other languages scroll sideways |
+| `code` | ≤ 4000: only the exact text to copy; it wraps |
 | `lang` | ≤ 20, e.g. `bash`, `json`, `text` |
 | `expect` | ≤ 300: what the owner should see |
 | `url` | An http(s) page for this step |
+| `substeps` | 1–10 Steps without `substeps`; not on `verify`; at most 60 steps and sub-steps per instructable |
 
 `project` is required: one line, at most 60 characters.
 
@@ -52,6 +56,7 @@ A **Step** is a JSON object with these keys:
 - URLs must be http(s).
 - Unknown keys are rejected.
 - The total size must be ≤ 32 KB.
+- Steps plus sub-steps total at most 60 (`verify` not counted); `steps` stays 1–20.
 - Errors name field paths only (`steps[2].url: must be http(s)`), never values.
 - The JSON Schema is [`schema/instructable.v1.json`](../schema/instructable.v1.json).
 

@@ -305,6 +305,17 @@ class DescriptionTest(unittest.TestCase):
         for tool in tools:
             self.assertIn("Relay queue", tool["description"])
 
+    def test_post_describes_substeps_and_ships_both_defs(self):
+        import relay_cli
+        post = relay_mcp.tool_list()[0]
+        self.assertEqual(relay_mcp.SUBSTEPS_SENTENCE, relay_cli.SUBSTEPS_SENTENCE)
+        self.assertTrue(post["description"].endswith(relay_mcp.SUBSTEPS_SENTENCE))
+        defs = post["inputSchema"]["$defs"]
+        self.assertIn("leaf", defs)
+        self.assertIn("substeps", defs["step"]["properties"])
+        self.assertEqual(post["inputSchema"]["properties"]["instructable"]["properties"]["verify"],
+                         {"$ref": "#/$defs/leaf"})
+
 
 class FakeClient:
     source = {"kind": "local", "port": 47823}

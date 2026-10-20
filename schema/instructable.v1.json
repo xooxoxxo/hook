@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Relay instructable v1",
-  "description": "An owner ask as exact steps. Relay's validator (and any compatible mailbox) is the source of truth: it also rejects secret-like values (sk-ant-, sk-..., xox[abp]-, ghp_, github_pat_, PEM private keys, AKIA...), hidden characters and documents over 32768 bytes, which JSON Schema cannot express.",
+  "description": "An owner ask as exact steps. Relay's validator (and any compatible mailbox) is the source of truth: it also rejects secret-like values (sk-ant-, sk-..., xox[abp]-, ghp_, github_pat_, PEM private keys, AKIA...), hidden characters and documents over 32768 bytes, which JSON Schema cannot express. Steps plus sub-steps total at most 60.",
   "type": "object",
   "additionalProperties": false,
   "required": ["v", "title", "steps"],
@@ -16,7 +16,7 @@
       "maxItems": 20,
       "items": { "$ref": "#/$defs/step" }
     },
-    "verify": { "$ref": "#/$defs/step" },
+    "verify": { "$ref": "#/$defs/leaf" },
     "reply": {
       "type": "object",
       "additionalProperties": false,
@@ -57,7 +57,7 @@
   },
   "$defs": {
     "httpUrl": { "type": "string", "pattern": "^https?://" },
-    "step": {
+    "leaf": {
       "type": "object",
       "additionalProperties": false,
       "required": ["do"],
@@ -73,6 +73,26 @@
           "description": "Longer instructions for this step, shown as wrapped text under do. Put explanations here, never in code: code is only text to copy exactly."
         },
         "url": { "$ref": "#/$defs/httpUrl" }
+      }
+    },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["do"],
+      "description": "A step. When it needs more than one action, its actions go in substeps, shown indented and ticked one by one.",
+      "properties": {
+        "do": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "where": { "type": "string", "maxLength": 60 },
+        "code": { "type": "string", "maxLength": 4000 },
+        "lang": { "type": "string", "maxLength": 20 },
+        "expect": { "type": "string", "maxLength": 300 },
+        "detail": {
+          "type": "string",
+          "maxLength": 1500,
+          "description": "Longer instructions for this step, shown as wrapped text under do. Put explanations here, never in code: code is only text to copy exactly."
+        },
+        "url": { "$ref": "#/$defs/httpUrl" },
+        "substeps": { "type": "array", "minItems": 1, "maxItems": 10, "items": { "$ref": "#/$defs/leaf" } }
       }
     }
   }

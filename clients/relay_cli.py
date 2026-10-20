@@ -20,6 +20,9 @@ import relay_wait
 from relay_client import OWNER_LABELS, VERSION, Client, Refused, RelayError, one_line
 
 DEFAULT_TIMEOUT = 10.0
+SUBSTEPS_SENTENCE = ("A step that needs more than one action can hold `substeps`: 1 to 10 step objects "
+                     "(same keys, no nesting, not on verify), shown indented and ticked one by one. "
+                     "At most 60 steps and sub-steps in total.")
 
 
 class _ParserExit(Exception):
@@ -44,7 +47,7 @@ def _parser(out: Any, err: Any) -> argparse.ArgumentParser:
     parser = Parser(prog="relay", description="Send the owner instructables through Relay and read the answers.")
     parser.add_argument("--version", action="store_true", help="print the version and exit")
     sub = parser.add_subparsers(dest="command", metavar="<command>")
-    post = sub.add_parser("post", help="post one instructable")
+    post = sub.add_parser("post", help="post one instructable", description=SUBSTEPS_SENTENCE)
     post.add_argument("project")
     post.add_argument("--json", dest="json_src", required=True, metavar="FILE|-",
                       help="the instructable, from a file or - for stdin")

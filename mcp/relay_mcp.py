@@ -24,7 +24,7 @@ if _CLIENTS not in sys.path:
     sys.path.insert(0, _CLIENTS)
 
 import relay_client  # noqa: E402
-from relay_cli import resolved_by  # noqa: E402
+from relay_cli import SUBSTEPS_SENTENCE, resolved_by  # noqa: E402
 
 SERVER_INFO = {"name": "relay", "version": relay_client.VERSION}
 LEGACY_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26"]
@@ -163,7 +163,7 @@ def tool_list() -> list:
             "description": ("Send the owner ONE instructable: an ask written as numbered steps with "
                             "copy-paste code (see the instructables skill). It goes to the owner's Relay "
                             "queue. Returns {id, deduped, openUrl}; deduped means an ask with this title "
-                            "is already open. Never include a secret value."),
+                            "is already open. Never include a secret value. " + SUBSTEPS_SENTENCE),
             "inputSchema": post_input_schema(),
         },
         {
