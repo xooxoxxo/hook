@@ -16,7 +16,7 @@ public struct QueueTab<Model: SettingsViewModel>: View {
     public init(model: Model) {
         _model = ObservedObject(wrappedValue: model)
         // The first frame already shows the saved source's section.
-        _choice = State(initialValue: Self.savedChoice(model.settings.config))
+        _choice = State(initialValue: QueueSourceRadio.saved(model.settings.config))
     }
 
     private var home: String { NSHomeDirectory() }
@@ -51,9 +51,16 @@ public struct QueueTab<Model: SettingsViewModel>: View {
         }
         .formStyle(.grouped)
         .controlSize(DS.Control.form)
-        .onAppear(perform: sync)
-        .onChange(of: model.settings.config) { _, _ in
-            if !connecting { sync() }
+        .onAppear {
+            let saved = QueueSourceRadio.saved(model.settings.config)
+            if choice != saved { choice = saved }
+            syncDraft()
+        }
+        .onChange(of: model.settings.config) { old, new in
+            guard !connecting else { return }
+            let next = QueueSourceRadio.afterConfigChange(current: choice, old: old, new: new)
+            if next != choice { choice = next }
+            syncDraft()
         }
         .onChange(of: choice) { _, new in
             if new == .local, model.settings.config?.resolvedSource() != .local {
@@ -195,11 +202,9 @@ public struct QueueTab<Model: SettingsViewModel>: View {
         }
     }
 
-    /// The radio follows the saved source; the draft follows the config while it is clean.
-    private func sync() {
+    /// The draft follows the config while it is clean.
+    private func syncDraft() {
         let config = model.settings.config
-        let saved = Self.savedChoice(config)
-        if choice != saved { choice = saved }
         let fields = MailboxDraft(config: config, home: home)
         // Assigning an equal draft would still publish a change and re-render the tab.
         if model.draft != fields, !model.draft.isDirty(against: config, home: home) || model.draft == MailboxDraft() {
@@ -207,8 +212,19 @@ public struct QueueTab<Model: SettingsViewModel>: View {
         }
     }
 
-    private static func savedChoice(_ config: RelayConfig?) -> SourceKind {
+}
+
+/// Where the Source radio points.
+enum QueueSourceRadio {
+    /// The source the config has saved.
+    static func saved(_ config: RelayConfig?) -> SourceKind {
         config?.source ?? (config?.mailboxURL != nil ? .mailbox : .local)
+    }
+
+    /// Only a change of the saved source moves the radio, so a Check every save or a
+    /// config reload keeps a picked but not yet connected Mailbox on screen.
+    static func afterConfigChange(current: SourceKind, old: RelayConfig?, new: RelayConfig?) -> SourceKind {
+        saved(old) == saved(new) ? current : saved(new)
     }
 }
 
