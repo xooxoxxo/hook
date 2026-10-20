@@ -72,9 +72,9 @@ public struct WelcomeView<Model: SettingsViewModel>: View {
                               context: $model.draft.context, addressError: errors.address,
                               tokenFileError: errors.tokenFile,
                               onChooseTokenFile: { model.perform(.chooseTokenFile) })
-                if let error = flow.error {
-                    SettingsRow("", error: error) { EmptyView() }
-                }
+            }
+            if let error = flow.error {
+                SettingsRow("", error: error) { EmptyView() }
             }
         }
     }
@@ -134,7 +134,13 @@ public struct WelcomeView<Model: SettingsViewModel>: View {
     private func start() {
         guard choice == .mailbox else {
             model.save(set: ["source": SourceKind.local.rawValue], remove: [])
-            flow.startTapped(isMailbox: false)
+            // save refreshes the snapshot synchronously: onApply on success, the note on failure.
+            let saveProblem = model.settings.connectionProblems.first { $0.hasPrefix("Couldn't save config.json") }
+            if model.settings.config?.resolvedSource() == .local, saveProblem == nil {
+                flow.startTapped(isMailbox: false)
+            } else {
+                flow.saveFailed(saveProblem ?? "Couldn't save config.json")
+            }
             return
         }
         attempted = true

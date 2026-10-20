@@ -35,6 +35,13 @@ public struct WelcomeFlow: Equatable, Sendable {
         }
     }
 
+    /// Start's save of config.json failed (This Mac): Welcome stays on page 1 with the reason.
+    public mutating func saveFailed(_ text: String) {
+        guard page == .source else { return }
+        starting = false
+        error = text
+    }
+
     public mutating func timedOut() {
         firstList(ok: false, reason: MailboxDraft.noAnswer)
     }

@@ -31,6 +31,17 @@ import Testing
         #expect(flow.error == nil && flow.starting)        // a new Start clears the old error
     }
 
+    @Test func aFailedSaveStaysWithTheReason() {
+        var flow = WelcomeFlow()
+        flow.saveFailed("Couldn't save config.json: permission denied")
+        #expect(flow.page == .source && !flow.starting)
+        #expect(flow.error == "Couldn't save config.json: permission denied")
+        flow.startTapped(isMailbox: false)
+        #expect(flow.page == .ready && flow.error == nil)
+        flow.saveFailed("Couldn't save config.json: late")       // after ready, nothing changes
+        #expect(flow.page == .ready && flow.error == nil && !flow.starting)
+    }
+
     @Test func noAnswerInTenSecondsIsAnError() {
         var flow = WelcomeFlow()
         flow.startTapped(isMailbox: true)
