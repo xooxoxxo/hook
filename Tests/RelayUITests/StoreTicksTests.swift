@@ -67,6 +67,8 @@ private let b = item("b", created: stamp(minutesAgo: 20), steps: 2)
         TickStore.save(d, sourceKey: "local", id: "z", ticks: ["1"], nodes: one)
         store.setFilter("Northwind")
         store.close("b", .done)
+        // A new ask changes the listed ids, so this list prunes (one with the same ids skips it).
+        await fake.setItems([a, b, item("d", created: stamp(minutesAgo: 5))])
 
         await store.refresh()
 
@@ -113,10 +115,12 @@ private let b = item("b", created: stamp(minutesAgo: 20), steps: 2)
         let store = Store(defaults: defaults.defaults)
         let fake = FakeQueueSource(items: [a])
         await start(store, fake)
+        // The queue snapshot reads ticks too, so the one build may have happened already.
         let base = store.stepTreeBuilds
         #expect(store.ticks(for: "a") == [])
         #expect(store.ticks(for: "a") == [])
-        #expect(store.stepTreeBuilds == base + 1)
+        #expect(store.stepTreeBuilds <= base + 1)
+        #expect(store.stepTreeBuilds >= 1)
 
         // A tick saves and refills the cache: reads after it build nothing.
         store.toggleTick("1", in: "a")
@@ -147,9 +151,13 @@ private let b = item("b", created: stamp(minutesAgo: 20), steps: 2)
         await fake.setItems([edited])
         await store.refresh()
         let afterEdit = store.stepTreeBuilds
+        #expect(afterEdit > settled)
         #expect(store.ticks(for: "a") == [])
         #expect(store.ticks(for: "a") == [])
-        #expect(store.stepTreeBuilds == afterEdit + 1)
+        #expect(store.stepTreeBuilds <= afterEdit + 1)
+        let reCached = store.stepTreeBuilds
+        #expect(store.ticks(for: "a") == [])
+        #expect(store.stepTreeBuilds == reCached)
     }
 
     @Test func editedStepsCountOnlyTheRemainingMatchingLeaves() async {

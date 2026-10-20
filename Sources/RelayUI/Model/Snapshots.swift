@@ -21,20 +21,35 @@ public struct QueueSnapshot: Equatable, Sendable {
                              ticks: (String) -> Set<String>, drafts: [String: String], closedBy: (WireItem) -> String?,
                              sourceKey: String, loadedOnce: Bool, reachable: Bool, problem: String?, waitedTenSeconds: Bool,
                              manualRefreshing: Bool, updated: String) -> QueueSnapshot {
-        let sections = QueueLayout.sections(items: open, grouping: grouping, filter: filter)
-        let shown = sections.flatMap(\.items)
+        build(sections: QueueLayout.sections(items: open, grouping: grouping, filter: filter),
+              shownClosed: QueueLayout.closed(closed, filter: filter), open: open, grouping: grouping, filter: filter,
+              ticks: { ticks($0.id) }, hasDraft: { hasText(drafts[$0]) }, closedBy: closedBy,
+              sourceKey: sourceKey, loadedOnce: loadedOnce, reachable: reachable, problem: problem,
+              waitedTenSeconds: waitedTenSeconds, manualRefreshing: manualRefreshing, updated: updated)
+    }
+
+    /// From sections and closed rows the caller has laid out already (the Store keeps them).
+    public static func build(sections: [QueueSection], shownClosed: [WireItem], open: [WireItem],
+                             grouping: QueueGrouping, filter: String?,
+                             ticks: (WireItem) -> Set<String>, hasDraft: (String) -> Bool, closedBy: (WireItem) -> String?,
+                             sourceKey: String, loadedOnce: Bool, reachable: Bool, problem: String?, waitedTenSeconds: Bool,
+                             manualRefreshing: Bool, updated: String) -> QueueSnapshot {
         var rows: [String: AskRowModel] = [:]
-        for item in shown {
-            rows[item.id] = row(item, ticked: ticks(item.id), hasDraft: hasText(drafts[item.id]), closedBy: nil)
+        var shownCount = 0
+        for section in sections {
+            for item in section.items {
+                shownCount += 1
+                rows[item.id] = row(item, ticked: ticks(item), hasDraft: hasDraft(item.id), closedBy: nil)
+            }
         }
-        let closedRows = QueueLayout.closed(closed, filter: filter).map {
-            row($0, ticked: ticks($0.id), hasDraft: false, closedBy: closedBy($0))
+        let closedRows = shownClosed.map {
+            row($0, ticked: ticks($0), hasDraft: false, closedBy: closedBy($0))
         }
         let content = PanelContent.resolve(sourceKey: sourceKey, loadedOnce: loadedOnce, reachable: reachable, problem: problem,
                                            waitedTenSeconds: waitedTenSeconds, filter: filter,
-                                           shownOpen: shown.count, shownClosed: closedRows.count)
+                                           shownOpen: shownCount, shownClosed: closedRows.count)
         return QueueSnapshot(
-            content: content, title: shown.isEmpty ? "Queue" : "\(shown.count) waiting", grouping: grouping, filter: filter,
+            content: content, title: shownCount == 0 ? "Queue" : "\(shownCount) waiting", grouping: grouping, filter: filter,
             sections: sections, rows: rows, closed: closedRows,
             hidden: QueueLayout.hiddenCount(items: open, filter: filter),
             projects: QueueLayout.menuProjects(items: open, filter: filter),
@@ -45,10 +60,13 @@ public struct QueueSnapshot: Equatable, Sendable {
     /// One row; a non-open item gets its ClosedInfo, with `closedBy` the closing actor when known.
     public static func row(_ item: WireItem, ticked: Set<String>, hasDraft: Bool, closedBy: String?) -> AskRowModel {
         let isClosed = item.status != "open"
+        let summary = QueueLayout.summary(for: item, ticked: ticked)
+        let ins = item.instructable
         return AskRowModel(
             id: item.id, title: item.title, project: item.projectId ?? "", urgency: Urgency(raw: item.urgency),
-            created: item.created, summary: QueueLayout.summary(for: item, ticked: ticked),
-            subline: SubLine.text(for: item, ticked: ticked), hasDraft: hasDraft,
+            created: item.created, summary: summary,
+            subline: SubLine.text(summary, choices: ins?.reply?.choices?.count ?? 0, places: ins.map(SubLine.places) ?? []),
+            hasDraft: hasDraft,
             closed: isClosed ? ClosedInfo(status: item.status, closedBy: closedBy, completedAt: item.completedAt) : nil,
             resumeCommand: AskOrigin(from: item.instructable?.from)?.resumeCommand)
     }

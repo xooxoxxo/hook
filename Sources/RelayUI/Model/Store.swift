@@ -17,16 +17,26 @@ public enum LinkCheck: Equatable, Sendable {
 @MainActor public final class Store: ObservableObject {
     /// The open queue as shown: the source's list without the asks held back
     /// for Undo or being sent. Every list, count and badge reads this.
-    @Published public private(set) var items: [WireItem] = []
+    @Published public private(set) var items: [WireItem] = [] { didSet { queueInputChanged() } }
     /// Done and Skip held back for `PendingCloses.delay` seconds so they can be undone.
     @Published public private(set) var pending = PendingCloses()
     /// Asks closed in the last 24 hours, newest first, without any still held back.
-    @Published public private(set) var recentlyClosed: [WireItem] = []
-    @Published public private(set) var details: [String: AskDetail] = [:]
+    @Published public private(set) var recentlyClosed: [WireItem] = [] { didSet { queueInputChanged() } }
+    /// A row's ticks are checked against its fetched detail's steps, so a new detail rebuilds the queue.
+    @Published public private(set) var details: [String: AskDetail] = [:] { didSet { queueInputChanged() } }
     /// The highlighted row and the open detail.
     @Published public var navigation = PanelNavigation()
     /// Unsent reply text per ask. Memory only: the owner's text is never written to disk unasked.
-    @Published public var drafts: [String: String] = [:]
+    /// Only whether a draft has text reaches the queue (its draft mark), so typing doesn't rebuild it.
+    @Published public var drafts: [String: String] = [:] {
+        didSet {
+            let withText = Set(drafts.compactMap { QueueSnapshot.hasText($0.value) ? $0.key : nil })
+            guard withText != draftsWithText else { return }
+            draftsWithText = withText
+            queueInputChanged()
+        }
+    }
+    private var draftsWithText: Set<String> = []
     /// The picked, unsent choice index per ask. Memory only.
     @Published public var pendingChoice: [String: Int] = [:]
     @Published public private(set) var replyStates: [String: ReplyBoxState] = [:]
@@ -92,7 +102,7 @@ public enum LinkCheck: Equatable, Sendable {
     private var swappedAt: Date?
     /// Bumped when a load has waited `DS.Timing.detailLoadTimeout`, so views read the
     /// snapshots again and "Still trying…" / "Couldn't load" show with no other change.
-    @Published public private(set) var stateTick = 0
+    @Published public private(set) var stateTick = 0 { didSet { queueInputChanged() } }
     /// The wait behind `stateTick`; tests pass an immediate one.
     let timeoutSleep: @Sendable (Duration) async -> Void
     /// The pending timeout waits, by token; a swap cancels them all.
@@ -101,20 +111,35 @@ public enum LinkCheck: Equatable, Sendable {
     nonisolated static func timeoutTaskSleep(_ duration: Duration) async {
         try? await Task.sleep(for: duration)
     }
-    @Published public private(set) var grouping: QueueGrouping
+    @Published public private(set) var grouping: QueueGrouping { didSet { queueInputChanged() } }
     /// The raw project string; nil = All Projects.
-    @Published public private(set) var filter: String?
-    @Published public private(set) var manualRefreshing = false
+    @Published public private(set) var filter: String? { didSet { queueInputChanged() } }
+    @Published public private(set) var manualRefreshing = false { didSet { queueInputChanged() } }
     /// When the last list came back.
-    public private(set) var lastListAt: Date?
+    public private(set) var lastListAt: Date? { didSet { queueInputChanged() } }
     @Published public private(set) var notFoundID: String?
     /// The last list succeeded and the listener has no problem.
-    @Published public private(set) var reachable = false
+    @Published public private(set) var reachable = false { didSet { queueInputChanged() } }
     /// Why the source is offline; shown in the footer and the menu-bar tooltip.
     @Published public private(set) var problem: String?
-    @Published public private(set) var refreshing = false
+    /// A list is running. No view shows it (the header spinner is `manualRefreshing`), so it isn't published.
+    public private(set) var refreshing = false
     /// "none", "local" or "mailbox:<host>"; ticks and the Connect tab key on it.
-    @Published public private(set) var sourceKey = SourceKey.none
+    @Published public private(set) var sourceKey = SourceKey.none { didSet { queueInputChanged() } }
+
+    /// What the queue view draws. Rebuilt only when one of its inputs changes, and
+    /// published only when the rebuilt one differs, so a list that changes nothing
+    /// re-renders nothing.
+    @Published public private(set) var queue: QueueSnapshot
+    /// The sections, their row order and the closed rows behind `queue`, kept with it.
+    private var shownSections: [QueueSection] = []
+    private var shownOrder: [String] = []
+    private var shownClosed: [WireItem] = []
+    /// Above 0 while a batch of input changes runs; the queue is rebuilt once at its end.
+    private var queueHolds = 0
+    private var queueStale = false
+    /// How many times the queue snapshot was built; tests check a list that changes nothing builds none.
+    private(set) var queueBuilds = 0
 
     /// Items that appeared since the previous list (never on the first list after launch or a swap).
     public var onNewItems: (@MainActor ([WireItem]) -> Void)?
@@ -128,13 +153,13 @@ public enum LinkCheck: Equatable, Sendable {
     /// Bumped by every swap; results started under an older value are dropped.
     var generation = 0
     private var watchTask: Task<Void, Never>?
-    var loadedOnce = false
+    var loadedOnce = false { didSet { queueInputChanged() } }
     private var inFlight: Task<Void, Never>?
     /// Bumped by every refresh that starts a list; only the latest one clears `inFlight`.
     private var refreshCount = 0
     private var lastLinkRefresh: ContinuousClock.Instant?
     var listOK = false
-    var listProblem: String? = Store.noSourceProblem
+    var listProblem: String? = Store.noSourceProblem { didSet { queueInputChanged() } }
     var listenerProblem: String?
     /// The source's open list, pending asks included.
     var listed: [WireItem] = []
@@ -144,7 +169,10 @@ public enum LinkCheck: Equatable, Sendable {
     private var draining: Set<String> = []
     private var ticker: Task<Void, Never>?
     /// "id completedAt" → the closing event's actor, so each close is fetched once.
-    private var closedActors: [String: String] = [:]
+    /// "" when the closing event names no actor, so it isn't fetched again.
+    private var closedActors: [String: String] = [:] { didSet { queueInputChanged() } }
+    /// The ids `TickStore.prune` last kept; a list with the same ids skips the prune.
+    private var prunedKeep: Set<String>?
     /// Reopened asks: their return to the list is not a new ask to announce.
     private var quietIDs: Set<String> = []
 
@@ -167,7 +195,13 @@ public enum LinkCheck: Equatable, Sendable {
         self.sentHold = sentHold
         self.sleep = sleep ?? Store.taskSleep
         self.timeoutSleep = timeoutSleep ?? Store.timeoutTaskSleep
-        self.grouping = PanelPrefs.grouping(defaults)
+        let grouping = PanelPrefs.grouping(defaults)
+        self.grouping = grouping
+        queue = QueueSnapshot.build(
+            open: [], closed: [], grouping: grouping, filter: nil, ticks: { _ in [] }, drafts: [:], closedBy: { _ in nil },
+            sourceKey: SourceKey.none, loadedOnce: false, reachable: false, problem: Store.noSourceProblem,
+            waitedTenSeconds: false, manualRefreshing: false, updated: "")
+        rebuildQueue()
     }
 
     /// Swap: 1 bump the generation; 2 stop the poll or stream; 3 clear the
@@ -175,6 +209,13 @@ public enum LinkCheck: Equatable, Sendable {
     /// filter (the open detail closes); 4 the next first load never
     /// notifies; 5 subscribe or poll, and refresh.
     public func swap(to source: (any QueueSource)?, identity: SourceIdentity, pollSeconds: Int) {
+        holdingQueue { swapState(to: source, identity: identity, pollSeconds: pollSeconds) }
+        guard let source else { return }
+        scheduleTimeoutTick()
+        watchTask = watch(source)
+    }
+
+    private func swapState(to source: (any QueueSource)?, identity: SourceIdentity, pollSeconds: Int) {
         let openID = navigation.selectedID
         // Closes still held back belong to the old source: send them now.
         flushAll(to: self.source)
@@ -205,6 +246,7 @@ public enum LinkCheck: Equatable, Sendable {
         sending = []
         recentlyClosed = []
         closedActors = [:]
+        prunedKeep = nil
         quietIDs = []
         swappedAt = now()
         detailRequestedAt = [:]
@@ -229,9 +271,6 @@ public enum LinkCheck: Equatable, Sendable {
             navigation.back()
             post(.settingsReloaded)
         }
-        guard let source else { return }
-        scheduleTimeoutTick()
-        watchTask = watch(source)
     }
 
     /// One wait of `DS.Timing.detailLoadTimeout`, then a `stateTick` bump. The next swap cancels it.
@@ -340,38 +379,21 @@ public enum LinkCheck: Equatable, Sendable {
             let fresh = try await source.list()
             guard gen == generation else { return }
             let diff = QueueLogic.diff(old: listed, new: fresh)
-            listed = fresh
-            if let id = reloadCheckID {
-                reloadCheckID = nil
-                if !fresh.contains(where: { $0.id == id }) {
-                    navigation.back()
-                    post(.settingsReloaded)
-                }
-            }
-            if let selected = navigation.selectedID, diff.removed.contains(selected),
-               !pending.contains(selected), !sending.contains(selected) {
-                // visibleOrder still holds the closed ask here: updateItems() hasn't run yet.
-                sessionClosedNext = Flow.nextAsk(after: selected, in: visibleOrder)
-                post(.sessionClosed(id: selected))
-            }
-            updateItems()
-            listOK = true
-            listProblem = nil
-            offlineNoticed = false
-            if showsOfflineNotice { notice = nil }
-            lastListAt = now()
-            for id in diff.removed where id != navigation.selectedID {
-                details[id] = nil
-            }
-            publishState()
+            holdingQueue { applyList(fresh, diff: diff) }
+            // The open ask's detail first, on its own, so it never waits for the others;
+            // the rest arrive as one change, not one re-render per ask.
             var toLoad = diff.added + diff.changed
-            if let selected = navigation.selectedID, !toLoad.contains(selected) {
-                toLoad.append(selected)
+            if let selected = navigation.selectedID {
+                toLoad.removeAll { $0 == selected }
+                await load(selected, from: source, generation: gen)
+                guard gen == generation else { return }
             }
+            var fetched: [(id: String, result: DetailFetch)] = []
             for id in toLoad {
-                await load(id, from: source, generation: gen)
+                fetched.append((id, await fetch(id, from: source)))
+                guard gen == generation else { return }
             }
-            guard gen == generation else { return }
+            apply(fetched)
             let announce = diff.added.filter { !quietIDs.contains($0) }
             quietIDs.subtract(diff.added)
             if loadedOnce, !announce.isEmpty {
@@ -379,7 +401,7 @@ public enum LinkCheck: Equatable, Sendable {
             }
             await loadClosed(from: source, generation: gen)
             guard gen == generation else { return }
-            loadedOnce = true
+            if !loadedOnce { loadedOnce = true }
             pruneTicks()
         } catch {
             guard gen == generation else { return }
@@ -392,6 +414,37 @@ public enum LinkCheck: Equatable, Sendable {
             }
             publishState()
         }
+    }
+
+    /// The synchronous part of a good list, as one queue change.
+    private func applyList(_ fresh: [WireItem], diff: QueueDiff) {
+        listed = fresh
+        if let id = reloadCheckID {
+            reloadCheckID = nil
+            if !fresh.contains(where: { $0.id == id }) {
+                navigation.back()
+                post(.settingsReloaded)
+            }
+        }
+        if let selected = navigation.selectedID, diff.removed.contains(selected),
+           !pending.contains(selected), !sending.contains(selected) {
+            // visibleOrder still holds the closed ask here: updateItems() hasn't run yet.
+            sessionClosedNext = Flow.nextAsk(after: selected, in: visibleOrder)
+            post(.sessionClosed(id: selected))
+        }
+        updateItems()
+        listOK = true
+        if listProblem != nil { listProblem = nil }
+        offlineNoticed = false
+        if showsOfflineNotice { notice = nil }
+        lastListAt = now()
+        let gone = diff.removed.filter { $0 != navigation.selectedID && details[$0] != nil }
+        if !gone.isEmpty {
+            var next = details
+            for id in gone { next[id] = nil }
+            details = next
+        }
+        publishState()
     }
 
     public func open(_ id: String) {
@@ -446,11 +499,11 @@ public enum LinkCheck: Equatable, Sendable {
         saveSelection()
     }
 
-    public var sections: [QueueSection] { QueueLayout.sections(items: items, grouping: grouping, filter: filter) }
-    public var visibleOrder: [String] { QueueLayout.visibleOrder(sections) }
-    public var closedShown: [WireItem] { QueueLayout.closed(recentlyClosed, filter: filter) }
-    public var hiddenCount: HiddenCount { QueueLayout.hiddenCount(items: items, filter: filter) }
-    public var menuProjects: [MenuProject] { QueueLayout.menuProjects(items: items, filter: filter) }
+    public var sections: [QueueSection] { shownSections }
+    public var visibleOrder: [String] { shownOrder }
+    public var closedShown: [WireItem] { shownClosed }
+    public var hiddenCount: HiddenCount { queue.hidden }
+    public var menuProjects: [MenuProject] { queue.projects }
 
     /// The header spinner shows only for this one; background polls change nothing there.
     public func refresh(manual: Bool) async {
@@ -523,6 +576,12 @@ public enum LinkCheck: Equatable, Sendable {
     /// Cheap on a hit: rows call this on every render, so the tree is built only on a miss.
     public func ticks(for id: String) -> Set<String> {
         guard let item = item(for: id) else { return [] }
+        return ticks(id, item: item)
+    }
+
+    /// `ticks(for:)` for an item in hand: the queue build has every row's item, so it skips the lookup.
+    private func ticks(_ id: String, item listedItem: WireItem) -> Set<String> {
+        let item = details[id]?.item ?? listedItem
         let source = StepSource(item)
         if let cached = tickCache[id], cached.source == source { return cached.ticks }
         let loaded = TickStore.load(defaults, sourceKey: sourceKey, id: id, nodes: stepTree(item))
@@ -561,18 +620,26 @@ public enum LinkCheck: Equatable, Sendable {
     }
 
     private func setTicks(_ ticks: Set<String>, for id: String, nodes: [DetailModel.Node]) {
+        // The detail reads ticks too, and an ask outside the filter changes no queue row.
         objectWillChange.send()
         let leaves = ticks.intersection(Flow.leaves(of: nodes).map(\.path))
         tickCache[id] = item(for: id).map { (StepSource($0), leaves) }
         TickStore.save(defaults, sourceKey: sourceKey, id: id, ticks: leaves, nodes: nodes)
+        queueInputChanged()
     }
 
     /// After a good list of this source: keeps ticks of open asks (held ones are still
     /// listed), of Recently closed and of the open detail, whatever the filter.
+    /// Reading every defaults key is costly, so a list with the same ids as the last prune skips it.
+    /// The in-memory tick cache and load times keep the same ids.
     func pruneTicks() {
         guard reachable, !listed.isEmpty else { return }
         var keep = Set(listed.map(\.id)).union(recentlyClosed.map(\.id)).union(sending)
         if let selected = navigation.selectedID { keep.insert(selected) }
+        tickCache = tickCache.filter { keep.contains($0.key) }
+        detailRequestedAt = detailRequestedAt.filter { keep.contains($0.key) }
+        guard keep != prunedKeep else { return }
+        prunedKeep = keep
         TickStore.prune(defaults, sourceKey: sourceKey, keep: keep)
     }
 
@@ -688,7 +755,7 @@ public enum LinkCheck: Equatable, Sendable {
 
     /// The actor of the event that closed `item` ("owner", "session"), once fetched.
     public func closedBy(_ item: WireItem) -> String? {
-        closedActors[Self.closedKey(item)]
+        closedActors[Self.closedKey(item)].flatMap { $0.isEmpty ? nil : $0 }
     }
 
     /// Puts a closed ask back in the open queue, as the owner.
@@ -723,15 +790,16 @@ public enum LinkCheck: Equatable, Sendable {
             let key = Self.closedKey(item)
             if let known = closedActors[key] {
                 actors[key] = known
-            } else if let detail = try? await source.get(item.id),
-                      let actor = DetailModel.make(detail).closedBy {
+            } else if let detail = try? await source.get(item.id) {
                 guard gen == generation else { return }
-                actors[key] = actor
+                actors[key] = DetailModel.make(detail).closedBy ?? ""
             }
         }
         guard gen == generation else { return }
-        closedActors = actors
-        if closed != recentlyClosed { recentlyClosed = closed }
+        holdingQueue {
+            if actors != closedActors { closedActors = actors }
+            if closed != recentlyClosed { recentlyClosed = closed }
+        }
     }
 
     private static func closedKey(_ item: WireItem) -> String {
@@ -772,7 +840,9 @@ public enum LinkCheck: Equatable, Sendable {
 
     /// Returns true once nothing is held back. Internal so tests can run it after moving the clock.
     @discardableResult func sendDue() -> Bool {
-        let due = pending.due(now: now())
+        // `due` mutates the published `pending`, which re-renders the panel: only call it when something is due.
+        let time = now()
+        let due = pending.hasDue(now: time) ? pending.due(now: time) : []
         if let source {
             let gen = generation
             for close in due {
@@ -929,27 +999,91 @@ public enum LinkCheck: Equatable, Sendable {
     }
 
     private func load(_ id: String, from source: any QueueSource, generation gen: Int) async {
+        let result = await fetch(id, from: source)
+        guard gen == generation else { return }
+        apply([(id, result)])
+    }
+
+    enum DetailFetch {
+        case loaded(AskDetail)
+        case notFound
+        case failed
+    }
+
+    private func fetch(_ id: String, from source: any QueueSource) async -> DetailFetch {
         do {
-            let detail = try await source.get(id)
-            guard gen == generation else { return }
-            details[id] = detail
-            tickCache[id] = nil
-            detailFailed.remove(id)
+            return .loaded(try await source.get(id))
         } catch QueueError.notFound {
-            guard gen == generation else { return }
-            // The open ask keeps its cached detail when it leaves the queue, so it can still show as closed.
-            if id != navigation.selectedID { details[id] = nil }
+            return .notFound
         } catch {
-            // Keep the cached detail; the next refresh retries.
-            guard gen == generation else { return }
-            if details[id] == nil { detailFailed.insert(id) }
+            return .failed
         }
     }
 
+    /// Fetched details, as one change; an unchanged detail changes nothing.
+    private func apply(_ fetched: [(id: String, result: DetailFetch)]) {
+        var next = details
+        for (id, result) in fetched {
+            switch result {
+            case .loaded(let detail):
+                if next[id] != detail {
+                    next[id] = detail
+                    tickCache[id] = nil
+                }
+                detailFailed.remove(id)
+            case .notFound:
+                // The open ask keeps its cached detail when it leaves the queue, so it can still show as closed.
+                if id != navigation.selectedID { next[id] = nil }
+            case .failed:
+                // Keep the cached detail; the next refresh retries.
+                if next[id] == nil { detailFailed.insert(id) }
+            }
+        }
+        if next != details { details = next }
+    }
+
+    /// Assigns only what changed: `@Published` publishes on every assignment, equal or not.
     private func publishState() {
-        reachable = listOK && listenerProblem == nil
-        problem = listenerProblem ?? listProblem
+        let nowReachable = listOK && listenerProblem == nil
+        if reachable != nowReachable { reachable = nowReachable }
+        let nowProblem = listenerProblem ?? listProblem
+        if problem != nowProblem { problem = nowProblem }
         onStateChange?()
+    }
+
+    private func queueInputChanged() {
+        if queueHolds > 0 {
+            queueStale = true
+        } else {
+            rebuildQueue()
+        }
+    }
+
+    /// Runs `body` with queue rebuilds held, then rebuilds once if any input changed.
+    private func holdingQueue(_ body: () -> Void) {
+        queueHolds += 1
+        body()
+        queueHolds -= 1
+        guard queueHolds == 0, queueStale else { return }
+        queueStale = false
+        rebuildQueue()
+    }
+
+    private func rebuildQueue() {
+        queueBuilds += 1
+        let sections = QueueLayout.sections(items: items, grouping: grouping, filter: filter)
+        let closed = QueueLayout.closed(recentlyClosed, filter: filter)
+        shownSections = sections
+        shownOrder = QueueLayout.visibleOrder(sections)
+        shownClosed = closed
+        let next = QueueSnapshot.build(
+            sections: sections, shownClosed: closed, open: items, grouping: grouping, filter: filter,
+            ticks: { self.ticks($0.id, item: $0) }, hasDraft: { self.draftsWithText.contains($0) },
+            closedBy: { self.closedBy($0) },
+            sourceKey: sourceKey, loadedOnce: loadedOnce, reachable: reachable, problem: listProblem,
+            waitedTenSeconds: swappedAt.map { now().timeIntervalSince($0) >= DS.Timing.detailLoadTimeout } ?? false,
+            manualRefreshing: manualRefreshing, updated: lastListAt.map { ClockText.time($0) } ?? "")
+        if next != queue { queue = next }
     }
 }
 
@@ -971,15 +1105,6 @@ struct StepSource: Equatable {
 }
 
 extension Store: PanelViewModel {
-    public var queue: QueueSnapshot {
-        QueueSnapshot.build(
-            open: items, closed: recentlyClosed, grouping: grouping, filter: filter,
-            ticks: { self.ticks(for: $0) }, drafts: drafts, closedBy: { self.closedBy($0) },
-            sourceKey: sourceKey, loadedOnce: loadedOnce, reachable: reachable, problem: listProblem,
-            waitedTenSeconds: swappedAt.map { now().timeIntervalSince($0) >= DS.Timing.detailLoadTimeout } ?? false,
-            manualRefreshing: manualRefreshing, updated: lastListAt.map { ClockText.time($0) } ?? "")
-    }
-
     public func detail(_ id: String) -> DetailSnapshot? {
         guard let item = item(for: id) else { return nil }
         let (previous, next) = navigation.neighbours(of: id, visibleOrder: visibleOrder, closedOrder: closedShown.map(\.id))

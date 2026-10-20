@@ -59,6 +59,12 @@ public struct PendingCloses: Sendable {
         entries.popLast()
     }
 
+    /// True when `due(now:)` would return something. It doesn't mutate, so the Store's
+    /// once-a-second check doesn't republish a held close that isn't due yet.
+    public func hasDue(now: Date) -> Bool {
+        entries.contains { $0.deadline <= now }
+    }
+
     /// Removes and returns those whose deadline has passed (deadline ≤ now), oldest deadline first.
     public mutating func due(now: Date) -> [PendingClose] {
         let ready = entries.filter { $0.deadline <= now }
