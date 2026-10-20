@@ -40,7 +40,7 @@ import Testing
 
     /// The not-set-up panel never shows one string twice; the StateView title and the
     /// status bar text differ.
-    @Test func notSetUpTitleAndStatusDiffer() {
+    @Test @MainActor func notSetUpTitleAndStatusDiffer() {
         let status = PanelStatus.make(StatusInputs(sourceKey: SourceKey.none, reachable: false, loadedOnce: false))
         #expect(StateView.title(.notSetUp) != status.text)
     }
