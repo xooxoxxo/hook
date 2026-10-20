@@ -5,12 +5,14 @@ Build Relay, run its tests and find your way around the code.
 ## Build and test
 
 ```bash
-swift build && swift test                                   # RelayCore tests (Swift Testing)
+swift build && swift test                                   # RelayCore and RelayUI tests (Swift Testing)
 python3 -m unittest discover -s clients -p 'test_*.py' -v   # CLI and client
 python3 -m unittest discover -s mcp -p 'test_*.py' -v       # MCP server
 BUILD_ONLY=1 ./scripts/build.sh                             # assembles ./build/Relay.app, installs nothing
 ./scripts/test-install.sh                                   # installer, in a sandbox HOME
 ./scripts/smoke-local.sh                                    # This Mac only, end to end
+scripts/gallery.sh [scene…]                                 # renders the UI offscreen to build/gallery/
+./scripts/check-tokens.sh                                   # no literal sizes, colours or durations outside Design/
 ```
 
 Test-only switches:
@@ -57,8 +59,10 @@ A pull request that changes `Sources/RelayUI/` attaches the before and after PNG
 ## Layout
 
 ```
-Sources/Relay/      app, Settings, loopback server
-Sources/RelayCore/  queue, validator, config, mailbox client
+Sources/Relay/         AppKit shell: panel window, menu bar, notifications, Settings and Welcome windows, loopback server
+Sources/RelayCore/     queue, validator, config, mailbox client, and the panel's pure logic
+Sources/RelayUI/       design tokens and components, the Store, every SwiftUI surface
+Sources/RelayGallery/  offscreen renderer for the gallery (never bundled)
 Tests/              Swift tests and fixtures
 clients/  mcp/      relay CLI and MCP server, with tests
 bin/relay           CLI entry point
