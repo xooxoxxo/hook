@@ -3,6 +3,16 @@
 All notable changes to Relay are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## [0.6.4] - 2026-10-26
+
+### Changed
+
+- The menu-bar icon shows a dot only for new asks that arrived while the panel was closed; opening the panel clears it. The count badge and its setting are gone.
+
+### Fixed
+
+- The "session closed this ask" notice goes away when you leave that ask, instead of staying on the queue.
+
 ## [0.6.3] - 2026-10-20
 
 ### Changed
