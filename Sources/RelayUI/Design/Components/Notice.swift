@@ -2,21 +2,23 @@ import RelayCore
 import SwiftUI
 
 /// Design/Notice: one one-off failure or piece of news, with an
-/// optional action and a Dismiss button. VoiceOver announces it when it appears.
+/// optional action, an optional "?" and a Dismiss button. VoiceOver announces it when it appears.
 ///
 /// `text` is already sanitized (`PanelNotice.text`), so it is shown as is.
 public struct Notice: View {
     let kind: NoticeKind
     let text: String
     let actionTitle: String?
+    let help: String?
     let onAction: () -> Void
     let onDismiss: () -> Void
 
-    public init(kind: NoticeKind, text: String, actionTitle: String?, onAction: @escaping () -> Void,
-                onDismiss: @escaping () -> Void) {
+    public init(kind: NoticeKind, text: String, actionTitle: String?, help: String? = nil,
+                onAction: @escaping () -> Void, onDismiss: @escaping () -> Void) {
         self.kind = kind
         self.text = text
         self.actionTitle = actionTitle
+        self.help = help
         self.onAction = onAction
         self.onDismiss = onDismiss
     }
@@ -35,6 +37,7 @@ public struct Notice: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .textSelection(.enabled)
                 Spacer(minLength: 0)
+                if let help { HelpButton(rowLabel: "Notice", text: help) }
                 if let actionTitle {
                     Button(actionTitle, action: onAction).controlSize(DS.Control.form).fixedSize()
                 }

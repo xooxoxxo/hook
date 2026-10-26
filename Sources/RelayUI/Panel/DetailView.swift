@@ -164,7 +164,7 @@ struct DetailView<Model: PanelViewModel>: View {
         let closed = snapshot.closedText != nil
         return VStack(alignment: .leading, spacing: DS.Space.section) {
             if let notice = model.notice {
-                Notice(kind: notice.kind, text: notice.text, actionTitle: notice.actionTitle,
+                Notice(kind: notice.kind, text: notice.text, actionTitle: notice.actionTitle, help: notice.help,
                        onAction: { model.performNoticeAction() }, onDismiss: { model.dismissNotice() })
                     .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
             }
