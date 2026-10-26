@@ -9,6 +9,14 @@ public enum ToggleAction: Equatable, Sendable {
     case hide
 }
 
+/// Where a toggle came from. The panel floats above every window, so a click on the
+/// menu-bar icon reads as "put it away" even when another app has focus; the shortcut
+/// and the menu's Show/Hide item first bring an unfocused panel into focus.
+public enum ToggleSource: Equatable, Sendable {
+    case statusItemClick
+    case shortcut
+}
+
 /// The show / hide / toggle rule. Pure: the panel passes its state in. The refresh
 /// on show is `Store.refreshIfStale()`.
 public enum PanelToggle {
@@ -16,11 +24,16 @@ public enum PanelToggle {
     public static let dockTolerance: CGFloat = 0.5
 
     /// hidden → show with focus; visible but off its docked frame → re-dock and focus
-    /// (never hide); visible without focus → focus; focused and docked → hide.
-    public static func decide(visible: Bool, isKey: Bool, frame: CGRect, target: CGRect) -> ToggleAction {
+    /// (never hide); docked → hide, except that the shortcut gives a visible unfocused
+    /// panel focus instead.
+    public static func decide(source: ToggleSource, visible: Bool, isKey: Bool,
+                              frame: CGRect, target: CGRect) -> ToggleAction {
         guard visible else { return .showAndFocus }
         guard isDocked(frame, at: target) else { return .redockAndFocus }
-        return isKey ? .hide : .focus
+        switch source {
+        case .statusItemClick: return .hide
+        case .shortcut: return isKey ? .hide : .focus
+        }
     }
 
     public static func isDocked(_ frame: CGRect, at target: CGRect) -> Bool {

@@ -330,11 +330,12 @@ import RelayUI
         alphaValue = 1
     }
 
-    /// Called by the shortcut, a left click on the status item and the menu's Show/Hide Panel item: show and focus; focus a visible unfocused panel; re-dock a misplaced one; hide a focused one.
-    /// A panel that is fading out counts as hidden, so a second press brings it back. Every
+    /// Called by the shortcut, a left click on the status item and the menu's Show/Hide Panel item: show and focus;
+    /// re-dock a misplaced one; hide a docked one. The shortcut and the menu item focus a visible unfocused panel
+    /// instead of hiding it; a status-item click hides it. A panel that is fading out counts as hidden, so a second press brings it back. Every
     /// action but hide goes through `present`, which re-docks and cancels a fade-out.
-    func toggle() {
-        switch PanelToggle.decide(visible: isShown, isKey: isKeyWindow, frame: frame, target: targetFrame ?? frame) {
+    func toggle(from source: ToggleSource) {
+        switch PanelToggle.decide(source: source, visible: isShown, isKey: isKeyWindow, frame: frame, target: targetFrame ?? frame) {
         case .showAndFocus, .focus, .redockAndFocus:
             present(focus: true, animated: true)
         case .hide:

@@ -69,7 +69,7 @@ import RelayUI
 
     /// Everything after the single-instance check: the model, panel, menu bar, presence and the first apply.
     private func startUp() {
-        let hotKeys = HotKeyManager { [weak self] in self?.togglePanel() }
+        let hotKeys = HotKeyManager { [weak self] in self?.togglePanel(from: .shortcut) }
         hotKeys.onLabelChange = { [weak self] in self?.updateShortcutLabel() }
         self.hotKeys = hotKeys
         let environment = ProcessInfo.processInfo.environment
@@ -543,7 +543,7 @@ import RelayUI
             inputs: { [weak self] in self?.menuInputs() ?? MenuInputs(
                 notSetUp: true, panelVisible: false, shortcut: nil, statusLine: "No queue set up",
                 presenceLine: "", presence: .auto, displays: [], pinned: nil) },
-            onToggle: { [weak self] in self?.togglePanel() },
+            onToggle: { [weak self] in self?.togglePanel(from: .statusItemClick) },
             onAction: { [weak self] action in self?.perform(action) })
         MainMenu.install(settings: #selector(showSettings(_:)), target: self)
         updateMenuBar()
@@ -576,7 +576,7 @@ import RelayUI
     private func perform(_ action: MenuAction) {
         switch action {
         case .setUp: setUp()
-        case .togglePanel: togglePanel()
+        case .togglePanel: togglePanel(from: .shortcut)
         case .setPresence(let mode): model?.save(set: ["presence": mode.rawValue])
         case .refresh: refreshNow()
         case .dock(let edge): panel?.dock(edge)
@@ -728,10 +728,10 @@ import RelayUI
         updateShortcutLabel()
     }
 
-    @objc private func togglePanel() {
+    private func togglePanel(from source: ToggleSource) {
         guard let panel else { return }
         let wasShown = panel.isShown
-        panel.toggle()
+        panel.toggle(from: source)
         if !wasShown, panel.isShown { refreshIfStale() }
     }
 
