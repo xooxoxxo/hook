@@ -3,6 +3,12 @@
 All notable changes to Relay are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## [0.6.5] - 2026-10-26
+
+### Added
+
+- Update from the menu: Relay checks GitHub for a newer release once a day (or on Check for Updates…), and "Update Relay to X.Y.Z…" rebuilds it from your checkout and restarts it. A checkout with local changes is left alone, with the reason shown. The log is in ~/Library/Logs/Relay/update.log.
+
 ## [0.6.4] - 2026-10-26
 
 ### Changed
