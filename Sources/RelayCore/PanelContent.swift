@@ -36,6 +36,15 @@ public enum PanelNotice: Equatable, Sendable {
     case noLongerOpen(id: String, canShowClosed: Bool)
     case offlineCached(since: String)
 
+    /// The open ask this Notice is about, when it belongs to that ask's detail: it goes when
+    /// the owner leaves the ask and never shows on the queue.
+    public var detailAskID: String? {
+        if case .sessionClosed(let id) = self { return id }
+        return nil
+    }
+
+    public var showsOnQueue: Bool { detailAskID == nil }
+
     public var kind: NoticeKind {
         switch self {
         case .actionFailed, .reopenFailed, .storeFailed, .queueMoved: return .error
