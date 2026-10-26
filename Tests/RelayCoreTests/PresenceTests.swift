@@ -271,10 +271,10 @@ private func decode(_ json: String) throws -> RelayConfig {
 
 @Suite struct AwayMenuBarTests {
     @Test func awayDimsOnlyTheSymbol() {
-        let state = MenuBarState(count: 2, reachable: true, away: true)
+        let state = MenuBarState(count: 2, reachable: true, unseen: true, away: true)
         #expect(state.symbolDimmed)
         #expect(!state.dimmed)
-        #expect(state.badge == .number(2))
+        #expect(state.badge == .dot)
         #expect(state.accessibilityLabel == "Relay, 2 waiting, away")
         #expect(state.tooltip == "Relay · away · 2 waiting")
     }

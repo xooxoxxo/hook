@@ -7,15 +7,16 @@ public enum MenuBarBadge: Sendable, Equatable {
     case number(Int)   // always 1...9
 }
 
-/// What the menu-bar status item shows: a red badge on the symbol
-/// while any ask is open (the count when it fits in one digit, else a plain
-/// dot), dimming when the source is unreachable, the fainter symbol while the
-/// owner is away, and the VoiceOver label.
+/// What the menu-bar status item shows: a red dot on the symbol while any ask
+/// that arrived with the panel hidden is unseen (`UnseenAsks`), dimming when the
+/// source is unreachable, the fainter symbol while the owner is away, and the
+/// VoiceOver label.
 public struct MenuBarState: Sendable, Equatable {
     public var count: Int
     public var nowCount: Int
     public var reachable: Bool
-    public var showCount: Bool
+    /// An ask arrived while the panel was hidden and hasn't been seen.
+    public var unseen: Bool
     public var offlineReason: String?
     /// Away mode: the symbol is de-emphasised; the badge is unchanged.
     public var away: Bool
@@ -28,7 +29,7 @@ public struct MenuBarState: Sendable, Equatable {
         count: Int = 0,
         nowCount: Int = 0,
         reachable: Bool = true,
-        showCount: Bool = true,
+        unseen: Bool = false,
         offlineReason: String? = nil,
         away: Bool = false,
         shortcut: String? = nil,
@@ -37,7 +38,7 @@ public struct MenuBarState: Sendable, Equatable {
         self.count = count
         self.nowCount = nowCount
         self.reachable = reachable
-        self.showCount = showCount
+        self.unseen = unseen
         self.offlineReason = offlineReason
         self.away = away
         self.shortcut = shortcut
@@ -46,21 +47,20 @@ public struct MenuBarState: Sendable, Equatable {
 
     /// `items` is the open list.
     public static func from(
-        items: [WireItem], reachable: Bool, showCount: Bool, offlineReason: String?, away: Bool = false
+        items: [WireItem], reachable: Bool, unseen: Bool, offlineReason: String?, away: Bool = false
     ) -> MenuBarState {
         MenuBarState(
             count: items.count,
             nowCount: items.filter { $0.urgency == "now" }.count,
             reachable: reachable,
-            showCount: showCount,
+            unseen: unseen,
             offlineReason: offlineReason,
             away: away)
     }
 
+    /// Only unseen asks bring the dot; it never carries a count.
     public var badge: MenuBarBadge {
-        if count == 0 { return .none }
-        if showCount && (1...9).contains(count) { return .number(count) }
-        return .dot
+        unseen && count > 0 ? .dot : .none
     }
 
     /// Offline: the symbol and the badge dim.

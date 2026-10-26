@@ -3,13 +3,14 @@ import RelayCore
 import RelayUI
 import SwiftUI
 
-/// Six menu-bar cells, 48 × 24 pt each, on the window background: none, 1, 9,
-/// dot (12 asks), offline (disabled symbol, badge 0.5), away (disabled symbol, full badge).
+/// Five menu-bar cells, 48 × 24 pt each, on the window background: nothing waiting,
+/// asks all seen (no dot), an unseen ask (dot), offline (disabled symbol, dot 0.5),
+/// away (disabled symbol, full dot).
 final class BadgeStrip: NSView {
     static let cell = NSSize(width: 48, height: 24)
     static let states: [(MenuBarState)] = [
-        MenuBarState(count: 0), MenuBarState(count: 1), MenuBarState(count: 9), MenuBarState(count: 12),
-        MenuBarState(count: 5, reachable: false), MenuBarState(count: 5, away: true),
+        MenuBarState(count: 0), MenuBarState(count: 3), MenuBarState(count: 3, unseen: true),
+        MenuBarState(count: 5, reachable: false, unseen: true), MenuBarState(count: 5, unseen: true, away: true),
     ]
 
     override init(frame: NSRect) {

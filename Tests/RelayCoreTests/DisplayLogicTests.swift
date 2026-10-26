@@ -37,29 +37,26 @@ private func legacy(cmd: String? = nil, link: String? = nil) -> WireItem {
     }
 
     @Test(arguments: [
-        (0, 0, true, MenuBarBadge.none),
-        (1, 0, true, .number(1)),
-        (9, 0, true, .number(9)),
-        (10, 0, true, .dot),
-        (18, 1, true, .dot),
-        (3, 0, false, .dot),
-        (2, 0, true, .number(2)),
-        (2, 2, true, .number(2)),
+        (0, false, MenuBarBadge.none),
+        (0, true, .none),
+        (1, false, .none),
+        (12, false, .none),
+        (1, true, .dot),
+        (12, true, .dot),
     ])
-    func badge(count: Int, nowCount: Int, showCount: Bool, expected: MenuBarBadge) {
-        let state = MenuBarState(count: count, nowCount: nowCount, showCount: showCount)
-        #expect(state.badge == expected)
+    func badge(count: Int, unseen: Bool, expected: MenuBarBadge) {
+        #expect(MenuBarState(count: count, unseen: unseen).badge == expected)
     }
 
     @Test func everyCombination() {
         for count in [0, 3] {
             for nowCount in [0, 1] where nowCount <= count {
                 for reachable in [true, false] {
-                    for showCount in [true, false] {
+                    for unseen in [true, false] {
                         let state = MenuBarState(
                             count: count, nowCount: nowCount, reachable: reachable,
-                            showCount: showCount, offlineReason: "timed out")
-                        let badge: MenuBarBadge = count == 0 ? .none : (showCount ? .number(3) : .dot)
+                            unseen: unseen, offlineReason: "timed out")
+                        let badge: MenuBarBadge = count > 0 && unseen ? .dot : .none
                         #expect(state.badge == badge)
                         #expect(state.dimmed == !reachable)
                         var label = "Relay, \(count) waiting"
@@ -75,8 +72,8 @@ private func legacy(cmd: String? = nil, link: String? = nil) -> WireItem {
     }
 
     @Test func fixedOfflineCase() {
-        let state = MenuBarState(count: 3, nowCount: 1, reachable: false, showCount: true, offlineReason: "timed out")
-        #expect(state.badge == .number(3))
+        let state = MenuBarState(count: 3, nowCount: 1, reachable: false, unseen: true, offlineReason: "timed out")
+        #expect(state.badge == .dot)
         #expect(state.dimmed)
         #expect(state.accessibilityLabel == "Relay, 3 waiting, 1 now, offline")
         #expect(state.tooltip == "Relay · offline: timed out")
@@ -96,8 +93,8 @@ private func legacy(cmd: String? = nil, link: String? = nil) -> WireItem {
 
     @Test func fromItemsCountsNowAsks() {
         let items = [ask(instructable(urgency: "now")), ask(instructable(urgency: "whenever")), legacy(cmd: "ls")]
-        let state = MenuBarState.from(items: items, reachable: true, showCount: false, offlineReason: nil)
-        #expect(state == MenuBarState(count: 3, nowCount: 1, reachable: true, showCount: false, offlineReason: nil))
+        let state = MenuBarState.from(items: items, reachable: true, unseen: true, offlineReason: nil)
+        #expect(state == MenuBarState(count: 3, nowCount: 1, reachable: true, unseen: true, offlineReason: nil))
         #expect(state.badge == .dot)
     }
 }

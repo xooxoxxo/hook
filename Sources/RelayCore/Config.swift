@@ -124,6 +124,7 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
     public var hotkey: String
     /// Local mode: days a finished ask is kept.
     public var keepDays: Int
+    /// No longer read: the menu-bar dot carries no count. Kept so older configs round-trip.
     public var showCount: Bool
     public var sidebarEdge: SidebarEdge
     public var appearance: AppearanceSetting
