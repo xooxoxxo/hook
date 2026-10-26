@@ -159,6 +159,8 @@ public enum LinkCheck: Equatable, Sendable {
     private var refreshCount = 0
     private var lastLinkRefresh: ContinuousClock.Instant?
     var listOK = false
+    /// The last list came through: `items` is the source's open list, not a placeholder.
+    public var listLoaded: Bool { loadedOnce && listOK }
     var listProblem: String? = Store.noSourceProblem { didSet { queueInputChanged() } }
     var listenerProblem: String?
     /// The source's open list, pending asks included.
@@ -994,8 +996,8 @@ public enum LinkCheck: Equatable, Sendable {
         return result
     }
 
-    public func menuBarState(showCount: Bool, away: Bool) -> MenuBarState {
-        MenuBarState.from(items: items, reachable: reachable, showCount: showCount, offlineReason: problem, away: away)
+    public func menuBarState(unseen: Bool, away: Bool) -> MenuBarState {
+        MenuBarState.from(items: items, reachable: reachable, unseen: unseen, offlineReason: problem, away: away)
     }
 
     private func load(_ id: String, from source: any QueueSource, generation gen: Int) async {

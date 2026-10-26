@@ -2,9 +2,9 @@ import AppKit
 import RelayCore
 import RelayUI
 
-/// The status item: the template "checklist" symbol with a red badge on its
-/// top-right corner while any ask is open (the count when it fits in one digit,
-/// else a plain dot). The symbol looks disabled while offline or away; the badge
+/// The status item: the template "checklist" symbol with a red dot on its
+/// top-right corner while an ask that arrived with the panel hidden is unseen
+/// (`UnseenAsks`). The symbol looks disabled while offline or away; the badge
 /// dims only while offline. The tooltip is always set. Left click toggles the
 /// sidebar; right click or control-click opens the menu, rebuilt from
 /// `MenuBarMenu.entries` on every open.

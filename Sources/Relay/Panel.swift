@@ -14,6 +14,8 @@ import RelayUI
     var onEscape: (@MainActor () -> Bool)?
     /// The panel-wide keys; AppDelegate sets it once the panel hosts PanelRoot.
     var keyRouter: PanelKeyRouter?
+    /// Every show and slide-in: the menu bar's unseen asks are seen now.
+    var onShown: (@MainActor () -> Void)?
     /// Reads `sidebarDisplay` and saves a pin from a header drag; set by `connect(_:)`.
     private weak var model: AppModel?
     private var docker: PanelDocker?
@@ -223,6 +225,7 @@ import RelayUI
             orderFrontRegardless()
         }
         if focus { makeKey() }
+        onShown?()
     }
 
     /// A "now" ask while the panel is hidden: from beyond the edge to the docked frame,
@@ -235,6 +238,7 @@ import RelayUI
         dock(edge: edge)
         let docked = targetFrame ?? frame
         slidIn = true
+        onShown?()
         if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
             setFrame(docked, display: false)
             if !isVisible { alphaValue = 0 }

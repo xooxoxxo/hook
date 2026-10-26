@@ -72,11 +72,6 @@ public struct GeneralTab<Model: SettingsViewModel>: View {
                         Button("Open Login Items") { model.perform(.openLoginItems) }
                     }
                 }
-                SettingsRow("Menu bar", help: GeneralHelp.menuBar) {
-                    Toggle("Show the count on the badge", isOn: model.configBinding(
-                        "showCount", \.showCount, fallback: true, encode: { $0 }))
-                        .toggleStyle(.checkbox)
-                }
             }
             .environment(\.settingsSection, "Startup and menu bar")
             .disabled(model.settings.readOnly)
@@ -108,5 +103,4 @@ public enum GeneralHelp {
     public static let shortcut = "Click the field, then press the new keys. Use at least one of ⌘, ⌃ or ⌥ with a letter, a digit, Space, ` or F1–F12. Esc cancels. ⊗ turns the shortcut off."
     public static let presence = "Relay marks you away when the screen locks, the displays sleep, you're connected over Screen Sharing, or you haven't touched the Mac for this long. While you're away, Relay doesn't slide the panel in or show notifications; asks still reach anything your mailbox forwards them to. Relay also creates ~/.local/state/relay/away, so other tools can tell. For example, ssh can skip the 1Password agent."
     public static let login = "Relay adds a LaunchAgent so it starts when you log in."
-    public static let menuBar = "The red badge shows how many asks are waiting, up to 9. With more, or with this off, it's a plain dot."
 }

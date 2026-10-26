@@ -18,8 +18,8 @@ import RelayUI
     private var welcome: WelcomeWindowController?
     private var notifier: Notifier?
     private var menuBar: MenuBarController?
-    /// `showCount` from the applied config.
-    private var showCount = true
+    /// Asks that arrived while the panel was hidden and haven't been seen: the menu-bar dot.
+    private var unseen = UnseenAsks.load(.standard)
     private var server: LoopbackServer?
     private var serverPort: Int?
     private let routing = ServerRouting()
@@ -84,6 +84,7 @@ import RelayUI
         setUpMenuBar()
         store.onStateChange = { [weak self] in self?.storeStateChanged() }
         store.onNewItems = { [weak self] items in
+            self?.noteArrivals(items)
             self?.announce(items)
         }
         // A click goes through the same check as a link: closed or unknown → Notice.
@@ -305,6 +306,7 @@ import RelayUI
         hosting.safeAreaRegions = []
         let panel = SidePanel(content: hosting)
         ref.panel = panel
+        panel.onShown = { [weak self] in self?.panelShown() }
         panel.connect(model)
         panel.keyRouter = PanelKeyRouter(model: store)
         store.shell = PanelShellActions(
@@ -403,7 +405,6 @@ import RelayUI
         }
         restartServerIfNeeded(port: port)
         updateListenerProblem()
-        showCount = config?.showCount ?? true
         updateMenuBar()
         applyPanelSettings(config)
         store?.afterClose = config?.afterClose ?? .next
@@ -587,6 +588,9 @@ import RelayUI
     /// After every list, close, undo and send. Settings is rebuilt only when what it reads
     /// from the Store changed: the rebuild reads files and screens, and polls mostly change nothing.
     private func storeStateChanged() {
+        if let store, store.listLoaded {
+            updateUnseen { $0.keep(open: Set(store.items.map(\.id))) }
+        }
         updateMenuBar(refreshingSettings: false)
         if let store {
             let inputs = SettingsStoreInputs(store)
@@ -602,7 +606,7 @@ import RelayUI
     private func updateMenuBar(refreshingSettings: Bool = true) {
         guard let store else { return }
         let status = presence.status
-        var state = store.menuBarState(showCount: showCount, away: status.state == .away)
+        var state = store.menuBarState(unseen: unseen.showsDot, away: status.state == .away)
         let label = hotKeys?.label ?? HotKeyManager.offLabel
         state.shortcut = label == HotKeyManager.offLabel ? nil : label
         state.awaySince = status.state == .away ? ClockText.time(status.since) : nil
@@ -649,8 +653,8 @@ import RelayUI
 
     /// The General setting nothing else applies: the global shortcut.
     /// Runs at launch and on every config change; a hotkey the General tab just
-    /// registered is the same spec, so `apply` is a no-op then. `appearance`,
-    /// `sidebarEdge` and `showCount` are applied at the end of `apply(_:)`.
+    /// registered is the same spec, so `apply` is a no-op then. `appearance` and
+    /// `sidebarEdge` are applied at the end of `apply(_:)`.
     private func applyGeneral(_ config: RelayConfig?) {
         presence.configure(
             mode: config?.presence ?? .auto,
@@ -711,6 +715,27 @@ import RelayUI
                 element: panel, notification: .announcementRequested,
                 userInfo: [.announcement: text, .priority: NSAccessibilityPriorityLevel.high.rawValue])
         }
+    }
+
+    /// New asks count toward the dot only while the panel is hidden (a slide-in shows it right after).
+    private func noteArrivals(_ items: [WireItem]) {
+        let visible = panel?.isShown ?? false
+        updateUnseen { $0.arrived(items.map(\.id), panelVisible: visible) }
+    }
+
+    /// Any show of the panel marks every open ask seen.
+    private func panelShown() {
+        updateUnseen { $0.panelShown() }
+    }
+
+    /// Applies a change, saving it and redrawing the badge only when the set moved.
+    private func updateUnseen(_ change: (inout UnseenAsks) -> Void) {
+        var next = unseen
+        change(&next)
+        guard next != unseen else { return }
+        unseen = next
+        next.save(.standard)
+        updateMenuBar(refreshingSettings: false)
     }
 
     /// Removes notifications for asks that left the open list or were reopened. A close
