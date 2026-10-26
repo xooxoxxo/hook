@@ -394,6 +394,39 @@ private let abc = [item("a", created: stamp(minutesAgo: 10)), item("b", created:
         #expect(store.navigation.selectedID == "c")
     }
 
+    @Test func leavingASessionClosedAskClearsItsNotice() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, fake) = await ready(defaults: defaults)
+        store.open("a")
+        #expect(await eventually { store.details["a"] != nil })
+        await fake.setItems(Array(abc.dropFirst()))
+        await store.refresh()
+        #expect(store.notice == .sessionClosed(id: "a"))
+        #expect(store.notice?.showsOnQueue == false)
+        store.back()
+        #expect(store.navigation.selectedID == nil)
+        #expect(store.notice == nil)
+
+        store.open("b")
+        #expect(await eventually { store.details["b"] != nil })
+        await fake.setItems([abc[2]])
+        await store.refresh()
+        #expect(store.notice == .sessionClosed(id: "b"))
+        store.open("c")
+        #expect(store.notice == nil)
+    }
+
+    @Test func otherNoticesOutliveNavigation() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, _) = await ready(defaults: defaults)
+        store.open("a")
+        store.post(.storeFailed(reason: "full"))
+        store.back()
+        #expect(store.notice == .storeFailed(reason: "full"))
+    }
+
     @Test func oneNoticeAtATime() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }

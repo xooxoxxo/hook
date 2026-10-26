@@ -72,6 +72,9 @@ private func content(_ key: String = "mailbox:m#p", loadedOnce: Bool = true, rea
         for (notice, kind, action) in cases {
             #expect(notice.kind == kind, "\(notice)")
             #expect(notice.actionTitle == action, "\(notice)")
+            let detailOnly = notice == .sessionClosed(id: "a")
+            #expect(notice.showsOnQueue == !detailOnly, "\(notice)")
+            #expect(notice.detailAskID == (detailOnly ? "a" : nil), "\(notice)")
         }
     }
 }

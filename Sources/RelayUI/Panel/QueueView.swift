@@ -53,7 +53,7 @@ struct QueueView<Model: PanelViewModel>: View, Equatable {
         self.model = model
         queue = model.queue
         status = model.status
-        notice = model.notice
+        notice = model.notice.flatMap { $0.showsOnQueue ? $0 : nil }
         undo = model.undoInfo
         sending = model.sendingCloses > 0
         listSelection = model.listSelection

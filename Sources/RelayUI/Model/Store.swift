@@ -25,7 +25,7 @@ public enum LinkCheck: Equatable, Sendable {
     /// A row's ticks are checked against its fetched detail's steps, so a new detail rebuilds the queue.
     @Published public private(set) var details: [String: AskDetail] = [:] { didSet { queueInputChanged() } }
     /// The highlighted row and the open detail.
-    @Published public var navigation = PanelNavigation()
+    @Published public var navigation = PanelNavigation() { didSet { dropNoticeOfLeftAsk() } }
     /// Unsent reply text per ask. Memory only: the owner's text is never written to disk unasked.
     /// Only whether a draft has text reaches the queue (its draft mark), so typing doesn't rebuild it.
     @Published public var drafts: [String: String] = [:] {
@@ -55,7 +55,8 @@ public enum LinkCheck: Equatable, Sendable {
     }
     /// After Done or Skip in the detail; AppDelegate sets it from config.json.
     public var afterClose: AfterClose = .next
-    /// One Notice at a time; the newest replaces the older; only ✕ or its action clears it.
+    /// One Notice at a time; the newest replaces the older; only ✕ or its action clears it,
+    /// except a Notice about the open ask, which also goes when the owner leaves that ask.
     @Published public private(set) var notice: PanelNotice?
     /// A close reached the source (sent after Undo, at quit, or before a swap) or an ask was
     /// reopened: remove its delivered notification.
@@ -679,6 +680,13 @@ public enum LinkCheck: Equatable, Sendable {
     public func post(_ notice: PanelNotice) { self.notice = notice }
 
     public func dismissNotice() { notice = nil }
+
+    /// Back, Esc, Next Ask or opening another ask leaves the closed ask, and its Notice with it.
+    private func dropNoticeOfLeftAsk() {
+        guard let id = notice?.detailAskID, navigation.selectedID != id else { return }
+        notice = nil
+        sessionClosedNext = nil
+    }
 
     /// The Notice's button: Retry, Next Ask, Show Closed Ask, Try Again or Show in Finder.
     public func performNoticeAction() async {
