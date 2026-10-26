@@ -35,6 +35,7 @@ public enum PanelNotice: Equatable, Sendable {
     case sessionClosed(id: String)
     case noLongerOpen(id: String, canShowClosed: Bool)
     case offlineCached(since: String)
+    case updating(version: String, logPath: String)
 
     /// The open ask this Notice is about, when it belongs to that ask's detail: it goes when
     /// the owner leaves the ask and never shows on the queue.
@@ -48,7 +49,7 @@ public enum PanelNotice: Equatable, Sendable {
     public var kind: NoticeKind {
         switch self {
         case .actionFailed, .reopenFailed, .storeFailed, .queueMoved: return .error
-        case .settingsReloaded, .sessionClosed, .noLongerOpen, .offlineCached: return .info
+        case .settingsReloaded, .sessionClosed, .noLongerOpen, .offlineCached, .updating: return .info
         }
     }
 
@@ -70,6 +71,8 @@ public enum PanelNotice: Equatable, Sendable {
             return "This ask is no longer open."
         case .offlineCached(let since):
             return "Offline · showing asks from \(since)"
+        case .updating(let version, _):
+            return "Updating to \(Sanitize.revealLine(version)). Relay restarts in about 2 minutes."
         }
     }
 
@@ -80,8 +83,15 @@ public enum PanelNotice: Equatable, Sendable {
         case .sessionClosed: return "Next Ask"
         case .noLongerOpen(_, let canShowClosed): return canShowClosed ? "Show Closed Ask" : nil
         case .offlineCached: return "Try Again"
-        case .storeFailed, .settingsReloaded: return nil
+        case .storeFailed, .settingsReloaded, .updating: return nil
         }
+    }
+
+    /// The text behind the Notice's "?", when it has one.
+    public var help: String? {
+        guard case .updating(_, let logPath) = self else { return nil }
+        return "Relay rebuilds from your checkout, then quits and starts again. "
+            + "If the update fails, the old Relay keeps running. The log says why: \(Sanitize.revealLine(logPath))"
     }
 }
 

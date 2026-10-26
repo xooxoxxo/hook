@@ -3,7 +3,7 @@ import Foundation
 /// What a menu-bar menu item does; MenuBarController maps it to AppDelegate.
 public enum MenuAction: Equatable, Sendable {
     case setUp, togglePanel, setPresence(PresenceMode), refresh, dock(SidebarEdge), pinDisplay(String?), redock
-    case settings, about, quit
+    case settings, about, update, checkForUpdates, quit
 }
 
 public indirect enum MenuEntry: Equatable, Sendable {
@@ -32,9 +32,12 @@ public struct MenuInputs: Equatable, Sendable {
     public var presence: PresenceMode
     public var displays: [MenuDisplay]
     public var pinned: String?
+    /// A newer release ("0.6.5"), or nil.
+    public var updateVersion: String?
 
     public init(notSetUp: Bool, panelVisible: Bool, shortcut: HotkeySpec?, statusLine: String,
-                presenceLine: String, presence: PresenceMode, displays: [MenuDisplay], pinned: String?) {
+                presenceLine: String, presence: PresenceMode, displays: [MenuDisplay], pinned: String?,
+                updateVersion: String? = nil) {
         self.notSetUp = notSetUp
         self.panelVisible = panelVisible
         self.shortcut = shortcut
@@ -43,6 +46,7 @@ public struct MenuInputs: Equatable, Sendable {
         self.presence = presence
         self.displays = displays
         self.pinned = pinned
+        self.updateVersion = updateVersion
     }
 }
 
@@ -56,6 +60,10 @@ public enum MenuBarMenu {
 
     public static func entries(_ inputs: MenuInputs) -> [MenuEntry] {
         var entries: [MenuEntry] = []
+        if let version = inputs.updateVersion {
+            entries.append(action("Update Relay to \(Sanitize.revealLine(version))…", .update))
+            entries.append(.separator)
+        }
         if inputs.notSetUp { entries.append(action("Set Up Relay…", .setUp)) }
         let toggle = inputs.panelVisible ? "Hide Relay" : "Show Relay"
         if let spec = inputs.shortcut, let key = keyEquivalent(for: spec) {
@@ -87,6 +95,7 @@ public enum MenuBarMenu {
         entries.append(.separator)
         entries.append(action("Settings…", .settings, key: ",", modifiers: [.command]))
         entries.append(action("About Relay", .about))
+        entries.append(action("Check for Updates…", .checkForUpdates))
         entries.append(.separator)
         entries.append(action("Quit Relay", .quit, key: "q", modifiers: [.command]))
         return entries

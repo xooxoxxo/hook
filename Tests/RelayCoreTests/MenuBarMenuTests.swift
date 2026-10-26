@@ -35,8 +35,20 @@ private func submenu(_ entries: [MenuEntry], _ title: String) -> [MenuEntry] {
     @Test func theMenuHasTheSpecTitlesInOrder() {
         #expect(titles(MenuBarMenu.entries(inputs())) == [
             "Show Relay", "—", "Mailbox · ready · updated 10:42", "Home · active", "Presence ▸", "—",
-            "Refresh", "Panel ▸", "—", "Settings…", "About Relay", "—", "Quit Relay",
+            "Refresh", "Panel ▸", "—", "Settings…", "About Relay", "Check for Updates…", "—", "Quit Relay",
         ])
+    }
+
+    @Test func anAvailableUpdateComesFirstAndCheckForUpdatesIsAlwaysThere() {
+        var withUpdate = inputs()
+        withUpdate.updateVersion = "0.6.5"
+        let entries = MenuBarMenu.entries(withUpdate)
+        #expect(Array(titles(entries).prefix(3)) == ["Update Relay to 0.6.5…", "—", "Show Relay"])
+        #expect(item(entries, "Update Relay to 0.6.5…")
+            == .item(title: "Update Relay to 0.6.5…", action: .update, key: nil, modifiers: [], enabled: true, checked: false))
+        #expect(item(MenuBarMenu.entries(inputs()), "Check for Updates…")
+            == .item(title: "Check for Updates…", action: .checkForUpdates, key: nil, modifiers: [], enabled: true, checked: false))
+        #expect(!titles(MenuBarMenu.entries(inputs())).contains { $0.hasPrefix("Update Relay") })
     }
 
     @Test func setUpRelayShowsOnlyWhileNotSetUp() {

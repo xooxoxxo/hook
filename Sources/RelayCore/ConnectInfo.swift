@@ -140,7 +140,7 @@ public enum ConnectInfo {
     }
 
     /// Trimmed, `~` expanded, no trailing slash.
-    static func normalized(_ path: String) -> String {
+    public static func normalized(_ path: String) -> String {
         var text = (path.trimmingCharacters(in: .whitespacesAndNewlines) as NSString).expandingTildeInPath
         while text.count > 1, text.hasSuffix("/") {
             text.removeLast()

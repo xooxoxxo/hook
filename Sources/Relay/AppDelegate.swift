@@ -57,6 +57,10 @@ import RelayUI
     /// SIGTERM (`kill`, `launchctl bootout`) skips applicationWillTerminate, so it
     /// is caught here to clear the away flag first.
     private var termSource: (any DispatchSourceSignal)?
+    /// The daily release check behind "Update Relay to …" and Check for Updates….
+    private let updates = UpdateChecker()
+    /// An update job was started; a second click does nothing.
+    private var updateStarted = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if handOffToRunningRelay() { return }
@@ -132,6 +136,7 @@ import RelayUI
             awayAfterMinutes: model.config?.awayAfterMinutes ?? PresenceLogic.defaultAwayAfterMinutes)
         presenceChanged(to: presence.status)
         watchTermSignal()
+        updates.start()
         applyGeneral(model.config)
         scheduleApply(model.config)
 
@@ -564,7 +569,8 @@ import RelayUI
             displays: NSScreen.screens.compactMap { screen in
                 screen.displayUUID.map { MenuDisplay(id: $0, name: screen.localizedName) }
             },
-            pinned: model?.config?.sidebarDisplay)
+            pinned: model?.config?.sidebarDisplay,
+            updateVersion: updateStarted ? nil : updates.state.availableVersion)
     }
 
     private func perform(_ action: MenuAction) {
@@ -581,8 +587,64 @@ import RelayUI
         case .about:
             NSApp.activate()
             NSApp.orderFrontStandardAboutPanel(nil)
+        case .update: confirmUpdate()
+        case .checkForUpdates: checkForUpdatesNow()
         case .quit: NSApp.terminate(nil)
         }
+    }
+
+    // MARK: Updates
+
+    /// Check for Updates…: a newer release goes straight to the confirmation.
+    private func checkForUpdatesNow() {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            switch await self.updates.check() {
+            case .available: self.confirmUpdate()
+            case .failed(let reason): Self.alert("Couldn't check for updates.", reason)
+            case .none, .checking: Self.alert("Relay \(UpdateChecker.runningVersion) is up to date.", nil)
+            }
+        }
+    }
+
+    /// "Update Relay to …": confirm, gate the checkout, then start the detached job.
+    private func confirmUpdate() {
+        guard !updateStarted, case .available(let version, let tag, _) = updates.state else { return }
+        NSApp.activate()
+        let alert = NSAlert()
+        alert.messageText = "Update Relay to \(version)?"
+        alert.informativeText = "Relay rebuilds from your checkout and restarts in about 2 minutes."
+        alert.addButton(withTitle: "Update")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        updateStarted = true
+        let repoPath = model?.config?.repoPath
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            switch await UpdateRunner.gate(repoPath: repoPath) {
+            case .failure(let error):
+                self.updateStarted = false
+                Self.alert("Relay can't update.", error.reason)
+            case .success(let checkout):
+                do {
+                    try UpdateRunner.launch(repo: checkout.repo, tag: tag, mode: checkout.mode)
+                    let log = TildePath.abbreviate(UpdateRunner.logPath, home: UpdateRunner.home)
+                    self.store?.post(.updating(version: version, logPath: log))
+                    self.panel?.present(focus: false, animated: true)
+                } catch {
+                    self.updateStarted = false
+                    Self.alert("Relay can't update.", UserFacingError.text(error))
+                }
+            }
+        }
+    }
+
+    private static func alert(_ message: String, _ detail: String?) {
+        NSApp.activate()
+        let alert = NSAlert()
+        alert.messageText = message
+        if let detail { alert.informativeText = detail }
+        alert.runModal()
     }
 
     /// After every list, close, undo and send. Settings is rebuilt only when what it reads

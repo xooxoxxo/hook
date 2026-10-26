@@ -5,7 +5,7 @@ Relay lives in the menu bar and shows asks in a panel docked to the edge of a di
 ## Menu bar
 
 - Click the checklist icon, or press ⌃⌥⌘R anywhere, to show the panel. If it is open but another app has focus, the same click or key focuses it; if it is focused, it hides. Change or turn off the shortcut in Settings › General.
-- Right-click (or Control-click) the icon for the menu: Show or Hide Relay, the queue status, your presence, Refresh, Panel (dock left or right, pick a display, Re-dock Now), Settings…, About Relay and Quit Relay.
+- Right-click (or Control-click) the icon for the menu: Show or Hide Relay, the queue status, your presence, Refresh, Panel (dock left or right, pick a display, Re-dock Now), Settings…, About Relay, Check for Updates… and Quit Relay.
 - A red badge counts waiting asks from 1 to 9. From 10 up, or with "Show the count on the badge" off, it is a dot. The badge always counts every open ask, whatever the panel's project filter.
 - Hover the icon for a summary: how many asks wait, how many are "now", and the shortcut.
 - Relay asks for notification permission before its first notification, or when you allow it on the second Welcome page or in Settings › Notifications.
@@ -70,6 +70,10 @@ Relay marks you away when the screen is locked, the displays sleep, you switched
 While you're away, "now" asks don't slide the panel in and no notifications show. Asks still reach anything your mailbox forwards them to. The icon fades, the status bar starts with "Away", and the menu shows why and since when. When you're back, one notification counts the asks that arrived for the urgencies switched on in Notifications; click it to open the list on the first of them.
 
 Relay also keeps a [flag file](configuration.md#the-away-flag) for other tools.
+
+## Updating
+
+Relay checks GitHub for a new release a minute after launch and then daily. When one exists, the menu starts with "Update Relay to X.Y.Z…". Relay then updates your checkout to that release tag (it must be clean and on main) and runs `scripts/install.sh`, restarting in about 2 minutes. The log is `~/Library/Logs/Relay/update.log`.
 
 ## Settings
 
