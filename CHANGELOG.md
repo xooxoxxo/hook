@@ -3,6 +3,12 @@
 All notable changes to Relay are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## [0.6.6] - 2026-10-26
+
+### Changed
+
+- Clicking the menu-bar icon hides the panel whenever it is on screen, focused or not. The keyboard shortcut still brings a visible but unfocused panel to the front.
+
 ## [0.6.5] - 2026-10-26
 
 ### Added
