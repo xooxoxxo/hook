@@ -90,6 +90,10 @@ public enum LinkCheck: Equatable, Sendable {
     @Published public var expandedDone: [String: Set<String>] = [:]
     /// Upcoming steps the owner expanded by hand, by ask; node paths. Memory only, like expandedDone.
     @Published public var expandedTodo: [String: Set<String>] = [:]
+    /// Asks whose sent reply the owner is changing (Change). Memory only; a sent reply leaves it.
+    @Published public var editingReply: Set<String> = []
+    /// Answered step questions the owner is changing, per ask, by path. Memory only; a send leaves it.
+    @Published public var editingAnswers: [String: Set<String>] = [:]
     /// The path of the top visible node per ask, for the detail's scroll position. Memory only.
     @Published public var detailAnchor: [String: String] = [:]
     /// Tick paths as loaded from TickStore, per ask, with the step source they were loaded
@@ -256,6 +260,8 @@ public enum LinkCheck: Equatable, Sendable {
         tickHistory = [:]
         expandedDone = [:]
         expandedTodo = [:]
+        editingReply = []
+        editingAnswers = [:]
         detailAnchor = [:]
         replyStates = [:]
         answerStates = [:]
@@ -967,13 +973,19 @@ public enum LinkCheck: Equatable, Sendable {
     public func sendReply(_ id: String) async -> Bool {
         let text = (drafts[id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, replyStates[id] != .sending else { return false }
-        return await send(text, for: id) { self.drafts[id] = nil }
+        return await send(text, for: id) {
+            self.drafts[id] = nil
+            self.editingReply.remove(id)
+        }
     }
 
     public func sendChoice(_ id: String) async -> Bool {
         guard let index = pendingChoice[id], let choices = item(for: id)?.instructable?.reply?.choices,
               choices.indices.contains(index), replyStates[id] != .sending else { return false }
-        return await send(ReplyText.wire(choice: choices[index]), for: id) { self.pendingChoice[id] = nil }
+        return await send(ReplyText.wire(choice: choices[index]), for: id) {
+            self.pendingChoice[id] = nil
+            self.editingReply.remove(id)
+        }
     }
 
     /// ⌘↩ / the primary button: Done, or send first and close only when every send worked.
@@ -987,8 +999,9 @@ public enum LinkCheck: Equatable, Sendable {
         if unsentAnswers(for: id).count > 0 {
             guard await sendAnswers(id) else { return }
         }
-        if Flow.primaryAction(draft: drafts[id], choice: pendingChoice[id], sent: latestSentChoice(for: id)) == .sendAndDone {
-            let hasText = !(drafts[id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        if Flow.primaryAction(draft: drafts[id], choice: pendingChoice[id], sent: latestSentChoice(for: id),
+                              sentText: AnswerEditing.latestText(replyLines(for: id))) == .sendAndDone {
+            let hasText = AnswerEditing.isNewText(drafts[id] ?? "", sentText: AnswerEditing.latestText(replyLines(for: id)))
             let sent = hasText ? await sendReply(id) : await sendChoice(id)
             guard sent else { return }
         }
@@ -1027,6 +1040,10 @@ public enum LinkCheck: Equatable, Sendable {
             if var drafts = answerDrafts[id] {
                 for path in unsent.paths where drafts[path] == sent[path] { drafts[path] = nil }
                 answerDrafts[id] = drafts.isEmpty ? nil : drafts
+            }
+            if var editing = editingAnswers[id] {
+                editing.subtract(unsent.paths)
+                editingAnswers[id] = editing.isEmpty ? nil : editing
             }
             answerStates[id] = nil
             return true
@@ -1078,7 +1095,7 @@ public enum LinkCheck: Equatable, Sendable {
 
     public func primaryAction(for id: String) -> PrimaryAction {
         Flow.primaryAction(draft: drafts[id], choice: pendingChoice[id], sent: latestSentChoice(for: id),
-                           unsentAnswers: unsentAnswers(for: id).count)
+                           unsentAnswers: unsentAnswers(for: id).count, sentText: AnswerEditing.latestText(replyLines(for: id)))
     }
 
     public func replyLines(for id: String) -> [ReplyLine] {

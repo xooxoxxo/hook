@@ -42,6 +42,10 @@ public struct PanelShellActions: Sendable {
     /// Unsent step answers per ask, then step path (memory only).
     var answerDrafts: [String: [String: AnswerDraft]] { get set }
     var expandedDone: [String: Set<String>] { get set }
+    /// Asks whose sent reply is being changed (memory only).
+    var editingReply: Set<String> { get set }
+    /// Answered step questions being changed, per ask, by path (memory only).
+    var editingAnswers: [String: Set<String>] { get set }
     /// Upcoming steps expanded by hand, per ask (memory only).
     var expandedTodo: [String: Set<String>] { get set }
     var detailAnchor: [String: String] { get set }
@@ -73,4 +77,41 @@ public struct PanelShellActions: Sendable {
     func performNoticeAction()
     func copyLink(_ id: String)
     func retryDetail(_ id: String)
+}
+
+/// Change and Cancel on an answered reply or step question. Edit state lives in the model,
+/// in memory only; a successful send leaves it (the Store does that).
+extension PanelViewModel {
+    /// The reply comes back prefilled: the latest choice picked, or the latest text as the draft.
+    public func changeReply(_ id: String) {
+        guard let snapshot = detail(id) else { return }
+        let prefill = AnswerEditing.replyPrefill(replies: snapshot.replies,
+                                                 hasChoices: !(snapshot.model?.reply?.choices ?? []).isEmpty,
+                                                 latestSentChoice: snapshot.latestSentChoice)
+        drafts[id] = prefill.draft
+        pendingChoice[id] = prefill.choice
+        editingReply.insert(id)
+    }
+
+    /// Back to the answer row; the unsent text or pick goes.
+    public func cancelReplyChange(_ id: String) {
+        editingReply.remove(id)
+        drafts[id] = nil
+        pendingChoice[id] = nil
+    }
+
+    /// The question's control comes back, starting from the sent answer.
+    public func changeAnswer(_ id: String, path: String) {
+        editingAnswers[id, default: []].insert(path)
+    }
+
+    /// Back to the answered row; the unsent draft at `path` goes.
+    public func cancelAnswerChange(_ id: String, path: String) {
+        var paths = editingAnswers[id] ?? []
+        paths.remove(path)
+        editingAnswers[id] = paths.isEmpty ? nil : paths
+        guard var drafts = answerDrafts[id] else { return }
+        drafts[path] = nil
+        answerDrafts[id] = drafts.isEmpty ? nil : drafts
+    }
 }

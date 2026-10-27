@@ -120,6 +120,7 @@ public struct DetailSnapshot: Equatable, Sendable {
         let isOpen = item.status == "open"
         let locked = Set(Flow.lockedPaths(nodes: nodes, ticks: ticks))
         let unsent = isOpen ? AnswerDrafts.unsent(answerDrafts, nodes: nodes, locked: locked) : .none
+        let replies = ReplyText.lines(events: events)
         let answered = model.map { Set(Flow.flattened($0.nodes).compactMap { $0.answer?.step }) }
         return DetailSnapshot(
             id: item.id,
@@ -127,9 +128,10 @@ public struct DetailSnapshot: Equatable, Sendable {
                                    closedBy: model?.closedBy ?? closedBy),
             model: model, load: load, ticks: ticks,
             current: Flow.currentStep(ticks: ticks, nodes: nodes), progress: Flow.progress(ticks: ticks, nodes: nodes),
-            replies: ReplyText.lines(events: events), sentChoices: ReplyText.sentChoices(events: events, choices: choices),
+            replies: replies, sentChoices: ReplyText.sentChoices(events: events, choices: choices),
             latestSentChoice: latest, reply: reply,
-            primary: Flow.primaryAction(draft: draft, choice: pendingChoice, sent: latest, unsentAnswers: unsent.count),
+            primary: Flow.primaryAction(draft: draft, choice: pendingChoice, sent: latest, unsentAnswers: unsent.count,
+                                        sentText: AnswerEditing.latestText(replies)),
             busy: busy || answerState == .sending,
             previous: previous, next: next,
             closedText: isOpen ? nil : ClosedText.detail(status: item.status, closedBy: model?.closedBy ?? closedBy,

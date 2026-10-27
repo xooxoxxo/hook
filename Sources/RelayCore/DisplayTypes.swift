@@ -257,11 +257,14 @@ public struct ReplyLine: Equatable, Sendable, Identifiable {
     public var text: String
     /// Local short time, "10:42".
     public var time: String
+    /// The picked choice, revealed, when the reply was a choice; nil for free text.
+    public var choice: String?
 
-    public init(id: Int, text: String, time: String) {
+    public init(id: Int, text: String, time: String, choice: String? = nil) {
         self.id = id
         self.text = text
         self.time = time
+        self.choice = choice
     }
 }
 

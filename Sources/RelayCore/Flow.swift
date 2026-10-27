@@ -174,10 +174,12 @@ extension Flow {
     }
 
     /// `.sendAndDone` (Done that sends first) while step answers are unsent, the reply field
-    /// has text, or a picked choice isn't the latest sent one.
-    public static func primaryAction(draft: String?, choice: Int?, sent: Int?, unsentAnswers: Int = 0) -> PrimaryAction {
+    /// has text other than the latest sent text (`sentText`, a Change prefill), or a picked
+    /// choice isn't the latest sent one.
+    public static func primaryAction(draft: String?, choice: Int?, sent: Int?, unsentAnswers: Int = 0,
+                                     sentText: String? = nil) -> PrimaryAction {
         if unsentAnswers > 0 { return .sendAndDone }
-        if let draft, !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return .sendAndDone }
+        if let draft, AnswerEditing.isNewText(draft, sentText: sentText) { return .sendAndDone }
         if let choice, choice != sent { return .sendAndDone }
         return .done
     }

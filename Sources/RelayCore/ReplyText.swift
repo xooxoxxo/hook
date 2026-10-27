@@ -25,7 +25,10 @@ public enum ReplyText {
 
     public static func lines(events: [Event], locale: Locale = .current, timeZone: TimeZone = .current) -> [ReplyLine] {
         ownerReplies(events).compactMap { event in
-            event.text.map { ReplyLine(id: event.seq, text: display($0), time: ClockText.time(event.at, locale: locale, timeZone: timeZone)) }
+            event.text.map {
+                ReplyLine(id: event.seq, text: display($0), time: ClockText.time(event.at, locale: locale, timeZone: timeZone),
+                          choice: choice(from: $0).map(Sanitize.revealLine))
+            }
         }
     }
 

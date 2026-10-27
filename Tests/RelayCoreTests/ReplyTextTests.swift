@@ -35,6 +35,6 @@ private func reply(_ seq: Int, _ text: String?, actor: String = "owner", kind: S
         let events = [reply(2, "choice: A", at: "2026-10-16T09:12:00+00:00"), reply(3, "nope", actor: "session"),
                       reply(5, "C07QX2", at: "2026-10-16T09:31:00+00:00"), reply(6, nil)]
         let lines = ReplyText.lines(events: events, locale: Locale(identifier: "en_GB"), timeZone: TimeZone(identifier: "UTC")!)
-        #expect(lines == [ReplyLine(id: 2, text: "You chose: A", time: "09:12"), ReplyLine(id: 5, text: "C07QX2", time: "09:31")])
+        #expect(lines == [ReplyLine(id: 2, text: "You chose: A", time: "09:12", choice: "A"), ReplyLine(id: 5, text: "C07QX2", time: "09:31")])
     }
 }
