@@ -74,6 +74,8 @@ final class ServerRouting: Sendable {
     var hookInstalled = false
     var hookError: String?
     var claudeMdInstalled = false
+    /// Bumped by each `checkAgents`; an older check's late results are dropped.
+    var agentCheckGeneration = 0
     /// The installed terminals for the Terminal picker, and when they were last looked up.
     var installedTerminals: Set<TerminalKind> = []
     var terminalsCheckedAt: Date?

@@ -221,6 +221,22 @@ private func promptCommands(_ object: [String: Any]) -> [String] {
         #expect(ConnectInfo.claudeMdInstalled(home: home, repoPath: repo.path))
     }
 
+    /// The agents page's three checks in one read, which the app runs off the main actor.
+    @Test func agentChecksReadAllThree() async throws {
+        let home = try tempHome()
+        defer { try? FileManager.default.removeItem(at: home) }
+        let repo = home.appending(path: "repo")
+        try write("# Owner asks go to Hook\n", to: repo.appending(path: "docs/claude-md-section.md"))
+        #expect(ConnectInfo.agentChecks(home: home, repoPath: repo.path) == ConnectInfo.AgentChecks())
+        try write(#"{"mcpServers": {"relay": {"command": "python3"}}}"#, to: ConnectInfo.claudeStatePath(home: home))
+        try ConnectInfo.installRepliesHook(home: home)
+        try write("# Owner asks go to Hook\n", to: ConnectInfo.claudeMdPath(home: home))
+        let path = repo.path
+        let checks = await Task.detached { ConnectInfo.agentChecks(home: home, repoPath: path) }.value
+        #expect(checks == ConnectInfo.AgentChecks(mcpRegistered: true, hookInstalled: true, claudeMdInstalled: true))
+        #expect(!ConnectInfo.agentChecks(home: home, repoPath: nil).claudeMdInstalled)
+    }
+
     @Test func theDonationButtonNeedsAnHTTPSLink() {
         #expect(ConnectInfo.donationLink() == URL(string: "https://ko-fi.com/xo-vision"))   // the shipped link
         #expect(ConnectInfo.donationLink("") == nil)

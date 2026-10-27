@@ -33,6 +33,28 @@ extension ConnectInfo {
         return url
     }
 
+    // MARK: Checks
+
+    /// What the setup window's agents page shows as done.
+    public struct AgentChecks: Equatable, Sendable {
+        public var mcpRegistered: Bool
+        public var hookInstalled: Bool
+        public var claudeMdInstalled: Bool
+
+        public init(mcpRegistered: Bool = false, hookInstalled: Bool = false, claudeMdInstalled: Bool = false) {
+            self.mcpRegistered = mcpRegistered
+            self.hookInstalled = hookInstalled
+            self.claudeMdInstalled = claudeMdInstalled
+        }
+    }
+
+    /// Reads ~/.claude.json (which can be large), settings.json and CLAUDE.md. Blocking file
+    /// work: the app calls it off the main actor.
+    public static func agentChecks(home: URL, repoPath: String?) -> AgentChecks {
+        AgentChecks(mcpRegistered: mcpRegistered(home: home), hookInstalled: repliesHookInstalled(home: home),
+                    claudeMdInstalled: repoPath.map { claudeMdInstalled(home: home, repoPath: $0) } ?? false)
+    }
+
     // MARK: MCP server
 
     /// ~/.claude.json, where `claude mcp add --scope user` keeps user servers.

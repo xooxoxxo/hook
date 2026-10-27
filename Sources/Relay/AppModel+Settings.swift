@@ -179,12 +179,24 @@ extension AppModel: SettingsViewModel {
         refreshSettings()
     }
 
-    /// Re-reads ~/.claude.json, settings.json and CLAUDE.md for the agents page.
-    func checkAgents() {
-        let home = Self.home
-        mcpRegistered = ConnectInfo.mcpRegistered(home: home)
-        hookInstalled = ConnectInfo.repliesHookInstalled(home: home)
-        claudeMdInstalled = config?.repoPath.map { ConnectInfo.claudeMdInstalled(home: home, repoPath: $0) } ?? false
+    /// Re-reads ~/.claude.json, settings.json and CLAUDE.md for the agents page. The reads
+    /// run off the main actor (~/.claude.json can be large); the results land on it, and only
+    /// the newest check's do. `mcpKnown` keeps the MCP item done whatever the file says
+    /// (a registration that just worked, in case claude keeps its servers elsewhere).
+    func checkAgents(mcpKnown: Bool = false) {
+        let home = Self.home, repo = config?.repoPath
+        agentCheckGeneration += 1
+        let generation = agentCheckGeneration
+        Task { @MainActor [weak self] in
+            let checks = await Task.detached(priority: .userInitiated) {
+                ConnectInfo.agentChecks(home: home, repoPath: repo)
+            }.value
+            guard let self, generation == self.agentCheckGeneration else { return }
+            self.mcpRegistered = checks.mcpRegistered || mcpKnown
+            self.hookInstalled = checks.hookInstalled
+            self.claudeMdInstalled = checks.claudeMdInstalled
+            self.refreshSettings()
+        }
     }
 
     /// Register: `claude mcp add` in the login shell, off the main actor, with a time cap.
@@ -197,8 +209,8 @@ extension AppModel: SettingsViewModel {
             let outcome = await LoginShell.run(command)
             mcpBusy = false
             mcpError = outcome.ok ? nil : "Couldn't register: " + LoginShell.failureLine(outcome) + ". Copy the command and run it in Terminal."
-            checkAgents()
             if outcome.ok { mcpRegistered = true }   // in case claude keeps its servers elsewhere
+            checkAgents(mcpKnown: outcome.ok)
             refreshSettings()
         }
     }
