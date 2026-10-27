@@ -2,24 +2,24 @@ import Foundation
 import Testing
 @testable import RelayCore
 
-@Suite struct StatusItemPositionTests {
-    private func freshDefaults() -> UserDefaults {
-        let name = "StatusItemPositionTests-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: name)!
-        defaults.removePersistentDomain(forName: name)
-        return defaults
-    }
+/// An in-memory store, so the tests never write a preferences file.
+private final class MemoryStore: PositionStore {
+    var values: [String: Any] = [:]
+    func object(forKey defaultName: String) -> Any? { values[defaultName] }
+    func set(_ value: Double, forKey defaultName: String) { values[defaultName] = value }
+}
 
+@Suite struct StatusItemPositionTests {
     @Test func seedsAPositionWhenNoneIsSaved() {
-        let defaults = freshDefaults()
-        StatusItemPosition.seedIfNeeded(defaults)
-        #expect(defaults.double(forKey: StatusItemPosition.key) == StatusItemPosition.seed)
+        let store = MemoryStore()
+        StatusItemPosition.seedIfNeeded(store)
+        #expect(store.values[StatusItemPosition.key] as? Double == StatusItemPosition.seed)
     }
 
     @Test func neverMovesAPositionTheUserChose() {
-        let defaults = freshDefaults()
-        defaults.set(612.0, forKey: StatusItemPosition.key)
-        StatusItemPosition.seedIfNeeded(defaults)
-        #expect(defaults.double(forKey: StatusItemPosition.key) == 612)
+        let store = MemoryStore()
+        store.values[StatusItemPosition.key] = 612.0
+        StatusItemPosition.seedIfNeeded(store)
+        #expect(store.values[StatusItemPosition.key] as? Double == 612)
     }
 }

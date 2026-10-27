@@ -12,9 +12,17 @@ public enum StatusItemPosition {
     public static let seed: Double = 280
 
     /// Writes the seed only when no position is saved yet.
-    public static func seedIfNeeded(_ defaults: UserDefaults) {
-        if defaults.object(forKey: key) == nil {
-            defaults.set(seed, forKey: key)
+    public static func seedIfNeeded(_ store: some PositionStore) {
+        if store.object(forKey: key) == nil {
+            store.set(seed, forKey: key)
         }
     }
 }
+
+/// The two calls the seed needs; UserDefaults has both, and tests use a dictionary.
+public protocol PositionStore {
+    func object(forKey defaultName: String) -> Any?
+    func set(_ value: Double, forKey defaultName: String)
+}
+
+extension UserDefaults: PositionStore {}
