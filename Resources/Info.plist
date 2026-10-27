@@ -22,6 +22,8 @@
     <true/>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Hook opens a new terminal window to resume a Claude Code session.</string>
     <key>CFBundleURLTypes</key>
     <array>
         <dict>

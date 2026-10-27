@@ -2,12 +2,14 @@ import Foundation
 
 /// What a row's context menu item does.
 public enum ContextCommand: Equatable, Sendable {
-    case open, done, skip, reopen, showOnly(String), showAll, copyLink, copyResume
+    case open, done, skip, reopen, showOnly(String), showAll, copyLink, copyResume, resume
 }
 
 public enum ContextMenuEntry: Equatable, Sendable {
     /// `shortcut` is the key as the menu shows it; the view attaches the real key equivalent.
     case item(title: String, command: ContextCommand, shortcut: String?)
+    /// Shown dimmed, with `reason` on a dimmed line under it.
+    case disabled(title: String, reason: String)
     case separator
 }
 
@@ -15,7 +17,13 @@ public enum ContextMenuEntry: Equatable, Sendable {
 public enum QueueContextMenu {
     public static let projectTitleMax = 40
 
-    public static func entries(for row: AskRowModel, filter: String?) -> [ContextMenuEntry] {
+    public static let resumeTitle = "Resume Session"
+    public static let copyResumeTitle = "Copy Resume Command"
+
+    /// `localHost` is this Mac's host name (`HostName.current`); Resume Session is
+    /// enabled only for a session on it.
+    public static func entries(for row: AskRowModel, filter: String?,
+                               localHost: String? = HostName.current) -> [ContextMenuEntry] {
         var entries: [ContextMenuEntry] = [.item(title: "Open", command: .open, shortcut: "↩")]
         if row.isOpen {
             entries.append(.item(title: "Done", command: .done, shortcut: "⌘↩"))
@@ -27,8 +35,22 @@ public enum QueueContextMenu {
             entries += [.separator, project]
         }
         entries += [.separator, .item(title: "Copy Link", command: .copyLink, shortcut: "⇧⌘L")]
-        if row.isOpen, row.resumeCommand != nil {
-            entries.append(.item(title: "Copy Resume Command", command: .copyResume, shortcut: nil))
+        entries += resumeEntries(for: row, localHost: localHost)
+        return entries
+    }
+
+    /// Resume Session (enabled, or dimmed with why) and Copy Resume Command, for an
+    /// open or closed ask with a resume command. The queue menu and the detail's
+    /// header menu both use these.
+    public static func resumeEntries(for row: AskRowModel, localHost: String?) -> [ContextMenuEntry] {
+        var entries: [ContextMenuEntry] = []
+        switch ResumeAvailability.of(row.origin, localHost: localHost) {
+        case .none: break
+        case .available: entries.append(.item(title: resumeTitle, command: .resume, shortcut: nil))
+        case .unavailable(let reason): entries.append(.disabled(title: resumeTitle, reason: reason))
+        }
+        if row.resumeCommand != nil {
+            entries.append(.item(title: copyResumeTitle, command: .copyResume, shortcut: nil))
         }
         return entries
     }

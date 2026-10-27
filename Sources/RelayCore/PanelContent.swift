@@ -36,6 +36,8 @@ public enum PanelNotice: Equatable, Sendable {
     case noLongerOpen(id: String, canShowClosed: Bool)
     case offlineCached(since: String)
     case updating(version: String, logPath: String)
+    /// Resume Session couldn't open the terminal; the command was copied instead.
+    case resumeFailed(reason: String)
 
     /// The open ask this Notice is about, when it belongs to that ask's detail: it goes when
     /// the owner leaves the ask and never shows on the queue.
@@ -48,7 +50,7 @@ public enum PanelNotice: Equatable, Sendable {
 
     public var kind: NoticeKind {
         switch self {
-        case .actionFailed, .reopenFailed, .storeFailed, .queueMoved: return .error
+        case .actionFailed, .reopenFailed, .storeFailed, .queueMoved, .resumeFailed: return .error
         case .settingsReloaded, .sessionClosed, .noLongerOpen, .offlineCached, .updating: return .info
         }
     }
@@ -73,6 +75,8 @@ public enum PanelNotice: Equatable, Sendable {
             return "Offline · showing asks from \(since)"
         case .updating(let version, _):
             return "Updating to \(Sanitize.revealLine(version)). Hook restarts in about 2 minutes."
+        case .resumeFailed(let reason):
+            return "Couldn't open the terminal, so the resume command is on the clipboard. \(Sanitize.revealLine(reason))"
         }
     }
 
@@ -83,7 +87,7 @@ public enum PanelNotice: Equatable, Sendable {
         case .sessionClosed: return "Next Ask"
         case .noLongerOpen(_, let canShowClosed): return canShowClosed ? "Show Closed Ask" : nil
         case .offlineCached: return "Try Again"
-        case .storeFailed, .settingsReloaded, .updating: return nil
+        case .storeFailed, .settingsReloaded, .updating, .resumeFailed: return nil
         }
     }
 

@@ -3,6 +3,18 @@
 All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## [Unreleased]
+
+### Added
+- Resume Session, in a card's context menu and the ask's ⋯ menu: opens a new terminal window in
+  the session's folder and runs `claude --resume` there, through your login shell. It is enabled
+  only for sessions on this Mac; elsewhere it is dimmed with "Session is on <host>". Copy Resume
+  Command stays, and is now also offered for closed asks.
+- Settings › General › Sessions › Terminal (`terminal` in config.json): Automatic (Terminal) or
+  any installed terminal among iTerm2, Ghostty, kitty, WezTerm, Warp and Alacritty. Ghostty 1.3
+  and later is driven by AppleScript, so it asks once for Automation permission; without it,
+  Hook opens a new Ghostty instance instead.
+
 ## [0.8.0] - 2026-10-27
 
 Relay is now Hook.

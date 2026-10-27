@@ -66,6 +66,9 @@ final class ServerRouting: Sendable {
     var permissionObserver: (any NSObjectProtocol)?
     var loginError: String?
     var skillError: String?
+    /// The installed terminals for the Terminal picker, and when they were last looked up.
+    var installedTerminals: Set<TerminalKind> = []
+    var terminalsCheckedAt: Date?
     /// Names of displays seen in this run, for "<name> (not connected)".
     var displayNames: [String: String] = [:]
 

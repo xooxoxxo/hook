@@ -218,6 +218,34 @@ private let mailboxProblem = ResolvedSource.invalid("mailbox needs an http(s) ma
     }
 }
 
+@Suite struct TerminalSettingTests {
+    @Test(arguments: [
+        ("{}", "automatic"), (#"{"terminal":"automatic"}"#, "automatic"),
+        (#"{"terminal":"com.mitchellh.ghostty"}"#, "com.mitchellh.ghostty"),
+        (#"{"terminal":" net.kovidgoyal.kitty "}"#, "net.kovidgoyal.kitty"),
+        (#"{"terminal":""}"#, "automatic"), (#"{"terminal":3}"#, "automatic"), (#"{"terminal":null}"#, "automatic"),
+    ])
+    func terminalDecodesLeniently(_ json: String, _ expected: String) throws {
+        #expect(try decode(json).terminal == expected)
+    }
+
+    @Test func terminalRoundTripsThroughAMerge() throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let url = root.appending(path: "config.json")
+        try PrivateFile.write(Data(#"{"source":"local","futureKey":true}"#.utf8), to: url)
+
+        try ConfigStore.merge(set: ["terminal": "com.mitchellh.ghostty"], into: url)
+        #expect(ConfigStore.load(url) == .loaded(RelayConfig(source: .local, terminal: "com.mitchellh.ghostty")))
+        let object = try #require(try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        #expect(object["futureKey"] as? Bool == true)
+        #expect(object["terminal"] as? String == "com.mitchellh.ghostty")
+
+        try ConfigStore.merge(set: ["terminal": RelayConfig.automaticTerminal], into: url)
+        #expect(ConfigStore.load(url) == .loaded(RelayConfig(source: .local)))
+    }
+}
+
 /// A hand-edited config.json that stops parsing while the app runs.
 @Suite struct ConfigReloadTests {
     @Test func theLastGoodConfigStaysWhileTheFileIsBroken() {

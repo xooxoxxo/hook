@@ -2,10 +2,15 @@ import Testing
 @testable import RelayCore
 
 @Suite struct ContextMenuModelTests {
-    private func row(project: String = "Acme", closed: ClosedInfo? = nil, resume: String? = nil) -> AskRowModel {
+    private func row(project: String = "Acme", closed: ClosedInfo? = nil, resume: String? = nil,
+                     origin: AskOrigin? = nil) -> AskRowModel {
         AskRowModel(id: "a1", title: "Rotate the example token", project: project, urgency: .today,
                     created: "2026-10-16T08:00:00+00:00", summary: .steps(done: 0, total: 2),
-                    closed: closed, resumeCommand: resume)
+                    closed: closed, resumeCommand: resume ?? origin?.resumeCommand, origin: origin)
+    }
+
+    private func origin(host: String?) -> AskOrigin? {
+        AskOrigin(from: Origin(session: "1b2c3d4e-0000", host: host, cwd: "/tmp"))
     }
 
     @Test func openAskEntries() {
@@ -30,7 +35,45 @@ import Testing
             .item(title: "Show Only Acme", command: .showOnly("Acme"), shortcut: "⌃⌘P"),
             .separator,
             .item(title: "Copy Link", command: .copyLink, shortcut: "⇧⌘L"),
+            .item(title: "Copy Resume Command", command: .copyResume, shortcut: nil),
         ])
+    }
+
+    @Test func resumeSessionIsEnabledForASessionOnThisMac() {
+        let entries = QueueContextMenu.entries(for: row(origin: origin(host: "build-mac")), filter: nil, localHost: "build-mac")
+        #expect(Array(entries.suffix(3)) == [
+            .item(title: "Copy Link", command: .copyLink, shortcut: "⇧⌘L"),
+            .item(title: "Resume Session", command: .resume, shortcut: nil),
+            .item(title: "Copy Resume Command", command: .copyResume, shortcut: nil),
+        ])
+    }
+
+    @Test func resumeSessionIsDisabledWithTheHostElsewhere() {
+        let entries = QueueContextMenu.entries(for: row(origin: origin(host: "other-mac")), filter: nil, localHost: "build-mac")
+        #expect(Array(entries.suffix(2)) == [
+            .disabled(title: "Resume Session", reason: "Session is on other-mac"),
+            .item(title: "Copy Resume Command", command: .copyResume, shortcut: nil),
+        ])
+        let closed = ClosedInfo(status: "done", closedBy: "owner", completedAt: "2026-10-16T09:00:00+00:00")
+        let closedEntries = QueueContextMenu.entries(for: row(closed: closed, origin: origin(host: "other-mac")),
+                                                     filter: nil, localHost: "build-mac")
+        #expect(closedEntries.contains(.disabled(title: "Resume Session", reason: "Session is on other-mac")))
+    }
+
+    @Test func noResumeItemsWithoutAResumeCommand() {
+        let noCwd = AskOrigin(from: Origin(session: "1b2c3d4e-0000", host: "build-mac", cwd: nil))
+        let entries = QueueContextMenu.entries(for: row(origin: noCwd), filter: nil, localHost: "build-mac")
+        #expect(!entries.contains { if case .item(_, .resume, _) = $0 { true } else { false } })
+        #expect(!entries.contains { if case .disabled = $0 { true } else { false } })
+        #expect(!entries.contains { if case .item(_, .copyResume, _) = $0 { true } else { false } })
+    }
+
+    @Test func theDetailHeaderMenuHasOnlyTheResumeEntries() {
+        #expect(QueueContextMenu.resumeEntries(for: row(origin: origin(host: "build-mac.local")), localHost: "build-mac") == [
+            .item(title: "Resume Session", command: .resume, shortcut: nil),
+            .item(title: "Copy Resume Command", command: .copyResume, shortcut: nil),
+        ])
+        #expect(QueueContextMenu.resumeEntries(for: row(), localHost: "build-mac").isEmpty)
     }
 
     @Test func alreadyFilteredToThatProjectOffersShowAll() {
