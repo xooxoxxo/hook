@@ -69,10 +69,15 @@ public struct Notice: View {
                 .foregroundStyle(kind == .error ? DS.Color.error : DS.Color.secondary)
         }
         .font(DS.Font.prose)
-        .lineLimit(nil)
+        .lineLimit(Self.maxLines)
         .fixedSize(horizontal: false, vertical: true)
         .textSelection(.enabled)
+        .help(text)
     }
+
+    /// Enough for every notice Hook writes; a long error reason from a server stops here
+    /// (the full text is in the tooltip) instead of squeezing the list away.
+    public static let maxLines = 10
 
     public static func symbol(_ kind: NoticeKind) -> String { kind == .error ? DS.Symbol.error : DS.Symbol.info }
 }

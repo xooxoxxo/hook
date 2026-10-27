@@ -55,8 +55,12 @@ import Testing
         let window = NSWindow(contentRect: host.frame, styleMask: [.borderless], backing: .buffered, defer: false)
         window.contentView = host
         host.layoutSubtreeIfNeeded()
-        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-        host.layoutSubtreeIfNeeded()
+        // onAppear reports the frames on a later run-loop turn; a slow runner needs more than one.
+        let deadline = Date().addingTimeInterval(2)
+        repeat {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+            host.layoutSubtreeIfNeeded()
+        } while (frames.notice == .zero || frames.below == .zero) && Date() < deadline
         window.contentView = nil
         return frames
     }
@@ -75,7 +79,8 @@ import Testing
             Notice(kind: .error, text: String(repeating: "Couldn't save the queue. The disk is full. ", count: sentences),
                    actionTitle: nil, onAction: {}, onDismiss: {})
         }
-        // Both are well past three lines at panel width; a line limit would make them equal.
+        // Both are well past three lines at panel width and within Notice.maxLines, so the
+        // longer one must be taller.
         #expect(Self.idealHeight(notice(8)) > Self.idealHeight(notice(4)))
     }
 
