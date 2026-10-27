@@ -47,6 +47,14 @@ public enum StepAccessibility {
         line(action) + ". " + question(prompt: prompt, answer: answer)
     }
 
+    /// The caption on an optional step's row.
+    public static let optionalCaption = "Optional"
+
+    /// A label with ", optional" added for an optional step (VoiceOver, the Steps rotor).
+    public static func optional(_ label: String, _ isOptional: Bool) -> String {
+        isOptional ? label + ", optional" : label
+    }
+
     /// A locked step's marker: "Step 4, locked: Check the site. Finish step 3 first."
     public static func lockedLabel(level: StepLevel, action: String, lockText: String) -> String {
         let name = level == .verify ? "Verify" : "Step \(level.label)"

@@ -110,10 +110,18 @@ public struct StepContent: Equatable, Sendable {
     public var blocking: Bool
     /// A caution for the step, multi-line.
     public var warning: String?
+    /// The owner may mark it done without doing it or answering its question.
+    public var optional: Bool
+    /// Optional only because its parent is (an optional parent makes its whole subtree
+    /// optional): the row can leave out its own "Optional" caption.
+    public var optionalByParent: Bool
+    /// An absolute local path ("/…" or "~/…") to a document to read; raw, as sent.
+    public var file: String?
 
     public init(action: String, place: String? = nil, detail: String? = nil, url: String? = nil,
                 code: String? = nil, lang: String? = nil, expect: String? = nil,
-                blocking: Bool = false, warning: String? = nil) {
+                blocking: Bool = false, warning: String? = nil, optional: Bool = false,
+                optionalByParent: Bool = false, file: String? = nil) {
         self.action = action
         self.place = place
         self.detail = detail
@@ -123,6 +131,9 @@ public struct StepContent: Equatable, Sendable {
         self.expect = expect
         self.blocking = blocking
         self.warning = warning
+        self.optional = optional
+        self.optionalByParent = optional && optionalByParent
+        self.file = file
     }
 
     /// The warning box's text on a blocking step: `warning`, else `Flow.blockingWarning`;

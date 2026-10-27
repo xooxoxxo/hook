@@ -148,11 +148,16 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
     /// "pending" (written by install.sh when it creates the config) shows the setup window
     /// once; finishing or skipping setup removes the key. Any other value is ignored.
     public var onboarding: String?
+    /// Update Mailbox…'s shell command, run in the terminal; nil opens the update guide.
+    public var mailboxUpdateCommand: String?
+    /// Where a file row's Open goes: "hook" (Hook's viewer), "system" (the file's default
+    /// app), or an app's bundle id or path. Read through `DocumentTarget`.
+    public var openDocumentsIn: String
 
     enum CodingKeys: String, CodingKey {
         case source, mailboxURL, tokenFile, context, port, pollSeconds, hotkey, keepDays
         case showCount, sidebarEdge, appearance, notify, presence, awayAfterMinutes, repoPath
-        case sidebarDisplay, afterClose, terminal, onboarding
+        case sidebarDisplay, afterClose, terminal, onboarding, mailboxUpdateCommand, openDocumentsIn
     }
 
     public init(
@@ -174,7 +179,9 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
         sidebarDisplay: String? = nil,
         afterClose: AfterClose = .next,
         terminal: String = RelayConfig.automaticTerminal,
-        onboarding: String? = nil
+        onboarding: String? = nil,
+        mailboxUpdateCommand: String? = nil,
+        openDocumentsIn: String = DocumentTarget.viewerValue
     ) {
         self.source = source
         self.mailboxURL = mailboxURL
@@ -195,6 +202,8 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
         self.afterClose = afterClose
         self.terminal = terminal
         self.onboarding = onboarding
+        self.mailboxUpdateCommand = mailboxUpdateCommand
+        self.openDocumentsIn = openDocumentsIn
     }
 
     /// A missing, null, wrong-typed or out-of-range key takes its default.
@@ -233,6 +242,10 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .flatMap { $0.isEmpty ? nil : $0 } ?? Self.automaticTerminal
         onboarding = c.lenient(String.self, .onboarding)
+        mailboxUpdateCommand = c.lenient(String.self, .mailboxUpdateCommand)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .flatMap { $0.isEmpty ? nil : $0 }
+        openDocumentsIn = DocumentTarget(config: c.lenient(String.self, .openDocumentsIn)).configValue
     }
 
     /// The `onboarding` value install.sh writes into a config it creates.

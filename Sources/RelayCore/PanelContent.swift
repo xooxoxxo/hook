@@ -38,6 +38,16 @@ public enum PanelNotice: Equatable, Sendable {
     case updating(version: String, logPath: String)
     /// Resume Session couldn't open the terminal; the command was copied instead.
     case resumeFailed(reason: String)
+    /// The mailbox's protocol level is below Hook's: these features won't work.
+    case mailboxOlder(missing: [MailboxFeature])
+    /// The mailbox speaks a level this Hook doesn't know.
+    case mailboxNewer
+    /// After Update Mailbox…: the mailbox now speaks Hook's level.
+    case mailboxUpToDate(level: Int)
+    /// Update Mailbox… couldn't open the terminal; the command was copied instead.
+    case mailboxUpdateFailed(reason: String)
+    /// Update Mailbox… wasn't started: the command in Settings can't be run (`RunTarget.problem`).
+    case mailboxUpdateCommandInvalid(reason: String)
 
     /// The open ask this Notice is about, when it belongs to that ask's detail: it goes when
     /// the owner leaves the ask and never shows on the queue.
@@ -50,8 +60,10 @@ public enum PanelNotice: Equatable, Sendable {
 
     public var kind: NoticeKind {
         switch self {
-        case .actionFailed, .reopenFailed, .storeFailed, .queueMoved, .resumeFailed: return .error
-        case .settingsReloaded, .sessionClosed, .noLongerOpen, .offlineCached, .updating: return .info
+        case .actionFailed, .reopenFailed, .storeFailed, .queueMoved, .resumeFailed, .mailboxOlder,
+             .mailboxUpdateFailed, .mailboxUpdateCommandInvalid: return .error
+        case .settingsReloaded, .sessionClosed, .noLongerOpen, .offlineCached, .updating, .mailboxNewer,
+             .mailboxUpToDate: return .info
         }
     }
 
@@ -77,6 +89,17 @@ public enum PanelNotice: Equatable, Sendable {
             return "Updating to \(Sanitize.revealLine(version)). Hook restarts in about 2 minutes."
         case .resumeFailed(let reason):
             return "Couldn't open the terminal, so the resume command is on the clipboard. \(Sanitize.revealLine(reason))"
+        case .mailboxOlder(let missing):
+            let features = MailboxProtocol.featureList(missing)
+            return "Your mailbox is older than Hook: \(features) won't work until it is updated."
+        case .mailboxNewer:
+            return "Hook is older than your mailbox. Update Hook to catch up."
+        case .mailboxUpToDate(let level):
+            return "Your mailbox is up to date (protocol level \(level))."
+        case .mailboxUpdateFailed(let reason):
+            return "Couldn't open the terminal, so the update command is on the clipboard. \(Sanitize.revealLine(reason))"
+        case .mailboxUpdateCommandInvalid(let reason):
+            return "The mailbox update command in Settings can't be run: \(Sanitize.revealLine(reason))."
         }
     }
 
@@ -87,12 +110,27 @@ public enum PanelNotice: Equatable, Sendable {
         case .sessionClosed: return "Next Ask"
         case .noLongerOpen(_, let canShowClosed): return canShowClosed ? "Show Closed Ask" : nil
         case .offlineCached: return "Try Again"
-        case .storeFailed, .settingsReloaded, .updating, .resumeFailed: return nil
+        case .mailboxOlder: return "Update Mailbox…"
+        case .mailboxNewer: return "Check for Updates"
+        case .storeFailed, .settingsReloaded, .updating, .resumeFailed, .mailboxUpToDate, .mailboxUpdateFailed,
+             .mailboxUpdateCommandInvalid:
+            return nil
         }
+    }
+
+    /// A second button before the first, when the Notice has one.
+    public var secondaryActionTitle: String? {
+        if case .mailboxOlder = self { return "How to update" }
+        return nil
     }
 
     /// The text behind the Notice's "?", when it has one.
     public var help: String? {
+        if case .mailboxOlder = self {
+            return "Hook checks your mailbox's protocol level when it connects and every 30 minutes. "
+                + "Update Mailbox… runs the update command from Settings › Queue in your terminal, "
+                + "or opens the update guide when none is set."
+        }
         guard case .updating(_, let logPath) = self else { return nil }
         return "Hook rebuilds from your checkout, then quits and starts again. "
             + "If the update fails, the old Hook keeps running. The log says why: \(Sanitize.revealLine(logPath))"

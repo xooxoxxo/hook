@@ -37,11 +37,15 @@ public struct LatestRelease: Equatable, Sendable {
     public let version: ReleaseVersion
     /// The release page, for the release notes.
     public let url: URL
+    /// The mailbox level the release needs: its notes' `<!-- hook:mailbox-protocol=N -->`
+    /// marker, or nil when the notes have none.
+    public let mailboxLevel: Int?
 
-    public init(tag: String, version: ReleaseVersion, url: URL) {
+    public init(tag: String, version: ReleaseVersion, url: URL, mailboxLevel: Int? = nil) {
         self.tag = tag
         self.version = version
         self.url = url
+        self.mailboxLevel = mailboxLevel
     }
 
     /// nil for a reply that isn't a published, final release with a version tag and an https page.
@@ -52,7 +56,8 @@ public struct LatestRelease: Equatable, Sendable {
               let page = object["html_url"] as? String,
               let url = URL(string: page), url.scheme == "https", url.host != nil else { return nil }
         if object["draft"] as? Bool == true || object["prerelease"] as? Bool == true { return nil }
-        return LatestRelease(tag: tag, version: version, url: url)
+        let level = (object["body"] as? String).flatMap(ReleaseMarker.mailboxLevel(in:))
+        return LatestRelease(tag: tag, version: version, url: url, mailboxLevel: level)
     }
 }
 

@@ -132,8 +132,8 @@ extension QueueLayout {
     }
 
     /// "N of M". `answered` holds the paths the owner has answered, when the ask's detail
-    /// (its events) is at hand: a question counts once answered, any other item once ticked.
-    /// Without it (the list has no events) only ticks count.
+    /// (its events) is at hand: a question counts once answered (an optional one also once
+    /// ticked), any other item once ticked. Without it (the list has no events) only ticks count.
     public static func summary(for item: WireItem, ticked: Set<String>, answered: Set<String>? = nil) -> RowSummary {
         guard let ins = item.instructable else {
             if present(item.payload.cmd) { return .legacyCmd }
@@ -143,12 +143,27 @@ extension QueueLayout {
         if !ins.steps.isEmpty {
             let total = itemCount(ins)
             guard let answered else { return .steps(done: min(ticked.count, total), total: total) }
-            let questions = Set(Answers.paths(ins))
-            let done = ticked.subtracting(questions).count + answered.intersection(questions).count
+            let required = Set(Answers.paths(ins)).subtracting(optionalPaths(ins))
+            let done = ticked.subtracting(required).union(answered.intersection(Answers.paths(ins))).count
             return .steps(done: min(done, total), total: total)
         }
         if let choices = ins.reply?.choices, !choices.isEmpty { return .choose(choices.count) }
         return ins.reply == nil ? .none : .reply
+    }
+
+    /// The optional steps' and sub-steps' paths (a step that also says blocking isn't
+    /// optional); every sub-step of an optional step is optional.
+    static func optionalPaths(_ ins: Instructable) -> Set<String> {
+        var paths: Set<String> = []
+        func isOptional(_ step: Step) -> Bool { step.optional == true && step.blocking != true }
+        for (i, step) in ins.steps.enumerated() {
+            let parent = isOptional(step)
+            if parent { paths.insert("\(i + 1)") }
+            for (j, sub) in (step.substeps ?? []).enumerated() where parent || isOptional(sub) {
+                paths.insert("\(i + 1).\(j + 1)")
+            }
+        }
+        return paths
     }
 
     private static func present(_ value: String?) -> Bool {

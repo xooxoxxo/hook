@@ -31,6 +31,8 @@ Commands start Hook if it isn't running, except `relay replies --hook` and `rela
 | `relay wait <id> [--timeout SECONDS] [--interval SECONDS] [--after SEQ]` | See [below](#relay-wait) |
 | `relay --version` | `relay 0.9.0` (`hook --version` prints `hook 0.9.0`) |
 
+`relay post` and `relay_post` check the mailbox's protocol level (`GET /version`, cached for 5 minutes) before posting an instructable that uses `question` (level 2), `blocking` / `warning` (level 3) or `optional`, `file` or a link's `path` (level 4). A mailbox that reports a level too low makes them refuse with ``This mailbox speaks protocol M; `<key>` needs N. Ask the owner to update the mailbox (Hook › Update Mailbox…).`` and exit 1; nothing is posted. In This Mac mode the refusal is ``Hook speaks protocol M; `<key>` needs N. Update Hook (Check for Updates…).`` A mailbox without `/version` is unknown, and the instructable is posted for the mailbox to validate. See [Instructable format](instructables.md#validation).
+
 Exit codes: 0 success, 1 refused or not found, 2 no config or Hook unreachable, 3 `relay wait` timed out.
 
 ## Replies hook

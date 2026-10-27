@@ -133,6 +133,8 @@ public enum LinkCheck: Equatable, Sendable {
     /// This Mac's host name (HostName.current), cached: the app sets it at launch and when the
     /// panel becomes key. nil until then, which dims Resume Session.
     @Published public private(set) var localHost: String?
+    /// This Mac mode: the queue is this Mac's own.
+    public var queueIsLocal: Bool { sourceKey == SourceKey.local }
     /// Publishes only when the name changed.
     public func setLocalHost(_ name: String?) {
         guard localHost != name else { return }
@@ -656,12 +658,13 @@ public enum LinkCheck: Equatable, Sendable {
         let before = ticks(for: id)
         let after = Flow.toggle(node, ticks: before, locked: Set(Flow.lockedPaths(nodes: nodes, ticks: before)))
         guard after != before else { return }
-        let added = Flow.leaves(of: nodes).map(\.path).filter { after.contains($0) && !before.contains($0) }
+        let added = Flow.items(of: nodes).map(\.path).filter { after.contains($0) && !before.contains($0) }
         tickHistory[id, default: []].append(contentsOf: added)
         setTicks(after, for: id, nodes: nodes)
     }
 
-    /// ⌘T: ticks the current leaf and returns its path; nil when every leaf is ticked.
+    /// ⌘T: ticks the current item and returns its path (an optional question's too); nil when
+    /// every item is done or the current one is a required question.
     @discardableResult public func tickCurrent(in id: String) -> String? {
         guard let nodes = nodes(for: id) else { return nil }
         let result = Flow.tickCurrent(ticks: ticks(for: id), nodes: nodes)
@@ -686,7 +689,7 @@ public enum LinkCheck: Equatable, Sendable {
     private func setTicks(_ ticks: Set<String>, for id: String, nodes: [DetailModel.Node]) {
         // The detail reads ticks too, and an ask outside the filter changes no queue row.
         objectWillChange.send()
-        let leaves = ticks.intersection(Flow.leaves(of: nodes).map(\.path))
+        let leaves = ticks.intersection(Flow.items(of: nodes).map(\.path))
         tickCache[id] = item(for: id).map { (StepSource($0), leaves) }
         TickStore.save(defaults, sourceKey: sourceKey, id: id, ticks: leaves, nodes: nodes)
         queueInputChanged()
@@ -780,9 +783,21 @@ public enum LinkCheck: Equatable, Sendable {
             await refresh(manual: true)
         case .queueMoved(let path):
             onShowInFinder?(path)
-        case .storeFailed, .settingsReloaded, .updating, .resumeFailed:
+        case .mailboxOlder:
+            shell.updateMailbox()
+        case .mailboxNewer:
+            shell.checkForUpdates()
+        case .storeFailed, .settingsReloaded, .updating, .resumeFailed, .mailboxUpToDate, .mailboxUpdateFailed,
+             .mailboxUpdateCommandInvalid:
             break
         }
+    }
+
+    /// The Notice's second button: "How to update" opens the mailbox update guide. The
+    /// Notice stays, so Update Mailbox… is still there after reading.
+    public func performNoticeSecondaryAction() {
+        guard case .mailboxOlder? = notice else { return }
+        shell.openURL(MailboxProtocol.updateDocsURL)
     }
 
     private var showsOfflineNotice: Bool {

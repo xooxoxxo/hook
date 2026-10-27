@@ -56,6 +56,26 @@ A pull request that changes `Sources/RelayUI/` attaches the before and after PNG
 
 [CI](../.github/workflows/ci.yml) runs on pushes to `main` and on pull requests. It builds, runs the Swift, client and MCP tests (again on `/usr/bin/python3` if it is 3.9+), and runs the installer tests.
 
+## Releasing
+
+1. **Version.** Bump it in the three places that carry it: `CFBundleShortVersionString` and
+   `CFBundleVersion` in `Resources/Info.plist`, `VERSION` in `clients/relay_client.py`, and the
+   `relay --version` row in [docs/claude-code.md](claude-code.md). Hook's version stays 0.x.
+2. **CHANGELOG.** Rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD` and read it as release
+   notes: one line per change a user would notice, under Added, Changed and Fixed.
+3. **Privacy scan.** The repository is public. Read the diff since the last tag
+   (`git diff vX.Y.Z-1..HEAD`) for personal names, home-folder paths (`/Users/<name>`), host
+   names, internal ticket ids and tokens, and remove any you find.
+4. **CI.** Push the release commit and wait for [CI](../.github/workflows/ci.yml) to pass on it.
+5. **Tag.** `git tag vX.Y.Z` on that commit and push the tag. Hook's updater moves a checkout to
+   the latest release tag, so tag only a commit that passed CI.
+6. **Release notes.** Create the GitHub release for the tag with that version's CHANGELOG
+   section as its notes. Every release's notes carry the hidden marker
+   `<!-- hook:mailbox-protocol=N -->`, where N is the mailbox protocol level that release needs
+   (4 from 0.9.1; see [Mailbox protocol](mailbox-protocol.md#protocol-levels)). Before updating,
+   Hook compares N with the connected mailbox's level and offers to update the mailbox first.
+   Raise N only when the release needs a mailbox feature older mailboxes lack.
+
 ## Layout
 
 ```
@@ -70,4 +90,8 @@ schema/  skill/     instructable schema, Claude Code skill
 scripts/            build, install, test
 ```
 
-`Tests/RelayCoreTests/Fixtures/instructable-vectors.json` is the validator's source of truth. The validator tests run against it, and it is maintained by hand.
+`Tests/RelayCoreTests/Fixtures/instructable-vectors.json` is the validator's source of truth. The validator tests run against it. It is maintained by hand, except the `optional-*` and `file-*` cases, which the mailbox's reference validator generates; the tests check those cases' error order too.
+
+## Vendored viewer scripts
+
+The document viewer's marked and DOMPurify live in `Sources/RelayUI/Resources/Viewer/` (a SwiftPM resource of RelayUI; `scripts/build.sh` copies the folder into `Hook.app/Contents/Resources/Viewer`). They are the unmodified browser builds from the npm tarballs; [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) lists the versions, the tarball integrity hashes and how to update them. The gallery's `viewer-*` scenes render the viewer with WebKit's own snapshot.

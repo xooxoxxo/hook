@@ -13,7 +13,7 @@ from unittest import mock
 
 import relay_cli
 import relay_client
-from relay_client import ConfigMissing, NotFound, Refused, Unreachable
+from relay_client import ConfigMissing, NotFound, ProtocolTooOld, Refused, Unreachable
 
 ITEM_ID = "0b8f3f0e-6c1a-4e0b-9a51-2f4f1d9c7a10"
 OPEN_URL = "http://127.0.0.1:47823/i/" + ITEM_ID
@@ -117,6 +117,37 @@ class CliTest(unittest.TestCase):
             code, out, err = self.run_cli("post", "--help")
         self.assertEqual((code, err), (0, ""))
         self.assertIn(" ".join(relay_cli.QUESTIONS_SENTENCE.split()), " ".join(out.split()))
+
+    def test_post_help_explains_blocking(self):
+        with mock.patch.dict(os.environ, {"COLUMNS": "80"}):
+            code, out, err = self.run_cli("post", "--help")
+        self.assertEqual((code, err), (0, ""))
+        self.assertIn(" ".join(relay_cli.BLOCKING_SENTENCE.split()), " ".join(out.split()))
+        self.assertNotIn("Telegram", relay_cli.BLOCKING_SENTENCE)
+
+    def test_post_help_explains_optional(self):
+        with mock.patch.dict(os.environ, {"COLUMNS": "80"}):
+            code, out, err = self.run_cli("post", "--help")
+        self.assertEqual((code, err), (0, ""))
+        self.assertIn(" ".join(relay_cli.OPTIONAL_SENTENCE.split()), " ".join(out.split()))
+        for word in ("Telegram", "relay post", "relay_post", "MCP", "CLI"):
+            self.assertNotIn(word, relay_cli.OPTIONAL_SENTENCE)
+
+    def test_post_help_explains_file_links(self):
+        with mock.patch.dict(os.environ, {"COLUMNS": "80"}):
+            code, out, err = self.run_cli("post", "--help")
+        self.assertEqual((code, err), (0, ""))
+        self.assertIn(" ".join(relay_cli.FILES_SENTENCE.split()), " ".join(out.split()))
+        for word in ("Telegram", "relay post", "relay_post", "MCP", "CLI"):
+            self.assertNotIn(word, relay_cli.FILES_SENTENCE)
+        self.assertIn("never paste a whole document into an ask", relay_cli.FILES_SENTENCE)
+
+    def test_post_too_old_mailbox_exits_1_with_the_sentence(self):
+        self.client.error = ProtocolTooOld(2, "blocking", 3)
+        code, out, err = self.run_cli("post", "Acme", "--json", "-", stdin=io.StringIO('{"v":1}'))
+        self.assertEqual((code, out), (1, ""))
+        self.assertEqual(err, "relay: This mailbox speaks protocol 2; `blocking` needs 3. "
+                              "Ask the owner to update the mailbox (Hook › Update Mailbox…).\n")
 
     def test_post_bad_input(self):
         code, out, err = self.run_cli("post", "Acme", "--json", "-", stdin=io.StringIO("{nope"))

@@ -11,6 +11,8 @@ enum SceneSize {
     case settings(tab: String)
     /// An AppKit view (the menu-bar badge strip).
     case appKit(NSSize)
+    /// The document viewer's web view, captured with WebKit's own snapshot once the page has rendered.
+    case web(NSSize)
 }
 
 struct GalleryScene {
@@ -22,9 +24,11 @@ struct GalleryScene {
     var rules: [AlignmentRule] = []
     let view: @MainActor () -> AnyView
     var appKit: (@MainActor () -> NSView)? = nil
+    var web: (@MainActor () -> DocumentWebView)? = nil
 }
 
 /// Every scene, in index order. Each scene task appends its own array here.
 @MainActor var allScenes: [GalleryScene] {
-    componentScenes + queueScenes + stateScenes + detailScenes + answerScenes + settingsScenes + otherScenes
+    componentScenes + queueScenes + stateScenes + detailScenes + fileScenes + answerScenes + settingsScenes
+        + otherScenes
 }

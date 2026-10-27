@@ -36,6 +36,8 @@ import RelayUI
     private static func makeItem() -> NSStatusItem {
         let image = NSImage(systemSymbolName: DS.Symbol.menuBar, accessibilityDescription: "Hook")
         image?.isTemplate = true
+        // Without a saved position each relaunch puts the icon at the far left, behind the notch.
+        StatusItemPosition.seedIfNeeded(.standard)
         let item = NSStatusBar.system.statusItem(withLength: (image?.size.width ?? 16) + 8)
         item.button?.image = image
         return item

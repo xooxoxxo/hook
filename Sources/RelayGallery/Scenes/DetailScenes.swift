@@ -181,6 +181,8 @@ let nonWebLinksJSON = #"""
     choiceScene("detail-choice-sent", sent: true),
     blockingScene(),
     unlockedScene(),
+    optionalScene("detail-optional", ticks: ["1"]),
+    optionalScene("detail-optional-ticked", ticks: ["1", "2"], open: ["4"]),
 ]
 
 /// A blocking step with its warning box (current), a locked step after it, and a multi
@@ -277,4 +279,39 @@ let blockingJSON = #"""
     model.answerDrafts[snapshot.id] = drafts
     model.expandedTodo[snapshot.id] = ["5"]
     return panelScene("detail-blocking-unlocked", model, height: nil, rules: stepColumnRules, overrides: fullHeight)
+}
+
+/// An optional feedback question (step 2) the owner may tick done without answering, a
+/// required question after it, and an optional sub-step.
+let optionalJSON = #"""
+{"item": {"id": "00000000-0000-4000-8000-0000000000e1", "title": "Try the Kestrel beta build",
+  "status": "open", "projectId": "Kestrel", "created": "2026-10-16T09:30:00+00:00", "updated": "2026-10-16T09:30:00+00:00",
+  "payload": {"instructable": {"v": 1, "title": "Try the Kestrel beta build", "urgency": "today",
+    "why": "The beta goes to everyone on Friday.",
+    "steps": [{"do": "Install the beta build", "code": "kestrel update --beta"},
+              {"do": "Tell us how it feels", "optional": true,
+               "detail": "Anything slow, odd or missing. Skip it if nothing stood out.",
+               "question": {"prompt": "Anything to change before Friday?"}},
+              {"do": "Choose who gets it first",
+               "question": {"prompt": "Who gets the beta first?", "choices": ["Everyone", "Staff only"]}},
+              {"do": "Clean up", "substeps": [
+                {"do": "Remove the old build"},
+                {"do": "Send the crash log", "optional": true}]}]}}},
+ "events": []}
+"""#
+
+/// optionalJSON with `ticks`: ["1"] leaves the optional question current and unticked;
+/// ["1", "2"] ticks it done without an answer, so the required question is current and the
+/// caption counts only that one. `open`: upcoming rows opened by hand (4 shows its optional sub-step).
+@MainActor func optionalScene(_ name: String, ticks: Set<String>, open: Set<String> = []) -> GalleryScene {
+    var snapshot = detailSnapshot(decodeDetail(optionalJSON), base: GalleryFixtures.detailSteps, ticks: ticks)
+    snapshot.replies = []
+    snapshot.model?.reply = nil
+    snapshot.unansweredCaption = AnswerDrafts.unansweredCaption(snapshot.model?.unanswered.count ?? 0)
+    let model = FixturePanelModel(
+        queue: GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false),
+        details: [snapshot.id: snapshot],
+        navigation: PanelNavigation(listSelection: snapshot.id, selectedID: snapshot.id), status: readyStatus)
+    model.expandedTodo[snapshot.id] = open
+    return panelScene(name, model, height: nil, rules: stepColumnRules, overrides: fullHeight)
 }

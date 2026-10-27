@@ -20,19 +20,25 @@ public struct Step: Codable, Sendable, Equatable {
     public var blocking: Bool?
     /// A caution shown with the step, multi-line (never on verify).
     public var warning: String?
+    /// The owner may mark it done without doing it or answering its question (never
+    /// on verify, never together with `blocking`).
+    public var optional: Bool?
+    /// An absolute local path ("/…" or "~/…") to a document the owner should read,
+    /// usually Markdown (never on verify).
+    public var file: String?
 
     enum CodingKeys: String, CodingKey {
         case action = "do"
         case place = "where"
-        case code, lang, expect, detail, url, substeps, question, blocking, warning
+        case code, lang, expect, detail, url, substeps, question, blocking, warning, optional, file
     }
 
     public init(action: String, place: String? = nil, code: String? = nil, lang: String? = nil, expect: String? = nil,
                 detail: String? = nil, url: String? = nil, substeps: [Step]? = nil, question: Question? = nil,
-                blocking: Bool? = nil, warning: String? = nil) {
+                blocking: Bool? = nil, warning: String? = nil, optional: Bool? = nil, file: String? = nil) {
         self.action = action; self.place = place; self.code = code; self.lang = lang; self.expect = expect
         self.detail = detail; self.url = url; self.substeps = substeps; self.question = question
-        self.blocking = blocking; self.warning = warning
+        self.blocking = blocking; self.warning = warning; self.optional = optional; self.file = file
     }
 }
 
@@ -55,8 +61,8 @@ public struct Question: Codable, Sendable, Equatable {
 }
 
 extension Step {
-    /// As the synthesized decoder did, plus a lenient `substeps`, `question`, `blocking`
-    /// and `warning`: null,
+    /// As the synthesized decoder did, plus a lenient `substeps`, `question`, `blocking`,
+    /// `warning`, `optional` and `file`: null,
     /// the wrong type or a malformed value becomes nil instead of failing the instructable.
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -71,6 +77,8 @@ extension Step {
         question = (try? c.decodeIfPresent(Question.self, forKey: .question)) ?? nil
         blocking = (try? c.decodeIfPresent(Bool.self, forKey: .blocking)) ?? nil
         warning = (try? c.decodeIfPresent(String.self, forKey: .warning)) ?? nil
+        optional = (try? c.decodeIfPresent(Bool.self, forKey: .optional)) ?? nil
+        file = (try? c.decodeIfPresent(String.self, forKey: .file)) ?? nil
     }
 }
 
@@ -81,11 +89,33 @@ public struct ReplySpec: Codable, Sendable, Equatable {
     public init(prompt: String, choices: [String]? = nil) { self.prompt = prompt; self.choices = choices }
 }
 
+/// A link: a web `url`, or (protocol level 4) a `path` to a local document. The
+/// validator requires exactly one; decoding is lenient, so either may be nil and a
+/// malformed one is nil.
 public struct LinkRef: Codable, Sendable, Equatable {
     public var label: String
-    public var url: String
+    public var url: String?
+    /// An absolute local path ("/…" or "~/…").
+    public var path: String?
 
-    public init(label: String, url: String) { self.label = label; self.url = url }
+    public init(label: String, url: String? = nil, path: String? = nil) {
+        self.label = label; self.url = url; self.path = path
+    }
+
+    /// The local document this link opens: `path` when there is no `url` (a link that
+    /// says both stays a web link, as the validator never lets both through).
+    public var file: String? { url == nil ? path : nil }
+
+    enum CodingKeys: String, CodingKey {
+        case label, url, path
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        label = try c.decode(String.self, forKey: .label)
+        url = (try? c.decodeIfPresent(String.self, forKey: .url)) ?? nil
+        path = (try? c.decodeIfPresent(String.self, forKey: .path)) ?? nil
+    }
 }
 
 public struct Origin: Codable, Sendable, Equatable {

@@ -68,6 +68,44 @@ public struct ResumeTarget: Sendable, Equatable {
     }
 }
 
+/// A shell command Hook runs in a new, visible terminal window (Update Mailbox…), so
+/// prompts and output stay in front of the user. `doneFile` is created when the command
+/// ends, so the app can tell.
+public struct RunTarget: Sendable, Equatable {
+    public let command: String
+    public let doneFile: String
+    public static let maxCommand = 4096
+
+    /// Nil when the command is empty, longer than `maxCommand`, or holds a control or hidden
+    /// character (a newline would run part of it), or `doneFile` isn't a safe absolute path.
+    public init?(command: String, doneFile: String) {
+        let trimmed = command.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard Self.problem(command: command) == nil, AskOrigin.isSafePath(doneFile) else { return nil }
+        self.command = trimmed
+        self.doneFile = doneFile
+    }
+
+    /// Why `command` can't be run, as the end of a sentence ("it has a line break"); nil
+    /// when it can. Leading and trailing white space is ignored.
+    public static func problem(command: String) -> String? {
+        let trimmed = command.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return "it is empty" }
+        if trimmed.unicodeScalars.count > maxCommand { return "it is longer than \(maxCommand) characters" }
+        if trimmed.unicodeScalars.contains(where: { CharacterSet.newlines.contains($0) }) { return "it has a line break" }
+        if trimmed.unicodeScalars.contains(where: { $0.value < 0x20 || $0.value == 0x7F || (0x80...0x9F).contains($0.value) }) {
+            return "it has a control character"
+        }
+        if !isSafe(trimmed) { return "it has a hidden character" }
+        return nil
+    }
+
+    static func isSafe(_ text: String) -> Bool {
+        text.unicodeScalars.allSatisfy { scalar in
+            scalar.value >= 0x20 && scalar.value != 0x7F && !Sanitize.isHidden(scalar, as: .code)
+        }
+    }
+}
+
 /// One way to open a terminal. The app layer runs it; nothing here touches the system.
 public enum LaunchStep: Equatable, Sendable {
     /// Write `body` to a private, executable `.command` file and open it with the app.
@@ -105,6 +143,9 @@ public enum TerminalLauncher {
     /// Warp's tab config, rewritten on each resume so the user's list gets one entry.
     public static let warpConfigName = "hook-resume"
     public static let warpConfigFile = ".warp/tab_configs/\(warpConfigName).toml"
+    /// A run's own tab config, so Update Mailbox… never overwrites the resume one.
+    public static let warpRunConfigName = "hook-run"
+    public static let warpRunConfigFile = ".warp/tab_configs/\(warpRunConfigName).toml"
 
     /// The login shell to run the script with: the user's shell when it is POSIX-like,
     /// otherwise zsh (fish and others read `-c` arguments differently).
@@ -156,6 +197,82 @@ public enum TerminalLauncher {
             ]
         }
         return LaunchPlan(terminal: terminal, steps: steps)
+    }
+
+    // MARK: - Running a command
+
+    /// `$0` for a run's `-c` script.
+    static let runScriptName = "hook-run"
+    /// Run by `<shell> -lc`; `$1` is the command and `$2` the done file. The window first
+    /// names the command, which then runs through `eval` in the login shell; the window then
+    /// waits for Return, so the output stays readable after it ends.
+    public static let runScript = #"printf "Hook: running %s\n\n" "$1"; eval "$1"; s=$?; : > "$2"; echo; echo "Hook: the command ended (exit $s). Press Return to close this window."; read -r _; exit $s"#
+
+    /// `<shell> -lc <runScript> hook-run <command> <doneFile>`.
+    public static func shellCommand(_ target: RunTarget, shell: String) -> [String] {
+        [shell, "-lc", runScript, runScriptName, target.command, target.doneFile]
+    }
+
+    /// The steps for running `target` in `terminal`, in the home folder. The command and the
+    /// done file always reach the shell as separate arguments, except in a `.command` file and
+    /// Warp's tab config, which take no arguments and get them single-quoted. Ghostty is
+    /// opened as a new instance: its AppleScript only types input.
+    public static func plan(_ terminal: TerminalKind, run target: RunTarget, shell userShell: String?,
+                            home: String) -> LaunchPlan {
+        let shell = shell(userShell)
+        let command = shellCommand(target, shell: shell)
+        let steps: [LaunchStep]
+        switch terminal {
+        case .terminal, .iterm:
+            steps = [.commandFile(body: commandFileBody(target, shell: shell), bundleID: terminal.bundleID)]
+        case .ghostty:
+            steps = [.openNew(bundleID: terminal.bundleID, arguments: ["--working-directory=" + home, "-e"] + command)]
+        case .kitty:
+            steps = [.openNew(bundleID: terminal.bundleID, arguments: ["--directory", home] + command)]
+        case .wezterm:
+            steps = [.process(bundleID: terminal.bundleID, executable: "Contents/MacOS/wezterm",
+                              arguments: ["start", "--cwd", home, "--"] + command, waits: false)]
+        case .warp:
+            steps = [.fileThenURL(file: warpRunConfigFile, contents: warpTabConfig(target, shell: shell, home: home),
+                                  url: URL(string: "warp://tab_config/\(warpRunConfigName)?new_window=true")!)]
+        case .alacritty:
+            let tail = ["--working-directory", home, "-e"] + command
+            steps = [
+                .process(bundleID: terminal.bundleID, executable: "Contents/MacOS/alacritty",
+                         arguments: ["msg", "create-window"] + tail, waits: true),
+                .openNew(bundleID: terminal.bundleID, arguments: tail),
+            ]
+        }
+        return LaunchPlan(terminal: terminal, steps: steps)
+    }
+
+    /// The run as one shell line, every word single-quoted.
+    static func quotedLine(_ words: [String]) -> String {
+        words.map(singleQuoted).joined(separator: " ")
+    }
+
+    /// A run's `.command` file: removes itself, then hands the command to the login shell.
+    public static func commandFileBody(_ target: RunTarget, shell: String) -> String {
+        """
+        #!/bin/sh
+        rm -f -- "$0"
+        exec \(quotedLine(shellCommand(target, shell: shell)))
+
+        """
+    }
+
+    /// A tab config whose one pane hands the command to the login shell.
+    public static func warpTabConfig(_ target: RunTarget, shell: String, home: String) -> String {
+        """
+        name = "Hook run"
+
+        [[panes]]
+        id = "main"
+        type = "terminal"
+        directory = \(tomlString(home))
+        commands = [\(tomlString(quotedLine(shellCommand(target, shell: shell))))]
+
+        """
     }
 
     // MARK: - Terminal and iTerm2

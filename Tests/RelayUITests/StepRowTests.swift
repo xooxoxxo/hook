@@ -32,6 +32,18 @@ import Testing
         #expect(WarningBox.accessibilityText("Wait for DNS") == "Warning: Wait for DNS")
     }
 
+    @Test func optionalLabelsAndRotorTitles() {
+        #expect(StepAccessibility.optionalCaption == "Optional")
+        #expect(StepAccessibility.optional("Tell us", true) == "Tell us, optional")
+        #expect(StepAccessibility.optional("Tell us", false) == "Tell us")
+        let nodes = DetailModel.nodes(
+            steps: [Step(action: "Tell us what you think", question: Question(prompt: "Anything?"), optional: true),
+                    Step(action: "Try it", substeps: [Step(action: "Note it", optional: true)])],
+            verify: nil)
+        #expect(Flow.flattened(nodes).map(DetailSteps<FixturePanelModel>.rotorTitle)
+            == ["1. Tell us what you think, optional", "2. Try it", "2a. Note it, optional"])
+    }
+
     @Test func optionMarks() {
         #expect(OptionRows.mark(multi: false, selected: true) == DS.Symbol.optionPicked)
         #expect(OptionRows.mark(multi: false, selected: false) == nil)

@@ -109,6 +109,7 @@ struct QueueView<Model: PanelViewModel>: View, Equatable {
             header(queue)
             if let notice {
                 Notice(kind: notice.kind, text: notice.text, actionTitle: notice.actionTitle, help: notice.help,
+                       secondaryTitle: notice.secondaryActionTitle, onSecondary: { model.performNoticeSecondaryAction() },
                        onAction: { model.performNoticeAction() }, onDismiss: { model.dismissNotice() })
                     .padding(.horizontal, DS.Space.gutter)
                     .padding(.top, DS.Space.inline)

@@ -60,6 +60,11 @@ public struct DetailModel: Sendable, Equatable {
         public var url: String? { content.url }
         public var isBlocking: Bool { content.blocking }
         public var warning: String? { content.warning }
+        /// May be marked done without doing it or answering its question: its own
+        /// `optional`, or (a sub-step) its parent's.
+        public var isOptional: Bool { content.optional }
+        /// The document to read (`file`), raw; nil when absent or blank.
+        public var file: String? { content.file }
     }
 
     public var id: String
@@ -84,10 +89,10 @@ public struct DetailModel: Sendable, Equatable {
     /// Top-level steps plus verify: the "of 5" in "Step 3 of 5".
     public var stepTotal: Int { nodes.count }
 
-    /// The paths of every question still without an answer, in document order
-    /// (a parent's own question before its sub-steps').
+    /// The paths of every required question still without an answer, in document order
+    /// (a parent's own question before its sub-steps'); optional questions aren't counted.
     public var unanswered: [String] {
-        Flow.flattened(nodes).filter(\.isUnanswered).map(\.path)
+        Flow.flattened(nodes).filter { $0.isUnanswered && !$0.isOptional }.map(\.path)
     }
 
     /// How many steps and sub-steps ask a question.
@@ -104,7 +109,7 @@ public struct DetailModel: Sendable, Equatable {
             let content = content(step)
             let fingerprint = StepFingerprint.make(kind: .step, action: step.action, place: content.place, code: content.code)
             let subs = (step.substeps ?? []).prefix(StepLevel.letters.count).enumerated().map { position, sub in
-                let subContent = Self.content(sub)
+                let subContent = Self.content(sub, inOptional: content.optional)
                 return Node(
                     path: "\(number).\(position + 1)", label: "\(number)" + StepLevel.letters[position], kind: .sub,
                     number: number, content: subContent,
@@ -125,12 +130,18 @@ public struct DetailModel: Sendable, Equatable {
         return nodes
     }
 
-    /// `blocking` and `warning` only on a step or sub-step: verify (`leaf: false`) never
-    /// carries them, even when a malformed instructable got past validation.
-    private static func content(_ step: Step, leaf: Bool = true) -> StepContent {
-        StepContent(action: step.action, place: present(step.place), detail: present(step.detail), url: present(step.url),
-                    code: present(step.code), lang: present(step.lang), expect: present(step.expect),
-                    blocking: leaf && step.blocking == true, warning: leaf ? present(step.warning) : nil)
+    /// `blocking`, `warning`, `optional` and `file` only on a step or sub-step: verify
+    /// (`leaf: false`) never carries them, even when a malformed instructable got past
+    /// validation; a step that says both blocking and optional is only blocking. A sub-step
+    /// of an optional step (`inOptional`) is optional and never blocking.
+    private static func content(_ step: Step, leaf: Bool = true, inOptional: Bool = false) -> StepContent {
+        let own = leaf && step.optional == true && step.blocking != true
+        return StepContent(
+            action: step.action, place: present(step.place), detail: present(step.detail), url: present(step.url),
+            code: present(step.code), lang: present(step.lang), expect: present(step.expect),
+            blocking: leaf && !inOptional && step.blocking == true, warning: leaf ? present(step.warning) : nil,
+            optional: own || (leaf && inOptional), optionalByParent: leaf && inOptional && !own,
+            file: leaf ? present(step.file) : nil)
     }
 
     public static func make(_ detail: AskDetail) -> DetailModel {

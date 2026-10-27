@@ -10,6 +10,8 @@ public actor LocalQueue {
 
     let directory: URL
     let now: @Sendable () -> Date
+    /// How long `open` keeps trying a lock that reads as taken (see `lock(_:)`).
+    let lockWait: TimeInterval
     private(set) var keepDays: Int
     private(set) var state = QueueState.empty()
     /// One continuation per `subscribe()` caller.
@@ -19,11 +21,16 @@ public actor LocalQueue {
     var fileURL: URL { directory.appending(path: "queue.json") }
     var lockURL: URL { directory.appending(path: "queue.lock") }
 
-    public init(directory: URL, keepDays: Int, now: @escaping @Sendable () -> Date = { Date() }) {
+    public init(directory: URL, keepDays: Int, now: @escaping @Sendable () -> Date = { Date() },
+                lockWait: TimeInterval = LocalQueue.defaultLockWait) {
         self.directory = directory
         self.keepDays = max(1, keepDays)
         self.now = now
+        self.lockWait = max(0, lockWait)
     }
+
+    /// Long enough for a spawned child to exec, far shorter than a second Hook would hold it.
+    public static let defaultLockWait: TimeInterval = 0.5
 
     deinit {
         for continuation in subscribers.values { continuation.finish() }
@@ -63,8 +70,8 @@ public actor LocalQueue {
         guard fd >= 0 else {
             throw LocalQueueError.storeFailed("could not open queue.lock (errno \(errno))")
         }
-        guard flock(fd, LOCK_EX | LOCK_NB) == 0 else {
-            let code = errno
+        let code = Self.lock(fd, waitingUpTo: lockWait)
+        guard code == 0 else {
             Darwin.close(fd)
             if code == EWOULDBLOCK { throw LocalQueueError.locked }
             throw LocalQueueError.storeFailed("could not lock queue.lock (errno \(code))")
@@ -75,6 +82,24 @@ public actor LocalQueue {
         } catch {
             close()
             throw error
+        }
+    }
+
+    /// `flock(LOCK_EX | LOCK_NB)` on `fd`, tried again every 5 ms for up to `wait` seconds
+    /// while the lock reads as taken; 0 or the last errno. A flock belongs to the open
+    /// file, and a child spawned by any thread of this process (posix_spawn, `Process`)
+    /// shares every open file until its exec closes the close-on-exec ones. So for a
+    /// moment after `close()` the lock can still be held, by the child, though no queue
+    /// holds it: the same folder opened again right then (a test reopening its queue, or
+    /// Hook starting while the one it replaces quits) would read as locked. A second Hook
+    /// holds the lock for good and still gets `.locked`, after the wait.
+    static func lock(_ fd: Int32, waitingUpTo wait: TimeInterval) -> Int32 {
+        let deadline = Date().addingTimeInterval(wait)
+        while true {
+            if flock(fd, LOCK_EX | LOCK_NB) == 0 { return 0 }
+            let code = errno
+            guard code == EWOULDBLOCK, Date() < deadline else { return code }
+            usleep(5_000)
         }
     }
 

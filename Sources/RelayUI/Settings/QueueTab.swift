@@ -12,6 +12,9 @@ public struct QueueTab<Model: SettingsViewModel>: View {
     @State private var connecting = false
     @State private var sending = false
     @State private var testResult: TestAskResult?
+    /// The update command being typed; saved on Return or when the field loses focus.
+    @State private var updateCommand = ""
+    @FocusState private var updateCommandFocused: Bool
 
     public init(model: Model) {
         _model = ObservedObject(wrappedValue: model)
@@ -55,8 +58,10 @@ public struct QueueTab<Model: SettingsViewModel>: View {
             let saved = QueueSourceRadio.saved(model.settings.config)
             if choice != saved { choice = saved }
             syncDraft()
+            updateCommand = model.settings.config?.mailboxUpdateCommand ?? ""
         }
         .onChange(of: model.settings.config) { old, new in
+            if !updateCommandFocused { updateCommand = new?.mailboxUpdateCommand ?? "" }
             guard !connecting else { return }
             let next = QueueSourceRadio.afterConfigChange(current: choice, old: old, new: new)
             if next != choice { choice = next }
@@ -115,6 +120,13 @@ public struct QueueTab<Model: SettingsViewModel>: View {
                 }
                 .pickerStyle(.menu).labelsHidden().fixedSize()
             }
+            SettingsRow("Update command", help: QueueHelp.updateCommand) {
+                TextField("Update command", text: $updateCommand, prompt: Text("Opens the update guide"))
+                    .settingsField(width: DS.Metric.fieldWide)
+                    .focused($updateCommandFocused)
+                    .onSubmit(saveUpdateCommand)
+                    .onChange(of: updateCommandFocused) { _, focused in if !focused { saveUpdateCommand() } }
+            }
             if isUnsaved {
                 SettingsRow("") {
                     HStack(spacing: DS.Space.inline) {
@@ -151,6 +163,9 @@ public struct QueueTab<Model: SettingsViewModel>: View {
                         .foregroundStyle(connection.ok ? DS.Color.done : DS.Color.warn)
                 }
             }
+            if let line = model.settings.mailbox {
+                mailboxRow(line)
+            }
             SettingsRow("Test", help: QueueHelp.test) {
                 Button("Send a Test Ask", action: sendTest)
                     .disabled(sending || model.settings.sourceKey == SourceKey.none)
@@ -177,7 +192,46 @@ public struct QueueTab<Model: SettingsViewModel>: View {
         .environment(\.settingsSection, "Connection")
     }
 
+    /// The mailbox's version and level, ✓ or "Needs an update", and Check.
+    private func mailboxRow(_ line: MailboxVersionLine) -> some View {
+        SettingsRow("Mailbox", help: QueueHelp.mailboxVersion) {
+            HStack(spacing: DS.Space.inline) {
+                Text(line.text).textSelection(.enabled).lineLimit(1).truncationMode(.middle)
+                switch line.state {
+                case .ok:
+                    Image(systemName: DS.Symbol.mailboxOK)
+                        .imageScale(.small)
+                        .foregroundStyle(DS.Color.done)
+                        .accessibilityLabel("Up to date")
+                case .needsUpdate, .hookOlder:
+                    Label(line.badge ?? "", systemImage: DS.Symbol.mailboxBehind)
+                        .foregroundStyle(DS.Color.warn)
+                case .checking:
+                    ProgressView().controlSize(DS.Control.inline).accessibilityLabel("Checking")
+                case .failed:
+                    EmptyView()
+                }
+                if line.state == .needsUpdate {
+                    Button("Update Mailbox…") { model.perform(.updateMailbox) }
+                }
+                Button("Check") { model.perform(.checkMailbox) }
+                    .disabled(line.state == .checking)
+            }
+        }
+    }
+
     // MARK: Actions
+
+    /// Saves the update command; an empty field removes the key.
+    private func saveUpdateCommand() {
+        let text = updateCommand.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard text != (model.settings.config?.mailboxUpdateCommand ?? "") else { return }
+        if text.isEmpty {
+            model.save(set: [:], remove: ["mailboxUpdateCommand"])
+        } else {
+            model.save(set: ["mailboxUpdateCommand": text], remove: [])
+        }
+    }
 
     private func connect() {
         attempted = true
@@ -234,5 +288,7 @@ public enum QueueHelp {
     public static let mailbox = "Asks come from a mailbox server you run. Hook checks it on a timer and sends your answers back to it. The token file holds the mailbox's access token; Hook reads it only to talk to the mailbox and never shows it."
     public static let source = local + "\n\n" + mailbox
     public static let keep = "Closed asks older than this are deleted from this Mac."
+    public static let updateCommand = "A shell command that updates your mailbox server, for example a script that pulls the new version and restarts it. Update Mailbox… runs it in your terminal through your login shell, so you see its output and any password prompt. Leave it empty to open the update guide instead."
+    public static let mailboxVersion = "Hook reads the mailbox's protocol level when it connects and every 30 minutes. A mailbox below Hook's level can't take every step Hook shows: update it with Update Mailbox…."
     public static let test = "Posts a sample ask through the current source: project Hook, one step that runs echo relay-ok, and a verify step."
 }

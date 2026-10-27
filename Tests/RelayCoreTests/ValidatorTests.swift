@@ -69,6 +69,9 @@ private let minimal: [String: JSONValue] = [
                 case .failure(let failure):
                     #expect(!vector.valid, "\(vector.name): Swift rejects what Python accepts")
                     #expect(failure.errors.sorted() == vector.errors.sorted(), "\(vector.name)")
+                    if vector.name.hasPrefix("optional-") || vector.name.hasPrefix("file-") {
+                        #expect(failure.errors == vector.errors, "\(vector.name): the reference's order")
+                    }
                 }
             }
             if let pyBytes = vector.pyBytes {
@@ -160,9 +163,94 @@ private let minimal: [String: JSONValue] = [
         }
     }
 
+    @Test func optionalCasesAreInTheFixture() throws {
+        let names = Set(try loadVectors().map(\.name))
+        for name in ["optional-valid-true", "optional-valid-null", "optional-valid-on-substep", "optional-valid-with-question",
+                     "optional-not-bool-string", "optional-substep-not-bool", "optional-on-verify", "optional-and-blocking",
+                     "optional-and-blocking-substep", "optional-valid-false-blocking-true"] {
+            #expect(names.contains(name), "\(name)")
+        }
+    }
+
+    @Test func fileCasesAreInTheFixture() throws {
+        let names = Set(try loadVectors().map(\.name))
+        for name in ["file-valid-home", "file-valid-absolute", "file-valid-on-substep", "file-valid-500", "file-relative",
+                     "file-tilde-user", "file-501", "file-multiline", "file-hidden-zwj", "file-on-verify",
+                     "file-relative-after-bad-url", "file-link-path-valid", "file-link-path-and-url", "file-link-neither",
+                     "file-link-path-relative", "optional-parent-blocking-substep",
+                     "optional-parent-optional-blocking-substep", "optional-not-bool-long-warning",
+                     "file-hidden-root-nofollow", "file-hidden-root-vol", "file-net-upper", "file-network-lower",
+                     "file-net-double-slash", "file-net-private", "file-home-data-volume", "file-home",
+                     "file-valid-hidden-inner", "file-valid-homebrew", "file-valid-networks-n1",
+                     "file-link-path-hidden-root", "file-link-path-home"] {
+            #expect(names.contains(name), "\(name)")
+        }
+    }
+
+    @Test func fileAndOptionalParentErrorsAreTheMailboxStrings() {
+        func errors(_ steps: [JSONValue], links: [JSONValue]? = nil) -> [String] {
+            var input = minimal
+            input["steps"] = .array(steps)
+            if let links { input["links"] = .array(links) }
+            guard case .failure(let failure) = Validator.validate(.object(input)) else { return [] }
+            return failure.errors
+        }
+        #expect(errors([.object(["do": .string("a"), "file": .string("~/notes/plan.md")])]) == [])
+        #expect(errors([.object(["do": .string("a"), "file": .string("notes/plan.md")])])
+            == ["steps[0].file: must be an absolute path"])
+        #expect(errors([.object(["do": .string("a"), "file": .string("/.vol/1/2")])])
+            == ["steps[0].file: can't start with a hidden folder"])
+        #expect(errors([.object(["do": .string("a"), "file": .string("/.nofollow/../a.md")])])
+            == ["steps[0].file: must not contain . or .. segments"])
+        for network in ["/NET/h/a.md", "/network/x/a.md", "//net/h/a.md", "/private/net/h/a.md",
+                        "/System/Volumes/Data/home/u/a.md", "/home/u/a.md", "/private/var/automount/net/h",
+                        "/var/automount/net/h", "/private/private/net/h", "/System/Volumes/Data/private/net/h",
+                        "/System/Volumes/Data/private/var/automount/net/h"] {
+            #expect(errors([.object(["do": .string("a"), "file": .string(network)])])
+                == ["steps[0].file: can't be a network path"], "\(network)")
+        }
+        // N3: case folding turns these first folders into ASCII ones on disk.
+        for folded in ["/\u{17F}ystem/Volumes/Data/home/u/a.md", "/Sy\u{FB06}em/Volumes/Data/net/h/a.md",
+                       "/\u{212A}ext/a.md"] {
+            #expect(errors([.object(["do": .string("a"), "file": .string(folded)])])
+                == ["steps[0].file: the first folder name must be plain ASCII"], "\(folded)")
+        }
+        for fine in ["/Users/x/.config/a.md", "/homebrew/a.md", "/networks/a.md", "~/.config/a.md",
+                     "/Users/Jos\u{E9}/a.md", "~/\u{DC}n\u{EF}code/a.md"] {
+            #expect(errors([.object(["do": .string("a"), "file": .string(fine)])]) == [], "\(fine)")
+        }
+        #expect(errors([.object(["do": .string("a"), "optional": .bool(true),
+                                 "substeps": .array([.object(["do": .string("b"), "blocking": .bool(true)])])])])
+            == ["steps[0].substeps[0].blocking: can't be blocking inside an optional step"])
+        #expect(errors([.object(["do": .string("a"), "optional": .string("yes"),
+                                 "warning": .string(String(repeating: "w", count: 301))])])
+            == ["steps[0].optional: must be true or false", "steps[0].warning: longer than 300 characters"])
+        let step = JSONValue.object(["do": .string("a")])
+        #expect(errors([step], links: [.object(["label": .string("Plan"), "path": .string("/tmp/plan.md")])]) == [])
+        #expect(errors([step], links: [.object(["label": .string("Plan")])]) == ["links[0]: needs url or path, not both"])
+        #expect(errors([step], links: [.object(["label": .string("Plan"), "path": .string("/tmp/plan.md"),
+                                                "url": .string("https://example.com")])])
+            == ["links[0]: needs url or path, not both"])
+    }
+
+    @Test func optionalErrorsAreTheMailboxStrings() {
+        func errors(_ step: [String: JSONValue]) -> [String] {
+            var input = minimal
+            input["steps"] = .array([.object(step)])
+            guard case .failure(let failure) = Validator.validate(.object(input)) else { return [] }
+            return failure.errors
+        }
+        #expect(errors(["do": .string("a"), "optional": .string("yes")]) == ["steps[0].optional: must be true or false"])
+        #expect(errors(["do": .string("a"), "optional": .bool(true), "blocking": .bool(true)])
+            == ["steps[0].optional: can't be optional and blocking"])
+        #expect(errors(["do": .string("a"), "optional": .bool(true), "blocking": .null]) == [])
+    }
+
     @Test func stepAndLeafKeys() {
         #expect(Validator.verifyKeys == ["do", "where", "code", "lang", "expect", "detail", "url"])
-        #expect(Validator.leafKeys == Validator.verifyKeys.union(["question", "blocking", "warning"]))
+        #expect(Validator.leafKeys == Validator.verifyKeys.union(["question", "blocking", "warning", "optional", "file"]))
+        #expect(Validator.linkKeys == ["label", "url", "path"])
+        #expect(Validator.maxPath == 500)
         #expect(Validator.warningLimit == 300)
         #expect(Validator.questionKeys == ["prompt", "choices", "multi"])
         #expect(Validator.maxQuestions == 20)

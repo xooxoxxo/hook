@@ -54,6 +54,14 @@ enum QueueFixture {
         return try #require(attributes[.posixPermissions] as? NSNumber).intValue
     }
 
+    /// Opens `dir` again after a `close()`: `open` itself rides out a lock a spawned child
+    /// still shares for a moment (`LocalQueue.lock`).
+    static func reopenQueue(_ dir: URL, keepDays: Int = 14,
+                            clock: QueueTestClock = QueueTestClock()) async throws -> (LocalQueue, QueueLoadOutcome) {
+        let queue = LocalQueue(directory: dir, keepDays: keepDays, now: { clock.now })
+        return (queue, try await queue.open())
+    }
+
     /// Polls for up to 2 s.
     static func waitUntil(_ condition: @Sendable () async -> Bool) async throws {
         for _ in 0..<200 {
@@ -301,12 +309,61 @@ enum QueueFixture {
         let dir = QueueFixture.directory()
         defer { QueueFixture.remove(dir) }
         let first = try await QueueFixture.openQueue(dir)
-        let second = LocalQueue(directory: dir, keepDays: 14)
+        let second = LocalQueue(directory: dir, keepDays: 14, lockWait: 0.05)
         await #expect(throws: LocalQueueError.locked) {
             try await second.open()
         }
         await first.close()
         #expect(try await second.open() == .loaded)
+    }
+
+    /// The flake's cause: a child spawned by any thread shares the lock's open file until
+    /// its exec, so right after `close()` the lock can read as taken. `open` waits it out.
+    @Test func aLockAChildBrieflySharesIsWaitedOut() async throws {
+        let dir = QueueFixture.directory()
+        defer { QueueFixture.remove(dir) }
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let path = dir.appending(path: "probe.lock").path
+        let spawning = Task.detached {
+            while !Task.isCancelled {
+                let child = Process()
+                child.executableURL = URL(fileURLWithPath: "/usr/bin/true")
+                try? child.run()
+                child.waitUntilExit()
+            }
+        }
+        defer { spawning.cancel() }
+        var failures = 0
+        let until = Date().addingTimeInterval(1)
+        while Date() < until {
+            let fd = open(path, O_RDWR | O_CREAT | O_CLOEXEC, 0o600)
+            if LocalQueue.lock(fd, waitingUpTo: LocalQueue.defaultLockWait) != 0 { failures += 1 }
+            close(fd)
+        }
+        #expect(failures == 0)
+
+        // Reopening the queue itself while children spawn: never locked.
+        for _ in 0..<50 {
+            let (queue, _) = try await QueueFixture.reopenQueue(dir)
+            await queue.close()
+        }
+    }
+
+    /// A lock released during the wait is taken; one held throughout is `.locked`.
+    @Test func theLockWaitIsBounded() async throws {
+        let dir = QueueFixture.directory()
+        defer { QueueFixture.remove(dir) }
+        let holder = try await QueueFixture.openQueue(dir)
+        let started = Date()
+        await #expect(throws: LocalQueueError.locked) {
+            try await LocalQueue(directory: dir, keepDays: 14, lockWait: 0.2).open()
+        }
+        #expect(Date().timeIntervalSince(started) >= 0.2)
+        Task.detached {
+            try? await Task.sleep(for: .milliseconds(100))
+            await holder.close()
+        }
+        #expect(try await LocalQueue(directory: dir, keepDays: 14, lockWait: 2).open() == .loaded)
     }
 
     @Test func retentionDropsOldFinishedAsksAndKeepsOpenOnes() async throws {
@@ -336,8 +393,8 @@ enum QueueFixture {
 
         // The pruned state is on disk too.
         await queue.close()
-        let reopened = LocalQueue(directory: dir, keepDays: 14, now: { clock.now })
-        #expect(try await reopened.open() == .loaded)
+        let (reopened, outcome) = try await QueueFixture.reopenQueue(dir, clock: clock)
+        #expect(outcome == .loaded)
         #expect(await reopened.get(old.id) == nil)
         #expect(await reopened.get(open.id) != nil)
     }

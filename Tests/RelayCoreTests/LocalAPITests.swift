@@ -442,3 +442,25 @@ private func details(_ response: HTTPResponse) -> [String] {
         #expect(LocalAPI.values([1, 2])?.count == 2)
     }
 }
+
+@Suite struct LocalAPIVersionTests {
+    @Test func versionAnswersTheAppsOwnLevel() async throws {
+        let dir = FileManager.default.temporaryDirectory.appending(path: "relay-api-\(UUID().uuidString)")
+        let queue = LocalQueue(directory: dir, keepDays: 14)
+        _ = try await queue.open()
+        let api = LocalAPI(queue: queue, port: port, appVersion: "0.9.1", token: { goodToken })
+        let h = Harness(api: api, queue: queue)
+        let response = await h.send("GET", "/version")
+        #expect(response.status == 200)
+        let body = try json(response)
+        #expect(body["protocol"] == .int(MailboxProtocol.current))
+        #expect(body["version"] == .string("0.9.1"))
+        #expect(body["service"] == .string("hook"))
+    }
+
+    @Test func versionNeedsTheToken() async throws {
+        let h = try await harness()
+        #expect(await h.send("GET", "/version", auth: nil).status == 401)
+        #expect(await h.send("POST", "/version").status == 404)
+    }
+}

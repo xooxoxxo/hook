@@ -3250,7 +3250,7 @@
    },
    "valid": false,
    "errors": [
-    "links[0].url: required"
+    "links[0]: needs url or path, not both"
    ],
    "cleaned": null,
    "pyBytes": 108
@@ -8819,6 +8819,4178 @@
    ],
    "cleaned": null,
    "pyBytes": 135
+  },
+  {
+   "name": "optional-valid-true",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think",
+      "optional": true
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think",
+      "optional": true
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 134
+  },
+  {
+   "name": "optional-valid-false",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think",
+      "optional": false
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think",
+      "optional": false
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 135
+  },
+  {
+   "name": "optional-valid-null",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think",
+      "optional": null
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think",
+      "optional": null
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 134
+  },
+  {
+   "name": "optional-valid-on-substep",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Try the build",
+      "substeps": [
+       {
+        "do": "Open the app"
+       },
+       {
+        "do": "Note anything odd",
+        "optional": true
+       }
+      ]
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Try the build",
+      "substeps": [
+       {
+        "do": "Open the app"
+       },
+       {
+        "do": "Note anything odd",
+        "optional": true
+       }
+      ]
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 192
+  },
+  {
+   "name": "optional-valid-with-question",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think",
+      "optional": true,
+      "question": {
+       "prompt": "Anything to change?",
+       "choices": [
+        "No",
+        "Yes"
+       ]
+      }
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think",
+      "optional": true,
+      "question": {
+       "prompt": "Anything to change?",
+       "choices": [
+        "No",
+        "Yes"
+       ]
+      }
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 207
+  },
+  {
+   "name": "optional-valid-with-warning",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think",
+      "optional": true,
+      "warning": "Takes a minute."
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think",
+      "optional": true,
+      "warning": "Takes a minute."
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 164
+  },
+  {
+   "name": "optional-valid-true-blocking-false",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think",
+      "optional": true,
+      "blocking": false
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think",
+      "optional": true,
+      "blocking": false
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 153
+  },
+  {
+   "name": "optional-valid-false-blocking-true",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think",
+      "optional": false,
+      "blocking": true
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think",
+      "optional": false,
+      "blocking": true
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 153
+  },
+  {
+   "name": "optional-not-bool-string",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think",
+      "optional": "true"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].optional: must be true or false"
+   ],
+   "cleaned": null,
+   "pyBytes": 136
+  },
+  {
+   "name": "optional-not-bool-number",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think",
+      "optional": 1
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].optional: must be true or false"
+   ],
+   "cleaned": null,
+   "pyBytes": 131
+  },
+  {
+   "name": "optional-not-bool-list",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think",
+      "optional": []
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].optional: must be true or false"
+   ],
+   "cleaned": null,
+   "pyBytes": 132
+  },
+  {
+   "name": "optional-substep-not-bool",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Try the build",
+      "substeps": [
+       {
+        "do": "Open the app"
+       },
+       {
+        "do": "Note anything odd",
+        "optional": "yes"
+       }
+      ]
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].substeps[1].optional: must be true or false"
+   ],
+   "cleaned": null,
+   "pyBytes": 193
+  },
+  {
+   "name": "optional-on-verify",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "verify": {
+     "do": "Check it",
+     "optional": true
+    }
+   },
+   "valid": false,
+   "errors": [
+    "verify.optional: unknown key"
+   ],
+   "cleaned": null,
+   "pyBytes": 164
+  },
+  {
+   "name": "optional-and-blocking",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think",
+      "optional": true,
+      "blocking": true
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].optional: can't be optional and blocking"
+   ],
+   "cleaned": null,
+   "pyBytes": 152
+  },
+  {
+   "name": "optional-and-blocking-substep",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Try the build",
+      "substeps": [
+       {
+        "do": "Note anything odd",
+        "optional": true,
+        "blocking": true
+       }
+      ]
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].substeps[0].optional: can't be optional and blocking"
+   ],
+   "cleaned": null,
+   "pyBytes": 186
+  },
+  {
+   "name": "optional-not-bool-and-blocking",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think",
+      "optional": "x",
+      "blocking": true
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].optional: must be true or false"
+   ],
+   "cleaned": null,
+   "pyBytes": 151
+  },
+  {
+   "name": "optional-not-bool-long-warning",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think",
+      "optional": "x",
+      "warning": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].optional: must be true or false",
+    "steps[0].warning: longer than 300 characters"
+   ],
+   "cleaned": null,
+   "pyBytes": 449
+  },
+  {
+   "name": "optional-and-blocking-long-warning",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think",
+      "optional": true,
+      "blocking": true,
+      "warning": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].optional: can't be optional and blocking",
+    "steps[0].warning: longer than 300 characters"
+   ],
+   "cleaned": null,
+   "pyBytes": 468
+  },
+  {
+   "name": "optional-blocking-not-bool-long-warning",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think",
+      "optional": 1,
+      "blocking": "x",
+      "warning": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].blocking: must be true or false",
+    "steps[0].optional: must be true or false",
+    "steps[0].warning: longer than 300 characters"
+   ],
+   "cleaned": null,
+   "pyBytes": 464
+  },
+  {
+   "name": "optional-substep-not-bool-long-warning",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Try the build",
+      "substeps": [
+       {
+        "do": "Open the app"
+       },
+       {
+        "do": "Note anything odd",
+        "optional": "x",
+        "warning": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+       }
+      ]
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].substeps[1].optional: must be true or false",
+    "steps[0].substeps[1].warning: longer than 300 characters"
+   ],
+   "cleaned": null,
+   "pyBytes": 507
+  },
+  {
+   "name": "optional-parent-blocking-substep",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Try the build",
+      "optional": true,
+      "substeps": [
+       {
+        "do": "Open the app",
+        "blocking": true
+       }
+      ]
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].substeps[0].blocking: can't be blocking inside an optional step"
+   ],
+   "cleaned": null,
+   "pyBytes": 181
+  },
+  {
+   "name": "optional-parent-blocking-second-substep",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Try the build",
+      "optional": true,
+      "substeps": [
+       {
+        "do": "Open the app"
+       },
+       {
+        "do": "Note anything odd",
+        "blocking": true
+       }
+      ]
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].substeps[1].blocking: can't be blocking inside an optional step"
+   ],
+   "cleaned": null,
+   "pyBytes": 210
+  },
+  {
+   "name": "optional-parent-optional-blocking-substep",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Try the build",
+      "optional": true,
+      "substeps": [
+       {
+        "do": "Note anything odd",
+        "optional": true,
+        "blocking": true
+       }
+      ]
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].substeps[0].blocking: can't be blocking inside an optional step",
+    "steps[0].substeps[0].optional: can't be optional and blocking"
+   ],
+   "cleaned": null,
+   "pyBytes": 204
+  },
+  {
+   "name": "optional-parent-blocking-substep-not-bool",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Try the build",
+      "optional": true,
+      "substeps": [
+       {
+        "do": "Note anything odd",
+        "blocking": "x"
+       }
+      ]
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].substeps[0].blocking: must be true or false"
+   ],
+   "cleaned": null,
+   "pyBytes": 185
+  },
+  {
+   "name": "optional-parent-blocking-substep-long-warning",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Try the build",
+      "optional": true,
+      "substeps": [
+       {
+        "do": "Note anything odd",
+        "blocking": true,
+        "warning": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+       }
+      ]
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].substeps[0].blocking: can't be blocking inside an optional step",
+    "steps[0].substeps[0].warning: longer than 300 characters"
+   ],
+   "cleaned": null,
+   "pyBytes": 502
+  },
+  {
+   "name": "optional-parent-not-bool-blocking-substep",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Try the build",
+      "optional": "yes",
+      "substeps": [
+       {
+        "do": "Note anything odd",
+        "blocking": true
+       }
+      ]
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].optional: must be true or false"
+   ],
+   "cleaned": null,
+   "pyBytes": 187
+  },
+  {
+   "name": "optional-valid-parent-blocking-false-substep",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Try the build",
+      "optional": true,
+      "substeps": [
+       {
+        "do": "Note anything odd",
+        "blocking": false
+       }
+      ]
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Try the build",
+      "optional": true,
+      "substeps": [
+       {
+        "do": "Note anything odd",
+        "blocking": false
+       }
+      ]
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 187
+  },
+  {
+   "name": "optional-valid-parent-optional-substep",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Try the build",
+      "optional": true,
+      "substeps": [
+       {
+        "do": "Note anything odd",
+        "optional": true
+       }
+      ]
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Try the build",
+      "optional": true,
+      "substeps": [
+       {
+        "do": "Note anything odd",
+        "optional": true
+       }
+      ]
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 186
+  },
+  {
+   "name": "optional-valid-parent-false-blocking-substep",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Try the build",
+      "optional": false,
+      "substeps": [
+       {
+        "do": "Note anything odd",
+        "blocking": true
+       }
+      ]
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Try the build",
+      "optional": false,
+      "substeps": [
+       {
+        "do": "Note anything odd",
+        "blocking": true
+       }
+      ]
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 187
+  },
+  {
+   "name": "optional-valid-parent-null-blocking-substep",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Try the build",
+      "optional": null,
+      "substeps": [
+       {
+        "do": "Note anything odd",
+        "blocking": true
+       }
+      ]
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Try the build",
+      "optional": null,
+      "substeps": [
+       {
+        "do": "Note anything odd",
+        "blocking": true
+       }
+      ]
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 186
+  },
+  {
+   "name": "file-valid-home",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "~/Documents/release-notes.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "~/Documents/release-notes.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 156
+  },
+  {
+   "name": "file-valid-absolute",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/var/tmp/release-notes.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/var/tmp/release-notes.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 153
+  },
+  {
+   "name": "file-valid-root",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 129
+  },
+  {
+   "name": "file-valid-null",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": null
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": null
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 130
+  },
+  {
+   "name": "file-valid-unicode",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "~/Notizen/Übersicht 🚀.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "~/Notizen/Übersicht 🚀.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 156
+  },
+  {
+   "name": "file-valid-500",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 628
+  },
+  {
+   "name": "file-valid-on-substep",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Try the build",
+      "substeps": [
+       {
+        "do": "Open the app"
+       },
+       {
+        "do": "Read the release notes",
+        "file": "~/Documents/release-notes.md"
+       }
+      ]
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Try the build",
+      "substeps": [
+       {
+        "do": "Open the app"
+       },
+       {
+        "do": "Read the release notes",
+        "file": "~/Documents/release-notes.md"
+       }
+      ]
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 219
+  },
+  {
+   "name": "file-valid-with-optional",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "~/Documents/release-notes.md",
+      "optional": true
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "~/Documents/release-notes.md",
+      "optional": true
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 174
+  },
+  {
+   "name": "file-valid-with-url",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "~/Documents/release-notes.md",
+      "url": "https://example.com/notes"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "~/Documents/release-notes.md",
+      "url": "https://example.com/notes"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 192
+  },
+  {
+   "name": "file-relative",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "notes/release.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: must be an absolute path"
+   ],
+   "cleaned": null,
+   "pyBytes": 144
+  },
+  {
+   "name": "file-dot-relative",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "./release.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: must be an absolute path"
+   ],
+   "cleaned": null,
+   "pyBytes": 140
+  },
+  {
+   "name": "file-tilde-user",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "~owner/release.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: must be an absolute path"
+   ],
+   "cleaned": null,
+   "pyBytes": 145
+  },
+  {
+   "name": "file-tilde-only",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "~"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: must be an absolute path"
+   ],
+   "cleaned": null,
+   "pyBytes": 129
+  },
+  {
+   "name": "file-url-scheme",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "file:///tmp/release.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: must be an absolute path"
+   ],
+   "cleaned": null,
+   "pyBytes": 150
+  },
+  {
+   "name": "file-empty",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": ""
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: must be an absolute path"
+   ],
+   "cleaned": null,
+   "pyBytes": 128
+  },
+  {
+   "name": "file-blank",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "   "
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: must be an absolute path"
+   ],
+   "cleaned": null,
+   "pyBytes": 131
+  },
+  {
+   "name": "file-not-string",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": 42
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: must be a string"
+   ],
+   "cleaned": null,
+   "pyBytes": 128
+  },
+  {
+   "name": "file-501",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: longer than 500 characters"
+   ],
+   "cleaned": null,
+   "pyBytes": 629
+  },
+  {
+   "name": "file-multiline",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/tmp/release\nnotes.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: must be a single line"
+   ],
+   "cleaned": null,
+   "pyBytes": 150
+  },
+  {
+   "name": "file-tab",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/tmp/release\tnotes.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: must be a single line"
+   ],
+   "cleaned": null,
+   "pyBytes": 150
+  },
+  {
+   "name": "file-hidden",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/tmp/release​notes.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: contains hidden or control characters (U+200B)"
+   ],
+   "cleaned": null,
+   "pyBytes": 151
+  },
+  {
+   "name": "file-hidden-zwj",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/tmp/a‍b.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: contains hidden or control characters (U+200D)"
+   ],
+   "cleaned": null,
+   "pyBytes": 141
+  },
+  {
+   "name": "file-hidden-variation-selector",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/tmp/done✔️.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: contains hidden or control characters (U+FE0F)"
+   ],
+   "cleaned": null,
+   "pyBytes": 146
+  },
+  {
+   "name": "file-secret-like",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/tmp/ghp_release.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: secret-like value"
+   ],
+   "cleaned": null,
+   "pyBytes": 147
+  },
+  {
+   "name": "file-on-verify",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "verify": {
+     "do": "Check it",
+     "file": "~/Documents/release-notes.md"
+    }
+   },
+   "valid": false,
+   "errors": [
+    "verify.file: unknown key"
+   ],
+   "cleaned": null,
+   "pyBytes": 186
+  },
+  {
+   "name": "file-substep-relative",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Try the build",
+      "substeps": [
+       {
+        "do": "Open the app"
+       },
+       {
+        "do": "Read the release notes",
+        "file": "release.md"
+       }
+      ]
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].substeps[1].file: must be an absolute path"
+   ],
+   "cleaned": null,
+   "pyBytes": 201
+  },
+  {
+   "name": "file-relative-after-bad-url",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "url": "ftp://example.com/x",
+      "file": "release.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].url: must be an http(s) URL",
+    "steps[0].file: must be an absolute path"
+   ],
+   "cleaned": null,
+   "pyBytes": 168
+  },
+  {
+   "name": "file-relative-before-blocking",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "release.md",
+      "blocking": "x",
+      "optional": 1
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: must be an absolute path",
+    "steps[0].blocking: must be true or false",
+    "steps[0].optional: must be true or false"
+   ],
+   "cleaned": null,
+   "pyBytes": 170
+  },
+  {
+   "name": "file-dotdot-home",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "~/../x"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: must not contain . or .. segments"
+   ],
+   "cleaned": null,
+   "pyBytes": 134
+  },
+  {
+   "name": "file-dotdot-middle",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/a/b/../c.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: must not contain . or .. segments"
+   ],
+   "cleaned": null,
+   "pyBytes": 140
+  },
+  {
+   "name": "file-dotdot-end",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/a/.."
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: must not contain . or .. segments"
+   ],
+   "cleaned": null,
+   "pyBytes": 133
+  },
+  {
+   "name": "file-dot-middle",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/a/./b"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: must not contain . or .. segments"
+   ],
+   "cleaned": null,
+   "pyBytes": 134
+  },
+  {
+   "name": "file-dot-end",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "~/notes/."
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: must not contain . or .. segments"
+   ],
+   "cleaned": null,
+   "pyBytes": 137
+  },
+  {
+   "name": "file-dotdot-on-substep",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Try the build",
+      "substeps": [
+       {
+        "do": "Open the app"
+       },
+       {
+        "do": "Read the release notes",
+        "file": "/tmp/../etc/hosts"
+       }
+      ]
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].substeps[1].file: must not contain . or .. segments"
+   ],
+   "cleaned": null,
+   "pyBytes": 208
+  },
+  {
+   "name": "file-net",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/net/host/share/doc.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: can't be a network path"
+   ],
+   "cleaned": null,
+   "pyBytes": 150
+  },
+  {
+   "name": "file-net-root",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/net"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: can't be a network path"
+   ],
+   "cleaned": null,
+   "pyBytes": 132
+  },
+  {
+   "name": "file-network",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/Network/Servers/x.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: can't be a network path"
+   ],
+   "cleaned": null,
+   "pyBytes": 149
+  },
+  {
+   "name": "file-network-root",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/Network"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: can't be a network path"
+   ],
+   "cleaned": null,
+   "pyBytes": 136
+  },
+  {
+   "name": "file-net-and-dotdot",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/net/host/../doc.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: must not contain . or .. segments"
+   ],
+   "cleaned": null,
+   "pyBytes": 147
+  },
+  {
+   "name": "file-valid-dotdot-in-name",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/a/..b/c.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/a/..b/c.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 139
+  },
+  {
+   "name": "file-valid-dots-in-name",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "~/notes/v1.2/...md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "~/notes/v1.2/...md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 146
+  },
+  {
+   "name": "file-valid-networks",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/networks/x.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/networks/x.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 142
+  },
+  {
+   "name": "file-valid-netlify",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/netlify/x.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/netlify/x.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 141
+  },
+  {
+   "name": "file-valid-home-net",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "~/net/x.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "~/net/x.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 138
+  },
+  {
+   "name": "file-valid-trailing-slash",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/var/tmp/"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/var/tmp/"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 137
+  },
+  {
+   "name": "file-hidden-root-nofollow",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/.nofollow/Users/x/a.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: can't start with a hidden folder"
+   ],
+   "cleaned": null,
+   "pyBytes": 151
+  },
+  {
+   "name": "file-hidden-root-vol",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/.vol/1/2"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: can't start with a hidden folder"
+   ],
+   "cleaned": null,
+   "pyBytes": 137
+  },
+  {
+   "name": "file-hidden-root-resolve",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/.resolve/1/2"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: can't start with a hidden folder"
+   ],
+   "cleaned": null,
+   "pyBytes": 141
+  },
+  {
+   "name": "file-hidden-root-double-slash",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "//.vol/1/2"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: can't start with a hidden folder"
+   ],
+   "cleaned": null,
+   "pyBytes": 138
+  },
+  {
+   "name": "file-hidden-root-and-dotdot",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/.vol/../a.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: must not contain . or .. segments"
+   ],
+   "cleaned": null,
+   "pyBytes": 141
+  },
+  {
+   "name": "file-nonascii-first-long-s",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/ſystem/Volumes/Data/home/u/a.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: the first folder name must be plain ASCII"
+   ],
+   "cleaned": null,
+   "pyBytes": 161
+  },
+  {
+   "name": "file-nonascii-first-ligature",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/Syﬆem/Volumes/Data/net/h/a.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: the first folder name must be plain ASCII"
+   ],
+   "cleaned": null,
+   "pyBytes": 160
+  },
+  {
+   "name": "file-nonascii-first-kelvin",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/Kext/a.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: the first folder name must be plain ASCII"
+   ],
+   "cleaned": null,
+   "pyBytes": 140
+  },
+  {
+   "name": "file-link-path-nonascii-first",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "/ſystem/Volumes/Data/home/u/a.md"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "links[0].path: the first folder name must be plain ASCII"
+   ],
+   "cleaned": null,
+   "pyBytes": 200
+  },
+  {
+   "name": "file-valid-nonascii-inner",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/Users/José/a.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/Users/José/a.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 145
+  },
+  {
+   "name": "file-valid-home-nonascii",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "~/Ünïcode/a.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "~/Ünïcode/a.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 144
+  },
+  {
+   "name": "file-net-upper",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/NET/h/a.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: can't be a network path"
+   ],
+   "cleaned": null,
+   "pyBytes": 139
+  },
+  {
+   "name": "file-network-lower",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/network/x/a.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: can't be a network path"
+   ],
+   "cleaned": null,
+   "pyBytes": 143
+  },
+  {
+   "name": "file-net-double-slash",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "//net/h/a.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: can't be a network path"
+   ],
+   "cleaned": null,
+   "pyBytes": 140
+  },
+  {
+   "name": "file-net-inner-double-slash",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/net//h/a.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: can't be a network path"
+   ],
+   "cleaned": null,
+   "pyBytes": 140
+  },
+  {
+   "name": "file-net-private",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/private/net/h/a.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: can't be a network path"
+   ],
+   "cleaned": null,
+   "pyBytes": 147
+  },
+  {
+   "name": "file-net-automount",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/private/var/automount/net/h/a.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: can't be a network path"
+   ],
+   "cleaned": null,
+   "pyBytes": 161
+  },
+  {
+   "name": "file-home-data-volume",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/System/Volumes/Data/home/u/a.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: can't be a network path"
+   ],
+   "cleaned": null,
+   "pyBytes": 160
+  },
+  {
+   "name": "file-net-data-volume-private",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/System/Volumes/Data/private/net/h"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: can't be a network path"
+   ],
+   "cleaned": null,
+   "pyBytes": 162
+  },
+  {
+   "name": "file-net-data-volume-private-automount",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/System/Volumes/Data/private/var/automount/net/h"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: can't be a network path"
+   ],
+   "cleaned": null,
+   "pyBytes": 176
+  },
+  {
+   "name": "file-net-private-private",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/private/private/net/h"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: can't be a network path"
+   ],
+   "cleaned": null,
+   "pyBytes": 150
+  },
+  {
+   "name": "file-net-var-automount",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/var/automount/net/h"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: can't be a network path"
+   ],
+   "cleaned": null,
+   "pyBytes": 148
+  },
+  {
+   "name": "file-home",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/home/u/a.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: can't be a network path"
+   ],
+   "cleaned": null,
+   "pyBytes": 140
+  },
+  {
+   "name": "file-home-root",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/home"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: can't be a network path"
+   ],
+   "cleaned": null,
+   "pyBytes": 133
+  },
+  {
+   "name": "file-valid-hidden-inner",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/Users/x/.config/a.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/Users/x/.config/a.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 149
+  },
+  {
+   "name": "file-valid-homebrew",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/homebrew/a.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/homebrew/a.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 142
+  },
+  {
+   "name": "file-valid-networks-n1",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/networks/a.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/networks/a.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 142
+  },
+  {
+   "name": "file-valid-private-tmp",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/private/tmp/a.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "/private/tmp/a.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 145
+  },
+  {
+   "name": "file-valid-home-dotfile",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "~/.config/a.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Read the release notes",
+      "file": "~/.config/a.md"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 142
+  },
+  {
+   "name": "file-link-path-hidden-root",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "/.nofollow/Users/x/a.md"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "links[0].path: can't start with a hidden folder"
+   ],
+   "cleaned": null,
+   "pyBytes": 190
+  },
+  {
+   "name": "file-link-path-vol",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "/.vol/1/2"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "links[0].path: can't start with a hidden folder"
+   ],
+   "cleaned": null,
+   "pyBytes": 176
+  },
+  {
+   "name": "file-link-path-net-upper",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "/NET/h/a.md"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "links[0].path: can't be a network path"
+   ],
+   "cleaned": null,
+   "pyBytes": 178
+  },
+  {
+   "name": "file-link-path-network-lower",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "/network/x/a.md"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "links[0].path: can't be a network path"
+   ],
+   "cleaned": null,
+   "pyBytes": 182
+  },
+  {
+   "name": "file-link-path-net-double-slash",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "//net/h/a.md"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "links[0].path: can't be a network path"
+   ],
+   "cleaned": null,
+   "pyBytes": 179
+  },
+  {
+   "name": "file-link-path-net-private",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "/private/net/h/a.md"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "links[0].path: can't be a network path"
+   ],
+   "cleaned": null,
+   "pyBytes": 186
+  },
+  {
+   "name": "file-link-path-home-data-volume",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "/System/Volumes/Data/home/u/a.md"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "links[0].path: can't be a network path"
+   ],
+   "cleaned": null,
+   "pyBytes": 199
+  },
+  {
+   "name": "file-link-path-net-data-volume-private",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "/System/Volumes/Data/private/net/h"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "links[0].path: can't be a network path"
+   ],
+   "cleaned": null,
+   "pyBytes": 201
+  },
+  {
+   "name": "file-link-path-net-private-private",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "/private/private/net/h"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "links[0].path: can't be a network path"
+   ],
+   "cleaned": null,
+   "pyBytes": 189
+  },
+  {
+   "name": "file-link-path-net-var-automount",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "/var/automount/net/h"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "links[0].path: can't be a network path"
+   ],
+   "cleaned": null,
+   "pyBytes": 187
+  },
+  {
+   "name": "file-link-path-home",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "/home/u/a.md"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "links[0].path: can't be a network path"
+   ],
+   "cleaned": null,
+   "pyBytes": 179
+  },
+  {
+   "name": "file-link-path-valid-hidden-inner",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "/Users/x/.config/a.md"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "/Users/x/.config/a.md"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 188
+  },
+  {
+   "name": "file-link-path-valid-homebrew",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "/homebrew/a.md"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "/homebrew/a.md"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 181
+  },
+  {
+   "name": "file-link-path-valid-networks-n1",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "/networks/a.md"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "/networks/a.md"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 181
+  },
+  {
+   "name": "file-link-path-dotdot",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "~/../x"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "links[0].path: must not contain . or .. segments"
+   ],
+   "cleaned": null,
+   "pyBytes": 173
+  },
+  {
+   "name": "file-link-path-dot",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "/a/./b"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "links[0].path: must not contain . or .. segments"
+   ],
+   "cleaned": null,
+   "pyBytes": 173
+  },
+  {
+   "name": "file-link-path-net",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "/net/host/share/doc.md"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "links[0].path: can't be a network path"
+   ],
+   "cleaned": null,
+   "pyBytes": 189
+  },
+  {
+   "name": "file-link-path-network",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "/Network/Servers/x.md"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "links[0].path: can't be a network path"
+   ],
+   "cleaned": null,
+   "pyBytes": 188
+  },
+  {
+   "name": "file-link-path-valid-dotdot-in-name",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "/a/..b/c.md"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "/a/..b/c.md"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 178
+  },
+  {
+   "name": "file-link-path-valid-networks",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "/networks/x.md"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "/networks/x.md"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 181
+  },
+  {
+   "name": "file-link-path-valid",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "~/Documents/release-notes.md"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "~/Documents/release-notes.md"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 195
+  },
+  {
+   "name": "file-link-path-valid-absolute",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "/var/tmp/release-notes.md"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "/var/tmp/release-notes.md"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 192
+  },
+  {
+   "name": "file-link-path-valid-url-null",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "~/Documents/release-notes.md",
+      "url": null
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "~/Documents/release-notes.md",
+      "url": null
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 208
+  },
+  {
+   "name": "file-link-url-valid-path-null",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "url": "https://example.com/notes",
+      "path": null
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "url": "https://example.com/notes",
+      "path": null
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 205
+  },
+  {
+   "name": "file-link-path-and-url",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "~/Documents/release-notes.md",
+      "url": "https://example.com/notes"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "links[0]: needs url or path, not both"
+   ],
+   "cleaned": null,
+   "pyBytes": 231
+  },
+  {
+   "name": "file-link-neither",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "links[0]: needs url or path, not both"
+   ],
+   "cleaned": null,
+   "pyBytes": 155
+  },
+  {
+   "name": "file-link-both-null",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "url": null,
+      "path": null
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "links[0]: needs url or path, not both"
+   ],
+   "cleaned": null,
+   "pyBytes": 182
+  },
+  {
+   "name": "file-link-path-and-bad-url",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "release.md",
+      "url": "ftp://example.com/x"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "links[0]: needs url or path, not both"
+   ],
+   "cleaned": null,
+   "pyBytes": 207
+  },
+  {
+   "name": "file-link-path-relative",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "release.md"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "links[0].path: must be an absolute path"
+   ],
+   "cleaned": null,
+   "pyBytes": 177
+  },
+  {
+   "name": "file-link-path-empty",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": ""
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "links[0].path: must be an absolute path"
+   ],
+   "cleaned": null,
+   "pyBytes": 167
+  },
+  {
+   "name": "file-link-path-not-string",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": [
+       "/tmp/a.md"
+      ]
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "links[0].path: must be a string"
+   ],
+   "cleaned": null,
+   "pyBytes": 178
+  },
+  {
+   "name": "file-link-path-501",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.md"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "links[0].path: longer than 500 characters"
+   ],
+   "cleaned": null,
+   "pyBytes": 668
+  },
+  {
+   "name": "file-link-path-multiline",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "/tmp/release\nnotes.md"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "links[0].path: must be a single line"
+   ],
+   "cleaned": null,
+   "pyBytes": 189
+  },
+  {
+   "name": "file-link-path-hidden",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "/tmp/release notes.md"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "links[0].path: contains hidden or control characters (U+2028)"
+   ],
+   "cleaned": null,
+   "pyBytes": 190
+  },
+  {
+   "name": "file-link-path-secret-like",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Release notes",
+      "path": "/tmp/ghp_release.md"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "links[0].path: secret-like value"
+   ],
+   "cleaned": null,
+   "pyBytes": 186
+  },
+  {
+   "name": "file-link-path-label-missing",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "path": "~/Documents/release-notes.md"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "links[0].label: required"
+   ],
+   "cleaned": null,
+   "pyBytes": 169
+  },
+  {
+   "name": "file-link-path-second",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Collect feedback on the release",
+    "steps": [
+     {
+      "do": "Tell us what you think"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Spec",
+      "url": "https://example.com/spec"
+     },
+     {
+      "label": "Release notes",
+      "path": "release.md"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "links[1].path: must be an absolute path"
+   ],
+   "cleaned": null,
+   "pyBytes": 231
   }
  ]
 }

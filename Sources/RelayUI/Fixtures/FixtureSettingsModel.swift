@@ -26,6 +26,14 @@ public enum SettingsFixtures {
         source: .mailbox, mailboxURL: "https://mailbox.example:8790",
         tokenFile: "~/.config/relay/mailbox-token", repoPath: repoPath)
     public static let localConfig = RelayConfig(source: .local, repoPath: repoPath)
+    /// The mailbox config with an update command, for the Mailbox row's "Needs an update".
+    public static let mailboxUpdateConfig = RelayConfig(
+        source: .mailbox, mailboxURL: "https://mailbox.example:8790",
+        tokenFile: "~/.config/relay/mailbox-token", repoPath: repoPath,
+        mailboxUpdateCommand: "~/bin/update-mailbox")
+    /// Settings › Queue's Mailbox row: up to date, and three levels behind.
+    public static let mailboxOK = MailboxVersionLine(text: "0.9.1 · level 4", state: .ok)
+    public static let mailboxBehind = MailboxVersionLine(text: "level 1", state: .needsUpdate)
     /// The mailbox config with Presence set to Away by hand, so "Away after" is hidden.
     public static let manualAwayConfig: RelayConfig = {
         var config = mailboxConfig
@@ -58,6 +66,7 @@ public enum SettingsFixtures {
                                 shortcutLabel: String? = "⌃⌥⌘R",
                                 shortcutProblem: ShortcutProblem? = nil, login: LoginState = LoginState(on: true),
                                 problems: [String] = [],
+                                mailbox: MailboxVersionLine? = mailboxOK,
                                 displays: [DisplayOption] = [
                                     DisplayOption(id: nil, title: "Main display", connected: true),
                                     DisplayOption(id: "D1", title: "Studio Display", connected: true),
@@ -78,6 +87,7 @@ public enum SettingsFixtures {
             localQueuePath: "~/Library/Application Support/Relay/queue.json",
             terminals: TerminalChoice.options(installed: [.terminal, .ghostty, .iterm],
                                               current: config?.terminal ?? RelayConfig.automaticTerminal),
+            mailbox: sourceKey.hasPrefix("mailbox:") ? mailbox : nil,
             now: GalleryFixtures.now)
     }
 }

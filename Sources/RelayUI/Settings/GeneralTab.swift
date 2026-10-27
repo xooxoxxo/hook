@@ -75,6 +75,19 @@ public struct GeneralTab<Model: SettingsViewModel>: View {
             }
             .environment(\.settingsSection, "Startup and menu bar")
             .disabled(model.settings.readOnly)
+            Section("Documents") {
+                SettingsRow("Open documents in", help: GeneralHelp.documents) {
+                    Picker("Open documents in", selection: documentBinding) {
+                        ForEach(documentOptions) { option in
+                            if option.id == DocumentChoice.otherID { Divider() }
+                            Text(option.title).tag(option.id)
+                        }
+                    }
+                    .pickerStyle(.menu).labelsHidden().fixedSize()
+                }
+            }
+            .environment(\.settingsSection, "Documents")
+            .disabled(model.settings.readOnly)
             Section("Sessions") {
                 SettingsRow("Terminal", help: GeneralHelp.terminal) {
                     Picker("Terminal", selection: model.configBinding(
@@ -108,6 +121,23 @@ public struct GeneralTab<Model: SettingsViewModel>: View {
         .controlSize(DS.Control.form)
     }
 
+    private var documentOptions: [DocumentChoice] {
+        DocumentChoice.options(current: model.settings.config?.openDocumentsIn, appName: model.settings.documentAppName)
+    }
+
+    /// Saves the picked target; Other App… opens the app chooser instead (it saves on a pick).
+    private var documentBinding: Binding<String> {
+        Binding(
+            get: { DocumentTarget(config: model.settings.config?.openDocumentsIn).configValue },
+            set: { value in
+                if value == DocumentChoice.otherID {
+                    model.perform(.chooseDocumentApp)
+                } else {
+                    model.save(set: ["openDocumentsIn": value], remove: [])
+                }
+            })
+    }
+
     /// The snapshot's list, or Automatic alone before the app has looked.
     private var terminalOptions: [TerminalChoice] {
         let options = model.settings.terminals
@@ -122,5 +152,6 @@ public enum GeneralHelp {
     public static let shortcut = "Click the field, then press the new keys. Use at least one of ⌘, ⌃ or ⌥ with a letter, a digit, Space, ` or F1–F12. Esc cancels. ⊗ turns the shortcut off."
     public static let presence = "Hook marks you away when the screen locks, the displays sleep, you're connected over Screen Sharing, or you haven't touched the Mac for this long. While you're away, Hook doesn't slide the panel in or show notifications; asks still reach anything your mailbox forwards them to. Hook also creates ~/.local/state/relay/away, so other tools can tell. For example, ssh can skip the 1Password agent."
     public static let login = "Hook adds a LaunchAgent so it starts when you log in."
+    public static let documents = "What Open does on a document an ask links to. Hook's viewer shows Markdown (.md, .markdown) rendered and text (.txt) as it is, in a small window, without going online; other files open in their default app. The file's default app and a chosen app open every file. Each file row's ⋯ menu also has Open With, Reveal in Finder and Copy Path. Hook reads a file only when you press Open."
     public static let terminal = "Where Resume Session opens. Right-click an ask, or use the ⋯ menu in an ask, and choose Resume Session: Hook opens a new window in this terminal, goes to the session's folder and runs claude --resume with its session. It works only for sessions on this Mac. Automatic picks the first installed of Ghostty, iTerm2, WezTerm, kitty, Warp and Alacritty, else Terminal. Ghostty may ask once for permission to let Hook control it."
 }

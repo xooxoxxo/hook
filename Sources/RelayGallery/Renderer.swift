@@ -2,6 +2,7 @@ import AppKit
 import RelayCore
 import RelayUI
 import SwiftUI
+import WebKit
 
 /// Draws as key and main offscreen. These private-selector overrides exist only
 /// in RelayGallery; never copy them into Relay.
@@ -223,6 +224,46 @@ func tabSymbol(_ id: SettingsTabID) -> String {
     return (rep, [])
 }
 
+/// The viewer page, offscreen: waits (at most 10 s) for the page to finish and render, then
+/// takes WebKit's snapshot (`cacheDisplay` can't see web content) and draws it at 2×.
+@MainActor func webCapture(_ scene: GalleryScene, size: NSSize,
+                           appearance: NSAppearance?) -> (rep: NSBitmapImageRep, probes: [ProbeFrame]) {
+    guard let make = scene.web else { fatalError("RelayGallery: scene \(scene.name) has no web view") }
+    let content = make()
+    let view = content.webView
+    view.frame = NSRect(origin: .zero, size: size)
+    let window = KeyWindow(contentRect: view.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+    window.appearance = appearance
+    window.contentView = view
+    window.setFrameOrigin(NSPoint(x: -20000, y: -20000))
+    var loaded = false
+    content.onLoaded = { loaded = true }
+    content.load()
+    let deadline = Date().addingTimeInterval(10)
+    while !loaded, Date() < deadline { RunLoop.current.run(until: Date().addingTimeInterval(0.05)) }
+    if !loaded { fatalError("RelayGallery: scene \(scene.name) did not load") }
+    RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+    var image: NSImage?
+    let configuration = WKSnapshotConfiguration()
+    configuration.rect = view.bounds
+    view.takeSnapshot(with: configuration) { snapshot, _ in image = snapshot }
+    let shotDeadline = Date().addingTimeInterval(10)
+    while image == nil, Date() < shotDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.05)) }
+    guard let image, let rep = NSBitmapImageRep(
+        bitmapDataPlanes: nil, pixelsWide: Int(size.width * 2), pixelsHigh: Int(size.height * 2),
+        bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+        colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) else {
+        fatalError("RelayGallery: scene \(scene.name) has no snapshot")
+    }
+    rep.size = size
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+    image.draw(in: NSRect(origin: .zero, size: size))
+    NSGraphicsContext.restoreGraphicsState()
+    window.contentView = nil
+    return (rep, [])
+}
+
 /// Renders `scene` in light and dark: `<scene>-<theme><suffix>.png`, 2×, into options.outDir,
 /// and checks the scene's alignment rules against each capture (under --xl, gutterText by frame).
 @MainActor func render(_ scene: GalleryScene, options: GalleryOptions) -> RenderResult {
@@ -240,6 +281,8 @@ func tabSymbol(_ id: SettingsTabID) -> String {
             captured = settingsCapture(scene, tab: tab, options: options, appearance: appearance)
         case .appKit(let size):
             captured = appKitCapture(scene, size: size, appearance: appearance)
+        case .web(let size):
+            captured = webCapture(scene, size: size, appearance: appearance)
         }
         let file = "\(scene.name)-\(theme.name)\(options.fileSuffix).png"
         write(captured.rep, to: (options.outDir as NSString).appendingPathComponent(file))

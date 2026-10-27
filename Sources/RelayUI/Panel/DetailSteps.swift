@@ -24,9 +24,10 @@ struct DetailSteps<Model: PanelViewModel>: View {
         "\(progress.done) of \(progress.total) done"
     }
 
-    /// "3. Create the Slack app", "3a. Click Create New App" (the VoiceOver rotor).
+    /// "3. Create the Slack app", "3a. Click Create New App", "4. Tell us what you think, optional"
+    /// (the VoiceOver rotor).
     static func rotorTitle(_ node: DetailModel.Node) -> String {
-        node.label + ". " + line(node.content.action)
+        StepAccessibility.optional(node.label + ". " + line(node.content.action), node.isOptional)
     }
 
     static func toggled(_ paths: Set<String>?, path: String, expanded: Bool) -> Set<String> {

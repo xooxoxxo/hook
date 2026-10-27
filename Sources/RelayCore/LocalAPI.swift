@@ -12,16 +12,19 @@ public actor LocalAPI {
     private let queue: LocalQueue
     private let port: Int
     private let token: @Sendable () -> String?
+    /// The app's version, answered by `GET /version`.
+    private let appVersion: String
     private var seen: [String: Date] = [:]
 
-    public init(queue: LocalQueue, port: Int, token: @escaping @Sendable () -> String?) {
+    public init(queue: LocalQueue, port: Int, appVersion: String = "", token: @escaping @Sendable () -> String?) {
         self.queue = queue
         self.port = port
+        self.appVersion = appVersion
         self.token = token
     }
 
     enum Route: Equatable {
-        case postAsk, listAsks, getAsk(String), resolve(String), events
+        case postAsk, listAsks, getAsk(String), resolve(String), events, version
 
         init?(method: String, path: String) {
             let parts = path.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
@@ -32,6 +35,8 @@ public actor LocalAPI {
                 self = .postAsk
             case ("GET", 2) where parts == ["", "events"]:
                 self = .events
+            case ("GET", 2) where parts == ["", "version"]:
+                self = .version
             case ("GET", 3) where parts[0].isEmpty && parts[1] == "asks" && !parts[2].isEmpty:
                 self = .getAsk(parts[2])
             case ("POST", 4) where parts[0].isEmpty && parts[1] == "asks" && !parts[2].isEmpty && parts[3] == "resolve":
@@ -70,6 +75,8 @@ public actor LocalAPI {
             return await getAsk(rawID)
         case .events:
             return await events(request.query)
+        case .version:
+            return version()
         case .postAsk:
             guard let body = Self.object(request.body) else { return Self.badBody(request.body) }
             return await postAsk(body)
@@ -84,6 +91,16 @@ public actor LocalAPI {
     }
 
     // MARK: - Routes
+
+    /// The mailbox protocol's `GET /version`, answered with this app's own level, so a
+    /// client checks This Mac the same way it checks a mailbox.
+    private func version() -> HTTPResponse {
+        .json(200, .object([
+            "service": .string("hook"),
+            "version": .string(appVersion),
+            "protocol": .int(MailboxProtocol.current),
+        ]))
+    }
 
     private func postAsk(_ body: [String: JSONValue]) async -> HTTPResponse {
         do {

@@ -20,6 +20,7 @@ public final class FixturePanelModel: PanelViewModel {
     @Published public var sendingCloses = 0
     public var shell = PanelShellActions.none
     public var localHost: String?
+    public var queueIsLocal = false
     private let details: [String: DetailSnapshot]
 
     public init(queue: QueueSnapshot, details: [String: DetailSnapshot] = [:], navigation: PanelNavigation = .init(),
@@ -64,6 +65,7 @@ public final class FixturePanelModel: PanelViewModel {
     public func sendAnswer(_ id: String, path: String) {}
     public func dismissNotice() {}
     public func performNoticeAction() {}
+    public func performNoticeSecondaryAction() {}
     public func copyLink(_ id: String) {}
     public func retryDetail(_ id: String) {}
 }

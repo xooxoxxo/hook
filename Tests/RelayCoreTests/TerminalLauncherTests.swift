@@ -220,3 +220,110 @@ private let shellTail = ["/bin/zsh", "-lc", script, "hook-resume", "/work/acme",
         #expect(notice.text == "Couldn't open the terminal, so the resume command is on the clipboard. The session's folder no longer exists.")
     }
 }
+
+private let doneFile = "/data/launch/mailbox-update-1.done"
+
+private func run(_ command: String = "update-mailbox --now") throws -> RunTarget {
+    try #require(RunTarget(command: command, doneFile: doneFile))
+}
+
+@Suite struct TerminalLauncherRunTests {
+    private let runTail = ["/bin/zsh", "-lc", TerminalLauncher.runScript, "hook-run", "update-mailbox --now", doneFile]
+
+    private func steps(_ kind: TerminalKind, shell: String? = "/bin/zsh") throws -> [LaunchStep] {
+        TerminalLauncher.plan(kind, run: try run(), shell: shell, home: "/home/example").steps
+    }
+
+    @Test func theCommandAndDoneFileAreSeparateArguments() throws {
+        #expect(try steps(.ghostty) == [.openNew(bundleID: "com.mitchellh.ghostty",
+                                                 arguments: ["--working-directory=/home/example", "-e"] + runTail)])
+        #expect(try steps(.kitty) == [.openNew(bundleID: "net.kovidgoyal.kitty",
+                                               arguments: ["--directory", "/home/example"] + runTail)])
+        #expect(try steps(.wezterm) == [.process(bundleID: "com.github.wez.wezterm", executable: "Contents/MacOS/wezterm",
+                                                 arguments: ["start", "--cwd", "/home/example", "--"] + runTail, waits: false)])
+        let tail = ["--working-directory", "/home/example", "-e"] + runTail
+        #expect(try steps(.alacritty) == [
+            .process(bundleID: "org.alacritty", executable: "Contents/MacOS/alacritty",
+                     arguments: ["msg", "create-window"] + tail, waits: true),
+            .openNew(bundleID: "org.alacritty", arguments: tail),
+        ])
+    }
+
+    @Test func theScriptRunsTheCommandMarksItDoneAndWaits() {
+        let script = TerminalLauncher.runScript
+        #expect(script.hasPrefix(#"printf "Hook: running %s\n\n" "$1"; eval "$1"; s=$?; : > "$2";"#))
+        #expect(script.contains("read -r _"))
+        #expect(!script.contains("'"))   // so single-quoting it never needs an escape
+    }
+
+    @Test func theScriptNamesTheCommandBeforeRunningIt() throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("hook-run-test-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let done = dir.appendingPathComponent("x.done").path
+        process.arguments = ["-c", TerminalLauncher.runScript, "hook-run", "echo 100% done", done]
+        let output = Pipe()
+        process.standardOutput = output
+        process.standardInput = FileHandle.nullDevice
+        try process.run()
+        process.waitUntilExit()
+        let text = String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        #expect(text.hasPrefix("Hook: running echo 100% done\n\n100% done\n"))
+        #expect(FileManager.default.fileExists(atPath: done))
+    }
+
+    @Test func commandFileSingleQuotesEveryWord() throws {
+        let target = try run("ssh box 'cd /srv && ./up.sh'")
+        let body = TerminalLauncher.commandFileBody(target, shell: "/bin/bash")
+        #expect(body.hasPrefix("#!/bin/sh\nrm -f -- \"$0\"\nexec '/bin/bash' '-lc' "))
+        #expect(body.contains(#"'hook-run' 'ssh box '\''cd /srv && ./up.sh'\''' '/data/launch/mailbox-update-1.done'"#))
+        #expect(try steps(.terminal) == [.commandFile(
+            body: TerminalLauncher.commandFileBody(try run(), shell: "/bin/zsh"), bundleID: "com.apple.Terminal")])
+        #expect(try steps(.iterm) == [.commandFile(
+            body: TerminalLauncher.commandFileBody(try run(), shell: "/bin/zsh"), bundleID: "com.googlecode.iterm2")])
+    }
+
+    @Test func warpGetsATabConfigInTheHomeFolder() throws {
+        guard case .fileThenURL(let file, let contents, let url)? = try steps(.warp).first else {
+            Issue.record("expected a tab config")
+            return
+        }
+        #expect(file == ".warp/tab_configs/hook-run.toml")
+        #expect(file != TerminalLauncher.warpConfigFile)   // the resume config is left alone
+        #expect(contents.contains(#"name = "Hook run""#))
+        #expect(contents.contains(#"directory = "/home/example""#))
+        #expect(contents.contains(#"'update-mailbox --now'"#))
+        #expect(url.absoluteString == "warp://tab_config/hook-run?new_window=true")
+    }
+
+    @Test func aNonPosixShellFallsBackToZsh() throws {
+        guard case .openNew(_, let arguments)? = try steps(.kitty, shell: "/opt/homebrew/bin/fish").first else {
+            Issue.record("expected openNew")
+            return
+        }
+        #expect(arguments[2] == "/bin/zsh")
+    }
+
+    @Test(arguments: ["", "   ", "echo a\necho b", "echo\u{0007}", "echo \u{200B}x"])
+    func refusesAnEmptyOrMultiLineCommand(_ command: String) {
+        #expect(RunTarget(command: command, doneFile: doneFile) == nil)
+    }
+
+    @Test func theProblemNamesWhyACommandCantRun() {
+        #expect(RunTarget.problem(command: "  ") == "it is empty")
+        #expect(RunTarget.problem(command: "echo a\necho b") == "it has a line break")
+        #expect(RunTarget.problem(command: "echo a\recho b") == "it has a line break")
+        #expect(RunTarget.problem(command: "echo\u{0007}") == "it has a control character")
+        #expect(RunTarget.problem(command: "echo \u{200B}x") == "it has a hidden character")
+        #expect(RunTarget.problem(command: String(repeating: "x", count: RunTarget.maxCommand + 1))
+            == "it is longer than 4096 characters")
+        #expect(RunTarget.problem(command: "  ssh box 'up'\n") == nil)
+    }
+
+    @Test func refusesARelativeDoneFileAndTrimsTheCommand() {
+        #expect(RunTarget(command: "x", doneFile: "launch/x.done") == nil)
+        #expect(RunTarget(command: "  update  \n", doneFile: doneFile)?.command == "update")
+    }
+}

@@ -16,6 +16,12 @@ public struct StepProgress: Equatable, Sendable {
 /// Questions: a node that asks a question is done once it has an answer
 /// (`node.answer`), never by a tick, and can't be ticked. A parent's own question is
 /// one more item, counted before its sub-steps.
+///
+/// Optional steps (`node.isOptional`): the owner may mark one done without doing it or
+/// answering its question, so an optional question is done once ticked or answered, and
+/// can be ticked (a parent's own optional question by its own path). An optional parent
+/// makes its whole subtree optional (`DetailModel.nodes` marks its sub-steps optional and
+/// never blocking), so ticking it ticks every sub-step, questions included, and finishes it.
 public enum Flow {
     /// Each step's sub-steps when it has them, else the step; then verify.
     public static func leaves(of nodes: [DetailModel.Node]) -> [DetailModel.Node] {
@@ -36,14 +42,22 @@ public enum Flow {
         }
     }
 
-    /// The leaves a tick applies to: those without a question.
+    /// The items a tick applies to: the leaves without a question, plus every optional
+    /// question (a parent's own one included).
     public static func tickable(_ nodes: [DetailModel.Node]) -> [DetailModel.Node] {
-        leaves(of: nodes).filter { !$0.asks }
+        items(of: nodes).filter(canTick)
     }
 
-    /// A question node is done once answered; any other item once ticked.
+    /// A leaf without a question, or an optional item (a leaf, or a parent's own question).
+    public static func canTick(_ node: DetailModel.Node) -> Bool {
+        node.isParent ? node.asks && node.isOptional : !node.asks || node.isOptional
+    }
+
+    /// A question node is done once answered, an optional one also once ticked; any other
+    /// item once ticked.
     public static func isDone(_ node: DetailModel.Node, ticks: Set<String>) -> Bool {
-        node.asks ? node.answer != nil : ticks.contains(node.path)
+        guard node.asks else { return ticks.contains(node.path) }
+        return node.answer != nil || (node.isOptional && ticks.contains(node.path))
     }
 
     /// The first item not done: an unanswered question stops it.
@@ -68,16 +82,18 @@ public enum Flow {
         return StepProgress(done: all.filter { isDone($0, ticks: ticks) }.count, total: all.count)
     }
 
-    /// A leaf flips; a question leaf is left as it is. A parent ticks every sub-step
-    /// without a question when any of those is unticked, else unticks them all.
+    /// A leaf flips; a question leaf is left as it is unless optional. A parent ticks every
+    /// tickable sub-step (and its own optional question) when any of those is unticked,
+    /// else unticks them all.
     public static func toggle(_ node: DetailModel.Node, ticks: Set<String>) -> Set<String> {
         var next = ticks
         guard node.isParent else {
-            guard !node.asks else { return ticks }
+            guard canTick(node) else { return ticks }
             if next.contains(node.path) { next.remove(node.path) } else { next.insert(node.path) }
             return next
         }
-        let paths = node.children.filter { !$0.asks }.map(\.path)
+        let paths = ([node] + node.children).filter(canTick).map(\.path)
+        guard !paths.isEmpty else { return ticks }
         if paths.allSatisfy(next.contains) {
             next.subtract(paths)
         } else {
@@ -86,9 +102,9 @@ public enum Flow {
         return next
     }
 
-    /// ⌘T: ticks the current leaf; `path` is the leaf it ticked. nil, with the ticks
-    /// unchanged, when every item is done or the current item is a question (which
-    /// only an answer completes).
+    /// ⌘T: ticks the current item; `path` is the one it ticked. nil, with the ticks
+    /// unchanged, when every item is done or the current item is a required question
+    /// (which only an answer completes). An optional question is ticked like a leaf.
     public static func tickCurrent(ticks: Set<String>, nodes: [DetailModel.Node]) -> (ticks: Set<String>, path: String?) {
         guard let current = currentStep(ticks: ticks, nodes: nodes),
               tickable(nodes).contains(where: { $0.path == current }),
@@ -96,8 +112,8 @@ public enum Flow {
         return (ticks.union([current]), current)
     }
 
-    /// ⇧⌘T: unticks the leaf ticked last this session (the last of `history` still
-    /// ticked); with none, the last ticked leaf in order. Question leaves are skipped, and so
+    /// ⇧⌘T: unticks the item ticked last this session (the last of `history` still
+    /// ticked); with none, the last ticked item in order. Required questions are skipped, and so
     /// are `locked` ones (Flow.lockedPaths): a locked step is never ticked or unticked.
     public static func untickLast(ticks: Set<String>, history: [String], nodes: [DetailModel.Node],
                                   locked: Set<String> = []) -> (ticks: Set<String>, path: String?) {
@@ -113,11 +129,13 @@ public enum Flow {
 
 extension Flow {
     /// A blocking item is finished when `isDone` says so; a blocking parent also needs
-    /// every sub-step done, and its own answer when it asks a question (a parent is
-    /// never ticked as a unit, so without a question its own part is always in).
+    /// every required sub-step done, and its own answer when it asks a question (a parent
+    /// is never ticked as a unit, so without a question its own part is always in). An
+    /// optional sub-step never holds its blocking parent back.
     public static func isFinished(_ node: DetailModel.Node, ticks: Set<String>) -> Bool {
         guard node.isParent else { return isDone(node, ticks: ticks) }
-        return (!node.asks || node.answer != nil) && node.children.allSatisfy { isDone($0, ticks: ticks) }
+        return (!node.asks || node.answer != nil)
+            && node.children.allSatisfy { $0.isOptional || isDone($0, ticks: ticks) }
     }
 
     /// The first blocking step or sub-step, in reading order, that isn't finished; nil

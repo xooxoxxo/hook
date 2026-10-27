@@ -3,7 +3,7 @@ import Foundation
 /// What a menu-bar menu item does; MenuBarController maps it to AppDelegate.
 public enum MenuAction: Equatable, Sendable {
     case setUp, runSetup, togglePanel, setPresence(PresenceMode), refresh, dock(SidebarEdge), pinDisplay(String?), redock
-    case settings, about, update, checkForUpdates, quit
+    case settings, about, update, checkForUpdates, updateMailbox, quit
 }
 
 public indirect enum MenuEntry: Equatable, Sendable {
@@ -34,10 +34,12 @@ public struct MenuInputs: Equatable, Sendable {
     public var pinned: String?
     /// A newer release ("0.6.5"), or nil.
     public var updateVersion: String?
+    /// Asks come from a mailbox, so Update Mailbox… is offered.
+    public var mailbox: Bool
 
     public init(notSetUp: Bool, panelVisible: Bool, shortcut: HotkeySpec?, statusLine: String,
                 presenceLine: String, presence: PresenceMode, displays: [MenuDisplay], pinned: String?,
-                updateVersion: String? = nil) {
+                updateVersion: String? = nil, mailbox: Bool = false) {
         self.notSetUp = notSetUp
         self.panelVisible = panelVisible
         self.shortcut = shortcut
@@ -47,6 +49,7 @@ public struct MenuInputs: Equatable, Sendable {
         self.displays = displays
         self.pinned = pinned
         self.updateVersion = updateVersion
+        self.mailbox = mailbox
     }
 }
 
@@ -97,6 +100,7 @@ public enum MenuBarMenu {
         if !inputs.notSetUp { entries.append(action("Run Setup Again…", .runSetup)) }
         entries.append(action("About Hook", .about))
         entries.append(action("Check for Updates…", .checkForUpdates))
+        if inputs.mailbox { entries.append(action("Update Mailbox…", .updateMailbox)) }
         entries.append(.separator)
         entries.append(action("Quit Hook", .quit, key: "q", modifiers: [.command]))
         return entries

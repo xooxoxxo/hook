@@ -190,11 +190,20 @@ struct DetailView<Model: PanelViewModel>: View {
         }
     }
 
+    /// The file rows' context: is this ask from this Mac (its `from.host` against the cached
+    /// host name; a hostless ask is here only in This Mac mode), and the shell's file actions.
+    private func fileContext(_ snapshot: DetailSnapshot?) -> FileRowContext {
+        FileRowContext(place: FilePlace.of(askHost: snapshot?.model?.origin?.host, localHost: model.localHost,
+                                           queueIsLocal: model.queueIsLocal),
+                       actions: model.shell.files, copy: model.shell.copy)
+    }
+
     private func content(_ snapshot: DetailSnapshot) -> some View {
         let closed = snapshot.closedText != nil
         return VStack(alignment: .leading, spacing: DS.Space.section) {
             if let notice = model.notice {
                 Notice(kind: notice.kind, text: notice.text, actionTitle: notice.actionTitle, help: notice.help,
+                       secondaryTitle: notice.secondaryActionTitle, onSecondary: { model.performNoticeSecondaryAction() },
                        onAction: { model.performNoticeAction() }, onDismiss: { model.dismissNotice() })
                     .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
             }
@@ -213,6 +222,7 @@ struct DetailView<Model: PanelViewModel>: View {
         .padding(.horizontal, DS.Space.gutter)
         .padding(.vertical, DS.Space.bodyV)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .environment(\.fileRowContext, fileContext(snapshot))
         .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: model.notice)
     }
 
@@ -300,12 +310,15 @@ struct DetailView<Model: PanelViewModel>: View {
         }
     }
 
-    /// "label · host" for a web link; a non-web one is shown as text, never opened.
+    /// "label · host" for a web link; a file row for a local `path`; anything else is
+    /// shown as text, never opened.
     @ViewBuilder private func linkRow(_ link: LinkRef) -> some View {
-        if LinkDisplay.isWeb(link.url), let url = URL(string: link.url) {
-            OpenLink(title: LinkDisplay.linkTitle(label: link.label, url: link.url), url: url)
+        if let raw = link.url, LinkDisplay.isWeb(raw), let url = URL(string: raw) {
+            OpenLink(title: LinkDisplay.linkTitle(label: link.label, url: raw), url: url)
+        } else if let raw = link.file, let file = FileLink(raw, home: NSHomeDirectory()) {
+            FileRow(link: file, label: link.label)
         } else {
-            RefusedLink(text: LinkDisplay.refusedText(label: link.label), raw: link.url)
+            RefusedLink(text: LinkDisplay.refusedText(label: link.label), raw: link.url ?? link.path ?? "")
         }
     }
 

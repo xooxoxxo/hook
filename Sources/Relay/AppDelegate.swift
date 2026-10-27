@@ -62,6 +62,10 @@ import RelayUI
     private let updates = UpdateChecker()
     /// An update job was started; a second click does nothing.
     private var updateStarted = false
+    /// The update confirmation in flight (mailbox check, then the dialog).
+    private var confirmGate = UpdatePreflight.ConfirmGate()
+    /// The mailbox's protocol level: the check, its Notice and Update Mailbox….
+    private let mailbox = MailboxCompat()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if handOffToRunningRelay() { return }
@@ -87,6 +91,9 @@ import RelayUI
         let launcher = SessionLauncher(dataDirectory: model.dataDirectory, home: AppModel.home)
         launcher.sweep()
         sessionLauncher = launcher
+        mailbox.store = store
+        mailbox.model = model
+        mailbox.launcher = launcher
 
         panel = makePanel(store: store, model: model)
 
@@ -114,7 +121,9 @@ import RelayUI
             switchTab: { [weak self] tab in self?.settings?.show(tab: tab) },
             applyShortcut: { [weak hotKeys] raw in hotKeys?.apply(raw) ?? false },
             suspendShortcut: { [weak hotKeys] in hotKeys?.suspend() },
-            resumeShortcut: { [weak hotKeys] in hotKeys?.resume() })
+            resumeShortcut: { [weak hotKeys] in hotKeys?.resume() },
+            checkMailbox: { [weak self] in self?.mailbox.checkNow() },
+            updateMailbox: { [weak self] in self?.mailbox.updateMailbox() })
         store.onCloseSent = { [weak self] id in self?.notifier?.remove(ids: [id]) }
 
         model.onApply = { [weak self] _, new in
@@ -329,6 +338,11 @@ import RelayUI
             },
             openURL: { url in NSWorkspace.shared.open(url) },
             resume: { [weak self] origin in self?.resumeSession(origin) })
+        store.shell.updateMailbox = { [weak self] in self?.mailbox.updateMailbox() }
+        store.shell.checkForUpdates = { [weak self] in self?.checkForUpdatesNow() }
+        store.shell.files = FileActions.live { [weak self] in
+            DocumentTarget(config: self?.model?.config?.openDocumentsIn)
+        }
         // The two shell hooks the Store calls: VoiceOver's "Ask reopened", and the queueMoved Notice's Show in Finder.
         store.onAnnounce = { text in AccessibilityNotification.Announcement(text).post() }
         store.onShowInFinder = { path in
@@ -501,7 +515,8 @@ import RelayUI
 
     private func localAPI(for queue: LocalQueue, port: Int, token: LocalToken) -> LocalAPI {
         if let localAPI, localAPIPort == port { return localAPI }
-        let api = LocalAPI(queue: queue, port: port, token: { try? token.ensure() })
+        let api = LocalAPI(queue: queue, port: port, appVersion: UpdateChecker.runningVersion,
+                           token: { try? token.ensure() })
         localAPI = api
         localAPIPort = port
         return api
@@ -593,7 +608,8 @@ import RelayUI
                 screen.displayUUID.map { MenuDisplay(id: $0, name: screen.localizedName) }
             },
             pinned: model?.config?.sidebarDisplay,
-            updateVersion: updateStarted ? nil : updates.state.availableVersion)
+            updateVersion: updateStarted ? nil : updates.state.availableVersion,
+            mailbox: mailbox.isMailbox)
     }
 
     private func perform(_ action: MenuAction) {
@@ -613,6 +629,7 @@ import RelayUI
             NSApp.orderFrontStandardAboutPanel(nil)
         case .update: confirmUpdate()
         case .checkForUpdates: checkForUpdatesNow()
+        case .updateMailbox: mailbox.updateMailbox()
         case .quit: NSApp.terminate(nil)
         }
     }
@@ -631,16 +648,46 @@ import RelayUI
         }
     }
 
-    /// "Update Hook to …": confirm, gate the checkout, then start the detached job.
+    /// "Update Hook to …": check the mailbox is new enough for the release, confirm, gate the
+    /// checkout, then start the detached job.
     private func confirmUpdate() {
+        guard !updateStarted, case .available(let version, _, _) = updates.state else { return }
+        // Repeat clicks while the mailbox is checked or the dialog is open do nothing.
+        guard confirmGate.begin() else { return }
+        let required = updates.requiredMailboxLevel
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { self.confirmGate.end() }
+            // A fresh read: the stored level can be 30 minutes old, or from before an update.
+            let check = required != nil ? await self.mailbox.freshCheck() : nil
+            let checkFailed: Bool
+            if case .failed? = check?.result { checkFailed = true } else { checkFailed = false }
+            let source: SourceKind? = self.mailbox.isMailbox ? .mailbox : .local
+            let decision = UpdatePreflight.decide(required: required, source: source, mailboxLevel: check?.level,
+                                                  checkFailed: checkFailed)
+            let prompt = UpdatePreflight.prompt(version: version, decision: decision)
+            NSApp.activate()
+            let alert = NSAlert()
+            alert.messageText = prompt.message
+            alert.informativeText = prompt.informative
+            for button in prompt.buttons { alert.addButton(withTitle: button) }
+            let response = alert.runModal()
+            if UpdatePreflight.firstButtonUpdatesHook(decision) {
+                guard response == .alertFirstButtonReturn else { return }
+            } else {
+                if response == .alertFirstButtonReturn {
+                    self.mailbox.updateMailbox()
+                    return
+                }
+                guard response == .alertSecondButtonReturn else { return }
+            }
+            self.startUpdate()
+        }
+    }
+
+    /// Gate the checkout, then start the detached update job.
+    private func startUpdate() {
         guard !updateStarted, case .available(let version, let tag, _) = updates.state else { return }
-        NSApp.activate()
-        let alert = NSAlert()
-        alert.messageText = "Update Hook to \(version)?"
-        alert.informativeText = "Hook rebuilds from your checkout and restarts in about 2 minutes."
-        alert.addButton(withTitle: "Update")
-        alert.addButton(withTitle: "Cancel")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
         updateStarted = true
         let repoPath = model?.config?.repoPath
         Task { @MainActor [weak self] in
@@ -678,6 +725,7 @@ import RelayUI
             updateUnseen { $0.keep(open: Set(store.items.map(\.id))) }
         }
         updateMenuBar(refreshingSettings: false)
+        mailbox.storeChanged()
         if let store {
             let inputs = SettingsStoreInputs(store)
             if inputs != settingsStoreInputs {

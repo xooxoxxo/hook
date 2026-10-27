@@ -64,6 +64,8 @@ public enum DS {
         public static let setupPad: CGFloat = 32
         /// Between the dots and the footer buttons.
         public static let setupFooter: CGFloat = 14
+        /// Between a file row's name and its folder line.
+        public static let fileLine: CGFloat = 1
     }
 
     public enum Metric {
@@ -114,6 +116,8 @@ public enum DS {
         public static let optionRow: CGFloat = 36
         /// The number column of a reply choice row (keys 1–6).
         public static let optionNumber: CGFloat = 14
+        /// A file row's document icon.
+        public static let fileIcon: CGFloat = 28
     }
 
     public enum Font {
@@ -218,6 +222,8 @@ public enum DS {
         /// A progress dot: the current page, and the others.
         public static let dotCurrent = SwiftUI.Color.accentColor
         public static let dotOther = AnyShapeStyle(.quaternary)
+        /// A file row's icon when the file can't be opened here (missing, or on another Mac).
+        public static let fileUnavailableOpacity: Double = 0.5
         /// The panel's backdrop material.
         public static var panelMaterial: NSVisualEffectView.Material { .sidebar }
     }
@@ -261,6 +267,9 @@ public enum DS {
         /// The detail header's ask menu (Resume Session).
         public static let more = "ellipsis.circle"
         public static let warning = "exclamationmark.triangle.fill"
+        /// Settings › Queue's Mailbox row: the mailbox speaks Hook's level, or doesn't.
+        public static let mailboxOK = "checkmark.circle.fill"
+        public static let mailboxBehind = "exclamationmark.triangle.fill"
         /// A step locked behind an unfinished blocking step.
         public static let locked = "lock.fill"
         /// A picked single option; a multi option's box, ticked and not.

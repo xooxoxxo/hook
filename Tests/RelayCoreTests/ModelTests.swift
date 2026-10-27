@@ -179,3 +179,79 @@ private func decodeInstructable(_ json: String) throws -> Instructable {
     #expect(model.nodes[0].question?.prompt == "Which environment?")
     #expect(model.nodes[0].answer?.picked == ["Prod"])
 }
+
+@Test func optionalDecodesLenientlyAndStaysOutWhenAbsent() throws {
+    let ins = try decodeInstructable("""
+    {"v":1,"title":"T","steps":[
+      {"do":"a","optional":true},
+      {"do":"b","optional":"yes"},
+      {"do":"c","optional":null,"substeps":[{"do":"d","optional":true}]}]}
+    """)
+    #expect(ins.steps[0].optional == true)
+    #expect(ins.steps[1].optional == nil)
+    #expect(ins.steps[2].optional == nil)
+    #expect(ins.steps[2].substeps?.first?.optional == true)
+    let nodes = DetailModel.nodes(steps: ins.steps, verify: ins.verify)
+    #expect(nodes[0].isOptional && !nodes[1].isOptional && !nodes[2].isOptional && nodes[2].children[0].isOptional)
+
+    let step = Step(action: "a", optional: true)
+    #expect(try JSONDecoder().decode(Step.self, from: JSONEncoder().encode(step)) == step)
+    #expect(!String(decoding: try JSONEncoder().encode(Step(action: "a")), as: UTF8.self).contains("optional"))
+}
+
+@Test func fileAndLinkPathDecodeLeniently() throws {
+    let ins = try decodeInstructable("""
+    {"v":1,"title":"T","steps":[
+      {"do":"a","file":"~/notes/plan.md"},
+      {"do":"b","file":7},
+      {"do":"c","file":"  ","substeps":[{"do":"d","file":"/tmp/x.md"}]}],
+     "verify":{"do":"v","file":"/tmp/v.md"},
+     "links":[{"label":"Spec","path":"/Users/me/spec.md"},{"label":"Web","url":"https://example.com"},
+              {"label":"Odd","path":3}]}
+    """)
+    #expect(ins.steps[0].file == "~/notes/plan.md")
+    #expect(ins.steps[1].file == nil)
+    #expect(ins.steps[2].substeps?.first?.file == "/tmp/x.md")
+    #expect(ins.links == [LinkRef(label: "Spec", path: "/Users/me/spec.md"), LinkRef(label: "Web", url: "https://example.com"),
+                          LinkRef(label: "Odd", url: nil, path: nil)])
+    #expect(ins.links?[0].file == "/Users/me/spec.md")
+    #expect(ins.links?[1].file == nil)
+    let nodes = DetailModel.nodes(steps: ins.steps, verify: ins.verify)
+    #expect(nodes[0].file == "~/notes/plan.md")
+    #expect(nodes[1].file == nil)
+    #expect(nodes[2].file == nil)   // blank
+    #expect(nodes[2].children[0].file == "/tmp/x.md")
+    #expect(nodes[3].isVerify && nodes[3].file == nil)   // never on verify
+
+    let step = Step(action: "a", file: "/tmp/a.md")
+    #expect(try JSONDecoder().decode(Step.self, from: JSONEncoder().encode(step)) == step)
+    #expect(try !String(decoding: JSONEncoder().encode(Step(action: "a")), as: UTF8.self).contains("file"))
+    let link = LinkRef(label: "Spec", path: "/tmp/spec.md")
+    #expect(try JSONDecoder().decode(LinkRef.self, from: JSONEncoder().encode(link)) == link)
+    #expect(try !String(decoding: JSONEncoder().encode(link), as: UTF8.self).contains("url"))
+}
+
+@Test func optionalParentSubStepsCountInTheQueueRow() {
+    let ins = Instructable(title: "Ask", steps: [
+        Step(action: "a", substeps: [Step(action: "b", question: Question(prompt: "Feedback?"))], optional: true),
+        Step(action: "c"),
+    ])
+    #expect(QueueLayout.optionalPaths(ins) == ["1", "1.1"])
+}
+
+@Test func optionalQuestionsLeaveTheUnansweredList() {
+    let ins = Instructable(title: "Ask", steps: [
+        Step(action: "a", question: Question(prompt: "Feedback?"), optional: true),
+        Step(action: "b", question: Question(prompt: "Region?", choices: ["EU", "US"])),
+        Step(action: "c"),
+    ])
+    let item = WireItem(id: "q", title: "Ask", status: "open", projectId: "Acme", created: "2026-10-27T09:00:00+00:00",
+                        updated: "2026-10-27T09:00:00+00:00", payload: Payload(why: nil, cmd: nil, link: nil, instructable: ins))
+    let detail = DetailModel.make(item: item, events: [])
+    #expect(detail.unanswered == ["2"])
+    #expect(detail.questionCount == 2)
+    // The queue row counts a ticked optional question as done, and an answered one once.
+    #expect(QueueLayout.summary(for: item, ticked: ["1"], answered: []) == .steps(done: 1, total: 3))
+    #expect(QueueLayout.summary(for: item, ticked: ["1", "2"], answered: ["1"]) == .steps(done: 1, total: 3))
+    #expect(QueueLayout.summary(for: item, ticked: ["3"], answered: ["2"]) == .steps(done: 2, total: 3))
+}

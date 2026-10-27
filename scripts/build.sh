@@ -23,6 +23,12 @@ if [ "${BUILD_ONLY:-0}" = "1" ]; then rm -rf "$DEST/Relay.app"; fi
 mkdir -p "$APP/Contents/MacOS"
 cp "$BIN" "$APP/Contents/MacOS/Hook"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+# The document viewer's scripts (vendored marked and DOMPurify, and viewer.js) and their licences.
+VIEWER="$(swift build -c release --show-bin-path)/Relay_RelayUI.bundle/Viewer"
+[ -f "$VIEWER/marked.umd.js" ] || { echo "build.sh: no viewer resources at $VIEWER" >&2; exit 1; }
+mkdir -p "$APP/Contents/Resources"
+cp -R "$VIEWER" "$APP/Contents/Resources/Viewer"
+cp THIRD_PARTY_NOTICES.md "$APP/Contents/Resources/THIRD_PARTY_NOTICES.md"
 plutil -lint "$APP/Contents/Info.plist"
 codesign --force -s - "$APP"
 

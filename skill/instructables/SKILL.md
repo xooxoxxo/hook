@@ -52,6 +52,16 @@ on you" line in chat alone gets lost.
 
   Bundle related questions into one ask as per-step questions. Don't post one ask per
   question. Use the ask-level `reply` only for one overall answer.
+- **blocking** and **warning**: `blocking: true` marks a step the next steps can't start without; the owner can't open later steps until it is done. Use it only when later steps fail without it, and put the reason in `warning` (≤ 300 chars). `warning` alone shows a caution box. Neither goes on `verify`.
+- **optional**: `optional: true` marks a step the owner may finish without doing or answering, e.g. a feedback question or a nice-to-have; it can't also be blocking. On a step with sub-steps it makes every sub-step optional, so none of them may be blocking. Needs mailbox level 4.
+- **file**: When the owner should read a document, write it as a Markdown file and point to it with `file` (or a link with `path`); Hook opens it rendered. Keep `do` to one action and `detail` to a few lines; never paste a whole document into an ask. `file` and `path` are absolute paths on the owner's Mac (`/…` or `~/…`), not on `verify`. Needs mailbox level 4.
+- **Mailbox level.** `question` needs mailbox protocol level 2; `blocking` and `warning`
+  need level 3; `optional`, `file` and a link's `path` need level 4. Before posting one of them, `relay_post` and
+  `relay post` read the mailbox's level. When the answer is "This mailbox speaks protocol M; `<key>` needs N.",
+  nothing was posted: post again without that key (put a question in `reply`, the
+  warning in `detail`, drop `optional`, name the file in `detail`), or, if the ask needs the key, ask the owner to update the mailbox
+  (Hook › Update Mailbox…) and post once it is updated. In This Mac mode the answer is
+  "Hook speaks protocol M; …": ask the owner to update Hook (Check for Updates…) instead.
 - **detail**: longer instructions for one step (at most 1500 chars, line breaks
   allowed), shown as wrapped text under `do`.
 - **code**: the exact command or text to paste. Make it complete, with nothing for
@@ -62,7 +72,7 @@ on you" line in chat alone gets lost.
 - **verify**: a final Step that proves it worked. A command with `expect` is best.
 - **reply**: for a decision, `{"prompt": "…", "choices": ["A", "B"]}`, with up to 6 choices of at most 60 chars each.
   Use `"choices": []` to ask for free text.
-- **links**: up to 10 `{label, url}` pairs for specs or docs.
+- **links**: up to 10 `{label, url}` pairs for specs or docs, or `{label, path}` for a local document (exactly one of `url` and `path`).
 - Leave out `from`, because `relay_post` and `relay post` fill it in. Spell keys
   exactly: unknown keys are rejected. The whole thing must stay under 32 KB.
 

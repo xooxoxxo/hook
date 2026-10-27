@@ -41,6 +41,13 @@ LAUNCH_COMMANDS = (["open", "-g", "-b", BUNDLE_ID],)
 LAUNCH_WAIT_S = 5.0
 LAUNCH_POLL_S = 0.25
 PROOF_PREFIX = "relay-proof-v1\n"   # message: PROOF_PREFIX + str(port) + "\n" + nonce
+# Protocol levels a mailbox (or Hook's LocalAPI) can speak, as docs/mailbox-protocol.md defines them.
+# An instructable key that needs more than level 1 is checked before it is posted.
+KEY_LEVELS = (("optional", 4), ("file", 4), ("blocking", 3), ("warning", 3), ("question", 2))
+LINK_PATH_KEY, LINK_PATH_LEVEL = "links[].path", 4   # a link's `path` (a local file)
+PROTOCOL_CACHE_S = 300.0
+_levels: Dict[str, Tuple[float, Optional[int]]] = {}   # per process: source -> (when checked, level or None)
+
 # Owner event kinds as the CLI and the hook print them.
 OWNER_LABELS = {"resolved": "done", "declined": "skipped", "reply": "reply", "reopened": "reopened"}
 
@@ -71,6 +78,41 @@ class Refused(RelayError):
 
 class NotFound(RelayError):
     exit_code = 1
+
+
+class ProtocolTooOld(Refused):
+    """The mailbox (or, in This Mac mode, Hook itself) speaks a lower protocol level than the
+    instructable's keys need."""
+
+    def __init__(self, level: int, key: str, needs: int, local: bool = False) -> None:
+        if local:
+            message = (f"Hook speaks protocol {level}; `{key}` needs {needs}. "
+                       "Update Hook (Check for Updates…).")
+        else:
+            message = (f"This mailbox speaks protocol {level}; `{key}` needs {needs}. "
+                       "Ask the owner to update the mailbox (Hook › Update Mailbox…).")
+        super().__init__(0, message)
+        self.level, self.key, self.needs, self.local = level, key, needs, local
+
+
+def keys_needing_levels(instructable: Any) -> Dict[str, int]:
+    """{key: level} for the keys of steps and sub-steps (not verify) that need more than level 1,
+    plus LINK_PATH_KEY when a link carries `path`."""
+    found: Dict[str, int] = {}
+    links = instructable.get("links") if isinstance(instructable, dict) else None
+    if isinstance(links, list) and any(isinstance(link, dict) and "path" in link for link in links):
+        found[LINK_PATH_KEY] = LINK_PATH_LEVEL
+    steps = instructable.get("steps") if isinstance(instructable, dict) else None
+    stack = [s for s in steps if isinstance(s, dict)] if isinstance(steps, list) else []
+    while stack:
+        step = stack.pop()
+        for key, needs in KEY_LEVELS:
+            if key in step:
+                found[key] = needs
+        subs = step.get("substeps")
+        if isinstance(subs, list):
+            stack.extend(s for s in subs if isinstance(s, dict))
+    return found
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -394,7 +436,41 @@ class Client:
             raise Unreachable(f"mailbox at {self.base} answered HTTP {status} with a non-JSON body")
         return obj
 
+    def protocol_level(self) -> Optional[int]:
+        """The protocol level the mailbox (or LocalAPI) reports on GET /version, or None when
+        it is unknown: no such route (404), or a 200 without an integer `protocol` >= 1.
+        Cached for PROTOCOL_CACHE_S per source, per process (an unknown level too)."""
+        key = self.source_key() + "|" + self.base
+        now = self._monotonic()
+        hit = _levels.get(key)
+        if hit is not None and 0 <= now - hit[0] < PROTOCOL_CACHE_S:
+            return hit[1]
+        level: Optional[int] = None
+        try:
+            protocol = self._call("GET", "/version").get("protocol")
+            if isinstance(protocol, int) and not isinstance(protocol, bool) and protocol >= 1:
+                level = protocol
+        except NotFound:
+            pass
+        _levels[key] = (now, level)
+        return level
+
+    def check_protocol(self, instructable: Dict[str, Any]) -> None:
+        """Refuses (ProtocolTooOld) an instructable whose keys need a higher level than the
+        mailbox reports. An unknown level posts as before and the server validates; one
+        without such keys makes no extra call."""
+        needed = keys_needing_levels(instructable)
+        if not needed:
+            return
+        level = self.protocol_level()
+        if level is None:
+            return
+        for key, needs in sorted(needed.items(), key=lambda kv: -kv[1]):
+            if level < needs:
+                raise ProtocolTooOld(level, key, needs, local=self.local)
+
     def post(self, project: str, instructable: Dict[str, Any]) -> Dict[str, Any]:
+        self.check_protocol(instructable)
         body: Dict[str, Any] = {"project": project, "instructable": fill_from(instructable, self.env)}
         if not self.local:
             body["context"] = self.source["context"]

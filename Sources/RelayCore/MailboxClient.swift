@@ -118,6 +118,16 @@ public struct MailboxClient: QueueSource {
             .map(\.item)
     }
 
+    /// `GET /version`: the mailbox's protocol level. A mailbox from before `/version`
+    /// answers 404, which counts as level 1.
+    public func version() async throws -> MailboxVersion {
+        do {
+            return try await send("GET", "version")
+        } catch QueueError.notFound {
+            return .legacy
+        }
+    }
+
     /// The mailbox has no push channel; the Store polls.
     public func changes() async -> AsyncStream<Void>? {
         nil

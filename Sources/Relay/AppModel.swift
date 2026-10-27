@@ -81,6 +81,8 @@ final class ServerRouting: Sendable {
     var terminalsCheckedAt: Date?
     /// Names of displays seen in this run, for "<name> (not connected)".
     var displayNames: [String: String] = [:]
+    /// Set by AppDelegate after each mailbox version check.
+    var mailboxLine: MailboxVersionLine?
 
     /// `$HOME`, so a manual check can point it at a temp folder.
     nonisolated static var home: URL {

@@ -20,6 +20,14 @@ let settingsRules: [AlignmentRule] = [.sameTrailingPerGroup(.settingsTrailing, t
         settingsScene("settings-general", tab: .general) {
             GeneralTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot()))
         },
+        // "Open documents in" set to a chosen app, named in the picker.
+        settingsScene("settings-general-document-app", tab: .general) {
+            var config = SettingsFixtures.mailboxConfig
+            config.openDocumentsIn = "com.example.writer"
+            var snapshot = SettingsFixtures.snapshot(config: config)
+            snapshot.documentAppName = "Writer"
+            return GeneralTab(model: FixtureSettingsModel(settings: snapshot))
+        },
         settingsScene("settings-readonly", tab: .general) {
             GeneralTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(readOnly: true)))
         },
@@ -64,6 +72,12 @@ let settingsRules: [AlignmentRule] = [.sameTrailingPerGroup(.settingsTrailing, t
                       rules: settingsRules + [.sameLeading(.mailboxField, tolerance: 1)]) {
             QueueTab(model: FixtureSettingsModel(
                 settings: SettingsFixtures.snapshot(),
+                draft: MailboxDraft(address: "https://mailbox.example:8790", tokenFile: "~/.config/relay/mailbox-token")))
+        },
+        settingsScene("settings-queue-mailbox-behind", tab: .queue) {
+            QueueTab(model: FixtureSettingsModel(
+                settings: SettingsFixtures.snapshot(config: SettingsFixtures.mailboxUpdateConfig,
+                                                    mailbox: SettingsFixtures.mailboxBehind),
                 draft: MailboxDraft(address: "https://mailbox.example:8790", tokenFile: "~/.config/relay/mailbox-token")))
         },
         settingsScene("settings-queue-unsaved", tab: .queue,

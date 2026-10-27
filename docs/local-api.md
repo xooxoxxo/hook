@@ -22,6 +22,7 @@ Before checking anything else, Hook answers 403 `forbidden` to:
 | `GET /asks/{id}` | none | 200 `{item, events}` | 404 `not found` |
 | `POST /asks/{id}/resolve` | `{verdict: "done"\|"declined", actor?: "session", note?}` | 200 `{item}` (unchanged if already finished) | 400 `invalid verdict`, `invalid actor`, `invalid note`; 403 `owner actions are app-only`; 404 |
 | `GET /events` | `after` ≥ 0, `limit` 1–1000 (default 100) | 200 `{events, next, epoch}` | 400 `invalid query` |
+| `GET /version` | none | 200 `{"service": "hook", "version": "<app version>", "protocol": <int>}`: the app's own [protocol level](mailbox-protocol.md#protocol-levels), so a client checks This Mac the same way it checks a mailbox | 401 |
 | `GET /health` | optional `X-Relay-Nonce` header (32–64 hex) | 200 `{"ok":true,"app":"relay","source":"local"\|"mailbox"\|"none"}`, plus `proof` in local mode | none |
 | `GET /i/<id>` | none | Brings Hook forward on that ask (`relay://i/<id>` does the same) | 403 for web-page requests |
 

@@ -350,3 +350,32 @@ final class StatusLog: @unchecked Sendable {
         }
     }
 }
+
+@Suite struct MailboxClientVersionTests {
+    @Test func versionReadsTheProtocolLevel() async throws {
+        let (client, host) = try makeClient { _, _ in (200, #"{"service":"mailbox","version":"0.9.1","protocol":3}"#) }
+        let version = try await client.version()
+        #expect(version == MailboxVersion(service: "mailbox", version: "0.9.1", level: 3))
+        let sent = try #require(MailboxStubRegistry.shared.last(host))
+        #expect(sent.request.httpMethod == "GET")
+        #expect(sent.request.url?.path() == "/version")
+        #expect(sent.request.value(forHTTPHeaderField: "Authorization") == "Bearer tok-example")
+    }
+
+    @Test func aMailboxWithoutVersionIsLevelOne() async throws {
+        let (client, _) = try makeClient { _, _ in (404, #"{"error":"not found"}"#) }
+        #expect(try await client.version() == .legacy)
+        #expect(MailboxVersion.legacy.level == 1)
+    }
+
+    @Test func aRefusedTokenIsAnErrorNotLevelOne() async throws {
+        let (client, _) = try makeClient { _, _ in (401, #"{"error":"unauthorized"}"#) }
+        await #expect(throws: QueueError.unauthorized) { try await client.version() }
+    }
+
+    @Test(arguments: [#"{"version":"x"}"#, #"{"protocol":0}"#, #"{"protocol":"3"}"#, "not json"])
+    func aBadReplyIsAnError(_ body: String) async throws {
+        let (client, _) = try makeClient { _, _ in (200, body) }
+        await #expect(throws: (any Error).self) { try await client.version() }
+    }
+}

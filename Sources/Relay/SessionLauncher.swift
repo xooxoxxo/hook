@@ -23,10 +23,11 @@ import RelayCore
         Set(TerminalKind.allCases.filter { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0.bundleID) != nil })
     }
 
-    /// Removes `.command` files a terminal never ran (each one removes itself when it runs).
+    /// Removes `.command` files a terminal never ran (each one removes itself when it runs) and
+    /// done files of runs Hook stopped watching.
     func sweep() {
         let files = (try? FileManager.default.contentsOfDirectory(at: launchDirectory, includingPropertiesForKeys: nil)) ?? []
-        for file in files where file.pathExtension == "command" {
+        for file in files where ["command", "done"].contains(file.pathExtension) {
             try? FileManager.default.removeItem(at: file)
         }
     }
@@ -39,6 +40,31 @@ import RelayCore
         guard FileManager.default.fileExists(atPath: target.cwd, isDirectory: &isDirectory), isDirectory.boolValue else {
             return "The session's folder no longer exists."
         }
+        return await launch(setting: setting) { kind, version in
+            TerminalLauncher.plan(kind, target: target, shell: Self.loginShell(), ghosttyVersion: version)
+        }
+    }
+
+    /// Runs `command` in a new window of the chosen terminal through the login shell, in the
+    /// home folder; `doneFile` is created when it ends. Nil when a terminal opened; else the reason.
+    func run(_ command: String, doneFile: URL, setting: String) async -> String? {
+        guard let target = RunTarget(command: command, doneFile: doneFile.path) else {
+            return "The command is empty or has a line break or another control character."
+        }
+        do {
+            try PrivateFile.ensureDirectory(launchDirectory)
+        } catch {
+            return "Couldn't prepare the launch folder."
+        }
+        let home = home.path
+        return await launch(setting: setting) { kind, _ in
+            TerminalLauncher.plan(kind, run: target, shell: Self.loginShell(), home: home)
+        }
+    }
+
+    /// Finds the terminal (Terminal when the chosen one is gone), then tries its plan's steps in order.
+    private func launch(setting: String,
+                        plan makePlan: (TerminalKind, String?) -> LaunchPlan) async -> String? {
         var kind = TerminalKind.resolve(setting, installed: Self.installed())
         var appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: kind.bundleID)
         if appURL == nil, kind != .terminal {
@@ -47,7 +73,7 @@ import RelayCore
         }
         guard let appURL else { return "\(kind.name) isn't installed." }
         let version = Bundle(url: appURL)?.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
-        let plan = TerminalLauncher.plan(kind, target: target, shell: Self.loginShell(), ghosttyVersion: version)
+        let plan = makePlan(kind, version)
         var last = "\(kind.name) didn't open."
         for step in plan.steps {
             do {

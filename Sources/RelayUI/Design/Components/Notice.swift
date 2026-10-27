@@ -10,42 +10,67 @@ public struct Notice: View {
     let text: String
     let actionTitle: String?
     let help: String?
+    let secondaryTitle: String?
     let onAction: () -> Void
+    let onSecondary: () -> Void
     let onDismiss: () -> Void
 
     public init(kind: NoticeKind, text: String, actionTitle: String?, help: String? = nil,
+                secondaryTitle: String? = nil, onSecondary: @escaping () -> Void = {},
                 onAction: @escaping () -> Void, onDismiss: @escaping () -> Void) {
         self.kind = kind
         self.text = text
         self.actionTitle = actionTitle
         self.help = help
+        self.secondaryTitle = secondaryTitle
         self.onAction = onAction
+        self.onSecondary = onSecondary
         self.onDismiss = onDismiss
     }
 
     public var body: some View {
         GroupBox {
-            HStack(alignment: .firstTextBaseline, spacing: DS.Space.inline) {
-                Label {
-                    Text(text)
-                } icon: {
-                    Image(systemName: Self.symbol(kind))
-                        .foregroundStyle(kind == .error ? DS.Color.error : DS.Color.secondary)
+            if let secondaryTitle, let actionTitle {
+                // Two buttons don't fit beside the text at panel width: they get their own line.
+                VStack(alignment: .trailing, spacing: DS.Space.inline) {
+                    HStack(alignment: .firstTextBaseline, spacing: DS.Space.inline) {
+                        label
+                        Spacer(minLength: 0)
+                        if let help { HelpButton(rowLabel: "Notice", text: help) }
+                        IconButton(DS.Symbol.hide, label: "Dismiss", action: onDismiss)
+                    }
+                    HStack(spacing: DS.Space.inline) {
+                        Button(secondaryTitle, action: onSecondary).controlSize(DS.Control.form).fixedSize()
+                        Button(actionTitle, action: onAction).controlSize(DS.Control.form).fixedSize()
+                    }
                 }
-                .font(DS.Font.prose)
-                .lineLimit(3)
-                .fixedSize(horizontal: false, vertical: true)
-                .textSelection(.enabled)
-                Spacer(minLength: 0)
-                if let help { HelpButton(rowLabel: "Notice", text: help) }
-                if let actionTitle {
-                    Button(actionTitle, action: onAction).controlSize(DS.Control.form).fixedSize()
+            } else {
+                HStack(alignment: .firstTextBaseline, spacing: DS.Space.inline) {
+                    label
+                    Spacer(minLength: 0)
+                    if let help { HelpButton(rowLabel: "Notice", text: help) }
+                    if let actionTitle {
+                        Button(actionTitle, action: onAction).controlSize(DS.Control.form).fixedSize()
+                    }
+                    IconButton(DS.Symbol.hide, label: "Dismiss", action: onDismiss)
                 }
-                IconButton(DS.Symbol.hide, label: "Dismiss", action: onDismiss)
             }
         }
         .accessibilityElement(children: .contain)
         .onAppear { AccessibilityNotification.Announcement(text).post() }
+    }
+
+    private var label: some View {
+        Label {
+            Text(text)
+        } icon: {
+            Image(systemName: Self.symbol(kind))
+                .foregroundStyle(kind == .error ? DS.Color.error : DS.Color.secondary)
+        }
+        .font(DS.Font.prose)
+        .lineLimit(3)
+        .fixedSize(horizontal: false, vertical: true)
+        .textSelection(.enabled)
     }
 
     public static func symbol(_ kind: NoticeKind) -> String { kind == .error ? DS.Symbol.error : DS.Symbol.info }

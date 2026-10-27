@@ -7,7 +7,7 @@ from pathlib import Path
 
 SCHEMA = json.loads((Path(__file__).resolve().parent.parent / "schema" / "instructable.v1.json").read_text("utf-8"))
 VERIFY_KEYS = {"do", "where", "code", "lang", "expect", "detail", "url"}
-LEAF_KEYS = VERIFY_KEYS | {"question"}
+LEAF_KEYS = VERIFY_KEYS | {"question", "blocking", "warning", "optional", "file"}
 
 
 class SchemaTest(unittest.TestCase):
@@ -47,6 +47,48 @@ class SchemaTest(unittest.TestCase):
         self.assertEqual((choices["minItems"], choices["maxItems"], choices["uniqueItems"]), (0, 6, True))
         self.assertEqual(choices["items"], {"type": "string", "minLength": 1, "maxLength": 60})
         self.assertEqual(question["properties"]["multi"], {"type": "boolean", "default": False})
+
+    def test_optional_is_a_boolean_on_steps_and_leaves_never_on_verify(self):
+        for name in ("step", "leaf"):
+            optional = SCHEMA["$defs"][name]["properties"]["optional"]
+            self.assertEqual(optional["type"], "boolean")
+            self.assertIs(optional["default"], False)
+            self.assertIn("blocking", optional["description"])
+        self.assertNotIn("optional", SCHEMA["$defs"]["verify"]["properties"])
+
+    def test_file_is_a_local_path_on_steps_and_leaves_never_on_verify(self):
+        for name in ("step", "leaf"):
+            self.assertEqual(SCHEMA["$defs"][name]["properties"]["file"]["$ref"], "#/$defs/localPath")
+        self.assertNotIn("file", SCHEMA["$defs"]["verify"]["properties"])
+        local = SCHEMA["$defs"]["localPath"]
+        self.assertEqual((local["type"], local["maxLength"]), ("string", 500))
+        import re
+        pattern = re.compile(local["pattern"])
+        for good in ("/tmp/plan.md", "~/notes/plan.md", "/"):
+            self.assertTrue(pattern.search(good), good)
+        for bad in ("notes/plan.md", "~user/plan.md", "file:///tmp/x", "", "/tmp/a\nb", "/tmp/a\tb"):
+            self.assertFalse(pattern.search(bad), bad)
+
+    def test_a_link_has_exactly_one_of_url_and_path(self):
+        link = SCHEMA["properties"]["links"]["items"]
+        self.assertEqual(set(link["properties"]), {"label", "url", "path"})
+        self.assertEqual(link["required"], ["label"])
+        self.assertEqual(link["properties"]["path"], {"$ref": "#/$defs/localPath"})
+        self.assertEqual(link["oneOf"], [{"required": ["url"]}, {"required": ["path"]}])
+
+    def test_blocking_and_warning_sit_on_steps_and_leaves_never_on_verify(self):
+        for name in ("step", "leaf"):
+            props = SCHEMA["$defs"][name]["properties"]
+            self.assertEqual(props["blocking"]["type"], "boolean")
+            self.assertIs(props["blocking"]["default"], False)
+            self.assertEqual((props["warning"]["type"], props["warning"]["maxLength"]), ("string", 300))
+            self.assertNotIn("minLength", props["warning"])   # the validators accept an empty warning
+        self.assertNotIn("blocking", SCHEMA["$defs"]["verify"]["properties"])
+        self.assertNotIn("warning", SCHEMA["$defs"]["verify"]["properties"])
+        self.assertEqual(SCHEMA["$defs"]["step"]["properties"]["blocking"],
+                         SCHEMA["$defs"]["leaf"]["properties"]["blocking"])
+        self.assertEqual(SCHEMA["$defs"]["step"]["properties"]["warning"],
+                         SCHEMA["$defs"]["leaf"]["properties"]["warning"])
 
     def test_steps_use_step(self):
         self.assertEqual(SCHEMA["properties"]["steps"]["items"], {"$ref": "#/$defs/step"})

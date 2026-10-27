@@ -293,6 +293,86 @@ class LocalModeTest(StubServerCase):
             s.close()
 
 
+class StubVersioned(StubQueue):
+    """A mailbox that answers GET /version at PROTOCOL (None: no such route, level unknown)."""
+    protocol = None
+
+    def do_GET(self):
+        if self.path == "/version" and self.protocol is not None:
+            self._record()
+            if self._authorized():
+                self._send(200, {"service": "mailbox", "version": "x", "protocol": self.protocol})
+            return
+        super().do_GET()
+
+
+class Level2(StubVersioned):
+    protocol = 2
+
+
+class Level3(StubVersioned):
+    protocol = 3
+
+
+class Level4(StubVersioned):
+    protocol = 4
+
+
+TOO_OLD = ("This mailbox speaks protocol {m}; `{key}` needs {n}. "
+           "Ask the owner to update the mailbox (Hook \u203a Update Mailbox\u2026).")
+BLOCKING = {"v": 1, "title": "Gate", "steps": [{"do": "Run it", "blocking": True, "warning": "Later steps fail"}]}
+ASKING = {"v": 1, "title": "Pick", "steps": [{"do": "Choose", "substeps": [
+    {"do": "Env", "question": {"prompt": "Which?", "choices": ["a", "b"]}}]}]}
+PLAIN = {"v": 1, "title": "Plain", "steps": [{"do": "Run it"}]}
+OPTIONAL = {"v": 1, "title": "Feedback", "steps": [{"do": "Tell us", "optional": True, "question": {"prompt": "Any?"}}]}
+
+
+class ProtocolCheckTest(StubServerCase):
+    def post(self, instructable):
+        s = Session.mailbox(self.tmp.name, self.url)
+        try:
+            return s.call("relay_post", {"project": "Acme", "instructable": instructable})
+        finally:
+            s.close()
+
+    def test_blocking_is_refused_by_a_level_2_mailbox_without_posting(self):
+        self.httpd.RequestHandlerClass = Level2
+        res = self.post(BLOCKING)
+        self.assertTrue(res["isError"])
+        self.assertEqual(res["structuredContent"]["error"], TOO_OLD.format(m=2, key="blocking", n=3))
+        self.assertEqual(POSTED, [])
+
+    def test_a_mailbox_without_version_is_unknown_and_the_post_goes_through(self):
+        res = self.post(ASKING)
+        self.assertFalse(res["isError"], res)
+        self.assertEqual(len(POSTED), 1)
+        self.assertIn("/version", [path for _, path, _ in SEEN])
+
+    def test_a_level_3_mailbox_takes_blocking(self):
+        self.httpd.RequestHandlerClass = Level3
+        res = self.post(BLOCKING)
+        self.assertFalse(res["isError"], res)
+        self.assertEqual(len(POSTED), 1)
+
+    def test_optional_is_refused_by_a_level_3_mailbox_and_taken_by_level_4(self):
+        self.httpd.RequestHandlerClass = Level3
+        res = self.post(OPTIONAL)
+        self.assertTrue(res["isError"])
+        self.assertEqual(res["structuredContent"]["error"], TOO_OLD.format(m=3, key="optional", n=4))
+        self.assertEqual(POSTED, [])
+
+    def test_a_level_4_mailbox_takes_optional(self):
+        self.httpd.RequestHandlerClass = Level4
+        res = self.post(OPTIONAL)
+        self.assertFalse(res["isError"], res)
+        self.assertEqual(len(POSTED), 1)
+
+    def test_an_instructable_without_those_keys_makes_no_version_call(self):
+        res = self.post(PLAIN)
+        self.assertFalse(res["isError"], res)
+        self.assertNotIn("/version", [path for _, path, _ in SEEN])
+
+
 class DescriptionTest(unittest.TestCase):
     def test_descriptions_are_machine_neutral(self):
         tools = relay_mcp.tool_list()
@@ -320,7 +400,23 @@ class DescriptionTest(unittest.TestCase):
         import relay_cli
         post, status = relay_mcp.tool_list()[0], relay_mcp.tool_list()[1]
         self.assertEqual(relay_mcp.QUESTIONS_SENTENCE, relay_cli.QUESTIONS_SENTENCE)
-        self.assertTrue(post["description"].endswith(relay_mcp.QUESTIONS_SENTENCE))
+        self.assertIn(relay_mcp.QUESTIONS_SENTENCE, post["description"])
+        self.assertIn(relay_mcp.BLOCKING_SENTENCE, post["description"])
+        self.assertIn(relay_mcp.OPTIONAL_SENTENCE, post["description"])
+        self.assertTrue(post["description"].endswith(relay_mcp.FILES_SENTENCE))
+        self.assertEqual(relay_mcp.FILES_SENTENCE, relay_cli.FILES_SENTENCE)
+        self.assertEqual(relay_mcp.BLOCKING_SENTENCE, relay_cli.BLOCKING_SENTENCE)
+        self.assertEqual(relay_mcp.OPTIONAL_SENTENCE, relay_cli.OPTIONAL_SENTENCE)
+        defs = post["inputSchema"]["$defs"]
+        self.assertEqual(defs["step"]["properties"]["optional"]["type"], "boolean")
+        self.assertEqual(defs["leaf"]["properties"]["optional"]["type"], "boolean")
+        self.assertEqual(defs["step"]["properties"]["file"]["$ref"], "#/$defs/localPath")
+        self.assertEqual(defs["leaf"]["properties"]["file"]["$ref"], "#/$defs/localPath")
+        self.assertNotIn("file", defs["verify"]["properties"])
+        link = post["inputSchema"]["properties"]["instructable"]["properties"]["links"]["items"]
+        self.assertEqual(link["properties"]["path"], {"$ref": "#/$defs/localPath"})
+        self.assertEqual(link["oneOf"], [{"required": ["url"]}, {"required": ["path"]}])
+        self.assertNotIn("optional", defs["verify"]["properties"])
         defs = post["inputSchema"]["$defs"]
         self.assertEqual(defs["step"]["properties"]["question"], {"$ref": "#/$defs/question"})
         self.assertEqual(defs["leaf"]["properties"]["question"], {"$ref": "#/$defs/question"})

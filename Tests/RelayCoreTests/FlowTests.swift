@@ -316,3 +316,132 @@ private func answer(_ path: String) -> Answer { Answer(step: path, picked: ["EU"
         #expect(Flow.currentStep(ticks: first.ticks, nodes: simple) == "3")
     }
 }
+
+// MARK: Optional steps
+
+@Suite struct FlowOptionalTests {
+    private static let feedback = Question(prompt: "Anything to change?")
+    private static let region = Question(prompt: "Which region?", choices: ["EU", "US"])
+
+    /// 1 optional question, 2 required question, 3 plain, verify.
+    private let mixed = DetailModel.nodes(
+        steps: [Step(action: "Tell us", question: feedback, optional: true), Step(action: "Pick", question: region),
+                Step(action: "Ship")],
+        verify: Step(action: "Check"))
+
+    @Test func anOptionalQuestionIsDoneTickedOrAnswered() {
+        let node = mixed[0]
+        #expect(node.isOptional && node.asks)
+        #expect(!Flow.isDone(node, ticks: []))
+        #expect(Flow.isDone(node, ticks: ["1"]))
+        var answered = node
+        answered.answer = answer("1")
+        #expect(Flow.isDone(answered, ticks: []))
+        // A required question ignores a stray tick.
+        #expect(!Flow.isDone(mixed[1], ticks: ["2"]))
+    }
+
+    @Test func optionalQuestionsAreTickable() {
+        #expect(Flow.tickable(mixed).map(\.path) == ["1", "3", "verify"])
+        #expect(Flow.toggle(mixed[0], ticks: []) == ["1"])
+        #expect(Flow.toggle(mixed[0], ticks: ["1"]) == [])
+        #expect(Flow.toggle(mixed[1], ticks: []) == [])
+    }
+
+    @Test func cmdTTicksAnOptionalCurrentStepButNotARequiredQuestion() {
+        let first = Flow.tickCurrent(ticks: [], nodes: mixed)
+        #expect(first.path == "1")
+        #expect(first.ticks == ["1"])
+        #expect(Flow.currentStep(ticks: first.ticks, nodes: mixed) == "2")
+        #expect(Flow.tickCurrent(ticks: first.ticks, nodes: mixed).path == nil)
+        #expect(Flow.progress(ticks: first.ticks, nodes: mixed) == StepProgress(done: 1, total: 4))
+        #expect(Flow.untickLast(ticks: first.ticks, history: ["1"], nodes: mixed).path == "1")
+    }
+
+    @Test func optionalQuestionsArentCountedAsUnanswered() {
+        let model = DetailModel.nodes(steps: [Step(action: "a", question: Self.feedback, optional: true),
+                                              Step(action: "b", question: Self.region)], verify: nil)
+        let unanswered = Flow.flattened(model).filter { $0.isUnanswered && !$0.isOptional }.map(\.path)
+        #expect(unanswered == ["2"])
+    }
+
+    @Test func anOptionalSubStepNeverHoldsItsBlockingParentBack() {
+        let nodes = DetailModel.nodes(
+            steps: [Step(action: "Try it", substeps: [Step(action: "Open"), Step(action: "Note", question: Self.feedback,
+                                                                                  optional: true)],
+                         blocking: true),
+                    Step(action: "Ship")],
+            verify: nil)
+        #expect(Flow.lockedPaths(nodes: nodes, ticks: []) == ["2"])
+        #expect(Flow.lockedPaths(nodes: nodes, ticks: ["1.1"]) == [])
+    }
+
+    @Test func anOptionalParentTicksItsOwnQuestionWithItsSubSteps() {
+        let nodes = DetailModel.nodes(
+            steps: [Step(action: "Review", substeps: [Step(action: "a"), Step(action: "b", question: Self.region)],
+                         question: Self.feedback, optional: true)],
+            verify: nil)
+        let parent = nodes[0]
+        #expect(Flow.canTick(parent))
+        // The optional parent makes its sub-steps optional, the question one too, so one
+        // tick finishes the whole step.
+        #expect(Flow.toggle(parent, ticks: []) == ["1", "1.1", "1.2"])
+        #expect(Flow.toggle(parent, ticks: ["1", "1.1", "1.2"]) == [])
+        #expect(Flow.tickCurrent(ticks: [], nodes: nodes).path == "1")
+        #expect(Flow.parentProgress(parent, ticks: ["1", "1.1", "1.2"]) == StepProgress(done: 3, total: 3))
+        // Without optional, the parent's question is never ticked.
+        let required = DetailModel.nodes(
+            steps: [Step(action: "Review", substeps: [Step(action: "a")], question: Self.feedback)], verify: nil)
+        #expect(!Flow.canTick(required[0]))
+        #expect(Flow.toggle(required[0], ticks: []) == ["1.1"])
+    }
+
+    @Test func anOptionalParentMakesItsSubtreeOptional() {
+        let nodes = DetailModel.nodes(
+            steps: [Step(action: "Polish", substeps: [Step(action: "a"), Step(action: "b", question: Self.region),
+                                                      Step(action: "c", optional: true)],
+                         optional: true),
+                    Step(action: "Ship", question: Self.feedback)],
+            verify: Step(action: "Check"))
+        let parent = nodes[0]
+        #expect(parent.children.allSatisfy { $0.isOptional })
+        // Only the sub-steps that are optional through the parent alone say so.
+        #expect(parent.children.map(\.content.optionalByParent) == [true, true, false])
+        #expect(!parent.content.optionalByParent)
+        #expect(Flow.tickable(nodes).map(\.path) == ["1.1", "1.2", "1.3", "verify"])
+        // Ticking the parent finishes it; the next item is step 2.
+        let ticked = Flow.toggle(parent, ticks: [])
+        #expect(ticked == ["1.1", "1.2", "1.3"])
+        #expect(Flow.isFinished(parent, ticks: ticked))
+        #expect(Flow.currentStep(ticks: ticked, nodes: nodes) == "2")
+        // ⌘T walks through the sub-steps, the question one included.
+        #expect(Flow.tickCurrent(ticks: ["1.1"], nodes: nodes).path == "1.2")
+        // The unanswered list skips the subtree's question.
+        let unanswered = Flow.flattened(nodes).filter { $0.isUnanswered && !$0.isOptional }.map(\.path)
+        #expect(unanswered == ["2"])
+    }
+
+    @Test func aBlockingSubStepInsideAnOptionalStepNeverLocks() {
+        // The validator rejects it; if one gets through, the subtree stays optional.
+        let nodes = DetailModel.nodes(
+            steps: [Step(action: "Polish", substeps: [Step(action: "a", blocking: true), Step(action: "b")], optional: true),
+                    Step(action: "Ship")],
+            verify: nil)
+        #expect(!nodes[0].children[0].isBlocking && nodes[0].children[0].isOptional)
+        #expect(Flow.lockedPaths(nodes: nodes, ticks: []) == [])
+        // A parent that is both blocking and optional is only blocking, so nothing is inherited.
+        let both = DetailModel.nodes(
+            steps: [Step(action: "Set up", substeps: [Step(action: "a")], blocking: true, optional: true),
+                    Step(action: "Ship")],
+            verify: nil)
+        #expect(!both[0].children[0].isOptional)
+        #expect(Flow.lockedPaths(nodes: both, ticks: []) == ["2"])
+    }
+
+    @Test func blockingWinsWhenBothGotPastValidation() {
+        let nodes = DetailModel.nodes(steps: [Step(action: "a", blocking: true, optional: true), Step(action: "b")],
+                                      verify: Step(action: "v", optional: true))
+        #expect(nodes[0].isBlocking && !nodes[0].isOptional)
+        #expect(!nodes[2].isOptional)   // never on verify
+    }
+}

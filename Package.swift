@@ -6,7 +6,12 @@ let package = Package(
     platforms: [.macOS(.v14)],
     targets: [
         .target(name: "RelayCore"),
-        .target(name: "RelayUI", dependencies: ["RelayCore"]),
+        .target(
+            name: "RelayUI",
+            dependencies: ["RelayCore"],
+            // The document viewer's vendored marked and DOMPurify, and its renderer.
+            resources: [.copy("Resources/Viewer")]
+        ),
         .executableTarget(name: "Relay", dependencies: ["RelayCore", "RelayUI"]),
         .executableTarget(name: "RelayGallery", dependencies: ["RelayCore", "RelayUI"]),
         .testTarget(

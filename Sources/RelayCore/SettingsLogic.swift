@@ -178,6 +178,11 @@ public struct SettingsSnapshot: Equatable {
     public var localQueuePath: String?
     /// The Terminal picker: Automatic, then the installed terminals.
     public var terminals: [TerminalChoice]
+    /// Settings › Queue › Connection's Mailbox row; nil outside mailbox mode.
+    public var mailbox: MailboxVersionLine?
+    /// The display name of the app "Open documents in" names; nil when it names none or
+    /// the app isn't installed.
+    public var documentAppName: String?
     public var now: Date
 
     public init(config: RelayConfig? = nil, readOnly: Bool = false, version: String = "",
@@ -188,7 +193,8 @@ public struct SettingsSnapshot: Equatable {
                     sourceKey: SourceKey.none, reachable: false, loadedOnce: false, waiting: 0, problem: nil),
                 connectionProblems: [String] = [], permission: NotificationPermission = .notDetermined,
                 repo: RepoState = RepoState(), localQueuePath: String? = nil,
-                terminals: [TerminalChoice] = [], now: Date = Date(timeIntervalSince1970: 0)) {
+                terminals: [TerminalChoice] = [], mailbox: MailboxVersionLine? = nil,
+                documentAppName: String? = nil, now: Date = Date(timeIntervalSince1970: 0)) {
         self.config = config
         self.readOnly = readOnly
         self.version = version
@@ -205,6 +211,8 @@ public struct SettingsSnapshot: Equatable {
         self.repo = repo
         self.localQueuePath = localQueuePath
         self.terminals = terminals
+        self.mailbox = mailbox
+        self.documentAppName = documentAppName
         self.now = now
     }
 }
@@ -218,6 +226,10 @@ public enum SettingsAction: Equatable {
     /// into ~/.claude/settings.json; copy a text; open the Support Hook link.
     /// `checkAgents` re-reads what the agents page shows.
     case checkAgents, registerMCP, installRepliesHook, copyText(String), openDonation
+    /// Settings › Queue: read the mailbox's version now; run Update Mailbox….
+    case checkMailbox, updateMailbox
+    /// Settings › General › Open documents in › Other App…: pick an app and save it.
+    case chooseDocumentApp
 }
 
 extension ShortcutProblem {

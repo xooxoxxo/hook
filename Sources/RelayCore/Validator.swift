@@ -9,9 +9,9 @@ public struct ValidationFailure: Error, Sendable, Equatable {
     }
 }
 
-/// The instructable validator, matching the mailbox service's. It gives the
-/// same SET of errors as the reference implementation; object keys are visited in sorted
-/// order, so the list order can differ from Python's document order.
+/// The instructable validator, matching the mailbox service's. Within a step it
+/// reports errors in the reference's order; object keys (unknown keys, secrets) are
+/// visited in sorted order, so those can differ from Python's document order.
 public enum Validator {
     public static let maxBytes = 32768
     static let maxSteps = 20
@@ -21,10 +21,10 @@ public enum Validator {
     static let urgencies: Set<String> = ["now", "today", "whenever"]
 
     static let topKeys: Set<String> = ["v", "title", "why", "urgency", "steps", "verify", "reply", "links", "from"]
-    /// Verify: a leaf that asks and blocks nothing.
+    /// Verify: a leaf that asks, blocks and opts out of nothing.
     static let verifyKeys: Set<String> = ["do", "where", "code", "lang", "expect", "detail", "url"]
     /// A sub-step.
-    static let leafKeys: Set<String> = verifyKeys.union(["question", "blocking", "warning"])
+    static let leafKeys: Set<String> = verifyKeys.union(["question", "blocking", "warning", "optional", "file"])
     /// `warning`: multi-line, like `detail`.
     static let warningLimit = 300
     /// An entry of `steps`.
@@ -36,7 +36,9 @@ public enum Validator {
     static let maxQuestions = 20
     static let questionKeys: Set<String> = ["prompt", "choices", "multi"]
     static let replyKeys: Set<String> = ["prompt", "choices"]
-    static let linkKeys: Set<String> = ["label", "url"]
+    static let linkKeys: Set<String> = ["label", "url", "path"]
+    /// `file` and a link's `path`: an absolute local path of at most this many characters.
+    static let maxPath = 500
     static let fromKeys = ["session", "host", "cwd"]
     /// Step fields in the reference's order: name, limit, text class.
     static let stepFields: [(name: String, limit: Int, kind: TextKind)] = [
@@ -44,8 +46,10 @@ public enum Validator {
         ("lang", 20, .single), ("expect", 300, .multi), ("detail", 1500, .multi),
     ]
 
+    /// `.path`: a single line where even the emoji joiners (U+200D, U+FE0E, U+FE0F)
+    /// count as hidden, as in code, so a file name reads as what it is.
     enum TextKind: Sendable {
-        case code, multi, single
+        case code, multi, single, path
     }
 
     /// `.success` holds the cleaned instructable: the input with `urgency`
@@ -110,7 +114,14 @@ public enum Validator {
                     let path = "links[\(index)]"
                     if let link = keys(&errors, path, linkValue, allowed: linkKeys) {
                         text(&errors, "\(path).label", link["label"], limit: 60, required: true)
-                        url(&errors, "\(path).url", link["url"], required: true)
+                        let hasURL = present(link["url"]) != nil, hasPath = present(link["path"]) != nil
+                        if hasURL == hasPath {
+                            errors.append("\(path): needs url or path, not both")
+                        } else if hasURL {
+                            url(&errors, "\(path).url", link["url"], required: true)
+                        } else {
+                            Self.path(&errors, "\(path).path", link["path"])
+                        }
                     }
                 }
             } else {
@@ -196,11 +207,11 @@ public enum Validator {
     }
 
     static func shape(_ path: String, _ string: String, _ kind: TextKind) -> String? {
-        let cls: FieldClass = kind == .code ? .code : .prose
+        let cls: FieldClass = kind == .code || kind == .path ? .code : .prose
         if let hidden = string.unicodeScalars.first(where: { Sanitize.isHidden($0, as: cls) }) {
             return "\(path): contains hidden or control characters (U+\(String(format: "%04X", hidden.value)))"
         }
-        if kind == .single && string.unicodeScalars.contains(where: { $0 == "\n" || $0 == "\t" }) {
+        if (kind == .single || kind == .path) && string.unicodeScalars.contains(where: { $0 == "\n" || $0 == "\t" }) {
             return "\(path): must be a single line"
         }
         return nil
@@ -223,6 +234,77 @@ public enum Validator {
         guard errors.count == before, case .string(let string)? = present(value) else { return }
         if !isHTTPURL(string) {
             errors.append("\(path): must be an http(s) URL")
+        }
+    }
+
+    /// `_path`: an absolute local path ("/…" or "~/…"), one line of 1 to `maxPath`
+    /// characters with no hidden characters, no "." or ".." segment (P1), no first
+    /// segment starting with "." such as /.vol or /.nofollow (N2), a first segment that
+    /// is plain ASCII (N3: case folding turns "ſystem", "Syﬆem" or the Kelvin sign into
+    /// ASCII letters), and not /net, /Network or /home or under them after
+    /// `networkForm` (N1). N2, N3 and N1 apply only
+    /// to paths starting with "/". Null counts as absent.
+    static func path(_ errors: inout [String], _ path: String, _ value: JSONValue?) {
+        let before = errors.count
+        text(&errors, path, value, limit: maxPath, kind: .path)
+        guard errors.count == before, case .string(let string)? = present(value) else { return }
+        let scalars = string.unicodeScalars
+        let rooted = scalars.starts(with: "/".unicodeScalars)
+        if !(rooted || scalars.starts(with: "~/".unicodeScalars)) {
+            errors.append("\(path): must be an absolute path")
+        } else if scalars.split(separator: "/", omittingEmptySubsequences: false)
+            .contains(where: { Array($0) == ["."] || Array($0) == [".", "."] }) {
+            errors.append("\(path): must not contain . or .. segments")
+        } else if rooted, let first = scalars.split(separator: "/").first, first.first == "." {
+            errors.append("\(path): can't start with a hidden folder")
+        } else if rooted, let first = scalars.split(separator: "/").first, !first.allSatisfy(\.isASCII) {
+            errors.append("\(path): the first folder name must be plain ASCII")
+        } else if rooted && isNetworkPath(string) {
+            errors.append("\(path): can't be a network path")
+        }
+    }
+
+    /// Autofs and Finder network roots, in `networkForm`: opening a path under one
+    /// reaches a server.
+    public static let networkRoots = ["/net", "/network", "/home"]
+    /// Prefixes that lead back to the same roots, tried in this order (only at a path
+    /// boundary), stripped in a loop until none matches, however they are stacked.
+    public static let firmlinkPrefixes = ["/private/var/automount", "/var/automount", "/private", "/system/volumes/data"]
+
+    /// `_network_form`: runs of "/" collapsed into one, lowercased (the disk ignores
+    /// case), then `firmlinkPrefixes` entries stripped in a loop until nothing changes.
+    public static func networkForm(_ string: String) -> String {
+        var collapsed = String.UnicodeScalarView()
+        var lastSlash = false
+        for scalar in string.unicodeScalars {
+            if scalar == "/" && lastSlash { continue }
+            lastSlash = scalar == "/"
+            collapsed.append(scalar)
+        }
+        var form = Array(String(collapsed).lowercased().unicodeScalars)
+        var changed = true
+        while changed {
+            changed = false
+            for prefix in firmlinkPrefixes {
+                let prefixScalars = Array(prefix.unicodeScalars)
+                if form == prefixScalars || form.starts(with: prefixScalars + ["/"]) {
+                    form = Array(form.dropFirst(prefixScalars.count))
+                    if form.isEmpty { form = ["/"] }
+                    changed = true
+                    break
+                }
+            }
+        }
+        return String(String.UnicodeScalarView(form))
+    }
+
+    /// `form in NETWORK_ROOTS or form.startswith(root + "/")` on `networkForm(string)`,
+    /// compared by scalars as Python compares code points.
+    public static func isNetworkPath(_ string: String) -> Bool {
+        let scalars = Array(networkForm(string).unicodeScalars)
+        return networkRoots.contains { root in
+            let rootScalars = Array(root.unicodeScalars)
+            return scalars == rootScalars || scalars.starts(with: rootScalars + ["/"])
         }
     }
 
@@ -268,19 +350,41 @@ public enum Validator {
 
     /// `_step`: `do` required, the rest optional; a `steps` entry may hold 1 to 10
     /// sub-steps, each checked as a leaf (so nesting is an unknown key). A step or
-    /// sub-step may ask a `question` and carry `blocking` (a bool) and a multi-line
-    /// `warning`; verify (`verifyKeys`) can't.
-    static func step(_ errors: inout [String], _ path: String, _ value: JSONValue, allowed: Set<String>) {
+    /// sub-step may ask a `question` and carry `blocking` (a bool), `optional` (a
+    /// bool, never together with `blocking`), a multi-line `warning` and `file` (an
+    /// absolute local path); verify (`verifyKeys`) can't. An optional parent makes its
+    /// sub-steps optional (`inOptional`), so none of them may be blocking. Errors come
+    /// in the reference's order: the `stepFields`, url, file, blocking, optional,
+    /// warning, question, substeps.
+    static func step(
+        _ errors: inout [String], _ path: String, _ value: JSONValue, allowed: Set<String>,
+        inOptional: Bool = false
+    ) {
         guard let step = keys(&errors, path, value, allowed: allowed) else { return }
         for field in stepFields {
             text(&errors, "\(path).\(field.name)", step[field.name], limit: field.limit,
                  required: field.name == "do", kind: field.kind)
         }
         url(&errors, "\(path).url", step["url"])
+        if allowed.contains("file") {
+            Self.path(&errors, "\(path).file", step["file"])
+        }
         if allowed.contains("blocking") {
-            switch present(step["blocking"]) {
-            case nil, .bool?: break
+            let blocking = present(step["blocking"])
+            switch blocking {
+            case nil, .bool(false)?: break
+            case .bool(true)?:
+                if inOptional { errors.append("\(path).blocking: can't be blocking inside an optional step") }
             default: errors.append("\(path).blocking: must be true or false")
+            }
+            switch present(step["optional"]) {
+            case nil: break
+            case .bool(true)?:
+                if blocking == .bool(true) {
+                    errors.append("\(path).optional: can't be optional and blocking")
+                }
+            case .bool?: break
+            default: errors.append("\(path).optional: must be true or false")
             }
             text(&errors, "\(path).warning", step["warning"], limit: warningLimit, kind: .multi)
         }
@@ -293,7 +397,8 @@ public enum Validator {
             return
         }
         for (index, sub) in subs.enumerated() {
-            Self.step(&errors, "\(path).substeps[\(index)]", sub, allowed: leafKeys)
+            Self.step(&errors, "\(path).substeps[\(index)]", sub, allowed: leafKeys,
+                      inOptional: present(step["optional"]) == .bool(true))
         }
     }
 

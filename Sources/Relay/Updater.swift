@@ -8,8 +8,11 @@ import RelayCore
     private static let lastCheckKey = "updateLastCheck"
     private static let latestTagKey = "updateLatestTag"
     private static let latestURLKey = "updateLatestURL"
+    private static let latestMailboxLevelKey = "updateLatestMailboxLevel"
 
     private(set) var state: UpdateState = .none
+    /// The mailbox level the available release needs (its notes' marker); nil when it has none.
+    private(set) var requiredMailboxLevel: Int?
     var onChange: (@MainActor () -> Void)?
     private let defaults: UserDefaults
     private let current: String
@@ -19,7 +22,9 @@ import RelayCore
     init(defaults: UserDefaults = .standard, current: String = UpdateChecker.runningVersion) {
         self.defaults = defaults
         self.current = current
-        state = UpdateState.resolve(current: current, latest: Self.storedRelease(defaults))
+        let stored = Self.storedRelease(defaults)
+        state = UpdateState.resolve(current: current, latest: stored)
+        requiredMailboxLevel = stored?.mailboxLevel
     }
 
     nonisolated static var runningVersion: String {
@@ -50,7 +55,8 @@ import RelayCore
 
     private func perform() async -> UpdateState {
         let previous = state
-        let result = UpdateState.resolve(current: current, reply: await Self.fetch())
+        let reply = await Self.fetch()
+        let result = UpdateState.resolve(current: current, reply: reply)
         defaults.set(Date(), forKey: Self.lastCheckKey)
         switch result {
         case .failed:
@@ -58,6 +64,11 @@ import RelayCore
         case .available(_, let tag, let url):
             defaults.set(tag, forKey: Self.latestTagKey)
             defaults.set(url.absoluteString, forKey: Self.latestURLKey)
+            let level = (try? reply.get()).flatMap(LatestRelease.parse)?.mailboxLevel
+            if let level { defaults.set(level, forKey: Self.latestMailboxLevelKey) } else {
+                defaults.removeObject(forKey: Self.latestMailboxLevelKey)
+            }
+            requiredMailboxLevel = level
             state = result
         case .none, .checking:
             state = .none
@@ -69,7 +80,8 @@ import RelayCore
     private static func storedRelease(_ defaults: UserDefaults) -> LatestRelease? {
         guard let tag = defaults.string(forKey: latestTagKey), let version = ReleaseVersion(tag),
               let page = defaults.string(forKey: latestURLKey), let url = URL(string: page) else { return nil }
-        return LatestRelease(tag: tag, version: version, url: url)
+        let level = defaults.object(forKey: latestMailboxLevelKey) as? Int
+        return LatestRelease(tag: tag, version: version, url: url, mailboxLevel: level)
     }
 
     private static func fetch() async -> Result<Data, UpdateCheckError> {

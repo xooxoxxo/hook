@@ -24,7 +24,8 @@ if _CLIENTS not in sys.path:
     sys.path.insert(0, _CLIENTS)
 
 import relay_client  # noqa: E402
-from relay_cli import QUESTIONS_SENTENCE, SUBSTEPS_SENTENCE, answers_json, resolved_by  # noqa: E402
+from relay_cli import (BLOCKING_SENTENCE, FILES_SENTENCE, OPTIONAL_SENTENCE, QUESTIONS_SENTENCE,  # noqa: E402
+                       SUBSTEPS_SENTENCE, answers_json, resolved_by)
 
 SERVER_INFO = {"name": "relay", "version": relay_client.VERSION}
 LEGACY_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26"]
@@ -53,6 +54,8 @@ def make_client() -> relay_client.Client:
 
 
 def to_tool_error(exc: relay_client.RelayError, client: Optional[relay_client.Client]) -> ToolError:
+    if isinstance(exc, relay_client.ProtocolTooOld):
+        return ToolError(exc.error)
     if isinstance(exc, relay_client.Refused):
         details = [str(d) for d in (exc.details or [])]
         if details:
@@ -164,7 +167,8 @@ def tool_list() -> list:
                             "copy-paste code (see the instructables skill). It goes to the owner's Hook "
                             "queue. Returns {id, deduped, openUrl}; deduped means an ask with this title "
                             "is already open. Never include a secret value. " + SUBSTEPS_SENTENCE + " "
-                            + QUESTIONS_SENTENCE),
+                            + QUESTIONS_SENTENCE + " " + BLOCKING_SENTENCE + " " + OPTIONAL_SENTENCE + " "
+                            + FILES_SENTENCE),
             "inputSchema": post_input_schema(),
         },
         {

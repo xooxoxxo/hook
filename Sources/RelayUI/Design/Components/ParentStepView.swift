@@ -19,7 +19,8 @@ struct NodeFramesKey: PreferenceKey {
 /// The parent tick is derived from its sub-steps; ticking it ticks or unticks them all (the
 /// Store leaves locked ones alone). A parent that asks its own question shows it under its
 /// text, above the sub-steps; the question is one more item of its count, and its marker is
-/// not a tick.
+/// not a tick, unless the parent is optional: then its tick marks the question done
+/// unanswered along with the sub-steps. An optional parent shows an "Optional" caption.
 public struct ParentStepView: View {
     let content: StepContent
     let number: Int
@@ -81,8 +82,9 @@ public struct ParentStepView: View {
     private var state: StepState { ParentStepView.rowState(allDone: allDone, holdsCurrent: holdsCurrent) }
     private var isOpen: Bool { StepRow.isOpen(state: state, locked: locked, expanded: expanded.wrappedValue) }
     private var expandable: Bool { StepRow.isExpandable(state: state, locked: locked) }
-    /// No parent tick on a parent that asks: Mark All acts on ticks, never on the question.
-    private var tickable: Bool { !readOnly && question == nil && !locked }
+    /// No parent tick on a parent that asks a required question: Mark All acts on ticks, never
+    /// on the answer. An optional parent's question is ticked with its sub-steps.
+    private var tickable: Bool { !readOnly && (question == nil || content.optional) && !locked }
 
     public static func rowState(allDone: Bool, holdsCurrent: Bool) -> StepState {
         allDone ? .done : (holdsCurrent ? .current : .todo)
@@ -138,7 +140,9 @@ public struct ParentStepView: View {
         if let lockText {
             return StepAccessibility.lockedLabel(level: .top(number), action: content.action, lockText: lockText)
         }
-        let label = StepAccessibility.parentLabel(number: number, action: content.action, done: ticked, total: itemTotal)
+        let label = StepAccessibility.optional(
+            StepAccessibility.parentLabel(number: number, action: content.action, done: ticked, total: itemTotal),
+            content.optional)
         guard let question else { return label }
         return label + ". " + StepAccessibility.question(prompt: question.question.prompt, answer: question.answer)
     }
@@ -147,15 +151,15 @@ public struct ParentStepView: View {
         if let lockText {
             LockMarker(level: .top(number),
                        label: StepAccessibility.lockedLabel(level: .top(number), action: content.action, lockText: lockText))
-        } else if question != nil {
+        } else if question != nil, !content.optional {
             StepMarker(level: .top(number), state: allDone ? .done : (ownState == .current ? .current : .todo),
                        label: line(content.action))
         } else {
             TickButton(level: .top(number), state: allDone ? .done : (holdsCurrent ? .current : .todo),
-                       label: line(content.action),
+                       label: StepAccessibility.optional(line(content.action), content.optional),
                        hint: StepAccessibility.hint(level: .top(number), total: total),
-                       value: StepAccessibility.parentValue(done: ticked, total: children.count),
-                       help: StepAccessibility.parentHelp(done: ticked, total: children.count),
+                       value: StepAccessibility.parentValue(done: ticked, total: itemTotal),
+                       help: StepAccessibility.parentHelp(done: ticked, total: itemTotal),
                        readOnly: readOnly, action: toggleParent)
         }
     }
@@ -194,6 +198,7 @@ public struct ParentStepView: View {
                 }
             }
             Spacer(minLength: DS.Space.inline)
+            if content.optional { StepRow.optionalCaption }
             if !locked {
                 Text(verbatim: "\(ticked) of \(itemTotal)")
                     .font(DS.Font.meta).foregroundStyle(DS.Color.secondary).monospacedDigit()
@@ -212,7 +217,7 @@ public struct ParentStepView: View {
             row
         } else {
             row.contextMenu {
-                Button(StepAccessibility.parentContextTitle(done: ticked, total: children.count)) { toggleParent() }
+                Button(StepAccessibility.parentContextTitle(done: ticked, total: itemTotal)) { toggleParent() }
             }
         }
     }

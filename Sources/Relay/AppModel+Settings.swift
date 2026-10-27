@@ -14,6 +14,8 @@ struct SettingsHooks {
     var applyShortcut: @MainActor (String) -> Bool = { _ in false }
     var suspendShortcut: @MainActor () -> Void = {}
     var resumeShortcut: @MainActor () -> Void = {}
+    var checkMailbox: @MainActor () -> Void = {}
+    var updateMailbox: @MainActor () -> Void = {}
 }
 
 extension AppModel: SettingsViewModel {
@@ -49,6 +51,8 @@ extension AppModel: SettingsViewModel {
                 hookInstalled: hookInstalled, hookError: hookError, claudeMdInstalled: claudeMdInstalled),
             localQueuePath: (dataDirectory.appending(path: "queue.json").path as NSString).abbreviatingWithTildeInPath,
             terminals: settingsTerminals(),
+            mailbox: sourceKey.hasPrefix("mailbox:") ? mailboxLine : nil,
+            documentAppName: documentAppName(),
             now: settings.now)
         guard next != settings else { return }
         next.now = Date()
@@ -70,6 +74,14 @@ extension AppModel: SettingsViewModel {
         }
         return TerminalChoice.options(installed: installedTerminals,
                                       current: config?.terminal ?? RelayConfig.automaticTerminal)
+    }
+
+    /// The app "Open documents in" names, by its display name; nil for the viewer, the
+    /// default app, or an app that isn't installed.
+    func documentAppName() -> String? {
+        guard case .app(let id) = DocumentTarget(config: config?.openDocumentsIn),
+              let app = DocumentApps.url(for: id) else { return nil }
+        return DocumentApps.name(app)
     }
 
     func perform(_ action: SettingsAction) {
@@ -175,6 +187,14 @@ extension AppModel: SettingsViewModel {
             NSPasteboard.general.setString(text, forType: .string)
         case .openDonation:
             if let url = ConnectInfo.donationLink() { NSWorkspace.shared.open(url) }
+        case .checkMailbox:
+            hooks.checkMailbox()
+        case .updateMailbox:
+            hooks.updateMailbox()
+        case .chooseDocumentApp:
+            if let app = DocumentApps.choose(title: "Choose the app for documents") {
+                save(set: ["openDocumentsIn": DocumentApps.configValue(for: app)])
+            }
         }
         refreshSettings()
     }

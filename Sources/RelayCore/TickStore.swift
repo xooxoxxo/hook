@@ -1,7 +1,9 @@
 import Foundation
 
-/// Ticked leaves per source and ask: `relay.ticks.v2.<sourceKey>.<askId>`
-/// holds `[path: fingerprint]`, one entry per ticked leaf. Parents are derived, never stored.
+/// Ticked items per source and ask: `relay.ticks.v2.<sourceKey>.<askId>`
+/// holds `[path: fingerprint]`, one entry per ticked item (Flow.items: the leaves, and a
+/// parent's own question, which only an optional parent's tick marks). A parent's done
+/// state is otherwise derived from its sub-steps, never stored.
 public enum TickStore {
     public static let prefix = "relay.ticks.v2."
 
@@ -20,7 +22,7 @@ public enum TickStore {
             return migrateV1(defaults, sourceKey: sourceKey, id: id, nodes: nodes) ?? []
         }
         defaults.removeObject(forKey: legacyKey(sourceKey: sourceKey, id: id))
-        let leaves = Flow.leaves(of: nodes)
+        let leaves = Flow.items(of: nodes)
         var byPath: [String: String] = [:]
         for leaf in leaves { byPath[leaf.path] = leaf.fingerprint }
 
@@ -43,7 +45,7 @@ public enum TickStore {
 
     public static func save(_ defaults: UserDefaults, sourceKey: String, id: String, ticks: Set<String>, nodes: [DetailModel.Node]) {
         var entries: [String: String] = [:]
-        for leaf in Flow.leaves(of: nodes) where ticks.contains(leaf.path) {
+        for leaf in Flow.items(of: nodes) where ticks.contains(leaf.path) {
             entries[leaf.path] = leaf.fingerprint
         }
         write(defaults, key(sourceKey: sourceKey, id: id), entries)

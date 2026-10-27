@@ -304,6 +304,202 @@ class LaunchTests(Base):
         self.assertEqual(self.clock.sleeps, [])
 
 
+class ProtocolCheckTests(Base):
+    """GET /version before posting a key that needs protocol 2 or 3."""
+
+    MESSAGE = ("This mailbox speaks protocol {m}; `{key}` needs {n}. "
+               "Ask the owner to update the mailbox (Hook \u203a Update Mailbox\u2026).")
+
+    def setUp(self):
+        super().setUp()
+        rc._levels.clear()
+        self.addCleanup(rc._levels.clear)
+        self.http = FakeHTTP()
+        self.http.routes[("POST", "/asks")] = (201, {"item": {"id": ITEM_ID}})
+        self.clock = FakeClock()
+
+    def client(self, **kw):
+        return self.mailbox(self.http, monotonic=self.clock.monotonic, **kw)
+
+    @staticmethod
+    def ask(**step):
+        return {"v": 1, "title": "Gate", "steps": [dict({"do": "Run it"}, **step)]}
+
+    def level(self, protocol):
+        self.http.routes[("GET", "/version")] = (200, {"service": "mailbox", "version": "1.2.3", "protocol": protocol})
+
+    def test_blocking_needs_3_and_names_the_key(self):
+        self.level(2)
+        with self.assertRaises(rc.Refused) as ctx:
+            self.client().post("Acme", self.ask(blocking=True))
+        self.assertEqual(ctx.exception.error, self.MESSAGE.format(m=2, key="blocking", n=3))
+        self.assertEqual(ctx.exception.exit_code, 1)
+        self.assertEqual(self.http.sent("/asks"), [])
+
+    def test_warning_needs_3(self):
+        self.level(1)
+        with self.assertRaises(rc.Refused) as ctx:
+            self.client().post("Acme", self.ask(warning="Careful"))
+        self.assertEqual(ctx.exception.error, self.MESSAGE.format(m=1, key="warning", n=3))
+
+    def test_question_needs_2_also_on_a_substep(self):
+        self.level(1)
+        ask = {"v": 1, "title": "Pick", "steps": [{"do": "Go", "substeps": [{"do": "Env", "question": {"prompt": "?"}}]}]}
+        with self.assertRaises(rc.Refused) as ctx:
+            self.client().post("Acme", ask)
+        self.assertEqual(ctx.exception.error, self.MESSAGE.format(m=1, key="question", n=2))
+        self.level(2)
+        rc._levels.clear()
+        self.assertEqual(self.client().post("Acme", ask)["item"]["id"], ITEM_ID)
+
+    def test_the_highest_need_is_named(self):
+        self.level(2)
+        ask = self.ask(question={"prompt": "?"}, blocking=True)
+        with self.assertRaises(rc.Refused) as ctx:
+            self.client().post("Acme", ask)
+        self.assertIn("`blocking` needs 3", ctx.exception.error)
+
+    def test_optional_needs_4_also_on_a_substep(self):
+        self.level(3)
+        ask = {"v": 1, "title": "Try", "steps": [{"do": "Go", "substeps": [{"do": "Note it", "optional": True}]}]}
+        with self.assertRaises(rc.Refused) as ctx:
+            self.client().post("Acme", ask)
+        self.assertEqual(ctx.exception.error, self.MESSAGE.format(m=3, key="optional", n=4))
+        self.assertEqual(self.http.sent("/asks"), [])
+        self.level(4)
+        rc._levels.clear()
+        self.assertEqual(self.client().post("Acme", ask)["item"]["id"], ITEM_ID)
+
+    def test_file_needs_4_also_on_a_substep(self):
+        self.level(3)
+        ask = {"v": 1, "title": "Read", "steps": [{"do": "Go", "substeps": [{"do": "Read it", "file": "/tmp/plan.md"}]}]}
+        with self.assertRaises(rc.Refused) as ctx:
+            self.client().post("Acme", ask)
+        self.assertEqual(ctx.exception.error, self.MESSAGE.format(m=3, key="file", n=4))
+        self.assertEqual(self.http.sent("/asks"), [])
+        self.level(4)
+        rc._levels.clear()
+        self.assertEqual(self.client().post("Acme", ask)["item"]["id"], ITEM_ID)
+
+    def test_a_link_path_needs_4(self):
+        self.level(3)
+        ask = {"v": 1, "title": "Read", "steps": [{"do": "Go"}],
+               "links": [{"label": "Web", "url": "https://example.com"}, {"label": "Plan", "path": "~/plan.md"}]}
+        with self.assertRaises(rc.Refused) as ctx:
+            self.client().post("Acme", ask)
+        self.assertEqual(ctx.exception.error, self.MESSAGE.format(m=3, key="links[].path", n=4))
+        self.assertEqual(self.http.sent("/asks"), [])
+
+    def test_url_links_make_no_extra_call(self):
+        ask = {"v": 1, "title": "Read", "steps": [{"do": "Go"}], "links": [{"label": "Web", "url": "https://example.com"}]}
+        self.client().post("Acme", ask)
+        self.assertEqual(self.http.sent("/version"), [])
+
+    def test_file_on_verify_is_not_checked(self):
+        ask = {"v": 1, "title": "Gate", "steps": [{"do": "Run it"}], "verify": {"do": "Look", "file": "/tmp/x.md"}}
+        self.client().post("Acme", ask)
+        self.assertEqual(self.http.sent("/version"), [])
+
+    def test_optional_is_named_over_lower_needs(self):
+        self.level(2)
+        with self.assertRaises(rc.Refused) as ctx:
+            self.client().post("Acme", self.ask(question={"prompt": "?"}, warning="w", optional=True))
+        self.assertIn("`optional` needs 4", ctx.exception.error)
+
+    def test_optional_on_verify_is_not_checked(self):
+        ask = {"v": 1, "title": "Gate", "steps": [{"do": "Run it"}], "verify": {"do": "Look", "optional": True}}
+        self.client().post("Acme", ask)
+        self.assertEqual(self.http.sent("/version"), [])
+
+    def test_an_unknown_level_posts_optional_and_the_server_validates(self):
+        self.http.routes[("GET", "/version")] = (404, {"error": "not found"})
+        self.assertEqual(self.client().post("Acme", self.ask(optional=True))["item"]["id"], ITEM_ID)
+
+    def test_a_high_enough_level_posts(self):
+        self.level(3)
+        self.assertEqual(self.client().post("Acme", self.ask(blocking=True, warning="Why"))["item"]["id"], ITEM_ID)
+        (version,) = self.http.sent("/version")
+        self.assertEqual(version.get_header("Authorization"), "Bearer " + MAILBOX_TOKEN)
+
+    def test_verify_is_not_checked(self):
+        ask = {"v": 1, "title": "Gate", "steps": [{"do": "Run it"}], "verify": {"do": "Look", "warning": "x"}}
+        self.client().post("Acme", ask)
+        self.assertEqual(self.http.sent("/version"), [])
+
+    def test_a_plain_instructable_makes_no_extra_call(self):
+        self.client().post("Acme", self.ask())
+        self.assertEqual(len(self.http.requests), 1)
+        self.assertEqual(self.http.sent("/version"), [])
+
+    def test_the_level_is_cached_for_five_minutes_across_clients(self):
+        self.level(3)
+        self.client().post("Acme", self.ask(blocking=True))
+        self.clock.now += 299
+        self.client().post("Acme", self.ask(blocking=True))
+        self.assertEqual(len(self.http.sent("/version")), 1)
+        self.clock.now += 2
+        self.client().post("Acme", self.ask(blocking=True))
+        self.assertEqual(len(self.http.sent("/version")), 2)
+
+    def test_an_upgrade_is_seen_after_the_cache_expires(self):
+        self.level(2)
+        with self.assertRaises(rc.Refused):
+            self.client().post("Acme", self.ask(blocking=True))
+        self.level(3)
+        self.clock.now += 301
+        self.assertEqual(self.client().post("Acme", self.ask(blocking=True))["item"]["id"], ITEM_ID)
+
+    def test_no_version_route_is_unknown_and_posts(self):
+        self.http.routes[("GET", "/version")] = (404, {"error": "not found"})
+        res = self.client().post("Acme", self.ask(blocking=True, question={"prompt": "?"}))
+        self.assertEqual(res["item"]["id"], ITEM_ID)
+        self.assertEqual(len(self.http.sent("/asks")), 1)
+
+    def test_a_version_without_an_integer_protocol_is_unknown_and_posts(self):
+        for body in ({"service": "mailbox", "version": "0.1"}, {"protocol": "3"}, {"protocol": True},
+                     {"protocol": 0}, {"protocol": 2.5}):
+            rc._levels.clear()
+            self.http.routes[("GET", "/version")] = (200, body)
+            self.assertEqual(self.client().post("Acme", self.ask(warning="Why"))["item"]["id"], ITEM_ID, body)
+
+    def test_an_unknown_level_is_cached_too(self):
+        self.http.routes[("GET", "/version")] = (404, {"error": "not found"})
+        self.client().post("Acme", self.ask(blocking=True))
+        self.client().post("Acme", self.ask(blocking=True))
+        self.assertEqual(len(self.http.sent("/version")), 1)
+
+    def test_a_server_refusal_after_an_unknown_level_is_passed_on(self):
+        self.http.routes[("GET", "/version")] = (404, {"error": "not found"})
+        self.http.routes[("POST", "/asks")] = (400, {"error": "invalid instructable", "details": ["steps[0].blocking"]})
+        with self.assertRaises(rc.Refused) as ctx:
+            self.client().post("Acme", self.ask(blocking=True))
+        self.assertNotIsInstance(ctx.exception, rc.ProtocolTooOld)
+        self.assertEqual(ctx.exception.details, ["steps[0].blocking"])
+
+    def test_an_unreachable_mailbox_is_unreachable_not_old(self):
+        self.http.refuse = -1
+        with self.assertRaises(rc.Unreachable):
+            self.client().post("Acme", self.ask(blocking=True))
+
+    def test_local_mode_asks_the_app(self):
+        local = FakeHTTP()
+        local.routes[("GET", "/version")] = (200, {"service": "hook", "version": "0.9.0", "protocol": 3})
+        local.routes[("POST", "/asks")] = (201, {"item": {"id": ITEM_ID}})
+        self.assertEqual(self.local(local).post("Acme", self.ask(blocking=True))["item"]["id"], ITEM_ID)
+        self.assertEqual(len(local.sent("/version")), 1)
+
+    def test_local_mode_too_old_names_hook_not_the_mailbox(self):
+        local = FakeHTTP()
+        local.routes[("GET", "/version")] = (200, {"service": "hook", "version": "0.8.0", "protocol": 2})
+        local.routes[("POST", "/asks")] = (201, {"item": {"id": ITEM_ID}})
+        with self.assertRaises(rc.ProtocolTooOld) as ctx:
+            self.local(local).post("Acme", self.ask(blocking=True))
+        self.assertEqual(ctx.exception.error,
+                         "Hook speaks protocol 2; `blocking` needs 3. Update Hook (Check for Updates\u2026).")
+        self.assertNotIn("mailbox", ctx.exception.error)
+        self.assertEqual(local.sent("/asks"), [])
+
+
 class MailboxTests(Base):
     def setUp(self):
         super().setUp()

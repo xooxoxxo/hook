@@ -10,6 +10,12 @@ public struct PanelShellActions: Sendable {
     public var openURL: @MainActor @Sendable (URL) -> Void
     /// Resume Session: opens a terminal in the session's folder.
     public var resume: @MainActor @Sendable (AskOrigin) -> Void
+    /// Update Mailbox…: runs the update command in a terminal, or opens the guide.
+    public var updateMailbox: @MainActor @Sendable () -> Void = {}
+    /// Check for Updates (Hook's own release check).
+    public var checkForUpdates: @MainActor @Sendable () -> Void = {}
+    /// A file row's Open, Open With, Reveal in Finder, and its file checks.
+    public var files: FileActions = .none
 
     public init(hide: @escaping @MainActor @Sendable () -> Void, setUp: @escaping @MainActor @Sendable () -> Void,
                 quit: @escaping @MainActor @Sendable () -> Void, dock: @escaping @MainActor @Sendable (SidebarEdge) -> Void,
@@ -58,6 +64,8 @@ public struct PanelShellActions: Sendable {
     /// This Mac's host name for Resume Session's "is this session here" check; the app reads
     /// it at launch (and again when the panel becomes key), never per row.
     var localHost: String? { get }
+    /// Hook reads This Mac's queue (not a mailbox): a file link in an ask without a host is here.
+    var queueIsLocal: Bool { get }
     func keyContext(textFieldFocused: Bool, popoverOpen: Bool, closedHeaderFocused: Bool) -> KeyContext
     func perform(_ command: PanelCommand)
     func open(_ id: String)
@@ -85,6 +93,8 @@ public struct PanelShellActions: Sendable {
     func sendAnswer(_ id: String, path: String)
     func dismissNotice()
     func performNoticeAction()
+    /// The Notice's second button ("How to update").
+    func performNoticeSecondaryAction()
     func copyLink(_ id: String)
     func retryDetail(_ id: String)
 }

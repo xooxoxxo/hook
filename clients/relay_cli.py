@@ -17,8 +17,8 @@ from typing import Any, Callable, Dict, List, Optional
 
 import relay_replies
 import relay_wait
-from relay_client import (OWNER_LABELS, VERSION, Client, Refused, RelayError, answer_value, instructable_of,
-                          latest_answers, one_line, questions, unanswered)
+from relay_client import (OWNER_LABELS, VERSION, Client, ProtocolTooOld, Refused, RelayError, answer_value,
+                          instructable_of, latest_answers, one_line, questions, unanswered)
 
 DEFAULT_TIMEOUT = 10.0
 SUBSTEPS_SENTENCE = ("A step that needs more than one action can hold `substeps`: 1 to 10 step objects "
@@ -27,6 +27,19 @@ SUBSTEPS_SENTENCE = ("A step that needs more than one action can hold `substeps`
 QUESTIONS_SENTENCE = ("Any step or sub-step (not verify) can hold a `question` {prompt, choices 0-6, multi}: "
                       "the owner answers it per step without closing the ask, so bundle related questions "
                       "into one ask. At most 20. Read the answers with relay_status, relay status or relay wait.")
+BLOCKING_SENTENCE = ("A step or sub-step (not verify) can set `blocking: true` when the next steps can't "
+                     "start without it: the owner can't open later steps until it is done. Use it only when "
+                     "later steps fail without it, and put the reason in `warning` (at most 300 chars). "
+                     "`warning` alone shows a caution box. A mailbox that is too old refuses these keys.")
+OPTIONAL_SENTENCE = ("A step or sub-step (not verify) can set `optional: true` when the owner may finish it "
+                     "without doing or answering it, e.g. a feedback question or a nice-to-have; it can't "
+                     "also be blocking. On a step with sub-steps it makes every sub-step optional. "
+                     "A mailbox that is too old refuses this key.")
+FILES_SENTENCE = ("When the owner should read a document, write it as a Markdown file and point to it with "
+                  "`file` on a step or sub-step (not verify), or with a link that has `path` instead of `url`: "
+                  "an absolute path (/... or ~/...) on the owner's Mac, which Hook opens rendered. Keep `do` to "
+                  "one action and `detail` to a few lines; never paste a whole document into an ask. "
+                  "A mailbox that is too old refuses these keys.")
 
 
 class _ParserExit(Exception):
@@ -62,7 +75,8 @@ def _parser(out: Any, err: Any, prog: str = "relay") -> argparse.ArgumentParser:
     parser.add_argument("--version", action="store_true", help="print the version and exit")
     sub = parser.add_subparsers(dest="command", metavar="<command>")
     post = sub.add_parser("post", help="post one instructable",
-                          description=SUBSTEPS_SENTENCE + " " + QUESTIONS_SENTENCE)
+                          description=" ".join((SUBSTEPS_SENTENCE, QUESTIONS_SENTENCE, BLOCKING_SENTENCE,
+                                                OPTIONAL_SENTENCE, FILES_SENTENCE)))
     post.add_argument("project")
     post.add_argument("--json", dest="json_src", required=True, metavar="FILE|-",
                       help="the instructable, from a file or - for stdin")
@@ -310,6 +324,9 @@ def main(argv: Optional[List[str]] = None, *, stdin: Any = None, stdout: Any = N
     ctx = _Ctx(stdin, out, err, factory)
     try:
         return COMMANDS[args.command](args, ctx)
+    except ProtocolTooOld as exc:
+        err.write(f"{prog}: {exc.error}\n")
+        return exc.exit_code
     except Refused as exc:
         err.write(f"refused: {exc.error}\n")
         for detail in exc.details:

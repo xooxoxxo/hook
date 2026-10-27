@@ -8,7 +8,9 @@ import SwiftUI
 /// - upcoming: the title only; a click opens it.
 /// - locked (`lockText`): a lock and "Finish step N first"; it can't be opened, ticked or answered.
 /// A blocking step's warning box shows under the title whether the row is open or not.
-/// A step that asks a question has a plain marker instead of a tick (only an answer completes it).
+/// A step that asks a question has a plain marker instead of a tick (only an answer completes it),
+/// unless it is optional: then it keeps the tick, and a tick marks it done unanswered.
+/// An optional step shows an "Optional" caption at the end of its title row.
 public struct StepView: View {
     let content: StepContent
     let level: StepLevel
@@ -112,6 +114,7 @@ public struct StepView: View {
                 }
             }
             Spacer(minLength: DS.Space.inline)
+            if content.optional && !content.optionalByParent { StepRow.optionalCaption }
             if expandable { StepRow.chevron(open: expanded.wrappedValue) }
         }
     }
@@ -139,15 +142,23 @@ public struct StepView: View {
         if let lockText {
             LockMarker(level: level, label: StepAccessibility.lockedLabel(level: level, action: content.action,
                                                                            lockText: lockText))
-        } else if let question {
+        } else if let question, !content.optional {
             StepMarker(level: level, state: state,
                        label: StepAccessibility.questionLabel(action: content.action, prompt: question.question.prompt,
                                                               answer: question.answer))
         } else {
-            TickButton(level: level, state: state, label: line(content.action),
+            TickButton(level: level, state: state, label: tickLabel,
                        hint: StepAccessibility.hint(level: level, total: total), value: StepAccessibility.tickValue(state),
                        help: StepAccessibility.help(state), readOnly: readOnly, action: toggle)
         }
+    }
+
+    /// The tick's label: the action (and an optional question's prompt and answer), then ", optional".
+    private var tickLabel: String {
+        let label = question.map {
+            StepAccessibility.questionLabel(action: content.action, prompt: $0.question.prompt, answer: $0.answer)
+        } ?? line(content.action)
+        return StepAccessibility.optional(label, content.optional)
     }
 
     private func toggle() {
@@ -161,7 +172,7 @@ public struct StepView: View {
 
     /// VoiceOver's custom actions and the context menu, where they apply; none on a locked step.
     @ViewBuilder private func actions(_ view: some View) -> some View {
-        let tickable = !readOnly && question == nil && !locked
+        let tickable = !readOnly && (question == nil || content.optional) && !locked
         let withActions = view.accessibilityActions {
             if tickable { Button(StepAccessibility.markAction(state)) { toggle() } }
             if !locked, let code = content.code { Button("Copy command") { onCopy(Sanitize.copyText(code)) } }
@@ -200,6 +211,16 @@ public enum StepRow {
     /// Anything to show under the title once open (a question is checked by the caller).
     public static func hasBody(_ content: StepContent) -> Bool {
         content.detail != nil || content.url != nil || content.code != nil || content.expect != nil
+            || content.file != nil
+    }
+
+    /// "Optional" at the end of an optional step's title row. VoiceOver hears it on the marker
+    /// (`StepAccessibility.optional`), so the caption itself is hidden from it.
+    static var optionalCaption: some View {
+        Text(verbatim: StepAccessibility.optionalCaption)
+            .font(DS.Font.caption)
+            .foregroundStyle(DS.Color.secondary)
+            .accessibilityHidden(true)
     }
 
     public static func disclosureHint(expanded: Bool) -> String {

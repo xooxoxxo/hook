@@ -38,11 +38,14 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["label", "url"],
+        "required": ["label"],
+        "description": "A web page (url) or a local document (path), exactly one of the two.",
         "properties": {
           "label": { "type": "string", "maxLength": 60 },
-          "url": { "$ref": "#/$defs/httpUrl" }
-        }
+          "url": { "$ref": "#/$defs/httpUrl" },
+          "path": { "$ref": "#/$defs/localPath" }
+        },
+        "oneOf": [{ "required": ["url"] }, { "required": ["path"] }]
       }
     },
     "from": {
@@ -57,6 +60,7 @@
   },
   "$defs": {
     "httpUrl": { "type": "string", "pattern": "^https?://" },
+    "localPath": { "type": "string", "maxLength": 500, "pattern": "^(/|~/)[^\\n\\t]*$", "description": "An absolute path on the owner's Mac (/... or ~/...), one line." },
     "question": {
       "type": "object",
       "additionalProperties": false,
@@ -110,7 +114,11 @@
           "description": "Longer instructions for this step, shown as wrapped text under do. Put explanations here, never in code: code is only text to copy exactly."
         },
         "url": { "$ref": "#/$defs/httpUrl" },
-        "question": { "$ref": "#/$defs/question" }
+        "question": { "$ref": "#/$defs/question" },
+        "blocking": { "type": "boolean", "default": false, "description": "The next steps can't start without this one: the owner can't open later steps until it is done. Use only when later steps fail without it, and give the reason in warning." },
+        "warning": { "type": "string", "maxLength": 300, "description": "A caution shown in a box on this step; line breaks allowed. With blocking, the reason the next steps wait." },
+        "optional": { "type": "boolean", "default": false, "description": "The owner may finish this step without doing or answering it, e.g. a feedback question or a nice-to-have. Never together with blocking. On a step with substeps it makes every sub-step optional, so none of them may be blocking." },
+        "file": { "$ref": "#/$defs/localPath", "description": "A document for the owner to read, usually Markdown, which Hook opens rendered. Write the document to a file and point to it here instead of pasting it into detail." }
       }
     },
     "step": {
@@ -131,6 +139,10 @@
         },
         "url": { "$ref": "#/$defs/httpUrl" },
         "question": { "$ref": "#/$defs/question" },
+        "blocking": { "type": "boolean", "default": false, "description": "The next steps can't start without this one: the owner can't open later steps until it is done. Use only when later steps fail without it, and give the reason in warning." },
+        "warning": { "type": "string", "maxLength": 300, "description": "A caution shown in a box on this step; line breaks allowed. With blocking, the reason the next steps wait." },
+        "optional": { "type": "boolean", "default": false, "description": "The owner may finish this step without doing or answering it, e.g. a feedback question or a nice-to-have. Never together with blocking. On a step with substeps it makes every sub-step optional, so none of them may be blocking." },
+        "file": { "$ref": "#/$defs/localPath", "description": "A document for the owner to read, usually Markdown, which Hook opens rendered. Write the document to a file and point to it here instead of pasting it into detail." },
         "substeps": { "type": "array", "minItems": 1, "maxItems": 10, "items": { "$ref": "#/$defs/leaf" } }
       }
     }
