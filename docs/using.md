@@ -2,13 +2,17 @@
 
 Hook lives in the menu bar and shows asks in a panel docked to the edge of a display.
 
+## First run
+
+A new install opens **Set Up Hook**, seven short pages: Welcome; where asks come from (This Mac or a mailbox, tested when you press Continue); connecting your agents (register the MCP server, install the skill, add the replies hook to `~/.claude/settings.json`, keeping the old file as `settings.json.bak`, and copy the CLAUDE.md section; every item can be copied instead, or skipped); notifications; the shortcut and Start at login; a test ask; and Done. Anything you skip is in Settings. Close the window to skip the rest; once a source is set, it doesn't come back on its own. Run it again from the menu: **Run Setup Again…**. Updating an existing install never shows it.
+
 ## Menu bar
 
 - Click the checklist icon, or press ⌃⌥⌘R anywhere, to show the panel. If it is open but another app has focus, the same click or key focuses it; if it is focused, it hides. Change or turn off the shortcut in Settings › General.
-- Right-click (or Control-click) the icon for the menu: Show or Hide Hook, the queue status, your presence, Refresh, Panel (dock left or right, pick a display, Re-dock Now), Settings…, About Hook, Check for Updates… and Quit Hook.
+- Right-click (or Control-click) the icon for the menu: Show or Hide Hook, the queue status, your presence, Refresh, Panel (dock left or right, pick a display, Re-dock Now), Settings…, Run Setup Again…, About Hook, Check for Updates… and Quit Hook.
 - A red badge counts waiting asks from 1 to 9. From 10 up, or with "Show the count on the badge" off, it is a dot. The badge always counts every open ask, whatever the panel's project filter.
 - Hover the icon for a summary: how many asks wait, how many are "now", and the shortcut.
-- Hook asks for notification permission before its first notification, or when you allow it on the second Welcome page or in Settings › Notifications.
+- Hook asks for notification permission before its first notification, or when you allow it during setup or in Settings › Notifications.
 
 ## The panel
 

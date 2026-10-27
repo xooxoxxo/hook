@@ -3,23 +3,26 @@ import RelayCore
 import RelayUI
 import SwiftUI
 
-/// The first-run window "Welcome to Hook": shown for a missing or incomplete
-/// config, and again from the menu's "Set Up Hook…" or the panel's Not set up state.
-@MainActor final class WelcomeWindowController {
+/// The setup window: shown at launch for a missing or incomplete config or one that holds
+/// `onboarding: "pending"`, and again from the menu's "Set Up Hook…" or "Run Setup Again…"
+/// or the panel's Not set up state. Closing it, by Open Hook or the close button, ends setup.
+@MainActor final class WelcomeWindowController: NSObject, NSWindowDelegate {
     private let window: NSWindow
+    private let onClose: @MainActor () -> Void
 
-    init(model: AppModel, onDone: @escaping @MainActor () -> Void) {
+    /// `onDone`: Open Hook was pressed. `onClose`: the window closed, either way.
+    init(model: AppModel, onDone: @escaping @MainActor () -> Void, onClose: @escaping @MainActor () -> Void) {
         let ref = WindowRef()
-        let view = WelcomeView(
-            model: model,
-            onDone: { ref.window?.close(); onDone() },
-            onQuit: { NSApp.terminate(nil) })
+        let view = WelcomeView(model: model, onDone: { ref.window?.close(); onDone() })
         let controller = NSHostingController(rootView: view)
         controller.sizingOptions = [.preferredContentSize]
         window = NSWindow(contentViewController: controller)
-        window.title = "Welcome to Hook"
+        window.title = "Set Up Hook"
         window.styleMask = [.titled, .closable]
         window.isReleasedWhenClosed = false
+        self.onClose = onClose
+        super.init()
+        window.delegate = self
         ref.window = window
     }
 
@@ -33,6 +36,10 @@ import SwiftUI
 
     func close() {
         window.close()
+    }
+
+    nonisolated func windowWillClose(_ notification: Notification) {
+        MainActor.assumeIsolated { onClose() }
     }
 }
 

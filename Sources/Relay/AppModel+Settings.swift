@@ -45,7 +45,8 @@ extension AppModel: SettingsViewModel {
                 claudeMdAvailable: repo.flatMap { ConnectInfo.claudeMdSection(repoPath: $0) } != nil,
                 skill: repo.map { ConnectInfo.skillState(home: home, repoPath: $0) },
                 cliFound: ConnectInfo.cliInstalled(home: home), lastCall: lastSeen["mcp"],
-                skillError: skillError),
+                skillError: skillError, mcpRegistered: mcpRegistered, mcpBusy: mcpBusy, mcpError: mcpError,
+                hookInstalled: hookInstalled, hookError: hookError, claudeMdInstalled: claudeMdInstalled),
             localQueuePath: (dataDirectory.appending(path: "queue.json").path as NSString).abbreviatingWithTildeInPath,
             terminals: settingsTerminals(),
             now: settings.now)
@@ -157,8 +158,49 @@ extension AppModel: SettingsViewModel {
             hooks.switchTab(tab)
         case .showPanel:
             hooks.showPanel()
+        case .checkAgents:
+            checkAgents()
+        case .registerMCP:
+            registerMCP()
+        case .installRepliesHook:
+            do {
+                try ConnectInfo.installRepliesHook(home: Self.home)
+                hookError = nil
+            } catch {
+                hookError = "Couldn't add the hook. " + UserFacingError.text(error)
+            }
+            checkAgents()
+        case .copyText(let text):
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)
+        case .openDonation:
+            if let url = ConnectInfo.donationLink() { NSWorkspace.shared.open(url) }
         }
         refreshSettings()
+    }
+
+    /// Re-reads ~/.claude.json, settings.json and CLAUDE.md for the agents page.
+    func checkAgents() {
+        let home = Self.home
+        mcpRegistered = ConnectInfo.mcpRegistered(home: home)
+        hookInstalled = ConnectInfo.repliesHookInstalled(home: home)
+        claudeMdInstalled = config?.repoPath.map { ConnectInfo.claudeMdInstalled(home: home, repoPath: $0) } ?? false
+    }
+
+    /// Register: `claude mcp add` in the login shell, off the main actor, with a time cap.
+    private func registerMCP() {
+        guard !mcpBusy, let repo = settings.repo.repoPath else { return }
+        mcpBusy = true
+        mcpError = nil
+        let command = ConnectInfo.mcpShellCommand(repoPath: repo)
+        Task { @MainActor in
+            let outcome = await LoginShell.run(command)
+            mcpBusy = false
+            mcpError = outcome.ok ? nil : "Couldn't register: " + LoginShell.failureLine(outcome) + ". Copy the command and run it in Terminal."
+            checkAgents()
+            if outcome.ok { mcpRegistered = true }   // in case claude keeps its servers elsewhere
+            refreshSettings()
+        }
     }
 
     /// Validates and saves the draft, then waits up to 10 s for the new source's first list.

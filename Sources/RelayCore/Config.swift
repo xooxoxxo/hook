@@ -145,11 +145,14 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
     public var afterClose: AfterClose
     /// Where Resume Session opens: a terminal's bundle id, or "automatic" (Terminal).
     public var terminal: String
+    /// "pending" (written by install.sh when it creates the config) shows the setup window
+    /// once; finishing or skipping setup removes the key. Any other value is ignored.
+    public var onboarding: String?
 
     enum CodingKeys: String, CodingKey {
         case source, mailboxURL, tokenFile, context, port, pollSeconds, hotkey, keepDays
         case showCount, sidebarEdge, appearance, notify, presence, awayAfterMinutes, repoPath
-        case sidebarDisplay, afterClose, terminal
+        case sidebarDisplay, afterClose, terminal, onboarding
     }
 
     public init(
@@ -170,7 +173,8 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
         repoPath: String? = nil,
         sidebarDisplay: String? = nil,
         afterClose: AfterClose = .next,
-        terminal: String = RelayConfig.automaticTerminal
+        terminal: String = RelayConfig.automaticTerminal,
+        onboarding: String? = nil
     ) {
         self.source = source
         self.mailboxURL = mailboxURL
@@ -190,6 +194,7 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
         self.sidebarDisplay = sidebarDisplay
         self.afterClose = afterClose
         self.terminal = terminal
+        self.onboarding = onboarding
     }
 
     /// A missing, null, wrong-typed or out-of-range key takes its default.
@@ -227,7 +232,14 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
         terminal = c.lenient(String.self, .terminal)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .flatMap { $0.isEmpty ? nil : $0 } ?? Self.automaticTerminal
+        onboarding = c.lenient(String.self, .onboarding)
     }
+
+    /// The `onboarding` value install.sh writes into a config it creates.
+    public static let onboardingPending = "pending"
+
+    /// The config asks for the setup window: `onboarding` is "pending".
+    public var wantsOnboarding: Bool { onboarding == Self.onboardingPending }
 
     /// `source` when present; else mailbox when `mailboxURL` is present; else incomplete.
     /// A mailbox needs an http(s) URL with a host and a non-empty `tokenFile`.

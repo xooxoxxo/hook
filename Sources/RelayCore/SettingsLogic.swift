@@ -97,7 +97,7 @@ public struct LoginState: Equatable, Sendable {
     }
 }
 
-/// What Settings → Connect shows, read from `repoPath` and the home folder.
+/// What Settings → Connect and the setup window show, read from `repoPath` and the home folder.
 public struct RepoState: Equatable, Sendable {
     public var repoPath: String?
     public var mcpCommand: String?
@@ -107,9 +107,23 @@ public struct RepoState: Equatable, Sendable {
     public var lastCall: Date?
     /// The last failed skill install, one sentence; nil after a successful one.
     public var skillError: String?
+    /// ~/.claude.json lists the relay MCP server (user scope).
+    public var mcpRegistered: Bool
+    /// The setup window's Register is running in the login shell.
+    public var mcpBusy: Bool
+    /// The last failed Register, one sentence; nil after a successful one.
+    public var mcpError: String?
+    /// ~/.claude/settings.json has the replies hook.
+    public var hookInstalled: Bool
+    /// The last failed hook merge, one sentence.
+    public var hookError: String?
+    /// ~/.claude/CLAUDE.md holds the section's heading.
+    public var claudeMdInstalled: Bool
     public init(repoPath: String? = nil, mcpCommand: String? = nil, claudeMdAvailable: Bool = false,
                 skill: ConnectInfo.SkillState? = nil, cliFound: Bool = false, lastCall: Date? = nil,
-                skillError: String? = nil) {
+                skillError: String? = nil, mcpRegistered: Bool = false, mcpBusy: Bool = false,
+                mcpError: String? = nil, hookInstalled: Bool = false, hookError: String? = nil,
+                claudeMdInstalled: Bool = false) {
         self.repoPath = repoPath
         self.mcpCommand = mcpCommand
         self.claudeMdAvailable = claudeMdAvailable
@@ -117,6 +131,12 @@ public struct RepoState: Equatable, Sendable {
         self.cliFound = cliFound
         self.lastCall = lastCall
         self.skillError = skillError
+        self.mcpRegistered = mcpRegistered
+        self.mcpBusy = mcpBusy
+        self.mcpError = mcpError
+        self.hookInstalled = hookInstalled
+        self.hookError = hookError
+        self.claudeMdInstalled = claudeMdInstalled
     }
 }
 
@@ -194,6 +214,10 @@ public enum SettingsAction: Equatable {
     case showConfigInFinder, showQueueInFinder, chooseTokenFile, chooseRepoFolder, installSkill, copyClaudeMdSection
     case redockNow, requestNotifications, openNotificationSettings, sendTestNotification, openLoginItems, setLogin(Bool)
     case beginShortcut, recordShortcut(HotkeySpec?), cancelShortcut, clearShortcut, showAsk(String), switchTab(SettingsTabID), showPanel
+    /// Setup window: register the MCP server in the login shell; merge the replies hook
+    /// into ~/.claude/settings.json; copy a text; open the Support Hook link.
+    /// `checkAgents` re-reads what the agents page shows.
+    case checkAgents, registerMCP, installRepliesHook, copyText(String), openDonation
 }
 
 extension ShortcutProblem {

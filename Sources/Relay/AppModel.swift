@@ -66,6 +66,14 @@ final class ServerRouting: Sendable {
     var permissionObserver: (any NSObjectProtocol)?
     var loginError: String?
     var skillError: String?
+    /// The setup window's agent checks; read on `.checkAgents` and after each setup action,
+    /// not on every refresh (~/.claude.json can be large).
+    var mcpRegistered = false
+    var mcpBusy = false
+    var mcpError: String?
+    var hookInstalled = false
+    var hookError: String?
+    var claudeMdInstalled = false
     /// The installed terminals for the Terminal picker, and when they were last looked up.
     var installedTerminals: Set<TerminalKind> = []
     var terminalsCheckedAt: Date?

@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Address, Token file + Choose…, Context: shared by Settings → Queue and Welcome.
-/// The three fields start on one x (Token file + inline + Choose… add up to fieldWide).
+/// The three fields start on one x (Token file + inline + Choose… add up to `width`).
 public struct MailboxFields: View {
     public static let addressPrompt = "https://mailbox.example:8790"
     public static let tokenHelp = "Hook reads this file only to talk to the mailbox and never shows what it holds."
@@ -13,21 +13,25 @@ public struct MailboxFields: View {
     let addressError: String?
     let tokenFileError: String?
     let onChooseTokenFile: () -> Void
+    /// The fields' width: Settings' `fieldWide`, narrower in the setup window.
+    let width: CGFloat
 
     public init(address: Binding<String>, tokenFile: Binding<String>, context: Binding<String>,
-                addressError: String?, tokenFileError: String?, onChooseTokenFile: @escaping () -> Void) {
+                addressError: String?, tokenFileError: String?, width: CGFloat = DS.Metric.fieldWide,
+                onChooseTokenFile: @escaping () -> Void) {
         _address = address
         _tokenFile = tokenFile
         _context = context
         self.addressError = addressError
         self.tokenFileError = tokenFileError
         self.onChooseTokenFile = onChooseTokenFile
+        self.width = width
     }
 
     public var body: some View {
         SettingsRow("Address", error: addressError) {
             TextField("Address", text: $address, prompt: Text(Self.addressPrompt))
-                .settingsField(width: DS.Metric.fieldWide)
+                .settingsField(width: width)
                 .alignmentProbe(.mailboxField)
         }
         SettingsRow("Token file", help: Self.tokenHelp, error: tokenFileError) {
@@ -40,11 +44,11 @@ public struct MailboxFields: View {
                     .alignmentProbe(.mailboxField)
                 Button("Choose…", action: onChooseTokenFile).fixedSize()
             }
-            .frame(width: DS.Metric.fieldWide)
+            .frame(width: width)
         }
         SettingsRow("Context", help: Self.contextHelp) {
             TextField("Context", text: $context, prompt: Text("personal"))
-                .settingsField(width: DS.Metric.fieldWide)
+                .settingsField(width: width)
                 .alignmentProbe(.mailboxField)
         }
     }

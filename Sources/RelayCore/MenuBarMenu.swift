@@ -2,7 +2,7 @@ import Foundation
 
 /// What a menu-bar menu item does; MenuBarController maps it to AppDelegate.
 public enum MenuAction: Equatable, Sendable {
-    case setUp, togglePanel, setPresence(PresenceMode), refresh, dock(SidebarEdge), pinDisplay(String?), redock
+    case setUp, runSetup, togglePanel, setPresence(PresenceMode), refresh, dock(SidebarEdge), pinDisplay(String?), redock
     case settings, about, update, checkForUpdates, quit
 }
 
@@ -94,6 +94,7 @@ public enum MenuBarMenu {
         entries.append(.submenu(title: "Panel", entries: panel))
         entries.append(.separator)
         entries.append(action("Settings…", .settings, key: ",", modifiers: [.command]))
+        if !inputs.notSetUp { entries.append(action("Run Setup Again…", .runSetup)) }
         entries.append(action("About Hook", .about))
         entries.append(action("Check for Updates…", .checkForUpdates))
         entries.append(.separator)

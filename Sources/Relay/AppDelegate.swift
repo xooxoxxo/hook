@@ -123,13 +123,11 @@ import RelayUI
         model.onNoteChange = { [weak self] note in
             self?.configNoteChanged(note)
         }
-        switch model.start() {
-        case .missing:
+        let load = model.start()
+        if WelcomeFlow.showsAtLaunch(load) {
             showWelcome()
-        case .unreadable:
+        } else if case .unreadable = load {
             settings?.show(tab: .queue)
-        case .loaded(let config):
-            if config.resolvedSource() == .incomplete { showWelcome() }
         }
         configNoteChanged(model.configNote)
         presence.onChange = { [weak self] status in
@@ -596,6 +594,7 @@ import RelayUI
     private func perform(_ action: MenuAction) {
         switch action {
         case .setUp: setUp()
+        case .runSetup: showWelcome()
         case .togglePanel: togglePanel(from: .shortcut)
         case .setPresence(let mode): model?.save(set: ["presence": mode.rawValue])
         case .refresh: refreshNow()
@@ -709,14 +708,28 @@ import RelayUI
         settings?.show()
     }
 
-    /// First run, "Set Up Hook…", and the panel's Set Up… before Welcome was finished.
+    /// First run, "Set Up Hook…", "Run Setup Again…", and the panel's Set Up… before setup
+    /// was finished. A closed window starts again on page 1.
     private func showWelcome() {
         guard let model else { return }
-        let welcome = self.welcome ?? WelcomeWindowController(model: model) { [weak self] in
-            self?.panel?.present(focus: true, animated: true)
+        if let welcome, welcome.isVisible {
+            welcome.show()
+            return
         }
+        let welcome = WelcomeWindowController(
+            model: model,
+            onDone: { [weak self] in self?.panel?.present(focus: true, animated: true) },
+            onClose: { [weak self] in self?.setupClosed() })
         self.welcome = welcome
         welcome.show()
+    }
+
+    /// Finishing or skipping setup removes `onboarding`, so it doesn't show at the next launch.
+    private func setupClosed() {
+        guard let model else { return }
+        if WelcomeFlow.removesOnboardingKey(finished: true, config: model.config) {
+            model.save(set: [:], remove: ["onboarding"])
+        }
     }
 
     /// The Not set up state's Set Up…: Welcome until a config exists, then Settings → Queue.

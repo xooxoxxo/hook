@@ -38,6 +38,20 @@ public enum SettingsFixtures {
         claudeMdAvailable: true, skill: .installed, cliFound: true,
         lastCall: GalleryFixtures.now.addingTimeInterval(-120))
 
+    /// The setup window's agents page, half done: MCP and the skill in, the hook and CLAUDE.md not.
+    public static let setupRepo: RepoState = {
+        var state = SettingsFixtures.repo
+        state.mcpRegistered = true
+        return state
+    }()
+    /// Everything connected.
+    public static let setupRepoDone: RepoState = {
+        var state = setupRepo
+        state.hookInstalled = true
+        state.claudeMdInstalled = true
+        return state
+    }()
+
     public static func snapshot(config: RelayConfig? = mailboxConfig, readOnly: Bool = false, away: Bool = false,
                                 presenceLine: String? = nil,
                                 permission: NotificationPermission = .authorized, repo: RepoState = repo,

@@ -52,32 +52,50 @@ final class BadgeStrip: NSView {
         standIn: false,
         view: { AnyView(EmptyView()) },
         appKit: { BadgeStrip(frame: .zero) }),
-    GalleryScene(name: "welcome-1", size: .wide(width: DS.Metric.welcomeWidth, height: nil), standIn: false, rules: [],
-                 view: { welcomeWindow(WelcomeView(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(config: nil)),
-                                             onDone: {}, onQuit: {})) }, appKit: nil),
-    GalleryScene(name: "welcome-1-mailbox-error", size: .wide(width: DS.Metric.welcomeWidth, height: nil), standIn: false,
+    setupScene("setup-1-welcome", page: .welcome),
+    setupScene("setup-2-source", page: .source,
+               settings: SettingsFixtures.snapshot(config: nil)),
+    GalleryScene(name: "setup-2-mailbox-error", size: .wide(width: DS.Metric.welcomeWidth, height: nil), standIn: false,
                  rules: [.sameLeading(.mailboxField, tolerance: 1)],
                  view: {
-                     var flow = WelcomeFlow()
+                     var flow = WelcomeFlow(page: .source)
                      flow.startTapped(isMailbox: true)
                      flow.firstList(ok: false, reason: "unauthorized")
                      return welcomeWindow(WelcomeView(
                          model: FixtureSettingsModel(
                              settings: SettingsFixtures.snapshot(config: RelayConfig(mailboxURL: "https://mailbox.example:8790")),
                              draft: MailboxDraft(address: "https://mailbox.example:8790", tokenFile: "~/.config/relay/mailbox-token")),
-                         initialFlow: flow, onDone: {}, onQuit: {}))
+                         initialFlow: flow, onDone: {}))
                  }, appKit: nil),
-    GalleryScene(name: "welcome-2", size: .wide(width: DS.Metric.welcomeWidth, height: nil), standIn: false, rules: [],
-                 view: {
-                     var flow = WelcomeFlow()
-                     flow.startTapped(isMailbox: false)
-                     return welcomeWindow(WelcomeView(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(permission: .notDetermined)),
-                                                initialFlow: flow, onDone: {}, onQuit: {}))
-                 }, appKit: nil),
+    setupScene("setup-3-agents", page: .agents,
+               settings: SettingsFixtures.snapshot(config: SettingsFixtures.localConfig, repo: SettingsFixtures.setupRepo)),
+    setupScene("setup-3-agents-done", page: .agents,
+               settings: SettingsFixtures.snapshot(config: SettingsFixtures.localConfig, repo: SettingsFixtures.setupRepoDone)),
+    setupScene("setup-4-notifications", page: .notifications,
+               settings: SettingsFixtures.snapshot(config: SettingsFixtures.localConfig, permission: .notDetermined)),
+    setupScene("setup-5-shortcut", page: .shortcut,
+               settings: SettingsFixtures.snapshot(config: SettingsFixtures.localConfig, login: LoginState(on: false))),
+    setupScene("setup-6-test-ask", page: .testAsk,
+               settings: SettingsFixtures.snapshot(config: SettingsFixtures.localConfig)),
+    setupScene("setup-6-test-ask-arrived", page: .testAsk,
+               settings: SettingsFixtures.snapshot(config: SettingsFixtures.localConfig),
+               testResult: .sent(id: SettingsFixtures.testAskID)),
+    setupScene("setup-7-done", page: .done),
 ]
 
 /// The window background the real Welcome window paints behind its title and buttons;
 /// offscreen, only the grouped Form paints its own.
 @MainActor private func welcomeWindow(_ view: some View) -> AnyView {
     AnyView(view.background(DS.Color.panelStandInOpaque))
+}
+
+/// One setup page, as the window shows it.
+@MainActor private func setupScene(_ name: String, page: WelcomeFlow.Page,
+                                   settings: SettingsSnapshot = SettingsFixtures.snapshot(),
+                                   testResult: TestAskResult? = nil) -> GalleryScene {
+    GalleryScene(name: name, size: .wide(width: DS.Metric.welcomeWidth, height: nil), standIn: false, rules: [],
+                 view: {
+                     welcomeWindow(WelcomeView(model: FixtureSettingsModel(settings: settings),
+                                               initialFlow: WelcomeFlow(page: page), testResult: testResult, onDone: {}))
+                 }, appKit: nil)
 }

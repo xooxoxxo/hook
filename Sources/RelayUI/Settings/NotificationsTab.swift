@@ -79,7 +79,7 @@ public struct NotificationsTab<Model: SettingsViewModel>: View {
     }
 }
 
-/// The Permission control for all three states; Welcome page 2 shows the same one.
+/// The Permission control for all three states; the setup window shows the same one.
 public struct PermissionControl<Model: SettingsViewModel>: View {
     @ObservedObject private var model: Model
 

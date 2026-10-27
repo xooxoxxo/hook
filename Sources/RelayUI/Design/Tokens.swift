@@ -60,6 +60,10 @@ public enum DS {
         public static let optionV: CGFloat = 8
         /// Where an option's text starts: the padding, the number column and its gap.
         public static let optionText: CGFloat = optionH + Metric.optionNumber + inline
+        /// The setup window's page inset, around the hero and the footer.
+        public static let setupPad: CGFloat = 32
+        /// Between the dots and the footer buttons.
+        public static let setupFooter: CGFloat = 14
     }
 
     public enum Metric {
@@ -77,7 +81,18 @@ public enum DS {
         public static let settingsWidth: CGFloat = 600
         public static let settingsInset: CGFloat = 120
         public static let fieldWide: CGFloat = 320
+        /// The mailbox fields in the setup window, where a row is narrower than in Settings.
+        public static let fieldSetup: CGFloat = 270
         public static let welcomeWidth: CGFloat = 480
+        /// The setup window's fixed height, so pages push without the window resizing.
+        public static let welcomeHeight: CGFloat = 500
+        /// The Welcome page's app icon (the placeholder until the logo lands).
+        public static let appIcon: CGFloat = 72
+        public static let appIconRadius: CGFloat = 16
+        /// A progress dot in the setup footer.
+        public static let setupDot: CGFloat = 7
+        /// A setup row's leading symbol column.
+        public static let setupSymbol: CGFloat = 20
         public static let badge: CGFloat = 13
         public static let badgeDot: CGFloat = 7
         public static let dragThreshold: CGFloat = 3
@@ -127,6 +142,10 @@ public enum DS {
         public static var cardTitle: SwiftUI.Font { style(.headline, .headline) }
         /// The monogram's two letters, sized to `Metric.monogram`.
         public static var monogram: SwiftUI.Font { .system(size: 8, weight: .bold) }
+        /// The symbol on the app icon placeholder, sized to `Metric.appIcon`.
+        public static var appSymbol: SwiftUI.Font { .system(size: 34, weight: .semibold) }
+        /// The Done page's hero symbol.
+        public static var heroSymbol: SwiftUI.Font { .system(size: 52, weight: .regular) }
     }
 
     public enum Color {
@@ -192,6 +211,13 @@ public enum DS {
         /// The blocking step's warning box.
         public static let warnFill = SwiftUI.Color.orange.opacity(0.12)
         public static let warnStroke = SwiftUI.Color.orange.opacity(0.35)
+        /// The app icon placeholder's gradient, top to bottom.
+        public static let appIconTop = SwiftUI.Color.accentColor
+        public static let appIconBottom = SwiftUI.Color.accentColor.opacity(0.7)
+        public static let appIconSymbol = SwiftUI.Color.white
+        /// A progress dot: the current page, and the others.
+        public static let dotCurrent = SwiftUI.Color.accentColor
+        public static let dotOther = AnyShapeStyle(.quaternary)
         /// The panel's backdrop material.
         public static var panelMaterial: NSVisualEffectView.Material { .sidebar }
     }
@@ -252,6 +278,22 @@ public enum DS {
         public static let tabQueue = "tray"
         public static let tabNotifications = "bell"
         public static let tabConnect = "link"
+        /// Setup window rows and the Done page.
+        public static let setupSource = "tray.and.arrow.down"
+        public static let setupMailbox = "server.rack"
+        public static let setupMCP = "puzzlepiece.extension"
+        public static let setupSkill = "book.closed"
+        public static let setupHook = "arrowshape.turn.up.left"
+        public static let setupClaudeMd = "doc.text"
+        public static let setupRepo = "folder"
+        public static let setupNotifications = "bell.badge"
+        public static let setupSound = "speaker.wave.2"
+        public static let setupShortcut = "keyboard"
+        public static let setupLogin = "power"
+        public static let setupTestAsk = "paperplane"
+        public static let setupDone = "checkmark.circle.fill"
+        public static let setupSupport = "heart"
+        public static let copy = "doc.on.doc"
     }
 
     public enum Control {
@@ -262,6 +304,8 @@ public enum DS {
 
     public enum Motion {
         public static let push = Animation.easeOut(duration: 0.22)
+        /// A setup page pushing in.
+        public static let page = Animation.easeInOut(duration: 0.32)
         public static let step = Animation.easeInOut(duration: 0.20)
         public static let reveal = Animation.easeOut(duration: 0.18)
         public static let reduced = Animation.easeOut(duration: 0.12)

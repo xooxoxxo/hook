@@ -59,7 +59,7 @@ A pull request that changes `Sources/RelayUI/` attaches the before and after PNG
 ## Layout
 
 ```
-Sources/Relay/         AppKit shell: panel window, menu bar, notifications, Settings and Welcome windows, loopback server
+Sources/Relay/         AppKit shell: panel window, menu bar, notifications, Settings and setup windows, loopback server
 Sources/RelayCore/     queue, validator, config, mailbox client, and the panel's pure logic
 Sources/RelayUI/       design tokens and components, the Store, every SwiftUI surface
 Sources/RelayGallery/  offscreen renderer for the gallery (never bundled)
