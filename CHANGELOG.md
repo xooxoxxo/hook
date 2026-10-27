@@ -10,8 +10,8 @@ Relay is now Hook.
 ### Changed
 
 - The app is called Hook everywhere you see it: the app bundle (`~/Applications/Hook.app`, process `Hook`), menus, windows, Welcome, Settings, notifications, the menu-bar label and tooltips, alerts, the "Handed to Hook" link page, log prefixes, CLI and MCP messages, the schema title, the installer and the docs.
-- `scripts/install.sh` quits a running Hook or Relay, installs Hook.app, and only then unregisters and removes `~/Applications/Relay.app`. An existing Relay.app counts as installed, so an update keeps a login item you turned off. `--uninstall` removes both apps.
-- The CLI opens Hook when it isn't running, and falls back to Relay.app before the installer has run.
+- `scripts/install.sh` quits a running Hook or Relay, installs Hook.app, and only then unregisters and removes `~/Applications/Relay.app`. An existing Relay.app counts as installed, so an update keeps a login item you turned off. `--uninstall` removes both apps. The installer checks the bundle id, so it never quits, replaces or removes another app called Hook.
+- The CLI opens the app by its bundle id when it isn't running, so it finds Hook.app, or Relay.app before the installer has run, and never opens another app called Hook.
 - The update check accepts a checkout whose origin is `github.com/xooxoxxo/relay` or `github.com/xooxoxxo/hook`, so the GitHub repo can be renamed without breaking updates.
 
 ### Added
