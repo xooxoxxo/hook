@@ -116,8 +116,10 @@ extension ConnectInfo {
     /// taken, settings.json.bak-YYYYMMDD-HHMMSS (`backupURL`); an old backup is never
     /// overwritten. Replaces the file in one rename (through a symlink, the file it points
     /// to). Never rewrites a file it can't parse, and writes nothing when the hook is there.
+    /// `now` and `timeZone` name a stamped backup; tests pass both so the name is fixed.
     @discardableResult
-    public static func installRepliesHook(home: URL, now: Date = Date()) throws -> HookMerge {
+    public static func installRepliesHook(home: URL, now: Date = Date(),
+                                          timeZone: TimeZone = .current) throws -> HookMerge {
         let link = settingsPath(home: home)
         let fm = FileManager.default
         let exists = (try? fm.attributesOfItem(atPath: link.path)) != nil
@@ -155,7 +157,7 @@ extension ConnectInfo {
         var backup: URL?
         let permissions = (try? fm.attributesOfItem(atPath: path.path))?[.posixPermissions]
         if exists {
-            let bak = backupURL(for: path, now: now)
+            let bak = backupURL(for: path, now: now, timeZone: timeZone)
             let tmp = path.deletingLastPathComponent().appending(path: ".\(path.lastPathComponent).bak.\(UUID().uuidString)")
             try fm.copyItem(at: path, to: tmp)
             do {

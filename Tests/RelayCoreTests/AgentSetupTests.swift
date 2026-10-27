@@ -109,15 +109,20 @@ private func promptCommands(_ object: [String: Any]) -> [String] {
         let bak = path.appendingPathExtension("bak")
         try write("old backup", to: bak)
         try write(#"{"model": "opus"}"#, to: path)
+        // One fixed zone for building the date and for naming the file, so the name is the
+        // same whatever zone the machine runs in.
+        let utc = try #require(TimeZone(identifier: "UTC"))
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = utc
         var parts = DateComponents()
         (parts.year, parts.month, parts.day, parts.hour, parts.minute, parts.second) = (2026, 10, 27, 9, 5, 7)
-        let now = try #require(Calendar.current.date(from: parts))
-        let result = try ConnectInfo.installRepliesHook(home: home, now: now)
+        let now = try #require(calendar.date(from: parts))
+        let result = try ConnectInfo.installRepliesHook(home: home, now: now, timeZone: utc)
         let stamped = path.deletingLastPathComponent().appending(path: "settings.json.bak-20261027-090507")
         #expect(result == .added(backup: stamped))
         #expect(try String(contentsOf: bak, encoding: .utf8) == "old backup")
         #expect(try String(contentsOf: stamped, encoding: .utf8) == #"{"model": "opus"}"#)
-        let next = ConnectInfo.backupURL(for: path, now: now)
+        let next = ConnectInfo.backupURL(for: path, now: now, timeZone: utc)
         #expect(next.lastPathComponent == "settings.json.bak-20261027-090507-2")
     }
 
