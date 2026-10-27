@@ -19,6 +19,7 @@ public final class FixturePanelModel: PanelViewModel {
     @Published public var status: PanelStatus
     @Published public var sendingCloses = 0
     public var shell = PanelShellActions.none
+    public var localHost: String?
     private let details: [String: DetailSnapshot]
 
     public init(queue: QueueSnapshot, details: [String: DetailSnapshot] = [:], navigation: PanelNavigation = .init(),

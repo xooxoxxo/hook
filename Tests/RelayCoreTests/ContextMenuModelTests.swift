@@ -14,7 +14,7 @@ import Testing
     }
 
     @Test func openAskEntries() {
-        #expect(QueueContextMenu.entries(for: row(resume: "cd '/tmp' && claude --resume 1b2c3d4e"), filter: nil) == [
+        #expect(QueueContextMenu.entries(for: row(resume: "cd '/tmp' && claude --resume 1b2c3d4e"), filter: nil, localHost: nil) == [
             .item(title: "Open", command: .open, shortcut: "↩"),
             .item(title: "Done", command: .done, shortcut: "⌘↩"),
             .item(title: "Skip", command: .skip, shortcut: "⌘⌫"),
@@ -28,7 +28,7 @@ import Testing
 
     @Test func closedAskEntries() {
         let closed = ClosedInfo(status: "done", closedBy: "owner", completedAt: "2026-10-16T09:00:00+00:00")
-        #expect(QueueContextMenu.entries(for: row(closed: closed, resume: "cd '/tmp' && claude --resume 1b2c3d4e"), filter: nil) == [
+        #expect(QueueContextMenu.entries(for: row(closed: closed, resume: "cd '/tmp' && claude --resume 1b2c3d4e"), filter: nil, localHost: nil) == [
             .item(title: "Open", command: .open, shortcut: "↩"),
             .item(title: "Reopen", command: .reopen, shortcut: "⇧⌘R"),
             .separator,
@@ -77,20 +77,20 @@ import Testing
     }
 
     @Test func alreadyFilteredToThatProjectOffersShowAll() {
-        let entries = QueueContextMenu.entries(for: row(), filter: "Acme")
+        let entries = QueueContextMenu.entries(for: row(), filter: "Acme", localHost: nil)
         #expect(entries.contains(.item(title: "Show All Projects", command: .showAll, shortcut: "⌃⌘A")))
         #expect(!entries.contains { if case .item(_, .showOnly, _) = $0 { true } else { false } })
     }
 
     @Test func emptyProjectHasNoProjectEntryAndOneSeparator() {
-        let entries = QueueContextMenu.entries(for: row(project: ""), filter: nil)
+        let entries = QueueContextMenu.entries(for: row(project: ""), filter: nil, localHost: nil)
         #expect(entries.filter { $0 == .separator }.count == 1)
         #expect(!entries.contains { if case .item(_, .showOnly, _) = $0 { true } else { false } })
     }
 
     @Test func projectTitleIsSanitizedAndMiddleTruncatedButTheCommandKeepsTheRawName() {
         let long = "Quarterly planning for the public launch of the pricing page"   // 60 characters
-        let entries = QueueContextMenu.entries(for: row(project: long), filter: nil)
+        let entries = QueueContextMenu.entries(for: row(project: long), filter: nil, localHost: nil)
         guard case let .item(title, command, _)? = entries.first(where: {
             if case .item(_, .showOnly, _) = $0 { true } else { false }
         }) else {
@@ -101,7 +101,7 @@ import Testing
         let name = String(title.dropFirst("Show Only ".count))
         #expect(name.count == 40)
         #expect(name == "Quarterly planning … of the pricing page")
-        let hidden = QueueContextMenu.entries(for: row(project: "Ac\u{202E}me"), filter: nil)
+        let hidden = QueueContextMenu.entries(for: row(project: "Ac\u{202E}me"), filter: nil, localHost: nil)
         #expect(hidden.contains(.item(title: "Show Only Ac⟨U+202E⟩me", command: .showOnly("Ac\u{202E}me"), shortcut: "⌃⌘P")))
     }
 

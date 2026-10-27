@@ -227,7 +227,7 @@ struct DetailView<Model: PanelViewModel>: View {
                 onNext: { if let other = Self.target(snapshot.next) { model.open(other) } },
                 onHide: { model.shell.hide() },
                 onDock: { model.shell.dock($0) },
-                menu: QueueContextMenu.resumeEntries(for: snapshot.row, localHost: HostName.current),
+                menu: QueueContextMenu.resumeEntries(for: snapshot.row, localHost: model.localHost),
                 onMenu: { command in
                     switch command {
                     case .resume: if let origin = snapshot.row.origin { model.shell.resume(origin) }

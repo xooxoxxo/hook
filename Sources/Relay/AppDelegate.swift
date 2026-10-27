@@ -78,6 +78,7 @@ import RelayUI
             configURL: RelayConfig.path(environment: environment),
             dataDirectory: AppModel.dataDirectory(environment: environment))
         let store = Store()
+        store.setLocalHost(HostName.current)
         model.store = store
         self.model = model
         self.store = store
@@ -333,10 +334,14 @@ import RelayUI
         store.onShowInFinder = { path in
             NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
         }
-        // Whenever the panel becomes key, the selection is the last one if still shown, else the first row.
+        // Whenever the panel becomes key, the selection is the last one if still shown, else the
+        // first row; and the host name is read again (one cheap call; a rename then shows).
         panelKeyObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didBecomeKeyNotification, object: panel, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.store?.settleSelection() }
+            MainActor.assumeIsolated {
+                self?.store?.settleSelection()
+                self?.store?.setLocalHost(HostName.current)
+            }
         }
         return panel
     }

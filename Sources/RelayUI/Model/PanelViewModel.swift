@@ -55,6 +55,9 @@ public struct PanelShellActions: Sendable {
     /// Held closes being sent on quit; the Undo bar shows "Sending" while it is above 0.
     var sendingCloses: Int { get }
     var shell: PanelShellActions { get }
+    /// This Mac's host name for Resume Session's "is this session here" check; the app reads
+    /// it at launch (and again when the panel becomes key), never per row.
+    var localHost: String? { get }
     func keyContext(textFieldFocused: Bool, popoverOpen: Bool, closedHeaderFocused: Bool) -> KeyContext
     func perform(_ command: PanelCommand)
     func open(_ id: String)

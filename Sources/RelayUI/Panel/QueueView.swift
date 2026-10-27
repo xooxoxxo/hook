@@ -186,7 +186,8 @@ struct QueueView<Model: PanelViewModel>: View, Equatable {
                 .focusedValue(\.relayClosedHeaderFocused, closedHeaderFocused)
                 .contextMenu(forSelectionType: String.self) { ids in
                     if let id = ids.first, let row = Self.rowModel(id, in: queue) {
-                        RowContextMenu(entries: QueueContextMenu.entries(for: row, filter: queue.filter)) { command in
+                        RowContextMenu(entries: QueueContextMenu.entries(for: row, filter: queue.filter,
+                                                                              localHost: model.localHost)) { command in
                             perform(command, on: row)
                         }
                     }

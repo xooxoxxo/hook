@@ -20,10 +20,9 @@ public enum QueueContextMenu {
     public static let resumeTitle = "Resume Session"
     public static let copyResumeTitle = "Copy Resume Command"
 
-    /// `localHost` is this Mac's host name (`HostName.current`); Resume Session is
-    /// enabled only for a session on it.
-    public static func entries(for row: AskRowModel, filter: String?,
-                               localHost: String? = HostName.current) -> [ContextMenuEntry] {
+    /// `localHost` is this Mac's host name, read once by the app (`HostName.current`) and
+    /// passed in, never looked up per row; Resume Session is enabled only for a session on it.
+    public static func entries(for row: AskRowModel, filter: String?, localHost: String?) -> [ContextMenuEntry] {
         var entries: [ContextMenuEntry] = [.item(title: "Open", command: .open, shortcut: "↩")]
         if row.isOpen {
             entries.append(.item(title: "Done", command: .done, shortcut: "⌘↩"))

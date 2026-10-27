@@ -130,6 +130,14 @@ public enum LinkCheck: Equatable, Sendable {
     /// The Undo bar as it was when the quit-time sends began; `undoInfo` while they run.
     @Published private var sendingUndo: UndoInfo?
     public var shell = PanelShellActions.none
+    /// This Mac's host name (HostName.current), cached: the app sets it at launch and when the
+    /// panel becomes key. nil until then, which dims Resume Session.
+    @Published public private(set) var localHost: String?
+    /// Publishes only when the name changed.
+    public func setLocalHost(_ name: String?) {
+        guard localHost != name else { return }
+        localHost = name
+    }
     private var detailRequestedAt: [String: Date] = [:]
     private var detailFailed: Set<String> = []
     private var swappedAt: Date?
