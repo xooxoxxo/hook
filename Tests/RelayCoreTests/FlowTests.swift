@@ -172,3 +172,84 @@ private let nodes = DetailModel.nodes(
         #expect(Flow.topVisible(visible: Flow.visible(frames: frames, top: 44, bottom: 764), order: ["title"] + order) == "title")
     }
 }
+
+// MARK: Blocking steps
+
+private func answer(_ path: String) -> Answer { Answer(step: path, picked: ["EU"], at: "2026-10-27T09:00:00+00:00", seq: 1) }
+
+@Suite struct FlowLockTests {
+    /// 1, 2 blocking, 3, verify.
+    private let simple = DetailModel.nodes(
+        steps: [Step(action: "One"), Step(action: "Revoke", blocking: true), Step(action: "Three")],
+        verify: Step(action: "Check"))
+
+    @Test func nothingIsLockedWithoutABlockingStep() {
+        #expect(Flow.lockedPaths(nodes: nodes, ticks: []) == [])
+        #expect(Flow.firstOpenBlock(nodes: nodes, ticks: []) == nil)
+    }
+
+    @Test func aBlockingStepLocksEverythingAfterItUntilTicked() {
+        #expect(Flow.lockedPaths(nodes: simple, ticks: []) == ["3", "verify"])
+        #expect(Flow.lockedPaths(nodes: simple, ticks: ["1"]) == ["3", "verify"])
+        #expect(Flow.lockedPaths(nodes: simple, ticks: ["2"]) == [])
+        #expect(Flow.firstOpenBlock(nodes: simple, ticks: [])?.path == "2")
+    }
+
+    @Test func aWarningAloneLocksNothing() {
+        let warned = DetailModel.nodes(steps: [Step(action: "a", warning: "careful"), Step(action: "b")], verify: nil)
+        #expect(Flow.lockedPaths(nodes: warned, ticks: []) == [])
+    }
+
+    @Test func theFirstUnfinishedBlockWins() {
+        let two = DetailModel.nodes(
+            steps: [Step(action: "a", blocking: true), Step(action: "b", blocking: true), Step(action: "c")], verify: nil)
+        #expect(Flow.lockedPaths(nodes: two, ticks: []) == ["2", "3"])
+        #expect(Flow.lockedPaths(nodes: two, ticks: ["1"]) == ["3"])
+        #expect(Flow.lockedPaths(nodes: two, ticks: ["2"]) == ["2", "3"])   // ticking past a lock doesn't open it
+        #expect(Flow.lockedPaths(nodes: two, ticks: ["1", "2"]) == [])
+    }
+
+    @Test func aBlockingQuestionNeedsItsAnswer() {
+        let asked = DetailModel.nodes(
+            steps: [Step(action: "Region", question: Question(prompt: "Which?", choices: ["EU", "US"]), blocking: true),
+                    Step(action: "Deploy")],
+            verify: nil, answers: [:])
+        #expect(Flow.lockedPaths(nodes: asked, ticks: ["1"]) == ["2"])      // a tick doesn't answer it
+        let answered = DetailModel.nodes(
+            steps: [Step(action: "Region", question: Question(prompt: "Which?", choices: ["EU", "US"]), blocking: true),
+                    Step(action: "Deploy")],
+            verify: nil, answers: ["1": answer("1")])
+        #expect(Flow.lockedPaths(nodes: answered, ticks: []) == [])
+    }
+
+    @Test func aBlockingParentKeepsItsSubstepsOpenAndNeedsThemAllDone() {
+        let parent = DetailModel.nodes(
+            steps: [Step(action: "Set up", substeps: [Step(action: "a"), Step(action: "b")], blocking: true),
+                    Step(action: "Deploy")],
+            verify: Step(action: "Check"))
+        #expect(Flow.lockedPaths(nodes: parent, ticks: []) == ["2", "verify"])
+        #expect(Flow.lockedPaths(nodes: parent, ticks: ["1.1"]) == ["2", "verify"])
+        #expect(Flow.lockedPaths(nodes: parent, ticks: ["1.1", "1.2"]) == [])
+        #expect(Flow.lockedPaths(nodes: parent, ticks: ["1"]) == ["2", "verify"])  // a parent isn't ticked as a unit
+    }
+
+    @Test func aBlockingParentWithAQuestionNeedsItsOwnAnswerToo() {
+        let steps = [Step(action: "Set up", substeps: [Step(action: "a")],
+                          question: Question(prompt: "Which?", choices: ["EU", "US"]), blocking: true),
+                     Step(action: "Deploy")]
+        let open = DetailModel.nodes(steps: steps, verify: nil)
+        #expect(Flow.lockedPaths(nodes: open, ticks: ["1.1"]) == ["2"])
+        let answered = DetailModel.nodes(steps: steps, verify: nil, answers: ["1": answer("1")])
+        #expect(Flow.lockedPaths(nodes: answered, ticks: []) == ["2"])
+        #expect(Flow.lockedPaths(nodes: answered, ticks: ["1.1"]) == [])
+    }
+
+    @Test func aBlockingSubstepLocksItsLaterSiblingsAndWhatFollows() {
+        let sub = DetailModel.nodes(
+            steps: [Step(action: "Set up", substeps: [Step(action: "a"), Step(action: "b", blocking: true), Step(action: "c")]),
+                    Step(action: "Deploy")],
+            verify: Step(action: "Check"))
+        #expect(Flow.lockedPaths(nodes: sub, ticks: []) == ["1.3", "2", "verify"])
+        #expect(Flow.lockedPaths(nodes: sub, ticks: ["1.2"]) == [])
+    }
+}

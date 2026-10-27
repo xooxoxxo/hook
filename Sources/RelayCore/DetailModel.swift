@@ -58,6 +58,8 @@ public struct DetailModel: Sendable, Equatable {
         public var expect: String? { content.expect }
         public var detail: String? { content.detail }
         public var url: String? { content.url }
+        public var isBlocking: Bool { content.blocking }
+        public var warning: String? { content.warning }
     }
 
     public var id: String
@@ -115,7 +117,7 @@ public struct DetailModel: Sendable, Equatable {
                               question: step.question, answer: answers["\(number)"]))
         }
         if let verify {
-            let content = content(verify)
+            let content = content(verify, leaf: false)
             nodes.append(Node(
                 path: "verify", label: "Verify", kind: .verify, number: steps.count + 1, content: content,
                 fingerprint: StepFingerprint.make(kind: .verify, action: verify.action, place: content.place, code: content.code)))
@@ -123,9 +125,12 @@ public struct DetailModel: Sendable, Equatable {
         return nodes
     }
 
-    private static func content(_ step: Step) -> StepContent {
+    /// `blocking` and `warning` only on a step or sub-step: verify (`leaf: false`) never
+    /// carries them, even when a malformed instructable got past validation.
+    private static func content(_ step: Step, leaf: Bool = true) -> StepContent {
         StepContent(action: step.action, place: present(step.place), detail: present(step.detail), url: present(step.url),
-                    code: present(step.code), lang: present(step.lang), expect: present(step.expect))
+                    code: present(step.code), lang: present(step.lang), expect: present(step.expect),
+                    blocking: leaf && step.blocking == true, warning: leaf ? present(step.warning) : nil)
     }
 
     public static func make(_ detail: AskDetail) -> DetailModel {
