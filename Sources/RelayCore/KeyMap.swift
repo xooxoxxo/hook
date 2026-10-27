@@ -27,6 +27,9 @@ public struct KeyContext: Equatable, Sendable {
     /// List: nil with no selection, true for an open ask, false for a closed one.
     public var selectionOpen: Bool?
     public var selectionHasProject: Bool
+    /// List: the selected open ask has an unsent reply, pick or step answers, so ⌘↩
+    /// opens it with the Done warning instead of closing it.
+    public var selectionHasUnsent: Bool
     public var closedHeaderFocused: Bool
     /// Detail: the open ask is open (not closed).
     public var askOpen: Bool
@@ -40,7 +43,8 @@ public struct KeyContext: Equatable, Sendable {
     public var doneWarning: Bool
 
     public init(mode: Mode, textFieldFocused: Bool = false, popoverOpen: Bool = false, undoAvailable: Bool = false,
-                filterOn: Bool = false, selectionOpen: Bool? = nil, selectionHasProject: Bool = false, closedHeaderFocused: Bool = false,
+                filterOn: Bool = false, selectionOpen: Bool? = nil, selectionHasProject: Bool = false, selectionHasUnsent: Bool = false,
+                closedHeaderFocused: Bool = false,
                 askOpen: Bool = true, askHasProject: Bool = false, choiceCount: Int = 0, hasDraftOrPick: Bool = false,
                 hasUnsentAnswers: Bool = false, doneWarning: Bool = false) {
         self.mode = mode
@@ -50,6 +54,7 @@ public struct KeyContext: Equatable, Sendable {
         self.filterOn = filterOn
         self.selectionOpen = selectionOpen
         self.selectionHasProject = selectionHasProject
+        self.selectionHasUnsent = selectionHasUnsent
         self.closedHeaderFocused = closedHeaderFocused
         self.askOpen = askOpen
         self.askHasProject = askHasProject
@@ -63,7 +68,8 @@ public struct KeyContext: Equatable, Sendable {
 public enum PanelCommand: Equatable, Sendable {
     case closePopover, endEditing, back, hide, refresh, openSettings, undoClose, quit, dock(SidebarEdge), switchGrouping, clearFilter
     case showOnlyProject, openSelection, done, sendAndDone, skip, reopen, copyLink, setClosedExpanded(Bool)
-    /// Done with something unsent: the bar shows its warning instead of closing.
+    /// Done with something unsent: the bar shows its warning instead of closing (from the
+    /// list, the ask opens with the warning up).
     /// In the warning: `sendAndDone` (Send & Done), `discardAndDone`, and Esc's `cancelDoneWarning`.
     case warnUnsent, discardAndDone, cancelDoneWarning
     /// `pickChoice(i)`: the 0-based choice index.
@@ -108,7 +114,9 @@ public enum KeyMap {
         switch key {
         case .returnKey:
             return !c.textFieldFocused && !c.closedHeaderFocused && c.selectionOpen != nil ? .openSelection : nil
-        case .cmdReturn: return c.selectionOpen == true ? .done : nil
+        case .cmdReturn:
+            guard c.selectionOpen == true else { return nil }
+            return c.selectionHasUnsent ? .warnUnsent : .done
         case .cmdDelete: return !c.textFieldFocused && c.selectionOpen == true ? .skip : nil
         case .shiftCmdR: return c.selectionOpen == false ? .reopen : nil
         case .shiftCmdL: return c.selectionOpen != nil ? .copyLink : nil

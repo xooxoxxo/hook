@@ -226,7 +226,7 @@ struct QueueView<Model: PanelViewModel>: View, Equatable {
     private func perform(_ command: ContextCommand, on row: AskRowModel) {
         switch command {
         case .open: model.open(row.id)
-        case .done: model.close(row.id, .done)
+        case .done: model.warnUnsent(row.id)   // closes, or opens the ask with the Done warning
         case .skip: model.close(row.id, .declined)
         case .reopen: model.reopen(row.id)
         case .showOnly(let project): model.setFilter(project)

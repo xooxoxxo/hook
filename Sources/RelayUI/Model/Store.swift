@@ -1012,13 +1012,16 @@ public enum LinkCheck: Equatable, Sendable {
         }
     }
 
-    /// Done (the button or ⌘↩): closes when nothing is unsent, else shows the bar's warning;
-    /// it never sends or drops an answer silently.
+    /// Done (the button or ⌘↩, in the detail or the queue): closes when nothing is unsent,
+    /// else shows the bar's warning; it never sends or drops an answer silently. From the
+    /// queue, the ask opens first so the warning is on screen.
     public func warnUnsent(_ id: String) {
         guard primaryAction(for: id) == .sendAndDone else {
             close(id, .done)
             return
         }
+        // Opening first: a navigation change drops the warnings of every other ask.
+        if navigation.selectedID != id { open(id) }
         doneWarnings.insert(id)
     }
 
@@ -1332,7 +1335,9 @@ extension Store: PanelViewModel {
             mode: opened == nil ? .list : .detail, textFieldFocused: textFieldFocused, popoverOpen: popoverOpen,
             undoAvailable: !pending.isEmpty, filterOn: filter != nil,
             selectionOpen: selected.map { $0.status == "open" },
-            selectionHasProject: !(selected?.projectId ?? "").isEmpty, closedHeaderFocused: closedHeaderFocused,
+            selectionHasProject: !(selected?.projectId ?? "").isEmpty,
+            selectionHasUnsent: selected.map { $0.status == "open" && primaryAction(for: $0.id) == .sendAndDone } ?? false,
+            closedHeaderFocused: closedHeaderFocused,
             askOpen: opened.map { $0.status == "open" } ?? true, askHasProject: !(opened?.projectId ?? "").isEmpty,
             choiceCount: opened?.instructable?.reply?.choices?.count ?? 0,
             hasDraftOrPick: opened.map { primaryAction(for: $0.id) == .sendAndDone } ?? false,
@@ -1359,7 +1364,7 @@ extension Store: PanelViewModel {
         case .showOnlyProject:
             if let id = target, let project = item(for: id)?.projectId, !project.isEmpty { setFilter(project) }
         case .openSelection: if let id = listSelection { open(id) }
-        case .done: if let id = target { close(id, .done) }
+        case .done: if let id = target { close(id, .done) }   // KeyMap sends .warnUnsent when anything is unsent
         case .sendAndDone: if let id = target { sendAndDone(id) }
         case .warnUnsent: if let id = target { warnUnsent(id) }
         case .discardAndDone: if let id = target { discardAndDone(id) }

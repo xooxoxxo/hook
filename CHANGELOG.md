@@ -42,7 +42,8 @@ and versions follow Semantic Versioning.
   reply has its own Send (⌘S still sends every unsent answer).
 - Done never sends or drops an unsent reply, pick or answer silently: the bar warns "You have
   an unsent answer" (or "unsent reply") with Send & Done (⌘↩) and Discard & Done, and Esc goes
-  back to editing.
+  back to editing. Done from the queue (⌘↩ or a card's menu) on such an ask opens it with the
+  warning up instead of closing it.
 
 ## [0.8.0] - 2026-10-27
 

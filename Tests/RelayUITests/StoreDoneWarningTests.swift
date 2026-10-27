@@ -140,4 +140,53 @@ private func questionItem() -> WireItem {
         #expect(store.detail("q")?.doneWarning == false)
         #expect(store.drafts["q"] == "All set")
     }
+
+    /// From the queue (⌘↩ or a card's Done), an ask with unsent text opens with the warning up
+    /// instead of closing; nothing is sent or dropped.
+    @Test func queueDoneWithAnUnsentReplyOpensTheAskWarning() async {
+        let (store, fake, defaults) = await setUp()
+        defer { defaults.drop() }
+        store.drafts["q"] = "All set"
+        store.back()
+        #expect(context(store).mode == .list)
+        #expect(store.listSelection == "q")
+        #expect(context(store).selectionHasUnsent)
+        #expect(KeyMap.command(for: .cmdReturn, in: context(store)) == .warnUnsent)
+        store.perform(.warnUnsent)
+        #expect(store.pending.isEmpty)
+        #expect(store.navigation.selectedID == "q")
+        #expect(store.detail("q")?.doneWarning == true)
+        #expect(store.detail("q")?.unsentKind == .reply)
+        #expect(context(store).doneWarning)
+        #expect(store.drafts["q"] == "All set")
+        #expect(await fake.count("reply") == 0)
+    }
+
+    /// A card's Done on another ask than the one last open: that ask opens, warning up.
+    @Test func cardDoneWithUnsentAnswersOpensThatAsk() async {
+        let (store, _, defaults) = await setUp()
+        defer { defaults.drop() }
+        store.answerDrafts["q"] = ["1": .picked(["Prod"])]
+        store.open("b")
+        store.back()
+        store.warnUnsent("q")
+        #expect(store.pending.isEmpty)
+        #expect(store.navigation.selectedID == "q")
+        #expect(store.doneWarnings == ["q"])
+        #expect(store.detail("q")?.unsentKind == .answer)
+        #expect(KeyMap.command(for: .escape, in: context(store)) == .cancelDoneWarning)
+    }
+
+    /// Nothing unsent: the queue's Done closes as before, without opening the ask.
+    @Test func queueDoneWithNothingUnsentCloses() async {
+        let (store, _, defaults) = await setUp()
+        defer { defaults.drop() }
+        store.back()
+        #expect(!context(store).selectionHasUnsent)
+        #expect(KeyMap.command(for: .cmdReturn, in: context(store)) == .done)
+        store.warnUnsent("b")
+        #expect(store.pending.contains("b"))
+        #expect(store.navigation.selectedID == nil)
+        #expect(store.doneWarnings.isEmpty)
+    }
 }

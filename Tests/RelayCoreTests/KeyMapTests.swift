@@ -282,6 +282,17 @@ private func typing(_ c: KeyContext) -> KeyContext { var c = c; c.textFieldFocus
         #expect(cmd(.cmdReturn, c) == nil)
     }
 
+    /// In the queue, ⌘↩ on an ask with something unsent asks for the warning, never a plain Done.
+    @Test func listCmdReturnWarnsWithSomethingUnsent() {
+        var c = KeyContext(mode: .list, selectionOpen: true)
+        #expect(cmd(.cmdReturn, c) == .done)
+        c.selectionHasUnsent = true
+        #expect(cmd(.cmdReturn, c) == .warnUnsent)
+        #expect(cmd(.cmdReturn, typing(c)) == .warnUnsent)   // from the search field too
+        c.selectionOpen = false
+        #expect(cmd(.cmdReturn, c) == nil)
+    }
+
     /// The Done warning: ⌘↩ is Send & Done, Esc goes back to editing (even from a field),
     /// and ⌘⌫ does nothing, as the warning has no Skip and Discard takes no key.
     @Test func theDoneWarningKeys() {

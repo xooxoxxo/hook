@@ -55,7 +55,7 @@ A "now" ask slides the hidden panel in on that ask without taking focus from the
 | Panel | ⌃⌘A | Show all projects |
 | List | ↑ ↓ | Move the selection |
 | List | Return | Open the selected ask |
-| List | ⌘↩ / ⌘⌫ | Done / Skip the selected ask |
+| List | ⌘↩ / ⌘⌫ | Done / Skip the selected ask; with something unsent, Done opens it with the warning |
 | List | ⇧⌘R | Reopen the selected closed ask |
 | List, ask | ⇧⌘L | Copy the link to the ask |
 | List, ask | ⌃⌘P | Show only this ask's project |
