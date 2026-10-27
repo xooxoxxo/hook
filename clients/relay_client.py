@@ -25,7 +25,7 @@ import urllib.parse
 import urllib.request
 from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 
-VERSION = "0.7.0"
+VERSION = "0.7.1"
 DEFAULT_CONFIG = "~/.config/relay/config.json"
 DEFAULT_PORT = 47823
 DEFAULT_CONTEXT = "personal"

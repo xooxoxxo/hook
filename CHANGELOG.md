@@ -3,6 +3,13 @@
 All notable changes to Relay are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## [0.7.1] - 2026-10-27
+
+### Added
+
+- The instructable format documents `question` on steps and sub-steps in the JSON Schema, the format docs, `relay post --help`, the MCP `relay_post` description and the instructables skill. Sessions now bundle related questions into one ask and act on partial answers. `verify` has its own schema definition, which never asks.
+- The MCP `relay_status` description covers `answers` and `unanswered`.
+
 ## [0.7.0] - 2026-10-27
 
 ### Added
