@@ -210,12 +210,14 @@ public struct AskRowModel: Equatable, Sendable, Identifiable {
     public var hasDraft: Bool
     public var closed: ClosedInfo?
     public var resumeCommand: String?
+    /// Where the ask came from; Resume Session reads its folder, session and host.
+    public var origin: AskOrigin?
 
     public var isOpen: Bool { closed == nil }
 
     public init(id: String, title: String, project: String, urgency: Urgency, created: String,
                 summary: RowSummary, subline: String? = nil, hasDraft: Bool = false, closed: ClosedInfo? = nil,
-                resumeCommand: String? = nil) {
+                resumeCommand: String? = nil, origin: AskOrigin? = nil) {
         self.id = id
         self.title = title
         self.project = project
@@ -227,6 +229,7 @@ public struct AskRowModel: Equatable, Sendable, Identifiable {
         self.hasDraft = hasDraft
         self.closed = closed
         self.resumeCommand = resumeCommand
+        self.origin = origin
     }
 }
 

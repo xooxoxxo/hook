@@ -202,6 +202,8 @@ public enum DS {
         public static let notFound = "questionmark.circle"
         public static let menuBar = "checklist"
         public static let link = "link"
+        /// The detail header's ask menu (Resume Session).
+        public static let more = "ellipsis.circle"
         public static let warning = "exclamationmark.triangle.fill"
         public static let sent = "checkmark"
         /// A step question's answered line.

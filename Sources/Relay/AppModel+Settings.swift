@@ -47,6 +47,7 @@ extension AppModel: SettingsViewModel {
                 cliFound: ConnectInfo.cliInstalled(home: home), lastCall: lastSeen["mcp"],
                 skillError: skillError),
             localQueuePath: (dataDirectory.appending(path: "queue.json").path as NSString).abbreviatingWithTildeInPath,
+            terminals: settingsTerminals(),
             now: settings.now)
         guard next != settings else { return }
         next.now = Date()
@@ -57,6 +58,17 @@ extension AppModel: SettingsViewModel {
     /// stays listed as not connected.
     func settingsDisplays() -> [DisplayOption] {
         DisplayChoice.options(screens: NSScreen.dockScreens, names: displayNames, pinned: config?.sidebarDisplay)
+    }
+
+    /// Automatic plus the installed terminals. Launch Services is asked at most once a minute,
+    /// since this runs after every Store change.
+    func settingsTerminals() -> [TerminalChoice] {
+        if terminalsCheckedAt.map({ Date().timeIntervalSince($0) > 60 }) ?? true {
+            installedTerminals = SessionLauncher.installed()
+            terminalsCheckedAt = Date()
+        }
+        return TerminalChoice.options(installed: installedTerminals,
+                                      current: config?.terminal ?? RelayConfig.automaticTerminal)
     }
 
     func perform(_ action: SettingsAction) {

@@ -25,6 +25,7 @@ Hook reads `~/.config/relay/config.json`, and Settings edits the same file.
 | `repoPath` | path | none | Set by the installer; Settings › Connect builds its commands from it |
 | `sidebarDisplay` | display UUID string | none | The display the panel is pinned to. Dragging the panel sets it (and `sidebarEdge`); while that display is disconnected, the main display is used. Delete it to go back to the main display |
 | `afterClose` | `"next"` \| `"queue"` | `"next"` | After Done or Skip in an ask: open the next ask in the list, or go back to the queue with the next row selected. Any other value means `"next"` |
+| `terminal` | `"automatic"` \| a terminal's bundle id | `"automatic"` | Where Resume Session opens: `com.apple.Terminal`, `com.googlecode.iterm2`, `com.mitchellh.ghostty`, `net.kovidgoyal.kitty`, `com.github.wez.wezterm`, `dev.warp.Warp-Stable` or `org.alacritty`. `automatic`, an unknown id or a terminal that isn't installed means Terminal |
 
 ## The away flag
 

@@ -745,7 +745,7 @@ public enum LinkCheck: Equatable, Sendable {
             await refresh(manual: true)
         case .queueMoved(let path):
             onShowInFinder?(path)
-        case .storeFailed, .settingsReloaded, .updating:
+        case .storeFailed, .settingsReloaded, .updating, .resumeFailed:
             break
         }
     }

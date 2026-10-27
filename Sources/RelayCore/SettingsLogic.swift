@@ -156,6 +156,8 @@ public struct SettingsSnapshot: Equatable {
     public var permission: NotificationPermission
     public var repo: RepoState
     public var localQueuePath: String?
+    /// The Terminal picker: Automatic, then the installed terminals.
+    public var terminals: [TerminalChoice]
     public var now: Date
 
     public init(config: RelayConfig? = nil, readOnly: Bool = false, version: String = "",
@@ -166,7 +168,7 @@ public struct SettingsSnapshot: Equatable {
                     sourceKey: SourceKey.none, reachable: false, loadedOnce: false, waiting: 0, problem: nil),
                 connectionProblems: [String] = [], permission: NotificationPermission = .notDetermined,
                 repo: RepoState = RepoState(), localQueuePath: String? = nil,
-                now: Date = Date(timeIntervalSince1970: 0)) {
+                terminals: [TerminalChoice] = [], now: Date = Date(timeIntervalSince1970: 0)) {
         self.config = config
         self.readOnly = readOnly
         self.version = version
@@ -182,6 +184,7 @@ public struct SettingsSnapshot: Equatable {
         self.permission = permission
         self.repo = repo
         self.localQueuePath = localQueuePath
+        self.terminals = terminals
         self.now = now
     }
 }

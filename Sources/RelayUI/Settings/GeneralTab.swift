@@ -1,8 +1,8 @@
 import RelayCore
 import SwiftUI
 
-/// Settings → General: shortcut, presence, login and the menu-bar badge, appearance
-/// and version. Every control but the login item writes config.json through the model.
+/// Settings → General: shortcut, presence, login and the menu-bar badge, the terminal
+/// for Resume Session, appearance and version. Every control but the login item writes config.json through the model.
 public struct GeneralTab<Model: SettingsViewModel>: View {
     @ObservedObject private var model: Model
 
@@ -75,6 +75,17 @@ public struct GeneralTab<Model: SettingsViewModel>: View {
             }
             .environment(\.settingsSection, "Startup and menu bar")
             .disabled(model.settings.readOnly)
+            Section("Sessions") {
+                SettingsRow("Terminal", help: GeneralHelp.terminal) {
+                    Picker("Terminal", selection: model.configBinding(
+                        "terminal", \.terminal, fallback: RelayConfig.automaticTerminal, encode: { $0 })) {
+                        ForEach(terminalOptions) { Text($0.title).tag($0.id) }
+                    }
+                    .pickerStyle(.menu).labelsHidden().fixedSize()
+                }
+            }
+            .environment(\.settingsSection, "Sessions")
+            .disabled(model.settings.readOnly)
             Section("Appearance and version") {
                 SettingsRow("Appearance") {
                     Picker("Appearance", selection: model.configBinding(
@@ -96,6 +107,14 @@ public struct GeneralTab<Model: SettingsViewModel>: View {
         .formStyle(.grouped)
         .controlSize(DS.Control.form)
     }
+
+    /// The snapshot's list, or Automatic alone before the app has looked.
+    private var terminalOptions: [TerminalChoice] {
+        let options = model.settings.terminals
+        return options.isEmpty
+            ? TerminalChoice.options(installed: [], current: model.settings.config?.terminal ?? RelayConfig.automaticTerminal)
+            : options
+    }
 }
 
 /// The General tab's "?" texts.
@@ -103,4 +122,5 @@ public enum GeneralHelp {
     public static let shortcut = "Click the field, then press the new keys. Use at least one of ⌘, ⌃ or ⌥ with a letter, a digit, Space, ` or F1–F12. Esc cancels. ⊗ turns the shortcut off."
     public static let presence = "Hook marks you away when the screen locks, the displays sleep, you're connected over Screen Sharing, or you haven't touched the Mac for this long. While you're away, Hook doesn't slide the panel in or show notifications; asks still reach anything your mailbox forwards them to. Hook also creates ~/.local/state/relay/away, so other tools can tell. For example, ssh can skip the 1Password agent."
     public static let login = "Hook adds a LaunchAgent so it starts when you log in."
+    public static let terminal = "Where Resume Session opens. Right-click an ask, or use the ⋯ menu in an ask, and choose Resume Session: Hook opens a new window in this terminal, goes to the session's folder and runs claude --resume with its session. It works only for sessions on this Mac. Automatic means Terminal. Ghostty may ask once for permission to let Hook control it."
 }

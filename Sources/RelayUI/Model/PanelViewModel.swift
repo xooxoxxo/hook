@@ -8,11 +8,14 @@ public struct PanelShellActions: Sendable {
     public var openSettings: @MainActor @Sendable (SettingsTabID?) -> Void
     public var copy: @MainActor @Sendable (String) -> Void
     public var openURL: @MainActor @Sendable (URL) -> Void
+    /// Resume Session: opens a terminal in the session's folder.
+    public var resume: @MainActor @Sendable (AskOrigin) -> Void
 
     public init(hide: @escaping @MainActor @Sendable () -> Void, setUp: @escaping @MainActor @Sendable () -> Void,
                 quit: @escaping @MainActor @Sendable () -> Void, dock: @escaping @MainActor @Sendable (SidebarEdge) -> Void,
                 openSettings: @escaping @MainActor @Sendable (SettingsTabID?) -> Void,
-                copy: @escaping @MainActor @Sendable (String) -> Void, openURL: @escaping @MainActor @Sendable (URL) -> Void) {
+                copy: @escaping @MainActor @Sendable (String) -> Void, openURL: @escaping @MainActor @Sendable (URL) -> Void,
+                resume: @escaping @MainActor @Sendable (AskOrigin) -> Void = { _ in }) {
         self.hide = hide
         self.setUp = setUp
         self.quit = quit
@@ -20,6 +23,7 @@ public struct PanelShellActions: Sendable {
         self.openSettings = openSettings
         self.copy = copy
         self.openURL = openURL
+        self.resume = resume
     }
 
     public static let none = PanelShellActions(hide: {}, setUp: {}, quit: {}, dock: { _ in }, openSettings: { _ in },

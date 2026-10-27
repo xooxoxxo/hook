@@ -111,6 +111,8 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
     public static let defaultPollSeconds = 15
     public static let defaultKeepDays = 14
     public static let defaultContext = "personal"
+    /// The `terminal` value that means Terminal.
+    public static let automaticTerminal = "automatic"
     static let mailboxProblem = "mailbox needs an http(s) mailboxURL and a tokenFile"
 
     public var source: SourceKind?
@@ -141,11 +143,13 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
     public var sidebarDisplay: String?
     /// After Done or Skip: open the next ask, or go back to the queue.
     public var afterClose: AfterClose
+    /// Where Resume Session opens: a terminal's bundle id, or "automatic" (Terminal).
+    public var terminal: String
 
     enum CodingKeys: String, CodingKey {
         case source, mailboxURL, tokenFile, context, port, pollSeconds, hotkey, keepDays
         case showCount, sidebarEdge, appearance, notify, presence, awayAfterMinutes, repoPath
-        case sidebarDisplay, afterClose
+        case sidebarDisplay, afterClose, terminal
     }
 
     public init(
@@ -165,7 +169,8 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
         awayAfterMinutes: Int = PresenceLogic.defaultAwayAfterMinutes,
         repoPath: String? = nil,
         sidebarDisplay: String? = nil,
-        afterClose: AfterClose = .next
+        afterClose: AfterClose = .next,
+        terminal: String = RelayConfig.automaticTerminal
     ) {
         self.source = source
         self.mailboxURL = mailboxURL
@@ -184,6 +189,7 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
         self.repoPath = repoPath
         self.sidebarDisplay = sidebarDisplay
         self.afterClose = afterClose
+        self.terminal = terminal
     }
 
     /// A missing, null, wrong-typed or out-of-range key takes its default.
@@ -218,6 +224,9 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .flatMap { $0.isEmpty ? nil : $0 }
         afterClose = c.lenient(String.self, .afterClose).flatMap(AfterClose.init(rawValue:)) ?? .next
+        terminal = c.lenient(String.self, .terminal)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .flatMap { $0.isEmpty ? nil : $0 } ?? Self.automaticTerminal
     }
 
     /// `source` when present; else mailbox when `mailboxURL` is present; else incomplete.

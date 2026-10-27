@@ -1,7 +1,8 @@
 import RelayCore
 import SwiftUI
 
-/// A row's context menu from `QueueContextMenu.entries`. Each item shows its panel key.
+/// A row's context menu from `QueueContextMenu.entries`, also the detail header's menu.
+/// Each item shows its panel key.
 struct RowContextMenu: View {
     let entries: [ContextMenuEntry]
     let perform: (ContextCommand) -> Void
@@ -20,7 +21,7 @@ struct RowContextMenu: View {
         case .showOnly: KeyboardShortcut("p", modifiers: [.control, .command])
         case .showAll: KeyboardShortcut("a", modifiers: [.control, .command])
         case .copyLink: KeyboardShortcut("l", modifiers: [.shift, .command])
-        case .copyResume: nil
+        case .copyResume, .resume: nil
         }
     }
 
@@ -29,6 +30,10 @@ struct RowContextMenu: View {
             switch entries[index] {
             case .separator:
                 Divider()
+            case let .disabled(title, reason):
+                // A dimmed item, then why on its own dimmed line.
+                Button(title) {}.disabled(true)
+                Text(reason)
             case let .item(title, command, _):
                 if let shortcut = Self.shortcut(for: command) {
                     Button(title) { perform(command) }.keyboardShortcut(shortcut)

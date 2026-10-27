@@ -18,6 +18,7 @@ import RelayUI
     private var welcome: WelcomeWindowController?
     private var notifier: Notifier?
     private var menuBar: MenuBarController?
+    private var sessionLauncher: SessionLauncher?
     /// Asks that arrived while the panel was hidden and haven't been seen: the menu-bar dot.
     private var unseen = UnseenAsks.load(.standard)
     private var server: LoopbackServer?
@@ -82,6 +83,9 @@ import RelayUI
         self.store = store
         model.hotKeys = hotKeys
         settings = SettingsWindowController(model: model)
+        let launcher = SessionLauncher(dataDirectory: model.dataDirectory, home: AppModel.home)
+        launcher.sweep()
+        sessionLauncher = launcher
 
         panel = makePanel(store: store, model: model)
 
@@ -324,7 +328,8 @@ import RelayUI
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(text, forType: .string)
             },
-            openURL: { url in NSWorkspace.shared.open(url) })
+            openURL: { url in NSWorkspace.shared.open(url) },
+            resume: { [weak self] origin in self?.resumeSession(origin) })
         // The two shell hooks the Store calls: VoiceOver's "Ask reopened", and the queueMoved Notice's Show in Finder.
         store.onAnnounce = { text in AccessibilityNotification.Announcement(text).post() }
         store.onShowInFinder = { path in
@@ -336,6 +341,21 @@ import RelayUI
             MainActor.assumeIsolated { self?.store?.settleSelection() }
         }
         return panel
+    }
+
+    /// Resume Session: opens the chosen terminal in the session's folder. On failure
+    /// the resume command goes to the clipboard and a Notice says why.
+    private func resumeSession(_ origin: AskOrigin) {
+        guard let launcher = sessionLauncher else { return }
+        let setting = model?.config?.terminal ?? RelayConfig.automaticTerminal
+        Task { [weak self] in
+            guard let reason = await launcher.resume(origin, setting: setting) else { return }
+            if let command = origin.resumeCommand {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(command, forType: .string)
+            }
+            self?.store?.post(.resumeFailed(reason: reason))
+        }
     }
 
     /// Settings on a tab, or on the remembered one when nil.

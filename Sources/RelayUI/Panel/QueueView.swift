@@ -233,6 +233,8 @@ struct QueueView<Model: PanelViewModel>: View, Equatable {
         case .copyLink: model.copyLink(row.id)
         case .copyResume:
             if let resume = row.resumeCommand { model.shell.copy(resume) }
+        case .resume:
+            if let origin = row.origin { model.shell.resume(origin) }
         }
     }
 

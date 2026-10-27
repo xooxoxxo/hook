@@ -66,13 +66,14 @@ public struct QueueSnapshot: Equatable, Sendable {
         let isClosed = item.status != "open"
         let summary = QueueLayout.summary(for: item, ticked: ticked, answered: answered)
         let ins = item.instructable
+        let origin = AskOrigin(from: ins?.from)
         return AskRowModel(
             id: item.id, title: item.title, project: item.projectId ?? "", urgency: Urgency(raw: item.urgency),
             created: item.created, summary: summary,
             subline: SubLine.text(summary, choices: ins?.reply?.choices?.count ?? 0, places: ins.map(SubLine.places) ?? []),
             hasDraft: hasDraft,
             closed: isClosed ? ClosedInfo(status: item.status, closedBy: closedBy, completedAt: item.completedAt) : nil,
-            resumeCommand: AskOrigin(from: item.instructable?.from)?.resumeCommand)
+            resumeCommand: origin?.resumeCommand, origin: origin)
     }
 
     static func hasText(_ text: String?) -> Bool {
