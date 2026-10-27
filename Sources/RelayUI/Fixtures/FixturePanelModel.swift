@@ -10,6 +10,7 @@ public final class FixturePanelModel: PanelViewModel {
     @Published public var pendingChoice: [String: Int] = [:]
     @Published public var answerDrafts: [String: [String: AnswerDraft]] = [:]
     @Published public var expandedDone: [String: Set<String>] = [:]
+    @Published public var expandedTodo: [String: Set<String>] = [:]
     @Published public var detailAnchor: [String: String] = [:]
     @Published public var notice: PanelNotice?
     @Published public var undoInfo: UndoInfo?
@@ -54,6 +55,7 @@ public final class FixturePanelModel: PanelViewModel {
     public func sendChoice(_ id: String) {}
     public func sendAndDone(_ id: String) {}
     public func sendAnswers(_ id: String) {}
+    public func sendAnswer(_ id: String, path: String) {}
     public func dismissNotice() {}
     public func performNoticeAction() {}
     public func copyLink(_ id: String) {}

@@ -88,6 +88,8 @@ public enum LinkCheck: Equatable, Sendable {
     private var sessionClosedNext: String?
     /// Done steps the owner expanded, by ask; node paths. Memory only, on purpose.
     @Published public var expandedDone: [String: Set<String>] = [:]
+    /// Upcoming steps the owner expanded by hand, by ask; node paths. Memory only, like expandedDone.
+    @Published public var expandedTodo: [String: Set<String>] = [:]
     /// The path of the top visible node per ask, for the detail's scroll position. Memory only.
     @Published public var detailAnchor: [String: String] = [:]
     /// Tick paths as loaded from TickStore, per ask, with the step source they were loaded
@@ -253,6 +255,7 @@ public enum LinkCheck: Equatable, Sendable {
         tickCache = [:]
         tickHistory = [:]
         expandedDone = [:]
+        expandedTodo = [:]
         detailAnchor = [:]
         replyStates = [:]
         answerStates = [:]
@@ -620,10 +623,12 @@ public enum LinkCheck: Equatable, Sendable {
     }
 
     /// A leaf flips; a parent ticks or unticks all its sub-steps (Flow.toggle). Saves.
+    /// A locked step (Flow.lockedPaths) is left as it is, and so are a parent's locked sub-steps.
     public func toggleTick(_ path: String, in id: String) {
         guard let nodes = nodes(for: id), let node = Flow.flattened(nodes).first(where: { $0.path == path }) else { return }
         let before = ticks(for: id)
-        let after = Flow.toggle(node, ticks: before)
+        let after = Flow.toggle(node, ticks: before, locked: Set(Flow.lockedPaths(nodes: nodes, ticks: before)))
+        guard after != before else { return }
         let added = Flow.leaves(of: nodes).map(\.path).filter { after.contains($0) && !before.contains($0) }
         tickHistory[id, default: []].append(contentsOf: added)
         setTicks(after, for: id, nodes: nodes)
@@ -990,19 +995,21 @@ public enum LinkCheck: Equatable, Sendable {
         close(id, .done)
     }
 
-    /// What Send answers (⌘S) sends for `id` now: drafts that differ from the sent answers,
-    /// in document order. None while the ask is closed (R5).
-    public func unsentAnswers(for id: String) -> UnsentAnswers {
+    /// What ⌘S sends for `id` now: drafts that differ from the sent answers, in document
+    /// order, leaving out locked steps (Flow.lockedPaths). `only` limits it to those paths
+    /// (one question's own Send). None while the ask is closed (R5).
+    public func unsentAnswers(for id: String, only: Set<String>? = nil) -> UnsentAnswers {
         guard let drafts = answerDrafts[id], !drafts.isEmpty, let item = item(for: id), item.status == "open",
               let nodes = nodes(for: id) else { return .none }
-        return AnswerDrafts.unsent(drafts, nodes: nodes)
+        let locked = Set(Flow.lockedPaths(nodes: nodes, ticks: ticks(for: id)))
+        return AnswerDrafts.unsent(drafts, nodes: nodes, locked: locked, only: only)
     }
 
-    /// Sends the unsent answers as one batch, then reloads the ask and drops the drafts it
-    /// sent. False when there was nothing to send, a send is already running, or it failed
-    /// (the reason is in `answerStates`).
-    public func sendAnswers(_ id: String) async -> Bool {
-        let unsent = unsentAnswers(for: id)
+    /// Sends the unsent answers (or only those at `only`) as one batch, then reloads the ask
+    /// and drops the drafts it sent. False when there was nothing to send, a send is already
+    /// running, or it failed (the reason is in `answerStates`).
+    public func sendAnswers(_ id: String, only: Set<String>? = nil) async -> Bool {
+        let unsent = unsentAnswers(for: id, only: only)
         guard unsent.count > 0, answerStates[id] != .sending else { return false }
         guard let source else {
             answerStates[id] = .failed(reason: AnswerDrafts.failureText(QueueError.unreachable(Self.noSourceProblem)))
@@ -1287,6 +1294,7 @@ extension Store: PanelViewModel {
     public func sendChoice(_ id: String) { Task { _ = await sendChoice(id) } }
     public func sendAndDone(_ id: String) { Task { await sendAndDone(id) } }
     public func sendAnswers(_ id: String) { Task { _ = await sendAnswers(id) } }
+    public func sendAnswer(_ id: String, path: String) { Task { _ = await sendAnswers(id, only: [path]) } }
     public func performNoticeAction() { Task { await performNoticeAction() } }
 
     public func copyLink(_ id: String) { shell.copy("relay://i/\(id)") }

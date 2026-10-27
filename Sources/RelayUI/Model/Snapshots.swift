@@ -101,7 +101,7 @@ public struct DetailSnapshot: Equatable, Sendable {
     public var closedText: String?
     /// The step answers drafted here, by path (memory only, in the model).
     public var answerDrafts: [String: AnswerDraft] = [:]
-    /// What Send answers (⌘S) would send now; none while the ask is closed.
+    /// What ⌘S would send now (locked steps left out); none while the ask is closed.
     public var unsent: UnsentAnswers = .none
     /// The answers send in flight, or its failure.
     public var answerState: AnswerSendState?
@@ -118,7 +118,8 @@ public struct DetailSnapshot: Equatable, Sendable {
         let choices = item.instructable?.reply?.choices ?? []
         let latest = ReplyText.latestSentChoice(events: events, choices: choices)
         let isOpen = item.status == "open"
-        let unsent = isOpen ? AnswerDrafts.unsent(answerDrafts, nodes: nodes) : .none
+        let locked = Set(Flow.lockedPaths(nodes: nodes, ticks: ticks))
+        let unsent = isOpen ? AnswerDrafts.unsent(answerDrafts, nodes: nodes, locked: locked) : .none
         let answered = model.map { Set(Flow.flattened($0.nodes).compactMap { $0.answer?.step }) }
         return DetailSnapshot(
             id: item.id,

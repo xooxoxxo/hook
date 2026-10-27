@@ -252,4 +252,40 @@ private func answer(_ path: String) -> Answer { Answer(step: path, picked: ["EU"
         #expect(Flow.lockedPaths(nodes: sub, ticks: []) == ["1.3", "2", "verify"])
         #expect(Flow.lockedPaths(nodes: sub, ticks: ["1.2"]) == [])
     }
+
+    @Test func theLockLineNamesTheBlockingStep() {
+        #expect(Flow.lockText(nodes: simple, ticks: []) == "Finish step 2 first")
+        #expect(Flow.lockText(nodes: simple, ticks: ["2"]) == nil)
+        let sub = DetailModel.nodes(
+            steps: [Step(action: "Set up", substeps: [Step(action: "a", blocking: true), Step(action: "b")])], verify: nil)
+        #expect(Flow.lockText(nodes: sub, ticks: []) == "Finish step 1a first")
+    }
+
+    @Test func theWarningFallsBackToTheDefaultLine() {
+        let nodes = DetailModel.nodes(
+            steps: [Step(action: "a", blocking: true), Step(action: "b", blocking: true, warning: "Wait for DNS"),
+                    Step(action: "c", warning: "careful")],
+            verify: nil)
+        #expect(Flow.warningText(nodes[0]) == Flow.blockingWarning)
+        #expect(Flow.warningText(nodes[1]) == "Wait for DNS")
+        #expect(Flow.warningText(nodes[2]) == nil)        // a warning without blocking draws no box
+    }
+
+    @Test func aLockedStepIsNeverToggled() {
+        let locked = Set(Flow.lockedPaths(nodes: simple, ticks: []))
+        #expect(Flow.toggle(simple[2], ticks: [], locked: locked) == [])
+        #expect(Flow.toggle(simple[1], ticks: [], locked: locked) == ["2"])
+        let sub = DetailModel.nodes(
+            steps: [Step(action: "Set up", substeps: [Step(action: "a", blocking: true), Step(action: "b")])], verify: nil)
+        let subLocked = Set(Flow.lockedPaths(nodes: sub, ticks: []))
+        // The parent ticks only its open sub-steps; the one after the blocking sub-step stays.
+        #expect(Flow.toggle(sub[0], ticks: [], locked: subLocked) == ["1.1"])
+    }
+
+    @Test func tickCurrentTicksTheBlockingStepAndUnlocksWhatFollows() {
+        let first = Flow.tickCurrent(ticks: ["1"], nodes: simple)
+        #expect(first.path == "2")
+        #expect(Flow.lockedPaths(nodes: simple, ticks: first.ticks) == [])
+        #expect(Flow.currentStep(ticks: first.ticks, nodes: simple) == "3")
+    }
 }

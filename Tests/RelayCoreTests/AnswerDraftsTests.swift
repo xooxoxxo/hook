@@ -119,4 +119,21 @@ private func tree(_ answers: [String: Answer] = [:]) -> [DetailModel.Node] {
         #expect(QueueLayout.summary(for: item, ticked: ["2.1", "1"], answered: ["1", "2", "9"]) == .steps(done: 3, total: 5))
         #expect(QueueLayout.summary(for: item, ticked: [], answered: []) == .steps(done: 0, total: 5))
     }
+
+    @Test func lockedAndOnlyNarrowTheBatch() {
+        let drafts: [String: AnswerDraft] = ["1": .picked(["Staging"]), "2": .picked(["Search"]), "2.2": .text("v2")]
+        #expect(AnswerDrafts.unsent(drafts, nodes: tree(), locked: ["2.2"]).paths == ["1", "2"])
+        #expect(AnswerDrafts.unsent(drafts, nodes: tree(), only: ["2"]).paths == ["2"])
+        #expect(AnswerDrafts.unsent(drafts, nodes: tree(), locked: ["2"], only: ["2"]) == .none)
+    }
+
+    @Test func pickingAnOption() {
+        let single = Question(prompt: "Which?", choices: ["Staging", "Prod"])
+        #expect(AnswerDrafts.pick(1, in: single, picks: ["Staging"]) == .picked(["Prod"]))
+        let multi = Question(prompt: "Which?", choices: ["A", "B", "C"], multi: true)
+        #expect(AnswerDrafts.pick(2, in: multi, picks: ["B"]) == .picked(["B", "C"]))
+        #expect(AnswerDrafts.pick(0, in: multi, picks: ["C", "A"]) == .picked(["C"]))   // flips off, choice order
+        #expect(AnswerDrafts.pick(5, in: multi, picks: []) == nil)
+        #expect(AnswerDrafts.pick(0, in: Question(prompt: "Name?"), picks: []) == nil)
+    }
 }

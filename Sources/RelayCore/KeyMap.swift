@@ -33,7 +33,7 @@ public struct KeyContext: Equatable, Sendable {
     public var askHasProject: Bool
     public var choiceCount: Int
     public var hasDraftOrPick: Bool
-    /// Detail: step answers are drafted and not sent (⌘S sends them; ⌘↩ is Send & Done).
+    /// Detail: step answers are drafted and not sent (⌘S sends them; ⌘↩ sends them, then closes).
     public var hasUnsentAnswers: Bool
 
     public init(mode: Mode, textFieldFocused: Bool = false, popoverOpen: Bool = false, undoAvailable: Bool = false,

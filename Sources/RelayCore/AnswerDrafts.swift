@@ -63,11 +63,15 @@ public enum AnswerDrafts {
     }
 
     /// The batch to send: every question node (document order) whose draft is unsent.
-    public static func unsent(_ drafts: [String: AnswerDraft], nodes: [DetailModel.Node]) -> UnsentAnswers {
+    /// `locked` paths (Flow.lockedPaths) are never sent; `only`, when given, limits the
+    /// batch to those paths (one question's own Send).
+    public static func unsent(_ drafts: [String: AnswerDraft], nodes: [DetailModel.Node], locked: Set<String> = [],
+                              only: Set<String>? = nil) -> UnsentAnswers {
         guard !drafts.isEmpty else { return .none }
         var result = UnsentAnswers()
         for node in Flow.flattened(nodes) {
-            guard let question = node.question, let draft = drafts[node.path],
+            guard !locked.contains(node.path), only?.contains(node.path) ?? true,
+                  let question = node.question, let draft = drafts[node.path],
                   isUnsent(draft, question: question, answer: node.answer),
                   let ready = sendable(draft, question: question) else { continue }
             result.paths.append(node.path)
@@ -105,6 +109,19 @@ public enum AnswerDrafts {
         case 1: return "1 question unanswered"
         default: return "\(count) questions unanswered"
         }
+    }
+
+    /// The draft after the owner picks option `index` (an option row, click or key): a
+    /// single pick replaces the pick; a multi pick flips that choice, the picks kept in choice
+    /// order. nil for a free-text question or an index out of range.
+    public static func pick(_ index: Int, in question: Question, picks: [String]) -> AnswerDraft? {
+        let options = question.options
+        guard !question.isFreeText, options.indices.contains(index) else { return nil }
+        let choice = options[index]
+        guard question.allowsMany else { return .picked([choice]) }
+        var set = Set(picks)
+        if set.contains(choice) { set.remove(choice) } else { set.insert(choice) }
+        return .picked(options.filter(set.contains))
     }
 
     /// "Send 1 answer", "Send 2 answers".

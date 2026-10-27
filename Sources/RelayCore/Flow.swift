@@ -91,7 +91,8 @@ public enum Flow {
     /// only an answer completes).
     public static func tickCurrent(ticks: Set<String>, nodes: [DetailModel.Node]) -> (ticks: Set<String>, path: String?) {
         guard let current = currentStep(ticks: ticks, nodes: nodes),
-              tickable(nodes).contains(where: { $0.path == current }) else { return (ticks, nil) }
+              tickable(nodes).contains(where: { $0.path == current }),
+              !lockedPaths(nodes: nodes, ticks: ticks).contains(current) else { return (ticks, nil) }
         return (ticks.union([current]), current)
     }
 
@@ -134,6 +135,32 @@ extension Flow {
         guard let index = order.firstIndex(where: { $0.path == last }) else { return [] }
         return order[(index + 1)...].map(\.path)
     }
+
+    /// A locked row's line: "Finish step 3 first", naming the blocking step or sub-step
+    /// ("3a") that holds it back; nil when nothing is locked.
+    public static func lockText(nodes: [DetailModel.Node], ticks: Set<String>) -> String? {
+        firstOpenBlock(nodes: nodes, ticks: ticks).map { "Finish step \($0.label) first" }
+    }
+
+    /// The warning box's text when the step's own `warning` is missing.
+    public static let blockingWarning = "Finish this before going on: the next steps depend on it."
+
+    /// The warning box on a blocking node: its `warning`, else `blockingWarning`; nil when
+    /// the node doesn't block.
+    public static func warningText(_ node: DetailModel.Node) -> String? {
+        node.isVerify ? nil : node.content.warningText
+    }
+
+    /// `toggle`, but a locked node is never ticked or unticked: a locked leaf (or parent) is
+    /// left as it is, and a parent's toggle leaves out its locked sub-steps.
+    public static func toggle(_ node: DetailModel.Node, ticks: Set<String>, locked: Set<String>) -> Set<String> {
+        guard !locked.contains(node.path) else { return ticks }
+        guard node.isParent else { return toggle(node, ticks: ticks) }
+        var open = node
+        open.children = node.children.filter { !locked.contains($0.path) }
+        guard !open.children.isEmpty else { return ticks }
+        return toggle(open, ticks: ticks)
+    }
 }
 
 extension Flow {
@@ -146,8 +173,8 @@ extension Flow {
         return nil
     }
 
-    /// "Send & Done" while step answers are unsent, the reply field has text, or a picked
-    /// choice isn't the latest sent one.
+    /// `.sendAndDone` (Done that sends first) while step answers are unsent, the reply field
+    /// has text, or a picked choice isn't the latest sent one.
     public static func primaryAction(draft: String?, choice: Int?, sent: Int?, unsentAnswers: Int = 0) -> PrimaryAction {
         if unsentAnswers > 0 { return .sendAndDone }
         if let draft, !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return .sendAndDone }

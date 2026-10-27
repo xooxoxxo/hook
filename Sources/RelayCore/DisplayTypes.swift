@@ -124,6 +124,10 @@ public struct StepContent: Equatable, Sendable {
         self.blocking = blocking
         self.warning = warning
     }
+
+    /// The warning box's text on a blocking step: `warning`, else `Flow.blockingWarning`;
+    /// nil when the step doesn't block.
+    public var warningText: String? { blocking ? (warning ?? Flow.blockingWarning) : nil }
 }
 
 public enum StatusSymbol: Equatable, Sendable { case ok, down, connecting, notSetUp, away }
@@ -131,13 +135,18 @@ public enum StatusSymbol: Equatable, Sendable { case ok, down, connecting, notSe
 public enum NoticeKind: Equatable, Sendable { case error, info }
 
 /// The detail's prominent button.
+/// The bar's one prominent button. Both read "Done": `.sendAndDone` sends what is unsent
+/// first (step answers, then the reply), and the bar says so in its caption.
 public enum PrimaryAction: Equatable, Sendable {
     case done, sendAndDone
 
-    public var title: String {
+    public var title: String { "Done" }
+
+    /// The bar caption while Done would send first; nil for a plain Done.
+    public var caption: String? {
         switch self {
-        case .done: return "Done"
-        case .sendAndDone: return "Send & Done"
+        case .done: return nil
+        case .sendAndDone: return "Done sends your answer first"
         }
     }
 }
