@@ -145,6 +145,25 @@ private let nodes = DetailModel.nodes(
         #expect(!Flow.needsScroll(nodeTop: -40, visibleBottom: 764))
     }
 
+    @Test func visibleBottomUsesTheMeasuredBarHeight() {
+        // Not measured yet: the designed 56 pt, the old behaviour.
+        #expect(Flow.visibleBottom(viewportHeight: 820, barHeight: 0, fallback: 56) == 764)
+        // Divider + 56.
+        #expect(Flow.visibleBottom(viewportHeight: 820, barHeight: 57, fallback: 56) == 763)
+        // The unanswered caption wrapped onto its own line, or the undo bar shows.
+        #expect(Flow.visibleBottom(viewportHeight: 820, barHeight: 92, fallback: 56) == 728)
+    }
+
+    @Test func aStepBehindATallerBarNeedsScroll() {
+        let top: CGFloat = 740
+        let unmeasured = Flow.visibleBottom(viewportHeight: 820, barHeight: 0, fallback: 56)
+        let measured = Flow.visibleBottom(viewportHeight: 820, barHeight: 92, fallback: 56)
+        #expect(!Flow.needsScroll(nodeTop: top, visibleBottom: unmeasured))
+        #expect(Flow.needsScroll(nodeTop: top, visibleBottom: measured))
+        let frames = ["1": CGRect(x: 0, y: top, width: 348, height: 60)]
+        #expect(Flow.visible(frames: frames, top: 44, bottom: measured).isEmpty)
+    }
+
     @Test func unscrolledAskAnchorsOnTheTitleNotStepOne() {
         let frames: [String: CGRect] = [
             "title": CGRect(x: 0, y: 60, width: 348, height: 160),

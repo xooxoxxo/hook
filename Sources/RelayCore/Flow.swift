@@ -141,6 +141,13 @@ extension Flow {
         nodeTop >= visibleBottom
     }
 
+    /// The bottom edge of the visible band: the viewport minus the pinned bottom bars.
+    /// `barHeight` is their measured height; 0 or less means not measured yet, so the
+    /// designed height `fallback` applies.
+    public static func visibleBottom(viewportHeight: CGFloat, barHeight: CGFloat, fallback: CGFloat) -> CGFloat {
+        viewportHeight - (barHeight > 0 ? barHeight : fallback)
+    }
+
     /// The paths whose frame (in the scroll view's coordinates) overlaps the band from
     /// `top` (below the header) to `bottom` (above the bars).
     public static func visible(frames: [String: CGRect], top: CGFloat, bottom: CGFloat) -> Set<String> {

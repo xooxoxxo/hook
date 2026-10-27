@@ -13,6 +13,8 @@ struct DetailView<Model: PanelViewModel>: View {
     @FocusState private var replyFocused: Bool
     @State private var nodeFrames: [String: CGRect] = [:]
     @State private var viewportHeight: CGFloat = 0
+    /// The measured height of the bottom bars (undo bar + action bar); 0 until measured.
+    @State private var barHeight: CGFloat = 0
     /// False until restoreAnchor has issued its scroll: frame reports before that must not
     /// overwrite the saved anchor, whichever of onAppear and onPreferenceChange runs first.
     @State private var restored = false
@@ -83,7 +85,7 @@ struct DetailView<Model: PanelViewModel>: View {
                 IconButton(DS.Symbol.back, label: "Back to the queue", help: "Back to the queue (Esc)") { model.back() }
                 Spacer()
                 // Esc goes back in detail, so Hide names ⌘W: one key never has two meanings.
-                IconButton(DS.Symbol.hide, label: "Hide Relay", help: DetailHeaderBar.hideHelp) { model.shell.hide() }
+                IconButton(DS.Symbol.hide, label: "Hide Hook", help: DetailHeaderBar.hideHelp) { model.shell.hide() }
             }
             StateView(.notFound(canShowClosed: Self.isRecentlyClosed(id, in: model.queue)),
                       actions: PanelStateMapping.actions(model, closedID: id))
@@ -126,9 +128,12 @@ struct DetailView<Model: PanelViewModel>: View {
         }
     }
 
-    /// The visible band of the ScrollView: below the pinned header, above the action bar.
+    /// The visible band of the ScrollView: below the pinned header, above the bottom bars
+    /// as measured (the designed action bar height until they are).
     private var visibleTop: CGFloat { DS.Metric.header }
-    private var visibleBottom: CGFloat { viewportHeight - DS.Metric.actionBar }
+    private var visibleBottom: CGFloat {
+        Flow.visibleBottom(viewportHeight: viewportHeight, barHeight: barHeight, fallback: DS.Metric.actionBar)
+    }
 
     /// Saves the top visible node as this ask's anchor (memory only); writes only on change,
     /// so scrolling doesn't republish the model every frame. The title block comes first in
@@ -330,6 +335,13 @@ struct DetailView<Model: PanelViewModel>: View {
                       onSendAnswers: { model.sendAnswers(id) })
         }
         .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: model.undoInfo)
+        // The bars grow past DS.Metric.actionBar (a wrapped caption, the undo bar), so the
+        // visible band is measured, the same way the viewport is.
+        .background(GeometryReader { geometry in
+            Color.clear
+                .onAppear { barHeight = geometry.size.height }
+                .onChange(of: geometry.size.height) { _, height in barHeight = height }
+        })
     }
 
     private func primary(_ snapshot: DetailSnapshot) {
