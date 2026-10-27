@@ -185,6 +185,37 @@ private func promptCommands(_ object: [String: Any]) -> [String] {
         #expect(Date().timeIntervalSince(start) < 10)
     }
 
+    /// bash 3.2 runs `sleep` as a child (no exec of the last command), so stopping only the
+    /// shell would leave sleep holding the pipe. The whole group is stopped instead.
+    @Test func aTimeoutStopsWhatTheShellStarted() async throws {
+        let start = Date()
+        let outcome = await LoginShell.run("sleep 20 & echo $!; wait; true", shell: "/bin/bash", timeout: 0.5)
+        #expect(outcome.timedOut && !outcome.ok)
+        #expect(Date().timeIntervalSince(start) < 5)
+        let sleeper = try #require(pid_t(outcome.output))
+        var gone = false
+        for _ in 0..<40 where !gone {
+            gone = kill(sleeper, 0) == -1 && errno == ESRCH
+            if !gone { try await Task.sleep(nanoseconds: 50_000_000) }
+        }
+        #expect(gone)
+    }
+
+    @Test func aChainedCommandUnderBashTimesOut() async {
+        let start = Date()
+        let outcome = await LoginShell.run("sleep 20; true", shell: "/bin/bash", timeout: 0.5)
+        #expect(outcome.timedOut && !outcome.ok)
+        #expect(Date().timeIntervalSince(start) < 5)
+    }
+
+    /// Something left behind that keeps the pipe open doesn't hold the result back.
+    @Test func aLeftoverHoldingThePipeDoesntBlock() async {
+        let start = Date()
+        let outcome = await LoginShell.run("(sleep 20 &); echo x", shell: "/bin/sh", timeout: 0.5)
+        #expect(outcome.ok && outcome.output == "x")
+        #expect(Date().timeIntervalSince(start) < 5)
+    }
+
     @Test func aMissingShellFails() async {
         let outcome = await LoginShell.run("true", shell: "/nonexistent/shell", timeout: 5)
         #expect(!outcome.ok && outcome.status == -1)
