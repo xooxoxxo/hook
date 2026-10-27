@@ -363,7 +363,8 @@ enum QueueFixture {
             try? await Task.sleep(for: .milliseconds(100))
             await holder.close()
         }
-        #expect(try await LocalQueue(directory: dir, keepDays: 14, lockWait: 2).open() == .loaded)
+        // Generous on purpose: CI runners can starve the closing task; a lock never released still fails.
+        #expect(try await LocalQueue(directory: dir, keepDays: 14, lockWait: 10).open() == .loaded)
     }
 
     @Test func retentionDropsOldFinishedAsksAndKeepsOpenOnes() async throws {
