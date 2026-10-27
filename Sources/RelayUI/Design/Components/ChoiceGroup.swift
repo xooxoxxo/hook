@@ -12,10 +12,12 @@ public struct ChoiceGroup: View {
     let latestSent: Int?
     let sending: Bool
     let showHeading: Bool
+    /// While changing a sent reply: Cancel, left of Send.
+    let onCancel: (() -> Void)?
     let onSend: () -> Void
 
     public init(prompt: String, choices: [String], picked: Binding<Int?>, sent: Set<Int>, latestSent: Int?,
-                sending: Bool, showHeading: Bool = true, onSend: @escaping () -> Void) {
+                sending: Bool, showHeading: Bool = true, onCancel: (() -> Void)? = nil, onSend: @escaping () -> Void) {
         self.prompt = prompt
         self.choices = choices
         self.picked = picked
@@ -23,6 +25,7 @@ public struct ChoiceGroup: View {
         self.latestSent = latestSent
         self.sending = sending
         self.showHeading = showHeading
+        self.onCancel = onCancel
         self.onSend = onSend
     }
 
@@ -50,6 +53,7 @@ public struct ChoiceGroup: View {
                 if sending {
                     ProgressView().controlSize(DS.Control.inline).accessibilityLabel("Sending")
                 } else {
+                    if let onCancel { Button("Cancel", action: onCancel).help("Keep the reply you sent") }
                     Button("Send", action: onSend)
                         .disabled(!Self.canSend(picked: picked.wrappedValue, latestSent: latestSent, sending: sending))
                 }

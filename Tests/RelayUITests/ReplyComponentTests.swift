@@ -45,4 +45,13 @@ import Testing
         let partial = try #require(AskOrigin(from: Origin(host: "example-mac")))
         #expect(FromDisclosure.rows(partial).map(\.label) == ["Host"])
     }
+
+    @Test func answeredRowAndHistoryWording() {
+        #expect(AnsweredRow.accessibilityText(text: "You replied: Europe", time: "09:20") == "You replied: Europe, 09:20")
+        #expect(AnsweredRow.accessibilityText(text: "You chose: Prod", time: "") == "You chose: Prod")
+        #expect(DetailReply<FixturePanelModel>.historyTitle(earlier: 1) == "History · 1 earlier reply")
+        #expect(DetailReply<FixturePanelModel>.historyTitle(earlier: 3) == "History · 3 earlier replies")
+        #expect(!ReplyBox.canSend(text: "Kestrel 2.4", state: .idle, sentText: "Kestrel 2.4"))
+        #expect(ReplyBox.canSend(text: "Kestrel 2.5", state: .idle, sentText: "Kestrel 2.4"))
+    }
 }

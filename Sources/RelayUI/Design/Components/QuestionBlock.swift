@@ -12,15 +12,33 @@ public struct StepQuestion {
     public var onSend: () -> Void
     /// An answers send for this ask is in flight.
     public var sending: Bool
+    /// The owner pressed Change on the sent answer (memory only, in the model).
+    public var editing: Bool
+    /// The answer's local time, "09:12".
+    public var time: String
+    public var onChange: () -> Void
+    public var onCancel: () -> Void
 
     public init(question: Question, answer: Answer?, draft: Binding<AnswerDraft?>, readOnly: Bool,
-                sending: Bool = false, onSend: @escaping () -> Void = {}) {
+                sending: Bool = false, editing: Bool = false, time: String = "",
+                onSend: @escaping () -> Void = {}, onChange: @escaping () -> Void = {},
+                onCancel: @escaping () -> Void = {}) {
         self.question = question
         self.answer = answer
         self.draft = draft
         self.readOnly = readOnly
         self.sending = sending
+        self.editing = editing
+        self.time = time
         self.onSend = onSend
+        self.onChange = onChange
+        self.onCancel = onCancel
+    }
+
+    /// Only the answered row and Change: sent, nothing unsent, not being changed.
+    var showsAnswer: Bool {
+        AnswerEditing.showsStepAnswer(question: question, answer: answer, draft: draft.wrappedValue,
+                                      editing: editing, readOnly: readOnly)
     }
 
     /// The draft if there is one, else the sent answer: what a control starts from.
@@ -40,7 +58,9 @@ public struct StepQuestion {
 /// Design/QuestionBlock: a step's question under its text and above its sub-steps.
 /// The prompt, then the control (OptionRows for a pick, single or multi, or a text field),
 /// then the answered line or "Not sent", and the block's own Send (Return sends in the
-/// field). Read-only: the answered line, or "Not answered", and no control.
+/// field). Once answered (nothing unsent, not being changed): the prompt on one line and
+/// the answered row with Change; Change brings the control back with Cancel beside Send.
+/// Read-only: the answered line, or "Not answered", and no control.
 public struct QuestionBlock: View {
     let model: StepQuestion
 
@@ -51,6 +71,28 @@ public struct QuestionBlock: View {
     private var question: Question { model.question }
 
     public var body: some View {
+        if model.showsAnswer, let answer = model.answer {
+            answered(answer)
+        } else {
+            asking
+        }
+    }
+
+    private func answered(_ answer: Answer) -> some View {
+        VStack(alignment: .leading, spacing: DS.Space.stepPart) {
+            Text(verbatim: line(question.prompt))
+                .font(DS.Font.body)
+                .foregroundStyle(DS.Color.secondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .help(line(question.prompt))
+            AnsweredRow(text: AnswerDrafts.answeredText(answer), time: model.time, prominent: false,
+                        onChange: model.onChange)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var asking: some View {
         VStack(alignment: .leading, spacing: DS.Space.inline) {
             Text(verbatim: prose(question.prompt))
                 .font(DS.Font.body)
@@ -76,23 +118,41 @@ public struct QuestionBlock: View {
         }
     }
 
-    /// The status on the left, Send on the right (not on a closed ask).
+    /// The status on the left, Send on the right (not on a closed ask). While changing a sent
+    /// answer the status takes its own line, and Cancel sits left of Send.
     @ViewBuilder private var footer: some View {
         if model.readOnly {
             statusLine
+        } else if model.editing {
+            VStack(alignment: .leading, spacing: DS.Space.stepPart) {
+                statusLine
+                HStack(spacing: DS.Space.inline) {
+                    Spacer(minLength: DS.Space.inline)
+                    if !model.sending {
+                        Button("Cancel", action: model.onCancel)
+                            .controlSize(DS.Control.form)
+                            .help("Keep the answer you sent")
+                    }
+                    sendButton
+                }
+            }
         } else {
             HStack(alignment: .firstTextBaseline, spacing: DS.Space.inline) {
                 statusLine
                 Spacer(minLength: DS.Space.inline)
-                if model.sending {
-                    ProgressView().controlSize(DS.Control.inline).accessibilityLabel("Sending")
-                } else {
-                    Button("Send", action: model.onSend)
-                        .controlSize(DS.Control.form)
-                        .disabled(!model.canSend)
-                        .help(question.isFreeText ? "Send this answer (Return)" : "Send this answer")
-                }
+                sendButton
             }
+        }
+    }
+
+    @ViewBuilder private var sendButton: some View {
+        if model.sending {
+            ProgressView().controlSize(DS.Control.inline).accessibilityLabel("Sending")
+        } else {
+            Button("Send", action: model.onSend)
+                .controlSize(DS.Control.form)
+                .disabled(!model.canSend)
+                .help(question.isFreeText ? "Send this answer (Return)" : "Send this answer")
         }
     }
 

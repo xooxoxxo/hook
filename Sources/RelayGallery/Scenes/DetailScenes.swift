@@ -117,7 +117,8 @@ let topColumnRules: [AlignmentRule] = [
     .sameLeading(.topActionText, tolerance: 1),
 ]
 
-let fullHeight = PanelGalleryOverrides(now: GalleryFixtures.now, fromExpanded: true, fullHeight: true)
+let fullHeight = PanelGalleryOverrides(now: GalleryFixtures.now, fromExpanded: true, fullHeight: true,
+                                       locale: galleryGB, timeZone: galleryUTC)
 
 /// `base` with every leaf before `path` ticked, so `path` is the current leaf.
 func ticked(_ base: DetailSnapshot, before path: String) -> DetailSnapshot {

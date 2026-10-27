@@ -16,11 +16,16 @@ private let releaseName = Question(prompt: "What should the release be called?\n
 private let shipToday = Question(prompt: "Ship it today?", choices: ["Yes", "No"])
 
 private func answersItem(_ id: String, _ title: String, steps: [Step], status: String = "open",
-                         completedAt: String? = nil) -> WireItem {
+                         completedAt: String? = nil, reply: ReplySpec? = nil) -> WireItem {
     WireItem(id: id, title: title, status: status, projectId: "Kestrel", created: answersCreated, updated: answersCreated,
              payload: Payload(why: nil, cmd: nil, link: nil,
-                              instructable: Instructable(v: 1, title: title, urgency: "today", steps: steps)),
+                              instructable: Instructable(v: 1, title: title, urgency: "today", steps: steps, reply: reply)),
              completedAt: completedAt)
+}
+
+/// One owner reply event; a choice travels as "choice: X".
+private func replyEvent(_ id: String, seq: Int, _ text: String, at: String) -> Event {
+    Event(seq: seq, itemId: id, kind: "reply", actor: "owner", text: text, at: at)
 }
 
 /// One owner `answer` event, as the mailbox stores it (R2).
@@ -32,10 +37,13 @@ private func answerEvent(_ id: String, seq: Int, _ entry: JSONValue) -> Event {
 /// A detail scene for `item` with `events`, the drafts in both the snapshot and the model.
 @MainActor private func answersScene(_ name: String, _ item: WireItem, events: [Event] = [], ticks: Set<String> = [],
                                      drafts: [String: AnswerDraft] = [:], closedText: String? = nil,
-                                     height: CGFloat? = nil) -> GalleryScene {
+                                     height: CGFloat? = nil, expanded: Set<String> = [], editing: Set<String> = [],
+                                     setUp: (FixturePanelModel, String) -> Void = { _, _ in },
+                                     overrides: PanelGalleryOverrides = fullHeight) -> GalleryScene {
     var snapshot = DetailSnapshot.build(
         item: item, detail: AskDetail(item: item, events: events), ticks: ticks, load: .loaded, reply: .idle,
         draft: nil, pendingChoice: nil, busy: false, previous: .end, next: .end, closedBy: nil, answerDrafts: drafts)
+    snapshot.replies = ReplyText.lines(events: events, locale: galleryGB, timeZone: galleryUTC)
     if let closedText {
         snapshot.closedText = closedText
     }
@@ -44,8 +52,11 @@ private func answerEvent(_ id: String, seq: Int, _ entry: JSONValue) -> Event {
         details: [snapshot.id: snapshot],
         navigation: PanelNavigation(listSelection: snapshot.id, selectedID: snapshot.id), status: readyStatus)
     if !drafts.isEmpty { model.answerDrafts[snapshot.id] = drafts }
+    if !expanded.isEmpty { model.expandedDone[snapshot.id] = expanded }
+    if !editing.isEmpty { model.editingAnswers[snapshot.id] = editing }
+    setUp(model, snapshot.id)
     return panelScene(name, model, height: height, rules: topColumnRules,
-                      overrides: height == nil ? fullHeight : PanelGalleryOverrides(now: GalleryFixtures.now))
+                      overrides: height == nil ? overrides : PanelGalleryOverrides(now: GalleryFixtures.now))
 }
 
 /// A segmented pick nobody has answered: the current step, no segment selected.
@@ -122,6 +133,58 @@ private func answerEvent(_ id: String, seq: Int, _ entry: JSONValue) -> Event {
     return answersScene("answers-closed", item, events: events, closedText: closedText)
 }
 
+/// The radio pick answered and its done row opened: the prompt on one line, "You chose: … ·
+/// 09:12" and Change.
+@MainActor private var answeredScene: GalleryScene {
+    let item = answersItem("kestrel-q8", "Choose the backup region", steps: [
+        Step(action: "Pick the backup region", question: region),
+        Step(action: "Turn on the nightly backup", url: "https://console.example.com/backups"),
+    ])
+    let events = [answerEvent(item.id, seq: 1, Answers.entry(step: "1", picked: ["Europe (Frankfurt)"]))]
+    return answersScene("answers-answered", item, events: events, expanded: ["1"])
+}
+
+/// The same after Change, with another region picked: the rows, Cancel and Send.
+@MainActor private var changingScene: GalleryScene {
+    let item = answersItem("kestrel-q9", "Choose the backup region", steps: [
+        Step(action: "Pick the backup region", question: region),
+        Step(action: "Turn on the nightly backup", url: "https://console.example.com/backups"),
+    ])
+    let events = [answerEvent(item.id, seq: 1, Answers.entry(step: "1", picked: ["Europe (Frankfurt)"]))]
+    return answersScene("answers-changing", item, events: events, drafts: ["1": .picked(["Asia Pacific (Singapore)"])],
+                        expanded: ["1"], editing: ["1"])
+}
+
+private let regionReply = ReplySpec(prompt: "Which region should the backups use from now on?",
+                                    choices: ["Europe", "North America", "Asia Pacific"])
+
+/// Three replies to an ask with choices: the latest as the answer row with Change, the two
+/// earlier ones under History (open).
+@MainActor private var replyAnsweredScene: GalleryScene {
+    let item = answersItem("kestrel-r1", "Choose the backup region", steps: [
+        Step(action: "Read the backup cost sheet", url: "https://console.example.com/costs"),
+    ], reply: regionReply)
+    let events = [
+        replyEvent(item.id, seq: 1, ReplyText.wire(choice: "Europe"), at: "2026-10-16T08:50:00+00:00"),
+        replyEvent(item.id, seq: 2, "Hold off until the cost sheet is updated", at: "2026-10-16T09:05:00+00:00"),
+        replyEvent(item.id, seq: 3, ReplyText.wire(choice: "North America"), at: "2026-10-16T09:20:00+00:00"),
+    ]
+    var overrides = fullHeight
+    overrides.historyExpanded = true
+    return answersScene("reply-answered", item, events: events, ticks: ["1"], overrides: overrides)
+}
+
+/// A free-text reply after Change: the field holds the sent text (Send stays off until it
+/// changes), the note and Cancel under it.
+@MainActor private var replyChangingScene: GalleryScene {
+    let item = answersItem("kestrel-r2", "Name the Kestrel release", steps: [
+        Step(action: "Read the release notes", url: "https://downloads.example.com/kestrel/notes"),
+    ], reply: ReplySpec(prompt: "What should the release be called?"))
+    let events = [replyEvent(item.id, seq: 1, "Kestrel 2.4", at: "2026-10-16T09:20:00+00:00")]
+    return answersScene("reply-changing", item, events: events, ticks: ["1"], setUp: { model, id in model.changeReply(id) })
+}
+
 @MainActor var answerScenes: [GalleryScene] {
-    [segmentedScene, radioScene, multiScene, textScene, parentScene, barScene, closedScene]
+    [segmentedScene, radioScene, multiScene, textScene, parentScene, barScene, closedScene,
+     answeredScene, changingScene, replyAnsweredScene, replyChangingScene]
 }

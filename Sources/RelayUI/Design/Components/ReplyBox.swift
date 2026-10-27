@@ -11,16 +11,23 @@ public struct ReplyBox: View {
     let state: ReplyBoxState
     let showHeading: Bool
     let isFocused: FocusState<Bool>.Binding
+    /// The latest sent text (a Change prefill): sending it again is off.
+    let sentText: String?
+    /// While changing a sent reply: Cancel, left of Send.
+    let onCancel: (() -> Void)?
     let onSend: () -> Void
     let onRetry: () -> Void
 
     public init(prompt: String, text: Binding<String>, state: ReplyBoxState, showHeading: Bool = true,
-                isFocused: FocusState<Bool>.Binding, onSend: @escaping () -> Void, onRetry: @escaping () -> Void) {
+                isFocused: FocusState<Bool>.Binding, sentText: String? = nil, onCancel: (() -> Void)? = nil,
+                onSend: @escaping () -> Void, onRetry: @escaping () -> Void) {
         self.prompt = prompt
         self.text = text
         self.state = state
         self.showHeading = showHeading
         self.isFocused = isFocused
+        self.sentText = sentText
+        self.onCancel = onCancel
         self.onSend = onSend
         self.onRetry = onRetry
     }
@@ -44,16 +51,16 @@ public struct ReplyBox: View {
                 .textFieldStyle(.roundedBorder)
                 .labelsHidden()
                 .focused(isFocused)
-                .onSubmit { if Self.canSend(text: text.wrappedValue, state: state) { onSend() } }
+                .onSubmit { if Self.canSend(text: text.wrappedValue, state: state, sentText: sentText) { onSend() } }
                 .accessibilityLabel(line(prompt))
             HStack(alignment: .firstTextBaseline, spacing: DS.Space.inline) {
                 statusLine
                 Spacer(minLength: DS.Space.inline)
+                if let onCancel, state != .sending {
+                    Button("Cancel", action: onCancel).help("Keep the reply you sent")
+                }
                 trailingButton
             }
-        }
-        .onChange(of: state) { _, new in
-            if case .sent = new { AccessibilityNotification.Announcement("Sent").post() }
         }
     }
 
@@ -86,7 +93,7 @@ public struct ReplyBox: View {
             .disabled(true)
         case .idle, .sent:
             Button("Send", action: onSend)
-                .disabled(!Self.canSend(text: text.wrappedValue, state: state))
+                .disabled(!Self.canSend(text: text.wrappedValue, state: state, sentText: sentText))
                 .help("Send (Return)")
         }
     }
@@ -100,8 +107,8 @@ public struct ReplyBox: View {
         }
     }
 
-    /// Non-blank text, and no send already in flight.
-    public static func canSend(text: String, state: ReplyBoxState) -> Bool {
-        state != .sending && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    /// Non-blank text other than the latest sent text, and no send already in flight.
+    public static func canSend(text: String, state: ReplyBoxState, sentText: String? = nil) -> Bool {
+        state != .sending && AnswerEditing.isNewText(text, sentText: sentText)
     }
 }

@@ -14,6 +14,9 @@ and versions follow Semantic Versioning.
   any installed terminal among iTerm2, Ghostty, kitty, WezTerm, Warp and Alacritty. Ghostty 1.3
   and later is driven by AppleScript, so it asks once for Automation permission; without it,
   Hook opens a new Ghostty instance instead.
+- A sent reply folds to "You replied: … · time" with Change, which brings the question back
+  with the last reply filled in; earlier replies sit under History. A sent step answer folds the
+  same way, with Cancel beside Send while you change it. Nothing about editing is stored.
 
 ## [0.8.0] - 2026-10-27
 

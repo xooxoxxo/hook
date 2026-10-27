@@ -73,10 +73,23 @@ struct DetailView<Model: PanelViewModel>: View {
                     if focuses { replyFocused = true }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .relayFocusReply)) { _ in
-                    if model.detail(id)?.model?.reply != nil { replyFocused = true }
+                    focusReply()
                 }
         } else {
             notFound
+        }
+    }
+
+    /// ⌘L: an answered reply opens for Change first, then its field takes focus.
+    private func focusReply() {
+        guard let snapshot = model.detail(id), snapshot.model?.reply != nil else { return }
+        if snapshot.closedText == nil,
+           AnswerEditing.showsReplyAnswer(replies: snapshot.replies, editing: model.editingReply.contains(id),
+                                          draft: model.drafts[id], pick: model.pendingChoice[id]) {
+            model.changeReply(id)
+            DispatchQueue.main.async { replyFocused = true }
+        } else {
+            replyFocused = true
         }
     }
 
@@ -252,8 +265,10 @@ struct DetailView<Model: PanelViewModel>: View {
         }
     }
 
+    /// An ask that takes a reply shows its replies in the Reply section (the answer row and
+    /// History); this list is for replies to an ask without one.
     @ViewBuilder private func repliesSection(_ snapshot: DetailSnapshot) -> some View {
-        if !snapshot.replies.isEmpty {
+        if !snapshot.replies.isEmpty, snapshot.model?.reply == nil {
             VStack(alignment: .leading, spacing: DS.Space.inline) {
                 Text("Your replies")
                     .font(DS.Font.heading)

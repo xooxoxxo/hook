@@ -11,6 +11,7 @@ struct DetailSteps<Model: PanelViewModel>: View {
     let nodes: [DetailModel.Node]
     let readOnly: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.panelGallery) private var gallery
 
     init(model: Model, snapshot: DetailSnapshot, nodes: [DetailModel.Node], readOnly: Bool) {
         _model = ObservedObject(wrappedValue: model)
@@ -151,7 +152,12 @@ struct DetailSteps<Model: PanelViewModel>: View {
             })
         return StepQuestion(question: question, answer: node.answer, draft: draft, readOnly: readOnly,
                             sending: snapshot.answerState == .sending,
-                            onSend: { model.sendAnswer(id, path: path) })
+                            editing: model.editingAnswers[id]?.contains(path) ?? false,
+                            time: node.answer.map { ClockText.time($0.at, locale: gallery.locale ?? .current,
+                                                                   timeZone: gallery.timeZone ?? .current) } ?? "",
+                            onSend: { model.sendAnswer(id, path: path) },
+                            onChange: { model.changeAnswer(id, path: path) },
+                            onCancel: { model.cancelAnswerChange(id, path: path) })
     }
 
     /// A row's hand-opened state, by path: a done row's in `model.expandedDone[id]`, an
