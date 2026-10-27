@@ -3,6 +3,136 @@
 All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## [0.9.1] - 2026-10-27
+
+### Added
+- Optional steps: a step or sub-step with `optional: true` says "Optional" on its row, and you
+  can tick it done without doing it. An optional question keeps its tick, so you can mark it done
+  without answering (⌘T ticks it too); it isn't counted in "N questions unanswered" and never
+  holds a blocking step back. Mailbox protocol level 4 adds the key; a step can't be both optional
+  and blocking. An optional step makes its sub-steps optional too: ticking it finishes the whole
+  step, and none of its sub-steps may be blocking.
+- File links: a step or sub-step may carry `file`, and a link may carry `path` instead of `url`:
+  an absolute local path (`/…` or `~/…`) to a document to read. Hook keeps them in the step and
+  link model; mailbox protocol level 4 adds them with `optional`.
+- File rows: a step's `file` and a link's `path` show as a row with the file's icon, name and
+  folder, **Open**, and a ⋯ menu with Open With (default app first, then Other…), Reveal in
+  Finder and Copy Path. A file from an ask sent on another Mac shows "On <Mac>" with Copy Path
+  only; a missing one shows "File not found" once you press Open. Hook touches a file only when
+  you press a button.
+- A built-in document viewer: Open shows `.md` and `.markdown` rendered, and `.txt` in
+  monospace, in a small window titled with the file name (⌘F find, ⌘G next, ⌘W close), with a
+  stylesheet from Hook's own colours in light and dark. It renders with vendored marked 18.0.14
+  and DOMPurify 3.4.16 (see THIRD_PARTY_NOTICES.md) and never goes online: page scripts are off,
+  every load but the page and images from the document's folder is blocked, web links open in
+  the browser, and a link to another Markdown or text file in the folder opens it in the viewer.
+  Hook.app grows by about 0.5 MB.
+- Settings › General › Documents › **Open documents in**: Hook's viewer (the default), the
+  file's default app, or an app you choose (config.json `openDocumentsIn`).
+- A step's `detail` renders inline Markdown (bold, italic, code, web links) and keeps its line
+  breaks. Links other than http(s) stay plain text.
+- Writers can set `optional`, `file` and a link's `path`: the instructable schema, the
+  `relay post` and `relay_post` descriptions, the skill and the format docs describe them. The
+  skill asks for a Markdown file instead of a whole document pasted into an ask.
+- Hook checks your mailbox's protocol level (`GET /version`; a mailbox without it is level 1)
+  when it connects, when you switch mailboxes and at most every 30 minutes. A mailbox older than
+  Hook gets a Notice naming what won't work ("per-step answers", "blocking steps", "optional
+  steps", "file links"), with Update Mailbox… and How to update; a newer one gets "Hook is older
+  than your mailbox" with Check for Updates. Settings › Queue › Connection shows the mailbox's
+  version and level, ✓ or "Needs an update", and Check.
+- Update Mailbox…, in the menu-bar menu next to Check for Updates… and in the Notice: runs
+  `mailboxUpdateCommand` (Settings › Queue › Mailbox › Update command) in a new window of your
+  Resume terminal through your login shell, then reads the mailbox's version again when the
+  command ends. Without a command it opens the update guide; a command that can't be run (a line
+  break or a control character) gets its own Notice.
+- Before Hook updates itself, it reads the release's `<!-- hook:mailbox-protocol=N -->` marker:
+  when the connected mailbox is below level N, the dialog says so and offers Update Mailbox First,
+  Update Hook Anyway and Cancel. When the mailbox can't be checked, the dialog says so and still
+  lets you update. This Mac mode always passes.
+- `relay post` and `relay_post` read the mailbox's level (cached for 5 minutes) before posting an
+  instructable with `question` (level 2), `blocking` / `warning` (level 3) or `optional`, `file`
+  or a link's `path` (level 4), and refuse with
+  "This mailbox speaks protocol M; `<key>` needs N." when the mailbox reports a lower level
+  ("Hook speaks protocol M…" in This Mac mode). A mailbox without `/version` gets the post as
+  before and validates it.
+- Writers can set `blocking` and `warning` on steps: the instructable schema, the `relay post`
+  and `relay_post` descriptions, the skill and the format docs describe them. `warning` may span
+  lines.
+- This Mac mode's local API answers `GET /version` with the app's own level.
+
+### Security
+- File rows open only documents, by the exact type identifier the click reads from the file:
+  Markdown, plain text, CSV, JSON, log (`public.log` and `com.apple.log`), YAML, PDF, PNG, JPEG,
+  HEIC, GIF, TIFF, MP3, MPEG-4 audio (`.m4a` too, as `com.apple.m4a-audio`) and video, QuickTime,
+  and the Office and iWork types below. A type that only
+  conforms to text, an image or a spreadsheet is refused: RTF, SVG, `.ics`, `.vcf`, `.odp`,
+  `.xlw`, `.xltx` and `.potx` among them. Apps, scripts, installers, disk images, folders,
+  packages, HTML and XML, and location files (`.webloc`, `.inetloc`, `.fileloc`) show "Hook
+  doesn't open this kind of file" with only Reveal in Finder and Copy Path. The rule is the same
+  for Hook's viewer, the default app, a chosen app and Open With, which lists apps only for
+  documents.
+- Showing a file row never touches the file: no stat, attributes or icon from the path (the
+  icon comes from the extension). Pressing a button checks the file first, off the main thread.
+  Paths are made canonical before they show, and network paths (`/net`, `/Network`, `/home`,
+  also behind `/private`, `/var/automount` or `/System/Volumes/Data`, stacked or not) and hidden roots (`/.vol`, `/.nofollow`) are
+  never opened, even from an ask posted before the validator refused them, and neither is a path
+  whose first folder name isn't plain ASCII. A click walks the path by descriptors: it opens `/`,
+  then each folder relative to the one before without following a link (a link is read and its
+  target walked, one hop at a time), and opens the file the same way. Before it touches a step, the
+  kernel mount table must show no network or non-local mount there (an SMB, NFS, autofs or macFUSE
+  mount stops it, even one marked local), and every folder and the file must be on a local file
+  system (APFS, HFS+, FAT, exFAT, or `/dev`). A pipe or device is never opened, and a file Hook
+  can't read says "File not found".
+- The validator refuses a `file` or link `path` with a `.` or `..` segment, one whose first
+  folder starts with `.` (such as `/.vol` or `/.nofollow`), or one under `/net`, `/Network` or
+  `/home` in any case, also behind `//`, `/private`, `/var/automount`, `/private/var/automount`
+  or `/System/Volumes/Data`, however those prefixes are stacked (`/private/private/net/…` too),
+  and one whose first folder name isn't plain ASCII (case folding turns `/ſystem` or a Kelvin
+  sign into an ASCII name on disk).
+- Office files open only from an explicit list: Word, Excel and PowerPoint documents and shows
+  (`.doc`, `.docx`, `.xls`, `.xlsx`, `.ppt`, `.pptx`, `.pps`, `.ppsx`) and Pages, Numbers and
+  Keynote. Macro-enabled files, add-ins (`.xla`, `.xll`, `.xlam`, `.ppam`), binary workbooks
+  (`.xlsb`) and templates (`.dotm`, `.xlt`, `.pot`) are refused.
+- A file with any execute bit set is refused at the click, whatever its name. Terminal, iTerm2,
+  Ghostty, kitty, WezTerm, Warp, Alacritty, Hyper, Tabby, Rio, Wave, Contour, cool-retro-term,
+  Script Editor, Automator and Python Launcher are left out of Open With and can't be chosen under
+  Open documents in, and so is any app Script Editor or Automator saved (a bundle id under
+  `com.apple.ScriptEditor.id.` or `com.apple.automator.`, or an `applet`, `droplet`,
+  `Application Stub` or `Automator Application Stub` executable).
+- Every route opens the file the click checked, never the path again: Open, the default app, a
+  chosen app, Open With and Other… take the resolved file, and the viewer renders the bytes it
+  read from the descriptor the check opened, as does a link to another document in the viewer.
+  The file's type comes from its canonical name.
+- Opening never falls back to something the check didn't choose. When the viewer's read fails
+  for any reason but the size, Hook beeps and opens nothing. Every app route names its app: the
+  default app comes from the type the check read from the file, is refused when it is a terminal
+  or script runner, and gets the file directly (never a bare system open). Right before anything
+  opens, Hook checks the path still names the checked file (same device and inode, no symlink
+  anywhere in it); a file swapped after the click is refused. See SECURITY.md for the one gap
+  left: another app is handed a path.
+- The viewer's images go through the same check and read as a document (local disks, no
+  execute bit, the exact list), and only PNG, JPEG, GIF and HEIC load: SVG and WebP don't. An
+  image's first bytes must match its type (the PNG, JPEG or GIF signature, or an HEIC `ftyp`
+  box with a `heic`, `heix`, `mif1` or `msf1` brand), so WebP or another format renamed `.png`
+  doesn't load.
+- The viewer's images and links to other documents are checked before anything is touched: the
+  decoded path may not have an empty, `.` or `..` segment, and must stay inside the document's
+  folder and off the network; only then is it resolved, one step at a time, with the same rules
+  as a file row.
+- From a mailbox, an ask that doesn't name its host counts as from another machine: its file
+  rows offer only Copy Path. In This Mac mode it counts as here.
+- A link in a step's detail shows its full address as a tooltip; only http(s) links are
+  clickable.
+
+### Fixed
+
+- The menu-bar icon no longer disappears behind the notch after an update or restart. macOS put
+  an icon with no saved position at the far left of a crowded menu bar; Hook now starts it near
+  the right, and a spot you ⌘-drag it to still wins.
+- Opening the This Mac queue no longer reads "locked" for a lock that is only held for a moment:
+  a process Hook (or anything in it) spawns shares the lock file until it starts, so the queue's
+  open now tries the lock again for up to half a second before it says Hook is already running.
+
 ## [0.9.0] - 2026-10-27
 
 ### Added
