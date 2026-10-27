@@ -48,7 +48,7 @@ public struct PanelStatus: Equatable, Sendable {
             return PanelStatus(symbol: .connecting, text: "Sending \(n) \(n == 1 ? "close" : "closes")…", detail: .none)
         }
         let local = inputs.sourceKey == SourceKey.local
-        let name = local ? "This Mac" : "Mailbox"
+        let name = local ? "This Mac" : "Pond"
         var status: PanelStatus
         if inputs.sourceKey == SourceKey.none {
             status = PanelStatus(symbol: .notSetUp, text: "Not set up", detail: .notSetUp)
@@ -89,7 +89,7 @@ public enum ConnectionStatus {
         let local = sourceKey == SourceKey.local
         if reachable { return ConnectionLine(text: (local ? "Ready" : "Connected") + " · \(waiting) waiting", ok: true) }
         guard let problem else { return ConnectionLine(text: "Connecting…", ok: false) }
-        let prefix = local ? "This Mac isn't ready: " : "Can't reach the mailbox: "
+        let prefix = local ? "This Mac isn't ready: " : "Can't reach the Pond: "
         return ConnectionLine(text: prefix + UserFacingError.text(problem), ok: false)
     }
 }
@@ -99,7 +99,7 @@ public enum MenuStatusLine {
     public static func text(sourceKey: String, reachable: Bool, updated: String?) -> String {
         if sourceKey == SourceKey.none { return "No queue set up" }
         if sourceKey == SourceKey.local { return reachable ? "This Mac · ready" : "This Mac · not ready" }
-        guard reachable else { return "Mailbox · offline" }
-        return "Mailbox · ready" + (updated.map { " · updated " + $0 } ?? "")
+        guard reachable else { return "Pond · offline" }
+        return "Pond · ready" + (updated.map { " · updated " + $0 } ?? "")
     }
 }

@@ -146,7 +146,7 @@ class ConfigTests(Base):
                     {"mailboxURL": "https://mailbox.example"}):
             with self.assertRaises(rc.ConfigMissing) as ctx:
                 rc.resolve_source(cfg)
-            self.assertEqual(str(ctx.exception), "mailbox needs an http(s) mailboxURL and a tokenFile")
+            self.assertEqual(str(ctx.exception), 'the Pond (source "mailbox") needs an http(s) mailboxURL and a tokenFile')
 
     def test_wrong_types_fall_back_and_bad_port_fails(self):
         src = rc.resolve_source({"source": 5, "mailboxURL": "HTTPS://mailbox.example", "tokenFile": "t",
@@ -307,8 +307,8 @@ class LaunchTests(Base):
 class ProtocolCheckTests(Base):
     """GET /version before posting a key that needs protocol 2 or 3."""
 
-    MESSAGE = ("This mailbox speaks protocol {m}; `{key}` needs {n}. "
-               "Ask the owner to update the mailbox (Hook \u203a Update Mailbox\u2026).")
+    MESSAGE = ("This Pond speaks protocol {m}; `{key}` needs {n}. "
+               "Ask the owner to update the Pond (Hook \u203a Update Pond\u2026).")
 
     def setUp(self):
         super().setUp()
@@ -555,7 +555,7 @@ class MailboxTests(Base):
         self.http.refuse = -1
         with self.assertRaises(rc.Unreachable) as ctx:
             self.mailbox(self.http).list()
-        self.assertIn("mailbox unreachable: https://mailbox.example", str(ctx.exception))
+        self.assertIn("Pond unreachable: https://mailbox.example", str(ctx.exception))
         self.assertNotIn(MAILBOX_TOKEN, str(ctx.exception))
 
     def test_unreadable_token(self):

@@ -3,7 +3,7 @@
 Reads ~/.config/relay/config.json (or $RELAY_CONFIG) and talks to either source:
 - local: Hook.app on 127.0.0.1:<port>. Every token-bearing call first checks the
   server proof on GET /health, so the token only ever goes to Hook itself.
-- mailbox: the mailbox service at mailboxURL.
+- mailbox: the Pond (the server formerly called the mailbox) at mailboxURL.
 Tokens are read from disk on every call and never printed or logged.
 Standard library only; runs on Python 3.9+.
 """
@@ -30,7 +30,7 @@ DEFAULT_CONFIG = "~/.config/relay/config.json"
 DEFAULT_PORT = 47823
 DEFAULT_CONTEXT = "personal"
 NO_CONFIG = "No Hook config; run scripts/install.sh"
-MAILBOX_PROBLEM = "mailbox needs an http(s) mailboxURL and a tokenFile"
+MAILBOX_PROBLEM = 'the Pond (source "mailbox") needs an http(s) mailboxURL and a tokenFile'
 NOT_THIS_MAC = "Hook is running but not in This Mac mode."
 NOT_RUNNING = "Hook isn't running"
 NO_APP = "Hook.app not found; run scripts/install.sh"
@@ -89,8 +89,8 @@ class ProtocolTooOld(Refused):
             message = (f"Hook speaks protocol {level}; `{key}` needs {needs}. "
                        "Update Hook (Check for Updates…).")
         else:
-            message = (f"This mailbox speaks protocol {level}; `{key}` needs {needs}. "
-                       "Ask the owner to update the mailbox (Hook › Update Mailbox…).")
+            message = (f"This Pond speaks protocol {level}; `{key}` needs {needs}. "
+                       "Ask the owner to update the Pond (Hook › Update Pond…).")
         super().__init__(0, message)
         self.level, self.key, self.needs, self.local = level, key, needs, local
 
@@ -433,7 +433,7 @@ class Client:
             return self._with_launch(self._verify_server)[1]
         status, obj = self._transport("GET", "/health")
         if not isinstance(obj, dict):
-            raise Unreachable(f"mailbox at {self.base} answered HTTP {status} with a non-JSON body")
+            raise Unreachable(f"Pond at {self.base} answered HTTP {status} with a non-JSON body")
         return obj
 
     def protocol_level(self) -> Optional[int]:
@@ -578,13 +578,13 @@ class Client:
         except OSError:
             token = ""
         if not token:
-            raise ConfigMissing(f"mailbox token unreadable at {path}")
+            raise ConfigMissing(f"Pond token file unreadable at {path}")
         return token
 
     def _unreachable(self, reason: Any) -> Unreachable:
         if self.local:
             return Unreachable(f"Hook isn't reachable on 127.0.0.1:{self.source['port']}: {reason}")
-        return Unreachable(f"mailbox unreachable: {self.base}: {reason}")
+        return Unreachable(f"Pond unreachable: {self.base}: {reason}")
 
     def _transport(self, method: str, path: str, *, body: Optional[Dict[str, Any]] = None,
                    headers: Optional[Dict[str, str]] = None, auth: Optional[str] = None) -> Tuple[int, Any]:

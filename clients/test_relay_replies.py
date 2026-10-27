@@ -343,7 +343,7 @@ class HookFailureTest(unittest.TestCase):
         (self.dir / "mailbox-token").write_text("mailbox-example\n")
         self.cfg.write_text(json.dumps({"mailboxURL": f"http://127.0.0.1:{self.closed_port()}",
                                         "tokenFile": str(self.dir / "mailbox-token")}))
-        self.assertIn("mailbox unreachable", self.hook(self.session_stdin()))
+        self.assertIn("Pond unreachable", self.hook(self.session_stdin()))
 
     def test_no_config(self):
         self.hook(self.session_stdin())

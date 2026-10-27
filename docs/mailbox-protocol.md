@@ -1,6 +1,6 @@
-# Mailbox protocol
+# Pond protocol
 
-What Hook sends to a mailbox service you run, and what it reads back. Hook includes no mailbox server.
+What Hook sends to your Pond (formerly called the mailbox), the small server you run that holds asks while you're away, and what it reads back. Hook includes no Pond server. The names in the protocol itself stay as they were: the `"service": "mailbox"` answer, the `mailboxURL` and `mailboxUpdateCommand` config keys and the `hook:mailbox-protocol` release marker.
 
 The app polls every `pollSeconds`; the CLI and MCP server use the same routes.
 
@@ -23,26 +23,26 @@ Every request carries `Authorization: Bearer <content of tokenFile>`. Bodies are
 
 ## Protocol levels
 
-`GET /version` names the mailbox's protocol level in `protocol`. It is authenticated like every other route. Hook 0.9.1 uses level 4.
+`GET /version` names the Pond's protocol level in `protocol`. It is authenticated like every other route. Hook 0.9.1 uses level 4.
 
 | Level | Adds |
 |---|---|
-| 1 | asks, events, resolve, reply, reopen (a mailbox without `/version`) |
+| 1 | asks, events, resolve, reply, reopen (a Pond without `/version`) |
 | 2 | step `question` and `POST /asks/{id}/answers` (Hook 0.7) |
 | 3 | the `blocking` and `warning` step keys (Hook 0.9) |
 | 4 | the `optional` step key, and file links: the `file` step key and a link's `path` (Hook 0.9.1) |
 
-A mailbox that adds a level answers the higher number; one that doesn't change the protocol keeps its level whatever its own `version` says. In This Mac mode the app answers `GET /version` itself with its own level ([Local API](local-api.md)).
+A Pond that adds a level answers the higher number; one that doesn't change the protocol keeps its level whatever its own `version` says. In This Mac mode the app answers `GET /version` itself with its own level ([Local API](local-api.md)).
 
 How each side reads an answer it can't use:
 
 | `GET /version` answers | The app | The CLI and MCP server |
 |---|---|---|
 | 200 with an integer `protocol` of 1 or more | that level | that level |
-| 404 (no such route) | level 1: an older mailbox, so the Notice and the update check apply | unknown: post as before and let the mailbox validate |
+| 404 (no such route) | level 1: an older Pond, so the Notice and the update check apply | unknown: post as before and let the Pond validate |
 | 200 without such a `protocol` | a failed check: no Notice, and Settings shows "Couldn't check" | unknown: post as before |
 
-The CLI and MCP server refuse an instructable only when the mailbox reports a level below what one of its keys needs.
+The CLI and MCP server refuse an instructable only when the Pond reports a level below what one of its keys needs.
 
 ## What the service should do
 
@@ -53,20 +53,22 @@ The CLI and MCP server refuse an instructable only when the mailbox reports a le
 - **Answers.** Answer 404 for an unknown ask, then 409 `{"error": "ask is closed"}` unless the ask is open, then 400 `{"error": "invalid answers", "details": [...]}` when an answer doesn't fit its step's question. Otherwise add one `answer` event per answer (actor `owner`) in one transaction and leave the ask open. A later answer for the same step replaces the earlier one: the latest event wins, and the earlier ones stay in the log.
 - **Epoch.** Optional string. Change it when the event sequence restarts, so `relay replies` resets its cursors.
 
-## Updating the mailbox
+<a id="updating-the-mailbox"></a>
 
-**What Hook checks.** The app reads `GET /version` when it connects to the mailbox, when you switch to another one, and then at most every 30 minutes while it is reachable. Settings › Queue › Connection shows the mailbox's version and level, then ✓ or "Needs an update", with **Check** to read it again.
+## Updating the Pond
 
-- **Older than Hook** (a level below Hook's): the panel says which features won't work ("per-step answers", "blocking steps", "optional steps", "file links") until the mailbox is updated, with **Update Mailbox…** and **How to update** (this section).
+**What Hook checks.** The app reads `GET /version` when it connects to the Pond, when you switch to another one, and then at most every 30 minutes while it is reachable. Settings › Queue › Connection shows the Pond's version and level, then ✓ or "Needs an update", with **Check** to read it again.
+
+- **Older than Hook** (a level below Hook's): the panel says which features won't work ("per-step answers", "blocking steps", "optional steps", "file links") until the Pond is updated, with **Update Pond…** and **How to update** (this section).
 - **Newer than Hook** (a level Hook doesn't know): the panel says Hook is older, with **Check for Updates**.
-- **Before Hook updates itself.** A release's notes carry a hidden `<!-- hook:mailbox-protocol=N -->` marker: the level that release needs. When the connected mailbox is below it, the update dialog says "Hook X needs mailbox level N; yours is M." and offers **Update Mailbox First**, **Update Hook Anyway** and **Cancel**. When that check fails, the dialog says "Hook couldn't check your mailbox" and still offers **Update Hook Anyway**. This Mac mode always passes.
+- **Before Hook updates itself.** A release's notes carry a hidden `<!-- hook:mailbox-protocol=N -->` marker: the level that release needs. When the connected Pond is below it, the update dialog says "Hook X needs Pond level N; yours is M." and offers **Update Pond First**, **Update Hook Anyway** and **Cancel**. When that check fails, the dialog says "Hook couldn't check your Pond" and still offers **Update Hook Anyway**. This Mac mode always passes.
 
-**Update Mailbox…** sits in the menu-bar menu next to Check for Updates… and in the panel's Notice. It runs the command in Settings › Queue › Mailbox › Update command (`mailboxUpdateCommand` in [config.json](configuration.md)) in a new window of your Resume terminal, through your login shell, so you see its output and answer any ssh or sudo prompt there. When the command ends, the window waits for Return and Hook reads the version again. Without a command, Update Mailbox… opens this section.
+**Update Pond…** sits in the menu-bar menu next to Check for Updates… and in the panel's Notice. It runs the command in Settings › Queue › Pond › Update command (`mailboxUpdateCommand` in [config.json](configuration.md)) in a new window of your Resume terminal, through your login shell, so you see its output and answer any ssh or sudo prompt there. When the command ends, the window waits for Return and Hook reads the version again. Without a command, Update Pond… opens this section.
 
-The command is yours: whatever pulls the new mailbox and restarts it. For example, a mailbox run with Docker Compose on another machine:
+The command is yours: whatever pulls the new Pond and restarts it. For example, a Pond run with Docker Compose on another machine:
 
 ```
-ssh mailbox-host 'cd /srv/mailbox && git pull && docker compose up -d --build'
+ssh pond-host 'cd /srv/pond && git pull && docker compose up -d --build'
 ```
 
 ## Responses

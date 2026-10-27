@@ -56,7 +56,7 @@ public struct QueueSnapshot: Equatable, Sendable {
             hidden: QueueLayout.hiddenCount(items: open, filter: filter),
             projects: QueueLayout.menuProjects(items: open, filter: filter),
             manualRefreshing: manualRefreshing, updated: updated,
-            sourceName: sourceKey == SourceKey.local ? "This Mac" : "Mailbox")
+            sourceName: sourceKey == SourceKey.local ? "This Mac" : "Pond")
     }
 
     /// One row; a non-open item gets its ClosedInfo, with `closedBy` the closing actor when known.

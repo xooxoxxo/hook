@@ -13,7 +13,7 @@ enum PanelStateMapping {
         case .notSetUp:
             return .notSetUp
         case .offline(let local, let reason):
-            return .offline(title: local ? "This Mac isn't ready" : "Can't reach the mailbox",
+            return .offline(title: local ? "This Mac isn't ready" : "Can't reach the Pond",
                             reason: UserFacingError.text(reason))
         case .empty:
             return .empty(updated: updated)

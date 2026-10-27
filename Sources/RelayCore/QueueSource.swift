@@ -76,7 +76,7 @@ public enum QueueError: Error, Sendable, Equatable, LocalizedError {
         case .unreachable(let reason):
             return reason
         case .unauthorized:
-            return "The mailbox rejected the token (check the token file)"
+            return "The Pond rejected the token (check the token file)"
         case .notFound:
             return "not found"
         case .rejected(_, let error, let details):

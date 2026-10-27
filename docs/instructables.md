@@ -63,7 +63,7 @@ A **Question** is a JSON object with these keys:
 | `choices` | 0–6 distinct strings of ≤ 60, one line each; none or `[]` asks for free text |
 | `multi` | `true` allows several picks and needs at least 2 choices |
 
-The owner answers questions one step at a time and can send some answers before the rest. The ask stays open until Done or Skip, and Done is allowed with questions unanswered. An `optional` question can also be ticked done without an answer. Each answer is an `answer` event (see [Mailbox protocol](mailbox-protocol.md)).
+The owner answers questions one step at a time and can send some answers before the rest. The ask stays open until Done or Skip, and Done is allowed with questions unanswered. An `optional` question can also be ticked done without an answer. Each answer is an `answer` event (see [Pond protocol](mailbox-protocol.md)).
 
 `project` is required: one line, at most 60 characters.
 
@@ -77,7 +77,7 @@ The owner answers questions one step at a time and can send some answers before 
 - `blocking`, `warning` and `optional` are refused on `verify`, like `question`.
 - `optional` must be `true` or `false` (`null` counts as absent), and a step can't be both optional and blocking: `steps[0].optional: can't be optional and blocking`. A sub-step of an optional step can't be blocking either: `steps[0].substeps[1].blocking: can't be blocking inside an optional step`.
 - `file` and a link's `path` must be absolute: `steps[0].file: must be an absolute path`. A link needs exactly one of `url` and `path`: `links[0]: needs url or path, not both`. `file` is refused on `verify`.
-- Protocol level: `question` needs a mailbox or app speaking protocol 2, `blocking` and `warning` need 3, `optional`, `file` and a link's `path` need 4. `relay post` and `relay_post` ask `GET /version` first (cached for 5 minutes per process) and refuse before posting when the reported level is too low: "This mailbox speaks protocol M; `blocking` needs 3. Ask the owner to update the mailbox (Hook › Update Mailbox…)." In This Mac mode the app is the server, so the refusal is "Hook speaks protocol M; `blocking` needs 3. Update Hook (Check for Updates…)." A mailbox without `/version`, or one whose answer has no integer `protocol`, is unknown: the instructable is posted and the mailbox validates it. An instructable without these keys posts with no extra call.
+- Protocol level: `question` needs a Pond or app speaking protocol 2, `blocking` and `warning` need 3, `optional`, `file` and a link's `path` need 4. `relay post` and `relay_post` ask `GET /version` first (cached for 5 minutes per process) and refuse before posting when the reported level is too low: "This Pond speaks protocol M; `blocking` needs 3. Ask the owner to update the Pond (Hook › Update Pond…)." In This Mac mode the app is the server, so the refusal is "Hook speaks protocol M; `blocking` needs 3. Update Hook (Check for Updates…)." A Pond without `/version`, or one whose answer has no integer `protocol`, is unknown: the instructable is posted and the Pond validates it. An instructable without these keys posts with no extra call.
 - A step's errors come in this order: its text keys (`do`, `where`, `code`, `lang`, `expect`, `detail`), `url`, `file`, `blocking`, `optional`, `warning`, `question`, `substeps`.
 - Errors name field paths only (`steps[2].url: must be http(s)`), never values.
 - The JSON Schema is [`schema/instructable.v1.json`](../schema/instructable.v1.json).

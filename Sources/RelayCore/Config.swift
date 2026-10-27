@@ -113,7 +113,7 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
     public static let defaultContext = "personal"
     /// The `terminal` value that means Terminal.
     public static let automaticTerminal = "automatic"
-    static let mailboxProblem = "mailbox needs an http(s) mailboxURL and a tokenFile"
+    static let mailboxProblem = "the Pond (source \"mailbox\") needs an http(s) mailboxURL and a tokenFile"
 
     public var source: SourceKind?
     public var mailboxURL: String?

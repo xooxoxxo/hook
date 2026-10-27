@@ -3,7 +3,7 @@ import Testing
 @testable import RelayUI
 
 @Suite struct PanelStateMappingTests {
-    private func kind(_ content: PanelContent, source: String = "Mailbox") -> StateKind? {
+    private func kind(_ content: PanelContent, source: String = "Pond") -> StateKind? {
         PanelStateMapping.kind(content, sourceName: source, updated: "09:40")
     }
 
@@ -12,7 +12,7 @@ import Testing
     }
 
     @Test func loadingNamesTheSourceAndLaterKeepsTrying() {
-        #expect(kind(.loading(stillTrying: false)) == .loading(source: "Mailbox", stillTrying: false))
+        #expect(kind(.loading(stillTrying: false)) == .loading(source: "Pond", stillTrying: false))
         #expect(kind(.loading(stillTrying: true), source: "This Mac") == .loading(source: "This Mac", stillTrying: true))
     }
 
@@ -27,11 +27,11 @@ import Testing
     }
 
     @Test func offlineTitlesPerSourceAndASanitizedReason() {
-        #expect(kind(.offline(local: false, reason: "timed out")) == .offline(title: "Can't reach the mailbox", reason: "timed out"))
+        #expect(kind(.offline(local: false, reason: "timed out")) == .offline(title: "Can't reach the Pond", reason: "timed out"))
         #expect(kind(.offline(local: true, reason: "Port 47823 is in use by another app"))
                 == .offline(title: "This Mac isn't ready", reason: "Port 47823 is in use by another app"))
         #expect(kind(.offline(local: false, reason: "line one\nline two"))
-                == .offline(title: "Can't reach the mailbox", reason: "line one⟨U+000A⟩line two"))
+                == .offline(title: "Can't reach the Pond", reason: "line one⟨U+000A⟩line two"))
     }
 
     @Test func notSetUp() {

@@ -274,7 +274,7 @@ private func makeClient(
     }
 
     @Test func errorDescriptionsCarryNoSecrets() {
-        #expect(QueueError.unauthorized.localizedDescription == "The mailbox rejected the token (check the token file)")
+        #expect(QueueError.unauthorized.localizedDescription == "The Pond rejected the token (check the token file)")
         #expect(QueueError.storeFailed("disk full").localizedDescription == "Couldn't save the queue: disk full")
         #expect(QueueError.rejected(status: 400, error: "invalid project", details: ["project: required"])
             .localizedDescription == "invalid project: project: required")

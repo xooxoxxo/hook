@@ -311,7 +311,7 @@ extension AppModel: SettingsViewModel {
     static func chooseTokenFile() -> String? {
         let panel = NSOpenPanel()
         panel.title = "Choose the token file"
-        panel.message = "Hook reads this file only to talk to the mailbox and never shows what it holds."
+        panel.message = "Hook reads this file only to talk to the Pond and never shows what it holds."
         panel.prompt = "Choose"
         panel.canChooseFiles = true
         panel.canChooseDirectories = false

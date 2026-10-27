@@ -3,6 +3,24 @@
 All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## [Unreleased]
+
+### Changed
+- The mailbox is now called the Pond: the server you run that holds asks while you're away.
+  Settings › Queue, Set Up Hook, the menu-bar menu (**Update Pond…**), the panel's notices and
+  status bar, the update dialog, the `relay` CLI and MCP server messages, the skill and the docs
+  all say Pond. What stays: the config keys (`source: "mailbox"`, `mailboxURL`, `tokenFile`,
+  `mailboxUpdateCommand`), the `/health` `"source": "mailbox"` and `/version`
+  `"service": "mailbox"` values, `install.sh --mailbox` and its `mailbox-url` / `mailbox-token`
+  files, the `hook:mailbox-protocol=N` release-notes marker, and `docs/mailbox-protocol.md`
+  (now titled "Pond protocol"; its `#updating-the-mailbox` link still works), so existing
+  configs, servers and links keep working unchanged.
+
+### Fixed
+- A two-button notice no longer gets clipped: a Notice always takes the height of its whole
+  text and buttons, also with larger text, and the list starts below it. Its text is no longer
+  cut at three lines.
+
 ## [0.9.1] - 2026-10-27
 
 ### Added

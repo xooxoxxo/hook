@@ -151,7 +151,7 @@ private func check(level: Int?, key: String = key, at date: Date = t0) -> Mailbo
         #expect(UpdatePreflight.firstButtonUpdatesHook(decision))
         let prompt = UpdatePreflight.prompt(version: "0.9.1", decision: decision)
         #expect(prompt.message == "Update Hook to 0.9.1?")
-        #expect(prompt.informative.hasPrefix("Hook couldn't check your mailbox"))
+        #expect(prompt.informative.hasPrefix("Hook couldn't check your Pond"))
         #expect(prompt.informative.contains("level 3"))
         #expect(prompt.buttons == ["Update Hook Anyway", "Cancel"])
         // Without a marker, or in This Mac mode, a failed check changes nothing.
@@ -185,9 +185,9 @@ private func check(level: Int?, key: String = key, at date: Date = t0) -> Mailbo
     @Test func theBehindPromptNamesBothLevelsAndOffersTheMailboxFirst() {
         let prompt = UpdatePreflight.prompt(version: "0.9.1", decision: .mailboxBehind(required: 3, current: 2))
         #expect(prompt.message == "Update Hook to 0.9.1?")
-        #expect(prompt.informative.hasPrefix("Hook 0.9.1 needs mailbox level 3; yours is 2."))
+        #expect(prompt.informative.hasPrefix("Hook 0.9.1 needs Pond level 3; yours is 2."))
         #expect(prompt.informative.contains("blocking steps won't work"))
-        #expect(prompt.buttons == ["Update Mailbox First", "Update Hook Anyway", "Cancel"])
+        #expect(prompt.buttons == ["Update Pond First", "Update Hook Anyway", "Cancel"])
     }
 
     @Test func theUsualPromptIsUnchanged() {
@@ -201,30 +201,30 @@ private func check(level: Int?, key: String = key, at date: Date = t0) -> Mailbo
 @Suite struct MailboxNoticeTests {
     @Test func olderNamesWhatWontWorkWithTwoButtons() {
         let notice = PanelNotice.mailboxOlder(missing: [.blocking])
-        #expect(notice.text == "Your mailbox is older than Hook: blocking steps won't work until it is updated.")
+        #expect(notice.text == "Your Pond is older than Hook: blocking steps won't work until it is updated.")
         #expect(notice.kind == .error)
-        #expect(notice.actionTitle == "Update Mailbox…")
+        #expect(notice.actionTitle == "Update Pond…")
         #expect(notice.secondaryActionTitle == "How to update")
         #expect(notice.help != nil)
         #expect(notice.showsOnQueue)
     }
 
     @Test func newerOffersCheckForUpdates() {
-        #expect(PanelNotice.mailboxNewer.text.hasPrefix("Hook is older than your mailbox"))
+        #expect(PanelNotice.mailboxNewer.text.hasPrefix("Hook is older than your Pond"))
         #expect(PanelNotice.mailboxNewer.actionTitle == "Check for Updates")
         #expect(PanelNotice.mailboxNewer.secondaryActionTitle == nil)
         #expect(PanelNotice.mailboxNewer.kind == .info)
     }
 
     @Test func afterTheUpdate() {
-        #expect(PanelNotice.mailboxUpToDate(level: 3).text == "Your mailbox is up to date (protocol level 3).")
+        #expect(PanelNotice.mailboxUpToDate(level: 3).text == "Your Pond is up to date (protocol level 3).")
         #expect(PanelNotice.mailboxUpdateFailed(reason: "Ghostty isn't installed.").kind == .error)
         #expect(PanelNotice.mailboxUpdateFailed(reason: "x").actionTitle == nil)
     }
 
     @Test func aCommandThatCantRunGetsItsOwnNotice() {
         let notice = PanelNotice.mailboxUpdateCommandInvalid(reason: "it has a line break")
-        #expect(notice.text == "The mailbox update command in Settings can't be run: it has a line break.")
+        #expect(notice.text == "The Pond update command in Settings can't be run: it has a line break.")
         #expect(!notice.text.contains("terminal"))
         #expect(notice.kind == .error)
         #expect(notice.actionTitle == nil)
@@ -257,7 +257,7 @@ private func check(level: Int?, key: String = key, at date: Date = t0) -> Mailbo
         }
         let withMailbox = titles(mailbox: true)
         let index = try? #require(withMailbox.firstIndex(of: "Check for Updates…"))
-        #expect(index.map { withMailbox[$0 + 1] } == "Update Mailbox…")
-        #expect(!titles(mailbox: false).contains("Update Mailbox…"))
+        #expect(index.map { withMailbox[$0 + 1] } == "Update Pond…")
+        #expect(!titles(mailbox: false).contains("Update Pond…"))
     }
 }

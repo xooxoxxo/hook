@@ -7,4 +7,4 @@ Common problems and their fixes.
 - **`relay_post` is missing in Claude Code.** Run `claude mcp list` and look for `relay`. If it isn't there, rerun `./scripts/install.sh`, then restart your Claude Code sessions.
 - **No notifications.** Turn them on in System Settings › Notifications › Hook.
 - **The shortcut doesn't work.** Another app owns it. Pick a new one in Settings › General.
-- **Mailbox unreachable.** The menu-bar icon dims and the sidebar footer shows `Mailbox · offline:` and the reason. Check the address and token file in Settings › Queue, and that the service answers. `relay list` prints the error too.
+- **Pond unreachable.** The menu-bar icon dims and the sidebar footer shows `Pond · offline:` and the reason. Check the Pond URL and Pond token file in Settings › Queue, and that the service answers. `relay list` prints the error too.

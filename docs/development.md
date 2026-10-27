@@ -71,16 +71,16 @@ A pull request that changes `Sources/RelayUI/` attaches the before and after PNG
    the latest release tag, so tag only a commit that passed CI.
 6. **Release notes.** Create the GitHub release for the tag with that version's CHANGELOG
    section as its notes. Every release's notes carry the hidden marker
-   `<!-- hook:mailbox-protocol=N -->`, where N is the mailbox protocol level that release needs
-   (4 from 0.9.1; see [Mailbox protocol](mailbox-protocol.md#protocol-levels)). Before updating,
-   Hook compares N with the connected mailbox's level and offers to update the mailbox first.
-   Raise N only when the release needs a mailbox feature older mailboxes lack.
+   `<!-- hook:mailbox-protocol=N -->`, where N is the Pond protocol level that release needs
+   (4 from 0.9.1; see [Pond protocol](mailbox-protocol.md#protocol-levels)). Before updating,
+   Hook compares N with the connected Pond's level and offers to update the Pond first.
+   Raise N only when the release needs a Pond feature older Ponds lack.
 
 ## Layout
 
 ```
 Sources/Relay/         AppKit shell: panel window, menu bar, notifications, Settings and setup windows, loopback server
-Sources/RelayCore/     queue, validator, config, mailbox client, and the panel's pure logic
+Sources/RelayCore/     queue, validator, config, Pond client (MailboxClient), and the panel's pure logic
 Sources/RelayUI/       design tokens and components, the Store, every SwiftUI surface
 Sources/RelayGallery/  offscreen renderer for the gallery (never bundled)
 Tests/              Swift tests and fixtures
@@ -90,7 +90,7 @@ schema/  skill/     instructable schema, Claude Code skill
 scripts/            build, install, test
 ```
 
-`Tests/RelayCoreTests/Fixtures/instructable-vectors.json` is the validator's source of truth. The validator tests run against it. It is maintained by hand, except the `optional-*` and `file-*` cases, which the mailbox's reference validator generates; the tests check those cases' error order too.
+`Tests/RelayCoreTests/Fixtures/instructable-vectors.json` is the validator's source of truth. The validator tests run against it. It is maintained by hand, except the `optional-*` and `file-*` cases, which the Pond's reference validator generates; the tests check those cases' error order too.
 
 ## Vendored viewer scripts
 

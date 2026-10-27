@@ -40,7 +40,7 @@ Usage: scripts/install.sh [--local | --mailbox <dir> | --uninstall | --help]
   (no flag)        Build and install Hook. Keeps an existing config;
                    a new install starts in "This Mac only" mode.
   --local          Also switch the config to "This Mac only" (source "local").
-  --mailbox <dir>  Also switch to the mailbox named by <dir>/mailbox-url (an http(s) URL)
+  --mailbox <dir>  Also switch to the Pond named by <dir>/mailbox-url (an http(s) URL)
                    and <dir>/mailbox-token (only its path is stored; it is never read).
   --uninstall      Remove the app, LaunchAgent, CLI links, MCP server and this repo's
                    skill link. Keeps the config, token and queue.

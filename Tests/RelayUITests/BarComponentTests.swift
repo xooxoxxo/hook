@@ -27,7 +27,7 @@ private let deadline = Date(timeIntervalSince1970: 1_000)
     }
 
     @Test func statusSentence() {
-        #expect(StatusBarText.accessibilityText("Mailbox · ready") == "Status: Mailbox · ready. Shows details")
+        #expect(StatusBarText.accessibilityText("Pond · ready") == "Status: Pond · ready. Shows details")
     }
 
     @Test func actionBarHelp() {

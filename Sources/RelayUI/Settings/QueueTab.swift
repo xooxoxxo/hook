@@ -38,7 +38,7 @@ public struct QueueTab<Model: SettingsViewModel>: View {
                 SettingsRow("Asks come from", help: QueueHelp.source) {
                     Picker("Asks come from", selection: $choice) {
                         Text("This Mac only").tag(SourceKind.local)
-                        Text("Mailbox").tag(SourceKind.mailbox)
+                        Text("Pond").tag(SourceKind.mailbox)
                     }
                     .pickerStyle(.radioGroup).horizontalRadioGroupLayout().labelsHidden().fixedSize()
                 }
@@ -104,7 +104,7 @@ public struct QueueTab<Model: SettingsViewModel>: View {
 
     private var mailboxSection: some View {
         let errors = attempted ? model.draft.errors() : (address: nil, tokenFile: nil)
-        return Section("Mailbox") {
+        return Section("Pond") {
             MailboxFields(
                 address: $model.draft.address, tokenFile: $model.draft.tokenFile, context: $model.draft.context,
                 addressError: errors.address, tokenFileError: errors.tokenFile,
@@ -147,7 +147,7 @@ public struct QueueTab<Model: SettingsViewModel>: View {
                 }
             }
         }
-        .environment(\.settingsSection, "Mailbox")
+        .environment(\.settingsSection, "Pond")
     }
 
     private var connectionSection: some View {
@@ -194,7 +194,7 @@ public struct QueueTab<Model: SettingsViewModel>: View {
 
     /// The mailbox's version and level, ✓ or "Needs an update", and Check.
     private func mailboxRow(_ line: MailboxVersionLine) -> some View {
-        SettingsRow("Mailbox", help: QueueHelp.mailboxVersion) {
+        SettingsRow("Pond", help: QueueHelp.mailboxVersion) {
             HStack(spacing: DS.Space.inline) {
                 Text(line.text).textSelection(.enabled).lineLimit(1).truncationMode(.middle)
                 switch line.state {
@@ -212,7 +212,7 @@ public struct QueueTab<Model: SettingsViewModel>: View {
                     EmptyView()
                 }
                 if line.state == .needsUpdate {
-                    Button("Update Mailbox…") { model.perform(.updateMailbox) }
+                    Button("Update Pond…") { model.perform(.updateMailbox) }
                 }
                 Button("Check") { model.perform(.checkMailbox) }
                     .disabled(line.state == .checking)
@@ -276,7 +276,7 @@ enum QueueSourceRadio {
     }
 
     /// Only a change of the saved source moves the radio, so a Check every save or a
-    /// config reload keeps a picked but not yet connected Mailbox on screen.
+    /// config reload keeps a picked but not yet connected Pond on screen.
     static func afterConfigChange(current: SourceKind, old: RelayConfig?, new: RelayConfig?) -> SourceKind {
         saved(old) == saved(new) ? current : saved(new)
     }
@@ -285,10 +285,10 @@ enum QueueSourceRadio {
 /// The Queue tab's "?" texts; Welcome uses the same ones.
 public enum QueueHelp {
     public static let local = "Asks are stored in a file on this Mac and never leave it. Claude Code sessions on this Mac send them to Hook with the relay command or the MCP server."
-    public static let mailbox = "Asks come from a mailbox server you run. Hook checks it on a timer and sends your answers back to it. The token file holds the mailbox's access token; Hook reads it only to talk to the mailbox and never shows it."
+    public static let mailbox = "Asks come from your Pond, a small server you run. Hook checks it on a timer and sends your answers back to it. The Pond token file holds the Pond's access token; Hook reads it only to talk to the Pond and never shows it."
     public static let source = local + "\n\n" + mailbox
     public static let keep = "Closed asks older than this are deleted from this Mac."
-    public static let updateCommand = "A shell command that updates your mailbox server, for example a script that pulls the new version and restarts it. Update Mailbox… runs it in your terminal through your login shell, so you see its output and any password prompt. Leave it empty to open the update guide instead."
-    public static let mailboxVersion = "Hook reads the mailbox's protocol level when it connects and every 30 minutes. A mailbox below Hook's level can't take every step Hook shows: update it with Update Mailbox…."
+    public static let updateCommand = "A shell command that updates your Pond, for example a script that pulls the new version and restarts it. Update Pond… runs it in your terminal through your login shell, so you see its output and any password prompt. Leave it empty to open the update guide instead."
+    public static let mailboxVersion = "Hook reads the Pond's protocol level when it connects and every 30 minutes. A Pond below Hook's level can't take every step Hook shows: update it with Update Pond…."
     public static let test = "Posts a sample ask through the current source: project Hook, one step that runs echo relay-ok, and a verify step."
 }

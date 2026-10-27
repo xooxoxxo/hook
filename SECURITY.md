@@ -12,7 +12,7 @@ Include what you found, how to reproduce it, and the Hook version (`relay --vers
 
 - The app's loopback API on `127.0.0.1`, including the Host, Origin and server-proof
   checks.
-- Token handling: the local token, the mailbox token file and file permissions.
+- Token handling: the local token, the Pond token file and file permissions.
 - The clients: the `relay` CLI and the MCP server.
 - The installer, `scripts/install.sh`.
 

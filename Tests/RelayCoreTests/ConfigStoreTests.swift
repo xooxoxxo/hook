@@ -15,7 +15,7 @@ private func mode(_ url: URL) throws -> Int {
     return try #require(attributes[.posixPermissions] as? NSNumber).intValue & 0o777
 }
 
-private let mailboxProblem = ResolvedSource.invalid("mailbox needs an http(s) mailboxURL and a tokenFile")
+private let mailboxProblem = ResolvedSource.invalid("the Pond (source \"mailbox\") needs an http(s) mailboxURL and a tokenFile")
 
 @Suite struct ConfigDecodingTests {
     @Test func aV1ConfigResolvesToMailbox() throws {

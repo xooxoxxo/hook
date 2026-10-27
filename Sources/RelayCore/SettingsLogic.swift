@@ -324,7 +324,7 @@ extension MailboxDraft {
         let token = tokenFile.trimmingCharacters(in: .whitespacesAndNewlines)
         var addressError: String?
         if address.isEmpty {
-            addressError = "Enter the mailbox address."
+            addressError = "Enter the Pond URL."
         } else if let url = URL(string: address), let scheme = url.scheme?.lowercased(),
                   scheme == "http" || scheme == "https", let host = url.host(), !host.isEmpty {
             addressError = nil

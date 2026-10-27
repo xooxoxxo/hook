@@ -6,9 +6,9 @@ private struct Plain: Error {}
 
 @Suite struct UserFacingErrorTests {
     @Test func localizedErrorsUseTheirDescription() {
-        #expect(UserFacingError.text(QueueError.unreachable("The mailbox didn't answer within 10 seconds."))
-            == "The mailbox didn't answer within 10 seconds.")
-        #expect(UserFacingError.text(QueueError.unauthorized) == "The mailbox rejected the token (check the token file)")
+        #expect(UserFacingError.text(QueueError.unreachable("The Pond didn't answer within 10 seconds."))
+            == "The Pond didn't answer within 10 seconds.")
+        #expect(UserFacingError.text(QueueError.unauthorized) == "The Pond rejected the token (check the token file)")
     }
 
     @Test func newlinesAndBidiAreRevealedOnOneLine() {

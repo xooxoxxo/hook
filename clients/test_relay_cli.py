@@ -4,6 +4,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -14,6 +15,11 @@ from unittest import mock
 import relay_cli
 import relay_client
 from relay_client import ConfigMissing, NotFound, ProtocolTooOld, Refused, Unreachable
+
+
+def flat(text: str) -> str:
+    """Text as one line: argparse wraps help at word gaps and after hyphens ("sub-" / "steps")."""
+    return re.sub(r"-\s+", "-", " ".join(text.split()))
 
 ITEM_ID = "0b8f3f0e-6c1a-4e0b-9a51-2f4f1d9c7a10"
 OPEN_URL = "http://127.0.0.1:47823/i/" + ITEM_ID
@@ -110,26 +116,26 @@ class CliTest(unittest.TestCase):
         with mock.patch.dict(os.environ, {"COLUMNS": "80"}):
             code, out, err = self.run_cli("post", "--help")
         self.assertEqual((code, err), (0, ""))
-        self.assertIn(" ".join(relay_cli.SUBSTEPS_SENTENCE.split()), " ".join(out.split()))
+        self.assertIn(flat(relay_cli.SUBSTEPS_SENTENCE), flat(out))
 
     def test_post_help_explains_questions(self):
         with mock.patch.dict(os.environ, {"COLUMNS": "80"}):
             code, out, err = self.run_cli("post", "--help")
         self.assertEqual((code, err), (0, ""))
-        self.assertIn(" ".join(relay_cli.QUESTIONS_SENTENCE.split()), " ".join(out.split()))
+        self.assertIn(flat(relay_cli.QUESTIONS_SENTENCE), flat(out))
 
     def test_post_help_explains_blocking(self):
         with mock.patch.dict(os.environ, {"COLUMNS": "80"}):
             code, out, err = self.run_cli("post", "--help")
         self.assertEqual((code, err), (0, ""))
-        self.assertIn(" ".join(relay_cli.BLOCKING_SENTENCE.split()), " ".join(out.split()))
+        self.assertIn(flat(relay_cli.BLOCKING_SENTENCE), flat(out))
         self.assertNotIn("Telegram", relay_cli.BLOCKING_SENTENCE)
 
     def test_post_help_explains_optional(self):
         with mock.patch.dict(os.environ, {"COLUMNS": "80"}):
             code, out, err = self.run_cli("post", "--help")
         self.assertEqual((code, err), (0, ""))
-        self.assertIn(" ".join(relay_cli.OPTIONAL_SENTENCE.split()), " ".join(out.split()))
+        self.assertIn(flat(relay_cli.OPTIONAL_SENTENCE), flat(out))
         for word in ("Telegram", "relay post", "relay_post", "MCP", "CLI"):
             self.assertNotIn(word, relay_cli.OPTIONAL_SENTENCE)
 
@@ -137,7 +143,7 @@ class CliTest(unittest.TestCase):
         with mock.patch.dict(os.environ, {"COLUMNS": "80"}):
             code, out, err = self.run_cli("post", "--help")
         self.assertEqual((code, err), (0, ""))
-        self.assertIn(" ".join(relay_cli.FILES_SENTENCE.split()), " ".join(out.split()))
+        self.assertIn(flat(relay_cli.FILES_SENTENCE), flat(out))
         for word in ("Telegram", "relay post", "relay_post", "MCP", "CLI"):
             self.assertNotIn(word, relay_cli.FILES_SENTENCE)
         self.assertIn("never paste a whole document into an ask", relay_cli.FILES_SENTENCE)
@@ -146,8 +152,8 @@ class CliTest(unittest.TestCase):
         self.client.error = ProtocolTooOld(2, "blocking", 3)
         code, out, err = self.run_cli("post", "Acme", "--json", "-", stdin=io.StringIO('{"v":1}'))
         self.assertEqual((code, out), (1, ""))
-        self.assertEqual(err, "relay: This mailbox speaks protocol 2; `blocking` needs 3. "
-                              "Ask the owner to update the mailbox (Hook › Update Mailbox…).\n")
+        self.assertEqual(err, "relay: This Pond speaks protocol 2; `blocking` needs 3. "
+                              "Ask the owner to update the Pond (Hook › Update Pond…).\n")
 
     def test_post_bad_input(self):
         code, out, err = self.run_cli("post", "Acme", "--json", "-", stdin=io.StringIO("{nope"))

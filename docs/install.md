@@ -18,7 +18,7 @@ cd hook
 
 - No flag: keeps the config. A new install gets `{"source":"local"}` (This Mac only).
 - `--local`: switches to This Mac only.
-- `--mailbox <dir>`: switches to the mailbox whose http(s) URL is in `<dir>/mailbox-url`. `<dir>/mailbox-token` must be non-empty; only its path is stored.
+- `--mailbox <dir>`: switches to the Pond whose http(s) URL is in `<dir>/mailbox-url`. `<dir>/mailbox-token` must be non-empty; only its path is stored.
 - `--uninstall`: see [Uninstall](#uninstall).
 
 ## What the installer does

@@ -195,7 +195,7 @@ private func screen(_ id: String, primary: Bool) -> DockScreen {
     @Test func errorsNameTheBadField() {
         let valid = MailboxDraft(address: "https://mailbox.example:8790", tokenFile: "~/token")
         #expect(valid.errors().address == nil && valid.errors().tokenFile == nil)
-        #expect(MailboxDraft(tokenFile: "~/t").errors().address == "Enter the mailbox address.")
+        #expect(MailboxDraft(tokenFile: "~/t").errors().address == "Enter the Pond URL.")
         for bad in ["mailbox.example", "ftp://mailbox.example", "http://", "https:// x"] {
             #expect(MailboxDraft(address: bad, tokenFile: "~/t").errors().address
                 == "The address must start with http:// or https://.")

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Hook instructable v1",
-  "description": "An owner ask as exact steps. Hook's validator (and any compatible mailbox) is the source of truth: it also rejects secret-like values (sk-ant-, sk-..., xox[abp]-, ghp_, github_pat_, PEM private keys, AKIA...), hidden characters and documents over 32768 bytes, which JSON Schema cannot express. Steps plus sub-steps total at most 60. At most 20 of them ask a question; verify never does.",
+  "description": "An owner ask as exact steps. Hook's validator (and any compatible Pond) is the source of truth: it also rejects secret-like values (sk-ant-, sk-..., xox[abp]-, ghp_, github_pat_, PEM private keys, AKIA...), hidden characters and documents over 32768 bytes, which JSON Schema cannot express. Steps plus sub-steps total at most 60. At most 20 of them ask a question; verify never does.",
   "type": "object",
   "additionalProperties": false,
   "required": ["v", "title", "steps"],

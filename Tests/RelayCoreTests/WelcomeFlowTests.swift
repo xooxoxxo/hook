@@ -107,7 +107,7 @@ private func atSource() -> WelcomeFlow {
         flow.startTapped(isMailbox: true)
         flow.firstList(ok: false, reason: "unauthorized")
         #expect(flow.page == .source && !flow.starting)
-        #expect(flow.error == "Can't reach the mailbox: unauthorized")
+        #expect(flow.error == "Can't reach the Pond: unauthorized")
         flow.startTapped(isMailbox: true)
         #expect(flow.error == nil && flow.starting)        // a new Start clears the old error
     }
@@ -128,7 +128,7 @@ private func atSource() -> WelcomeFlow {
         flow.startTapped(isMailbox: true)
         flow.timedOut()
         #expect(flow.page == .source && !flow.starting)
-        #expect(flow.error == "Can't reach the mailbox: no answer within 10 seconds")
+        #expect(flow.error == "Can't reach the Pond: no answer within 10 seconds")
         #expect(WelcomeFlow.firstListTimeout == 10)
     }
 

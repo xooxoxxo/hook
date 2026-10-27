@@ -6,7 +6,7 @@ import SwiftUI
 /// The gallery's mailbox source key (generic host, never a real one).
 let galleryMailboxKey = "mailbox:mailbox.example:8790#personal"
 
-/// "Mailbox · ready", from the same logic the app uses.
+/// "Pond · ready", from the same logic the app uses.
 let readyStatus = PanelStatus.make(StatusInputs(sourceKey: galleryMailboxKey, reachable: true, loadedOnce: true))
 
 /// A 380 pt panel scene rendered through `PanelRoot`, on the fixed gallery clock.
@@ -25,9 +25,9 @@ let readyStatus = PanelStatus.make(StatusInputs(sourceKey: galleryMailboxKey, re
 }
 
 /// The gallery's offline reason (generic, the transport's own timeout wording).
-let offlineReason = "The mailbox didn't answer within 10 seconds."
+let offlineReason = "The Pond didn't answer within 10 seconds."
 
-/// "Mailbox · offline" (or "· connecting…" before a first list), from the app's own logic.
+/// "Pond · offline" (or "· connecting…" before a first list), from the app's own logic.
 func offlineStatus(loadedOnce: Bool) -> PanelStatus {
     PanelStatus.make(StatusInputs(sourceKey: galleryMailboxKey, reachable: false, loadedOnce: loadedOnce, problem: offlineReason))
 }

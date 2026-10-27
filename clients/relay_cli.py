@@ -30,16 +30,16 @@ QUESTIONS_SENTENCE = ("Any step or sub-step (not verify) can hold a `question` {
 BLOCKING_SENTENCE = ("A step or sub-step (not verify) can set `blocking: true` when the next steps can't "
                      "start without it: the owner can't open later steps until it is done. Use it only when "
                      "later steps fail without it, and put the reason in `warning` (at most 300 chars). "
-                     "`warning` alone shows a caution box. A mailbox that is too old refuses these keys.")
+                     "`warning` alone shows a caution box. A Pond that is too old refuses these keys.")
 OPTIONAL_SENTENCE = ("A step or sub-step (not verify) can set `optional: true` when the owner may finish it "
                      "without doing or answering it, e.g. a feedback question or a nice-to-have; it can't "
                      "also be blocking. On a step with sub-steps it makes every sub-step optional. "
-                     "A mailbox that is too old refuses this key.")
+                     "A Pond that is too old refuses this key.")
 FILES_SENTENCE = ("When the owner should read a document, write it as a Markdown file and point to it with "
                   "`file` on a step or sub-step (not verify), or with a link that has `path` instead of `url`: "
                   "an absolute path (/... or ~/...) on the owner's Mac, which Hook opens rendered. Keep `do` to "
                   "one action and `detail` to a few lines; never paste a whole document into an ask. "
-                  "A mailbox that is too old refuses these keys.")
+                  "A Pond that is too old refuses these keys.")
 
 
 class _ParserExit(Exception):
@@ -97,7 +97,7 @@ def _parser(out: Any, err: Any, prog: str = "relay") -> argparse.ArgumentParser:
     wait.add_argument("--timeout", type=float, default=28800.0, metavar="SECONDS",
                       help="give up after this many seconds and exit 3 (default 8 h)")
     wait.add_argument("--interval", type=float, default=None, metavar="SECONDS",
-                      help="seconds between checks, at least 1 (default 2 on This Mac, 20 with a mailbox)")
+                      help="seconds between checks, at least 1 (default 2 on This Mac, 20 with a Pond)")
     wait.add_argument("--after", type=int, default=0, metavar="SEQ",
                       help="only answers after this event seq (the last seq a previous wait printed)")
     return parser

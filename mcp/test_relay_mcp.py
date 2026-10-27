@@ -257,7 +257,7 @@ class RelayMcpTest(StubServerCase):
             res = s.call("relay_post", {"project": "Acme", "instructable": {
                 "v": 1, "title": "Check Node", "steps": [{"do": "Run it"}]}})
             self.assertTrue(res["isError"])
-            self.assertIn("mailbox unreachable", res["content"][0]["text"])
+            self.assertIn("Pond unreachable", res["content"][0]["text"])
             self.assertNotIn("stub-token", res["content"][0]["text"])
             self.assertEqual(s.request("ping")["result"], {})
         finally:
@@ -318,8 +318,8 @@ class Level4(StubVersioned):
     protocol = 4
 
 
-TOO_OLD = ("This mailbox speaks protocol {m}; `{key}` needs {n}. "
-           "Ask the owner to update the mailbox (Hook \u203a Update Mailbox\u2026).")
+TOO_OLD = ("This Pond speaks protocol {m}; `{key}` needs {n}. "
+           "Ask the owner to update the Pond (Hook \u203a Update Pond\u2026).")
 BLOCKING = {"v": 1, "title": "Gate", "steps": [{"do": "Run it", "blocking": True, "warning": "Later steps fail"}]}
 ASKING = {"v": 1, "title": "Pick", "steps": [{"do": "Choose", "substeps": [
     {"do": "Env", "question": {"prompt": "Which?", "choices": ["a", "b"]}}]}]}

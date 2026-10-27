@@ -158,7 +158,7 @@ public struct MailboxClient: QueueSource {
         var components = URLComponents(
             url: settings.url.appending(path: path), resolvingAgainstBaseURL: false)
         if !query.isEmpty { components?.queryItems = query }
-        guard let url = components?.url else { throw QueueError.unreachable("the mailbox URL is not valid") }
+        guard let url = components?.url else { throw QueueError.unreachable("the Pond URL is not valid") }
 
         let token: String
         do {
@@ -186,17 +186,17 @@ public struct MailboxClient: QueueSource {
         }
         let (data, response) = result
         guard let http = response as? HTTPURLResponse else {
-            throw QueueError.unreachable("bad response from the mailbox")
+            throw QueueError.unreachable("bad response from the Pond")
         }
         switch http.statusCode {
         case 200..<300:
             do {
                 return try JSONDecoder().decode(T.self, from: data)
             } catch {
-                throw QueueError.unreachable("bad response from the mailbox")
+                throw QueueError.unreachable("bad response from the Pond")
             }
         case 300..<400:
-            throw QueueError.unreachable("the mailbox answered with a redirect (\(http.statusCode)); not following it")
+            throw QueueError.unreachable("the Pond answered with a redirect (\(http.statusCode)); not following it")
         case 401:
             throw QueueError.unauthorized
         case 404:

@@ -4,7 +4,7 @@
 Stdlib only, stdio transport, one JSON-RPC message per line. Speaks both MCP eras:
 `initialize` (2025-11-25 and earlier) and `server/discover` (2026-07-28).
 Every queue call goes through clients/relay_client.py, so the server works the same
-against the local Hook queue ("This Mac only") and a mailbox.
+against the local Hook queue ("This Mac only") and a Pond.
 Config: ~/.config/relay/config.json, or the file named by RELAY_CONFIG.
 Tokens are read on every call and never printed or logged.
 Runs on Python 3.9+.
@@ -62,8 +62,8 @@ def to_tool_error(exc: relay_client.RelayError, client: Optional[relay_client.Cl
             return ToolError(f"{exc.error}:\n- " + "\n- ".join(details))
         return ToolError(f"{exc.error} (HTTP {exc.status})")
     if isinstance(exc, relay_client.Unreachable) and client is not None \
-            and client.source.get("kind") == "mailbox" and not str(exc).startswith("mailbox unreachable"):
-        return ToolError(f"mailbox unreachable: {exc}")   # relay_client's transport errors already say so
+            and client.source.get("kind") == "mailbox" and not str(exc).startswith("Pond unreachable"):
+        return ToolError(f"Pond unreachable: {exc}")   # relay_client's transport errors already say so
     return ToolError(str(exc))
 
 

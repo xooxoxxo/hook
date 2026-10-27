@@ -200,7 +200,7 @@ let longProject = "Quarterly planning for the public launch of the pricing page"
     func status(_ symbol: StatusSymbol, _ text: String) -> some View {
         StatusBar(symbol: symbol, text: text, onSettings: {}) { Text("Updated 09:40") }
     }
-    let actionError = "Couldn't send Done for “Send the release notes draft”. The mailbox didn't answer within 10 seconds."
+    let actionError = "Couldn't send Done for “Send the release notes draft”. The Pond didn't answer within 10 seconds."
     // StatusBar's popover wrapper, so the samples have the popover's padding and width.
     func details(_ status: PanelStatus, updated: String = "") -> some View {
         StatusDetails(status: status, updated: updated, onTryAgain: {}, onSettings: {}, onShowConfig: {})
@@ -212,16 +212,16 @@ let longProject = "Quarterly planning for the public launch of the pricing page"
     let listenerDown = PanelStatus.make(StatusInputs(sourceKey: galleryMailboxKey, reachable: true, loadedOnce: true,
                                                      listenerNote: "Port 47823 is in use by another app"))
     return SheetSection(title: "Bars", samples: [
-        Sample("UndoBar · one") { UndoBar(undo: UndoInfo(verdict: .done, title: "Rotate the mailbox token", deadline: soon, more: 0), onUndo: {}) },
-        Sample("UndoBar · several") { UndoBar(undo: UndoInfo(verdict: .declined, title: "Rotate the mailbox token", deadline: soon, more: 1), onUndo: {}) },
+        Sample("UndoBar · one") { UndoBar(undo: UndoInfo(verdict: .done, title: "Rotate the Pond token", deadline: soon, more: 0), onUndo: {}) },
+        Sample("UndoBar · several") { UndoBar(undo: UndoInfo(verdict: .declined, title: "Rotate the Pond token", deadline: soon, more: 1), onUndo: {}) },
         Sample("UndoBar · sending (quit)") {
-            UndoBar(undo: UndoInfo(verdict: .done, title: "Rotate the mailbox token", deadline: soon, more: 1), sending: true, onUndo: {})
+            UndoBar(undo: UndoInfo(verdict: .done, title: "Rotate the Pond token", deadline: soon, more: 1), sending: true, onUndo: {})
         },
-        Sample("StatusBar · ready") { status(.ok, "Mailbox · ready") },
-        Sample("StatusBar · connecting") { status(.connecting, "Mailbox · connecting…") },
-        Sample("StatusBar · offline") { status(.down, "Mailbox · offline") },
+        Sample("StatusBar · ready") { status(.ok, "Pond · ready") },
+        Sample("StatusBar · connecting") { status(.connecting, "Pond · connecting…") },
+        Sample("StatusBar · offline") { status(.down, "Pond · offline") },
         Sample("StatusBar · not set up") { status(.notSetUp, "Not set up") },
-        Sample("StatusBar · away") { status(.away, "Away · Mailbox · ready") },
+        Sample("StatusBar · away") { status(.away, "Away · Pond · ready") },
         Sample("StatusDetails · updated") { details(readyStatus, updated: "10:42") },
         Sample("StatusDetails · offline") { details(offlineStatus(loadedOnce: true), updated: "09:22") },
         Sample("StatusDetails · config error") { details(configError) },
@@ -341,7 +341,7 @@ struct ReplySample: View {
         Sample("ReplyBox · typing") { ReplySample(text: "C0123ABCDEF", state: .idle) },
         Sample("ReplyBox · sending") { ReplySample(text: "C0123ABCDEF", state: .sending) },
         Sample("ReplyBox · sent") { ReplySample(text: "", state: .sent(at: "09:40")) },
-        Sample("ReplyBox · failed") { ReplySample(text: "C0123ABCDEF", state: .failed(reason: "The mailbox didn't answer within 10 seconds.")) },
+        Sample("ReplyBox · failed") { ReplySample(text: "C0123ABCDEF", state: .failed(reason: "The Pond didn't answer within 10 seconds.")) },
         Sample("ChoiceGroup · none picked") { choice(picked: nil, sent: [], latest: nil) },
         Sample("ChoiceGroup · picked") { choice(picked: 0, sent: [], latest: nil) },
         Sample("ChoiceGroup · sent") { choice(picked: 0, sent: [0], latest: 0) },
@@ -403,11 +403,11 @@ struct ComponentsSheet: View {
 @MainActor func states() -> SheetSection {
     func state(_ kind: StateKind) -> some View { StateView(kind, actions: .none).frame(height: 220) }
     return SheetSection(title: "States and Settings rows", samples: [
-        Sample("StateView · loading") { state(.loading(source: "Mailbox", stillTrying: false)) },
-        Sample("StateView · loading, still trying") { state(.loading(source: "Mailbox", stillTrying: true)) },
+        Sample("StateView · loading") { state(.loading(source: "Pond", stillTrying: false)) },
+        Sample("StateView · loading, still trying") { state(.loading(source: "Pond", stillTrying: true)) },
         Sample("StateView · empty") { state(.empty(updated: "09:40")) },
         Sample("StateView · empty, filtered") { state(.emptyFiltered(project: "Atlas", updated: "09:40")) },
-        Sample("StateView · offline") { state(.offline(title: "Can't reach the mailbox", reason: "The mailbox didn't answer within 10 seconds.")) },
+        Sample("StateView · offline") { state(.offline(title: "Can't reach the Pond", reason: "The Pond didn't answer within 10 seconds.")) },
         Sample("StateView · not set up") { state(.notSetUp) },
         Sample("StateView · not found") { state(.notFound(canShowClosed: true)) },
         // MailboxFields needs the Settings width (fieldWide); the settings-queue and welcome scenes show it.

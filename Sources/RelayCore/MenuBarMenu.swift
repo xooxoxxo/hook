@@ -100,7 +100,7 @@ public enum MenuBarMenu {
         if !inputs.notSetUp { entries.append(action("Run Setup Again…", .runSetup)) }
         entries.append(action("About Hook", .about))
         entries.append(action("Check for Updates…", .checkForUpdates))
-        if inputs.mailbox { entries.append(action("Update Mailbox…", .updateMailbox)) }
+        if inputs.mailbox { entries.append(action("Update Pond…", .updateMailbox)) }
         entries.append(.separator)
         entries.append(action("Quit Hook", .quit, key: "q", modifiers: [.command]))
         return entries

@@ -6,7 +6,7 @@ What Hook protects, and how. To report a vulnerability, see [SECURITY.md](../SEC
 
 - In This Mac only mode, Hook makes no outbound connections and the queue never leaves the Mac.
 - The listener binds `127.0.0.1` only, and every API call needs the 256-bit token, kept `0600` in a `0700` folder. That separates user accounts; a process running as you can read the token and the queue, but it already has your privileges.
-- The mailbox token and every ask travel with each request, so use an https `mailboxURL` unless the mailbox is only on a private, encrypted network such as a VPN. Hook never follows a mailbox redirect.
+- The Pond token and every ask travel with each request, so use an https `mailboxURL` unless the Pond is only on a private, encrypted network such as a VPN. Hook never follows a Pond redirect.
 
 ## Who can answer
 

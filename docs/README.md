@@ -18,6 +18,6 @@ Hook (formerly Relay) is a macOS menu-bar inbox for Claude Code asks. Start with
 ## Internals
 
 - [Local API](local-api.md): for your own client
-- [Mailbox protocol](mailbox-protocol.md): for your own mailbox service
+- [Pond protocol](mailbox-protocol.md): for your own Pond (formerly called the mailbox), the server that holds asks when you're away
 - [Security model](security.md): what Hook protects
 - [Development](development.md): build, test, layout

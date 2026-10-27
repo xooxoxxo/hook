@@ -99,7 +99,7 @@ public struct WelcomeFlow: Equatable, Sendable {
         if ok {
             sourceDone()
         } else {
-            error = "Can't reach the mailbox: " + (reason ?? MailboxDraft.noAnswer)
+            error = "Can't reach the Pond: " + (reason ?? MailboxDraft.noAnswer)
         }
     }
 

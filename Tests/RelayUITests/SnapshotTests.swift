@@ -154,7 +154,7 @@ private let three = [item("a", urgency: "now", created: stamp(minutesAgo: 10), s
     @Test func aFixtureModelServesItsSnapshots() {
         let model = FixturePanelModel(queue: GalleryFixtures.queue(grouping: .urgency, filter: nil, closedExpanded: true),
                                       details: ["acme-1": GalleryFixtures.detailSteps],
-                                      status: PanelStatus(symbol: .ok, text: "Mailbox · ready", detail: .updated))
+                                      status: PanelStatus(symbol: .ok, text: "Pond · ready", detail: .updated))
         #expect(model.detail("acme-1") == GalleryFixtures.detailSteps)
         #expect(model.detail("nope") == nil)
         model.setGrouping(.project)
@@ -252,14 +252,14 @@ private let phase3Now = Date(timeIntervalSince1970: 1_792_143_600)
     @Test func offlineWithACacheKeepsTheListAndSaysSoOnce() async {
         let env = await PanelTestEnv.make([item("a1", created: "2026-10-16T08:00:00+00:00")])
         defer { env.tearDown() }
-        await env.fake.failNext(QueueError.unreachable("The mailbox didn't answer within 10 seconds."))
+        await env.fake.failNext(QueueError.unreachable("The Pond didn't answer within 10 seconds."))
         await env.store.refresh(manual: false)
         #expect(env.store.queue.content == .list)
         guard case .offlineCached = env.store.notice else {
             Issue.record("expected .offlineCached, got \(String(describing: env.store.notice))")
             return
         }
-        #expect(env.store.status.text == "Mailbox · offline")
+        #expect(env.store.status.text == "Pond · offline")
         #expect(env.store.notice?.text != env.store.status.text)
         #expect(StatusDetails.message(env.store.status, updated: "09:40") != env.store.status.text)
     }
@@ -271,9 +271,9 @@ private let phase3Now = Date(timeIntervalSince1970: 1_792_143_600)
             status.text = text
             return status
         }
-        #expect(StatusDetails.message(status(.updated, "Mailbox · ready"), updated: "10:42") == "Updated 10:42")
-        #expect(StatusDetails.message(status(.updated, "Mailbox · ready"), updated: "") == nil)
-        #expect(StatusDetails.message(status(.unreachable(reason: "timed out\nretry"), "Mailbox · offline"), updated: "10:42")
+        #expect(StatusDetails.message(status(.updated, "Pond · ready"), updated: "10:42") == "Updated 10:42")
+        #expect(StatusDetails.message(status(.updated, "Pond · ready"), updated: "") == nil)
+        #expect(StatusDetails.message(status(.unreachable(reason: "timed out\nretry"), "Pond · offline"), updated: "10:42")
                 == "timed out⟨U+000A⟩retry")
         #expect(StatusDetails.message(status(.config(note: "port: must be 1–65535"), "config.json has an error"), updated: "")
                 == "port: must be 1–65535")
@@ -282,7 +282,7 @@ private let phase3Now = Date(timeIntervalSince1970: 1_792_143_600)
         // Not set up: a click on the status opens setup directly, so there is no popover line.
         #expect(StatusDetails.message(status(.notSetUp, "Not set up"), updated: "") == nil)
         #expect(StatusDetails.opensSetUp(status(.notSetUp, "Not set up")))
-        #expect(!StatusDetails.opensSetUp(status(.updated, "Mailbox · ready")))
+        #expect(!StatusDetails.opensSetUp(status(.updated, "Pond · ready")))
     }
 
     /// The Undo announcement follows the verdict and is

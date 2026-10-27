@@ -53,14 +53,14 @@ on you" line in chat alone gets lost.
   Bundle related questions into one ask as per-step questions. Don't post one ask per
   question. Use the ask-level `reply` only for one overall answer.
 - **blocking** and **warning**: `blocking: true` marks a step the next steps can't start without; the owner can't open later steps until it is done. Use it only when later steps fail without it, and put the reason in `warning` (≤ 300 chars). `warning` alone shows a caution box. Neither goes on `verify`.
-- **optional**: `optional: true` marks a step the owner may finish without doing or answering, e.g. a feedback question or a nice-to-have; it can't also be blocking. On a step with sub-steps it makes every sub-step optional, so none of them may be blocking. Needs mailbox level 4.
-- **file**: When the owner should read a document, write it as a Markdown file and point to it with `file` (or a link with `path`); Hook opens it rendered. Keep `do` to one action and `detail` to a few lines; never paste a whole document into an ask. `file` and `path` are absolute paths on the owner's Mac (`/…` or `~/…`), not on `verify`. Needs mailbox level 4.
-- **Mailbox level.** `question` needs mailbox protocol level 2; `blocking` and `warning`
+- **optional**: `optional: true` marks a step the owner may finish without doing or answering, e.g. a feedback question or a nice-to-have; it can't also be blocking. On a step with sub-steps it makes every sub-step optional, so none of them may be blocking. Needs Pond level 4.
+- **file**: When the owner should read a document, write it as a Markdown file and point to it with `file` (or a link with `path`); Hook opens it rendered. Keep `do` to one action and `detail` to a few lines; never paste a whole document into an ask. `file` and `path` are absolute paths on the owner's Mac (`/…` or `~/…`), not on `verify`. Needs Pond level 4.
+- **Pond level.** `question` needs Pond protocol level 2; `blocking` and `warning`
   need level 3; `optional`, `file` and a link's `path` need level 4. Before posting one of them, `relay_post` and
-  `relay post` read the mailbox's level. When the answer is "This mailbox speaks protocol M; `<key>` needs N.",
+  `relay post` read the Pond's level. When the answer is "This Pond speaks protocol M; `<key>` needs N.",
   nothing was posted: post again without that key (put a question in `reply`, the
-  warning in `detail`, drop `optional`, name the file in `detail`), or, if the ask needs the key, ask the owner to update the mailbox
-  (Hook › Update Mailbox…) and post once it is updated. In This Mac mode the answer is
+  warning in `detail`, drop `optional`, name the file in `detail`), or, if the ask needs the key, ask the owner to update the Pond
+  (Hook › Update Pond…) and post once it is updated. In This Mac mode the answer is
   "Hook speaks protocol M; …": ask the owner to update Hook (Check for Updates…) instead.
 - **detail**: longer instructions for one step (at most 1500 chars, line breaks
   allowed), shown as wrapped text under `do`.
@@ -124,7 +124,7 @@ Call `relay_post` with two arguments:
 It returns `{id, deduped, openUrl}`:
 - `deduped: true` means an ask with this title is already open. Don't post it again.
 - On `isError` with field paths (`steps[2].url: must be http(s)`), fix those fields and call again.
-- "Hook isn't running", "mailbox unreachable" or another connection error: tell the
+- "Hook isn't running", "Pond unreachable" or another connection error: tell the
   owner in chat and carry on.
 
 ## Fallback without MCP

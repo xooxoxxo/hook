@@ -121,7 +121,7 @@ public struct WelcomeView<Model: SettingsViewModel>: View {
             SetupRow("Asks come from", symbol: DS.Symbol.setupSource, help: QueueHelp.source) {
                 Picker("Asks come from", selection: $choice) {
                     Text("This Mac").tag(SourceKind.local)
-                    Text("Mailbox").tag(SourceKind.mailbox)
+                    Text("Pond").tag(SourceKind.mailbox)
                 }
                 .pickerStyle(.radioGroup).horizontalRadioGroupLayout().labelsHidden().fixedSize()
             }
@@ -388,7 +388,7 @@ public struct WelcomeView<Model: SettingsViewModel>: View {
 /// The setup window's lines and "?" texts.
 public enum WelcomeCopy {
     public static let welcome = "Your agents ask, Hook collects it: one card for each thing that needs you."
-    public static let source = "Keep asks on this Mac, or use a mailbox you run."
+    public static let source = "Keep asks on this Mac, or use a Pond you run."
     public static let agents = "Tell your agents Hook is there. Skip any you don't need."
     public static let notifications = "Hook tells you when an ask needs you now."
     public static let shortcut = "Show or hide Hook from anywhere."

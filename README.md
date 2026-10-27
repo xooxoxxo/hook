@@ -13,7 +13,7 @@ How an ask goes:
 - You follow it in the sidebar and press Done, Skip or Reply.
 - The session carries on with your answer.
 
-Runs entirely on your Mac by default. Optional [mailbox mode](docs/mailbox-protocol.md) forwards asks to you when you are away from it.
+Runs entirely on your Mac by default. Optional [Pond mode](docs/mailbox-protocol.md) forwards asks to you when you are away from it: the Pond (formerly called the mailbox) is a small server you run.
 
 For people who run Claude Code on a Mac and want one place to answer what their sessions are waiting on.
 

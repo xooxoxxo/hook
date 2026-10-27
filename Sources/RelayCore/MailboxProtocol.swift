@@ -273,7 +273,7 @@ public enum UpdatePreflight {
         public var buttons: [String]
     }
 
-    public static let updateMailboxFirst = "Update Mailbox First"
+    public static let updateMailboxFirst = "Update Pond First"
     public static let updateHookAnyway = "Update Hook Anyway"
 
     public static func prompt(version: String, decision: Decision) -> Prompt {
@@ -285,17 +285,17 @@ public enum UpdatePreflight {
                           buttons: ["Update", "Cancel"])
         case let .mailboxBehind(required, current):
             let missing = MailboxProtocol.missingFeatures(level: current).filter { $0.minimumLevel <= required }
-            var informative = "Hook \(version) needs mailbox level \(required); yours is \(current)."
+            var informative = "Hook \(version) needs Pond level \(required); yours is \(current)."
             if !missing.isEmpty {
-                informative += " Until the mailbox is updated, \(MailboxProtocol.featureList(missing)) won't work."
+                informative += " Until the Pond is updated, \(MailboxProtocol.featureList(missing)) won't work."
             }
             return Prompt(message: "Update Hook to \(version)?", informative: informative,
                           buttons: [updateMailboxFirst, updateHookAnyway, "Cancel"])
         case .mailboxUnchecked(let required):
             return Prompt(message: "Update Hook to \(version)?",
-                          informative: "Hook couldn't check your mailbox, so it can't tell whether the mailbox "
+                          informative: "Hook couldn't check your Pond, so it can't tell whether the Pond "
                               + "has level \(required), which Hook \(version) needs. You can update Hook now and "
-                              + "the mailbox later (Update Mailbox…).",
+                              + "the Pond later (Update Pond…).",
                           buttons: [updateHookAnyway, "Cancel"])
         }
     }

@@ -7,7 +7,7 @@ private func inputs(notSetUp: Bool = false, visible: Bool = false,
                     shortcut: HotkeySpec? = HotkeySpec.parse("ctrl+opt+cmd+r"),
                     presence: PresenceMode = .auto, pinned: String? = nil) -> MenuInputs {
     MenuInputs(notSetUp: notSetUp, panelVisible: visible, shortcut: shortcut,
-               statusLine: "Mailbox · ready · updated 10:42", presenceLine: "Home · active",
+               statusLine: "Pond · ready · updated 10:42", presenceLine: "Home · active",
                presence: presence, displays: displays, pinned: pinned)
 }
 
@@ -34,7 +34,7 @@ private func submenu(_ entries: [MenuEntry], _ title: String) -> [MenuEntry] {
 @Suite struct MenuBarMenuTests {
     @Test func theMenuHasTheSpecTitlesInOrder() {
         #expect(titles(MenuBarMenu.entries(inputs())) == [
-            "Show Hook", "—", "Mailbox · ready · updated 10:42", "Home · active", "Presence ▸", "—",
+            "Show Hook", "—", "Pond · ready · updated 10:42", "Home · active", "Presence ▸", "—",
             "Refresh", "Panel ▸", "—", "Settings…", "Run Setup Again…", "About Hook", "Check for Updates…", "—", "Quit Hook",
         ])
     }
@@ -75,8 +75,8 @@ private func submenu(_ entries: [MenuEntry], _ title: String) -> [MenuEntry] {
 
     @Test func statusAndPresenceLinesAreDisabled() {
         let entries = MenuBarMenu.entries(inputs())
-        #expect(item(entries, "Mailbox · ready · updated 10:42")
-            == .item(title: "Mailbox · ready · updated 10:42", action: nil, key: nil, modifiers: [], enabled: false, checked: false))
+        #expect(item(entries, "Pond · ready · updated 10:42")
+            == .item(title: "Pond · ready · updated 10:42", action: nil, key: nil, modifiers: [], enabled: false, checked: false))
         #expect(item(entries, "Home · active")
             == .item(title: "Home · active", action: nil, key: nil, modifiers: [], enabled: false, checked: false))
     }

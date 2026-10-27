@@ -8,12 +8,12 @@ Hook reads `~/.config/relay/config.json`, and Settings edits the same file.
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `source` | `"local"` \| `"mailbox"` | `"mailbox"` when `mailboxURL` is set | Where asks live: `local` keeps them in `~/Library/Application Support/Relay/queue.json`, served on `127.0.0.1`. Switch it in Settings › Queue or with `install.sh --local` / `--mailbox` |
-| `mailboxURL` | http(s) string | none | Mailbox mode: the service's base URL |
-| `tokenFile` | path | none | Mailbox mode: file holding the bearer token |
-| `context` | string | `"personal"` | Mailbox mode: sent with every post |
+| `source` | `"local"` \| `"mailbox"` | `"mailbox"` when `mailboxURL` is set | Where asks live: `local` keeps them in `~/Library/Application Support/Relay/queue.json`, served on `127.0.0.1`. Switch it in Settings › Queue or with `install.sh --local` / `--mailbox`. `"mailbox"` is the Pond (formerly called the mailbox); the value keeps its old name |
+| `mailboxURL` | http(s) string | none | Pond mode: the Pond's base URL (the Pond URL) |
+| `tokenFile` | path | none | Pond mode: the Pond token file, holding the bearer token |
+| `context` | string | `"personal"` | Pond mode: sent with every post |
 | `port` | 1–65535 | 47823 | The `127.0.0.1` listener |
-| `pollSeconds` | int ≥ 1 | 15 | Mailbox mode: how often to check |
+| `pollSeconds` | int ≥ 1 | 15 | Pond mode: how often to check |
 | `hotkey` | string | `"ctrl+opt+cmd+r"` | Shows or hides the panel; `""` turns it off |
 | `keepDays` | 1–365 | 14 | This Mac only: how long finished asks are kept |
 | `showCount` | bool | true | Badge shows the count from 1 to 9; from 10 up, or when false, a dot |
@@ -25,7 +25,7 @@ Hook reads `~/.config/relay/config.json`, and Settings edits the same file.
 | `repoPath` | path | none | Set by the installer; Settings › Connect builds its commands from it |
 | `sidebarDisplay` | display UUID string | none | The display the panel is pinned to. Dragging the panel sets it (and `sidebarEdge`); while that display is disconnected, the main display is used. Delete it to go back to the main display |
 | `afterClose` | `"next"` \| `"queue"` | `"next"` | After Done or Skip in an ask: open the next ask in the list, or go back to the queue with the next row selected. Any other value means `"next"` |
-| `mailboxUpdateCommand` | string | none | Mailbox mode: the shell command **Update Mailbox…** runs in a new terminal window (the `terminal` below) through your login shell. One line; empty or missing opens the [update guide](mailbox-protocol.md#updating-the-mailbox) instead. Set it in Settings › Queue › Mailbox › Update command |
+| `mailboxUpdateCommand` | string | none | Pond mode: the shell command **Update Pond…** runs in a new terminal window (the `terminal` below) through your login shell. One line; empty or missing opens the [update guide](mailbox-protocol.md#updating-the-mailbox) instead. Set it in Settings › Queue › Pond › Update command |
 | `openDocumentsIn` | `"hook"` \| `"system"` \| an app's bundle id or path | `"hook"` | Where a file row's **Open** goes. `hook`: Hook's viewer for Markdown and text, the default app for anything else; `system`: the file's default app; an app (`com.apple.TextEdit`, or `/Applications/Writer.app` for an app without a bundle id): that app for every document, or the default app when it isn't installed. Empty, missing or anything else means `hook`. Whatever the setting, Hook opens only document types (see [Using Hook](using.md)). Set it in Settings › General › Documents |
 | `terminal` | `"automatic"` \| a terminal's bundle id | `"automatic"` | Where Resume Session opens: `com.apple.Terminal`, `com.googlecode.iterm2`, `com.mitchellh.ghostty`, `net.kovidgoyal.kitty`, `com.github.wez.wezterm`, `dev.warp.Warp-Stable` or `org.alacritty`. `automatic`, an unknown id or a terminal that isn't installed means the first installed of Ghostty, iTerm2, WezTerm, kitty, Warp and Alacritty, else Terminal |
 

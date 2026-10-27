@@ -91,15 +91,15 @@ public enum PanelNotice: Equatable, Sendable {
             return "Couldn't open the terminal, so the resume command is on the clipboard. \(Sanitize.revealLine(reason))"
         case .mailboxOlder(let missing):
             let features = MailboxProtocol.featureList(missing)
-            return "Your mailbox is older than Hook: \(features) won't work until it is updated."
+            return "Your Pond is older than Hook: \(features) won't work until it is updated."
         case .mailboxNewer:
-            return "Hook is older than your mailbox. Update Hook to catch up."
+            return "Hook is older than your Pond. Update Hook to catch up."
         case .mailboxUpToDate(let level):
-            return "Your mailbox is up to date (protocol level \(level))."
+            return "Your Pond is up to date (protocol level \(level))."
         case .mailboxUpdateFailed(let reason):
             return "Couldn't open the terminal, so the update command is on the clipboard. \(Sanitize.revealLine(reason))"
         case .mailboxUpdateCommandInvalid(let reason):
-            return "The mailbox update command in Settings can't be run: \(Sanitize.revealLine(reason))."
+            return "The Pond update command in Settings can't be run: \(Sanitize.revealLine(reason))."
         }
     }
 
@@ -110,7 +110,7 @@ public enum PanelNotice: Equatable, Sendable {
         case .sessionClosed: return "Next Ask"
         case .noLongerOpen(_, let canShowClosed): return canShowClosed ? "Show Closed Ask" : nil
         case .offlineCached: return "Try Again"
-        case .mailboxOlder: return "Update Mailbox…"
+        case .mailboxOlder: return "Update Pond…"
         case .mailboxNewer: return "Check for Updates"
         case .storeFailed, .settingsReloaded, .updating, .resumeFailed, .mailboxUpToDate, .mailboxUpdateFailed,
              .mailboxUpdateCommandInvalid:
@@ -127,8 +127,8 @@ public enum PanelNotice: Equatable, Sendable {
     /// The text behind the Notice's "?", when it has one.
     public var help: String? {
         if case .mailboxOlder = self {
-            return "Hook checks your mailbox's protocol level when it connects and every 30 minutes. "
-                + "Update Mailbox… runs the update command from Settings › Queue in your terminal, "
+            return "Hook checks your Pond's protocol level when it connects and every 30 minutes. "
+                + "Update Pond… runs the update command from Settings › Queue in your terminal, "
                 + "or opens the update guide when none is set."
         }
         guard case .updating(_, let logPath) = self else { return nil }

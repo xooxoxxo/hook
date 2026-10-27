@@ -10,14 +10,14 @@ private func status(_ key: String = "mailbox:m#p", reachable: Bool = true, loade
 @Suite struct PanelStatusTests {
     @Test func readyAndConnecting() {
         #expect(status("local") == PanelStatus(symbol: .ok, text: "This Mac · ready", detail: .updated))
-        #expect(status() == PanelStatus(symbol: .ok, text: "Mailbox · ready", detail: .updated))
+        #expect(status() == PanelStatus(symbol: .ok, text: "Pond · ready", detail: .updated))
         #expect(status("local", reachable: false, loadedOnce: false) == PanelStatus(symbol: .connecting, text: "This Mac · starting…", detail: .updated))
-        #expect(status(reachable: false, loadedOnce: false) == PanelStatus(symbol: .connecting, text: "Mailbox · connecting…", detail: .updated))
+        #expect(status(reachable: false, loadedOnce: false) == PanelStatus(symbol: .connecting, text: "Pond · connecting…", detail: .updated))
     }
 
     @Test func problems() {
         #expect(status(reachable: false, problem: "timed\nout")
-            == PanelStatus(symbol: .down, text: "Mailbox · offline", detail: .unreachable(reason: "timed⟨U+000A⟩out")))
+            == PanelStatus(symbol: .down, text: "Pond · offline", detail: .unreachable(reason: "timed⟨U+000A⟩out")))
         #expect(status("local", reachable: false, problem: "Hook is already running")
             == PanelStatus(symbol: .down, text: "This Mac · not ready", detail: .unreachable(reason: "Hook is already running")))
         #expect(status(config: "config.json has an error: not valid JSON")
@@ -33,12 +33,12 @@ private func status(_ key: String = "mailbox:m#p", reachable: Bool = true, loade
         #expect(status(sending: 1) == PanelStatus(symbol: .connecting, text: "Sending 1 close…", detail: .none))
         #expect(status(SourceKey.none, reachable: false, config: "c").text == "Not set up")
         #expect(status(reachable: false, problem: "x", config: "c", listener: "l").text == "config.json has an error")
-        #expect(status(reachable: false, problem: "x", listener: "l").text == "Mailbox · offline")
+        #expect(status(reachable: false, problem: "x", listener: "l").text == "Pond · offline")
     }
 
     @Test func away() {
-        #expect(status(away: true) == PanelStatus(symbol: .away, text: "Away · Mailbox · ready", detail: .updated))
-        #expect(status(reachable: false, problem: "x", away: true) == PanelStatus(symbol: .down, text: "Away · Mailbox · offline", detail: .unreachable(reason: "x")))
+        #expect(status(away: true) == PanelStatus(symbol: .away, text: "Away · Pond · ready", detail: .updated))
+        #expect(status(reachable: false, problem: "x", away: true) == PanelStatus(symbol: .down, text: "Away · Pond · offline", detail: .unreachable(reason: "x")))
         #expect(status(reachable: false, loadedOnce: false, away: true).symbol == .away)
         #expect(status(SourceKey.none, reachable: false, away: true).text == "Away · Not set up")
     }
@@ -53,7 +53,7 @@ private func status(_ key: String = "mailbox:m#p", reachable: Bool = true, loade
         #expect(ConnectionStatus.line(sourceKey: "mailbox:m#p", reachable: false, loadedOnce: false, waiting: 0, problem: nil)
             == ConnectionLine(text: "Connecting…", ok: false))
         #expect(ConnectionStatus.line(sourceKey: "mailbox:m#p", reachable: false, loadedOnce: true, waiting: 3, problem: "timed out")
-            == ConnectionLine(text: "Can't reach the mailbox: timed out", ok: false))
+            == ConnectionLine(text: "Can't reach the Pond: timed out", ok: false))
         #expect(ConnectionStatus.line(sourceKey: "local", reachable: false, loadedOnce: false, waiting: 0, problem: "Port\n47823")
             == ConnectionLine(text: "This Mac isn't ready: Port⟨U+000A⟩47823", ok: false))
         #expect(ConnectionStatus.line(sourceKey: "none", reachable: false, loadedOnce: false, waiting: 0, problem: "No queue is set up")
@@ -61,9 +61,9 @@ private func status(_ key: String = "mailbox:m#p", reachable: Bool = true, loade
     }
 
     @Test func menuStatusLine() {
-        #expect(MenuStatusLine.text(sourceKey: "mailbox:m#p", reachable: true, updated: "10:42") == "Mailbox · ready · updated 10:42")
-        #expect(MenuStatusLine.text(sourceKey: "mailbox:m#p", reachable: true, updated: nil) == "Mailbox · ready")
-        #expect(MenuStatusLine.text(sourceKey: "mailbox:m#p", reachable: false, updated: "10:42") == "Mailbox · offline")
+        #expect(MenuStatusLine.text(sourceKey: "mailbox:m#p", reachable: true, updated: "10:42") == "Pond · ready · updated 10:42")
+        #expect(MenuStatusLine.text(sourceKey: "mailbox:m#p", reachable: true, updated: nil) == "Pond · ready")
+        #expect(MenuStatusLine.text(sourceKey: "mailbox:m#p", reachable: false, updated: "10:42") == "Pond · offline")
         #expect(MenuStatusLine.text(sourceKey: "local", reachable: true, updated: "10:42") == "This Mac · ready")
         #expect(MenuStatusLine.text(sourceKey: "local", reachable: false, updated: nil) == "This Mac · not ready")
         #expect(MenuStatusLine.text(sourceKey: "none", reachable: false, updated: nil) == "No queue set up")
