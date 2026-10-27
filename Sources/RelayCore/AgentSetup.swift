@@ -23,8 +23,9 @@ extension ConnectInfo {
     public static let repliesHookCommand = "relay replies --new --hook"
     /// The hook's timeout in seconds, as `hookSnippet()` shows it.
     static let repliesHookTimeout = 5
-    /// The Support Hook button's link. Empty hides the button.
-    public static let donationURL = ""
+    /// The Support Hook button's link on the setup window's last page. Empty, or anything
+    /// that isn't an https link, hides the button.
+    public static let donationURL = "https://ko-fi.com/xo-vision"
 
     public static func donationLink(_ raw: String = donationURL) -> URL? {
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)

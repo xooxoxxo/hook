@@ -158,7 +158,7 @@ private func promptCommands(_ object: [String: Any]) -> [String] {
     }
 
     @Test func theDonationButtonNeedsAnHTTPSLink() {
-        #expect(ConnectInfo.donationLink() == nil)                 // unset: the button stays hidden
+        #expect(ConnectInfo.donationLink() == URL(string: "https://ko-fi.com/xo-vision"))   // the shipped link
         #expect(ConnectInfo.donationLink("") == nil)
         #expect(ConnectInfo.donationLink("http://example.com/support") == nil)
         #expect(ConnectInfo.donationLink(" https://example.com/support ")?.host() == "example.com")

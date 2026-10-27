@@ -89,7 +89,7 @@ public struct WelcomeView<Model: SettingsViewModel>: View {
         case .testAsk: formPage { testAskPage }
         case .done:
             SetupHero(title: "Hook is ready", line: doneLine) { SetupDoneSymbol() } extra: {
-                if ConnectInfo.donationLink() != nil {
+                if Self.showsSupport() {
                     Button {
                         model.perform(.openDonation)
                     } label: {
@@ -99,6 +99,11 @@ public struct WelcomeView<Model: SettingsViewModel>: View {
                 }
             }
         }
+    }
+
+    /// The last page's Support Hook button shows only for a valid https donation link.
+    static func showsSupport(_ raw: String = ConnectInfo.donationURL) -> Bool {
+        ConnectInfo.donationLink(raw) != nil
     }
 
     /// A grouped Form on the window background, one surface with the footer.

@@ -16,3 +16,14 @@ import Testing
         #expect(TrailingDisclosureStyle.value(expanded: false) == "Collapsed")
     }
 }
+
+@Suite @MainActor struct SupportButtonTests {
+    /// The setup window's last page shows Support Hook for the shipped link, and only for https.
+    @Test func showsForAValidHTTPSLink() {
+        #expect(WelcomeView<FixtureSettingsModel>.showsSupport())
+        #expect(WelcomeView<FixtureSettingsModel>.showsSupport("https://ko-fi.com/xo-vision"))
+        #expect(!WelcomeView<FixtureSettingsModel>.showsSupport(""))
+        #expect(!WelcomeView<FixtureSettingsModel>.showsSupport("http://ko-fi.com/xo-vision"))
+        #expect(!WelcomeView<FixtureSettingsModel>.showsSupport("ko-fi.com/xo-vision"))
+    }
+}
