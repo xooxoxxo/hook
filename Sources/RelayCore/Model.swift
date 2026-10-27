@@ -16,17 +16,23 @@ public struct Step: Codable, Sendable, Equatable {
     public var substeps: [Step]?
     /// What the owner is asked at this step or sub-step (never on verify).
     public var question: Question?
+    /// Later steps wait until this one is done (never on verify).
+    public var blocking: Bool?
+    /// A caution shown with the step, multi-line (never on verify).
+    public var warning: String?
 
     enum CodingKeys: String, CodingKey {
         case action = "do"
         case place = "where"
-        case code, lang, expect, detail, url, substeps, question
+        case code, lang, expect, detail, url, substeps, question, blocking, warning
     }
 
     public init(action: String, place: String? = nil, code: String? = nil, lang: String? = nil, expect: String? = nil,
-                detail: String? = nil, url: String? = nil, substeps: [Step]? = nil, question: Question? = nil) {
+                detail: String? = nil, url: String? = nil, substeps: [Step]? = nil, question: Question? = nil,
+                blocking: Bool? = nil, warning: String? = nil) {
         self.action = action; self.place = place; self.code = code; self.lang = lang; self.expect = expect
         self.detail = detail; self.url = url; self.substeps = substeps; self.question = question
+        self.blocking = blocking; self.warning = warning
     }
 }
 
@@ -49,7 +55,8 @@ public struct Question: Codable, Sendable, Equatable {
 }
 
 extension Step {
-    /// As the synthesized decoder did, plus a lenient `substeps` and `question`: null,
+    /// As the synthesized decoder did, plus a lenient `substeps`, `question`, `blocking`
+    /// and `warning`: null,
     /// the wrong type or a malformed value becomes nil instead of failing the instructable.
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -62,6 +69,8 @@ extension Step {
         url = try c.decodeIfPresent(String.self, forKey: .url)
         substeps = (try? c.decodeIfPresent([Step].self, forKey: .substeps)) ?? nil
         question = (try? c.decodeIfPresent(Question.self, forKey: .question)) ?? nil
+        blocking = (try? c.decodeIfPresent(Bool.self, forKey: .blocking)) ?? nil
+        warning = (try? c.decodeIfPresent(String.self, forKey: .warning)) ?? nil
     }
 }
 

@@ -106,6 +106,36 @@ public enum Flow {
     }
 }
 
+// MARK: Blocking steps
+
+extension Flow {
+    /// A blocking item is finished when `isDone` says so; a blocking parent also needs
+    /// every sub-step done, and its own answer when it asks a question (a parent is
+    /// never ticked as a unit, so without a question its own part is always in).
+    public static func isFinished(_ node: DetailModel.Node, ticks: Set<String>) -> Bool {
+        guard node.isParent else { return isDone(node, ticks: ticks) }
+        return (!node.asks || node.answer != nil) && node.children.allSatisfy { isDone($0, ticks: ticks) }
+    }
+
+    /// The first blocking step or sub-step, in reading order, that isn't finished; nil
+    /// when none holds anything back.
+    public static func firstOpenBlock(nodes: [DetailModel.Node], ticks: Set<String>) -> DetailModel.Node? {
+        flattened(nodes).first { $0.isBlocking && !$0.isVerify && !isFinished($0, ticks: ticks) }
+    }
+
+    /// The paths that stay locked: every node, in reading order, after the first
+    /// unfinished blocking item. A blocking parent keeps its own sub-steps open and
+    /// locks what follows its last one; a blocking sub-step locks its later siblings,
+    /// the steps after its parent and verify. Empty when nothing is blocked.
+    public static func lockedPaths(nodes: [DetailModel.Node], ticks: Set<String>) -> [String] {
+        guard let block = firstOpenBlock(nodes: nodes, ticks: ticks) else { return [] }
+        let order = flattened(nodes)
+        let last = block.children.last?.path ?? block.path
+        guard let index = order.firstIndex(where: { $0.path == last }) else { return [] }
+        return order[(index + 1)...].map(\.path)
+    }
+}
+
 extension Flow {
     /// After Done or Skip on `id`: the next row below, else the one above, else nil.
     /// `id` not in the order (it was outside the filter): the first row, else nil.

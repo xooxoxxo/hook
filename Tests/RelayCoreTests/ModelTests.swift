@@ -134,6 +134,36 @@ private func decodeInstructable(_ json: String) throws -> Instructable {
     #expect(ins.steps[3].substeps?.first?.question == nil)
 }
 
+@Test func blockingAndWarningDecodeLeniently() throws {
+    let ins = try decodeInstructable("""
+    {"v":1,"title":"T","steps":[
+      {"do":"a","blocking":true,"warning":"Old key stops at once\\nCI fails"},
+      {"do":"b","blocking":"yes","warning":5},
+      {"do":"c","blocking":null,"warning":null,"substeps":[{"do":"d","blocking":false,"warning":"Shown once"}]}],
+     "verify":{"do":"v","blocking":true}}
+    """)
+    #expect(ins.steps.map(\.action) == ["a", "b", "c"])
+    #expect(ins.steps[0].blocking == true)
+    #expect(ins.steps[0].warning == "Old key stops at once\nCI fails")
+    #expect(ins.steps[1].blocking == nil && ins.steps[1].warning == nil)
+    #expect(ins.steps[2].blocking == nil && ins.steps[2].warning == nil)
+    #expect(ins.steps[2].substeps?.first?.blocking == false)
+    #expect(ins.steps[2].substeps?.first?.warning == "Shown once")
+
+    let nodes = DetailModel.nodes(steps: ins.steps, verify: ins.verify)
+    #expect(nodes[0].isBlocking && nodes[0].warning == "Old key stops at once\nCI fails")
+    #expect(!nodes[1].isBlocking && nodes[1].warning == nil)
+    #expect(!nodes[2].children[0].isBlocking && nodes[2].children[0].content.warning == "Shown once")
+    #expect(nodes[3].isVerify && !nodes[3].isBlocking)   // verify never blocks, whatever got past validation
+}
+
+@Test func blockingRoundTripsAndStaysOutWhenAbsent() throws {
+    let step = Step(action: "a", blocking: true, warning: "w")
+    #expect(try JSONDecoder().decode(Step.self, from: JSONEncoder().encode(step)) == step)
+    let plain = String(decoding: try JSONEncoder().encode(Step(action: "a")), as: UTF8.self)
+    #expect(!plain.contains("blocking") && !plain.contains("warning"))
+}
+
 @Test func questionsSurviveTheMailboxWireItem() throws {
     let json = """
     {"item":{"id":"a1","title":"Ship Atlas","status":"open","created":"2026-10-27T09:00:00+00:00",

@@ -150,9 +150,20 @@ private let minimal: [String: JSONValue] = [
         }
     }
 
+    @Test func blockingCasesAreInTheFixture() throws {
+        let names = Set(try loadVectors().map(\.name))
+        for name in ["blocking-valid-true", "blocking-valid-null", "blocking-valid-on-substep", "blocking-not-bool-string",
+                     "blocking-not-bool-number", "blocking-substep-not-bool", "blocking-on-verify", "warning-valid-multiline",
+                     "warning-valid-300", "warning-301", "warning-hidden", "warning-secret", "warning-on-verify",
+                     "warning-substep-too-long", "blocking-and-warning-both-bad"] {
+            #expect(names.contains(name), "\(name)")
+        }
+    }
+
     @Test func stepAndLeafKeys() {
         #expect(Validator.verifyKeys == ["do", "where", "code", "lang", "expect", "detail", "url"])
-        #expect(Validator.leafKeys == Validator.verifyKeys.union(["question"]))
+        #expect(Validator.leafKeys == Validator.verifyKeys.union(["question", "blocking", "warning"]))
+        #expect(Validator.warningLimit == 300)
         #expect(Validator.questionKeys == ["prompt", "choices", "multi"])
         #expect(Validator.maxQuestions == 20)
         #expect(Validator.stepKeys == Validator.leafKeys.union(["substeps"]))

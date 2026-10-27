@@ -21,10 +21,12 @@ public enum Validator {
     static let urgencies: Set<String> = ["now", "today", "whenever"]
 
     static let topKeys: Set<String> = ["v", "title", "why", "urgency", "steps", "verify", "reply", "links", "from"]
-    /// Verify: a leaf that asks nothing.
+    /// Verify: a leaf that asks and blocks nothing.
     static let verifyKeys: Set<String> = ["do", "where", "code", "lang", "expect", "detail", "url"]
     /// A sub-step.
-    static let leafKeys: Set<String> = verifyKeys.union(["question"])
+    static let leafKeys: Set<String> = verifyKeys.union(["question", "blocking", "warning"])
+    /// `warning`: multi-line, like `detail`.
+    static let warningLimit = 300
     /// An entry of `steps`.
     static let stepKeys: Set<String> = leafKeys.union(["substeps"])
     static let maxSubsteps = 10
@@ -266,7 +268,8 @@ public enum Validator {
 
     /// `_step`: `do` required, the rest optional; a `steps` entry may hold 1 to 10
     /// sub-steps, each checked as a leaf (so nesting is an unknown key). A step or
-    /// sub-step may ask a `question`; verify (`verifyKeys`) can't.
+    /// sub-step may ask a `question` and carry `blocking` (a bool) and a multi-line
+    /// `warning`; verify (`verifyKeys`) can't.
     static func step(_ errors: inout [String], _ path: String, _ value: JSONValue, allowed: Set<String>) {
         guard let step = keys(&errors, path, value, allowed: allowed) else { return }
         for field in stepFields {
@@ -274,6 +277,13 @@ public enum Validator {
                  required: field.name == "do", kind: field.kind)
         }
         url(&errors, "\(path).url", step["url"])
+        if allowed.contains("blocking") {
+            switch present(step["blocking"]) {
+            case nil, .bool?: break
+            default: errors.append("\(path).blocking: must be true or false")
+            }
+            text(&errors, "\(path).warning", step["warning"], limit: warningLimit, kind: .multi)
+        }
         if allowed.contains("question"), let question = present(step["question"]) {
             Self.question(&errors, "\(path).question", question)
         }

@@ -106,9 +106,14 @@ public struct StepContent: Equatable, Sendable {
     public var code: String?
     public var lang: String?
     public var expect: String?
+    /// Later steps stay locked until this one is done (see `Flow.lockedPaths`).
+    public var blocking: Bool
+    /// A caution for the step, multi-line.
+    public var warning: String?
 
     public init(action: String, place: String? = nil, detail: String? = nil, url: String? = nil,
-                code: String? = nil, lang: String? = nil, expect: String? = nil) {
+                code: String? = nil, lang: String? = nil, expect: String? = nil,
+                blocking: Bool = false, warning: String? = nil) {
         self.action = action
         self.place = place
         self.detail = detail
@@ -116,6 +121,8 @@ public struct StepContent: Equatable, Sendable {
         self.code = code
         self.lang = lang
         self.expect = expect
+        self.blocking = blocking
+        self.warning = warning
     }
 }
 

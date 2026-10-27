@@ -8095,6 +8095,730 @@
    ],
    "cleaned": null,
    "pyBytes": 1113
+  },
+  {
+   "name": "blocking-valid-true",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Revoke the old key",
+      "blocking": true
+     },
+     {
+      "do": "Deploy"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Revoke the old key",
+      "blocking": true
+     },
+     {
+      "do": "Deploy"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 119
+  },
+  {
+   "name": "blocking-valid-false",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Revoke the old key",
+      "blocking": false
+     },
+     {
+      "do": "Deploy"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Revoke the old key",
+      "blocking": false
+     },
+     {
+      "do": "Deploy"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 120
+  },
+  {
+   "name": "blocking-valid-null",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Revoke the old key",
+      "blocking": null
+     },
+     {
+      "do": "Deploy"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Revoke the old key",
+      "blocking": null
+     },
+     {
+      "do": "Deploy"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 119
+  },
+  {
+   "name": "blocking-valid-with-warning",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Revoke the old key",
+      "blocking": true,
+      "warning": "Deploying first leaves the old key live."
+     },
+     {
+      "do": "Deploy"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Revoke the old key",
+      "blocking": true,
+      "warning": "Deploying first leaves the old key live."
+     },
+     {
+      "do": "Deploy"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 174
+  },
+  {
+   "name": "blocking-valid-on-substep",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Set up the key",
+      "substeps": [
+       {
+        "do": "Open the console"
+       },
+       {
+        "do": "Create the key",
+        "blocking": true
+       }
+      ]
+     },
+     {
+      "do": "Deploy"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Set up the key",
+      "substeps": [
+       {
+        "do": "Open the console"
+       },
+       {
+        "do": "Create the key",
+        "blocking": true
+       }
+      ]
+     },
+     {
+      "do": "Deploy"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 183
+  },
+  {
+   "name": "blocking-valid-with-question",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Pick the region",
+      "blocking": true,
+      "question": {
+       "prompt": "Which region?",
+       "choices": [
+        "EU",
+        "US"
+       ]
+      }
+     },
+     {
+      "do": "Deploy"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Pick the region",
+      "blocking": true,
+      "question": {
+       "prompt": "Which region?",
+       "choices": [
+        "EU",
+        "US"
+       ]
+      }
+     },
+     {
+      "do": "Deploy"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 182
+  },
+  {
+   "name": "blocking-not-bool-string",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Revoke the old key",
+      "blocking": "true"
+     },
+     {
+      "do": "Deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].blocking: must be true or false"
+   ],
+   "cleaned": null,
+   "pyBytes": 121
+  },
+  {
+   "name": "blocking-not-bool-number",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Revoke the old key",
+      "blocking": 1
+     },
+     {
+      "do": "Deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].blocking: must be true or false"
+   ],
+   "cleaned": null,
+   "pyBytes": 116
+  },
+  {
+   "name": "blocking-substep-not-bool",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Set up the key",
+      "substeps": [
+       {
+        "do": "Open the console"
+       },
+       {
+        "do": "Create the key",
+        "blocking": "yes"
+       }
+      ]
+     },
+     {
+      "do": "Deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].substeps[1].blocking: must be true or false"
+   ],
+   "cleaned": null,
+   "pyBytes": 184
+  },
+  {
+   "name": "blocking-on-verify",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Revoke the old key"
+     },
+     {
+      "do": "Deploy"
+     }
+    ],
+    "verify": {
+     "do": "Check it",
+     "blocking": true
+    }
+   },
+   "valid": false,
+   "errors": [
+    "verify.blocking: unknown key"
+   ],
+   "cleaned": null,
+   "pyBytes": 149
+  },
+  {
+   "name": "warning-valid",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Revoke the old key",
+      "warning": "The old key stops working at once."
+     },
+     {
+      "do": "Deploy"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Revoke the old key",
+      "warning": "The old key stops working at once."
+     },
+     {
+      "do": "Deploy"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 150
+  },
+  {
+   "name": "warning-valid-multiline",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Revoke the old key",
+      "warning": "The old key stops working at once.\nCI jobs that use it fail."
+     },
+     {
+      "do": "Deploy"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Revoke the old key",
+      "warning": "The old key stops working at once.\nCI jobs that use it fail."
+     },
+     {
+      "do": "Deploy"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 177
+  },
+  {
+   "name": "warning-valid-null",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Revoke the old key",
+      "warning": null
+     },
+     {
+      "do": "Deploy"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Revoke the old key",
+      "warning": null
+     },
+     {
+      "do": "Deploy"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 118
+  },
+  {
+   "name": "warning-valid-300",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Revoke the old key",
+      "warning": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+     },
+     {
+      "do": "Deploy"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Revoke the old key",
+      "warning": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+     },
+     {
+      "do": "Deploy"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 416
+  },
+  {
+   "name": "warning-valid-on-substep",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Set up the key",
+      "substeps": [
+       {
+        "do": "Open the console"
+       },
+       {
+        "do": "Create the key",
+        "warning": "Copy it now: it is shown once."
+       }
+      ]
+     },
+     {
+      "do": "Deploy"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Set up the key",
+      "substeps": [
+       {
+        "do": "Open the console"
+       },
+       {
+        "do": "Create the key",
+        "warning": "Copy it now: it is shown once."
+       }
+      ]
+     },
+     {
+      "do": "Deploy"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 210
+  },
+  {
+   "name": "warning-301",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Revoke the old key",
+      "warning": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+     },
+     {
+      "do": "Deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].warning: longer than 300 characters"
+   ],
+   "cleaned": null,
+   "pyBytes": 417
+  },
+  {
+   "name": "warning-not-string",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Revoke the old key",
+      "warning": 5
+     },
+     {
+      "do": "Deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].warning: must be a string"
+   ],
+   "cleaned": null,
+   "pyBytes": 115
+  },
+  {
+   "name": "warning-hidden",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Revoke the old key",
+      "warning": "a‮b"
+     },
+     {
+      "do": "Deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].warning: contains hidden or control characters (U+202E)"
+   ],
+   "cleaned": null,
+   "pyBytes": 121
+  },
+  {
+   "name": "warning-tab-ok-zwsp-not",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Revoke the old key",
+      "warning": "a\tb​c"
+     },
+     {
+      "do": "Deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].warning: contains hidden or control characters (U+200B)"
+   ],
+   "cleaned": null,
+   "pyBytes": 124
+  },
+  {
+   "name": "warning-secret",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Revoke the old key",
+      "warning": "Do not paste ghp_example here"
+     },
+     {
+      "do": "Deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].warning: secret-like value"
+   ],
+   "cleaned": null,
+   "pyBytes": 145
+  },
+  {
+   "name": "warning-substep-too-long",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Set up the key",
+      "substeps": [
+       {
+        "do": "Open the console"
+       },
+       {
+        "do": "Create the key",
+        "warning": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+       }
+      ]
+     },
+     {
+      "do": "Deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].substeps[1].warning: longer than 300 characters"
+   ],
+   "cleaned": null,
+   "pyBytes": 481
+  },
+  {
+   "name": "warning-on-verify",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Revoke the old key"
+     },
+     {
+      "do": "Deploy"
+     }
+    ],
+    "verify": {
+     "do": "Check it",
+     "warning": "Takes a minute"
+    }
+   },
+   "valid": false,
+   "errors": [
+    "verify.warning: unknown key"
+   ],
+   "cleaned": null,
+   "pyBytes": 160
+  },
+  {
+   "name": "blocking-and-warning-both-bad",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the deploy key",
+    "steps": [
+     {
+      "do": "Revoke the old key",
+      "blocking": [],
+      "warning": [
+       "x"
+      ]
+     },
+     {
+      "do": "Deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].blocking: must be true or false",
+    "steps[0].warning: must be a string"
+   ],
+   "cleaned": null,
+   "pyBytes": 135
   }
  ]
 }
