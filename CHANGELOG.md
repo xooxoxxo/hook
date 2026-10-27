@@ -3,7 +3,7 @@
 All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
-## [Unreleased]
+## [0.9.0] - 2026-10-27
 
 ### Added
 - Blocking steps: a step or sub-step marked `blocking` carries a tinted warning box (its own

@@ -29,7 +29,7 @@ Commands start Hook if it isn't running, except `relay replies --hook` and `rela
 | `relay done <id> [note]`, `relay skip <id> [note]` | `done <id>` / `skipped <id>`, or `already <status> (by <actor>) <id>` |
 | `relay replies [--new] [--hook]` | One line per new owner answer |
 | `relay wait <id> [--timeout SECONDS] [--interval SECONDS] [--after SEQ]` | See [below](#relay-wait) |
-| `relay --version` | `relay 0.8.0` (`hook --version` prints `hook 0.8.0`) |
+| `relay --version` | `relay 0.9.0` (`hook --version` prints `hook 0.9.0`) |
 
 Exit codes: 0 success, 1 refused or not found, 2 no config or Hook unreachable, 3 `relay wait` timed out.
 
