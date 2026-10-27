@@ -34,8 +34,10 @@ MAILBOX_PROBLEM = "mailbox needs an http(s) mailboxURL and a tokenFile"
 NOT_THIS_MAC = "Hook is running but not in This Mac mode."
 NOT_RUNNING = "Hook isn't running"
 NO_APP = "Hook.app not found; run scripts/install.sh"
-# Hook first; Relay is the app before the rename, still there until install.sh runs.
-LAUNCH_COMMANDS = (["open", "-g", "-a", "Hook"], ["open", "-g", "-a", "Relay"])
+# The app by its bundle id: the same before and after the rename to Hook, and never
+# another app that happens to be called Hook.
+BUNDLE_ID = "io.github.xooxoxxo.relay"
+LAUNCH_COMMANDS = (["open", "-g", "-b", BUNDLE_ID],)
 LAUNCH_WAIT_S = 5.0
 LAUNCH_POLL_S = 0.25
 PROOF_PREFIX = "relay-proof-v1\n"   # message: PROOF_PREFIX + str(port) + "\n" + nonce

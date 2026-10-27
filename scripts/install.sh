@@ -15,6 +15,7 @@ set -euo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 APP="$HOME/Applications/Hook.app"
 OLD_APP="$HOME/Applications/Relay.app"   # the app before the rename to Hook
+BUNDLE_ID="io.github.xooxoxxo.relay"      # the same for Hook.app and Relay.app
 LABEL="io.github.xooxoxxo.relay"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 OLD_LABEL="dev.instructables.relay"   # the bundle id of pre-release builds
@@ -72,20 +73,47 @@ have_claude() { command -v claude >/dev/null 2>&1; }
 # Creates a directory with mode 0700, or tightens an existing one to 0700.
 private_dir() { (umask 077; mkdir -p "$1"); chmod 700 "$1"; }
 
-# Quits a running Hook and a running Relay (the app before the rename), and waits
-# up to 5 s for both to go.
+# The bundle id of an app folder, or nothing.
+bundle_id() { /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$1/Contents/Info.plist" 2>/dev/null || true; }
+
+# Is this app folder ours (Hook, or Relay from before the rename)? Another app that
+# happens to be called Hook is never quit, replaced or removed.
+ours() { [ "$(bundle_id "$1")" = "$BUNDLE_ID" ]; }
+
+# PIDs of running copies of this app, by bundle id, whichever name they run under.
+our_pids() {
+  for pid in $(pgrep -x Hook 2>/dev/null) $(pgrep -x Relay 2>/dev/null); do
+    cmd="$(ps -o command= -p "$pid" 2>/dev/null)" || continue
+    case "$cmd" in */Contents/MacOS/*) ;; *) continue ;; esac
+    if ours "${cmd%%/Contents/MacOS/*}"; then echo "$pid"; fi
+  done
+}
+
+# Is a copy of this app still running from Relay.app?
+old_app_running() {
+  for pid in $(our_pids); do
+    case "$(ps -o command= -p "$pid" 2>/dev/null)" in "$OLD_APP"/*) return 0 ;; esac
+  done
+  return 1
+}
+
+# Quits running copies of this app (Hook, and Relay from before the rename), and
+# waits up to 5 s for them to go.
 quit_apps() {
-  pkill -x Hook 2>/dev/null || true
-  pkill -x Relay 2>/dev/null || true
+  pids="$(our_pids)"
+  [ -n "$pids" ] || return 0
+  # shellcheck disable=SC2086
+  kill $pids 2>/dev/null || true
   for _ in 1 2 3 4 5 6 7 8 9 10; do
-    pgrep -x Hook >/dev/null 2>&1 || pgrep -x Relay >/dev/null 2>&1 || break
+    [ -n "$(our_pids)" ] || return 0
     sleep 0.5
   done
 }
 
-# Unregisters and removes an app bundle, if it is there.
+# Unregisters and removes an app bundle of ours, if it is there.
 remove_app() {
   [ -d "$1" ] || return 0
+  if ! ours "$1"; then echo "app: $1 is not this app (bundle id $(bundle_id "$1")); left alone"; return 0; fi
   if [ "$SKIP_LAUNCH" != "1" ]; then "$LSREGISTER" -u "$1" 2>/dev/null || true; fi
   rm -rf "$1"
 }
@@ -112,8 +140,7 @@ remove_old_agent() {
 if [ "$uninstall" -eq 1 ]; then
   if [ "$SKIP_LAUNCH" != "1" ]; then
     launchctl bootout "$GUI/$LABEL" 2>/dev/null || true
-    pkill -x Hook 2>/dev/null || true
-    pkill -x Relay 2>/dev/null || true
+    quit_apps
   fi
   rm -f "$PLIST"
   remove_old_agent
@@ -242,6 +269,9 @@ if [ "$SKIP_BUILD" != "1" ]; then
   [ -d "$REPO/build/Hook.app" ] || die "build.sh did not produce $REPO/build/Hook.app"
   # An update from 0.7.x runs the old app's update job with this script, so Relay
   # is quit here too.
+  if [ -d "$APP" ] && ! ours "$APP"; then
+    die "$APP is another app (bundle id $(bundle_id "$APP")); move it out of ~/Applications and run this again"
+  fi
   if [ "$SKIP_LAUNCH" != "1" ]; then quit_apps; fi
   mkdir -p "$(dirname "$APP")"
   rm -rf "$APP"
@@ -253,9 +283,14 @@ else
 fi
 
 # Only once Hook.app is in place: the app from before the rename goes.
-if [ -d "$APP" ] && [ -d "$OLD_APP" ]; then
-  remove_app "$OLD_APP"
-  echo "app: removed $OLD_APP (Relay is now Hook)"
+# A Relay that outlived quit_apps keeps its app until the next run.
+if [ -d "$APP" ] && ours "$APP" && [ -d "$OLD_APP" ]; then
+  if [ "$SKIP_LAUNCH" != "1" ] && old_app_running; then
+    echo "app: Relay is still running; $OLD_APP stays until the next install"
+  else
+    remove_app "$OLD_APP"
+    [ -d "$OLD_APP" ] || echo "app: removed $OLD_APP (Relay is now Hook)"
+  fi
 fi
 
 # Steps 4-6 are optional: a failure warns with the command to run later, and the
@@ -397,5 +432,5 @@ print(d.get("source", "?") if isinstance(d, dict) and d.get("app") == "relay" el
   fi
   sleep 0.5
 done
-echo "warning: Hook did not answer on 127.0.0.1:$port/health; open $APP by hand" >&2
+echo "warning: Hook did not answer on 127.0.0.1:$port/health. It may still be starting: check the menu bar, or open $APP by hand" >&2
 exit 1

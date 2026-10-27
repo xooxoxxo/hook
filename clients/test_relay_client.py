@@ -270,20 +270,15 @@ class LaunchTests(Base):
     def test_launches_once_then_retries(self):
         self.http.refuse = 3
         self.assertEqual(self.client().list(), [])
-        self.assertEqual(self.launched, [["open", "-g", "-a", "Hook"]])
+        self.assertEqual(self.launched, [["open", "-g", "-b", "io.github.xooxoxxo.relay"]])
         self.assertEqual(self.clock.sleeps, [0.25, 0.25, 0.25])
 
-    def test_falls_back_to_relay_when_hook_is_missing(self):
-        # Before install.sh has run, only the app from before the rename is there.
-        self.http.refuse = 1
-        launched = []
-
-        def launcher(argv):
-            launched.append(argv)
-            return argv[-1] == "Relay"
-        client = self.local(self.http, launcher=launcher, sleep=self.clock.sleep, monotonic=self.clock.monotonic)
-        self.assertEqual(client.list(), [])
-        self.assertEqual(launched, [["open", "-g", "-a", "Hook"], ["open", "-g", "-a", "Relay"]])
+    def test_launches_by_bundle_id_never_by_name(self):
+        # The id is the same for Relay.app and Hook.app, and another app called Hook
+        # is never opened instead.
+        self.assertEqual(rc.LAUNCH_COMMANDS, ([ "open", "-g", "-b", rc.BUNDLE_ID],))
+        self.assertEqual(rc.BUNDLE_ID, "io.github.xooxoxxo.relay")
+        self.assertNotIn("-a", [arg for command in rc.LAUNCH_COMMANDS for arg in command])
 
     def test_gives_up_after_five_seconds(self):
         self.http.refuse = -1
@@ -298,7 +293,7 @@ class LaunchTests(Base):
         with self.assertRaises(rc.Unreachable) as ctx:
             self.client(ok=False).list()
         self.assertEqual(str(ctx.exception), "Hook.app not found; run scripts/install.sh")
-        self.assertEqual(self.launched, [["open", "-g", "-a", "Hook"], ["open", "-g", "-a", "Relay"]])
+        self.assertEqual(self.launched, [["open", "-g", "-b", "io.github.xooxoxxo.relay"]])
 
     def test_no_autolaunch(self):
         self.http.refuse = -1

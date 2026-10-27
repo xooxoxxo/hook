@@ -253,7 +253,7 @@ class NoAutolaunchTest(unittest.TestCase):
     def test_without_the_switch_it_tries_to_launch(self):
         code, launches, _ = self.run_list(self.env)
         self.assertEqual(code, 2)
-        self.assertEqual([argv[-1] for argv in launches], ["Hook", "Relay"])   # neither app opened
+        self.assertEqual([argv[-1] for argv in launches], ["io.github.xooxoxxo.relay"])   # opened by bundle id, but not running
 
 
 class ShimTest(unittest.TestCase):

@@ -10,6 +10,14 @@ trap 'rm -rf "$T"' EXIT
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 ok() { echo "ok - $*"; }
+fake_app() {   # fake_app <path> [bundle id]: an app folder holding only an Info.plist
+  mkdir -p "$1/Contents"
+  cat >"$1/Contents/Info.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict><key>CFBundleIdentifier</key><string>${2:-io.github.xooxoxxo.relay}</string></dict></plist>
+PLIST
+}
 
 # Running install.sh without the switches would touch the real Mac; refuse early.
 grep -q 'RELAY_SKIP_LAUNCH' "$INSTALL" || fail "install.sh has no RELAY_SKIP_* switches yet"
@@ -66,7 +74,7 @@ plutil -lint "$PLIST" >/dev/null || fail "LaunchAgent plist does not lint"
 grep -q 'export PATH="$HOME/.local/bin:$PATH"' "$OUT" || fail "no PATH hint although ~/.local/bin is not on PATH"
 ok "fresh install"
 # RELAY_SKIP_BUILD installs no app; stand one in, so the reruns below aren't first installs.
-mkdir -p "$H/Applications/Hook.app/Contents"
+fake_app "$H/Applications/Hook.app"
 
 # 2. A rerun keeps unknown keys and never turns a removed LaunchAgent back on.
 python3 - "$CONFIG" <<'PY'
@@ -135,7 +143,7 @@ grep -q 'points elsewhere; left alone' "$OUT" || fail "the foreign skill link wa
 ok "foreign skill link left alone"
 
 # 9. --uninstall keeps the config and removes the CLI links, both apps and LaunchAgent.
-mkdir -p "$H/Applications/Hook.app/Contents" "$H/Applications/Relay.app/Contents"
+fake_app "$H/Applications/Hook.app"; fake_app "$H/Applications/Relay.app"
 run --uninstall || { cat "$OUT"; fail "--uninstall exited non-zero"; }
 [ -f "$CONFIG" ] || fail "--uninstall removed the config"
 [ ! -e "$H/.local/bin/relay" ] && [ ! -L "$H/.local/bin/relay" ] || fail "--uninstall kept the CLI link"
@@ -163,7 +171,7 @@ rm -f "$PLIST"
 [ ! -d "$H/Applications/Hook.app" ] || fail "test setup: the app should be gone after --uninstall"
 run || { cat "$OUT"; fail "install with a config but no app exited non-zero"; }
 [ -f "$PLIST" ] || fail "a config without an app was not treated as a first install"
-mkdir -p "$H/Applications/Hook.app/Contents"
+fake_app "$H/Applications/Hook.app"
 rm "$PLIST"
 run || { cat "$OUT"; fail "rerun with the app exited non-zero"; }
 [ ! -e "$PLIST" ] || fail "a rerun with the app re-created the LaunchAgent"
@@ -199,7 +207,7 @@ FAKE="$T/fakebin"
 mkdir -p "$FAKE"
 printf '#!/bin/sh\necho "$*" >> "%s/claude.log"\nexit 1\n' "$T" > "$FAKE/claude"
 chmod +x "$FAKE/claude"
-mkdir -p "$H/Applications/Hook.app/Contents"
+fake_app "$H/Applications/Hook.app"
 env -u RELAY_SKIP_MCP HOME="$H" PATH="$FAKE:$PATH" RELAY_SKIP_BUILD=1 RELAY_SKIP_LAUNCH=1 \
   "$INSTALL" >"$OUT" 2>&1 || { cat "$OUT"; fail "a failing claude mcp add aborted the install"; }
 grep -q '^mcp add --scope user relay' "$T/claude.log" || fail "the fake claude was not called"
@@ -212,7 +220,7 @@ ok "failing claude mcp add is not fatal"
 # 15. A LaunchAgent under the old bundle id is removed and replaced by the new one,
 #     even on a rerun (launch at login stays on); --uninstall removes an old one too.
 #     RELAY_SKIP_LAUNCH=1 keeps launchctl out of it, as everywhere here.
-mkdir -p "$H/Applications/Hook.app/Contents"
+fake_app "$H/Applications/Hook.app"
 rm -f "$PLIST"
 echo "old" > "$OLD_PLIST"
 run || { cat "$OUT"; fail "install with an old LaunchAgent exited non-zero"; }
@@ -244,11 +252,11 @@ ok "failing swift --version is explained"
 #     once Hook.app is in place.
 rm -rf "$H/Applications/Hook.app" "$H/Applications/Relay.app"
 rm -f "$PLIST" "$OLD_PLIST"
-mkdir -p "$H/Applications/Relay.app/Contents"
+fake_app "$H/Applications/Relay.app"
 run || { cat "$OUT"; fail "install over a Relay.app exited non-zero"; }
 [ ! -e "$PLIST" ] || fail "an existing Relay.app was treated as a first install"
 [ -d "$H/Applications/Relay.app" ] || fail "Relay.app was removed before Hook.app was in place"
-mkdir -p "$H/Applications/Hook.app/Contents"
+fake_app "$H/Applications/Hook.app"
 run || { cat "$OUT"; fail "install with Hook.app and Relay.app exited non-zero"; }
 [ ! -e "$H/Applications/Relay.app" ] || fail "Relay.app was kept next to Hook.app"
 [ -d "$H/Applications/Hook.app" ] || fail "Hook.app went missing"
@@ -265,5 +273,18 @@ run --uninstall || { cat "$OUT"; fail "--uninstall with a foreign hook command e
 [ "$(readlink "$H/.local/bin/hook")" = "$T/other-hook" ] || fail "--uninstall removed a foreign hook command"
 rm "$H/.local/bin/hook"
 ok "foreign hook command left alone"
+
+# 19. Another app called Hook (another bundle id) is never treated as this app: an
+#     old Relay.app stays next to it, and --uninstall leaves it in place.
+rm -rf "$H/Applications/Hook.app" "$H/Applications/Relay.app"
+fake_app "$H/Applications/Hook.app" com.example.other-hook
+fake_app "$H/Applications/Relay.app"
+run || { cat "$OUT"; fail "install next to a foreign Hook.app exited non-zero"; }
+[ -d "$H/Applications/Relay.app" ] || fail "Relay.app was removed although Hook.app is another app"
+run --uninstall || { cat "$OUT"; fail "--uninstall next to a foreign Hook.app exited non-zero"; }
+[ -d "$H/Applications/Hook.app" ] || fail "--uninstall removed another app called Hook"
+grep -q "Hook.app is not this app" "$OUT" || fail "the foreign Hook.app was not reported"
+[ ! -e "$H/Applications/Relay.app" ] || fail "--uninstall kept the old Relay.app"
+ok "another app called Hook is left alone"
 
 echo "INSTALL TESTS OK"

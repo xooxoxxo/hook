@@ -18,6 +18,8 @@ APP="$DEST/Hook.app"
 
 mkdir -p "$DEST"
 rm -rf "$APP"
+# The build from before the rename to Hook, so Launch Services can't pick it up.
+if [ "${BUILD_ONLY:-0}" = "1" ]; then rm -rf "$DEST/Relay.app"; fi
 mkdir -p "$APP/Contents/MacOS"
 cp "$BIN" "$APP/Contents/MacOS/Hook"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
