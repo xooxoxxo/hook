@@ -309,12 +309,25 @@ class DescriptionTest(unittest.TestCase):
         import relay_cli
         post = relay_mcp.tool_list()[0]
         self.assertEqual(relay_mcp.SUBSTEPS_SENTENCE, relay_cli.SUBSTEPS_SENTENCE)
-        self.assertTrue(post["description"].endswith(relay_mcp.SUBSTEPS_SENTENCE))
+        self.assertIn(relay_mcp.SUBSTEPS_SENTENCE, post["description"])
         defs = post["inputSchema"]["$defs"]
         self.assertIn("leaf", defs)
         self.assertIn("substeps", defs["step"]["properties"])
         self.assertEqual(post["inputSchema"]["properties"]["instructable"]["properties"]["verify"],
-                         {"$ref": "#/$defs/leaf"})
+                         {"$ref": "#/$defs/verify"})
+
+    def test_post_and_status_describe_step_questions(self):
+        import relay_cli
+        post, status = relay_mcp.tool_list()[0], relay_mcp.tool_list()[1]
+        self.assertEqual(relay_mcp.QUESTIONS_SENTENCE, relay_cli.QUESTIONS_SENTENCE)
+        self.assertTrue(post["description"].endswith(relay_mcp.QUESTIONS_SENTENCE))
+        defs = post["inputSchema"]["$defs"]
+        self.assertEqual(defs["step"]["properties"]["question"], {"$ref": "#/$defs/question"})
+        self.assertEqual(defs["leaf"]["properties"]["question"], {"$ref": "#/$defs/question"})
+        self.assertNotIn("question", defs["verify"]["properties"])
+        self.assertEqual(status["name"], "relay_status")
+        for word in ("answer", "answers", "unanswered"):
+            self.assertIn(word, status["description"])
 
 
 class FakeClient:

@@ -24,7 +24,7 @@ if _CLIENTS not in sys.path:
     sys.path.insert(0, _CLIENTS)
 
 import relay_client  # noqa: E402
-from relay_cli import SUBSTEPS_SENTENCE, answers_json, resolved_by  # noqa: E402
+from relay_cli import QUESTIONS_SENTENCE, SUBSTEPS_SENTENCE, answers_json, resolved_by  # noqa: E402
 
 SERVER_INFO = {"name": "relay", "version": relay_client.VERSION}
 LEGACY_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26"]
@@ -163,16 +163,20 @@ def tool_list() -> list:
             "description": ("Send the owner ONE instructable: an ask written as numbered steps with "
                             "copy-paste code (see the instructables skill). It goes to the owner's Relay "
                             "queue. Returns {id, deduped, openUrl}; deduped means an ask with this title "
-                            "is already open. Never include a secret value. " + SUBSTEPS_SENTENCE),
+                            "is already open. Never include a secret value. " + SUBSTEPS_SENTENCE + " "
+                            + QUESTIONS_SENTENCE),
             "inputSchema": post_input_schema(),
         },
         {
             "name": "relay_status",
             "description": ("Status of one ask in the owner's Relay queue: open, done or dismissed; "
                             "resolvedBy (owner, session or null) says who closed it; ownerEvents holds the "
-                            "owner's answers (resolved, declined, reply). The owner can also reopen an "
+                            "owner's answers (resolved, declined, reply, answer). The owner can also reopen an "
                             "ask they closed (kind reopened): it is open again, and resolvedBy is null. "
-                            "Only owner events are the owner's answer."),
+                            "Only owner events are the owner's answer. answers maps a step path "
+                            "(\"3\", \"3.2\") to the owner's latest answer to that step's question "
+                            "({picked: [...]} or {text}, plus at); unanswered lists the paths still open. "
+                            "Answers can arrive while the ask stays open."),
             "inputSchema": {"type": "object", "properties": {"id": {"type": "string"}},
                             "required": ["id"], "additionalProperties": False},
         },

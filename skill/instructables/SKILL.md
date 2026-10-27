@@ -38,6 +38,20 @@ on you" line in chat alone gets lost.
     {"do": "Under OAuth & Permissions, add the chat:write scope", "code": "chat:write", "lang": "text"}
   ]}
   ```
+- **question**: any step or sub-step (not `verify`) can ask the owner something. The owner
+  answers it right on that step, without closing the ask:
+
+  ```json
+  {"do": "Pick the deploy target", "where": "Relay",
+   "question": {"prompt": "Which environment?", "choices": ["Staging", "Prod"]}}
+  ```
+
+  - `choices`: 0–6 distinct strings of at most 60 chars. Leave it out for a free-text answer.
+  - `"multi": true` allows several picks and needs at least 2 choices.
+  - At most 20 questions per instructable.
+
+  Bundle related questions into one ask as per-step questions. Don't post one ask per
+  question. Use the ask-level `reply` only for one overall answer.
 - **detail**: longer instructions for one step (at most 1500 chars, line breaks
   allowed), shown as wrapped text under `do`.
 - **code**: the exact command or text to paste. Make it complete, with nothing for
@@ -129,14 +143,27 @@ Refused asks print `refused: <error>` and one line per field error on stderr, an
 - `relay_status {id}` or `relay status <id>`:
   - `status` is `open`, `done` or `dismissed`; `resolvedBy` (`owner` or `session`)
     says who closed it.
-  - `ownerEvents` holds `resolved`, `declined` and `reply`. A picked choice arrives as
-    `choice: <option>`.
+  - `ownerEvents` holds `resolved`, `declined`, `reply` and `answer`. A picked reply
+    choice arrives as `choice: <option>`.
+  - `answers` maps a step path (`"3"`, `"3.2"`) to the owner's latest answer to that
+    step's question (`{picked: [...]}` or `{text}`, plus `at`). `unanswered` lists the
+    paths still open.
   - Only **owner** events, or a `(by owner)` status, are the owner's answer.
     `done (by session)` means a session closed it, not the owner.
+- **Per-step answers arrive while the ask stays open.**
+  - What `relay wait` prints:
+    - one `  ↳ owner answer 3.2: Staging` line per answer;
+    - `answered 2 of 4; open: 4, 5.1`.
+  - It waits 10 s after an answer, so a burst of answers wakes you once.
+  - When your work can start on partial answers, act on the answers you have, then run
+    `relay wait <id> --after <last seq>` for the rest.
+  - The owner may press Done with questions still unanswered. Treat those questions as
+    having no answer.
 - The owner may reopen an ask they closed by mistake (owner event `reopened`). Treat
   it as open again, and wait for the next answer with `relay wait <id> --after <last seq>`.
 - If the replies hook is set up, answers also show up in your next prompt as
-  `Relay: [<id>] <project> · <title> — <done|skipped|reply>: <text>`. The hook shows
+  `Relay: [<id>] <project> · <title> — <done|skipped|reply>: <text>`, or
+  `— answer <path>: <value>` for a step answer. The hook shows
   answers to every session's asks: act only on ids you posted.
 - `relay_list` (or `relay list`) shows every open ask. Check it before posting, so you
   don't ask twice.

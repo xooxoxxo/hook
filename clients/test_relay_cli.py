@@ -112,6 +112,12 @@ class CliTest(unittest.TestCase):
         self.assertEqual((code, err), (0, ""))
         self.assertIn(" ".join(relay_cli.SUBSTEPS_SENTENCE.split()), " ".join(out.split()))
 
+    def test_post_help_explains_questions(self):
+        with mock.patch.dict(os.environ, {"COLUMNS": "80"}):
+            code, out, err = self.run_cli("post", "--help")
+        self.assertEqual((code, err), (0, ""))
+        self.assertIn(" ".join(relay_cli.QUESTIONS_SENTENCE.split()), " ".join(out.split()))
+
     def test_post_bad_input(self):
         code, out, err = self.run_cli("post", "Acme", "--json", "-", stdin=io.StringIO("{nope"))
         self.assertEqual((code, out), (1, ""))

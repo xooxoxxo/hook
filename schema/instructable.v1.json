@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Relay instructable v1",
-  "description": "An owner ask as exact steps. Relay's validator (and any compatible mailbox) is the source of truth: it also rejects secret-like values (sk-ant-, sk-..., xox[abp]-, ghp_, github_pat_, PEM private keys, AKIA...), hidden characters and documents over 32768 bytes, which JSON Schema cannot express. Steps plus sub-steps total at most 60.",
+  "description": "An owner ask as exact steps. Relay's validator (and any compatible mailbox) is the source of truth: it also rejects secret-like values (sk-ant-, sk-..., xox[abp]-, ghp_, github_pat_, PEM private keys, AKIA...), hidden characters and documents over 32768 bytes, which JSON Schema cannot express. Steps plus sub-steps total at most 60. At most 20 of them ask a question; verify never does.",
   "type": "object",
   "additionalProperties": false,
   "required": ["v", "title", "steps"],
@@ -16,7 +16,7 @@
       "maxItems": 20,
       "items": { "$ref": "#/$defs/step" }
     },
-    "verify": { "$ref": "#/$defs/leaf" },
+    "verify": { "$ref": "#/$defs/verify" },
     "reply": {
       "type": "object",
       "additionalProperties": false,
@@ -57,10 +57,28 @@
   },
   "$defs": {
     "httpUrl": { "type": "string", "pattern": "^https?://" },
-    "leaf": {
+    "question": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["prompt"],
+      "description": "A question for the owner on this step, answered in Relay without closing the ask. No choices asks for free text; multi allows several picks and needs at least 2 choices. Read the answers with relay_status, relay status or relay wait.",
+      "properties": {
+        "prompt": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "choices": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 6,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 60 }
+        },
+        "multi": { "type": "boolean", "default": false }
+      }
+    },
+    "verify": {
       "type": "object",
       "additionalProperties": false,
       "required": ["do"],
+      "description": "The final check. Like a sub-step, but it never asks a question.",
       "properties": {
         "do": { "type": "string", "minLength": 1, "maxLength": 300 },
         "where": { "type": "string", "maxLength": 60 },
@@ -73,6 +91,26 @@
           "description": "Longer instructions for this step, shown as wrapped text under do. Put explanations here, never in code: code is only text to copy exactly."
         },
         "url": { "$ref": "#/$defs/httpUrl" }
+      }
+    },
+    "leaf": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["do"],
+      "description": "A sub-step: one action, shown indented as 3a, 3b. It may ask a question.",
+      "properties": {
+        "do": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "where": { "type": "string", "maxLength": 60 },
+        "code": { "type": "string", "maxLength": 4000 },
+        "lang": { "type": "string", "maxLength": 20 },
+        "expect": { "type": "string", "maxLength": 300 },
+        "detail": {
+          "type": "string",
+          "maxLength": 1500,
+          "description": "Longer instructions for this step, shown as wrapped text under do. Put explanations here, never in code: code is only text to copy exactly."
+        },
+        "url": { "$ref": "#/$defs/httpUrl" },
+        "question": { "$ref": "#/$defs/question" }
       }
     },
     "step": {
@@ -92,6 +130,7 @@
           "description": "Longer instructions for this step, shown as wrapped text under do. Put explanations here, never in code: code is only text to copy exactly."
         },
         "url": { "$ref": "#/$defs/httpUrl" },
+        "question": { "$ref": "#/$defs/question" },
         "substeps": { "type": "array", "minItems": 1, "maxItems": 10, "items": { "$ref": "#/$defs/leaf" } }
       }
     }
