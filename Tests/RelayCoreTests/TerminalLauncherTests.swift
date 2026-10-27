@@ -131,12 +131,30 @@ private let shellTail = ["/bin/zsh", "-lc", script, "hook-resume", "/work/acme",
     }
 
     @Test func kindsByBundleIDAndTheAutomaticSetting() {
-        #expect(TerminalKind.resolve("automatic") == .terminal)
-        #expect(TerminalKind.resolve("") == .terminal)
-        #expect(TerminalKind.resolve("com.example.unknown") == .terminal)
-        #expect(TerminalKind.resolve("com.mitchellh.ghostty") == .ghostty)
-        #expect(TerminalKind.resolve(" net.kovidgoyal.kitty ") == .kitty)
+        let all = Set(TerminalKind.allCases)
+        #expect(TerminalKind.resolve("automatic", installed: []) == .terminal)
+        #expect(TerminalKind.resolve("automatic", installed: all) == .ghostty)
+        #expect(TerminalKind.resolve("", installed: [.kitty]) == .kitty)
+        #expect(TerminalKind.resolve("com.example.unknown", installed: [.iterm]) == .iterm)
+        #expect(TerminalKind.resolve("com.mitchellh.ghostty", installed: all) == .ghostty)
+        #expect(TerminalKind.resolve(" net.kovidgoyal.kitty ", installed: all) == .kitty)
+        #expect(TerminalKind.resolve("com.apple.Terminal", installed: all) == .terminal)
+        // A chosen terminal that isn't installed falls back to Automatic.
+        #expect(TerminalKind.resolve("org.alacritty", installed: [.warp]) == .warp)
         for kind in TerminalKind.allCases { #expect(TerminalKind(bundleID: kind.bundleID) == kind) }
+    }
+
+    /// Automatic: Ghostty, iTerm2, WezTerm, kitty, Warp, Alacritty, then Terminal.
+    @Test func automaticOrder() {
+        let order: [TerminalKind] = [.ghostty, .iterm, .wezterm, .kitty, .warp, .alacritty]
+        #expect(TerminalKind.automaticOrder == order)
+        var installed = Set(order)
+        for kind in order {
+            #expect(TerminalKind.automatic(installed: installed.union([.terminal])) == kind)
+            installed.remove(kind)
+        }
+        #expect(TerminalKind.automatic(installed: [.terminal]) == .terminal)
+        #expect(TerminalKind.automatic(installed: []) == .terminal)
     }
 }
 
@@ -179,7 +197,10 @@ private let shellTail = ["/bin/zsh", "-lc", script, "hook-resume", "/work/acme",
     @Test func automaticThenInstalledInOrder() {
         let options = TerminalChoice.options(installed: [.kitty, .terminal, .ghostty], current: "automatic")
         #expect(options.map(\.id) == ["automatic", "com.apple.Terminal", "com.mitchellh.ghostty", "net.kovidgoyal.kitty"])
-        #expect(options.map(\.title) == ["Automatic (Terminal)", "Terminal", "Ghostty", "kitty"])
+        #expect(options.map(\.title) == ["Automatic (Ghostty)", "Terminal", "Ghostty", "kitty"])
+        #expect(TerminalChoice.options(installed: [.terminal, .warp, .kitty], current: "automatic").first?.title
+                == "Automatic (kitty)")
+        #expect(TerminalChoice.options(installed: [.terminal], current: "automatic").first?.title == "Automatic (Terminal)")
     }
 
     @Test func aSavedTerminalThatIsGoneStaysListed() {

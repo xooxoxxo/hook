@@ -35,9 +35,20 @@ public enum TerminalKind: String, CaseIterable, Sendable {
         self = kind
     }
 
-    /// The `terminal` config value: "automatic" (or anything unknown) is Terminal.
-    public static func resolve(_ setting: String) -> TerminalKind {
-        TerminalKind(bundleID: setting.trimmingCharacters(in: .whitespacesAndNewlines)) ?? .terminal
+    /// Automatic's order: the first of these that is installed, else Terminal.
+    public static let automaticOrder: [TerminalKind] = [.ghostty, .iterm, .wezterm, .kitty, .warp, .alacritty]
+
+    /// What Automatic opens with these terminals installed.
+    public static func automatic(installed: Set<TerminalKind>) -> TerminalKind {
+        automaticOrder.first(where: installed.contains) ?? .terminal
+    }
+
+    /// The `terminal` config value: a known bundle id that is installed is that terminal;
+    /// "automatic", anything unknown or a terminal that isn't installed is `automatic(installed:)`.
+    public static func resolve(_ setting: String, installed: Set<TerminalKind>) -> TerminalKind {
+        guard let kind = TerminalKind(bundleID: setting.trimmingCharacters(in: .whitespacesAndNewlines)),
+              kind == .terminal || installed.contains(kind) else { return automatic(installed: installed) }
+        return kind
     }
 }
 
@@ -264,10 +275,12 @@ public struct TerminalChoice: Equatable, Sendable, Identifiable {
         self.title = title
     }
 
-    /// Automatic, then each installed terminal in `TerminalKind` order. A saved
-    /// terminal that isn't installed stays listed, marked, so the picker shows it.
+    /// Automatic, named after the terminal it resolves to ("Automatic (Ghostty)"), then each
+    /// installed terminal in `TerminalKind` order. A saved terminal that isn't installed stays
+    /// listed, marked, so the picker shows it.
     public static func options(installed: Set<TerminalKind>, current: String) -> [TerminalChoice] {
-        var options = [TerminalChoice(id: RelayConfig.automaticTerminal, title: "Automatic (Terminal)")]
+        let automatic = TerminalKind.automatic(installed: installed).name
+        var options = [TerminalChoice(id: RelayConfig.automaticTerminal, title: "Automatic (\(automatic))")]
         for kind in TerminalKind.allCases where installed.contains(kind) {
             options.append(TerminalChoice(id: kind.bundleID, title: kind.name))
         }

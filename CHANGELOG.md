@@ -10,8 +10,10 @@ and versions follow Semantic Versioning.
   the session's folder and runs `claude --resume` there, through your login shell. It is enabled
   only for sessions on this Mac; elsewhere it is dimmed with "Session is on <host>". Copy Resume
   Command stays, and is now also offered for closed asks.
-- Settings › General › Sessions › Terminal (`terminal` in config.json): Automatic (Terminal) or
-  any installed terminal among iTerm2, Ghostty, kitty, WezTerm, Warp and Alacritty. Ghostty 1.3
+- Settings › General › Sessions › Terminal (`terminal` in config.json): Automatic or
+  any installed terminal among iTerm2, Ghostty, kitty, WezTerm, Warp and Alacritty. Automatic
+  picks the first installed of Ghostty, iTerm2, WezTerm, kitty, Warp and Alacritty, else
+  Terminal, and the picker names it ("Automatic (Ghostty)"). Ghostty 1.3
   and later is driven by AppleScript, so it asks once for Automation permission; without it,
   Hook opens a new Ghostty instance instead.
 - A sent reply folds to "You replied: … · time" with Change, which brings the question back

@@ -75,6 +75,9 @@ public enum SettingsFixtures {
             login: login, displays: displays, sourceKey: sourceKey,
             connection: ConnectionStatus.line(sourceKey: sourceKey, reachable: true, loadedOnce: true, waiting: 5, problem: nil),
             connectionProblems: problems, permission: permission, repo: repo,
-            localQueuePath: "~/Library/Application Support/Relay/queue.json", now: GalleryFixtures.now)
+            localQueuePath: "~/Library/Application Support/Relay/queue.json",
+            terminals: TerminalChoice.options(installed: [.terminal, .ghostty, .iterm],
+                                              current: config?.terminal ?? RelayConfig.automaticTerminal),
+            now: GalleryFixtures.now)
     }
 }

@@ -39,7 +39,7 @@ import RelayCore
         guard FileManager.default.fileExists(atPath: target.cwd, isDirectory: &isDirectory), isDirectory.boolValue else {
             return "The session's folder no longer exists."
         }
-        var kind = TerminalKind.resolve(setting)
+        var kind = TerminalKind.resolve(setting, installed: Self.installed())
         var appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: kind.bundleID)
         if appURL == nil, kind != .terminal {
             kind = .terminal
