@@ -6,26 +6,43 @@ and versions follow Semantic Versioning.
 ## [Unreleased]
 
 ### Added
+- Blocking steps: a step or sub-step marked `blocking` carries a tinted warning box (its own
+  `warning` text, or a default line), and the steps after it stay locked ("Finish step 2
+  first") until it is done: they can't be opened, ticked or answered, and ⌘T and ⇧⌘T skip them.
 - Resume Session, in a card's context menu and the ask's ⋯ menu: opens a new terminal window in
   the session's folder and runs `claude --resume` there, through your login shell. It is enabled
   only for sessions on this Mac; elsewhere it is dimmed with "Session is on <host>". Copy Resume
   Command stays, and is now also offered for closed asks.
-- Settings › General › Sessions › Terminal (`terminal` in config.json): Automatic or
-  any installed terminal among iTerm2, Ghostty, kitty, WezTerm, Warp and Alacritty. Automatic
-  picks the first installed of Ghostty, iTerm2, WezTerm, kitty, Warp and Alacritty, else
-  Terminal, and the picker names it ("Automatic (Ghostty)"). Ghostty 1.3
-  and later is driven by AppleScript, so it asks once for Automation permission; without it,
-  Hook opens a new Ghostty instance instead.
-- A sent reply folds to "You replied: … · time" with Change, which brings the question back
-  with the last reply filled in; earlier replies sit under History. A sent step answer folds the
-  same way, with Cancel beside Send while you change it. Nothing about editing is stored.
+- Settings › General › Sessions › Terminal (`terminal` in config.json): Automatic or any
+  installed terminal among iTerm2, Ghostty, kitty, WezTerm, Warp and Alacritty. Automatic picks
+  the first installed of Ghostty, iTerm2, WezTerm, kitty, Warp and Alacritty, else Terminal,
+  and the picker names it ("Automatic (Ghostty)"). Ghostty 1.3 and later is driven by
+  AppleScript, so it asks once for Automation permission; without it, Hook opens a new Ghostty
+  instance instead.
+- Answered rows: a sent reply folds to "You replied: … · time" with Change, which brings the
+  question back with the last reply filled in; earlier replies sit under History. A sent step
+  answer folds the same way ("You chose: …"), with Cancel beside Send while you change it.
+  Nothing about editing is stored.
 - Set Up Hook, a seven-page first-run window with progress dots and a full-width Continue:
   Welcome, where asks come from (with a connection test), connecting your agents (register the
   MCP server, install the skill, add the replies hook to `~/.claude/settings.json`, keys kept in
-  order, with a `.bak` copy that never overwrites an older one, copy the CLAUDE.md section), notifications, the shortcut and login item, a test
-  ask, and Done. Pages push in, and the welcome icon bounces, unless Reduce Motion is on.
-  install.sh writes `onboarding: "pending"` only into a config it creates, so existing installs
-  never see it; finishing or closing the window removes the key. The menu has Run Setup Again….
+  order, with a `.bak` copy that never overwrites an older one, copy the CLAUDE.md section),
+  notifications, the shortcut and login item, a test ask, and Done, with Support Hook. Pages
+  push in, and the welcome icon bounces, unless Reduce Motion is on. install.sh writes
+  `onboarding: "pending"` only into a config it creates, so existing installs never see it;
+  finishing or closing the window removes the key. The menu has Run Setup Again….
+
+### Changed
+- Steps are one grouped list that opens like an accordion: the current step is open, done steps
+  fold to a ✓ and their title, and upcoming ones show only their title; click one to open it.
+- Step questions and reply choices are option rows, one per option with a checkmark on the
+  picked one (a checkbox on each in a multi pick), instead of radio buttons and segmented
+  pickers.
+- The bottom bar is Skip and Done only: "Send N answers" is gone, as every question and the
+  reply has its own Send (⌘S still sends every unsent answer).
+- Done never sends or drops an unsent reply, pick or answer silently: the bar warns "You have
+  an unsent answer" (or "unsent reply") with Send & Done (⌘↩) and Discard & Done, and Esc goes
+  back to editing.
 
 ## [0.8.0] - 2026-10-27
 
