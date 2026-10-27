@@ -121,7 +121,7 @@ let queueClosedHeight: CGFloat = 1120
                notice: .actionFailed(verdict: .done, id: "gallery-failed", title: "Send the logo image", reason: offlineReason)),
                height: queueHeight, rules: queueEdgeRules),
     panelScene("queue-notice-mailbox-older", queueModel(GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false),
-               notice: .mailboxOlder(missing: [.answers, .blocking])),
+               notice: .mailboxOlder(missing: MailboxFeature.allCases)),
                height: queueHeight, rules: queueEdgeRules),
     panelScene("queue-notice-mailbox-newer", queueModel(GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false),
                notice: .mailboxNewer),

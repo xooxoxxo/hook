@@ -56,6 +56,7 @@ public struct Notice: View {
                 }
             }
         }
+        .modifier(NoticeSizing())
         .accessibilityElement(children: .contain)
         .onAppear { AccessibilityNotification.Announcement(text).post() }
     }
@@ -68,10 +69,26 @@ public struct Notice: View {
                 .foregroundStyle(kind == .error ? DS.Color.error : DS.Color.secondary)
         }
         .font(DS.Font.prose)
-        .lineLimit(3)
+        .lineLimit(nil)
         .fixedSize(horizontal: false, vertical: true)
         .textSelection(.enabled)
     }
 
     public static func symbol(_ kind: NoticeKind) -> String { kind == .error ? DS.Symbol.error : DS.Symbol.info }
+}
+
+/// How a Notice takes its height in the panel's column: always its whole content at the width
+/// it is given (every line of text, the button row in full), and before the List below it.
+/// Without this the GroupBox could be offered less than its content when the column was
+/// short of room; its content then spilled out of both edges, cut off under the header and
+/// drawn over the List, worst for the two-button Notice whose buttons sit on their own line.
+struct NoticeSizing: ViewModifier {
+    /// The stack gives the Notice its room before the List, which takes what is left.
+    static let priority: Double = 1
+
+    func body(content: Content) -> some View {
+        content
+            .fixedSize(horizontal: false, vertical: true)
+            .layoutPriority(Self.priority)
+    }
 }
