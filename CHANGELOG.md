@@ -3,7 +3,7 @@
 All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
-## [Unreleased]
+## [0.9.2] - 2026-10-27
 
 ### Changed
 - The mailbox is now called the Pond: the server you run that holds asks while you're away.
