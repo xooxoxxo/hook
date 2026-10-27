@@ -2,7 +2,7 @@
 
 Hook (formerly Relay) is a macOS menu-bar inbox for Claude Code. When a session needs a key, a decision or a manual step, it lands here as a checklist you tick off.
 
-[![CI](https://github.com/xooxoxxo/relay/actions/workflows/ci.yml/badge.svg)](https://github.com/xooxoxxo/relay/actions/workflows/ci.yml)
+[![CI](https://github.com/xooxoxxo/hook/actions/workflows/ci.yml/badge.svg)](https://github.com/xooxoxxo/hook/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 <!-- screenshot: docs/assets/sidebar.png -->
@@ -27,8 +27,8 @@ Hook builds from source; there is no prebuilt download yet. You need:
 - Claude Code (the `claude` command)
 
 ```bash
-git clone https://github.com/xooxoxxo/relay.git
-cd relay
+git clone https://github.com/xooxoxxo/hook.git
+cd hook
 ./scripts/install.sh
 ```
 

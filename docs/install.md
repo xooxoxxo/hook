@@ -11,8 +11,8 @@ Hook builds from source with one script.
 ## Install
 
 ```bash
-git clone https://github.com/xooxoxxo/relay.git
-cd relay
+git clone https://github.com/xooxoxxo/hook.git
+cd hook
 ./scripts/install.sh
 ```
 
