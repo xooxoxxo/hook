@@ -67,6 +67,17 @@ public struct MailboxClient: QueueSource {
         return response.item
     }
 
+    /// `POST /asks/{id}/answers` with `{"answers":[...]}`. 409 (the ask is closed) → `.askClosed`.
+    public func answer(_ id: String, answers: [JSONValue]) async throws -> WireItem {
+        let body = JSONValue.object(["answers": .array(answers)]).data()
+        do {
+            let response: ItemResponse = try await send("POST", "asks/\(id)/answers", body: body)
+            return response.item
+        } catch QueueError.rejected(let status, _, _) where status == 409 {
+            throw QueueError.askClosed
+        }
+    }
+
     /// Takes back a Done or Skip: always `actor: "owner"`. The mailbox returns an open
     /// ask unchanged.
     public func reopen(_ id: String) async throws -> WireItem {

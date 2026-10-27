@@ -40,3 +40,28 @@ public struct TickButton: View {
             .alignmentProbe(level.isSub ? .subMarker : .topMarker)
     }
 }
+
+/// Design/StepMarker: a question step's marker. It looks like `TickButton`'s and sits in the
+/// same column, but it is not a button: only an answer completes a question (Flow.isDone).
+public struct StepMarker: View {
+    let level: StepLevel
+    let state: StepState
+    let label: String
+
+    public init(level: StepLevel, state: StepState, label: String) {
+        self.level = level
+        self.state = state
+        self.label = label
+    }
+
+    public var body: some View {
+        Image(systemName: DS.Symbol.marker(level: level, state: state))
+            .imageScale(TickButton.scale(for: level))
+            .foregroundStyle(DS.Color.marker(state))
+            .frame(minWidth: DS.Metric.hit, minHeight: DS.Metric.hit)
+            .frame(width: DS.Metric.hit)
+            .accessibilityElement()
+            .accessibilityLabel(label)
+            .alignmentProbe(level.isSub ? .subMarker : .topMarker)
+    }
+}

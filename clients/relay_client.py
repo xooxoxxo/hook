@@ -208,6 +208,91 @@ def one_line(text: str) -> str:
     return text.replace("\r\n", "\n").replace("\r", "\n").replace("\n", " ⏎ ")
 
 
+def instructable_of(detail: Any) -> Dict[str, Any]:
+    """The instructable of an ask detail: payload.instructable, as a dict ({} when absent).
+    A JSON string (a local item may carry it encoded) is decoded."""
+    item = detail.get("item") if isinstance(detail, dict) and isinstance(detail.get("item"), dict) else {}
+    payload = item.get("payload") if isinstance(item.get("payload"), dict) else {}
+    value = payload.get("instructable")
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except ValueError:
+            return {}
+    return value if isinstance(value, dict) else {}
+
+
+def questions(instructable: Any) -> Dict[str, Dict[str, Any]]:
+    """Every question of an instructable by step path ("3", "3.2"), in document order:
+    a step's own question comes before those of its sub-steps."""
+    found: Dict[str, Dict[str, Any]] = {}
+    steps = instructable.get("steps") if isinstance(instructable, dict) else None
+    if not isinstance(steps, list):
+        return found
+    for i, step in enumerate(steps):
+        if not isinstance(step, dict):
+            continue
+        if isinstance(step.get("question"), dict):
+            found[f"{i + 1}"] = step["question"]
+        subs = step.get("substeps")
+        for j, sub in enumerate(subs if isinstance(subs, list) else []):
+            if isinstance(sub, dict) and isinstance(sub.get("question"), dict):
+                found[f"{i + 1}.{j + 1}"] = sub["question"]
+    return found
+
+
+def parse_answer(event: Any) -> Optional[Dict[str, Any]]:
+    """The body of an owner `answer` event ({"step", "picked"|"text"}), or None."""
+    if not isinstance(event, dict) or event.get("kind") != "answer" or event.get("actor") != "owner":
+        return None
+    try:
+        body = json.loads(event.get("text") or "")
+    except (TypeError, ValueError):
+        return None
+    return body if isinstance(body, dict) and isinstance(body.get("step"), str) else None
+
+
+def _seq_of(event: Dict[str, Any]) -> int:
+    try:
+        return int(event.get("seq") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def latest_answers(events: Any) -> Dict[str, Dict[str, Any]]:
+    """The owner's current answer per step path: the latest `answer` event wins.
+    Each value holds `picked` or `text`, plus `at` and `seq`. Unreadable events are skipped."""
+    current: Dict[str, Dict[str, Any]] = {}
+    ordered = sorted((e for e in events or [] if isinstance(e, dict)), key=_seq_of)
+    for event in ordered:
+        body = parse_answer(event)
+        if body is None:
+            continue
+        value: Dict[str, Any] = {}
+        if isinstance(body.get("picked"), list):
+            value["picked"] = [str(p) for p in body["picked"]]
+        elif isinstance(body.get("text"), str):
+            value["text"] = body["text"]
+        else:
+            continue
+        value.update(at=event.get("at"), seq=event.get("seq"))
+        current[body["step"]] = value
+    return current
+
+
+def answer_value(answer: Dict[str, Any]) -> str:
+    """An answer as one terminal line: picks joined with ', ', or the text."""
+    if isinstance(answer.get("picked"), list):
+        return one_line(", ".join(str(p) for p in answer["picked"]))
+    return one_line(str(answer.get("text") or ""))
+
+
+def unanswered(instructable: Any, events: Any) -> List[str]:
+    """Paths of the questions with no answer yet, in document order."""
+    answered = latest_answers(events)
+    return [path for path in questions(instructable) if path not in answered]
+
+
 def ensure_private_dir(path: pathlib.Path) -> None:
     """Creates a missing directory 0700. An existing one is left as it is, so a custom
     $RELAY_CONFIG in a shared folder never tightens that folder (only Relay and

@@ -24,7 +24,7 @@ if _CLIENTS not in sys.path:
     sys.path.insert(0, _CLIENTS)
 
 import relay_client  # noqa: E402
-from relay_cli import SUBSTEPS_SENTENCE, resolved_by  # noqa: E402
+from relay_cli import SUBSTEPS_SENTENCE, answers_json, resolved_by  # noqa: E402
 
 SERVER_INFO = {"name": "relay", "version": relay_client.VERSION}
 LEGACY_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26"]
@@ -112,7 +112,7 @@ def relay_status(args: Dict[str, Any]) -> Dict[str, Any]:
     ]
     return {"id": item.get("id"), "status": status, "title": item.get("title"),
             "resolvedBy": resolved_by(events) if status != "open" else None,
-            "ownerEvents": owner_events, "resolvedAt": item.get("completedAt")}
+            "ownerEvents": owner_events, "resolvedAt": item.get("completedAt"), **answers_json(detail)}
 
 
 def relay_list(args: Dict[str, Any]) -> Dict[str, Any]:

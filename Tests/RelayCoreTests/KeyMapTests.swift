@@ -258,4 +258,32 @@ private func typing(_ c: KeyContext) -> KeyContext { var c = c; c.textFieldFocus
         #expect(key(15, [], "r") == nil)
         #expect(key(15, .command, nil) == nil)
     }
+
+    // Step answers
+    private func cmd(_ key: PanelKey, _ context: KeyContext) -> PanelCommand? { KeyMap.command(for: key, in: context) }
+
+    @Test func cmdSSendsUnsentAnswersInAnOpenAsk() {
+        var c = detail
+        #expect(cmd(.cmdS, c) == nil)
+        c.hasUnsentAnswers = true
+        #expect(cmd(.cmdS, c) == .sendAnswers)
+        #expect(cmd(.cmdS, typing(c)) == .sendAnswers)   // from inside an answer field too
+        c.askOpen = false
+        #expect(cmd(.cmdS, c) == nil)                    // closed: read-only (R5)
+        #expect(cmd(.cmdS, KeyContext(mode: .list, selectionOpen: true, hasUnsentAnswers: true)) == nil)
+    }
+
+    @Test func cmdReturnIsSendAndDoneWithAnswersUnsent() {
+        var c = detail
+        #expect(cmd(.cmdReturn, c) == .done)
+        c.hasUnsentAnswers = true
+        #expect(cmd(.cmdReturn, c) == .sendAndDone)
+        c.askOpen = false
+        #expect(cmd(.cmdReturn, c) == nil)
+    }
+
+    @Test func cmdSDecodes() {
+        #expect(PanelKey(keyCode: 1, modifiers: .command, characters: "s") == .cmdS)
+        #expect(PanelKey(keyCode: 1, modifiers: [.shift, .command], characters: "s") == nil)
+    }
 }

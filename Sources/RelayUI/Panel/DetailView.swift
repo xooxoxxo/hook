@@ -36,6 +36,14 @@ struct DetailView<Model: PanelViewModel>: View {
         return snapshot.busy ? .busy(snapshot.primary) : .open(snapshot.primary)
     }
 
+    /// Send answers' count, the unanswered caption and a failed answers send, for an open ask.
+    static func answers(_ snapshot: DetailSnapshot) -> ActionBarAnswers {
+        guard snapshot.closedText == nil else { return .none }
+        var failure: String?
+        if case .failed(let reason)? = snapshot.answerState { failure = reason }
+        return ActionBarAnswers(unsent: snapshot.unsent.count, caption: snapshot.unansweredCaption, failure: failure)
+    }
+
     /// The ask a header chevron opens; nil at the ends and outside the filter (disabled).
     static func target(_ neighbour: Neighbour) -> String? {
         if case .ask(let id) = neighbour { return id }
@@ -315,10 +323,11 @@ struct DetailView<Model: PanelViewModel>: View {
                 UndoBar(undo: undo, sending: model.sendingCloses > 0, onUndo: { model.undo() })
                     .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
             }
-            ActionBar(mode: Self.actionMode(snapshot),
+            ActionBar(mode: Self.actionMode(snapshot), answers: Self.answers(snapshot),
                       onSkip: { model.close(id, .declined) },
                       onPrimary: { primary(snapshot) },
-                      onReopen: { model.reopen(id) })
+                      onReopen: { model.reopen(id) },
+                      onSendAnswers: { model.sendAnswers(id) })
         }
         .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: model.undoInfo)
     }

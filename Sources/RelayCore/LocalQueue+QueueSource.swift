@@ -53,6 +53,14 @@ public struct LocalQueueSource: QueueSource {
         }
     }
 
+    public func answer(_ id: String, answers: [JSONValue]) async throws -> WireItem {
+        do {
+            return try await queue.answer(id, answers: .array(answers)).wireItem
+        } catch let error as LocalQueueError {
+            throw error.queueError
+        }
+    }
+
     public func reopen(_ id: String) async throws -> WireItem {
         do {
             return try await queue.reopen(id).wireItem
@@ -80,6 +88,8 @@ extension LocalQueueError {
         case .invalidNote(let details): return (400, "invalid note", details)
         case .missingText: return (400, "missing text", nil)
         case .textTooLong: return (400, "text too long", nil)
+        case .askClosed: return (409, "ask is closed", nil)
+        case .invalidAnswers(let details): return (400, "invalid answers", details)
         case .notFound: return (404, "not found", nil)
         case .queueFull: return (429, "queue full", nil)
         case .storeFailed, .locked: return (500, "store failed", nil)
@@ -90,6 +100,8 @@ extension LocalQueueError {
         switch self {
         case .notFound:
             return .notFound
+        case .askClosed:
+            return .askClosed
         case .storeFailed(let reason):
             return .storeFailed(reason)
         case .locked:

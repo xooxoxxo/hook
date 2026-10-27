@@ -14,23 +14,43 @@ public struct Step: Codable, Sendable, Equatable {
     public var detail: String?
     public var url: String?
     public var substeps: [Step]?
+    /// What the owner is asked at this step or sub-step (never on verify).
+    public var question: Question?
 
     enum CodingKeys: String, CodingKey {
         case action = "do"
         case place = "where"
-        case code, lang, expect, detail, url, substeps
+        case code, lang, expect, detail, url, substeps, question
     }
 
     public init(action: String, place: String? = nil, code: String? = nil, lang: String? = nil, expect: String? = nil,
-                detail: String? = nil, url: String? = nil, substeps: [Step]? = nil) {
+                detail: String? = nil, url: String? = nil, substeps: [Step]? = nil, question: Question? = nil) {
         self.action = action; self.place = place; self.code = code; self.lang = lang; self.expect = expect
-        self.detail = detail; self.url = url; self.substeps = substeps
+        self.detail = detail; self.url = url; self.substeps = substeps; self.question = question
     }
 }
 
+/// A step's question. No choices (nil or empty) asks for free text; `multi` allows
+/// several picks. The validator holds the limits; decoding only needs the shape.
+public struct Question: Codable, Sendable, Equatable {
+    public var prompt: String
+    public var choices: [String]?
+    public var multi: Bool?
+
+    public init(prompt: String, choices: [String]? = nil, multi: Bool? = nil) {
+        self.prompt = prompt; self.choices = choices; self.multi = multi
+    }
+
+    /// The choices to pick from; empty for a free-text question.
+    public var options: [String] { choices ?? [] }
+    public var isFreeText: Bool { options.isEmpty }
+    /// Several picks allowed (only with choices).
+    public var allowsMany: Bool { multi == true && !isFreeText }
+}
+
 extension Step {
-    /// As the synthesized decoder did, plus a lenient `substeps`: null, the wrong
-    /// type or a malformed sub-step becomes nil instead of failing the instructable.
+    /// As the synthesized decoder did, plus a lenient `substeps` and `question`: null,
+    /// the wrong type or a malformed value becomes nil instead of failing the instructable.
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         action = try c.decode(String.self, forKey: .action)
@@ -41,6 +61,7 @@ extension Step {
         detail = try c.decodeIfPresent(String.self, forKey: .detail)
         url = try c.decodeIfPresent(String.self, forKey: .url)
         substeps = (try? c.decodeIfPresent([Step].self, forKey: .substeps)) ?? nil
+        question = (try? c.decodeIfPresent(Question.self, forKey: .question)) ?? nil
     }
 }
 
@@ -154,8 +175,8 @@ public struct Event: Codable, Sendable, Equatable {
         self.seq = seq; self.itemId = itemId; self.kind = kind; self.actor = actor; self.text = text; self.at = at
     }
 
-    /// The kinds an owner's action records: an answer, a close, or a reopen.
-    public static let ownerKinds: Set<String> = ["reply", "resolved", "declined", "reopened"]
+    /// The kinds an owner's action records: a reply, a step answer, a close, or a reopen.
+    public static let ownerKinds: Set<String> = ["reply", "answer", "resolved", "declined", "reopened"]
     /// The kinds that change whether an ask is open: a close or a reopen.
     public static let statusKinds: Set<String> = ["resolved", "declined", "reopened"]
 
@@ -174,7 +195,7 @@ public struct AskDetail: Codable, Sendable, Equatable {
         events.filter { $0.kind == "reply" && $0.actor == "owner" }.compactMap(\.text)
     }
 
-    /// Every owner event (reply, resolved, declined, reopened), oldest first.
+    /// Every owner event (reply, answer, resolved, declined, reopened), oldest first.
     public var ownerEvents: [Event] {
         events.filter(\.isOwnerEvent)
     }

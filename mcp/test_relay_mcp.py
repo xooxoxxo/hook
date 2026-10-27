@@ -388,6 +388,21 @@ class ResolvedByTest(unittest.TestCase):
         self.assertIsNone(result["resolvedBy"])
         self.assertEqual(result["ownerEvents"], [{"kind": "reply", "text": "ok", "at": "2026-10-11T09:00:02+00:00"}])
 
+    def test_answers_and_unanswered(self):
+        from answers_fixture import answer, detail
+        events = [event(1, "posted", "session"), answer(2, "3.2", ["Staging"]), answer(3, "4", text="EU"),
+                  answer(4, "4", text="US"), answer(5, "1", ["Prod"], actor="session")]
+        with mock.patch.object(relay_mcp, "make_client", lambda: FakeClient(detail(*events))):
+            result = relay_mcp.relay_status({"id": ITEM_ID})
+        self.assertEqual(result["answers"], {"3.2": {"picked": ["Staging"], "at": "2026-10-11T09:02:00+00:00"},
+                                             "4": {"text": "US", "at": "2026-10-11T09:04:00+00:00"}})
+        self.assertEqual(result["unanswered"], ["1", "2", "3", "4.2"])
+        self.assertEqual([e["kind"] for e in result["ownerEvents"]], ["answer", "answer", "answer"])
+
+    def test_ask_without_questions_has_empty_answers(self):
+        result = self.status("open", [event(1, "posted", "session")])
+        self.assertEqual((result["answers"], result["unanswered"]), ({}, []))
+
 
 if __name__ == "__main__":
     unittest.main()

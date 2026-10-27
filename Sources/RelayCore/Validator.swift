@@ -21,13 +21,18 @@ public enum Validator {
     static let urgencies: Set<String> = ["now", "today", "whenever"]
 
     static let topKeys: Set<String> = ["v", "title", "why", "urgency", "steps", "verify", "reply", "links", "from"]
-    /// A sub-step, or verify.
-    static let leafKeys: Set<String> = ["do", "where", "code", "lang", "expect", "detail", "url"]
+    /// Verify: a leaf that asks nothing.
+    static let verifyKeys: Set<String> = ["do", "where", "code", "lang", "expect", "detail", "url"]
+    /// A sub-step.
+    static let leafKeys: Set<String> = verifyKeys.union(["question"])
     /// An entry of `steps`.
     static let stepKeys: Set<String> = leafKeys.union(["substeps"])
     static let maxSubsteps = 10
     /// Steps plus sub-steps per instructable; verify isn't counted.
     static let maxStepTotal = 60
+    /// Questions on steps and sub-steps per instructable.
+    static let maxQuestions = 20
+    static let questionKeys: Set<String> = ["prompt", "choices", "multi"]
     static let replyKeys: Set<String> = ["prompt", "choices"]
     static let linkKeys: Set<String> = ["label", "url"]
     static let fromKeys = ["session", "host", "cwd"]
@@ -75,11 +80,14 @@ public enum Validator {
             if total > maxStepTotal {
                 errors.append("steps: more than \(maxStepTotal) steps and sub-steps in total")
             }
+            if questionCount(steps) > maxQuestions {
+                errors.append("steps: more than \(maxQuestions) questions in total")
+            }
         } else {
             errors.append("steps: must be a list of 1 to \(maxSteps) steps")
         }
         if let verify = present(object["verify"]) {
-            step(&errors, "verify", verify, allowed: leafKeys)
+            step(&errors, "verify", verify, allowed: verifyKeys)
         }
 
         if let replyValue = present(object["reply"]),
@@ -257,7 +265,8 @@ public enum Validator {
     }
 
     /// `_step`: `do` required, the rest optional; a `steps` entry may hold 1 to 10
-    /// sub-steps, each checked as a leaf (so nesting is an unknown key).
+    /// sub-steps, each checked as a leaf (so nesting is an unknown key). A step or
+    /// sub-step may ask a `question`; verify (`verifyKeys`) can't.
     static func step(_ errors: inout [String], _ path: String, _ value: JSONValue, allowed: Set<String>) {
         guard let step = keys(&errors, path, value, allowed: allowed) else { return }
         for field in stepFields {
@@ -265,6 +274,9 @@ public enum Validator {
                  required: field.name == "do", kind: field.kind)
         }
         url(&errors, "\(path).url", step["url"])
+        if allowed.contains("question"), let question = present(step["question"]) {
+            Self.question(&errors, "\(path).question", question)
+        }
         guard allowed.contains("substeps"), let subsValue = present(step["substeps"]) else { return }
         guard case .array(let subs) = subsValue, (1...maxSubsteps).contains(subs.count) else {
             errors.append("\(path).substeps: must be a list of 1 to \(maxSubsteps) steps")
@@ -273,6 +285,52 @@ public enum Validator {
         for (index, sub) in subs.enumerated() {
             Self.step(&errors, "\(path).substeps[\(index)]", sub, allowed: leafKeys)
         }
+    }
+
+    /// `_question`: a prompt, then 0 to 6 distinct choices (none asks for free text)
+    /// and `multi`, which allows several picks and needs at least 2 choices.
+    static func question(_ errors: inout [String], _ path: String, _ value: JSONValue) {
+        guard let question = keys(&errors, path, value, allowed: questionKeys) else { return }
+        text(&errors, "\(path).prompt", question["prompt"], limit: 300, required: true, kind: .multi)
+        var count: Int? = 0   // nil: the choices are malformed
+        if let choicesValue = present(question["choices"]) {
+            if case .array(let choices) = choicesValue, choices.count <= maxChoices {
+                var seen = Set<[UInt32]>()   // by code point, as Python compares strings
+                for (index, choice) in choices.enumerated() {
+                    let before = errors.count
+                    text(&errors, "\(path).choices[\(index)]", choice, limit: 60, required: true)
+                    guard errors.count == before, case .string(let string) = choice else { continue }
+                    if !seen.insert(string.unicodeScalars.map(\.value)).inserted {
+                        errors.append("\(path).choices[\(index)]: duplicate choice")
+                    }
+                }
+                count = choices.count
+            } else {
+                errors.append("\(path).choices: must be a list of at most \(maxChoices) choices")
+                count = nil
+            }
+        }
+        switch present(question["multi"]) {
+        case nil, .bool(false)?:
+            break
+        case .bool(true)?:
+            if let count, count < 2 { errors.append("\(path).multi: needs at least 2 choices") }
+        default:
+            errors.append("\(path).multi: must be true or false")
+        }
+    }
+
+    /// `_every_step` counted: each step object, then each object in its `substeps`
+    /// list (any length), that holds a non-null `question`.
+    static func questionCount(_ steps: [JSONValue]) -> Int {
+        var count = 0
+        for case .object(let step) in steps {
+            if present(step["question"]) != nil { count += 1 }
+            if case .array(let subs)? = step["substeps"] {
+                for case .object(let sub) in subs where present(sub["question"]) != nil { count += 1 }
+            }
+        }
+        return count
     }
 
     /// `_keys`: the members of an object, after reporting each unknown key;

@@ -12,6 +12,10 @@ public struct StepProgress: Equatable, Sendable {
 
 /// The step and ask order rules. Tick state is keyed by leaf path; a
 /// parent is never ticked as a unit, its state is derived from its sub-steps.
+///
+/// Questions: a node that asks a question is done once it has an answer
+/// (`node.answer`), never by a tick, and can't be ticked. A parent's own question is
+/// one more item, counted before its sub-steps.
 public enum Flow {
     /// Each step's sub-steps when it has them, else the step; then verify.
     public static func leaves(of nodes: [DetailModel.Node]) -> [DetailModel.Node] {
@@ -23,32 +27,57 @@ public enum Flow {
         nodes.flatMap { [$0] + $0.children }
     }
 
+    /// What "N of M" counts, in reading order: the leaves, plus each parent that asks
+    /// a question, just before its sub-steps.
+    public static func items(of nodes: [DetailModel.Node]) -> [DetailModel.Node] {
+        nodes.flatMap { node -> [DetailModel.Node] in
+            guard node.isParent else { return [node] }
+            return (node.asks ? [node] : []) + node.children
+        }
+    }
+
+    /// The leaves a tick applies to: those without a question.
+    public static func tickable(_ nodes: [DetailModel.Node]) -> [DetailModel.Node] {
+        leaves(of: nodes).filter { !$0.asks }
+    }
+
+    /// A question node is done once answered; any other item once ticked.
+    public static func isDone(_ node: DetailModel.Node, ticks: Set<String>) -> Bool {
+        node.asks ? node.answer != nil : ticks.contains(node.path)
+    }
+
+    /// The first item not done: an unanswered question stops it.
     public static func currentStep(ticks: Set<String>, nodes: [DetailModel.Node]) -> String? {
-        leaves(of: nodes).first { !ticks.contains($0.path) }?.path
+        items(of: nodes).first { !isDone($0, ticks: ticks) }?.path
     }
 
     public static func progress(ticks: Set<String>, nodes: [DetailModel.Node]) -> StepProgress {
-        let all = leaves(of: nodes)
-        return StepProgress(done: all.filter { ticks.contains($0.path) }.count, total: all.count)
+        let all = items(of: nodes)
+        return StepProgress(done: all.filter { isDone($0, ticks: ticks) }.count, total: all.count)
     }
 
+    /// For a leaf, or for a parent's own question (pass the parent).
     public static func state(of leaf: DetailModel.Node, ticks: Set<String>, current: String?) -> StepState {
-        if ticks.contains(leaf.path) { return .done }
+        if isDone(leaf, ticks: ticks) { return .done }
         return leaf.path == current ? .current : .todo
     }
 
+    /// The sub-steps, plus the parent's own question when it asks one.
     public static func parentProgress(_ parent: DetailModel.Node, ticks: Set<String>) -> StepProgress {
-        StepProgress(done: parent.children.filter { ticks.contains($0.path) }.count, total: parent.children.count)
+        let all = (parent.asks ? [parent] : []) + parent.children
+        return StepProgress(done: all.filter { isDone($0, ticks: ticks) }.count, total: all.count)
     }
 
-    /// A leaf flips. A parent ticks every sub-step when any is unticked, else unticks them all.
+    /// A leaf flips; a question leaf is left as it is. A parent ticks every sub-step
+    /// without a question when any of those is unticked, else unticks them all.
     public static func toggle(_ node: DetailModel.Node, ticks: Set<String>) -> Set<String> {
         var next = ticks
         guard node.isParent else {
+            guard !node.asks else { return ticks }
             if next.contains(node.path) { next.remove(node.path) } else { next.insert(node.path) }
             return next
         }
-        let paths = node.children.map(\.path)
+        let paths = node.children.filter { !$0.asks }.map(\.path)
         if paths.allSatisfy(next.contains) {
             next.subtract(paths)
         } else {
@@ -57,16 +86,19 @@ public enum Flow {
         return next
     }
 
-    /// ⌘T: ticks the current leaf; `path` is the leaf it ticked, nil when all are ticked.
+    /// ⌘T: ticks the current leaf; `path` is the leaf it ticked. nil, with the ticks
+    /// unchanged, when every item is done or the current item is a question (which
+    /// only an answer completes).
     public static func tickCurrent(ticks: Set<String>, nodes: [DetailModel.Node]) -> (ticks: Set<String>, path: String?) {
-        guard let current = currentStep(ticks: ticks, nodes: nodes) else { return (ticks, nil) }
+        guard let current = currentStep(ticks: ticks, nodes: nodes),
+              tickable(nodes).contains(where: { $0.path == current }) else { return (ticks, nil) }
         return (ticks.union([current]), current)
     }
 
     /// ⇧⌘T: unticks the leaf ticked last this session (the last of `history` still
-    /// ticked); with none, the last ticked leaf in order.
+    /// ticked); with none, the last ticked leaf in order. Question leaves are skipped.
     public static func untickLast(ticks: Set<String>, history: [String], nodes: [DetailModel.Node]) -> (ticks: Set<String>, path: String?) {
-        let leafPaths = leaves(of: nodes).map(\.path)
+        let leafPaths = tickable(nodes).map(\.path)
         let target = history.last { ticks.contains($0) && leafPaths.contains($0) }
             ?? leafPaths.last { ticks.contains($0) }
         guard let target else { return (ticks, nil) }
@@ -84,8 +116,10 @@ extension Flow {
         return nil
     }
 
-    /// "Send & Done" while the reply field has text or a picked choice isn't the latest sent one.
-    public static func primaryAction(draft: String?, choice: Int?, sent: Int?) -> PrimaryAction {
+    /// "Send & Done" while step answers are unsent, the reply field has text, or a picked
+    /// choice isn't the latest sent one.
+    public static func primaryAction(draft: String?, choice: Int?, sent: Int?, unsentAnswers: Int = 0) -> PrimaryAction {
+        if unsentAnswers > 0 { return .sendAndDone }
         if let draft, !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return .sendAndDone }
         if let choice, choice != sent { return .sendAndDone }
         return .done

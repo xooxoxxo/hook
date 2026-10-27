@@ -81,6 +81,26 @@ extension LocalQueue {
         return item
     }
 
+    /// The owner's answers to step questions (app only), checked by `Answers.validate`
+    /// against the stored instructable: unknown id → `.notFound`, then an ask that
+    /// isn't open → `.askClosed`, then `.invalidAnswers`. Every answer becomes one
+    /// `answer` event by the owner, all in one write; the item itself is unchanged.
+    public func answer(_ id: String, answers: JSONValue) throws -> LocalItem {
+        guard let item = state.items.first(where: { $0.id == id }) else { throw LocalQueueError.notFound }
+        guard item.status == "open" else { throw LocalQueueError.askClosed }
+        let texts: [String]
+        switch Answers.validate(item.payload.instructable, answers) {
+        case .success(let value): texts = value
+        case .failure(let failure): throw LocalQueueError.invalidAnswers(failure.errors)
+        }
+        var next = state
+        for text in texts {
+            appendEvent(&next, itemId: id, kind: "answer", actor: "owner", text: text)
+        }
+        try commit(next)
+        return item
+    }
+
     /// A NEW stream per call. It yields after every committed mutation; changes
     /// that arrive while the reader is busy collapse into one wake-up. The
     /// continuation is dropped when the reader cancels or the stream is released.

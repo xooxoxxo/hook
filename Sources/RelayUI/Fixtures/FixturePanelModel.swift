@@ -8,6 +8,7 @@ public final class FixturePanelModel: PanelViewModel {
     @Published public var navigation: PanelNavigation
     @Published public var drafts: [String: String] = [:]
     @Published public var pendingChoice: [String: Int] = [:]
+    @Published public var answerDrafts: [String: [String: AnswerDraft]] = [:]
     @Published public var expandedDone: [String: Set<String>] = [:]
     @Published public var detailAnchor: [String: String] = [:]
     @Published public var notice: PanelNotice?
@@ -52,6 +53,7 @@ public final class FixturePanelModel: PanelViewModel {
     public func sendReply(_ id: String) {}
     public func sendChoice(_ id: String) {}
     public func sendAndDone(_ id: String) {}
+    public func sendAnswers(_ id: String) {}
     public func dismissNotice() {}
     public func performNoticeAction() {}
     public func copyLink(_ id: String) {}

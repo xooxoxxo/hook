@@ -36,6 +36,17 @@ public enum StepAccessibility {
         "Step \(number): \(line(action)), \(parentValue(done: done, total: total))"
     }
 
+    /// Added to a question node's label: "Question: Which environment? Answered: Staging." or
+    /// "… Not answered."
+    public static func question(prompt: String, answer: Answer?) -> String {
+        "Question: \(line(prompt)). " + line(AnswerDrafts.accessibilityAnswer(answer))
+    }
+
+    /// A question leaf's marker label: its action, then `question(prompt:answer:)`.
+    public static func questionLabel(action: String, prompt: String, answer: Answer?) -> String {
+        line(action) + ". " + question(prompt: prompt, answer: answer)
+    }
+
     public static func copyLabel(level: StepLevel) -> String {
         level == .verify ? "Copy the verify command" : "Copy the command for step \(level.label)"
     }

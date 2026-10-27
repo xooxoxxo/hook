@@ -15,6 +15,11 @@ public protocol QueueSource: Sendable {
     /// The app always acts as the owner.
     func resolve(_ id: String, verdict: Verdict, note: String?) async throws -> WireItem
     func reply(_ id: String, text: String) async throws -> WireItem
+    /// The owner's answers to step questions, sent as one batch: each entry is
+    /// `{"step": "3.2", "picked": [...]}` or `{"step": "4", "text": "..."}` (see
+    /// `Answers.entry`). The ask stays open. A closed ask throws `.askClosed`; answers
+    /// that don't fit the questions throw `.rejected(400, "invalid answers", details)`.
+    func answer(_ id: String, answers: [JSONValue]) async throws -> WireItem
     /// The app always acts as the owner. Reopening an open ask returns it unchanged.
     func reopen(_ id: String) async throws -> WireItem
     /// Asks closed (done or dismissed) whose completion time is within `interval` of now, newest first.
@@ -63,6 +68,8 @@ public enum QueueError: Error, Sendable, Equatable, LocalizedError {
     case notFound
     case rejected(status: Int, error: String, details: [String])
     case storeFailed(String)
+    /// Answers to a closed ask (mailbox 409): read-only until the owner reopens it.
+    case askClosed
 
     public var errorDescription: String? {
         switch self {
@@ -76,6 +83,8 @@ public enum QueueError: Error, Sendable, Equatable, LocalizedError {
             return details.isEmpty ? error : error + ": " + details.joined(separator: ", ")
         case .storeFailed(let reason):
             return "Couldn't save the queue: \(reason)"
+        case .askClosed:
+            return "This ask is closed. Reopen it to change the answers."
         }
     }
 }

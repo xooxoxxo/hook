@@ -23,7 +23,7 @@ public struct QueueSnapshot: Equatable, Sendable {
                              manualRefreshing: Bool, updated: String) -> QueueSnapshot {
         build(sections: QueueLayout.sections(items: open, grouping: grouping, filter: filter),
               shownClosed: QueueLayout.closed(closed, filter: filter), open: open, grouping: grouping, filter: filter,
-              ticks: { ticks($0.id) }, hasDraft: { hasText(drafts[$0]) }, closedBy: closedBy,
+              ticks: { ticks($0.id) }, answered: { _ in nil }, hasDraft: { hasText(drafts[$0]) }, closedBy: closedBy,
               sourceKey: sourceKey, loadedOnce: loadedOnce, reachable: reachable, problem: problem,
               waitedTenSeconds: waitedTenSeconds, manualRefreshing: manualRefreshing, updated: updated)
     }
@@ -31,7 +31,8 @@ public struct QueueSnapshot: Equatable, Sendable {
     /// From sections and closed rows the caller has laid out already (the Store keeps them).
     public static func build(sections: [QueueSection], shownClosed: [WireItem], open: [WireItem],
                              grouping: QueueGrouping, filter: String?,
-                             ticks: (WireItem) -> Set<String>, hasDraft: (String) -> Bool, closedBy: (WireItem) -> String?,
+                             ticks: (WireItem) -> Set<String>, answered: (WireItem) -> Set<String>?,
+                             hasDraft: (String) -> Bool, closedBy: (WireItem) -> String?,
                              sourceKey: String, loadedOnce: Bool, reachable: Bool, problem: String?, waitedTenSeconds: Bool,
                              manualRefreshing: Bool, updated: String) -> QueueSnapshot {
         var rows: [String: AskRowModel] = [:]
@@ -39,11 +40,12 @@ public struct QueueSnapshot: Equatable, Sendable {
         for section in sections {
             for item in section.items {
                 shownCount += 1
-                rows[item.id] = row(item, ticked: ticks(item), hasDraft: hasDraft(item.id), closedBy: nil)
+                rows[item.id] = row(item, ticked: ticks(item), answered: answered(item), hasDraft: hasDraft(item.id),
+                                    closedBy: nil)
             }
         }
         let closedRows = shownClosed.map {
-            row($0, ticked: ticks($0), hasDraft: false, closedBy: closedBy($0))
+            row($0, ticked: ticks($0), answered: answered($0), hasDraft: false, closedBy: closedBy($0))
         }
         let content = PanelContent.resolve(sourceKey: sourceKey, loadedOnce: loadedOnce, reachable: reachable, problem: problem,
                                            waitedTenSeconds: waitedTenSeconds, filter: filter,
@@ -58,9 +60,11 @@ public struct QueueSnapshot: Equatable, Sendable {
     }
 
     /// One row; a non-open item gets its ClosedInfo, with `closedBy` the closing actor when known.
-    public static func row(_ item: WireItem, ticked: Set<String>, hasDraft: Bool, closedBy: String?) -> AskRowModel {
+    /// `answered`: the answered step paths, when the ask's detail is cached (QueueLayout.summary).
+    public static func row(_ item: WireItem, ticked: Set<String>, answered: Set<String>? = nil, hasDraft: Bool,
+                           closedBy: String?) -> AskRowModel {
         let isClosed = item.status != "open"
-        let summary = QueueLayout.summary(for: item, ticked: ticked)
+        let summary = QueueLayout.summary(for: item, ticked: ticked, answered: answered)
         let ins = item.instructable
         return AskRowModel(
             id: item.id, title: item.title, project: item.projectId ?? "", urgency: Urgency(raw: item.urgency),
@@ -94,26 +98,42 @@ public struct DetailSnapshot: Equatable, Sendable {
     public var previous: Neighbour
     public var next: Neighbour
     public var closedText: String?
+    /// The step answers drafted here, by path (memory only, in the model).
+    public var answerDrafts: [String: AnswerDraft] = [:]
+    /// What Send answers (⌘S) would send now; none while the ask is closed.
+    public var unsent: UnsentAnswers = .none
+    /// The answers send in flight, or its failure.
+    public var answerState: AnswerSendState?
+    /// "2 questions unanswered" (R6), while unanswered questions have no unsent draft.
+    public var unansweredCaption: String?
 
     public static func build(item: WireItem, detail: AskDetail?, ticks: Set<String>, load: DetailLoadState,
                              reply: ReplyBoxState, draft: String?, pendingChoice: Int?, busy: Bool,
-                             previous: Neighbour, next: Neighbour, closedBy: String?) -> DetailSnapshot {
+                             previous: Neighbour, next: Neighbour, closedBy: String?,
+                             answerDrafts: [String: AnswerDraft] = [:], answerState: AnswerSendState? = nil) -> DetailSnapshot {
         let model = detail.map(DetailModel.make)
         let nodes = model?.nodes ?? []
         let events = detail?.events ?? []
         let choices = item.instructable?.reply?.choices ?? []
         let latest = ReplyText.latestSentChoice(events: events, choices: choices)
         let isOpen = item.status == "open"
+        let unsent = isOpen ? AnswerDrafts.unsent(answerDrafts, nodes: nodes) : .none
+        let answered = model.map { Set(Flow.flattened($0.nodes).compactMap { $0.answer?.step }) }
         return DetailSnapshot(
             id: item.id,
-            row: QueueSnapshot.row(item, ticked: ticks, hasDraft: QueueSnapshot.hasText(draft), closedBy: model?.closedBy ?? closedBy),
+            row: QueueSnapshot.row(item, ticked: ticks, answered: answered, hasDraft: QueueSnapshot.hasText(draft),
+                                   closedBy: model?.closedBy ?? closedBy),
             model: model, load: load, ticks: ticks,
             current: Flow.currentStep(ticks: ticks, nodes: nodes), progress: Flow.progress(ticks: ticks, nodes: nodes),
             replies: ReplyText.lines(events: events), sentChoices: ReplyText.sentChoices(events: events, choices: choices),
             latestSentChoice: latest, reply: reply,
-            primary: Flow.primaryAction(draft: draft, choice: pendingChoice, sent: latest), busy: busy,
+            primary: Flow.primaryAction(draft: draft, choice: pendingChoice, sent: latest, unsentAnswers: unsent.count),
+            busy: busy || answerState == .sending,
             previous: previous, next: next,
             closedText: isOpen ? nil : ClosedText.detail(status: item.status, closedBy: model?.closedBy ?? closedBy,
-                                                        closedAt: model?.closedAt ?? item.completedAt))
+                                                        closedAt: model?.closedAt ?? item.completedAt),
+            answerDrafts: answerDrafts, unsent: unsent, answerState: answerState,
+            unansweredCaption: isOpen ? AnswerDrafts.unansweredCaption(
+                AnswerDrafts.uncovered(unanswered: model?.unanswered ?? [], unsent: unsent)) : nil)
     }
 }

@@ -23,7 +23,13 @@ public enum LinkCheck: Equatable, Sendable {
     /// Asks closed in the last 24 hours, newest first, without any still held back.
     @Published public private(set) var recentlyClosed: [WireItem] = [] { didSet { queueInputChanged() } }
     /// A row's ticks are checked against its fetched detail's steps, so a new detail rebuilds the queue.
-    @Published public private(set) var details: [String: AskDetail] = [:] { didSet { queueInputChanged() } }
+    /// A new detail also settles the answer drafts: one its events show as sent goes.
+    @Published public private(set) var details: [String: AskDetail] = [:] {
+        didSet {
+            settleAnswerDrafts()
+            queueInputChanged()
+        }
+    }
     /// The highlighted row and the open detail.
     @Published public var navigation = PanelNavigation() { didSet { dropNoticeOfLeftAsk() } }
     /// Unsent reply text per ask. Memory only: the owner's text is never written to disk unasked.
@@ -39,6 +45,13 @@ public enum LinkCheck: Equatable, Sendable {
     private var draftsWithText: Set<String> = []
     /// The picked, unsent choice index per ask. Memory only.
     @Published public var pendingChoice: [String: Int] = [:]
+    /// Unsent step answers per ask, then step path. Memory only, like `drafts`: they don't survive a quit.
+    @Published public var answerDrafts: [String: [String: AnswerDraft]] = [:]
+    /// An answers send in flight, or why the last one failed, per ask.
+    @Published public private(set) var answerStates: [String: AnswerSendState] = [:]
+    /// The answered paths per ask, from its cached detail's events, keyed on the event count
+    /// and last seq so a queue rebuild doesn't re-read every answer (QueueLayout.summary).
+    private var answeredCache: [String: (key: [Int], paths: Set<String>)] = [:]
     @Published public private(set) var replyStates: [String: ReplyBoxState] = [:]
     /// How long "Sent 10:42" stays in the reply box; tests pass a short one.
     let sentHold: Duration
@@ -242,6 +255,8 @@ public enum LinkCheck: Equatable, Sendable {
         expandedDone = [:]
         detailAnchor = [:]
         replyStates = [:]
+        answerStates = [:]
+        answeredCache = [:]
         sentResets.values.forEach { $0.task.cancel() }
         sentResets = [:]
         listed = []
@@ -562,16 +577,28 @@ public enum LinkCheck: Equatable, Sendable {
         details[id]
     }
 
-    /// The ask's step tree: from the fetched detail's item, else from the list item.
-    /// Only the item shapes the nodes (events never do), so both give the same tree.
+    /// The ask's step tree: from the fetched detail's item, else from the list item. The
+    /// item shapes the nodes; the cached detail's events fill the answers, as in `DetailSnapshot`,
+    /// so ⌘T, ⌘O and ticking see what is answered.
     func nodes(for id: String) -> [DetailModel.Node]? {
         guard let item = item(for: id) else { return nil }
-        return stepTree(item)
+        return stepTree(item, events: details[id]?.events ?? [])
     }
 
-    private func stepTree(_ item: WireItem) -> [DetailModel.Node] {
+    /// Ticks key on fingerprints only, so their loads pass no events.
+    private func stepTree(_ item: WireItem, events: [Event] = []) -> [DetailModel.Node] {
         stepTreeBuilds += 1
-        return DetailModel.make(item: item, events: []).nodes
+        return DetailModel.make(item: item, events: events).nodes
+    }
+
+    /// The answered paths of an ask whose detail is cached; nil without one.
+    private func answered(_ id: String) -> Set<String>? {
+        guard let events = details[id]?.events else { return nil }
+        let key = [events.count, events.last?.seq ?? 0]
+        if let hit = answeredCache[id], hit.key == key { return hit.paths }
+        let paths = Set(Answers.latest(events).keys)
+        answeredCache[id] = (key, paths)
+        return paths
     }
 
     /// The ticked leaves of the ask's current tree whose fingerprint matches; a tick
@@ -944,15 +971,75 @@ public enum LinkCheck: Equatable, Sendable {
         return await send(ReplyText.wire(choice: choices[index]), for: id) { self.pendingChoice[id] = nil }
     }
 
-    /// ⌘↩ / the primary button: Done, or send first and close only when the send worked.
+    /// ⌘↩ / the primary button: Done, or send first and close only when every send worked.
+    /// Order: the step answers, then the reply draft or pick, then Done; the first failure stops it.
     public func sendAndDone(_ id: String) async {
         guard primaryAction(for: id) == .sendAndDone else {
             close(id, .done)
             return
         }
-        let hasText = !(drafts[id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        let sent = hasText ? await sendReply(id) : await sendChoice(id)
-        if sent { close(id, .done) }
+        if answerStates[id] == .sending { return }
+        if unsentAnswers(for: id).count > 0 {
+            guard await sendAnswers(id) else { return }
+        }
+        if Flow.primaryAction(draft: drafts[id], choice: pendingChoice[id], sent: latestSentChoice(for: id)) == .sendAndDone {
+            let hasText = !(drafts[id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            let sent = hasText ? await sendReply(id) : await sendChoice(id)
+            guard sent else { return }
+        }
+        close(id, .done)
+    }
+
+    /// What Send answers (⌘S) sends for `id` now: drafts that differ from the sent answers,
+    /// in document order. None while the ask is closed (R5).
+    public func unsentAnswers(for id: String) -> UnsentAnswers {
+        guard let drafts = answerDrafts[id], !drafts.isEmpty, let item = item(for: id), item.status == "open",
+              let nodes = nodes(for: id) else { return .none }
+        return AnswerDrafts.unsent(drafts, nodes: nodes)
+    }
+
+    /// Sends the unsent answers as one batch, then reloads the ask and drops the drafts it
+    /// sent. False when there was nothing to send, a send is already running, or it failed
+    /// (the reason is in `answerStates`).
+    public func sendAnswers(_ id: String) async -> Bool {
+        let unsent = unsentAnswers(for: id)
+        guard unsent.count > 0, answerStates[id] != .sending else { return false }
+        guard let source else {
+            answerStates[id] = .failed(reason: AnswerDrafts.failureText(QueueError.unreachable(Self.noSourceProblem)))
+            return false
+        }
+        let sent = answerDrafts[id] ?? [:]
+        answerStates[id] = .sending
+        let gen = generation
+        do {
+            _ = try await source.answer(id, answers: unsent.batch)
+            guard gen == generation else { return false }
+            await load(id, from: source, generation: gen)
+            guard gen == generation else { return false }
+            // A draft edited while the send was out stays.
+            if var drafts = answerDrafts[id] {
+                for path in unsent.paths where drafts[path] == sent[path] { drafts[path] = nil }
+                answerDrafts[id] = drafts.isEmpty ? nil : drafts
+            }
+            answerStates[id] = nil
+            return true
+        } catch {
+            guard gen == generation else { return false }
+            answerStates[id] = .failed(reason: AnswerDrafts.failureText(error))
+            return false
+        }
+    }
+
+    /// Drops every answer draft that the cached detail shows as sent (from here, or a Telegram tap).
+    private func settleAnswerDrafts() {
+        guard !answerDrafts.isEmpty else { return }
+        var next = answerDrafts
+        for (id, drafts) in answerDrafts {
+            guard let detail = details[id] else { continue }
+            let kept = AnswerDrafts.settled(drafts, nodes: DetailModel.make(detail).nodes)
+            next[id] = kept.isEmpty ? nil : kept
+        }
+        if next != answerDrafts { answerDrafts = next }
     }
 
     private func send(_ text: String, for id: String, onSuccess: () -> Void) async -> Bool {
@@ -983,7 +1070,8 @@ public enum LinkCheck: Equatable, Sendable {
     }
 
     public func primaryAction(for id: String) -> PrimaryAction {
-        Flow.primaryAction(draft: drafts[id], choice: pendingChoice[id], sent: latestSentChoice(for: id))
+        Flow.primaryAction(draft: drafts[id], choice: pendingChoice[id], sent: latestSentChoice(for: id),
+                           unsentAnswers: unsentAnswers(for: id).count)
     }
 
     public func replyLines(for id: String) -> [ReplyLine] {
@@ -1088,7 +1176,8 @@ public enum LinkCheck: Equatable, Sendable {
         shownClosed = closed
         let next = QueueSnapshot.build(
             sections: sections, shownClosed: closed, open: items, grouping: grouping, filter: filter,
-            ticks: { self.ticks($0.id, item: $0) }, hasDraft: { self.draftsWithText.contains($0) },
+            ticks: { self.ticks($0.id, item: $0) }, answered: { self.answered($0.id) },
+            hasDraft: { self.draftsWithText.contains($0) },
             closedBy: { self.closedBy($0) },
             sourceKey: sourceKey, loadedOnce: loadedOnce, reachable: reachable, problem: listProblem,
             waitedTenSeconds: swappedAt.map { now().timeIntervalSince($0) >= DS.Timing.detailLoadTimeout } ?? false,
@@ -1123,7 +1212,7 @@ extension Store: PanelViewModel {
         return DetailSnapshot.build(
             item: item, detail: details[id], ticks: ticks(for: id), load: load, reply: replyStates[id] ?? .idle,
             draft: drafts[id], pendingChoice: pendingChoice[id], busy: replyStates[id] == .sending, previous: previous, next: next,
-            closedBy: closedBy(item))
+            closedBy: closedBy(item), answerDrafts: answerDrafts[id] ?? [:], answerState: answerStates[id])
     }
 
     public var status: PanelStatus {
@@ -1142,7 +1231,8 @@ extension Store: PanelViewModel {
             selectionHasProject: !(selected?.projectId ?? "").isEmpty, closedHeaderFocused: closedHeaderFocused,
             askOpen: opened.map { $0.status == "open" } ?? true, askHasProject: !(opened?.projectId ?? "").isEmpty,
             choiceCount: opened?.instructable?.reply?.choices?.count ?? 0,
-            hasDraftOrPick: opened.map { primaryAction(for: $0.id) == .sendAndDone } ?? false)
+            hasDraftOrPick: opened.map { primaryAction(for: $0.id) == .sendAndDone } ?? false,
+            hasUnsentAnswers: opened.map { unsentAnswers(for: $0.id).count > 0 } ?? false)
     }
 
     /// The ask a key acts on: the open detail, else the selected row.
@@ -1180,13 +1270,15 @@ extension Store: PanelViewModel {
         case .openCurrentURL:
             if let leaf = currentLeaf, let raw = leaf.url, LinkDisplay.isWeb(raw), let url = URL(string: raw) { shell.openURL(url) }
         case .pickChoice(let index): if let id = target { pendingChoice[id] = index }
+        case .sendAnswers: if let id = navigation.selectedID { sendAnswers(id) }
         }
     }
 
     private var currentLeaf: DetailModel.Node? {
         guard let id = navigation.selectedID, let nodes = nodes(for: id),
               let path = Flow.currentStep(ticks: ticks(for: id), nodes: nodes) else { return nil }
-        return Flow.leaves(of: nodes).first { $0.path == path }
+        // flattened, not leaves: the current item can be a parent's own question.
+        return Flow.flattened(nodes).first { $0.path == path }
     }
 
     public func refresh() { Task { await refresh(manual: true) } }
@@ -1194,6 +1286,7 @@ extension Store: PanelViewModel {
     public func sendReply(_ id: String) { Task { _ = await sendReply(id) } }
     public func sendChoice(_ id: String) { Task { _ = await sendChoice(id) } }
     public func sendAndDone(_ id: String) { Task { await sendAndDone(id) } }
+    public func sendAnswers(_ id: String) { Task { _ = await sendAnswers(id) } }
     public func performNoticeAction() { Task { await performNoticeAction() } }
 
     public func copyLink(_ id: String) { shell.copy("relay://i/\(id)") }

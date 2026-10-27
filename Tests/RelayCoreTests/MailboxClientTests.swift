@@ -314,3 +314,39 @@ final class StatusLog: @unchecked Sendable {
         return seen
     }
 }
+
+@Suite struct MailboxClientAnswerTests {
+    @Test func answersPostOneBatch() async throws {
+        let (client, host) = try makeClient { _, _ in (200, #"{"item":\#(itemJSON)}"#) }
+        let item = try await client.answer(askID, answers: [
+            Answers.entry(step: "3.2", picked: ["Staging"]), Answers.entry(step: "4", text: "EU"),
+        ])
+        #expect(item.id == askID)
+        let sent = try #require(MailboxStubRegistry.shared.last(host))
+        #expect(sent.request.httpMethod == "POST")
+        #expect(sent.request.url?.path() == "/asks/\(askID)/answers")
+        #expect(sent.request.value(forHTTPHeaderField: "Content-Type") == "application/json")
+        #expect(try JSONValue.parse(sent.body) == .object(["answers": .array([
+            .object(["step": .string("3.2"), "picked": .array([.string("Staging")])]),
+            .object(["step": .string("4"), "text": .string("EU")]),
+        ])]))
+    }
+
+    @Test func closedInvalidAndUnknownAsks() async throws {
+        let (closed, _) = try makeClient { _, _ in (409, #"{"error":"ask is closed"}"#) }
+        await #expect(throws: QueueError.askClosed) {
+            try await closed.answer(askID, answers: [Answers.entry(step: "1", text: "x")])
+        }
+        let (invalid, _) = try makeClient { _, _ in
+            (400, #"{"error":"invalid answers","details":["answers[0].step: no question at this step"]}"#)
+        }
+        await #expect(throws: QueueError.rejected(status: 400, error: "invalid answers",
+                                                  details: ["answers[0].step: no question at this step"])) {
+            try await invalid.answer(askID, answers: [Answers.entry(step: "9", text: "x")])
+        }
+        let (missing, _) = try makeClient { _, _ in (404, #"{"error":"not found"}"#) }
+        await #expect(throws: QueueError.notFound) {
+            try await missing.answer(askID, answers: [Answers.entry(step: "1", text: "x")])
+        }
+    }
+}

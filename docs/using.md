@@ -30,6 +30,7 @@ A "now" ask slides the hidden panel in on that ask without taking focus from the
 - **Copy** copies exactly the code shown, with no trailing newline, so a paste never runs by itself.
 - Answer with **Done**, **Skip** or a reply (text, or one of the offered choices). With a reply typed or a choice picked, Done becomes **Send & Done**.
 - **After Done or Skip** the panel opens the next ask in the list (Settings › Panel can make it go back to the queue instead). An Undo bar shows for 10 seconds; Undo or ⌘Z brings the ask back. Relay sends your answer only after that.
+- **Answering questions.** A step can ask a question under its text: pick one choice (a segmented control or radio buttons), tick several checkboxes, or type an answer. A question step has no tick; it counts as done once its answer is sent. Changes you haven't sent say **Not sent**. **Send answers** (⌘S) sends them all at once and leaves the ask open, so you can answer some now and the rest later; the bar counts the questions still unanswered. With answers unsent, Done becomes **Send & Done**: it sends the answers, then any reply, and closes only if every send worked. You can change an answer until the ask closes; a closed ask shows its answers read-only until you **Reopen** it.
 - **From** shows the folder, Mac and short session id of the session that asked, with a command that resumes it in Claude Code.
 - Drafts, ticks and where you scrolled survive going back, switching asks and hiding the panel. Ticks also survive a relaunch.
 
@@ -54,7 +55,8 @@ A "now" ask slides the hidden panel in on that ask without taking focus from the
 | List, ask | ⌃⌘P | Show only this ask's project |
 | Ask | Esc, ⌘[ | Back to the list |
 | Ask | ⌘↑ / ⌘↓ | Previous / next ask |
-| Ask | ⌘↩ | Done, or Send & Done with a reply or choice |
+| Ask | ⌘↩ | Done, or Send & Done with a reply, choice or unsent answers |
+| Ask | ⌘S | Send the step answers |
 | Ask | ⌘⌫ | Skip |
 | Ask | ⌘T / ⇧⌘T | Tick the current step or sub-step / untick the last |
 | Ask | ⇧⌘C / ⇧⌘O | Copy the current step's code / open its link |

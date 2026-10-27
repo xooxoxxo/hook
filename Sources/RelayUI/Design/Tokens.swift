@@ -25,6 +25,8 @@ public enum DS {
         public static let codeH: CGFloat = 10
         public static let codeV: CGFloat = 8
         public static let currentStep: CGFloat = 4
+        /// The action bar's top and bottom inset when its caption sits on a line above the buttons.
+        public static let barStackV: CGFloat = 10
         /// GroupBox content inset (5 pt, measured) + currentStep: the current step's box bleeds out by this
         /// so its marker and text stay on the todo/done column.
         public static let currentBleed: CGFloat = 9
@@ -202,6 +204,8 @@ public enum DS {
         public static let link = "link"
         public static let warning = "exclamationmark.triangle.fill"
         public static let sent = "checkmark"
+        /// A step question's answered line.
+        public static let answered = "checkmark.circle.fill"
         public static let clearShortcut = "xmark.circle.fill"
         public static let disclosureClosed = "chevron.right"
         public static let disclosureOpen = "chevron.down"

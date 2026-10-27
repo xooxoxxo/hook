@@ -29,7 +29,7 @@ The body format and the `project` rule are in [Instructable format](instructable
 
 ## Owner answers
 
-Only the app records owner answers. The API has no reply route and refuses actor `owner`.
+Only the app records owner answers: replies, Done and Skip, and per-step answers to questions. The API has no reply or answers route and refuses actor `owner`. `GET /asks/{id}` and `GET /events` include the `answer` events the app records (shape in [Mailbox protocol](mailbox-protocol.md#events)).
 
 ## Server proof
 

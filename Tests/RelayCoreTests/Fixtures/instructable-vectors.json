@@ -6483,6 +6483,1618 @@
    ],
    "cleaned": null,
    "pyBytes": null
+  },
+  {
+   "name": "questions-valid-pick",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which environment?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      }
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which environment?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      }
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 164
+  },
+  {
+   "name": "questions-valid-multi",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which signals?",
+       "choices": [
+        "Logs",
+        "Metrics",
+        "Traces"
+       ],
+       "multi": true
+      }
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which signals?",
+       "choices": [
+        "Logs",
+        "Metrics",
+        "Traces"
+       ],
+       "multi": true
+      }
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 185
+  },
+  {
+   "name": "questions-valid-free-text",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which region?"
+      }
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which region?"
+      }
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 127
+  },
+  {
+   "name": "questions-valid-empty-choices",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which region?",
+       "choices": []
+      }
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which region?",
+       "choices": []
+      }
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 142
+  },
+  {
+   "name": "questions-valid-multi-false",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which environment?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ],
+       "multi": false
+      }
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which environment?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ],
+       "multi": false
+      }
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 180
+  },
+  {
+   "name": "questions-valid-multi-null",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which environment?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ],
+       "multi": null
+      }
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which environment?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ],
+       "multi": null
+      }
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 179
+  },
+  {
+   "name": "questions-valid-choices-null",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which region?",
+       "choices": null
+      }
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which region?",
+       "choices": null
+      }
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 144
+  },
+  {
+   "name": "questions-valid-null",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": null
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": null
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 104
+  },
+  {
+   "name": "questions-valid-multiline-prompt",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which one?\nPick the cheaper one",
+       "choices": [
+        "A",
+        "B"
+       ]
+      }
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which one?\nPick the cheaper one",
+       "choices": [
+        "A",
+        "B"
+       ]
+      }
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 169
+  },
+  {
+   "name": "questions-valid-six-choices",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which?",
+       "choices": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F"
+       ]
+      }
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which?",
+       "choices": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F"
+       ]
+      }
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 163
+  },
+  {
+   "name": "questions-valid-prompt-300",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp"
+      }
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp"
+      }
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 414
+  },
+  {
+   "name": "questions-valid-choice-60",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which?",
+       "choices": [
+        "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "B"
+       ]
+      }
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which?",
+       "choices": [
+        "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "B"
+       ]
+      }
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 202
+  },
+  {
+   "name": "questions-valid-with-reply",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which environment?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      }
+     }
+    ],
+    "reply": {
+     "prompt": "Anything else?",
+     "choices": []
+    }
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which environment?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      }
+     }
+    ],
+    "reply": {
+     "prompt": "Anything else?",
+     "choices": []
+    },
+    "urgency": "today"
+   },
+   "pyBytes": 218
+  },
+  {
+   "name": "questions-valid-on-substep",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "substeps": [
+       {
+        "do": "Tag it"
+       },
+       {
+        "do": "Pick the notes",
+        "question": {
+         "prompt": "Which notes?",
+         "choices": [
+          "Short",
+          "Long"
+         ]
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "substeps": [
+       {
+        "do": "Tag it"
+       },
+       {
+        "do": "Pick the notes",
+        "question": {
+         "prompt": "Which notes?",
+         "choices": [
+          "Short",
+          "Long"
+         ]
+        }
+       }
+      ]
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 214
+  },
+  {
+   "name": "questions-valid-parent-and-substep",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "substeps": [
+       {
+        "do": "Tag it"
+       },
+       {
+        "do": "Pick the notes",
+        "question": {
+         "prompt": "Which notes?",
+         "choices": [
+          "Short",
+          "Long"
+         ]
+        }
+       }
+      ],
+      "question": {
+       "prompt": "Ship today?",
+       "choices": [
+        "Yes",
+        "No"
+       ]
+      }
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "substeps": [
+       {
+        "do": "Tag it"
+       },
+       {
+        "do": "Pick the notes",
+        "question": {
+         "prompt": "Which notes?",
+         "choices": [
+          "Short",
+          "Long"
+         ]
+        }
+       }
+      ],
+      "question": {
+       "prompt": "Ship today?",
+       "choices": [
+        "Yes",
+        "No"
+       ]
+      }
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 279
+  },
+  {
+   "name": "questions-valid-twenty",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Answer twenty",
+    "steps": [
+     {
+      "do": "Step 1",
+      "question": {
+       "prompt": "Q1?"
+      }
+     },
+     {
+      "do": "Step 2",
+      "question": {
+       "prompt": "Q2?"
+      }
+     },
+     {
+      "do": "Step 3",
+      "question": {
+       "prompt": "Q3?"
+      }
+     },
+     {
+      "do": "Step 4",
+      "question": {
+       "prompt": "Q4?"
+      }
+     },
+     {
+      "do": "Step 5",
+      "question": {
+       "prompt": "Q5?"
+      }
+     },
+     {
+      "do": "Step 6",
+      "question": {
+       "prompt": "Q6?"
+      }
+     },
+     {
+      "do": "Step 7",
+      "question": {
+       "prompt": "Q7?"
+      }
+     },
+     {
+      "do": "Step 8",
+      "question": {
+       "prompt": "Q8?"
+      }
+     },
+     {
+      "do": "Step 9",
+      "question": {
+       "prompt": "Q9?"
+      }
+     },
+     {
+      "do": "Step 10",
+      "question": {
+       "prompt": "Q10?"
+      }
+     },
+     {
+      "do": "Step 11",
+      "question": {
+       "prompt": "Q11?"
+      }
+     },
+     {
+      "do": "Step 12",
+      "question": {
+       "prompt": "Q12?"
+      }
+     },
+     {
+      "do": "Step 13",
+      "question": {
+       "prompt": "Q13?"
+      }
+     },
+     {
+      "do": "Step 14",
+      "question": {
+       "prompt": "Q14?"
+      }
+     },
+     {
+      "do": "Step 15",
+      "question": {
+       "prompt": "Q15?"
+      }
+     },
+     {
+      "do": "Step 16",
+      "question": {
+       "prompt": "Q16?"
+      }
+     },
+     {
+      "do": "Step 17",
+      "question": {
+       "prompt": "Q17?"
+      }
+     },
+     {
+      "do": "Step 18",
+      "question": {
+       "prompt": "Q18?"
+      }
+     },
+     {
+      "do": "Step 19",
+      "question": {
+       "prompt": "Q19?"
+      }
+     },
+     {
+      "do": "Step 20",
+      "question": {
+       "prompt": "Q20?"
+      }
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Answer twenty",
+    "steps": [
+     {
+      "do": "Step 1",
+      "question": {
+       "prompt": "Q1?"
+      }
+     },
+     {
+      "do": "Step 2",
+      "question": {
+       "prompt": "Q2?"
+      }
+     },
+     {
+      "do": "Step 3",
+      "question": {
+       "prompt": "Q3?"
+      }
+     },
+     {
+      "do": "Step 4",
+      "question": {
+       "prompt": "Q4?"
+      }
+     },
+     {
+      "do": "Step 5",
+      "question": {
+       "prompt": "Q5?"
+      }
+     },
+     {
+      "do": "Step 6",
+      "question": {
+       "prompt": "Q6?"
+      }
+     },
+     {
+      "do": "Step 7",
+      "question": {
+       "prompt": "Q7?"
+      }
+     },
+     {
+      "do": "Step 8",
+      "question": {
+       "prompt": "Q8?"
+      }
+     },
+     {
+      "do": "Step 9",
+      "question": {
+       "prompt": "Q9?"
+      }
+     },
+     {
+      "do": "Step 10",
+      "question": {
+       "prompt": "Q10?"
+      }
+     },
+     {
+      "do": "Step 11",
+      "question": {
+       "prompt": "Q11?"
+      }
+     },
+     {
+      "do": "Step 12",
+      "question": {
+       "prompt": "Q12?"
+      }
+     },
+     {
+      "do": "Step 13",
+      "question": {
+       "prompt": "Q13?"
+      }
+     },
+     {
+      "do": "Step 14",
+      "question": {
+       "prompt": "Q14?"
+      }
+     },
+     {
+      "do": "Step 15",
+      "question": {
+       "prompt": "Q15?"
+      }
+     },
+     {
+      "do": "Step 16",
+      "question": {
+       "prompt": "Q16?"
+      }
+     },
+     {
+      "do": "Step 17",
+      "question": {
+       "prompt": "Q17?"
+      }
+     },
+     {
+      "do": "Step 18",
+      "question": {
+       "prompt": "Q18?"
+      }
+     },
+     {
+      "do": "Step 19",
+      "question": {
+       "prompt": "Q19?"
+      }
+     },
+     {
+      "do": "Step 20",
+      "question": {
+       "prompt": "Q20?"
+      }
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 1047
+  },
+  {
+   "name": "questions-not-object",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": "Which environment?"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].question: must be an object"
+   ],
+   "cleaned": null,
+   "pyBytes": 120
+  },
+  {
+   "name": "questions-unknown-key",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which environment?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ],
+       "default": "Staging"
+      }
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].question.default: unknown key"
+   ],
+   "cleaned": null,
+   "pyBytes": 186
+  },
+  {
+   "name": "questions-prompt-missing",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "choices": [
+        "A",
+        "B"
+       ]
+      }
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].question.prompt: required"
+   ],
+   "cleaned": null,
+   "pyBytes": 123
+  },
+  {
+   "name": "questions-prompt-empty",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "   "
+      }
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].question.prompt: must not be empty"
+   ],
+   "cleaned": null,
+   "pyBytes": 117
+  },
+  {
+   "name": "questions-prompt-301",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "ppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp"
+      }
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].question.prompt: longer than 300 characters"
+   ],
+   "cleaned": null,
+   "pyBytes": 415
+  },
+  {
+   "name": "questions-prompt-hidden",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "a‮b"
+      }
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].question.prompt: contains hidden or control characters (U+202E)"
+   ],
+   "cleaned": null,
+   "pyBytes": 119
+  },
+  {
+   "name": "questions-prompt-secret",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Use ghp_example?"
+      }
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].question.prompt: secret-like value"
+   ],
+   "cleaned": null,
+   "pyBytes": 130
+  },
+  {
+   "name": "questions-choices-not-list",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which?",
+       "choices": "A"
+      }
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].question.choices: must be a list of at most 6 choices"
+   ],
+   "cleaned": null,
+   "pyBytes": 136
+  },
+  {
+   "name": "questions-choices-seven",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which?",
+       "choices": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G"
+       ]
+      }
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].question.choices: must be a list of at most 6 choices"
+   ],
+   "cleaned": null,
+   "pyBytes": 168
+  },
+  {
+   "name": "questions-choice-empty",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which?",
+       "choices": [
+        "A",
+        ""
+       ]
+      }
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].question.choices[1]: must not be empty"
+   ],
+   "cleaned": null,
+   "pyBytes": 142
+  },
+  {
+   "name": "questions-choice-61",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which?",
+       "choices": [
+        "ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "B"
+       ]
+      }
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].question.choices[0]: longer than 60 characters"
+   ],
+   "cleaned": null,
+   "pyBytes": 203
+  },
+  {
+   "name": "questions-choice-newline",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which?",
+       "choices": [
+        "a\nb",
+        "B"
+       ]
+      }
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].question.choices[0]: must be a single line"
+   ],
+   "cleaned": null,
+   "pyBytes": 146
+  },
+  {
+   "name": "questions-choice-number",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which?",
+       "choices": [
+        5,
+        "B"
+       ]
+      }
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].question.choices[0]: must be a string"
+   ],
+   "cleaned": null,
+   "pyBytes": 141
+  },
+  {
+   "name": "questions-choice-null",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which?",
+       "choices": [
+        null,
+        "B"
+       ]
+      }
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].question.choices[0]: required"
+   ],
+   "cleaned": null,
+   "pyBytes": 144
+  },
+  {
+   "name": "questions-choice-hidden",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which?",
+       "choices": [
+        "a​b",
+        "B"
+       ]
+      }
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].question.choices[0]: contains hidden or control characters (U+200B)"
+   ],
+   "cleaned": null,
+   "pyBytes": 147
+  },
+  {
+   "name": "questions-choice-secret",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which?",
+       "choices": [
+        "xoxb-example",
+        "B"
+       ]
+      }
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].question.choices[0]: secret-like value"
+   ],
+   "cleaned": null,
+   "pyBytes": 154
+  },
+  {
+   "name": "questions-choice-duplicate",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which?",
+       "choices": [
+        "A",
+        "B",
+        "A"
+       ]
+      }
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].question.choices[2]: duplicate choice"
+   ],
+   "cleaned": null,
+   "pyBytes": 148
+  },
+  {
+   "name": "questions-multi-not-bool",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which environment?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ],
+       "multi": "yes"
+      }
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].question.multi: must be true or false"
+   ],
+   "cleaned": null,
+   "pyBytes": 180
+  },
+  {
+   "name": "questions-multi-one-choice",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which?",
+       "choices": [
+        "A"
+       ],
+       "multi": true
+      }
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].question.multi: needs at least 2 choices"
+   ],
+   "cleaned": null,
+   "pyBytes": 153
+  },
+  {
+   "name": "questions-multi-free-text",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which?",
+       "multi": true
+      }
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].question.multi: needs at least 2 choices"
+   ],
+   "cleaned": null,
+   "pyBytes": 135
+  },
+  {
+   "name": "questions-multi-bad-choices",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which?",
+       "choices": "A",
+       "multi": true
+      }
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].question.choices: must be a list of at most 6 choices"
+   ],
+   "cleaned": null,
+   "pyBytes": 151
+  },
+  {
+   "name": "questions-on-verify",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes"
+     }
+    ],
+    "verify": {
+     "do": "Check it",
+     "question": {
+      "prompt": "Did it work?"
+     }
+    }
+   },
+   "valid": false,
+   "errors": [
+    "verify.question: unknown key"
+   ],
+   "cleaned": null,
+   "pyBytes": 156
+  },
+  {
+   "name": "questions-substep-prompt-missing",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "substeps": [
+       {
+        "do": "Tag it",
+        "question": {
+         "choices": [
+          "A",
+          "B"
+         ]
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].substeps[0].question.prompt: required"
+   ],
+   "cleaned": null,
+   "pyBytes": 155
+  },
+  {
+   "name": "questions-twenty-one",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Answer twenty",
+    "steps": [
+     {
+      "do": "Step 1",
+      "question": {
+       "prompt": "Q1?"
+      },
+      "substeps": [
+       {
+        "do": "One more",
+        "question": {
+         "prompt": "Q21?"
+        }
+       }
+      ]
+     },
+     {
+      "do": "Step 2",
+      "question": {
+       "prompt": "Q2?"
+      }
+     },
+     {
+      "do": "Step 3",
+      "question": {
+       "prompt": "Q3?"
+      }
+     },
+     {
+      "do": "Step 4",
+      "question": {
+       "prompt": "Q4?"
+      }
+     },
+     {
+      "do": "Step 5",
+      "question": {
+       "prompt": "Q5?"
+      }
+     },
+     {
+      "do": "Step 6",
+      "question": {
+       "prompt": "Q6?"
+      }
+     },
+     {
+      "do": "Step 7",
+      "question": {
+       "prompt": "Q7?"
+      }
+     },
+     {
+      "do": "Step 8",
+      "question": {
+       "prompt": "Q8?"
+      }
+     },
+     {
+      "do": "Step 9",
+      "question": {
+       "prompt": "Q9?"
+      }
+     },
+     {
+      "do": "Step 10",
+      "question": {
+       "prompt": "Q10?"
+      }
+     },
+     {
+      "do": "Step 11",
+      "question": {
+       "prompt": "Q11?"
+      }
+     },
+     {
+      "do": "Step 12",
+      "question": {
+       "prompt": "Q12?"
+      }
+     },
+     {
+      "do": "Step 13",
+      "question": {
+       "prompt": "Q13?"
+      }
+     },
+     {
+      "do": "Step 14",
+      "question": {
+       "prompt": "Q14?"
+      }
+     },
+     {
+      "do": "Step 15",
+      "question": {
+       "prompt": "Q15?"
+      }
+     },
+     {
+      "do": "Step 16",
+      "question": {
+       "prompt": "Q16?"
+      }
+     },
+     {
+      "do": "Step 17",
+      "question": {
+       "prompt": "Q17?"
+      }
+     },
+     {
+      "do": "Step 18",
+      "question": {
+       "prompt": "Q18?"
+      }
+     },
+     {
+      "do": "Step 19",
+      "question": {
+       "prompt": "Q19?"
+      }
+     },
+     {
+      "do": "Step 20",
+      "question": {
+       "prompt": "Q20?"
+      }
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps: more than 20 questions in total"
+   ],
+   "cleaned": null,
+   "pyBytes": 1113
   }
  ]
 }

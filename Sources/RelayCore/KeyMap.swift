@@ -12,7 +12,7 @@ public struct KeyModifiers: OptionSet, Sendable, Hashable {
 /// The keys the panel listens for.
 public enum PanelKey: Hashable, Sendable {
     case escape, returnKey, optionReturn, up, down, left, right, digit(Int)
-    case cmdW, cmdR, cmdComma, cmdZ, shiftCmdZ, cmdQ, cmdReturn, cmdDelete, cmdLeftBracket, cmdUp, cmdDown, cmdT, cmdL
+    case cmdW, cmdR, cmdComma, cmdZ, shiftCmdZ, cmdQ, cmdReturn, cmdDelete, cmdLeftBracket, cmdUp, cmdDown, cmdT, cmdL, cmdS
     case shiftCmdT, shiftCmdC, shiftCmdO, shiftCmdR, shiftCmdL, ctrlCmdLeft, ctrlCmdRight, ctrlCmdG, ctrlCmdA, ctrlCmdP
 }
 
@@ -33,10 +33,13 @@ public struct KeyContext: Equatable, Sendable {
     public var askHasProject: Bool
     public var choiceCount: Int
     public var hasDraftOrPick: Bool
+    /// Detail: step answers are drafted and not sent (⌘S sends them; ⌘↩ is Send & Done).
+    public var hasUnsentAnswers: Bool
 
     public init(mode: Mode, textFieldFocused: Bool = false, popoverOpen: Bool = false, undoAvailable: Bool = false,
                 filterOn: Bool = false, selectionOpen: Bool? = nil, selectionHasProject: Bool = false, closedHeaderFocused: Bool = false,
-                askOpen: Bool = true, askHasProject: Bool = false, choiceCount: Int = 0, hasDraftOrPick: Bool = false) {
+                askOpen: Bool = true, askHasProject: Bool = false, choiceCount: Int = 0, hasDraftOrPick: Bool = false,
+                hasUnsentAnswers: Bool = false) {
         self.mode = mode
         self.textFieldFocused = textFieldFocused
         self.popoverOpen = popoverOpen
@@ -49,6 +52,7 @@ public struct KeyContext: Equatable, Sendable {
         self.askHasProject = askHasProject
         self.choiceCount = choiceCount
         self.hasDraftOrPick = hasDraftOrPick
+        self.hasUnsentAnswers = hasUnsentAnswers
     }
 }
 
@@ -57,6 +61,8 @@ public enum PanelCommand: Equatable, Sendable {
     case showOnlyProject, openSelection, done, sendAndDone, skip, reopen, copyLink, setClosedExpanded(Bool)
     /// `pickChoice(i)`: the 0-based choice index.
     case previousAsk, nextAsk, tickCurrent, untickLast, copyCurrentCode, openCurrentURL, focusReply, pickChoice(Int)
+    /// ⌘S: send the open ask's unsent step answers.
+    case sendAnswers
 }
 
 /// The single source for the panel's keys. Inside a focused text field the text-editing
@@ -110,7 +116,8 @@ public enum KeyMap {
         case .cmdLeftBracket: return .back
         case .cmdUp: return c.textFieldFocused ? nil : .previousAsk
         case .cmdDown: return c.textFieldFocused ? nil : .nextAsk
-        case .cmdReturn: return c.askOpen ? (c.hasDraftOrPick ? .sendAndDone : .done) : nil
+        case .cmdReturn: return c.askOpen ? (c.hasDraftOrPick || c.hasUnsentAnswers ? .sendAndDone : .done) : nil
+        case .cmdS: return c.askOpen && c.hasUnsentAnswers ? .sendAnswers : nil
         case .cmdDelete: return !c.textFieldFocused && c.askOpen ? .skip : nil
         case .shiftCmdR: return c.askOpen ? nil : .reopen
         case .cmdT: return c.askOpen ? .tickCurrent : nil
@@ -173,6 +180,7 @@ extension PanelKey {
                 case "q": self = .cmdQ
                 case "t": self = .cmdT
                 case "l": self = .cmdL
+                case "s": self = .cmdS
                 default: return nil
                 }
             }

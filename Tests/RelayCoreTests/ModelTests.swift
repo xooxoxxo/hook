@@ -104,3 +104,48 @@ private func decodeInstructable(_ json: String) throws -> Instructable {
     #expect(try JSONDecoder().decode(Step.self, from: data) == step)
     #expect(String(decoding: data, as: UTF8.self).contains(#""substeps""#))
 }
+
+@Test func questionsDecodeOnStepsAndSubsteps() throws {
+    let ins = try decodeInstructable("""
+    {"v":1,"title":"Ship Atlas","steps":[
+      {"do":"Pick the target","question":{"prompt":"Which environment?","choices":["Staging","Prod"]}},
+      {"do":"Prepare","question":{"prompt":"Which signals?","choices":["Logs","Metrics"],"multi":true},
+       "substeps":[{"do":"Tag it"},{"do":"Name the region","question":{"prompt":"Which region?"}}]},
+      {"do":"No question","question":null}]}
+    """)
+    #expect(ins.steps[0].question == Question(prompt: "Which environment?", choices: ["Staging", "Prod"]))
+    #expect(ins.steps[1].question?.allowsMany == true)
+    #expect(ins.steps[1].substeps?[0].question == nil)
+    #expect(ins.steps[1].substeps?[1].question?.isFreeText == true)
+    #expect(ins.steps[2].question == nil)
+}
+
+@Test func malformedQuestionsKeepTheStep() throws {
+    let ins = try decodeInstructable("""
+    {"v":1,"title":"T","steps":[
+      {"do":"a","question":"Which?"},
+      {"do":"b","question":{"choices":["x"]}},
+      {"do":"c","question":{"prompt":"P","choices":[1,2]}},
+      {"do":"d","substeps":[{"do":"e","question":{"prompt":"P","multi":"yes"}}]}]}
+    """)
+    #expect(ins.steps.map(\.action) == ["a", "b", "c", "d"])
+    #expect(ins.steps.allSatisfy { $0.question == nil })
+    #expect(ins.steps[3].substeps?.first?.action == "e")
+    #expect(ins.steps[3].substeps?.first?.question == nil)
+}
+
+@Test func questionsSurviveTheMailboxWireItem() throws {
+    let json = """
+    {"item":{"id":"a1","title":"Ship Atlas","status":"open","created":"2026-10-27T09:00:00+00:00",
+      "updated":"2026-10-27T09:00:00+00:00","payload":{"instructable":{"v":1,"title":"Ship Atlas","steps":[
+        {"do":"Pick","question":{"prompt":"Which environment?","choices":["Staging","Prod"],"multi":false}}]}}},
+     "events":[{"seq":2,"itemId":"a1","kind":"answer","actor":"owner","text":"{\\"step\\":\\"1\\",\\"picked\\":[\\"Prod\\"]}",
+                "at":"2026-10-27T09:01:00+00:00"}]}
+    """
+    let detail = try JSONDecoder().decode(AskDetail.self, from: Data(json.utf8))
+    #expect(detail.item.instructable?.steps[0].question?.choices == ["Staging", "Prod"])
+    #expect(detail.ownerEvents.map(\.kind) == ["answer"])
+    let model = DetailModel.make(detail)
+    #expect(model.nodes[0].question?.prompt == "Which environment?")
+    #expect(model.nodes[0].answer?.picked == ["Prod"])
+}

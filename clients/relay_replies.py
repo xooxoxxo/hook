@@ -16,8 +16,8 @@ import select
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from relay_client import (OWNER_LABELS, NotFound, RelayError, check_trusted_dir, check_trusted_file, config_dir,
-                          ensure_private_dir, one_line, private_write)
+from relay_client import (OWNER_LABELS, NotFound, RelayError, answer_value, check_trusted_dir, check_trusted_file,
+                          config_dir, ensure_private_dir, one_line, parse_answer, private_write)
 
 CURSOR_FILE = "replies-cursor.json"
 HOOK_BUDGET_S = 2.0
@@ -261,6 +261,9 @@ def _collect(client: Any, key: str, new: bool, deadline: Optional[float],
             if not isinstance(seq, int) or isinstance(seq, bool):
                 continue
             label = OWNER_LABELS.get(event.get("kind"))
+            body = parse_answer(event)
+            if event.get("kind") == "answer" and event.get("actor") == "owner":
+                label = f"answer {body['step']}" if body else "answer"
             if not first_run and label is not None and event.get("actor") == "owner":
                 item_id = str(event.get("itemId"))
                 try:
@@ -268,7 +271,7 @@ def _collect(client: Any, key: str, new: bool, deadline: Optional[float],
                 except _OutOfTime:
                     partial = True
                     break
-                text = one_line(event.get("text") or "")
+                text = answer_value(body) if body else one_line(event.get("text") or "")
                 lines.append(f"Relay: [{item_id}] {where} — {label}: {text}" if text
                              else f"Relay: [{item_id}] {where} — {label}")
             last = max(last, seq)

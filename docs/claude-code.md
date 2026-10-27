@@ -46,6 +46,10 @@ In `~/.claude/settings.json`, this shows each new owner answer in every session'
 
 A session that needs your answer runs `relay wait <id>` in the background after posting. When you answer, it prints `[<project>] <title>`, one `  ↳ owner <kind> <at>: <text>` line per answer and `last seq: <n>`, and exits.
 
+An ask can carry per-step questions that you answer one by one without closing it. `relay wait` also wakes on those answers, but settles first: after an answer it keeps polling until 10 s pass with no newer one, so a burst of taps wakes the session once (Done, Skip and a reply still wake it at once). Each answer prints as `  ↳ owner answer <path>: <value>` (for example `3.2: Staging`), followed by `answered <X> of <Y>; open: <paths>` (the `; open:` part is left out when nothing is open) and `last seq: <n>`.
+
+`relay status` adds an `Answers (X of Y):` block with each question's prompt and your latest answer under it, then `Unanswered: <paths>`; `relay status --json` and the MCP `relay_status` gain `answers` and `unanswered`, and `ownerEvents` includes the `answer` events. `relay replies` and the prompt hook show them as `Relay: [<id>] <project> · <title> — answer <path>: <value>`.
+
 With no answer it exits 3 after `--timeout` (default 8 h). Pass `--after <last seq>` to wait for the next answer.
 
 ## Reopened asks

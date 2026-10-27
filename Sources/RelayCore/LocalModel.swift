@@ -264,6 +264,9 @@ public enum LocalQueueError: Error, Sendable, Equatable {
     case invalidNote([String])
     case missingText
     case textTooLong
+    /// Answers to an ask that isn't open.
+    case askClosed
+    case invalidAnswers([String])
     case storeFailed(String)
 }
 

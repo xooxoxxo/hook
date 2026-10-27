@@ -35,6 +35,8 @@ public struct PanelShellActions: Sendable {
     var listSelection: String? { get set }
     var drafts: [String: String] { get set }
     var pendingChoice: [String: Int] { get set }
+    /// Unsent step answers per ask, then step path (memory only).
+    var answerDrafts: [String: [String: AnswerDraft]] { get set }
     var expandedDone: [String: Set<String>] { get set }
     var detailAnchor: [String: String] { get set }
     var notice: PanelNotice? { get }
@@ -57,6 +59,8 @@ public struct PanelShellActions: Sendable {
     func sendReply(_ id: String)
     func sendChoice(_ id: String)
     func sendAndDone(_ id: String)
+    /// ⌘S / Send answers: sends the open ask's unsent step answers.
+    func sendAnswers(_ id: String)
     func dismissNotice()
     func performNoticeAction()
     func copyLink(_ id: String)

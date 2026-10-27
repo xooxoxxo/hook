@@ -17,7 +17,8 @@ from typing import Any, Callable, Dict, List, Optional
 
 import relay_replies
 import relay_wait
-from relay_client import OWNER_LABELS, VERSION, Client, Refused, RelayError, one_line
+from relay_client import (OWNER_LABELS, VERSION, Client, Refused, RelayError, answer_value, instructable_of,
+                          latest_answers, one_line, questions, unanswered)
 
 DEFAULT_TIMEOUT = 10.0
 SUBSTEPS_SENTENCE = ("A step that needs more than one action can hold `substeps`: 1 to 10 step objects "
@@ -111,7 +112,27 @@ def format_status(detail: dict) -> list:
         text = one_line(event.get("text") or "")
         at = event.get("at") or "?"
         lines.append(f"{at} {label}: {text}" if text else f"{at} {label}")
+    asked = questions(instructable_of(detail))
+    if asked:
+        given = latest_answers(events)
+        open_paths = unanswered(instructable_of(detail), events)
+        lines.append(f"Answers ({len(asked) - len(open_paths)} of {len(asked)}):")
+        for path, question in asked.items():
+            prompt = str(question.get("prompt") or "").strip().split("\n")[0]
+            lines.append(f"  {path}  {prompt}")
+            if path in given:
+                lines.append("     " + answer_value(given[path]))
+        if open_paths:
+            lines.append("Unanswered: " + ", ".join(open_paths))
     return lines
+
+
+def answers_json(detail: dict) -> Dict[str, Any]:
+    """{"answers": {path: {picked|text, at}}, "unanswered": [path, ...]} for status --json and MCP."""
+    events = detail.get("events") if isinstance(detail.get("events"), list) else []
+    given = latest_answers(events)
+    answers = {path: {k: v for k, v in a.items() if k != "seq"} for path, a in given.items()}
+    return {"answers": answers, "unanswered": unanswered(instructable_of(detail), events)}
 
 
 def _status_json(detail: dict) -> Dict[str, Any]:
@@ -122,7 +143,8 @@ def _status_json(detail: dict) -> Dict[str, Any]:
             "resolvedBy": resolved_by(events) if status != "open" else None,
             "project": item.get("projectId"), "title": item.get("title"),
             "ownerEvents": [{"kind": e.get("kind"), "text": e.get("text"), "at": e.get("at")}
-                            for e in events if isinstance(e, dict) and e.get("actor") == "owner"]}
+                            for e in events if isinstance(e, dict) and e.get("actor") == "owner"],
+            **answers_json(detail)}
 
 
 def _read_instructable(src: str, stdin: Any) -> Dict[str, Any]:

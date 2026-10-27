@@ -139,8 +139,22 @@ private let minimal: [String: JSONValue] = [
         }
     }
 
+    @Test func questionCasesAreInTheFixture() throws {
+        let names = Set(try loadVectors().map(\.name))
+        for name in ["questions-valid-pick", "questions-valid-multi", "questions-valid-free-text",
+                     "questions-valid-on-substep", "questions-valid-parent-and-substep", "questions-valid-twenty",
+                     "questions-valid-null", "questions-unknown-key", "questions-choice-duplicate",
+                     "questions-multi-one-choice", "questions-multi-free-text", "questions-on-verify",
+                     "questions-twenty-one"] {
+            #expect(names.contains(name), "\(name)")
+        }
+    }
+
     @Test func stepAndLeafKeys() {
-        #expect(Validator.leafKeys == ["do", "where", "code", "lang", "expect", "detail", "url"])
+        #expect(Validator.verifyKeys == ["do", "where", "code", "lang", "expect", "detail", "url"])
+        #expect(Validator.leafKeys == Validator.verifyKeys.union(["question"]))
+        #expect(Validator.questionKeys == ["prompt", "choices", "multi"])
+        #expect(Validator.maxQuestions == 20)
         #expect(Validator.stepKeys == Validator.leafKeys.union(["substeps"]))
         #expect(Validator.maxSubsteps == 10)
         #expect(Validator.maxStepTotal == 60)

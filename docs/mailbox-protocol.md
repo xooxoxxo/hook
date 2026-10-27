@@ -17,6 +17,7 @@ Every request carries `Authorization: Bearer <content of tokenFile>`. Bodies are
 | `POST /asks/{id}/resolve` | app (Done, Skip), CLI and MCP (`done`, `skip`) | `{verdict, actor, note?}`: `verdict` is `done` or `declined`; `actor` is `owner` from the app and `session` from the CLI and MCP server | 200 `{item}` |
 | `POST /asks/{id}/reopen` | app (Reopen in Closed today) | `{actor}`: always `owner` | 200 `{item}`, or 404 |
 | `POST /asks/{id}/reply` | app (Reply, reply choices) | `{text}` | 200 `{item}` |
+| `POST /asks/{id}/answers` | app (Send answers) | `{"answers": [...]}`: 1 to 20 of `{"step": "3.2", "picked": ["Staging"]}` or `{"step": "4", "text": "..."}` | 200 `{item}`; 409 when the ask is closed |
 | `GET /events` | `relay replies` | `after=<seq>`, `limit=1000` | 200 `{events, next, epoch?}`: events with `seq > after`, ascending; `next` is the last seq returned, or `after` |
 
 ## What the service should do
@@ -25,6 +26,7 @@ Every request carries `Authorization: Bearer <content of tokenFile>`. Bodies are
 - **Resolve.** Set the item's `status` to `done` or `dismissed`, and add a `resolved` or `declined` event with the given actor.
 - **Reopen.** Set a `done` or `dismissed` item back to `open`, clear `completedAt`, and add a `reopened` event with actor `owner`. Reopening an open ask changes nothing but still answers 200 with the item.
 - **Reply.** Add a `reply` event with actor `owner`.
+- **Answers.** Answer 404 for an unknown ask, then 409 `{"error": "ask is closed"}` unless the ask is open, then 400 `{"error": "invalid answers", "details": [...]}` when an answer doesn't fit its step's question. Otherwise add one `answer` event per answer (actor `owner`) in one transaction and leave the ask open. A later answer for the same step replaces the earlier one: the latest event wins, and the earlier ones stay in the log.
 - **Epoch.** Optional string. Change it when the event sequence restarts, so `relay replies` resets its cursors.
 
 ## Responses
@@ -53,7 +55,8 @@ Without `payload.instructable`, an item is shown from `payload.why`, `payload.cm
 
 An event is `{seq, itemId, kind, actor, text, at}`; `seq` is an integer that only grows.
 
-- An owner's answer has actor `owner` and kind `resolved`, `declined` or `reply`.
+- An owner's action has actor `owner` and kind `resolved`, `declined`, `reply` or `answer`.
+- `answer` (actor `owner`): the answer to one step's question. Its `text` is compact JSON with `step` first: `{"step":"3.2","picked":["Staging"]}` for a choice question (picks in the order of the choices), `{"step":"4","text":"Use the EU region"}` for a free-text one. A step path is `"3"` or `"3.2"`, 1-based.
 - An ask closed by an agent has actor `session`.
 - `reopened` (actor `owner`): the ask is open again, and no client shows it closed until a later `resolved` or `declined`.
 

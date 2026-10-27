@@ -125,15 +125,27 @@ extension QueueLayout {
         return steps + (instructable.verify == nil ? 0 : 1)
     }
 
-    public static func summary(for item: WireItem, ticked: Set<String>) -> RowSummary {
+    /// What "N of M" counts without building nodes (`Flow.items`): the leaves, plus each
+    /// parent that asks its own question.
+    public static func itemCount(_ instructable: Instructable) -> Int {
+        leafCount(instructable) + instructable.steps.filter { !($0.substeps ?? []).isEmpty && $0.question != nil }.count
+    }
+
+    /// "N of M". `answered` holds the paths the owner has answered, when the ask's detail
+    /// (its events) is at hand: a question counts once answered, any other item once ticked.
+    /// Without it (the list has no events) only ticks count.
+    public static func summary(for item: WireItem, ticked: Set<String>, answered: Set<String>? = nil) -> RowSummary {
         guard let ins = item.instructable else {
             if present(item.payload.cmd) { return .legacyCmd }
             if present(item.payload.link) { return .legacyLink }
             return .none
         }
         if !ins.steps.isEmpty {
-            let total = leafCount(ins)
-            return .steps(done: min(ticked.count, total), total: total)
+            let total = itemCount(ins)
+            guard let answered else { return .steps(done: min(ticked.count, total), total: total) }
+            let questions = Set(Answers.paths(ins))
+            let done = ticked.subtracting(questions).count + answered.intersection(questions).count
+            return .steps(done: min(done, total), total: total)
         }
         if let choices = ins.reply?.choices, !choices.isEmpty { return .choose(choices.count) }
         return ins.reply == nil ? .none : .reply

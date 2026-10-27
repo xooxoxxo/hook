@@ -16,9 +16,13 @@ public struct DetailModel: Sendable, Equatable {
         public var content: StepContent
         public var children: [Node]
         public var fingerprint: String
+        /// The step's question, when it asks one (never on verify).
+        public var question: Question?
+        /// The owner's current answer to `question` (`Answers.latest`); nil while unanswered.
+        public var answer: Answer?
 
         public init(path: String, label: String, kind: StepFingerprint.Kind, number: Int, content: StepContent,
-                    children: [Node] = [], fingerprint: String) {
+                    children: [Node] = [], fingerprint: String, question: Question? = nil, answer: Answer? = nil) {
             self.path = path
             self.label = label
             self.kind = kind
@@ -26,11 +30,16 @@ public struct DetailModel: Sendable, Equatable {
             self.content = content
             self.children = children
             self.fingerprint = fingerprint
+            self.question = question
+            self.answer = question == nil ? nil : answer
         }
 
         public var id: String { path }
         public var isVerify: Bool { kind == .verify }
         public var isParent: Bool { !children.isEmpty }
+        public var asks: Bool { question != nil }
+        /// A question with no answer yet.
+        public var isUnanswered: Bool { question != nil && answer == nil }
 
         public var level: StepLevel {
             switch kind {
@@ -73,8 +82,20 @@ public struct DetailModel: Sendable, Equatable {
     /// Top-level steps plus verify: the "of 5" in "Step 3 of 5".
     public var stepTotal: Int { nodes.count }
 
-    /// Steps in order, each with its sub-steps (at most ten), then verify.
-    public static func nodes(steps: [Step], verify: Step?) -> [Node] {
+    /// The paths of every question still without an answer, in document order
+    /// (a parent's own question before its sub-steps').
+    public var unanswered: [String] {
+        Flow.flattened(nodes).filter(\.isUnanswered).map(\.path)
+    }
+
+    /// How many steps and sub-steps ask a question.
+    public var questionCount: Int {
+        Flow.flattened(nodes).filter(\.asks).count
+    }
+
+    /// Steps in order, each with its sub-steps (at most ten), then verify. `answers`
+    /// (path → current answer, from `Answers.latest`) fills each question node's answer.
+    public static func nodes(steps: [Step], verify: Step?, answers: [String: Answer] = [:]) -> [Node] {
         var nodes: [Node] = []
         for (index, step) in steps.enumerated() {
             let number = index + 1
@@ -86,10 +107,12 @@ public struct DetailModel: Sendable, Equatable {
                     path: "\(number).\(position + 1)", label: "\(number)" + StepLevel.letters[position], kind: .sub,
                     number: number, content: subContent,
                     fingerprint: StepFingerprint.make(kind: .sub, action: sub.action, place: subContent.place,
-                                                      code: subContent.code, parent: fingerprint))
+                                                      code: subContent.code, parent: fingerprint),
+                    question: sub.question, answer: answers["\(number).\(position + 1)"])
             }
             nodes.append(Node(path: "\(number)", label: "\(number)", kind: .step, number: number, content: content,
-                              children: Array(subs), fingerprint: fingerprint))
+                              children: Array(subs), fingerprint: fingerprint,
+                              question: step.question, answer: answers["\(number)"]))
         }
         if let verify {
             let content = content(verify)
@@ -119,7 +142,7 @@ public struct DetailModel: Sendable, Equatable {
 
         if let ins = item.instructable {
             why = present(ins.why)
-            nodes = Self.nodes(steps: ins.steps, verify: ins.verify)
+            nodes = Self.nodes(steps: ins.steps, verify: ins.verify, answers: Answers.latest(events))
             links = ins.links ?? []
             reply = ins.reply
             origin = AskOrigin(from: ins.from)

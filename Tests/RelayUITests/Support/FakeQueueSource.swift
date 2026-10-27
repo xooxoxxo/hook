@@ -15,6 +15,8 @@ actor FakeQueueSource: QueueSource {
     private var heldReplies: [CheckedContinuation<Void, Never>] = []
     private(set) var calls: [String] = []
     private(set) var replies: [String: [String]] = [:]
+    /// Every answer batch sent, per ask.
+    private(set) var answers: [String: [[JSONValue]]] = [:]
 
     init(items: [WireItem] = [], details: [String: AskDetail] = [:]) {
         self.items = items
@@ -95,6 +97,23 @@ actor FakeQueueSource: QueueSource {
                                    text: text, at: "2026-10-16T09:40:00+00:00"))
         details[id] = detail
         replies[id, default: []].append(text)
+        return item
+    }
+
+    /// Records the batch and appends one `answer` event per entry (its compact JSON);
+    /// a closed ask throws `.askClosed`. No validation.
+    func answer(_ id: String, answers batch: [JSONValue]) async throws -> WireItem {
+        try record("answer \(id)")
+        if closedItems.contains(where: { $0.id == id }) { throw QueueError.askClosed }
+        guard let item = items.first(where: { $0.id == id }) else { throw QueueError.notFound }
+        var detail = details[id] ?? AskDetail(item: item, events: [])
+        for entry in batch {
+            detail.events.append(Event(seq: detail.events.count + 1, itemId: id, kind: "answer", actor: "owner",
+                                       text: String(decoding: entry.data(), as: UTF8.self),
+                                       at: "2026-10-16T09:40:00+00:00"))
+        }
+        details[id] = detail
+        answers[id, default: []].append(batch)
         return item
     }
 

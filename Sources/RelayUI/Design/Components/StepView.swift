@@ -3,6 +3,8 @@ import SwiftUI
 
 /// Design/StepView: a leaf node, that is a step without sub-steps, a sub-step,
 /// or verify. Todo and current show the whole column; done collapses into a disclosure.
+/// A step that asks a question shows its QuestionBlock under the text, has a plain marker
+/// instead of a tick (only an answer completes it), and never collapses, so its answer stays in view.
 public struct StepView: View {
     let content: StepContent
     let level: StepLevel
@@ -10,19 +12,22 @@ public struct StepView: View {
     let total: Int
     let readOnly: Bool
     let expanded: Binding<Bool>
+    let question: StepQuestion?
     let onToggle: () -> Void
     let onCopy: (String) -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.openURL) private var openURL
 
     public init(content: StepContent, level: StepLevel, state: StepState, total: Int, readOnly: Bool,
-                expanded: Binding<Bool>, onToggle: @escaping () -> Void, onCopy: @escaping (String) -> Void) {
+                expanded: Binding<Bool>, question: StepQuestion? = nil, onToggle: @escaping () -> Void,
+                onCopy: @escaping (String) -> Void) {
         self.content = content
         self.level = level
         self.state = state
         self.total = total
         self.readOnly = readOnly
         self.expanded = expanded
+        self.question = question
         self.onToggle = onToggle
         self.onCopy = onCopy
     }
@@ -33,6 +38,8 @@ public struct StepView: View {
 
     @ViewBuilder private var states: some View {
         switch state {
+        case .done where question != nil:
+            column(actionFont: DS.Font.body)
         case .done:
             HStack(alignment: .firstTextBaseline, spacing: DS.Space.marker) {
                 tick
@@ -72,7 +79,17 @@ public struct StepView: View {
         return text.alignmentProbe(level.isSub ? .subLabelText : .topActionText)
     }
 
-    private var tick: some View {
+    @ViewBuilder private var tick: some View {
+        if let question {
+            StepMarker(level: level, state: state,
+                       label: StepAccessibility.questionLabel(action: content.action, prompt: question.question.prompt,
+                                                              answer: question.answer))
+        } else {
+            tickButton
+        }
+    }
+
+    private var tickButton: some View {
         TickButton(level: level, state: state, label: line(content.action),
                    hint: StepAccessibility.hint(level: level, total: total), value: StepAccessibility.tickValue(state),
                    help: StepAccessibility.help(state), readOnly: readOnly, action: toggle)
@@ -88,6 +105,7 @@ public struct StepView: View {
                 actionText(actionFont)
                     .fixedSize(horizontal: false, vertical: true)
                 StepBody(content: content, level: level, onCopy: onCopy)
+                if let question { QuestionBlock(question) }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -104,12 +122,13 @@ public struct StepView: View {
 
     /// VoiceOver's custom actions and the context menu, where they apply.
     @ViewBuilder private func actions(_ view: some View) -> some View {
+        let tickable = !readOnly && question == nil
         let withActions = view.accessibilityActions {
-            if !readOnly { Button(StepAccessibility.markAction(state)) { toggle() } }
+            if tickable { Button(StepAccessibility.markAction(state)) { toggle() } }
             if let code = content.code { Button("Copy command") { onCopy(Sanitize.copyText(code)) } }
             if let url = webURL { Button("Open link") { openURL(url) } }
         }
-        if readOnly {
+        if !tickable {
             withActions
         } else {
             withActions.contextMenu { Button(StepAccessibility.contextTitle(state)) { toggle() } }

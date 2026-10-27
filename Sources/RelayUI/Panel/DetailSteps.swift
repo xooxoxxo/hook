@@ -41,11 +41,13 @@ struct DetailSteps<Model: PanelViewModel>: View {
     /// The Steps rotor's entries: every node that is on screen, in reading order. A parent whose
     /// sub-steps are all done collapses (ParentStepView) and its sub-step rows are not rendered
     /// unless the parent is expanded, so they are left out then; the parent itself stays.
+    /// A parent's own question counts too (Flow.parentProgress).
     static func rotorNodes(_ nodes: [DetailModel.Node], ticks: Set<String>, current: String?,
                            expanded: Set<String>) -> [DetailModel.Node] {
         nodes.flatMap { node -> [DetailModel.Node] in
             guard rendersAsParent(node) else { return [node] }
-            let allDone = node.children.allSatisfy { Flow.state(of: $0, ticks: ticks, current: current) == .done }
+            let progress = Flow.parentProgress(node, ticks: ticks)
+            let allDone = progress.done == progress.total
             return allDone && !expanded.contains(node.path) ? [node] : [node] + node.children
         }
     }
@@ -97,6 +99,9 @@ struct DetailSteps<Model: PanelViewModel>: View {
                 readOnly: readOnly,
                 expanded: expanded(node.path),
                 childExpanded: { index in expanded(node.children[index].path) },
+                childQuestions: node.children.map(question),
+                question: question(node),
+                ownState: node.asks ? Flow.state(of: node, ticks: snapshot.ticks, current: snapshot.current) : nil,
                 onToggleParent: { model.toggleTick(node.path, in: snapshot.id) },
                 onToggleChild: { index in model.toggleTick(node.children[index].path, in: snapshot.id) },
                 onCopy: { model.shell.copy($0) })
@@ -105,9 +110,24 @@ struct DetailSteps<Model: PanelViewModel>: View {
                 content: node.content, level: node.level,
                 state: Flow.state(of: node, ticks: snapshot.ticks, current: snapshot.current),
                 total: total, readOnly: readOnly, expanded: expanded(node.path),
+                question: question(node),
                 onToggle: { model.toggleTick(node.path, in: snapshot.id) },
                 onCopy: { model.shell.copy($0) })
         }
+    }
+
+    /// The node's question block, with its draft bound to `model.answerDrafts[id][path]`.
+    private func question(_ node: DetailModel.Node) -> StepQuestion? {
+        guard let question = node.question else { return nil }
+        let id = snapshot.id, path = node.path
+        let draft = Binding<AnswerDraft?>(
+            get: { model.answerDrafts[id]?[path] },
+            set: { value in
+                var drafts = model.answerDrafts[id] ?? [:]
+                drafts[path] = value
+                model.answerDrafts[id] = drafts.isEmpty ? nil : drafts
+            })
+        return StepQuestion(question: question, answer: node.answer, draft: draft, readOnly: readOnly)
     }
 
     /// A done step's (or done parent's) expansion, by path, in `model.expandedDone[id]`.

@@ -14,7 +14,9 @@ struct NodeFramesKey: PreferenceKey {
 
 /// Design/ParentStepView: a step with sub-steps. The parent tick is derived from
 /// its sub-steps; ticking it ticks or unticks them all. Once every sub-step is done the parent
-/// collapses into a disclosure.
+/// collapses into a disclosure. A parent that asks its own question shows it under its text,
+/// above the sub-steps; the question is one more item of its count, and its marker is not a
+/// tick (only an answer completes the question; the sub-steps keep their own ticks).
 public struct ParentStepView: View {
     let content: StepContent
     let number: Int
@@ -26,6 +28,11 @@ public struct ParentStepView: View {
     let readOnly: Bool
     let expanded: Binding<Bool>
     let childExpanded: (Int) -> Binding<Bool>
+    /// Each sub-step's question block, when it asks one; one per entry of `children`.
+    let childQuestions: [StepQuestion?]
+    let question: StepQuestion?
+    /// The parent's own question's state (Flow.state(of: parent)); nil when it asks none.
+    let ownState: StepState?
     let onToggleParent: () -> Void
     let onToggleChild: (Int) -> Void
     let onCopy: (String) -> Void
@@ -33,7 +40,9 @@ public struct ParentStepView: View {
 
     public init(content: StepContent, number: Int, total: Int, children: [StepContent], childPaths: [String],
                 childStates: [StepState], readOnly: Bool, expanded: Binding<Bool>,
-                childExpanded: @escaping (Int) -> Binding<Bool>, onToggleParent: @escaping () -> Void,
+                childExpanded: @escaping (Int) -> Binding<Bool>, childQuestions: [StepQuestion?] = [],
+                question: StepQuestion? = nil, ownState: StepState? = nil,
+                onToggleParent: @escaping () -> Void,
                 onToggleChild: @escaping (Int) -> Void, onCopy: @escaping (String) -> Void) {
         self.content = content
         self.number = number
@@ -44,14 +53,21 @@ public struct ParentStepView: View {
         self.readOnly = readOnly
         self.expanded = expanded
         self.childExpanded = childExpanded
+        self.childQuestions = childQuestions
+        self.question = question
+        self.ownState = question == nil ? nil : ownState
         self.onToggleParent = onToggleParent
         self.onToggleChild = onToggleChild
         self.onCopy = onCopy
     }
 
-    private var ticked: Int { childStates.filter { $0 == .done }.count }
-    private var allDone: Bool { ticked == children.count }
-    private var holdsCurrent: Bool { childStates.contains(.current) }
+    /// Done items (Flow.parentProgress): the sub-steps, plus the parent's own question.
+    private var ticked: Int { childStates.filter { $0 == .done }.count + (ownState == .done ? 1 : 0) }
+    private var itemTotal: Int { children.count + (ownState == nil ? 0 : 1) }
+    private var allDone: Bool { ticked == itemTotal }
+    private var holdsCurrent: Bool { childStates.contains(.current) || ownState == .current }
+    /// No parent tick on a parent that asks: Mark All acts on ticks, never on the question.
+    private var tickable: Bool { !readOnly && question == nil }
 
     public var body: some View {
         VStack(alignment: .leading, spacing: DS.Space.subStep) {
@@ -60,7 +76,9 @@ public struct ParentStepView: View {
                 VStack(alignment: .leading, spacing: DS.Space.subStep) {
                     ForEach(children.indices, id: \.self) { i in
                         StepView(content: children[i], level: .sub(number, i), state: childStates[i], total: total,
-                                 readOnly: readOnly, expanded: childExpanded(i), onToggle: { onToggleChild(i) }, onCopy: onCopy)
+                                 readOnly: readOnly, expanded: childExpanded(i),
+                                 question: childQuestions.indices.contains(i) ? childQuestions[i] : nil,
+                                 onToggle: { onToggleChild(i) }, onCopy: onCopy)
                             .id(childPaths[i])
                             .background(GeometryReader { geometry in
                                 Color.clear.preference(key: NodeFramesKey.self,
@@ -72,21 +90,31 @@ public struct ParentStepView: View {
             }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(StepAccessibility.parentLabel(number: number, action: content.action,
-                                                          done: ticked, total: children.count))
+        .accessibilityLabel(accessibilityLabel)
         .accessibilityActions {
-            if !readOnly {
-                Button(StepAccessibility.parentAction(done: ticked, total: children.count)) { toggleParent() }
+            if tickable {
+                Button(StepAccessibility.parentAction(done: ticked, total: itemTotal)) { toggleParent() }
             }
         }
     }
 
-    private var tick: some View {
-        TickButton(level: .top(number), state: allDone ? .done : .todo, label: line(content.action),
-                   hint: StepAccessibility.hint(level: .top(number), total: total),
-                   value: StepAccessibility.parentValue(done: ticked, total: children.count),
-                   help: StepAccessibility.parentHelp(done: ticked, total: children.count),
-                   readOnly: readOnly, action: toggleParent)
+    private var accessibilityLabel: String {
+        let label = StepAccessibility.parentLabel(number: number, action: content.action, done: ticked, total: itemTotal)
+        guard let question else { return label }
+        return label + ". " + StepAccessibility.question(prompt: question.question.prompt, answer: question.answer)
+    }
+
+    @ViewBuilder private var tick: some View {
+        if question != nil {
+            StepMarker(level: .top(number), state: allDone ? .done : (ownState == .current ? .current : .todo),
+                       label: line(content.action))
+        } else {
+            TickButton(level: .top(number), state: allDone ? .done : .todo, label: line(content.action),
+                       hint: StepAccessibility.hint(level: .top(number), total: total),
+                       value: StepAccessibility.parentValue(done: ticked, total: children.count),
+                       help: StepAccessibility.parentHelp(done: ticked, total: children.count),
+                       readOnly: readOnly, action: toggleParent)
+        }
     }
 
     @ViewBuilder private var placeText: some View {
@@ -106,10 +134,11 @@ public struct ParentStepView: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .alignmentProbe(.topActionText)
                     Spacer(minLength: DS.Space.inline)
-                    Text(verbatim: "\(ticked) of \(children.count)")
+                    Text(verbatim: "\(ticked) of \(itemTotal)")
                         .font(DS.Font.meta).foregroundStyle(DS.Color.secondary).monospacedDigit()
                 }
                 StepBody(content: content, level: .top(number), onCopy: onCopy)
+                if let question { QuestionBlock(question) }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -122,6 +151,7 @@ public struct ParentStepView: View {
                 VStack(alignment: .leading, spacing: DS.Space.stepPart) {
                     placeText
                     StepBody(content: content, level: .top(number), onCopy: onCopy)
+                    if let question { QuestionBlock(question) }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.top, DS.Space.stepPart)
@@ -139,7 +169,7 @@ public struct ParentStepView: View {
 
     /// The parent's own row gets "Mark All as Done" / "Mark All as Not Done"; sub-steps keep their own menu.
     @ViewBuilder private func rowMenu(_ row: some View) -> some View {
-        if readOnly {
+        if !tickable {
             row
         } else {
             row.contextMenu {
