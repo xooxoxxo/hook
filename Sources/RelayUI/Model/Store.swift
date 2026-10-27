@@ -1161,7 +1161,25 @@ public enum LinkCheck: Equatable, Sendable {
                 if next[id] == nil { detailFailed.insert(id) }
             }
         }
+        dropStaleReplyChanges(next)
         if next != details { details = next }
+    }
+
+    /// Leaves Change on an ask whose untouched prefill a newer reply has overtaken.
+    private func dropStaleReplyChanges(_ next: [String: AskDetail]) {
+        for id in editingReply {
+            let before = details[id]?.events ?? [], after = next[id]?.events ?? []
+            guard before != after else { continue }
+            let choices = item(for: id)?.instructable?.reply?.choices ?? []
+            guard AnswerEditing.changeWentStale(before: ReplyText.lines(events: before),
+                                                after: ReplyText.lines(events: after),
+                                                draft: drafts[id], pick: pendingChoice[id],
+                                                sentChoiceBefore: ReplyText.latestSentChoice(events: before, choices: choices))
+            else { continue }
+            editingReply.remove(id)
+            drafts[id] = nil
+            pendingChoice[id] = nil
+        }
     }
 
     /// Assigns only what changed: `@Published` publishes on every assignment, equal or not.

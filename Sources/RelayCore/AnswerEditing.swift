@@ -33,6 +33,19 @@ public enum AnswerEditing {
         hasChoices ? (nil, latestSentChoice) : (latestText(replies), nil)
     }
 
+    /// A reply arrived from elsewhere (Telegram, the CLI) while the owner was changing the
+    /// reply, and the draft and pick are still what Change put back: that prefill is now
+    /// out of date, so editing ends and it goes. Sending it would override the newer reply.
+    /// A draft or pick the owner changed stays.
+    public static func changeWentStale(before: [ReplyLine], after: [ReplyLine], draft: String?, pick: Int?,
+                                       sentChoiceBefore: Int?) -> Bool {
+        guard after.count > before.count else { return false }
+        let text = (draft ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let untouchedText = text.isEmpty || text == latestText(before)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let untouchedPick = pick == nil || pick == sentChoiceBefore
+        return untouchedText && untouchedPick
+    }
+
     /// Text that would send something: not blank, and not the latest sent text.
     public static func isNewText(_ text: String, sentText: String?) -> Bool {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)

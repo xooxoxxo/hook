@@ -103,6 +103,58 @@ private func questionAsk() -> WireItem {
         #expect(store.detail("q")?.model?.nodes.first?.answer?.picked == ["Prod"])
     }
 
+    /// A reply from elsewhere (Telegram) during Change overtakes the untouched prefill:
+    /// editing ends, so Done can't resend the old text over the newer answer.
+    @Test func aReplyFromElsewhereEndsAnUntouchedChange() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let store = Store(defaults: defaults.defaults)
+        let first = reply("t", "Kestrel 2.4")
+        let fake = FakeQueueSource(items: [textAsk], details: ["t": AskDetail(item: textAsk, events: [first])])
+        await start(store, fake)
+        store.open("t")
+        _ = await eventually { store.detail("t")?.replies.count == 1 }
+        store.changeReply("t")
+        let later = Event(seq: 2, itemId: "t", kind: "reply", actor: "owner", text: "Kestrel 3", at: sentAt)
+        await fake.setDetail(AskDetail(item: textAsk, events: [first, later]))
+        await store.refresh()
+        _ = await eventually { store.detail("t")?.replies.count == 2 }
+        #expect(store.editingReply.isEmpty)
+        #expect(store.drafts["t"] == nil)
+        #expect(store.primaryAction(for: "t") == .done)
+        await store.sendAndDone("t")
+        #expect(await fake.replies["t"] == nil)
+    }
+
+    @Test func aReplyFromElsewhereEndsAnUntouchedChoiceChangeButKeepsANewPick() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let store = Store(defaults: defaults.defaults)
+        let first = reply("c", "choice: B")
+        let fake = FakeQueueSource(items: [choiceAsk], details: ["c": AskDetail(item: choiceAsk, events: [first])])
+        await start(store, fake)
+        store.open("c")
+        _ = await eventually { store.detail("c")?.latestSentChoice == 1 }
+        store.changeReply("c")
+        let second = Event(seq: 2, itemId: "c", kind: "reply", actor: "owner", text: "choice: A", at: sentAt)
+        await fake.setDetail(AskDetail(item: choiceAsk, events: [first, second]))
+        await store.refresh()
+        _ = await eventually { store.detail("c")?.latestSentChoice == 0 }
+        #expect(store.editingReply.isEmpty)
+        #expect(store.pendingChoice["c"] == nil)
+        #expect(store.primaryAction(for: "c") == .done)
+
+        // A pick the owner made themselves survives the next arrival.
+        store.changeReply("c")
+        store.pendingChoice["c"] = 1
+        let third = Event(seq: 3, itemId: "c", kind: "reply", actor: "owner", text: "note", at: sentAt)
+        await fake.setDetail(AskDetail(item: choiceAsk, events: [first, second, third]))
+        await store.refresh()
+        _ = await eventually { store.detail("c")?.replies.count == 3 }
+        #expect(store.editingReply == ["c"])
+        #expect(store.pendingChoice["c"] == 1)
+    }
+
     @Test func aSourceSwapForgetsEditing() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }
