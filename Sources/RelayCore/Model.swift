@@ -89,7 +89,7 @@ public struct Origin: Codable, Sendable, Equatable {
     }
 }
 
-/// An instructable (`"v": 1`). The mailbox service validates strictly; Relay only displays it, so
+/// An instructable (`"v": 1`). The mailbox service validates strictly; Hook only displays it, so
 /// decoding here is lenient (no length checks, unknown urgency is kept as-is).
 public struct Instructable: Codable, Sendable, Equatable {
     public var v: Int?
@@ -138,7 +138,7 @@ extension Payload {
     }
 }
 
-/// The fields of the mailbox's item envelope that Relay uses.
+/// The fields of the mailbox's item envelope that Hook uses.
 public struct WireItem: Codable, Sendable, Equatable, Identifiable {
     public var id: String
     public var title: String

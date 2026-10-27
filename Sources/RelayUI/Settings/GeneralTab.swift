@@ -17,7 +17,7 @@ public struct GeneralTab<Model: SettingsViewModel>: View {
             }
             // One row: the shortcut is the app's main entry point, and its error caption appears under it.
             Section("Shortcut") {
-                SettingsRow("Show or hide Relay", help: GeneralHelp.shortcut, error: model.settings.shortcutProblem?.text) {
+                SettingsRow("Show or hide Hook", help: GeneralHelp.shortcut, error: model.settings.shortcutProblem?.text) {
                     ShortcutField(
                         label: model.settings.shortcutLabel ?? "Not set",
                         onBegin: { model.perform(.beginShortcut) },
@@ -62,13 +62,13 @@ public struct GeneralTab<Model: SettingsViewModel>: View {
             .disabled(model.settings.readOnly)
             Section("Startup and menu bar") {
                 SettingsRow("Login", help: GeneralHelp.login, error: model.settings.login.error) {
-                    Toggle("Start Relay when I log in", isOn: Binding(
+                    Toggle("Start Hook when I log in", isOn: Binding(
                         get: { model.settings.login.on },
                         set: { model.perform(.setLogin($0)) }))
                         .toggleStyle(.checkbox)
                 }
                 if model.settings.login.needsApproval {
-                    SettingsRow("", error: "Approve Relay in System Settings → Login Items.") {
+                    SettingsRow("", error: "Approve Hook in System Settings → Login Items.") {
                         Button("Open Login Items") { model.perform(.openLoginItems) }
                     }
                 }
@@ -101,6 +101,6 @@ public struct GeneralTab<Model: SettingsViewModel>: View {
 /// The General tab's "?" texts.
 public enum GeneralHelp {
     public static let shortcut = "Click the field, then press the new keys. Use at least one of ⌘, ⌃ or ⌥ with a letter, a digit, Space, ` or F1–F12. Esc cancels. ⊗ turns the shortcut off."
-    public static let presence = "Relay marks you away when the screen locks, the displays sleep, you're connected over Screen Sharing, or you haven't touched the Mac for this long. While you're away, Relay doesn't slide the panel in or show notifications; asks still reach anything your mailbox forwards them to. Relay also creates ~/.local/state/relay/away, so other tools can tell. For example, ssh can skip the 1Password agent."
-    public static let login = "Relay adds a LaunchAgent so it starts when you log in."
+    public static let presence = "Hook marks you away when the screen locks, the displays sleep, you're connected over Screen Sharing, or you haven't touched the Mac for this long. While you're away, Hook doesn't slide the panel in or show notifications; asks still reach anything your mailbox forwards them to. Hook also creates ~/.local/state/relay/away, so other tools can tell. For example, ssh can skip the 1Password agent."
+    public static let login = "Hook adds a LaunchAgent so it starts when you log in."
 }

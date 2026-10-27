@@ -80,7 +80,7 @@ public enum GalleryIndex {
         }
         return """
         <!doctype html>
-        <html lang="en"><head><meta charset="utf-8"><title>Relay gallery</title>
+        <html lang="en"><head><meta charset="utf-8"><title>Hook gallery</title>
         <style>
         body { font: 13px -apple-system, system-ui, sans-serif; margin: 16px; background: #f2f2f2; color: #222; }
         main { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }

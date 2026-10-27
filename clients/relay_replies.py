@@ -2,7 +2,7 @@
 
 Cursor file: replies-cursor.json next to config.json, under an flock on
 replies-cursor.json.lock. With --hook it reads only `session_id` from the hook's stdin,
-never auto-launches Relay, keeps to a 2 s budget and always exits 0 (exit 2 from a
+never auto-launches Hook, keeps to a 2 s budget and always exits 0 (exit 2 from a
 UserPromptSubmit hook would block the prompt). Standard library only; Python 3.9+.
 """
 from __future__ import annotations
@@ -272,8 +272,8 @@ def _collect(client: Any, key: str, new: bool, deadline: Optional[float],
                     partial = True
                     break
                 text = answer_value(body) if body else one_line(event.get("text") or "")
-                lines.append(f"Relay: [{item_id}] {where} — {label}: {text}" if text
-                             else f"Relay: [{item_id}] {where} — {label}")
+                lines.append(f"Hook: [{item_id}] {where} — {label}: {text}" if text
+                             else f"Hook: [{item_id}] {where} — {label}")
             last = max(last, seq)
         store.set_head(source_key, last)
         store.set_cursor(source_key, key, last if (first_run or new) else (cursor or 0))

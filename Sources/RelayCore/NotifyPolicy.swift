@@ -91,14 +91,14 @@ public struct NotifyPolicy: Sendable {
 }
 
 extension NotifyContent {
-    /// Single: the project as one revealed line, or "Relay" when it has none. Several: "Relay".
+    /// Single: the project as one revealed line, or "Hook" when it has none. Several: "Hook".
     public var title: String {
         switch self {
         case .single(_, let project, _):
             let trimmed = project.trimmingCharacters(in: .whitespacesAndNewlines)
-            return trimmed.isEmpty ? "Relay" : Sanitize.revealLine(project)
+            return trimmed.isEmpty ? "Hook" : Sanitize.revealLine(project)
         case .many:
-            return "Relay"
+            return "Hook"
         }
     }
 
@@ -133,7 +133,7 @@ public enum NotificationPermission: Equatable, Sendable {
     }
 }
 
-/// When Relay asks for notification permission: never at launch; before the first
+/// When Hook asks for notification permission: never at launch; before the first
 /// notification it would post, once, and only while undetermined. Welcome page 2 and
 /// Settings ask directly.
 public enum NotificationAuth {

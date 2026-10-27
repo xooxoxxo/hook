@@ -1,6 +1,6 @@
 import Foundation
 
-/// Which running app counts as another Relay. The launch check runs before
+/// Which running app counts as another Hook. The launch check runs before
 /// the loopback server and the queue lock.
 public enum SingleInstance {
     /// A running app as the launch check sees it.
@@ -23,7 +23,7 @@ public enum SingleInstance {
         }
     }
 
-    /// The pid of the copy to hand off to: the earliest-started other app with Relay's bundle id,
+    /// The pid of the copy to hand off to: the earliest-started other app with Hook's bundle id,
     /// if it started before `me`. A copy that started later hands off to this one instead, so two
     /// copies started together never both quit. nil when there is none.
     public static func older(than me: Copy, running: [Copy]) -> Int32? {

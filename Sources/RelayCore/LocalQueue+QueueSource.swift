@@ -1,6 +1,6 @@
 import Foundation
 
-/// The in-process `LocalQueue` as a `QueueSource`. Relay is the owner here, so
+/// The in-process `LocalQueue` as a `QueueSource`. Hook is the owner here, so
 /// resolve, reply and reopen record actor "owner".
 ///
 /// A wrapper rather than `extension LocalQueue: QueueSource`: the protocol's
@@ -105,7 +105,7 @@ extension LocalQueueError {
         case .storeFailed(let reason):
             return .storeFailed(reason)
         case .locked:
-            return .storeFailed("the queue is locked by another Relay")
+            return .storeFailed("the queue is locked by another Hook")
         default:
             let wire = self.wire
             return .rejected(status: wire.status, error: wire.error, details: wire.details ?? [])

@@ -194,7 +194,7 @@ public enum SettingsAction: Equatable {
 }
 
 extension ShortcutProblem {
-    /// The recorder's result: nil spec = a key Relay can't use; a spec macOS refused = refused.
+    /// The recorder's result: nil spec = a key Hook can't use; a spec macOS refused = refused.
     public static func forRecording(_ spec: HotkeySpec?, registered: Bool) -> ShortcutProblem? {
         guard spec != nil else { return .unsupportedKey }
         return registered ? nil : .refused

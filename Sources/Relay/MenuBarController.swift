@@ -34,7 +34,7 @@ import RelayUI
 
     /// The template "checklist" symbol, `symbolWidth + 8` wide so the badge never clips.
     private static func makeItem() -> NSStatusItem {
-        let image = NSImage(systemSymbolName: DS.Symbol.menuBar, accessibilityDescription: "Relay")
+        let image = NSImage(systemSymbolName: DS.Symbol.menuBar, accessibilityDescription: "Hook")
         image?.isTemplate = true
         let item = NSStatusBar.system.statusItem(withLength: (image?.size.width ?? 16) + 8)
         item.button?.image = image

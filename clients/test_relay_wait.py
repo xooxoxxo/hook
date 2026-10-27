@@ -107,12 +107,12 @@ class WaitTest(unittest.TestCase):
         self.assertEqual((len(client.gets), self.clock.sleeps), (4, [20.0, 20.0, 20.0]))
 
     def test_unreachable_and_5xx_are_retried_then_the_answer_wins(self):
-        client = FakeAsk(Unreachable("Relay isn't running"), Refused(502, "HTTP 502"),
+        client = FakeAsk(Unreachable("Hook isn't running"), Refused(502, "HTTP 502"),
                          detail(event(1, "posted", "session"), event(2, "reply", "owner", "go")), local=True)
         code, out, err = self.wait(client)
         self.assertEqual(code, 0)
         self.assertTrue(out.endswith("last seq: 2\n"))
-        self.assertEqual(err, "relay wait: Relay isn't running; retrying every 2 s\n")
+        self.assertEqual(err, "relay wait: Hook isn't running; retrying every 2 s\n")
         self.assertEqual(self.clock.sleeps, [2.0, 2.0])
 
     def test_unreachable_until_the_deadline_times_out(self):
@@ -178,9 +178,9 @@ class WaitCliTest(unittest.TestCase):
 
     def test_wait_without_config_exits_2(self):
         def no_config(**kw):
-            raise ConfigMissing("No Relay config; run scripts/install.sh")
+            raise ConfigMissing("No Hook config; run scripts/install.sh")
         self.assertEqual(self.run_cli("wait", ITEM_ID, factory=no_config),
-                         (2, "", "relay: No Relay config; run scripts/install.sh\n"))
+                         (2, "", "relay: No Hook config; run scripts/install.sh\n"))
 
     def test_wait_bad_option_is_a_usage_error(self):
         code, out, err = self.run_cli("wait", ITEM_ID, "--timeout", "soon")

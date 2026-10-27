@@ -140,7 +140,7 @@ public enum AnswerDrafts {
             case .askClosed:
                 return UserFacingError.text(queue)
             case .rejected(400, "invalid answers", let details):
-                return "Relay couldn't send the answers." + (details.first.map { " " + UserFacingError.text($0) } ?? "")
+                return "Hook couldn't send the answers." + (details.first.map { " " + UserFacingError.text($0) } ?? "")
             default:
                 break
             }

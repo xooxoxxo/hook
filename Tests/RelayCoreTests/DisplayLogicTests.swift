@@ -32,8 +32,8 @@ private func legacy(cmd: String? = nil, link: String? = nil) -> WireItem {
         let state = MenuBarState()
         #expect(state.badge == .none)
         #expect(!state.dimmed)
-        #expect(state.accessibilityLabel == "Relay, 0 waiting")
-        #expect(state.tooltip == "Relay · nothing waiting")
+        #expect(state.accessibilityLabel == "Hook, 0 waiting")
+        #expect(state.tooltip == "Hook · nothing waiting")
     }
 
     @Test(arguments: [
@@ -59,12 +59,12 @@ private func legacy(cmd: String? = nil, link: String? = nil) -> WireItem {
                         let badge: MenuBarBadge = count > 0 && unseen ? .dot : .none
                         #expect(state.badge == badge)
                         #expect(state.dimmed == !reachable)
-                        var label = "Relay, \(count) waiting"
+                        var label = "Hook, \(count) waiting"
                         if nowCount > 0 { label += ", 1 now" }
                         if !reachable { label += ", offline" }
                         #expect(state.accessibilityLabel == label)
                         let waiting = count == 0 ? "nothing waiting" : "3 waiting" + (nowCount > 0 ? ", 1 now" : "")
-                        #expect(state.tooltip == (reachable ? "Relay · " + waiting : "Relay · offline: timed out"))
+                        #expect(state.tooltip == (reachable ? "Hook · " + waiting : "Hook · offline: timed out"))
                     }
                 }
             }
@@ -75,20 +75,20 @@ private func legacy(cmd: String? = nil, link: String? = nil) -> WireItem {
         let state = MenuBarState(count: 3, nowCount: 1, reachable: false, unseen: true, offlineReason: "timed out")
         #expect(state.badge == .dot)
         #expect(state.dimmed)
-        #expect(state.accessibilityLabel == "Relay, 3 waiting, 1 now, offline")
-        #expect(state.tooltip == "Relay · offline: timed out")
+        #expect(state.accessibilityLabel == "Hook, 3 waiting, 1 now, offline")
+        #expect(state.tooltip == "Hook · offline: timed out")
     }
 
     @Test func tooltipForms() {
-        #expect(MenuBarState(count: 5, nowCount: 1, shortcut: "⌃⌥⌘R").tooltip == "Relay · 5 waiting, 1 now · ⌃⌥⌘R")
-        #expect(MenuBarState(count: 0, shortcut: "⌃⌥⌘R").tooltip == "Relay · nothing waiting · ⌃⌥⌘R")
-        #expect(MenuBarState(count: 2).tooltip == "Relay · 2 waiting")
-        #expect(MenuBarState(count: 2, reachable: false, offlineReason: "a\nb", shortcut: "⌃⌥⌘R").tooltip == "Relay · offline: a⟨U+000A⟩b")
-        #expect(MenuBarState(count: 2, reachable: false).tooltip == "Relay · offline")
-        #expect(MenuBarState(count: 5, away: true, awaySince: "10:22").tooltip == "Relay · away since 10:22 · 5 waiting")
-        #expect(MenuBarState(count: 5, away: true, shortcut: "⌃⌥⌘R", awaySince: "10:22").tooltip == "Relay · away since 10:22 · 5 waiting · ⌃⌥⌘R")
-        #expect(MenuBarState(count: 0, away: true).tooltip == "Relay · away · nothing waiting")
-        #expect(MenuBarState(count: 1, reachable: false, offlineReason: "x", away: true).tooltip == "Relay · offline: x")
+        #expect(MenuBarState(count: 5, nowCount: 1, shortcut: "⌃⌥⌘R").tooltip == "Hook · 5 waiting, 1 now · ⌃⌥⌘R")
+        #expect(MenuBarState(count: 0, shortcut: "⌃⌥⌘R").tooltip == "Hook · nothing waiting · ⌃⌥⌘R")
+        #expect(MenuBarState(count: 2).tooltip == "Hook · 2 waiting")
+        #expect(MenuBarState(count: 2, reachable: false, offlineReason: "a\nb", shortcut: "⌃⌥⌘R").tooltip == "Hook · offline: a⟨U+000A⟩b")
+        #expect(MenuBarState(count: 2, reachable: false).tooltip == "Hook · offline")
+        #expect(MenuBarState(count: 5, away: true, awaySince: "10:22").tooltip == "Hook · away since 10:22 · 5 waiting")
+        #expect(MenuBarState(count: 5, away: true, shortcut: "⌃⌥⌘R", awaySince: "10:22").tooltip == "Hook · away since 10:22 · 5 waiting · ⌃⌥⌘R")
+        #expect(MenuBarState(count: 0, away: true).tooltip == "Hook · away · nothing waiting")
+        #expect(MenuBarState(count: 1, reachable: false, offlineReason: "x", away: true).tooltip == "Hook · offline: x")
     }
 
     @Test func fromItemsCountsNowAsks() {

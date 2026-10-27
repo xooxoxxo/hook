@@ -1,4 +1,4 @@
-"""Scripted stdio sessions against relay_mcp.py with a stub mailbox and a stub local Relay.
+"""Scripted stdio sessions against relay_mcp.py with a stub mailbox and a stub local Hook.
 Stdlib only; runs on Python 3.9."""
 from __future__ import annotations
 
@@ -275,7 +275,7 @@ class RelayMcpTest(StubServerCase):
 
 
 class LocalModeTest(StubServerCase):
-    """The same server against a stub local Relay: proof first, then the token."""
+    """The same server against a stub local Hook: proof first, then the token."""
     handler = StubLocalRelay
 
     def test_post_in_local_mode(self):
@@ -303,7 +303,7 @@ class DescriptionTest(unittest.TestCase):
         self.assertEqual(project["description"],
                          "Short project name: what the repo's CLAUDE.md names, else the repo folder name.")
         for tool in tools:
-            self.assertIn("Relay queue", tool["description"])
+            self.assertIn("Hook queue", tool["description"])
 
     def test_post_describes_substeps_and_ships_both_defs(self):
         import relay_cli

@@ -18,8 +18,8 @@ private func status(_ key: String = "mailbox:m#p", reachable: Bool = true, loade
     @Test func problems() {
         #expect(status(reachable: false, problem: "timed\nout")
             == PanelStatus(symbol: .down, text: "Mailbox · offline", detail: .unreachable(reason: "timed⟨U+000A⟩out")))
-        #expect(status("local", reachable: false, problem: "Relay is already running")
-            == PanelStatus(symbol: .down, text: "This Mac · not ready", detail: .unreachable(reason: "Relay is already running")))
+        #expect(status("local", reachable: false, problem: "Hook is already running")
+            == PanelStatus(symbol: .down, text: "This Mac · not ready", detail: .unreachable(reason: "Hook is already running")))
         #expect(status(config: "config.json has an error: not valid JSON")
             == PanelStatus(symbol: .down, text: "config.json has an error", detail: .config(note: "config.json has an error: not valid JSON")))
         #expect(status(listener: "Port 47823 is in use by another app")

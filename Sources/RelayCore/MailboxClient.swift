@@ -54,7 +54,7 @@ public struct MailboxClient: QueueSource {
         return try await send("POST", "asks", body: body)
     }
 
-    /// Done or Skip from Relay: always `actor: "owner"`.
+    /// Done or Skip from Hook: always `actor: "owner"`.
     public func resolve(_ id: String, verdict: Verdict, note: String?) async throws -> WireItem {
         var body = ["verdict": verdict.rawValue, "actor": "owner"]
         if let note { body["note"] = note }

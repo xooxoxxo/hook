@@ -42,13 +42,13 @@ import UserNotifications
         return NotificationPermission(raw)
     }
 
-    /// True only when the owner turned Relay's notifications off in System Settings.
+    /// True only when the owner turned Hook's notifications off in System Settings.
     /// Kept for the current Notifications tab until its redesign reads `permission()`.
     func authorizationDenied() async -> Bool {
         await permission() == .denied
     }
 
-    /// Before the first notification Relay would post: ask once if never asked.
+    /// Before the first notification Hook would post: ask once if never asked.
     private func authorizeIfNeeded() async {
         guard NotificationAuth.shouldRequest(status: await permission(), requestedBefore: requested) else { return }
         await requestAuthorization()
@@ -89,7 +89,7 @@ import UserNotifications
     func showReturnSummary(_ text: String, first: String?, settings: NotifySettings) {
         guard available, !quiet else { return }
         let note = UNMutableNotificationContent()
-        note.title = "Relay"
+        note.title = "Hook"
         note.body = text
         note.threadIdentifier = "relay"
         note.userInfo = first.map { ["first": $0] } ?? [:]
@@ -162,7 +162,7 @@ import UserNotifications
         }
     }
 
-    /// Show banners while Relay is frontmost too (e.g. Settings is open).
+    /// Show banners while Hook is frontmost too (e.g. Settings is open).
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,

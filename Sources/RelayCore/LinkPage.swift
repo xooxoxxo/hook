@@ -1,7 +1,7 @@
 import CryptoKit
 import Foundation
 
-/// The page an "Open in Relay" link (`GET /i/<uuid>`) answers with. The body is
+/// The page an "Open in Hook" link (`GET /i/<uuid>`) answers with. The body is
 /// the same for a known id (200) and an unknown one (404), and never contains
 /// the id, so a request learns nothing from it.
 public enum LinkPage {
@@ -48,14 +48,14 @@ public enum LinkPage {
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="color-scheme" content="light dark">
-        <title>Relay</title>
+        <title>Hook</title>
         <link rel="icon" href="data:,">
         <style>\(style)</style>
         </head>
         <body>
         <main>
         <div class="mark">\(mark)</div>
-        <div><h1>Handed to Relay</h1><p id="note" role="status">This tab closes by itself.</p></div>
+        <div><h1>Handed to Hook</h1><p id="note" role="status">This tab closes by itself.</p></div>
         </main>
         <script>\(script)</script>
         </body>

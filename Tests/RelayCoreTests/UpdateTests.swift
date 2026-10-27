@@ -95,35 +95,45 @@ private let page = "https://github.com/xooxoxxo/relay/releases/tag/v0.6.5"
 
     @Test func changesRefuseWithTheCount() {
         #expect(UpdateGate.check(porcelain: " M Sources/Relay/AppDelegate.swift\n", branch: "main", headTag: nil)
-            == .refused("The Relay checkout has changes that aren't committed (1 file has changed). Commit or stash them, then try again."))
+            == .refused("The Hook checkout has changes that aren't committed (1 file has changed). Commit or stash them, then try again."))
         #expect(UpdateGate.check(porcelain: " M a\n?? b\n", branch: "main", headTag: nil)
-            == .refused("The Relay checkout has changes that aren't committed (2 files have changed). Commit or stash them, then try again."))
+            == .refused("The Hook checkout has changes that aren't committed (2 files have changed). Commit or stash them, then try again."))
     }
 
     @Test func anotherBranchOrADetachedNonReleaseRefuses() {
         #expect(UpdateGate.check(porcelain: "", branch: "feat/x", headTag: nil)
-            == .refused("The Relay checkout is on the branch “feat/x”, not main. Switch it to main, then try again."))
+            == .refused("The Hook checkout is on the branch “feat/x”, not main. Switch it to main, then try again."))
         #expect(UpdateGate.check(porcelain: "", branch: "", headTag: nil)
-            == .refused("The Relay checkout isn't on a branch or a release tag. Switch it to main, then try again."))
+            == .refused("The Hook checkout isn't on a branch or a release tag. Switch it to main, then try again."))
         #expect(UpdateGate.check(porcelain: "", branch: "", headTag: "v0.7.0-beta") != .ok(.checkout))
         #expect(UpdateGate.check(porcelain: "", branch: "", headTag: "0.6.4") != .ok(.checkout))
     }
 
-    @Test func theOriginMustBeTheRelayRepo() {
-        #expect(UpdateGate.isRelayOrigin("https://github.com/xooxoxxo/relay.git\n"))
-        #expect(UpdateGate.isRelayOrigin("https://github.com/xooxoxxo/relay"))
-        #expect(UpdateGate.isRelayOrigin("git@github.com:xooxoxxo/relay.git"))
-        #expect(UpdateGate.isRelayOrigin("ssh://git@github.com/xooxoxxo/relay.git"))
-        #expect(!UpdateGate.isRelayOrigin("https://github.com/someone/relay.git"))
-        #expect(!UpdateGate.isRelayOrigin("https://github.com/xooxoxxo/relay-fork.git"))
-        #expect(!UpdateGate.isRelayOrigin(""))
+    @Test func theOriginMustBeTheRepoUnderEitherName() {
+        for name in ["relay", "hook"] {
+            #expect(UpdateGate.isRepoOrigin("https://github.com/xooxoxxo/\(name).git\n"))
+            #expect(UpdateGate.isRepoOrigin("https://github.com/xooxoxxo/\(name)"))
+            #expect(UpdateGate.isRepoOrigin("https://github.com/xooxoxxo/\(name)/"))
+            #expect(UpdateGate.isRepoOrigin("git@github.com:xooxoxxo/\(name).git"))
+            #expect(UpdateGate.isRepoOrigin("ssh://git@github.com/xooxoxxo/\(name).git"))
+            #expect(UpdateGate.isRepoOrigin("HTTPS://GitHub.com/xooxoxxo/\(name).git"))
+            #expect(!UpdateGate.isRepoOrigin("https://github.com/someone/\(name).git"))
+            #expect(!UpdateGate.isRepoOrigin("https://github.com/xooxoxxo/\(name)-fork.git"))
+            #expect(!UpdateGate.isRepoOrigin("https://gitlab.com/xooxoxxo/\(name).git"))
+        }
+        #expect(!UpdateGate.isRepoOrigin("https://github.com/xooxoxxo/fish.git"))
+        #expect(!UpdateGate.isRepoOrigin(""))
+    }
+
+    @Test func theReleaseCheckStaysOnTheOldRepoPath() {
+        #expect(UpdateGate.latestReleaseAPI == "https://api.github.com/repos/xooxoxxo/relay/releases/latest")
     }
 }
 
 @Suite struct UpdatePlanTests {
     private func plan(_ mode: UpdateGate.Mode, repo: String = "/Users/me/relay") -> UpdatePlan {
         UpdatePlan(repoPath: repo, tag: "v0.6.5", mode: mode, current: "0.6.4",
-                   appPath: "/Users/me/Applications/Relay.app", logPath: "/Users/me/Library/Logs/Relay/update.log",
+                   appPath: "/Users/me/Applications/Hook.app", logPath: "/Users/me/Library/Logs/Relay/update.log",
                    scriptPath: "/tmp/relay-update.sh", plistPath: "/tmp/relay-update.plist", home: "/Users/me")
     }
 
@@ -148,7 +158,7 @@ private let page = "https://github.com/xooxoxxo/relay/releases/tag/v0.6.5"
 
     @Test func aFailureRestartsRelayIfItIsNotRunningAndTheJobRemovesItself() {
         let script = plan(.fastForward).script
-        #expect(script.contains("/usr/bin/pgrep -x Relay >/dev/null 2>&1 || /usr/bin/open -g -a '/Users/me/Applications/Relay.app'"))
+        #expect(script.contains("/usr/bin/pgrep -x Hook >/dev/null 2>&1 || /usr/bin/open -g -a '/Users/me/Applications/Hook.app'"))
         #expect(script.contains("rm -f '/tmp/relay-update.plist' '/tmp/relay-update.sh'"))
         #expect(script.contains("exec /bin/launchctl remove 'io.github.xooxoxxo.relay.update'"))
         #expect(script.contains("export HOME='/Users/me'"))
@@ -177,7 +187,7 @@ private let page = "https://github.com/xooxoxxo/relay/releases/tag/v0.6.5"
 
     @Test func theUpdatingNoticeNamesTheLogBehindItsHelp() {
         let notice = PanelNotice.updating(version: "0.6.5", logPath: "~/Library/Logs/Relay/update.log")
-        #expect(notice.text == "Updating to 0.6.5. Relay restarts in about 2 minutes.")
+        #expect(notice.text == "Updating to 0.6.5. Hook restarts in about 2 minutes.")
         #expect(notice.kind == .info)
         #expect(notice.actionTitle == nil)
         #expect(notice.help?.hasSuffix("~/Library/Logs/Relay/update.log") == true)

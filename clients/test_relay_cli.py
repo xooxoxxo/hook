@@ -127,15 +127,15 @@ class CliTest(unittest.TestCase):
         self.assertEqual(self.client.calls, [])
 
     def test_post_unreachable_and_no_config(self):
-        self.client.error = Unreachable("Relay isn't running")
+        self.client.error = Unreachable("Hook isn't running")
         self.assertEqual(self.run_cli("post", "Acme", "--json", "-", stdin=io.StringIO("{}")),
-                         (2, "", "relay: Relay isn't running\n"))
+                         (2, "", "relay: Hook isn't running\n"))
 
         def no_config(**kw):
-            raise ConfigMissing("No Relay config; run scripts/install.sh")
+            raise ConfigMissing("No Hook config; run scripts/install.sh")
         err = io.StringIO()
         code = relay_cli.main(["list"], stdout=io.StringIO(), stderr=err, client_factory=no_config)
-        self.assertEqual((code, err.getvalue()), (2, "relay: No Relay config; run scripts/install.sh\n"))
+        self.assertEqual((code, err.getvalue()), (2, "relay: No Hook config; run scripts/install.sh\n"))
 
     def test_status_open(self):
         self.assertEqual(self.run_cli("status", ITEM_ID), (0, "open · Acme · Check Node\n", ""))
@@ -220,7 +220,7 @@ class CliTest(unittest.TestCase):
 
 
 class NoAutolaunchTest(unittest.TestCase):
-    """RELAY_NO_AUTOLAUNCH=1 (test-only) keeps the default factory from opening Relay."""
+    """RELAY_NO_AUTOLAUNCH=1 (test-only) keeps the default factory from opening Hook."""
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -248,12 +248,12 @@ class NoAutolaunchTest(unittest.TestCase):
         code, launches, err = self.run_list(dict(self.env, RELAY_NO_AUTOLAUNCH="1"))
         self.assertEqual(code, 2)
         self.assertEqual(launches, [])
-        self.assertIn("Relay isn't running", err)
+        self.assertIn("Hook isn't running", err)
 
     def test_without_the_switch_it_tries_to_launch(self):
         code, launches, _ = self.run_list(self.env)
         self.assertEqual(code, 2)
-        self.assertEqual(len(launches), 1)
+        self.assertEqual([argv[-1] for argv in launches], ["Hook", "Relay"])   # neither app opened
 
 
 class ShimTest(unittest.TestCase):
@@ -265,6 +265,30 @@ class ShimTest(unittest.TestCase):
             done = subprocess.run([sys.executable, str(link), "--version"], capture_output=True, text=True,
                                   timeout=10)
         self.assertEqual((done.returncode, done.stdout), (0, "relay " + relay_client.VERSION + "\n"))
+
+    def test_bin_relay_linked_as_hook_says_hook(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            link = Path(tmp) / "hook"
+            link.symlink_to(BIN)
+            done = subprocess.run([sys.executable, str(link), "--version"], capture_output=True, text=True,
+                                  timeout=10)
+        self.assertEqual((done.returncode, done.stdout), (0, "hook " + relay_client.VERSION + "\n"))
+
+
+class InvokedNameTest(unittest.TestCase):
+    def test_the_name_it_was_run_as(self):
+        self.assertEqual(relay_cli.invoked_name("/home/u/.local/bin/hook"), "hook")
+        self.assertEqual(relay_cli.invoked_name("/home/u/.local/bin/relay"), "relay")
+        self.assertEqual(relay_cli.invoked_name("relay_cli.py"), "relay")
+        self.assertEqual(relay_cli.invoked_name(""), "relay")
+        self.assertEqual(relay_cli.invoked_name(None), "relay")
+
+    def test_errors_carry_the_invoked_name(self):
+        def no_config(**kw):
+            raise ConfigMissing("No Hook config; run scripts/install.sh")
+        err = io.StringIO()
+        code = relay_cli.main(["list"], stdout=io.StringIO(), stderr=err, client_factory=no_config, prog="hook")
+        self.assertEqual((code, err.getvalue()), (2, "hook: No Hook config; run scripts/install.sh\n"))
 
 
 if __name__ == "__main__":

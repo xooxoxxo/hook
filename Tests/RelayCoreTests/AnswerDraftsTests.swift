@@ -96,7 +96,7 @@ private func tree(_ answers: [String: Answer] = [:]) -> [DetailModel.Node] {
         #expect(AnswerDrafts.failureText(QueueError.askClosed) == "This ask is closed. Reopen it to change the answers.")
         let invalid = QueueError.rejected(status: 400, error: "invalid answers",
                                           details: ["answers[0].picked[0]: not one of the choices", "answers[1].step: answered twice"])
-        #expect(AnswerDrafts.failureText(invalid) == "Relay couldn't send the answers. answers[0].picked[0]: not one of the choices")
+        #expect(AnswerDrafts.failureText(invalid) == "Hook couldn't send the answers. answers[0].picked[0]: not one of the choices")
         #expect(AnswerDrafts.failureText(QueueError.unreachable("timed out")) == "Couldn't send the answers. timed out")
     }
 

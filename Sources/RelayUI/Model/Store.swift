@@ -343,7 +343,7 @@ public enum LinkCheck: Equatable, Sendable {
     }
 
     /// Local mode: a listener problem ("Port … is in use by another app",
-    /// "Relay is already running") makes the source unreachable with that reason.
+    /// "Hook is already running") makes the source unreachable with that reason.
     public func setListenerProblem(_ text: String?) {
         guard listenerProblem != text else { return }
         listenerProblem = text
@@ -936,7 +936,7 @@ public enum LinkCheck: Equatable, Sendable {
                     _ = try await old.resolve(close.id, verdict: close.verdict, note: close.note)
                     await onCloseSent?(close.id)
                 } catch {
-                    NSLog("Relay: a held-back close couldn't be sent before the queue changed: %@",
+                    NSLog("Hook: a held-back close couldn't be sent before the queue changed: %@",
                           error.localizedDescription)
                 }
             }

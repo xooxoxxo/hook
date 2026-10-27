@@ -62,7 +62,7 @@ final class ServerRouting: Sendable {
     var presenceLine = "Home · active"
     var away = false
     var permission: NotificationPermission = .notDetermined
-    /// Re-reads `permission` whenever Relay becomes active; set once by `watchPermission()`.
+    /// Re-reads `permission` whenever Hook becomes active; set once by `watchPermission()`.
     var permissionObserver: (any NSObjectProtocol)?
     var loginError: String?
     var skillError: String?
@@ -79,7 +79,7 @@ final class ServerRouting: Sendable {
 
     /// A listener failure ("Port … is in use by another app") outside local mode,
     /// where it doesn't dim the menu bar or reach the Store's status line but
-    /// still breaks "Open in Relay" links. Local mode shows it through
+    /// still breaks "Open in Hook" links. Local mode shows it through
     /// the Store instead.
     var listenerNote: String? {
         guard case .failed(let text) = listenerState else { return nil }
@@ -123,7 +123,7 @@ final class ServerRouting: Sendable {
             .appending(path: "Library/Application Support/Relay", directoryHint: .isDirectory)
     }
 
-    /// Launch: creates (or tightens) the private directories Relay owns, creates
+    /// Launch: creates (or tightens) the private directories Hook owns, creates
     /// a custom config's folder only when missing, loads the config without
     /// calling `onApply`, and starts watching. Returns what it found.
     func start() -> ConfigLoad {
@@ -136,7 +136,7 @@ final class ServerRouting: Sendable {
                     try PrivateFile.createDirectoryIfMissing(directory)
                 }
             } catch {
-                NSLog("Relay: can't create %@", directory.path)
+                NSLog("Hook: can't create %@", directory.path)
             }
         }
         let load = Self.checked(ConfigStore.load(configURL))
@@ -173,17 +173,17 @@ final class ServerRouting: Sendable {
         }
     }
 
-    /// Settings' "Send a test ask": project "Relay", one `echo relay-ok` step and
+    /// Settings' "Send a test ask": project "Hook", one `echo relay-ok` step and
     /// a verify step, through the current source.
     func sendTestAsk() async -> TestAskResult {
-        guard let store else { return .failed("Relay isn't ready yet") }
+        guard let store else { return .failed("Hook isn't ready yet") }
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "HH:mm:ss"
         let instructable: [String: Any] = [
             "v": 1,
             "title": "Test ask (\(formatter.string(from: Date())))",
-            "why": "Checks that asks reach Relay.",
+            "why": "Checks that asks reach Hook.",
             "urgency": "today",
             "steps": [[
                 "do": "Run this in Terminal",
@@ -192,13 +192,13 @@ final class ServerRouting: Sendable {
                 "lang": "bash",
                 "expect": "relay-ok",
             ]],
-            "verify": ["do": "Press Done on this ask in Relay"],
+            "verify": ["do": "Press Done on this ask in Hook"],
         ]
         guard let data = try? JSONSerialization.data(withJSONObject: instructable, options: [.sortedKeys]) else {
             return .failed("Couldn't build the test ask")
         }
         do {
-            let result = try await store.post(project: "Relay", instructable: data)
+            let result = try await store.post(project: "Hook", instructable: data)
             return result.deduped ? .alreadyWaiting(id: result.item.id) : .sent(id: result.item.id)
         } catch {
             return .failed(UserFacingError.text(error))

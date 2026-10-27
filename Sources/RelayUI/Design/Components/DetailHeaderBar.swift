@@ -46,7 +46,7 @@ public struct DetailHeaderBar: View {
                     .disabled(!isAsk(previous))
                 IconButton(DS.Symbol.next, label: "Next ask", help: Self.neighbourHelp(next, previous: false), action: onNext)
                     .disabled(!isAsk(next))
-                IconButton(DS.Symbol.hide, label: "Hide Relay", help: Self.hideHelp, action: onHide)
+                IconButton(DS.Symbol.hide, label: "Hide Hook", help: Self.hideHelp, action: onHide)
             }
         }
     }

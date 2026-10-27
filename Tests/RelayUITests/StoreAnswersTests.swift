@@ -140,7 +140,7 @@ private func answerEvent(_ id: String, seq: Int, _ entry: JSONValue) -> Event {
                                                 details: ["answers[0].picked[0]: not one of the choices"]), on: "answer")
         store.answerDrafts["q"] = ["1": .picked(["Prod"])]
         #expect(!(await store.sendAnswers("q")))
-        #expect(store.answerStates["q"] == .failed(reason: "Relay couldn't send the answers. answers[0].picked[0]: not one of the choices"))
+        #expect(store.answerStates["q"] == .failed(reason: "Hook couldn't send the answers. answers[0].picked[0]: not one of the choices"))
     }
 
     @Test func aClosedAskIsReadOnly() async {

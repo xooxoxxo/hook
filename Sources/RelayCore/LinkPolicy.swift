@@ -6,11 +6,11 @@ public enum LinkDecision: Equatable, Sendable {
     /// Open the item with this canonical lowercase id.
     case open(id: String)
     case notFound
-    /// Answer 403 and never bring Relay forward.
+    /// Answer 403 and never bring Hook forward.
     case forbidden
 }
 
-/// Which requests to 127.0.0.1:<port> may bring Relay forward. A link that an app
+/// Which requests to 127.0.0.1:<port> may bring Hook forward. A link that an app
 /// such as a chat app hands to the browser is a top-level navigation the user
 /// started; a web page's image, fetch, script or cross-site navigation is not.
 public enum LinkPolicy {
@@ -28,7 +28,7 @@ public enum LinkPolicy {
         let route = path.split(separator: "?", maxSplits: 1, omittingEmptySubsequences: false)
             .first.map(String.init) ?? ""
         if route == "/health" { return .health }
-        // Relay's own links never carry a query; one on /i/ is not a Relay link.
+        // Hook's own links never carry a query; one on /i/ is not a Hook link.
         guard route == path, route.hasPrefix("/i/"), let id = QueueLogic.normalizedID(String(route.dropFirst(3))) else {
             return .notFound
         }

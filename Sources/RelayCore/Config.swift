@@ -8,9 +8,9 @@ public enum ConfigError: Error, Sendable, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .missing(let path):
-            return "No Relay config at \(path). Run scripts/install.sh."
+            return "No Hook config at \(path). Run scripts/install.sh."
         case .invalid(let what):
-            return "Invalid Relay config: \(what)"
+            return "Invalid Hook config: \(what)"
         case .unreadableToken(let path):
             return "Token file is missing or empty: \(path)"
         }
@@ -131,7 +131,7 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
     public var notify: NotifySettings
     /// Away mode: Automatic, or set to Home or Away.
     public var presence: PresenceMode
-    /// Automatic: minutes without input before Relay marks the owner away;
+    /// Automatic: minutes without input before Hook marks the owner away;
     /// one of `PresenceLogic.awayAfterChoices`.
     public var awayAfterMinutes: Int
     /// Written by install.sh; the Connect tab builds commands from it.
@@ -249,7 +249,7 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
             .appending(path: ".config/relay/config.json")
     }
 
-    /// The directories Relay owns and tightens to 0700 at launch even when they
+    /// The directories Hook owns and tightens to 0700 at launch even when they
     /// already exist: the default `~/.config/relay` and the data directory. The
     /// folder holding a custom `$RELAY_CONFIG` is only created when missing.
     public static func ownedDirectories(configURL: URL, dataDirectory: URL) -> (tighten: [URL], createOnly: [URL]) {

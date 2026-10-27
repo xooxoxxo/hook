@@ -61,11 +61,11 @@ public enum MenuBarMenu {
     public static func entries(_ inputs: MenuInputs) -> [MenuEntry] {
         var entries: [MenuEntry] = []
         if let version = inputs.updateVersion {
-            entries.append(action("Update Relay to \(Sanitize.revealLine(version))…", .update))
+            entries.append(action("Update Hook to \(Sanitize.revealLine(version))…", .update))
             entries.append(.separator)
         }
-        if inputs.notSetUp { entries.append(action("Set Up Relay…", .setUp)) }
-        let toggle = inputs.panelVisible ? "Hide Relay" : "Show Relay"
+        if inputs.notSetUp { entries.append(action("Set Up Hook…", .setUp)) }
+        let toggle = inputs.panelVisible ? "Hide Hook" : "Show Hook"
         if let spec = inputs.shortcut, let key = keyEquivalent(for: spec) {
             entries.append(action(toggle, .togglePanel, key: key.key, modifiers: key.modifiers))
         } else {
@@ -94,10 +94,10 @@ public enum MenuBarMenu {
         entries.append(.submenu(title: "Panel", entries: panel))
         entries.append(.separator)
         entries.append(action("Settings…", .settings, key: ",", modifiers: [.command]))
-        entries.append(action("About Relay", .about))
+        entries.append(action("About Hook", .about))
         entries.append(action("Check for Updates…", .checkForUpdates))
         entries.append(.separator)
-        entries.append(action("Quit Relay", .quit, key: "q", modifiers: [.command]))
+        entries.append(action("Quit Hook", .quit, key: "q", modifiers: [.command]))
         return entries
     }
 

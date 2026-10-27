@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Sandbox test for scripts/install.sh. HOME is a fresh temp folder and the test-only
 # switches are on, so nothing is built, launched or registered, and the real
-# ~/.config, ~/Applications, LaunchAgents, Claude config and running Relay are untouched.
+# ~/.config, ~/Applications, LaunchAgents, Claude config and running app are untouched.
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd -P)"
 INSTALL="$REPO/scripts/install.sh"
@@ -57,15 +57,16 @@ plutil -lint "$PLIST" >/dev/null || fail "LaunchAgent plist does not lint"
 [ "$(plutil -extract Label raw "$PLIST")" = "io.github.xooxoxxo.relay" ] || fail "LaunchAgent Label"
 [ "$(plutil -extract ProgramArguments.0 raw "$PLIST")" = "/usr/bin/open" ] || fail "LaunchAgent ProgramArguments.0"
 [ "$(plutil -extract ProgramArguments.1 raw "$PLIST")" = "-a" ] || fail "LaunchAgent ProgramArguments.1"
-[ "$(plutil -extract ProgramArguments.2 raw "$PLIST")" = "$H/Applications/Relay.app" ] || fail "LaunchAgent ProgramArguments.2"
+[ "$(plutil -extract ProgramArguments.2 raw "$PLIST")" = "$H/Applications/Hook.app" ] || fail "LaunchAgent ProgramArguments.2"
 [ "$(plutil -extract RunAtLoad raw "$PLIST")" = "true" ] || fail "LaunchAgent RunAtLoad"
 [ "$(plutil -extract KeepAlive raw "$PLIST")" = "false" ] || fail "LaunchAgent KeepAlive"
 [ "$(readlink "$H/.local/bin/relay")" = "$REPO/bin/relay" ] || fail "CLI link is wrong"
+[ "$(readlink "$H/.local/bin/hook")" = "$REPO/bin/relay" ] || fail "hook CLI alias is wrong"
 [ "$(readlink "$H/.claude/skills/instructables")" = "$REPO/skill/instructables" ] || fail "skill link is wrong"
 grep -q 'export PATH="$HOME/.local/bin:$PATH"' "$OUT" || fail "no PATH hint although ~/.local/bin is not on PATH"
 ok "fresh install"
 # RELAY_SKIP_BUILD installs no app; stand one in, so the reruns below aren't first installs.
-mkdir -p "$H/Applications/Relay.app/Contents"
+mkdir -p "$H/Applications/Hook.app/Contents"
 
 # 2. A rerun keeps unknown keys and never turns a removed LaunchAgent back on.
 python3 - "$CONFIG" <<'PY'
@@ -83,7 +84,7 @@ ok "rerun keeps unknown keys; LaunchAgent stays off"
 # 3. A rerun rewrites a LaunchAgent that exists.
 echo "old" > "$PLIST"
 run || { cat "$OUT"; fail "rerun with LaunchAgent exited non-zero"; }
-grep -q "<string>$H/Applications/Relay.app</string>" "$PLIST" || fail "existing LaunchAgent not rewritten"
+grep -q "<string>$H/Applications/Hook.app</string>" "$PLIST" || fail "existing LaunchAgent not rewritten"
 [ "$(mode_of "$PLIST")" = "644" ] || fail "LaunchAgent is $(mode_of "$PLIST"), not 644"
 [ "$(mode_of "$H/Library/LaunchAgents")" != "700" ] || fail "~/Library/LaunchAgents was chmodded to 700"
 ok "existing LaunchAgent rewritten"
@@ -133,16 +134,18 @@ run || { cat "$OUT"; fail "install with a foreign skill link exited non-zero"; }
 grep -q 'points elsewhere; left alone' "$OUT" || fail "the foreign skill link was not reported"
 ok "foreign skill link left alone"
 
-# 9. --uninstall keeps the config and removes the CLI link, app and LaunchAgent.
-mkdir -p "$H/Applications/Relay.app/Contents"
+# 9. --uninstall keeps the config and removes the CLI links, both apps and LaunchAgent.
+mkdir -p "$H/Applications/Hook.app/Contents" "$H/Applications/Relay.app/Contents"
 run --uninstall || { cat "$OUT"; fail "--uninstall exited non-zero"; }
 [ -f "$CONFIG" ] || fail "--uninstall removed the config"
 [ ! -e "$H/.local/bin/relay" ] && [ ! -L "$H/.local/bin/relay" ] || fail "--uninstall kept the CLI link"
-[ ! -e "$H/Applications/Relay.app" ] || fail "--uninstall kept the app"
+[ ! -e "$H/.local/bin/hook" ] && [ ! -L "$H/.local/bin/hook" ] || fail "--uninstall kept the hook CLI alias"
+[ ! -e "$H/Applications/Hook.app" ] || fail "--uninstall kept the app"
+[ ! -e "$H/Applications/Relay.app" ] || fail "--uninstall kept the old Relay.app"
 [ ! -e "$PLIST" ] || fail "--uninstall kept the LaunchAgent"
 [ "$(readlink "$H/.claude/skills/instructables")" = "$T" ] || fail "--uninstall removed a foreign skill link"
 grep -q "config: $CONFIG" "$OUT" || fail "--uninstall did not print the kept config path"
-[ "$(tail -1 "$OUT")" = "To also remove Relay's UI state: defaults delete io.github.xooxoxxo.relay" ] \
+[ "$(tail -1 "$OUT")" = "To also remove Hook's UI state: defaults delete io.github.xooxoxxo.relay" ] \
   || fail "--uninstall did not end with the defaults hint"
 ok "--uninstall"
 
@@ -157,10 +160,10 @@ ok "--uninstall removes this repo's skill link"
 #     first install, so the LaunchAgent is written; with the app it isn't, and the
 #     message says so neutrally.
 rm -f "$PLIST"
-[ ! -d "$H/Applications/Relay.app" ] || fail "test setup: the app should be gone after --uninstall"
+[ ! -d "$H/Applications/Hook.app" ] || fail "test setup: the app should be gone after --uninstall"
 run || { cat "$OUT"; fail "install with a config but no app exited non-zero"; }
 [ -f "$PLIST" ] || fail "a config without an app was not treated as a first install"
-mkdir -p "$H/Applications/Relay.app/Contents"
+mkdir -p "$H/Applications/Hook.app/Contents"
 rm "$PLIST"
 run || { cat "$OUT"; fail "rerun with the app exited non-zero"; }
 [ ! -e "$PLIST" ] || fail "a rerun with the app re-created the LaunchAgent"
@@ -196,7 +199,7 @@ FAKE="$T/fakebin"
 mkdir -p "$FAKE"
 printf '#!/bin/sh\necho "$*" >> "%s/claude.log"\nexit 1\n' "$T" > "$FAKE/claude"
 chmod +x "$FAKE/claude"
-mkdir -p "$H/Applications/Relay.app/Contents"
+mkdir -p "$H/Applications/Hook.app/Contents"
 env -u RELAY_SKIP_MCP HOME="$H" PATH="$FAKE:$PATH" RELAY_SKIP_BUILD=1 RELAY_SKIP_LAUNCH=1 \
   "$INSTALL" >"$OUT" 2>&1 || { cat "$OUT"; fail "a failing claude mcp add aborted the install"; }
 grep -q '^mcp add --scope user relay' "$T/claude.log" || fail "the fake claude was not called"
@@ -209,7 +212,7 @@ ok "failing claude mcp add is not fatal"
 # 15. A LaunchAgent under the old bundle id is removed and replaced by the new one,
 #     even on a rerun (launch at login stays on); --uninstall removes an old one too.
 #     RELAY_SKIP_LAUNCH=1 keeps launchctl out of it, as everywhere here.
-mkdir -p "$H/Applications/Relay.app/Contents"
+mkdir -p "$H/Applications/Hook.app/Contents"
 rm -f "$PLIST"
 echo "old" > "$OLD_PLIST"
 run || { cat "$OUT"; fail "install with an old LaunchAgent exited non-zero"; }
@@ -235,5 +238,32 @@ grep -q 'swift --version failed: You have not agreed to the Xcode license' "$OUT
 grep -q 'sudo xcodebuild -license accept' "$OUT" || fail "no license hint"
 if grep -q 'needs Swift 6' "$OUT"; then fail "a failing swift was reported as too old"; fi
 ok "failing swift --version is explained"
+
+# 17. An existing Relay.app (from before the rename) means an update, not a first
+#     install: a LaunchAgent the owner removed stays off. Relay.app is removed only
+#     once Hook.app is in place.
+rm -rf "$H/Applications/Hook.app" "$H/Applications/Relay.app"
+rm -f "$PLIST" "$OLD_PLIST"
+mkdir -p "$H/Applications/Relay.app/Contents"
+run || { cat "$OUT"; fail "install over a Relay.app exited non-zero"; }
+[ ! -e "$PLIST" ] || fail "an existing Relay.app was treated as a first install"
+[ -d "$H/Applications/Relay.app" ] || fail "Relay.app was removed before Hook.app was in place"
+mkdir -p "$H/Applications/Hook.app/Contents"
+run || { cat "$OUT"; fail "install with Hook.app and Relay.app exited non-zero"; }
+[ ! -e "$H/Applications/Relay.app" ] || fail "Relay.app was kept next to Hook.app"
+[ -d "$H/Applications/Hook.app" ] || fail "Hook.app went missing"
+grep -q "app: removed $H/Applications/Relay.app" "$OUT" || fail "the Relay.app removal was not reported"
+ok "Relay.app counts as installed and goes once Hook.app is in place"
+
+# 18. Someone else's `hook` command is left alone, by install and uninstall.
+rm -f "$H/.local/bin/hook"
+ln -s "$T/other-hook" "$H/.local/bin/hook"
+run || { cat "$OUT"; fail "install with a foreign hook command exited non-zero"; }
+[ "$(readlink "$H/.local/bin/hook")" = "$T/other-hook" ] || fail "install replaced a foreign hook command"
+grep -q 'cli: .*hook is something else; left alone' "$OUT" || fail "the foreign hook command was not reported"
+run --uninstall || { cat "$OUT"; fail "--uninstall with a foreign hook command exited non-zero"; }
+[ "$(readlink "$H/.local/bin/hook")" = "$T/other-hook" ] || fail "--uninstall removed a foreign hook command"
+rm "$H/.local/bin/hook"
+ok "foreign hook command left alone"
 
 echo "INSTALL TESTS OK"

@@ -81,7 +81,7 @@ public enum DS {
     }
 
     public enum Font {
-        /// Gallery-only text multiplier for --xl. macOS ignores .dynamicTypeSize for text styles, so RelayGallery sets this once before rendering. Relay never sets it, and at 1 every token is exactly its stock text style.
+        /// Gallery-only text multiplier for --xl. macOS ignores .dynamicTypeSize for text styles, so RelayGallery sets this once before rendering. Hook never sets it, and at 1 every token is exactly its stock text style.
         nonisolated(unsafe) public static var galleryScale: CGFloat = 1
 
         /// The stock text style `s`, or under `galleryScale` the same style's NSFont scaled, which keeps its weight (headline's bold).

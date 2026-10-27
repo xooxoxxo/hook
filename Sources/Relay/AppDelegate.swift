@@ -27,7 +27,7 @@ import RelayUI
     private var localQueue: LocalQueue?
     private var localAPI: LocalAPI?
     private var localAPIPort: Int?
-    /// "Relay is already running", or why the local queue or token isn't available.
+    /// "Hook is already running", or why the local queue or token isn't available.
     private var localProblem: String?
     /// Where a corrupt queue.json was moved; posted as a Notice once the store shows the local queue,
     /// because the swap clears any Notice posted before it.
@@ -57,7 +57,7 @@ import RelayUI
     /// SIGTERM (`kill`, `launchctl bootout`) skips applicationWillTerminate, so it
     /// is caught here to clear the away flag first.
     private var termSource: (any DispatchSourceSignal)?
-    /// The daily release check behind "Update Relay to …" and Check for Updates….
+    /// The daily release check behind "Update Hook to …" and Check for Updates….
     private let updates = UpdateChecker()
     /// An update job was started; a second click does nothing.
     private var updateStarted = false
@@ -171,7 +171,7 @@ import RelayUI
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = false
         NSWorkspace.shared.open([show], withApplicationAt: appURL, configuration: configuration) { _, error in
-            if let error { NSLog("Relay: hand-off to running copy failed: %@", error.localizedDescription) }
+            if let error { NSLog("Hook: hand-off to running copy failed: %@", error.localizedDescription) }
             Task { @MainActor [weak self] in await self?.leaveUnlessQuit(pid) }
         }
         return true
@@ -179,7 +179,7 @@ import RelayUI
 
     /// Exits once the copy this one handed off to has stayed up for `handOffGrace`. A copy
     /// that was quitting (an update, or a quit still sending held closes) is gone by then,
-    /// and this copy starts instead, so a launch during a quit never leaves no Relay running.
+    /// and this copy starts instead, so a launch during a quit never leaves no Hook running.
     private func leaveUnlessQuit(_ pid: pid_t) async {
         func gone() -> Bool { NSRunningApplication(processIdentifier: pid)?.isTerminated ?? true }
         let deadline = ContinuousClock.now + Self.handOffGrace
@@ -187,7 +187,7 @@ import RelayUI
             try? await Task.sleep(for: .milliseconds(100))
         }
         guard gone() else { exit(0) }
-        NSLog("Relay: the running copy quit during the hand-off; starting")
+        NSLog("Hook: the running copy quit during the hand-off; starting")
         startUp()
     }
 
@@ -233,7 +233,7 @@ import RelayUI
                 self?.presence.stop()
                 // terminate(_:) waits in a nested event loop while held closes are sent. Inside
                 // this main-queue handler that loop can't run main-queue work, so the send never
-                // finished and Relay never quit; from a run-loop block it can.
+                // finished and Hook never quit; from a run-loop block it can.
                 RunLoop.main.perform { MainActor.assumeIsolated { NSApp.terminate(nil) } }
             }
         }
@@ -444,7 +444,7 @@ import RelayUI
             }
             return queue
         } catch LocalQueueError.locked {
-            let text = "Relay is already running"
+            let text = "Hook is already running"
             localProblem = text
             logProblem(text)
         } catch {
@@ -505,7 +505,7 @@ import RelayUI
 
     private func listenerChanged(_ state: ListenerState) {
         model?.setListenerState(state)
-        if case .failed(let text) = state { NSLog("Relay: %@", text) }
+        if case .failed(let text) = state { NSLog("Hook: %@", text) }
         updateListenerProblem()
     }
 
@@ -527,7 +527,7 @@ import RelayUI
     /// A local-queue problem. It reaches the status bar through `setListenerProblem`
     /// (`localProblem`), once; the log keeps it too.
     private func logProblem(_ text: String) {
-        NSLog("Relay: %@", text)
+        NSLog("Hook: %@", text)
     }
 
     /// config.json's problem shows in the status bar ("config.json has an error"), once.
@@ -602,18 +602,18 @@ import RelayUI
             switch await self.updates.check() {
             case .available: self.confirmUpdate()
             case .failed(let reason): Self.alert("Couldn't check for updates.", reason)
-            case .none, .checking: Self.alert("Relay \(UpdateChecker.runningVersion) is up to date.", nil)
+            case .none, .checking: Self.alert("Hook \(UpdateChecker.runningVersion) is up to date.", nil)
             }
         }
     }
 
-    /// "Update Relay to …": confirm, gate the checkout, then start the detached job.
+    /// "Update Hook to …": confirm, gate the checkout, then start the detached job.
     private func confirmUpdate() {
         guard !updateStarted, case .available(let version, let tag, _) = updates.state else { return }
         NSApp.activate()
         let alert = NSAlert()
-        alert.messageText = "Update Relay to \(version)?"
-        alert.informativeText = "Relay rebuilds from your checkout and restarts in about 2 minutes."
+        alert.messageText = "Update Hook to \(version)?"
+        alert.informativeText = "Hook rebuilds from your checkout and restarts in about 2 minutes."
         alert.addButton(withTitle: "Update")
         alert.addButton(withTitle: "Cancel")
         guard alert.runModal() == .alertFirstButtonReturn else { return }
@@ -624,7 +624,7 @@ import RelayUI
             switch await UpdateRunner.gate(repoPath: repoPath) {
             case .failure(let error):
                 self.updateStarted = false
-                Self.alert("Relay can't update.", error.reason)
+                Self.alert("Hook can't update.", error.reason)
             case .success(let checkout):
                 do {
                     try UpdateRunner.launch(repo: checkout.repo, tag: tag, mode: checkout.mode)
@@ -633,7 +633,7 @@ import RelayUI
                     self.panel?.present(focus: false, animated: true)
                 } catch {
                     self.updateStarted = false
-                    Self.alert("Relay can't update.", UserFacingError.text(error))
+                    Self.alert("Hook can't update.", UserFacingError.text(error))
                 }
             }
         }
@@ -689,7 +689,7 @@ import RelayUI
         settings?.show()
     }
 
-    /// First run, "Set Up Relay…", and the panel's Set Up… before Welcome was finished.
+    /// First run, "Set Up Hook…", and the panel's Set Up… before Welcome was finished.
     private func showWelcome() {
         guard let model else { return }
         let welcome = self.welcome ?? WelcomeWindowController(model: model) { [weak self] in
@@ -817,7 +817,7 @@ import RelayUI
     // MARK: Away mode
 
     /// Quiet or not, the menu bar, and the summary on return home.
-    /// Asks that were waiting in the batch window when Relay went away join the count.
+    /// Asks that were waiting in the batch window when Hook went away join the count.
     private func presenceChanged(to status: PresenceMonitor.Status) {
         let away = status.state == .away
         // The Store's away flag: the status bar reads "Away · …" with the moon.

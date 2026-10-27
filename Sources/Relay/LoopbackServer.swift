@@ -113,7 +113,7 @@ enum ListenerState: Equatable {
         case .waiting(let error):
             onState(.failed(Self.failureText(error, port: port)))
         case .failed(let error):
-            NSLog("Relay: loopback listener on port %d failed", Int(port))
+            NSLog("Hook: loopback listener on port %d failed", Int(port))
             listener.cancel()
             self.listener = nil
             onState(.failed(Self.failureText(error, port: port)))
@@ -136,7 +136,7 @@ enum ListenerState: Equatable {
         if let error = error as? NWError, case .posix(let code) = error, code == .EADDRINUSE {
             return "Port \(port) is in use by another app"
         }
-        return "Relay can't listen on port \(port): \(error.localizedDescription)"
+        return "Hook can't listen on port \(port): \(error.localizedDescription)"
     }
 
     // MARK: - Connections

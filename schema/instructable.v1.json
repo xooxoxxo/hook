@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Relay instructable v1",
-  "description": "An owner ask as exact steps. Relay's validator (and any compatible mailbox) is the source of truth: it also rejects secret-like values (sk-ant-, sk-..., xox[abp]-, ghp_, github_pat_, PEM private keys, AKIA...), hidden characters and documents over 32768 bytes, which JSON Schema cannot express. Steps plus sub-steps total at most 60. At most 20 of them ask a question; verify never does.",
+  "title": "Hook instructable v1",
+  "description": "An owner ask as exact steps. Hook's validator (and any compatible mailbox) is the source of truth: it also rejects secret-like values (sk-ant-, sk-..., xox[abp]-, ghp_, github_pat_, PEM private keys, AKIA...), hidden characters and documents over 32768 bytes, which JSON Schema cannot express. Steps plus sub-steps total at most 60. At most 20 of them ask a question; verify never does.",
   "type": "object",
   "additionalProperties": false,
   "required": ["v", "title", "steps"],
@@ -61,7 +61,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["prompt"],
-      "description": "A question for the owner on this step, answered in Relay without closing the ask. No choices asks for free text; multi allows several picks and needs at least 2 choices. Read the answers with relay_status, relay status or relay wait.",
+      "description": "A question for the owner on this step, answered in Hook without closing the ask. No choices asks for free text; multi allows several picks and needs at least 2 choices. Read the answers with relay_status, relay status or relay wait.",
       "properties": {
         "prompt": { "type": "string", "minLength": 1, "maxLength": 300 },
         "choices": {

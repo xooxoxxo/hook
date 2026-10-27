@@ -83,15 +83,15 @@ class RepliesTest(unittest.TestCase):
         self.queue.add(A, "reply", "owner", "from before")
         self.assertEqual(self.replies(), (0, "", ""))
         self.queue.add(A, "resolved", "owner", "ok")
-        self.assertEqual(self.replies(), (0, f"Relay: [{A}] Acme · Check Node — done: ok\n", ""))
+        self.assertEqual(self.replies(), (0, f"Hook: [{A}] Acme · Check Node — done: ok\n", ""))
         self.assertEqual(self.replies(), (0, "", ""))
 
     def test_reopen_prints_like_a_close(self):
         self.replies()
         self.queue.add(A, "resolved", "owner")
         self.queue.add(A, "reopened", "owner")
-        self.assertEqual(self.replies()[1], f"Relay: [{A}] Acme · Check Node — done\n"
-                                            f"Relay: [{A}] Acme · Check Node — reopened\n")
+        self.assertEqual(self.replies()[1], f"Hook: [{A}] Acme · Check Node — done\n"
+                                            f"Hook: [{A}] Acme · Check Node — reopened\n")
         self.assertEqual(self.replies(), (0, "", ""))
 
     def test_only_owner_events(self):
@@ -99,13 +99,13 @@ class RepliesTest(unittest.TestCase):
         self.queue.add(A, "posted", "session")
         self.queue.add(A, "resolved", "session", "closed it myself")
         self.queue.add(A, "declined", "owner")
-        self.assertEqual(self.replies()[1], f"Relay: [{A}] Acme · Check Node — skipped\n")
+        self.assertEqual(self.replies()[1], f"Hook: [{A}] Acme · Check Node — skipped\n")
 
     def test_two_session_keys_each_see_it(self):
         self.replies(hook=True, session_id="s1")
         self.replies(hook=True, session_id="s2")
         self.queue.add(A, "reply", "owner", "yes")
-        line = f"Relay: [{A}] Acme · Check Node — reply: yes\n"
+        line = f"Hook: [{A}] Acme · Check Node — reply: yes\n"
         self.assertEqual(self.replies(hook=True, session_id="s1")[1], line)
         self.assertEqual(self.replies(hook=True, session_id="s2")[1], line)
         self.assertEqual(self.replies(hook=True, session_id="s1")[1], "")
@@ -117,7 +117,7 @@ class RepliesTest(unittest.TestCase):
         self.replies()
         self.queue.new_epoch("e2")
         self.queue.add(A, "reply", "owner", "after the reset")   # seq 1, below the old cursor
-        self.assertEqual(self.replies()[1], f"Relay: [{A}] Acme · Check Node — reply: after the reset\n")
+        self.assertEqual(self.replies()[1], f"Hook: [{A}] Acme · Check Node — reply: after the reset\n")
         data = json.loads((self.dir / "replies-cursor.json").read_text())
         self.assertEqual(data["local"]["epoch"], "e2")
         self.assertEqual(data["local"]["head"], 1)
@@ -125,7 +125,7 @@ class RepliesTest(unittest.TestCase):
     def test_peek_does_not_advance(self):
         self.replies()
         self.queue.add(A, "reply", "owner", "hello")
-        line = f"Relay: [{A}] Acme · Check Node — reply: hello\n"
+        line = f"Hook: [{A}] Acme · Check Node — reply: hello\n"
         self.assertEqual(self.replies(new=False)[1], line)
         self.assertEqual(self.replies(new=False)[1], line)
         self.assertEqual(self.replies(new=True)[1], line)
@@ -137,16 +137,16 @@ class RepliesTest(unittest.TestCase):
         self.queue.add(A, "resolved", "owner", "two")
         self.queue.add(B, "reply", "owner", "a\nb")
         self.assertEqual(self.replies()[1],
-                         f"Relay: [{A}] Acme · Check Node — reply: one\n"
-                         f"Relay: [{A}] Acme · Check Node — done: two\n"
-                         f"Relay: [{B}] (removed) — reply: a ⏎ b\n")
+                         f"Hook: [{A}] Acme · Check Node — reply: one\n"
+                         f"Hook: [{A}] Acme · Check Node — done: two\n"
+                         f"Hook: [{B}] (removed) — reply: a ⏎ b\n")
         self.assertEqual(self.queue.gets, [A, B])
 
     def test_mailbox_source_without_epoch(self):
         self.queue = FakeQueue(self.env, source_key="mailbox:0123456789ab", epoch=None)
         self.replies()
         self.queue.add(A, "resolved", "owner")
-        self.assertEqual(self.replies()[1], f"Relay: [{A}] Acme · Check Node — done\n")
+        self.assertEqual(self.replies()[1], f"Hook: [{A}] Acme · Check Node — done\n")
         data = json.loads((self.dir / "replies-cursor.json").read_text())
         self.assertEqual(set(data), {"mailbox:0123456789ab"})
         self.assertNotIn("epoch", data["mailbox:0123456789ab"])
@@ -200,9 +200,9 @@ class RepliesTest(unittest.TestCase):
             self.assertEqual((store.cursor("local", "cli"), store.cursor("local", "session:s1")), (0, 0))
 
     def test_cli_mode_reports_errors_with_exit_codes(self):
-        self.queue.error = Unreachable("Relay isn't running")
-        self.assertEqual(self.replies(), (2, "", "relay replies: Relay isn't running\n"))
-        self.assertEqual(self.replies(hook=True, session_id="s1"), (0, "", "relay replies: Relay isn't running\n"))
+        self.queue.error = Unreachable("Hook isn't running")
+        self.assertEqual(self.replies(), (2, "", "relay replies: Hook isn't running\n"))
+        self.assertEqual(self.replies(hook=True, session_id="s1"), (0, "", "relay replies: Hook isn't running\n"))
 
 
 class HookSessionTest(unittest.TestCase):
@@ -333,7 +333,7 @@ class HookFailureTest(unittest.TestCase):
 
     def test_relay_quit(self):
         self.cfg.write_text(json.dumps({"source": "local", "port": self.closed_port()}))
-        self.assertIn("Relay isn't running", self.hook(self.session_stdin()))
+        self.assertIn("Hook isn't running", self.hook(self.session_stdin()))
 
     def test_relay_hangs(self):
         self.cfg.write_text(json.dumps({"source": "local", "port": self.silent_port()}))
@@ -365,7 +365,7 @@ class HookFailureTest(unittest.TestCase):
 
         def factory(**kw):
             seen.append(kw)
-            raise Unreachable("Relay isn't running")
+            raise Unreachable("Hook isn't running")
         self.hook(self.session_stdin(), factory)
         self.assertEqual(seen, [{"autolaunch": False, "timeout": 2.0}])
 

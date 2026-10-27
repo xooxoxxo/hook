@@ -74,6 +74,6 @@ public struct PanelTab<Model: SettingsViewModel>: View {
 /// The Panel tab's "?" texts.
 public enum PanelHelp {
     public static let edge = "You can also drag the panel by its top bar to either edge of any display. It stays there until you move it."
-    public static let display = "If this display is disconnected, Relay uses the main display until it comes back."
+    public static let display = "If this display is disconnected, Hook uses the main display until it comes back."
     public static let slideIn = "The panel opens on the new ask without taking keyboard focus. Press the shortcut or click ✕ to hide it. This works even when Now notifications are off. It doesn't happen while you're away."
 }

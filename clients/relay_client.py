@@ -1,8 +1,8 @@
-"""Shared Relay client for the `relay` CLI and the MCP server.
+"""Shared Hook client for the `relay` CLI and the MCP server.
 
 Reads ~/.config/relay/config.json (or $RELAY_CONFIG) and talks to either source:
-- local: Relay.app on 127.0.0.1:<port>. Every token-bearing call first checks the
-  server proof on GET /health, so the token only ever goes to Relay itself.
+- local: Hook.app on 127.0.0.1:<port>. Every token-bearing call first checks the
+  server proof on GET /health, so the token only ever goes to Hook itself.
 - mailbox: the mailbox service at mailboxURL.
 Tokens are read from disk on every call and never printed or logged.
 Standard library only; runs on Python 3.9+.
@@ -29,12 +29,13 @@ VERSION = "0.7.1"
 DEFAULT_CONFIG = "~/.config/relay/config.json"
 DEFAULT_PORT = 47823
 DEFAULT_CONTEXT = "personal"
-NO_CONFIG = "No Relay config; run scripts/install.sh"
+NO_CONFIG = "No Hook config; run scripts/install.sh"
 MAILBOX_PROBLEM = "mailbox needs an http(s) mailboxURL and a tokenFile"
-NOT_THIS_MAC = "Relay is running but not in This Mac mode."
-NOT_RUNNING = "Relay isn't running"
-NO_APP = "Relay.app not found; run scripts/install.sh"
-LAUNCH_COMMAND = ["open", "-g", "-a", "Relay"]
+NOT_THIS_MAC = "Hook is running but not in This Mac mode."
+NOT_RUNNING = "Hook isn't running"
+NO_APP = "Hook.app not found; run scripts/install.sh"
+# Hook first; Relay is the app before the rename, still there until install.sh runs.
+LAUNCH_COMMANDS = (["open", "-g", "-a", "Hook"], ["open", "-g", "-a", "Relay"])
 LAUNCH_WAIT_S = 5.0
 LAUNCH_POLL_S = 0.25
 PROOF_PREFIX = "relay-proof-v1\n"   # message: PROOF_PREFIX + str(port) + "\n" + nonce
@@ -132,15 +133,15 @@ def load_config(env: Optional[Mapping[str, str]] = None) -> Dict[str, Any]:
     try:
         raw = path.read_bytes()
     except FileNotFoundError:
-        raise ConfigMissing(f"No Relay config at {path}; run scripts/install.sh") from None
+        raise ConfigMissing(f"No Hook config at {path}; run scripts/install.sh") from None
     except OSError:
-        raise ConfigMissing(f"Relay config at {path} can't be read") from None
+        raise ConfigMissing(f"Hook config at {path} can't be read") from None
     try:
         cfg = json.loads(raw.decode("utf-8-sig"))
     except ValueError:
-        raise ConfigMissing(f"Relay config at {path} is not valid JSON") from None
+        raise ConfigMissing(f"Hook config at {path} is not valid JSON") from None
     if not isinstance(cfg, dict):
-        raise ConfigMissing(f"Relay config at {path} is not a JSON object")
+        raise ConfigMissing(f"Hook config at {path} is not a JSON object")
     return cfg
 
 
@@ -450,7 +451,7 @@ class Client:
             if not self.autolaunch or self._launched:
                 raise Unreachable(NOT_RUNNING) from None
         self._launched = True
-        if not self._launcher(list(LAUNCH_COMMAND)):
+        if not any(self._launcher(list(command)) for command in LAUNCH_COMMANDS):
             raise Unreachable(NO_APP)
         deadline = self._monotonic() + LAUNCH_WAIT_S
         while True:
@@ -489,7 +490,7 @@ class Client:
         except OSError:
             token = ""
         if not token:
-            raise Unreachable(f"Relay's local token at {path} is missing; open Relay in This Mac mode")
+            raise Unreachable(f"Hook's local token at {path} is missing; open Hook in This Mac mode")
         return token
 
     def _mailbox_token(self) -> str:
@@ -504,7 +505,7 @@ class Client:
 
     def _unreachable(self, reason: Any) -> Unreachable:
         if self.local:
-            return Unreachable(f"Relay isn't reachable on 127.0.0.1:{self.source['port']}: {reason}")
+            return Unreachable(f"Hook isn't reachable on 127.0.0.1:{self.source['port']}: {reason}")
         return Unreachable(f"mailbox unreachable: {self.base}: {reason}")
 
     def _transport(self, method: str, path: str, *, body: Optional[Dict[str, Any]] = None,

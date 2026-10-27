@@ -4,7 +4,7 @@ import RelayCore
 /// Asks GitHub for the latest release about a minute after launch, then once a day.
 /// A failed automatic check changes nothing and posts nothing; the next one tries again.
 @MainActor final class UpdateChecker {
-    static let releaseURL = URL(string: "https://api.github.com/repos/xooxoxxo/relay/releases/latest")!
+    static let releaseURL = URL(string: UpdateGate.latestReleaseAPI)!
     private static let lastCheckKey = "updateLastCheck"
     private static let latestTagKey = "updateLatestTag"
     private static let latestURLKey = "updateLatestURL"
@@ -75,7 +75,7 @@ import RelayCore
     private static func fetch() async -> Result<Data, UpdateCheckError> {
         var request = URLRequest(url: releaseURL, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 10)
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-        request.setValue("Relay/\(runningVersion)", forHTTPHeaderField: "User-Agent")
+        request.setValue("Hook/\(runningVersion)", forHTTPHeaderField: "User-Agent")
         let configuration = URLSessionConfiguration.ephemeral
         configuration.timeoutIntervalForRequest = 10
         configuration.timeoutIntervalForResource = 10
@@ -99,22 +99,22 @@ enum UpdateRunner {
         ProcessInfo.processInfo.environment["HOME"] ?? FileManager.default.homeDirectoryForCurrentUser.path
     }
     static var logPath: String { home + "/Library/Logs/Relay/update.log" }
-    static var appPath: String { home + "/Applications/Relay.app" }
+    static var appPath: String { home + "/Applications/Hook.app" }
 
-    /// The gate: the folder is the Relay repo, its origin is xooxoxxo/relay, the tree is
+    /// The gate: the folder is the Hook repo, its origin is xooxoxxo/hook or xooxoxxo/relay, the tree is
     /// clean, and HEAD is main or a release tag. Runs git off the main thread.
     static func gate(repoPath: String?) async -> Result<(repo: String, mode: UpdateGate.Mode), UpdateCheckError> {
         guard let raw = repoPath?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
-            return .failure(UpdateCheckError("Relay doesn't know where your checkout is. Set it in Settings › Connect, or run scripts/install.sh once."))
+            return .failure(UpdateCheckError("Hook doesn't know where your checkout is. Set it in Settings › Connect, or run scripts/install.sh once."))
         }
         let repo = ConnectInfo.normalized(raw)
         let exists = { (path: String) in FileManager.default.fileExists(atPath: path) }
         guard ConnectInfo.isRepo(repo, fileExists: exists), exists(repo + "/scripts/install.sh") else {
-            return .failure(UpdateCheckError("\(TildePath.abbreviate(repo, home: home)) isn't the Relay repo."))
+            return .failure(UpdateCheckError("\(TildePath.abbreviate(repo, home: home)) isn't the Hook repo."))
         }
         return await Task.detached {
-            guard let origin = git(repo, ["remote", "get-url", "origin"]), UpdateGate.isRelayOrigin(origin) else {
-                return .failure(UpdateCheckError("The checkout's origin isn't github.com/xooxoxxo/relay."))
+            guard let origin = git(repo, ["remote", "get-url", "origin"]), UpdateGate.isRepoOrigin(origin) else {
+                return .failure(UpdateCheckError("The checkout's origin isn't github.com/xooxoxxo/hook (or xooxoxxo/relay)."))
             }
             guard let porcelain = git(repo, ["status", "--porcelain"]),
                   let branch = git(repo, ["branch", "--show-current"]) else {

@@ -160,7 +160,7 @@ public enum RequestFraming {
 }
 
 /// `GET /health`. No auth; the proof lets a client check it is
-/// talking to this Relay before it sends the token. It never says whether the
+/// talking to this Hook before it sends the token. It never says whether the
 /// owner is away: anyone who can reach the port could read that.
 public enum Health {
     public static func response(source: String, port: Int, nonce: String?, token: String?) -> HTTPResponse {

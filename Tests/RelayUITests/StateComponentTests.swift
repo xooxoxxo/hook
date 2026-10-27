@@ -36,6 +36,6 @@ import Testing
     @Test func settingsHelpers() {
         #expect(ShortcutField.clearLabel == "Turn the shortcut off")
         #expect(MailboxFields.addressPrompt == "https://mailbox.example:8790")
-        #expect(MailboxFields.tokenHelp == "Relay reads this file only to talk to the mailbox and never shows what it holds.")
+        #expect(MailboxFields.tokenHelp == "Hook reads this file only to talk to the mailbox and never shows what it holds.")
     }
 }

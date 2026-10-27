@@ -72,7 +72,7 @@ public enum PanelNotice: Equatable, Sendable {
         case .offlineCached(let since):
             return "Offline · showing asks from \(since)"
         case .updating(let version, _):
-            return "Updating to \(Sanitize.revealLine(version)). Relay restarts in about 2 minutes."
+            return "Updating to \(Sanitize.revealLine(version)). Hook restarts in about 2 minutes."
         }
     }
 
@@ -90,8 +90,8 @@ public enum PanelNotice: Equatable, Sendable {
     /// The text behind the Notice's "?", when it has one.
     public var help: String? {
         guard case .updating(_, let logPath) = self else { return nil }
-        return "Relay rebuilds from your checkout, then quits and starts again. "
-            + "If the update fails, the old Relay keeps running. The log says why: \(Sanitize.revealLine(logPath))"
+        return "Hook rebuilds from your checkout, then quits and starts again. "
+            + "If the update fails, the old Hook keeps running. The log says why: \(Sanitize.revealLine(logPath))"
     }
 }
 

@@ -275,19 +275,19 @@ private func decode(_ json: String) throws -> RelayConfig {
         #expect(state.symbolDimmed)
         #expect(!state.dimmed)
         #expect(state.badge == .dot)
-        #expect(state.accessibilityLabel == "Relay, 2 waiting, away")
-        #expect(state.tooltip == "Relay · away · 2 waiting")
+        #expect(state.accessibilityLabel == "Hook, 2 waiting, away")
+        #expect(state.tooltip == "Hook · away · 2 waiting")
     }
 
     @Test func offlineWinsTheTooltip() {
         let state = MenuBarState(count: 0, reachable: false, offlineReason: "timed out", away: true)
         #expect(state.symbolDimmed)
-        #expect(state.tooltip == "Relay · offline: timed out")
-        #expect(state.accessibilityLabel == "Relay, 0 waiting, offline, away")
+        #expect(state.tooltip == "Hook · offline: timed out")
+        #expect(state.accessibilityLabel == "Hook, 0 waiting, offline, away")
     }
 
     @Test func homeIsUnchanged() {
         #expect(!MenuBarState(count: 1).symbolDimmed)
-        #expect(MenuBarState(count: 1).tooltip == "Relay · 1 waiting")
+        #expect(MenuBarState(count: 1).tooltip == "Hook · 1 waiting")
     }
 }

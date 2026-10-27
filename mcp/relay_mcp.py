@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Relay MCP server: send the owner instructables and check on them.
+"""Hook MCP server: send the owner instructables and check on them.
 
 Stdlib only, stdio transport, one JSON-RPC message per line. Speaks both MCP eras:
 `initialize` (2025-11-25 and earlier) and `server/discover` (2026-07-28).
 Every queue call goes through clients/relay_client.py, so the server works the same
-against the local Relay queue ("This Mac only") and a mailbox.
+against the local Hook queue ("This Mac only") and a mailbox.
 Config: ~/.config/relay/config.json, or the file named by RELAY_CONFIG.
 Tokens are read on every call and never printed or logged.
 Runs on Python 3.9+.
@@ -161,7 +161,7 @@ def tool_list() -> list:
         {
             "name": "relay_post",
             "description": ("Send the owner ONE instructable: an ask written as numbered steps with "
-                            "copy-paste code (see the instructables skill). It goes to the owner's Relay "
+                            "copy-paste code (see the instructables skill). It goes to the owner's Hook "
                             "queue. Returns {id, deduped, openUrl}; deduped means an ask with this title "
                             "is already open. Never include a secret value. " + SUBSTEPS_SENTENCE + " "
                             + QUESTIONS_SENTENCE),
@@ -169,7 +169,7 @@ def tool_list() -> list:
         },
         {
             "name": "relay_status",
-            "description": ("Status of one ask in the owner's Relay queue: open, done or dismissed; "
+            "description": ("Status of one ask in the owner's Hook queue: open, done or dismissed; "
                             "resolvedBy (owner, session or null) says who closed it; ownerEvents holds the "
                             "owner's answers (resolved, declined, reply, answer). The owner can also reopen an "
                             "ask they closed (kind reopened): it is open again, and resolvedBy is null. "
@@ -182,7 +182,7 @@ def tool_list() -> list:
         },
         {
             "name": "relay_list",
-            "description": ("Every open ask in the owner's Relay queue, whatever its age: id, project, "
+            "description": ("Every open ask in the owner's Hook queue, whatever its age: id, project, "
                             "title, status, created."),
             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
         },

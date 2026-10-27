@@ -40,7 +40,7 @@ private func ask(_ id: String, urgency: String?, project: String? = "Acme") -> W
         let action = policy.add([ask("a", urgency: "today", project: nil)], now: t0)
         #expect(action == .show(.single(id: "a", project: "", title: "t-a")))
         guard case .show(let content) = action else { return }
-        #expect(content.title == "Relay")
+        #expect(content.title == "Hook")
         #expect(content.body == "t-a")
     }
 
@@ -121,11 +121,11 @@ private func ask(_ id: String, urgency: String?, project: String? = "Acme") -> W
 
     @Test func titlesAndBodiesAreRevealedLines() {
         #expect(NotifyContent.single(id: "a", project: "Acme", title: "Rotate the key").title == "Acme")
-        #expect(NotifyContent.single(id: "a", project: "", title: "x").title == "Relay")
-        #expect(NotifyContent.single(id: "a", project: "  ", title: "x").title == "Relay")
+        #expect(NotifyContent.single(id: "a", project: "", title: "x").title == "Hook")
+        #expect(NotifyContent.single(id: "a", project: "  ", title: "x").title == "Hook")
         #expect(NotifyContent.single(id: "a", project: "Ac\u{202E}me", title: "two\nlines").title == "Ac⟨U+202E⟩me")
         #expect(NotifyContent.single(id: "a", project: "Acme", title: "two\nlines").body == "two⟨U+000A⟩lines")
-        #expect(NotifyContent.many(3).title == "Relay")
+        #expect(NotifyContent.many(3).title == "Hook")
         #expect(NotifyContent.many(3).body == "3 new asks")
     }
 

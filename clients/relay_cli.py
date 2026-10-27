@@ -1,11 +1,11 @@
-"""The `relay` command: post an instructable, check on it, list, resolve, read replies.
+"""The `relay` command (also linked as `hook`): post an instructable, check on it, list, resolve, read replies.
 
-Exit codes: 0 ok, 1 refused / not found / bad input, 2 no config or Relay unreachable,
+Exit codes: 0 ok, 1 refused / not found / bad input, 2 no config or Hook unreachable,
 3 `wait` saw no owner answer before its timeout.
 Standard library only; runs on Python 3.9+.
 
 Test-only switch: RELAY_NO_AUTOLAUNCH=1 turns auto-launch off for every command, so a
-test or smoke run against a temp Relay never opens the installed app.
+test or smoke run against a temp Hook never opens the installed app.
 """
 from __future__ import annotations
 
@@ -35,7 +35,17 @@ class _ParserExit(Exception):
         self.status = status
 
 
-def _parser(out: Any, err: Any) -> argparse.ArgumentParser:
+# The names the CLI answers to: `relay`, and `hook` since the rename. Messages use the
+# name it was run as; anything else (python3 relay_cli.py) is `relay`.
+NAMES = ("relay", "hook")
+
+
+def invoked_name(argv0: Optional[str]) -> str:
+    name = os.path.basename(argv0 or "")
+    return name if name in NAMES else "relay"
+
+
+def _parser(out: Any, err: Any, prog: str = "relay") -> argparse.ArgumentParser:
     class Parser(argparse.ArgumentParser):
         """argparse that writes to the given streams and never calls sys.exit."""
 
@@ -48,7 +58,7 @@ def _parser(out: Any, err: Any) -> argparse.ArgumentParser:
                 err.write(message)
             raise _ParserExit(status)
 
-    parser = Parser(prog="relay", description="Send the owner instructables through Relay and read the answers.")
+    parser = Parser(prog=prog, description="Send the owner instructables through Hook and read the answers.")
     parser.add_argument("--version", action="store_true", help="print the version and exit")
     sub = parser.add_subparsers(dest="command", metavar="<command>")
     post = sub.add_parser("post", help="post one instructable",
@@ -255,7 +265,7 @@ def _cmd_replies(args: argparse.Namespace, ctx: _Ctx) -> int:
 
 
 def _cmd_wait(args: argparse.Namespace, ctx: _Ctx) -> int:
-    # Never auto-launch: the wait can outlive a quit Relay, and an unreachable source is retried.
+    # Never auto-launch: the wait can outlive a quit Hook, and an unreachable source is retried.
     client = ctx.factory(autolaunch=False, timeout=DEFAULT_TIMEOUT)
     return relay_wait.run(client, args.id, timeout=args.timeout, interval=args.interval, after=args.after,
                           out=ctx.out, err=ctx.err)
@@ -278,19 +288,21 @@ def _default_factory(env: Optional[Dict[str, str]]) -> Callable[..., Any]:
 
 
 def main(argv: Optional[List[str]] = None, *, stdin: Any = None, stdout: Any = None, stderr: Any = None,
-         env: Optional[Dict[str, str]] = None, client_factory: Optional[Callable[..., Any]] = None) -> int:
+         env: Optional[Dict[str, str]] = None, client_factory: Optional[Callable[..., Any]] = None,
+         prog: Optional[str] = None) -> int:
+    prog = prog if prog is not None else invoked_name(sys.argv[0] if sys.argv else None)
     argv = sys.argv[1:] if argv is None else list(argv)
     out = stdout if stdout is not None else sys.stdout
     err = stderr if stderr is not None else sys.stderr
     stdin = stdin if stdin is not None else sys.stdin
     factory = client_factory or _default_factory(env)
-    parser = _parser(out, err)
+    parser = _parser(out, err, prog)
     try:
         args = parser.parse_args(argv)
     except _ParserExit as exc:
         return 0 if "--hook" in argv else exc.status   # a hook must never block the prompt
     if args.version:
-        out.write(f"relay {VERSION}\n")
+        out.write(f"{prog} {VERSION}\n")
         return 0
     if not args.command:
         parser.print_usage(err)
@@ -304,7 +316,7 @@ def main(argv: Optional[List[str]] = None, *, stdin: Any = None, stdout: Any = N
             err.write(f"  {detail}\n")
         return exc.exit_code
     except RelayError as exc:
-        err.write(f"relay: {exc}\n")
+        err.write(f"{prog}: {exc}\n")
         return exc.exit_code
 
 

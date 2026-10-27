@@ -30,7 +30,7 @@ public struct WelcomeView<Model: SettingsViewModel>: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: DS.Space.section) {
-            Text(flow.page == .source ? "Welcome to Relay" : "Relay is ready")
+            Text(flow.page == .source ? "Welcome to Hook" : "Hook is ready")
                 .font(DS.Font.welcomeTitle)
                 .accessibilityAddTraits(.isHeader)
                 .padding([.top, .horizontal], DS.Space.section)
@@ -81,7 +81,7 @@ public struct WelcomeView<Model: SettingsViewModel>: View {
 
     @ViewBuilder private var readyPage: some View {
         Section {
-            SettingsRow("Show or hide Relay", error: model.settings.shortcutProblem?.text) {
+            SettingsRow("Show or hide Hook", error: model.settings.shortcutProblem?.text) {
                 ShortcutField(label: model.settings.shortcutLabel ?? "Not set",
                               onBegin: { model.perform(.beginShortcut) },
                               onRecord: { model.perform(.recordShortcut($0)) },
@@ -93,7 +93,7 @@ public struct WelcomeView<Model: SettingsViewModel>: View {
                 Button("Connect Settings…") { model.perform(.switchTab(.connect)) }
             }
             SettingsRow("Login", error: model.settings.login.error) {
-                Toggle("Start Relay when I log in", isOn: Binding(
+                Toggle("Start Hook when I log in", isOn: Binding(
                     get: { model.settings.login.on }, set: { model.perform(.setLogin($0)) }))
                     .toggleStyle(.checkbox)
             }
@@ -103,7 +103,7 @@ public struct WelcomeView<Model: SettingsViewModel>: View {
     @ViewBuilder private var buttons: some View {
         HStack(spacing: DS.Space.inline) {
             if flow.page == .source {
-                Button("Quit Relay", action: onQuit)
+                Button("Quit Hook", action: onQuit)
                     .keyboardShortcut("q", modifiers: .command)
                 Spacer()
                 if flow.starting {

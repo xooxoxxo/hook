@@ -79,7 +79,7 @@ extension AppModel: SettingsViewModel {
                     save(set: ["repoPath": path])
                 } else {
                     let alert = NSAlert()
-                    alert.messageText = "That folder isn't the Relay repo."
+                    alert.messageText = "That folder isn't the Hook repo."
                     alert.informativeText = "It has no mcp/relay_mcp.py."
                     alert.runModal()
                 }
@@ -185,11 +185,11 @@ extension AppModel: SettingsViewModel {
         refreshSettings()
     }
 
-    /// Title "Relay", body "Notifications work.", ignoring Away (it skips the Notifier's quiet mode).
+    /// Title "Hook", body "Notifications work.", ignoring Away (it skips the Notifier's quiet mode).
     private func sendTestNotification() {
         guard Bundle.main.bundleIdentifier != nil else { return }
         let note = UNMutableNotificationContent()
-        note.title = "Relay"
+        note.title = "Hook"
         note.body = "Notifications work."
         if config?.notify.sound == true { note.sound = .default }
         UNUserNotificationCenter.current().add(
@@ -210,7 +210,7 @@ extension AppModel: SettingsViewModel {
         }
     }
 
-    /// Settings → Notifications opened, or Relay became active: macOS may have changed it.
+    /// Settings → Notifications opened, or Hook became active: macOS may have changed it.
     func watchPermission() {
         permissionObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
@@ -225,7 +225,7 @@ extension AppModel: SettingsViewModel {
     static func chooseTokenFile() -> String? {
         let panel = NSOpenPanel()
         panel.title = "Choose the token file"
-        panel.message = "Relay reads this file only to talk to the mailbox and never shows what it holds."
+        panel.message = "Hook reads this file only to talk to the mailbox and never shows what it holds."
         panel.prompt = "Choose"
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
@@ -238,7 +238,7 @@ extension AppModel: SettingsViewModel {
 
     static func chooseFolder() -> String? {
         let panel = NSOpenPanel()
-        panel.title = "Choose the Relay repo folder"
+        panel.title = "Choose the Hook repo folder"
         panel.prompt = "Choose"
         panel.canChooseFiles = false
         panel.canChooseDirectories = true

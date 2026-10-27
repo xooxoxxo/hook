@@ -3,7 +3,7 @@ import Foundation
 /// Private files: directories are 0700, and a file is created
 /// 0600 from the start (never written first and restricted afterwards).
 public enum PrivateFile {
-    /// A folder or file Relay refuses to use; the description is the user-facing message.
+    /// A folder or file Hook refuses to use; the description is the user-facing message.
     public enum TrustError: Error, Sendable, Equatable, LocalizedError {
         case untrustedDirectory(String)
         case untrustedFile(String)
@@ -52,7 +52,7 @@ public enum PrivateFile {
     }
 
     /// `mkdir -p` with mode 0700; an existing directory is `chmod`ed to 0700.
-    /// Only for directories Relay owns (the default config directory and the
+    /// Only for directories Hook owns (the default config directory and the
     /// data directory); see `createDirectoryIfMissing` for any other.
     public static func ensureDirectory(_ dir: URL) throws {
         try createDirectoryIfMissing(dir)

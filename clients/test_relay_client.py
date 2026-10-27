@@ -45,11 +45,11 @@ class FakeResponse:
 
 
 class FakeHTTP:
-    """urlopen stand-in. /health answers like Relay; other routes come from `routes`."""
+    """urlopen stand-in. /health answers like Hook; other routes come from `routes`."""
 
     def __init__(self, token=LOCAL_TOKEN, app="relay", source="local", proof="good", proof_port=None):
         self.token, self.app, self.health_source, self.proof = token, app, source, proof
-        self.proof_port = proof_port   # None: the port the request was sent to, like Relay
+        self.proof_port = proof_port   # None: the port the request was sent to, like Hook
         self.routes = {}            # (method, path?query) -> (status, body)
         self.refuse = 0             # refuse this many calls first (-1: always)
         self.requests = []
@@ -135,7 +135,7 @@ class ConfigTests(Base):
         for cfg in ({}, {"source": "elsewhere"}, {"mailboxURL": 5}):
             with self.assertRaises(rc.ConfigMissing) as ctx:
                 rc.resolve_source(cfg)
-            self.assertEqual(str(ctx.exception), "No Relay config; run scripts/install.sh")
+            self.assertEqual(str(ctx.exception), "No Hook config; run scripts/install.sh")
             self.assertEqual(ctx.exception.exit_code, 2)
 
     def test_invalid_mailbox(self):
@@ -241,7 +241,7 @@ class ProofTests(Base):
                              "Something else is answering on 127.0.0.1:47911; not sending.")
 
     def test_not_local(self):
-        self.assert_not_sent(FakeHTTP(source="mailbox"), "Relay is running but not in This Mac mode.")
+        self.assert_not_sent(FakeHTTP(source="mailbox"), "Hook is running but not in This Mac mode.")
 
     def test_health_returns_the_verified_body(self):
         self.assertEqual(self.local(self.http).health()["source"], "local")
@@ -270,14 +270,26 @@ class LaunchTests(Base):
     def test_launches_once_then_retries(self):
         self.http.refuse = 3
         self.assertEqual(self.client().list(), [])
-        self.assertEqual(self.launched, [["open", "-g", "-a", "Relay"]])
+        self.assertEqual(self.launched, [["open", "-g", "-a", "Hook"]])
         self.assertEqual(self.clock.sleeps, [0.25, 0.25, 0.25])
+
+    def test_falls_back_to_relay_when_hook_is_missing(self):
+        # Before install.sh has run, only the app from before the rename is there.
+        self.http.refuse = 1
+        launched = []
+
+        def launcher(argv):
+            launched.append(argv)
+            return argv[-1] == "Relay"
+        client = self.local(self.http, launcher=launcher, sleep=self.clock.sleep, monotonic=self.clock.monotonic)
+        self.assertEqual(client.list(), [])
+        self.assertEqual(launched, [["open", "-g", "-a", "Hook"], ["open", "-g", "-a", "Relay"]])
 
     def test_gives_up_after_five_seconds(self):
         self.http.refuse = -1
         with self.assertRaises(rc.Unreachable) as ctx:
             self.client().list()
-        self.assertEqual(str(ctx.exception), "Relay isn't running")
+        self.assertEqual(str(ctx.exception), "Hook isn't running")
         self.assertEqual(len(self.clock.sleeps), 20)
         self.assertEqual(len(self.launched), 1)
 
@@ -285,13 +297,14 @@ class LaunchTests(Base):
         self.http.refuse = -1
         with self.assertRaises(rc.Unreachable) as ctx:
             self.client(ok=False).list()
-        self.assertEqual(str(ctx.exception), "Relay.app not found; run scripts/install.sh")
+        self.assertEqual(str(ctx.exception), "Hook.app not found; run scripts/install.sh")
+        self.assertEqual(self.launched, [["open", "-g", "-a", "Hook"], ["open", "-g", "-a", "Relay"]])
 
     def test_no_autolaunch(self):
         self.http.refuse = -1
         with self.assertRaises(rc.Unreachable) as ctx:
             self.client(autolaunch=False).list()
-        self.assertEqual(str(ctx.exception), "Relay isn't running")
+        self.assertEqual(str(ctx.exception), "Hook isn't running")
         self.assertEqual(self.launched, [])
         self.assertEqual(self.clock.sleeps, [])
 
@@ -424,7 +437,7 @@ class HelperTests(Base):
 
 
 class StubRelay(BaseHTTPRequestHandler):
-    """A real HTTP Relay in local mode, for one end-to-end round trip."""
+    """A real HTTP Hook in local mode, for one end-to-end round trip."""
     seen = []
 
     def log_message(self, *args):
@@ -554,7 +567,7 @@ class RoundTripTests(Base):
         client = rc.Client({"source": "local", "port": port}, env=self.env, autolaunch=False)
         with self.assertRaises(rc.Unreachable) as ctx:
             client.list()
-        self.assertEqual(str(ctx.exception), "Relay isn't running")
+        self.assertEqual(str(ctx.exception), "Hook isn't running")
 
 
 class TrustTests(Base):
@@ -596,7 +609,7 @@ class TrustTests(Base):
 
     def test_missing_config_folder_is_still_just_missing(self):
         env = {"RELAY_CONFIG": str(Path(self.tmp.name) / "nope" / "config.json")}
-        with self.assertRaisesRegex(rc.ConfigMissing, "No Relay config"):
+        with self.assertRaisesRegex(rc.ConfigMissing, "No Hook config"):
             rc.load_config(env)
 
     def test_local_token_refuses_untrusted_folder(self):

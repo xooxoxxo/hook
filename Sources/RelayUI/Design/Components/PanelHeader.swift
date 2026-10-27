@@ -5,7 +5,7 @@ import SwiftUI
 public enum PanelHeaderActions {
     public static let dockLeft = "Dock on the left edge"
     public static let dockRight = "Dock on the right edge"
-    public static let dragHelp = "Drag to the left or right edge of any display to pin Relay there"
+    public static let dragHelp = "Drag to the left or right edge of any display to pin Hook there"
 }
 
 /// Design/PanelHeader: the 44 pt bar on top of the list and the detail. Empty

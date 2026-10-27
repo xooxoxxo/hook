@@ -4,7 +4,7 @@ import SwiftUI
 /// The three fields start on one x (Token file + inline + Choose… add up to fieldWide).
 public struct MailboxFields: View {
     public static let addressPrompt = "https://mailbox.example:8790"
-    public static let tokenHelp = "Relay reads this file only to talk to the mailbox and never shows what it holds."
+    public static let tokenHelp = "Hook reads this file only to talk to the mailbox and never shows what it holds."
     public static let contextHelp = "Sent with every request, so one mailbox can serve several Macs or setups. Leave it empty for personal."
 
     @Binding var address: String

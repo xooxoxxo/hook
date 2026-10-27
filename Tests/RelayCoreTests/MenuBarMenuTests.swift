@@ -34,8 +34,8 @@ private func submenu(_ entries: [MenuEntry], _ title: String) -> [MenuEntry] {
 @Suite struct MenuBarMenuTests {
     @Test func theMenuHasTheSpecTitlesInOrder() {
         #expect(titles(MenuBarMenu.entries(inputs())) == [
-            "Show Relay", "—", "Mailbox · ready · updated 10:42", "Home · active", "Presence ▸", "—",
-            "Refresh", "Panel ▸", "—", "Settings…", "About Relay", "Check for Updates…", "—", "Quit Relay",
+            "Show Hook", "—", "Mailbox · ready · updated 10:42", "Home · active", "Presence ▸", "—",
+            "Refresh", "Panel ▸", "—", "Settings…", "About Hook", "Check for Updates…", "—", "Quit Hook",
         ])
     }
 
@@ -43,28 +43,28 @@ private func submenu(_ entries: [MenuEntry], _ title: String) -> [MenuEntry] {
         var withUpdate = inputs()
         withUpdate.updateVersion = "0.6.5"
         let entries = MenuBarMenu.entries(withUpdate)
-        #expect(Array(titles(entries).prefix(3)) == ["Update Relay to 0.6.5…", "—", "Show Relay"])
-        #expect(item(entries, "Update Relay to 0.6.5…")
-            == .item(title: "Update Relay to 0.6.5…", action: .update, key: nil, modifiers: [], enabled: true, checked: false))
+        #expect(Array(titles(entries).prefix(3)) == ["Update Hook to 0.6.5…", "—", "Show Hook"])
+        #expect(item(entries, "Update Hook to 0.6.5…")
+            == .item(title: "Update Hook to 0.6.5…", action: .update, key: nil, modifiers: [], enabled: true, checked: false))
         #expect(item(MenuBarMenu.entries(inputs()), "Check for Updates…")
             == .item(title: "Check for Updates…", action: .checkForUpdates, key: nil, modifiers: [], enabled: true, checked: false))
-        #expect(!titles(MenuBarMenu.entries(inputs())).contains { $0.hasPrefix("Update Relay") })
+        #expect(!titles(MenuBarMenu.entries(inputs())).contains { $0.hasPrefix("Update Hook") })
     }
 
     @Test func setUpRelayShowsOnlyWhileNotSetUp() {
-        #expect(titles(MenuBarMenu.entries(inputs(notSetUp: true))).first == "Set Up Relay…")
-        #expect(item(MenuBarMenu.entries(inputs(notSetUp: true)), "Set Up Relay…")
-            == .item(title: "Set Up Relay…", action: .setUp, key: nil, modifiers: [], enabled: true, checked: false))
-        #expect(!titles(MenuBarMenu.entries(inputs())).contains("Set Up Relay…"))
+        #expect(titles(MenuBarMenu.entries(inputs(notSetUp: true))).first == "Set Up Hook…")
+        #expect(item(MenuBarMenu.entries(inputs(notSetUp: true)), "Set Up Hook…")
+            == .item(title: "Set Up Hook…", action: .setUp, key: nil, modifiers: [], enabled: true, checked: false))
+        #expect(!titles(MenuBarMenu.entries(inputs())).contains("Set Up Hook…"))
     }
 
     @Test func theToggleSaysHideWhileVisibleAndShowsTheShortcut() {
-        #expect(item(MenuBarMenu.entries(inputs()), "Show Relay")
-            == .item(title: "Show Relay", action: .togglePanel, key: "r",
+        #expect(item(MenuBarMenu.entries(inputs()), "Show Hook")
+            == .item(title: "Show Hook", action: .togglePanel, key: "r",
                      modifiers: [.control, .option, .command], enabled: true, checked: false))
-        #expect(item(MenuBarMenu.entries(inputs(visible: true)), "Hide Relay") != nil)
-        #expect(item(MenuBarMenu.entries(inputs(shortcut: nil)), "Show Relay")
-            == .item(title: "Show Relay", action: .togglePanel, key: nil, modifiers: [], enabled: true, checked: false))
+        #expect(item(MenuBarMenu.entries(inputs(visible: true)), "Hide Hook") != nil)
+        #expect(item(MenuBarMenu.entries(inputs(shortcut: nil)), "Show Hook")
+            == .item(title: "Show Hook", action: .togglePanel, key: nil, modifiers: [], enabled: true, checked: false))
     }
 
     @Test func statusAndPresenceLinesAreDisabled() {
@@ -88,8 +88,8 @@ private func submenu(_ entries: [MenuEntry], _ title: String) -> [MenuEntry] {
         let entries = MenuBarMenu.entries(inputs())
         #expect(item(entries, "Refresh") == .item(title: "Refresh", action: .refresh, key: "r", modifiers: [.command], enabled: true, checked: false))
         #expect(item(entries, "Settings…") == .item(title: "Settings…", action: .settings, key: ",", modifiers: [.command], enabled: true, checked: false))
-        #expect(item(entries, "About Relay") == .item(title: "About Relay", action: .about, key: nil, modifiers: [], enabled: true, checked: false))
-        #expect(item(entries, "Quit Relay") == .item(title: "Quit Relay", action: .quit, key: "q", modifiers: [.command], enabled: true, checked: false))
+        #expect(item(entries, "About Hook") == .item(title: "About Hook", action: .about, key: nil, modifiers: [], enabled: true, checked: false))
+        #expect(item(entries, "Quit Hook") == .item(title: "Quit Hook", action: .quit, key: "q", modifiers: [.command], enabled: true, checked: false))
     }
 
     @Test func thePanelSubmenuDocksAndListsDisplays() {

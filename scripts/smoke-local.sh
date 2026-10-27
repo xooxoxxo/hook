@@ -1,6 +1,6 @@
 #!/bin/bash
 # End-to-end check of "This Mac only" mode against a throwaway app instance.
-# Builds ./build/Relay.app, runs it on port 47911 with a temp config and data dir,
+# Builds ./build/Hook.app, runs it on port 47911 with a temp config and data dir,
 # drives it with bin/relay (on the system Python 3.9) and curl, then cleans up.
 # A notification may appear for the test ask; ignore it.
 set -euo pipefail
@@ -30,7 +30,7 @@ printf '{"source":"local","port":%d,"hotkey":""}\n' "$PORT" > "$TMP/config/confi
 chmod 600 "$TMP/config/config.json"
 
 RELAY_CONFIG="$TMP/config/config.json" RELAY_DATA_DIR="$TMP/data" \
-  "$ROOT/build/Relay.app/Contents/MacOS/Relay" >"$TMP/app.log" 2>&1 &
+  "$ROOT/build/Hook.app/Contents/MacOS/Hook" >"$TMP/app.log" 2>&1 &
 APP_PID=$!
 
 for _ in $(seq 1 40); do
@@ -47,7 +47,7 @@ printf '%s' "$HEALTH" | grep -q '"proof"' && fail "health sent a proof without a
 LINK_CODE="$(curl -q --noproxy '*' -sS -D "$TMP/link.head" -o "$TMP/link.body" -w '%{http_code}' \
   "http://127.0.0.1:$PORT/i/not-an-id" || true)"
 [ "$LINK_CODE" = "404" ] || fail "malformed link id answered $LINK_CODE"
-grep -q "Handed to Relay" "$TMP/link.body" || fail "link page body"
+grep -q "Handed to Hook" "$TMP/link.body" || fail "link page body"
 grep -qi "^content-security-policy: default-src 'none'" "$TMP/link.head" || fail "link page has no CSP"
 grep -qi "^x-content-type-options: nosniff" "$TMP/link.head" || fail "link page has no nosniff"
 

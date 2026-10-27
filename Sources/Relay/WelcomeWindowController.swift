@@ -3,8 +3,8 @@ import RelayCore
 import RelayUI
 import SwiftUI
 
-/// The first-run window "Welcome to Relay": shown for a missing or incomplete
-/// config, and again from the menu's "Set Up Relay…" or the panel's Not set up state.
+/// The first-run window "Welcome to Hook": shown for a missing or incomplete
+/// config, and again from the menu's "Set Up Hook…" or the panel's Not set up state.
 @MainActor final class WelcomeWindowController {
     private let window: NSWindow
 
@@ -17,7 +17,7 @@ import SwiftUI
         let controller = NSHostingController(rootView: view)
         controller.sizingOptions = [.preferredContentSize]
         window = NSWindow(contentViewController: controller)
-        window.title = "Welcome to Relay"
+        window.title = "Welcome to Hook"
         window.styleMask = [.titled, .closable]
         window.isReleasedWhenClosed = false
         ref.window = window

@@ -125,7 +125,7 @@ public struct AwayTally: Sendable, Equatable {
     }
 }
 
-/// `~/.local/state/relay/away`, present only while Relay says the owner is away,
+/// `~/.local/state/relay/away`, present only while Hook says the owner is away,
 /// so other tools can tell (ssh's `Match exec "test -e …"`, for example).
 /// Two lines: `since=<ISO 8601 UTC>` and `reason=<reason>`.
 public struct AwayFlag: Sendable {

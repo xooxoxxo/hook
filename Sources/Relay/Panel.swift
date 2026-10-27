@@ -61,11 +61,11 @@ import RelayUI
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         isOpaque = false
         backgroundColor = .clear
-        // Relay moves the panel itself: the header drag and PanelDock.
+        // Hook moves the panel itself: the header drag and PanelDock.
         isMovable = false
         // Never shown (no title bar), but it names the window for VoiceOver and the Window menu.
-        title = "Relay"
-        setAccessibilityLabel("Relay")
+        title = "Hook"
+        setAccessibilityLabel("Hook")
 
         let background = NSVisualEffectView()
         background.material = .sidebar

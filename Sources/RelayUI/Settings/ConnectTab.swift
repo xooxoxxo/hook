@@ -23,15 +23,15 @@ public struct ConnectTab<Model: SettingsViewModel>: View {
                 ReadOnlySection { model.perform(.switchTab(.queue)) }
             }
             if !hasRepo {
-                Section("Relay repo") {
-                    SettingsRow("Relay repo", help: ConnectHelp.repo) {
+                Section("Hook repo") {
+                    SettingsRow("Hook repo", help: ConnectHelp.repo) {
                         HStack(spacing: DS.Space.inline) {
                             Text("Not set").foregroundStyle(DS.Color.secondary)
                             Button("Choose Repo Folder…") { model.perform(.chooseRepoFolder) }
                         }
                     }
                 }
-                .environment(\.settingsSection, "Relay repo")
+                .environment(\.settingsSection, "Hook repo")
             }
             Section("Claude Code") {
                 SettingsRow("MCP server", help: ConnectHelp.mcp) {
@@ -118,8 +118,8 @@ public struct ConnectTab<Model: SettingsViewModel>: View {
 public enum ConnectHelp {
     public static let mcp = "Run this once in Terminal. Every Claude Code session on this Mac then has relay_post, relay_status and relay_list."
     public static let claudeMd = "Copies docs/claude-md-section.md from the repo. Paste it into ~/.claude/CLAUDE.md on this Mac."
-    public static let skill = "The instructables skill teaches Claude how to write asks. Install links ~/.claude/skills/instructables to the repo's skill folder. If that path already holds something else, Relay leaves it alone."
+    public static let skill = "The instructables skill teaches Claude how to write asks. Install links ~/.claude/skills/instructables to the repo's skill folder. If that path already holds something else, Hook leaves it alone."
     public static let cli = "If MCP servers are blocked here, Claude can use the CLI. The relay command posts the same asks. install.sh links it into ~/.local/bin."
     public static let hook = "Shows answers in every session. Add this to ~/.claude/settings.json. Before each prompt it prints answers given since the last one. It always exits 0, so it never blocks a prompt."
-    public static let repo = "Relay needs its source folder to build these commands. scripts/install.sh sets it for you."
+    public static let repo = "Hook needs its source folder to build these commands. scripts/install.sh sets it for you."
 }

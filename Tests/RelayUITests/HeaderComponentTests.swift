@@ -44,6 +44,6 @@ import Testing
     @Test func dockActionNames() {
         #expect(PanelHeaderActions.dockLeft == "Dock on the left edge")
         #expect(PanelHeaderActions.dockRight == "Dock on the right edge")
-        #expect(PanelHeaderActions.dragHelp == "Drag to the left or right edge of any display to pin Relay there")
+        #expect(PanelHeaderActions.dragHelp == "Drag to the left or right edge of any display to pin Hook there")
     }
 }

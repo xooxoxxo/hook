@@ -18,7 +18,7 @@ final class BadgeStrip: NSView {
         for (index, state) in Self.states.enumerated() {
             let cell = NSView(frame: NSRect(x: CGFloat(index) * Self.cell.width, y: 0,
                                             width: Self.cell.width, height: Self.cell.height))
-            let symbol = NSImage(systemSymbolName: DS.Symbol.menuBar, accessibilityDescription: "Relay")
+            let symbol = NSImage(systemSymbolName: DS.Symbol.menuBar, accessibilityDescription: "Hook")
             symbol?.isTemplate = true
             let imageView = NSImageView(image: symbol ?? NSImage())
             imageView.contentTintColor = .labelColor

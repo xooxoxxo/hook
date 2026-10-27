@@ -30,7 +30,7 @@ public struct ReleaseVersion: Comparable, Hashable, Sendable, CustomStringConver
     }
 }
 
-/// The parts of GitHub's "latest release" reply that Relay reads.
+/// The parts of GitHub's "latest release" reply that Hook reads.
 public struct LatestRelease: Equatable, Sendable {
     /// The git tag, exactly as GitHub gives it ("v0.6.5").
     public let tag: String
@@ -122,7 +122,7 @@ public enum UpdateGate {
         let changes = porcelain.split(whereSeparator: \.isNewline).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
         if !changes.isEmpty {
             let files = changes.count == 1 ? "1 file has" : "\(changes.count) files have"
-            return .refused("The Relay checkout has changes that aren't committed (\(files) changed). Commit or stash them, then try again.")
+            return .refused("The Hook checkout has changes that aren't committed (\(files) changed). Commit or stash them, then try again.")
         }
         let name = branch.trimmingCharacters(in: .whitespacesAndNewlines)
         if name == "main" { return .ok(.fastForward) }
@@ -131,18 +131,28 @@ public enum UpdateGate {
                ReleaseVersion(tag) != nil {
                 return .ok(.checkout)
             }
-            return .refused("The Relay checkout isn't on a branch or a release tag. Switch it to main, then try again.")
+            return .refused("The Hook checkout isn't on a branch or a release tag. Switch it to main, then try again.")
         }
-        return .refused("The Relay checkout is on the branch “\(Sanitize.revealLine(name))”, not main. Switch it to main, then try again.")
+        return .refused("The Hook checkout is on the branch “\(Sanitize.revealLine(name))”, not main. Switch it to main, then try again.")
     }
 
-    /// `git remote get-url origin` names github.com/xooxoxxo/relay, over https or ssh.
-    public static func isRelayOrigin(_ url: String) -> Bool {
+    /// The repo's names on GitHub: `relay` from before the rename, `hook` after it.
+    /// Clones made before the rename keep the old URL, which GitHub redirects.
+    public static let repoNames = ["xooxoxxo/relay", "xooxoxxo/hook"]
+
+    /// The release check stays on the old path: GitHub redirects it after the rename,
+    /// and it is the one installed 0.7.x apps ask too.
+    public static let latestReleaseAPI = "https://api.github.com/repos/xooxoxxo/relay/releases/latest"
+
+    /// `git remote get-url origin` names github.com/xooxoxxo/relay or github.com/xooxoxxo/hook,
+    /// over https or ssh.
+    public static func isRepoOrigin(_ url: String) -> Bool {
         var text = url.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if text.hasSuffix("/") { text.removeLast() }
         if text.hasSuffix(".git") { text.removeLast(4) }
-        return ["https://github.com/xooxoxxo/relay", "ssh://git@github.com/xooxoxxo/relay",
-                "git@github.com:xooxoxxo/relay"].contains(text)
+        return repoNames.contains { name in
+            ["https://github.com/" + name, "ssh://git@github.com/" + name, "git@github.com:" + name].contains(text)
+        }
     }
 }
 
@@ -189,7 +199,7 @@ public struct UpdatePlan: Equatable, Sendable {
         }
     }
 
-    /// The script the job runs. Each step that fails logs which one, and Relay is
+    /// The script the job runs. Each step that fails logs which one, and Hook is
     /// started again if install.sh had already quit it. The job removes itself at the end.
     public var script: String {
         let repo = Shell.quote(repoPath)
@@ -204,22 +214,22 @@ public struct UpdatePlan: Equatable, Sendable {
         }
         fail() {
           echo "update: failed: $1"
-          /usr/bin/pgrep -x Relay >/dev/null 2>&1 || /usr/bin/open -g -a \(app)
+          /usr/bin/pgrep -x Hook >/dev/null 2>&1 || /usr/bin/open -g -a \(app)
           finish
         }
-        echo "update: $(/bin/date '+%Y-%m-%d %H:%M:%S') Relay" \(Shell.quote(current)) "->" \(Shell.quote(tag)) "in" \(repo)
+        echo "update: $(/bin/date '+%Y-%m-%d %H:%M:%S') Hook" \(Shell.quote(current)) "->" \(Shell.quote(tag)) "in" \(repo)
         cd \(repo) || fail "couldn't open the checkout"
         /usr/bin/git fetch origin --tags || fail "git fetch origin --tags"
         \(moveCommand) || fail \(Shell.quote(moveStep))
         ./scripts/install.sh || fail "./scripts/install.sh"
-        echo "update: done, Relay is now" \(Shell.quote(tag))
+        echo "update: done, Hook is now" \(Shell.quote(tag))
         finish
 
         """
     }
 
-    /// A one-shot LaunchAgent: launchd runs the script outside Relay, so it survives
-    /// install.sh quitting Relay, and never runs it again.
+    /// A one-shot LaunchAgent: launchd runs the script outside Hook, so it survives
+    /// install.sh quitting Hook, and never runs it again.
     public var jobPlist: [String: Any] {
         [
             "Label": Self.jobLabel,

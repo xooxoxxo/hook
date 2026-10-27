@@ -51,7 +51,7 @@ struct SheetSection {
                 IconButton(DS.Symbol.next, label: "Next ask", help: "Next ask (⌘↓)") {}.disabled(true)
             }
         },
-        Sample("HelpButton") { HStack { Text("Presence"); HelpButton(rowLabel: "Presence", text: "Relay marks you away when the screen locks.") } },
+        Sample("HelpButton") { HStack { Text("Presence"); HelpButton(rowLabel: "Presence", text: "Hook marks you away when the screen locks.") } },
         Sample("TrailingDisclosureStyle · collapsed") {
             DisclosureGroup(isExpanded: .constant(false)) { Text("Hidden body") } label: { Text("Done step") }
                 .disclosureGroupStyle(.trailing)
@@ -388,7 +388,7 @@ struct ComponentsSheet: View {
         Sample("SettingsRow · help, none, error") {
             Form {
                 Section("Shortcut") {
-                    SettingsRow("Show or hide Relay", help: "Click the field, then press the new keys.",
+                    SettingsRow("Show or hide Hook", help: "Click the field, then press the new keys.",
                                 error: "That key can't be used. Pick a letter, a digit, Space, ` or F1–F12.") {
                         ShortcutField(label: "⌃⌥⌘R", onBegin: {}, onRecord: { _ in }, onCancel: {}, onClear: {})
                     }

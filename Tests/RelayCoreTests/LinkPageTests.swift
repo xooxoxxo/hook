@@ -19,8 +19,8 @@ private func text(_ response: HTTPResponse) -> String {
 
 @Test func linkPageCarriesTitleTextAndClose() {
     let body = text(LinkPage.response(status: 200))
-    #expect(body.contains("<title>Relay</title>"))
-    #expect(body.contains("Handed to Relay"))
+    #expect(body.contains("<title>Hook</title>"))
+    #expect(body.contains("Handed to Hook"))
     #expect(body.contains("This tab closes by itself."))
     #expect(body.contains("You can close this tab."))
     #expect(body.contains("window.close()"))

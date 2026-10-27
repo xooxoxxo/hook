@@ -70,22 +70,22 @@ public struct MenuBarState: Sendable, Equatable {
     public var symbolDimmed: Bool { dimmed || away }
 
     public var accessibilityLabel: String {
-        var label = "Relay, \(count) waiting"
+        var label = "Hook, \(count) waiting"
         if nowCount > 0 { label += ", \(nowCount) now" }
         if !reachable { label += ", offline" }
         if away { label += ", away" }
         return label
     }
 
-    /// Always set: "Relay · 5 waiting, 1 now · ⌃⌥⌘R", "Relay · offline: <reason>",
-    /// "Relay · away since 10:22 · 5 waiting". The reason is revealed (one line).
+    /// Always set: "Hook · 5 waiting, 1 now · ⌃⌥⌘R", "Hook · offline: <reason>",
+    /// "Hook · away since 10:22 · 5 waiting". The reason is revealed (one line).
     public var tooltip: String {
         if dimmed {
-            return "Relay · offline" + (offlineReason.map { ": " + Sanitize.revealLine($0) } ?? "")
+            return "Hook · offline" + (offlineReason.map { ": " + Sanitize.revealLine($0) } ?? "")
         }
         var waiting = count == 0 ? "nothing waiting" : "\(count) waiting"
         if count > 0, nowCount > 0 { waiting += ", \(nowCount) now" }
-        var parts = ["Relay"]
+        var parts = ["Hook"]
         if away { parts.append("away" + (awaySince.map { " since " + $0 } ?? "")) }
         parts.append(waiting)
         if let shortcut { parts.append(shortcut) }

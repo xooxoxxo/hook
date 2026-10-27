@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Relay installer. Idempotent: re-run it after `git pull` to rebuild and re-register.
+# Hook (formerly Relay) installer. Idempotent: re-run it after `git pull` to rebuild and re-register.
 #   scripts/install.sh                  build and install; keep the config (new installs get "This Mac only")
 #   scripts/install.sh --local          the same, and set source "local" (This Mac only)
 #   scripts/install.sh --mailbox <dir>  the same, and use the mailbox named by <dir>/mailbox-url and <dir>/mailbox-token
-#   scripts/install.sh --uninstall      remove the app, LaunchAgent, this repo's CLI link, MCP server
-#                                       and this repo's skill link (keeps the config, token and queue)
+#   scripts/install.sh --uninstall      remove the app (Hook.app and an old Relay.app), LaunchAgent,
+#                                       this repo's CLI links, MCP server and this repo's skill link (keeps the config, token and queue)
 # This script never reads or prints any token.
 # Test-only switches, used by scripts/test-install.sh and nothing else:
 #   RELAY_SKIP_BUILD=1   no build, no app quit, no copy to ~/Applications
@@ -13,7 +13,8 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
-APP="$HOME/Applications/Relay.app"
+APP="$HOME/Applications/Hook.app"
+OLD_APP="$HOME/Applications/Relay.app"   # the app before the rename to Hook
 LABEL="io.github.xooxoxxo.relay"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 OLD_LABEL="dev.instructables.relay"   # the bundle id of pre-release builds
@@ -22,6 +23,7 @@ CONFIG_DIR="$HOME/.config/relay"
 CONFIG="$CONFIG_DIR/config.json"
 DATA_DIR="$HOME/Library/Application Support/Relay"
 CLI_LINK="$HOME/.local/bin/relay"
+CLI_ALIAS="$HOME/.local/bin/hook"   # the same CLI under the new name
 SKILL_LINK="$HOME/.claude/skills/instructables"
 MCP_CMD="claude mcp add --scope user relay -- python3 \"$REPO/mcp/relay_mcp.py\""
 GUI="gui/$(id -u)"
@@ -34,12 +36,12 @@ usage() {
   cat <<'EOF'
 Usage: scripts/install.sh [--local | --mailbox <dir> | --uninstall | --help]
 
-  (no flag)        Build and install Relay. Keeps an existing config;
+  (no flag)        Build and install Hook. Keeps an existing config;
                    a new install starts in "This Mac only" mode.
   --local          Also switch the config to "This Mac only" (source "local").
   --mailbox <dir>  Also switch to the mailbox named by <dir>/mailbox-url (an http(s) URL)
                    and <dir>/mailbox-token (only its path is stored; it is never read).
-  --uninstall      Remove the app, LaunchAgent, CLI link, MCP server and this repo's
+  --uninstall      Remove the app, LaunchAgent, CLI links, MCP server and this repo's
                    skill link. Keeps the config, token and queue.
 EOF
 }
@@ -70,6 +72,33 @@ have_claude() { command -v claude >/dev/null 2>&1; }
 # Creates a directory with mode 0700, or tightens an existing one to 0700.
 private_dir() { (umask 077; mkdir -p "$1"); chmod 700 "$1"; }
 
+# Quits a running Hook and a running Relay (the app before the rename), and waits
+# up to 5 s for both to go.
+quit_apps() {
+  pkill -x Hook 2>/dev/null || true
+  pkill -x Relay 2>/dev/null || true
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    pgrep -x Hook >/dev/null 2>&1 || pgrep -x Relay >/dev/null 2>&1 || break
+    sleep 0.5
+  done
+}
+
+# Unregisters and removes an app bundle, if it is there.
+remove_app() {
+  [ -d "$1" ] || return 0
+  if [ "$SKIP_LAUNCH" != "1" ]; then "$LSREGISTER" -u "$1" 2>/dev/null || true; fi
+  rm -rf "$1"
+}
+
+# Removes a CLI link only when it points at this repo's bin/relay.
+remove_cli_link() {
+  if [ -L "$1" ] && [ "$(readlink "$1")" = "$REPO/bin/relay" ]; then
+    rm "$1"
+  elif [ -e "$1" ] || [ -L "$1" ]; then
+    echo "cli: $1 is not this repo's link; left alone"
+  fi
+}
+
 # Unloads and removes the LaunchAgent written under the old bundle id, if any.
 remove_old_agent() {
   [ -e "$OLD_PLIST" ] || return 0
@@ -83,37 +112,33 @@ remove_old_agent() {
 if [ "$uninstall" -eq 1 ]; then
   if [ "$SKIP_LAUNCH" != "1" ]; then
     launchctl bootout "$GUI/$LABEL" 2>/dev/null || true
+    pkill -x Hook 2>/dev/null || true
     pkill -x Relay 2>/dev/null || true
   fi
   rm -f "$PLIST"
   remove_old_agent
-  if [ -d "$APP" ]; then
-    if [ "$SKIP_LAUNCH" != "1" ]; then "$LSREGISTER" -u "$APP" 2>/dev/null || true; fi
-    rm -rf "$APP"
-  fi
-  if [ -L "$CLI_LINK" ] && [ "$(readlink "$CLI_LINK")" = "$REPO/bin/relay" ]; then
-    rm "$CLI_LINK"
-  elif [ -e "$CLI_LINK" ] || [ -L "$CLI_LINK" ]; then
-    echo "cli: $CLI_LINK is not this repo's link; left alone"
-  fi
+  remove_app "$APP"
+  remove_app "$OLD_APP"
+  remove_cli_link "$CLI_LINK"
+  remove_cli_link "$CLI_ALIAS"
   if [ "$SKIP_MCP" != "1" ] && have_claude; then claude mcp remove relay --scope user >/dev/null 2>&1 || true; fi
   if [ -L "$SKILL_LINK" ] && [ "$(readlink "$SKILL_LINK")" = "$REPO/skill/instructables" ]; then
     rm "$SKILL_LINK"
   elif [ -e "$SKILL_LINK" ] || [ -L "$SKILL_LINK" ]; then
     echo "skill: $SKILL_LINK is not this repo's link; left alone"
   fi
-  echo "Relay uninstalled. Kept:"
+  echo "Hook uninstalled. Kept:"
   echo "  config: $CONFIG"
   echo "  token:  $CONFIG_DIR/local-token"
   echo "  queue:  $DATA_DIR"
-  echo "To also remove Relay's UI state: defaults delete $LABEL"
+  echo "To also remove Hook's UI state: defaults delete $LABEL"
   exit 0
 fi
 
 # --- 1. checks -------------------------------------------------------------------
 
 macos="$(sw_vers -productVersion 2>/dev/null || echo 0)"
-[ "${macos%%.*}" -ge 14 ] 2>/dev/null || die "Relay needs macOS 14 or newer (this Mac has $macos)"
+[ "${macos%%.*}" -ge 14 ] 2>/dev/null || die "Hook needs macOS 14 or newer (this Mac has $macos)"
 command -v python3 >/dev/null 2>&1 || die "python3 not found; install the Command Line Tools: xcode-select --install"
 python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)' \
   || die "python3 is older than 3.9; update the Command Line Tools in System Settings › Software Update"
@@ -126,7 +151,7 @@ if [ "$SKIP_BUILD" != "1" ]; then
 If it mentions the Xcode license, run: sudo xcodebuild -license accept"
   fi
   [ "$swift_major" -ge 6 ] \
-    || die "Relay needs Swift 6 or newer; update the Command Line Tools in System Settings › Software Update"
+    || die "Hook needs Swift 6 or newer; update the Command Line Tools in System Settings › Software Update"
 fi
 
 mailbox_url=""
@@ -155,10 +180,11 @@ private_dir "$CONFIG_DIR"
 private_dir "$DATA_DIR"
 
 # A first install: no config yet, or no app yet (an earlier first install that
-# failed at the build has already written the config).
+# failed at the build has already written the config). Relay.app, the app before
+# the rename, counts as an app: its owner is updating, not installing.
 first_install=0
 [ -e "$CONFIG" ] || first_install=1
-[ -d "$APP" ] || first_install=1
+[ -d "$APP" ] || [ -d "$OLD_APP" ] || first_install=1
 if [ -e "$CONFIG" ]; then
   if ! python3 - "$CONFIG" <<'PY'
 import json, sys
@@ -213,21 +239,23 @@ PY
 
 if [ "$SKIP_BUILD" != "1" ]; then
   BUILD_ONLY=1 "$REPO/scripts/build.sh"
-  [ -d "$REPO/build/Relay.app" ] || die "build.sh did not produce $REPO/build/Relay.app"
-  if [ "$SKIP_LAUNCH" != "1" ]; then
-    pkill -x Relay 2>/dev/null || true
-    for _ in 1 2 3 4 5 6 7 8 9 10; do
-      pgrep -x Relay >/dev/null 2>&1 || break
-      sleep 0.5
-    done
-  fi
+  [ -d "$REPO/build/Hook.app" ] || die "build.sh did not produce $REPO/build/Hook.app"
+  # An update from 0.7.x runs the old app's update job with this script, so Relay
+  # is quit here too.
+  if [ "$SKIP_LAUNCH" != "1" ]; then quit_apps; fi
   mkdir -p "$(dirname "$APP")"
   rm -rf "$APP"
-  ditto "$REPO/build/Relay.app" "$APP"
+  ditto "$REPO/build/Hook.app" "$APP"
   if [ "$SKIP_LAUNCH" != "1" ]; then "$LSREGISTER" -f "$APP"; fi
   echo "app: installed $APP"
 else
   echo "app: skipped (RELAY_SKIP_BUILD=1)"
+fi
+
+# Only once Hook.app is in place: the app from before the rename goes.
+if [ -d "$APP" ] && [ -d "$OLD_APP" ]; then
+  remove_app "$OLD_APP"
+  echo "app: removed $OLD_APP (Relay is now Hook)"
 fi
 
 # Steps 4-6 are optional: a failure warns with the command to run later, and the
@@ -244,6 +272,16 @@ elif mkdir -p "$(dirname "$CLI_LINK")" && ln -s "$REPO/bin/relay" "$CLI_LINK"; t
   echo "cli: $CLI_LINK -> $REPO/bin/relay"
 else
   warn "cli: couldn't link $CLI_LINK; later run: ln -s \"$REPO/bin/relay\" \"$CLI_LINK\""
+fi
+# The `hook` alias: the same CLI, linked only when the path is free.
+if [ -L "$CLI_ALIAS" ] && [ "$(readlink "$CLI_ALIAS")" = "$REPO/bin/relay" ]; then
+  echo "cli: $CLI_ALIAS already links here"
+elif [ -e "$CLI_ALIAS" ] || [ -L "$CLI_ALIAS" ]; then
+  warn "cli: $CLI_ALIAS is something else; left alone. The relay command works the same."
+elif mkdir -p "$(dirname "$CLI_ALIAS")" && ln -s "$REPO/bin/relay" "$CLI_ALIAS"; then
+  echo "cli: $CLI_ALIAS -> $REPO/bin/relay"
+else
+  warn "cli: couldn't link $CLI_ALIAS; later run: ln -s \"$REPO/bin/relay\" \"$CLI_ALIAS\""
 fi
 case ":$PATH:" in
   *":$HOME/.local/bin:"*) ;;
@@ -320,7 +358,7 @@ EOF
     if [ "$loaded" -eq 1 ]; then
       echo "launchagent: loaded $LABEL"
     else
-      echo "launchagent: launchctl bootstrap $GUI $PLIST failed; Relay still starts below" >&2
+      echo "launchagent: launchctl bootstrap $GUI $PLIST failed; Hook still starts below" >&2
     fi
   fi
 else
@@ -353,11 +391,11 @@ except ValueError:
     d = {}
 print(d.get("source", "?") if isinstance(d, dict) and d.get("app") == "relay" else "")' 2>/dev/null || true)"
   if [ -n "$src" ]; then
-    echo "relay: running on 127.0.0.1:$port (source: $src)"
+    echo "hook: running on 127.0.0.1:$port (source: $src)"
     echo "Done. Settings: right-click the menu-bar icon. Config: $CONFIG"
     exit 0
   fi
   sleep 0.5
 done
-echo "warning: Relay did not answer on 127.0.0.1:$port/health; open $APP by hand" >&2
+echo "warning: Hook did not answer on 127.0.0.1:$port/health; open $APP by hand" >&2
 exit 1

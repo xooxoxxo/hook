@@ -230,9 +230,9 @@ enum QueueSourceRadio {
 
 /// The Queue tab's "?" texts; Welcome uses the same ones.
 public enum QueueHelp {
-    public static let local = "Asks are stored in a file on this Mac and never leave it. Claude Code sessions on this Mac send them to Relay with the relay command or the MCP server."
-    public static let mailbox = "Asks come from a mailbox server you run. Relay checks it on a timer and sends your answers back to it. The token file holds the mailbox's access token; Relay reads it only to talk to the mailbox and never shows it."
+    public static let local = "Asks are stored in a file on this Mac and never leave it. Claude Code sessions on this Mac send them to Hook with the relay command or the MCP server."
+    public static let mailbox = "Asks come from a mailbox server you run. Hook checks it on a timer and sends your answers back to it. The token file holds the mailbox's access token; Hook reads it only to talk to the mailbox and never shows it."
     public static let source = local + "\n\n" + mailbox
     public static let keep = "Closed asks older than this are deleted from this Mac."
-    public static let test = "Posts a sample ask through the current source: project Relay, one step that runs echo relay-ok, and a verify step."
+    public static let test = "Posts a sample ask through the current source: project Hook, one step that runs echo relay-ok, and a verify step."
 }

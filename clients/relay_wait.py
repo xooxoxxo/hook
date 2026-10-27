@@ -3,7 +3,7 @@
 Meant to run in the background right after posting an ask the session's work waits on:
 Claude Code wakes the session when the command exits. Only owner events count
 (reply, resolved, declined, reopened, answer) with a seq above --after. Exit 0 with the answer on
-stdout; 3 when the timeout passes first. An unreachable Relay or mailbox, or a 5xx
+stdout; 3 when the timeout passes first. An unreachable Hook or mailbox, or a 5xx
 answer, is retried every interval until the deadline; a missing ask or a missing
 config ends the wait at once (exit 1 / 2, raised to the caller).
 A step answer starts a 10 s settle: the wait exits once 10 s pass with no newer answer, so a burst

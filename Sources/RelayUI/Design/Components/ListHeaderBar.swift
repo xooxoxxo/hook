@@ -48,7 +48,7 @@ public struct ListHeaderBar: View {
                     QueueMenu(grouping: grouping, filter: filter, projects: projects)
                     IconButton(DS.Symbol.refresh, label: "Refresh", help: Self.refreshHelp(updated: updated), action: onRefresh)
                         .keyboardShortcut("r")
-                    IconButton(DS.Symbol.hide, label: "Hide Relay", help: "Hide (Esc)", action: onHide)
+                    IconButton(DS.Symbol.hide, label: "Hide Hook", help: "Hide (Esc)", action: onHide)
                 }
             }
             if let project = filter.wrappedValue {

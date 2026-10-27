@@ -1,6 +1,7 @@
 #!/bin/bash
-# Build Relay.app from SwiftPM, ad-hoc sign it, and install it to ~/Applications.
-# BUILD_ONLY=1 assembles ./build/Relay.app and installs nothing.
+# Build Hook.app from SwiftPM, ad-hoc sign it, and install it to ~/Applications.
+# The SwiftPM executable target is still called Relay; it is copied in as MacOS/Hook.
+# BUILD_ONLY=1 assembles ./build/Hook.app and installs nothing.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -13,12 +14,12 @@ if [ "${BUILD_ONLY:-0}" = "1" ]; then
 else
   DEST="$HOME/Applications"
 fi
-APP="$DEST/Relay.app"
+APP="$DEST/Hook.app"
 
 mkdir -p "$DEST"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
-cp "$BIN" "$APP/Contents/MacOS/Relay"
+cp "$BIN" "$APP/Contents/MacOS/Hook"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 plutil -lint "$APP/Contents/Info.plist"
 codesign --force -s - "$APP"
