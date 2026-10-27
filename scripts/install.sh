@@ -244,6 +244,9 @@ elif mode == "mailbox":
     cfg.update({"source": "mailbox", "mailboxURL": url, "tokenFile": token_file})
 elif created:
     cfg["source"] = "local"
+if created:
+    # The app's setup window shows once for a new config; it removes the key when done.
+    cfg["onboarding"] = "pending"
 cfg["repoPath"] = repo
 data = (json.dumps(cfg, indent=2, sort_keys=True, ensure_ascii=False) + "\n").encode("utf-8")
 tmp = os.path.join(os.path.dirname(path), ".config.json.%d.tmp" % os.getpid())

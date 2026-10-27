@@ -53,9 +53,10 @@ sys.exit(0 if json.load(open(path, encoding="utf-8")).get(key) == json.loads(val
 PY
 }
 
-# 1. Fresh install: {"source":"local"} plus repoPath, 0600 in a 0700 folder.
+# 1. Fresh install: {"source":"local"} plus repoPath and onboarding "pending" (the app's
+#    setup window shows once), 0600 in a 0700 folder.
 run || { cat "$OUT"; fail "fresh install exited non-zero"; }
-config_eq '{"source": "local", "repoPath": "@REPO@"}'
+config_eq '{"source": "local", "repoPath": "@REPO@", "onboarding": "pending"}'
 [ "$(mode_of "$CONFIG")" = "600" ] || fail "config.json is $(mode_of "$CONFIG"), not 600"
 [ "$(mode_of "$H/.config/relay")" = "700" ] || fail "~/.config/relay is not 700"
 [ "$(mode_of "$H/Library/Application Support/Relay")" = "700" ] || fail "the data folder is not 700"
@@ -76,10 +77,12 @@ ok "fresh install"
 # RELAY_SKIP_BUILD installs no app; stand one in, so the reruns below aren't first installs.
 fake_app "$H/Applications/Hook.app"
 
-# 2. A rerun keeps unknown keys and never turns a removed LaunchAgent back on.
+# 2. A rerun keeps unknown keys, never writes onboarding into a config it didn't create
+#    (the app removed it after setup), and never turns a removed LaunchAgent back on.
 python3 - "$CONFIG" <<'PY'
 import json, sys
 d = json.load(open(sys.argv[1]))
+d.pop("onboarding")
 d.update({"custom": 7, "hotkey": ""})
 open(sys.argv[1], "w").write(json.dumps(d))
 PY
@@ -130,7 +133,7 @@ echo '{"source": "local",' > "$CONFIG"
 run || { cat "$OUT"; fail "install over a broken config exited non-zero"; }
 ls "$H/.config/relay/" | grep -q '^config\.json\.bad-[0-9]\{8\}-[0-9]\{6\}$' || fail "broken config not moved to .bad-*"
 [ "$(cat "$H"/.config/relay/config.json.bad-*)" = '{"source": "local",' ] || fail "moved file lost its content"
-config_eq '{"source": "local", "repoPath": "@REPO@"}'
+config_eq '{"source": "local", "repoPath": "@REPO@", "onboarding": "pending"}'
 grep -q 'did not parse; moved it to' "$OUT" || fail "the move was not reported"
 ok "unparseable config moved aside"
 
@@ -187,6 +190,7 @@ run || { cat "$OUT"; fail "install over a BOM config exited non-zero"; }
 [ "$(bad_count)" = "$bad_before" ] || fail "a BOM config was moved aside"
 config_key source '"mailbox"'
 config_key mailboxURL '"https://mailbox.example.test"'
+config_key onboarding 'null'
 ok "BOM config kept"
 
 # 13. Someone else's `relay` command is left alone, by install and uninstall.
