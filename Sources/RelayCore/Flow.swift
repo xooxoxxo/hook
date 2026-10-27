@@ -97,9 +97,11 @@ public enum Flow {
     }
 
     /// ⇧⌘T: unticks the leaf ticked last this session (the last of `history` still
-    /// ticked); with none, the last ticked leaf in order. Question leaves are skipped.
-    public static func untickLast(ticks: Set<String>, history: [String], nodes: [DetailModel.Node]) -> (ticks: Set<String>, path: String?) {
-        let leafPaths = tickable(nodes).map(\.path)
+    /// ticked); with none, the last ticked leaf in order. Question leaves are skipped, and so
+    /// are `locked` ones (Flow.lockedPaths): a locked step is never ticked or unticked.
+    public static func untickLast(ticks: Set<String>, history: [String], nodes: [DetailModel.Node],
+                                  locked: Set<String> = []) -> (ticks: Set<String>, path: String?) {
+        let leafPaths = tickable(nodes).map(\.path).filter { !locked.contains($0) }
         let target = history.last { ticks.contains($0) && leafPaths.contains($0) }
             ?? leafPaths.last { ticks.contains($0) }
         guard let target else { return (ticks, nil) }

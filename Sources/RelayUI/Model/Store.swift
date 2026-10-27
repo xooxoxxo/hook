@@ -666,7 +666,9 @@ public enum LinkCheck: Equatable, Sendable {
     /// ⇧⌘T: unticks the leaf ticked last this session, else the last ticked leaf in order.
     @discardableResult public func untickLast(in id: String) -> String? {
         guard let nodes = nodes(for: id) else { return nil }
-        let result = Flow.untickLast(ticks: ticks(for: id), history: tickHistory[id] ?? [], nodes: nodes)
+        let ticks = ticks(for: id)
+        let result = Flow.untickLast(ticks: ticks, history: tickHistory[id] ?? [], nodes: nodes,
+                                     locked: Set(Flow.lockedPaths(nodes: nodes, ticks: ticks)))
         guard let path = result.path else { return nil }
         tickHistory[id]?.removeAll { $0 == path }
         setTicks(result.ticks, for: id, nodes: nodes)

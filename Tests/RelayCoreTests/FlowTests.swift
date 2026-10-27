@@ -207,6 +207,21 @@ private func answer(_ path: String) -> Answer { Answer(step: path, picked: ["EU"
         #expect(Flow.firstOpenBlock(nodes: simple, ticks: [])?.path == "2")
     }
 
+    /// ⇧⌘T never unticks a locked step: 3 was ticked, then the blocking 2 unticked, so 3 is
+    /// locked; history and order both skip it.
+    @Test func untickLastSkipsLockedSteps() {
+        let ticks: Set<String> = ["1", "3"]
+        let locked = Set(Flow.lockedPaths(nodes: simple, ticks: ticks))
+        #expect(locked == ["3", "verify"])
+        let fromHistory = Flow.untickLast(ticks: ticks, history: ["1", "2", "3"], nodes: simple, locked: locked)
+        #expect(fromHistory.path == "1")
+        #expect(fromHistory.ticks == ["3"])
+        let fromOrder = Flow.untickLast(ticks: ticks, history: [], nodes: simple, locked: locked)
+        #expect(fromOrder.path == "1")
+        #expect(Flow.untickLast(ticks: ["3"], history: ["3"], nodes: simple, locked: locked).path == nil)
+        #expect(Flow.untickLast(ticks: ["3"], history: ["3"], nodes: simple).path == "3")   // unlocked, it would go
+    }
+
     @Test func aWarningAloneLocksNothing() {
         let warned = DetailModel.nodes(steps: [Step(action: "a", warning: "careful"), Step(action: "b")], verify: nil)
         #expect(Flow.lockedPaths(nodes: warned, ticks: []) == [])
