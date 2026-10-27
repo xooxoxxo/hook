@@ -27,15 +27,24 @@ public enum LinkCheck: Equatable, Sendable {
     @Published public private(set) var details: [String: AskDetail] = [:] {
         didSet {
             settleAnswerDrafts()
+            settleDoneWarnings()
             queueInputChanged()
         }
     }
-    /// The highlighted row and the open detail.
-    @Published public var navigation = PanelNavigation() { didSet { dropNoticeOfLeftAsk() } }
+    /// The highlighted row and the open detail. Leaving an ask also ends its Done warning.
+    @Published public var navigation = PanelNavigation() {
+        didSet {
+            dropNoticeOfLeftAsk()
+            if !doneWarnings.isEmpty, !doneWarnings.allSatisfy({ $0 == navigation.selectedID }) {
+                doneWarnings = doneWarnings.filter { $0 == navigation.selectedID }
+            }
+        }
+    }
     /// Unsent reply text per ask. Memory only: the owner's text is never written to disk unasked.
     /// Only whether a draft has text reaches the queue (its draft mark), so typing doesn't rebuild it.
     @Published public var drafts: [String: String] = [:] {
         didSet {
+            settleDoneWarnings()
             let withText = Set(drafts.compactMap { QueueSnapshot.hasText($0.value) ? $0.key : nil })
             guard withText != draftsWithText else { return }
             draftsWithText = withText
@@ -44,9 +53,13 @@ public enum LinkCheck: Equatable, Sendable {
     }
     private var draftsWithText: Set<String> = []
     /// The picked, unsent choice index per ask. Memory only.
-    @Published public var pendingChoice: [String: Int] = [:]
+    @Published public var pendingChoice: [String: Int] = [:] { didSet { settleDoneWarnings() } }
     /// Unsent step answers per ask, then step path. Memory only, like `drafts`: they don't survive a quit.
-    @Published public var answerDrafts: [String: [String: AnswerDraft]] = [:]
+    @Published public var answerDrafts: [String: [String: AnswerDraft]] = [:] { didSet { settleDoneWarnings() } }
+    /// Asks whose bar shows the Done warning: Done was pressed with something unsent. Memory
+    /// only; it ends on Esc, on either of its buttons, on leaving the ask, and once nothing
+    /// is unsent any more (a Send in the ask, or answers arriving from elsewhere).
+    @Published public private(set) var doneWarnings: Set<String> = []
     /// An answers send in flight, or why the last one failed, per ask.
     @Published public private(set) var answerStates: [String: AnswerSendState] = [:]
     /// The answered paths per ask, from its cached detail's events, keyed on the event count
@@ -690,6 +703,7 @@ public enum LinkCheck: Equatable, Sendable {
         guard source != nil else { return }
         let order = visibleOrder
         let inDetail = navigation.selectedID == id
+        doneWarnings.remove(id)
         pending.add(id: id, verdict: verdict, note: nil, title: item(for: id)?.title ?? "", now: now())
         onAnnounce?(UndoBar.announcement(for: verdict))
         recentlyClosed.removeAll { $0.id == id }
@@ -988,8 +1002,45 @@ public enum LinkCheck: Equatable, Sendable {
         }
     }
 
-    /// ⌘↩ / the primary button: Done, or send first and close only when every send worked.
-    /// Order: the step answers, then the reply draft or pick, then Done; the first failure stops it.
+    /// Done (the button or ⌘↩): closes when nothing is unsent, else shows the bar's warning;
+    /// it never sends or drops an answer silently.
+    public func warnUnsent(_ id: String) {
+        guard primaryAction(for: id) == .sendAndDone else {
+            close(id, .done)
+            return
+        }
+        doneWarnings.insert(id)
+    }
+
+    /// Esc in the warning: back to editing, with everything kept.
+    public func cancelDoneWarning(_ id: String) {
+        doneWarnings.remove(id)
+    }
+
+    /// Discard & Done: drops the unsent reply text, pick and step answers (and any Change in
+    /// progress), then closes. Nothing is sent.
+    public func discardAndDone(_ id: String) {
+        guard answerStates[id] != .sending, replyStates[id] != .sending else { return }
+        doneWarnings.remove(id)
+        drafts[id] = nil
+        pendingChoice[id] = nil
+        answerDrafts[id] = nil
+        answerStates[id] = nil
+        editingReply.remove(id)
+        editingAnswers[id] = nil
+        close(id, .done)
+    }
+
+    /// A warning whose ask has nothing unsent any more goes; a later draft doesn't bring it back.
+    private func settleDoneWarnings() {
+        guard !doneWarnings.isEmpty else { return }
+        let kept = doneWarnings.filter { primaryAction(for: $0) == .sendAndDone }
+        if kept != doneWarnings { doneWarnings = kept }
+    }
+
+    /// Send & Done in the warning: send first and close only when every send worked.
+    /// Order: the step answers, then the reply draft or pick, then Done; the first failure stops it
+    /// and leaves the warning up, with the failure in place of its caption.
     public func sendAndDone(_ id: String) async {
         guard primaryAction(for: id) == .sendAndDone else {
             close(id, .done)
@@ -1254,7 +1305,8 @@ extension Store: PanelViewModel {
         return DetailSnapshot.build(
             item: item, detail: details[id], ticks: ticks(for: id), load: load, reply: replyStates[id] ?? .idle,
             draft: drafts[id], pendingChoice: pendingChoice[id], busy: replyStates[id] == .sending, previous: previous, next: next,
-            closedBy: closedBy(item), answerDrafts: answerDrafts[id] ?? [:], answerState: answerStates[id])
+            closedBy: closedBy(item), answerDrafts: answerDrafts[id] ?? [:], answerState: answerStates[id],
+            doneWarning: doneWarnings.contains(id))
     }
 
     public var status: PanelStatus {
@@ -1274,7 +1326,8 @@ extension Store: PanelViewModel {
             askOpen: opened.map { $0.status == "open" } ?? true, askHasProject: !(opened?.projectId ?? "").isEmpty,
             choiceCount: opened?.instructable?.reply?.choices?.count ?? 0,
             hasDraftOrPick: opened.map { primaryAction(for: $0.id) == .sendAndDone } ?? false,
-            hasUnsentAnswers: opened.map { unsentAnswers(for: $0.id).count > 0 } ?? false)
+            hasUnsentAnswers: opened.map { unsentAnswers(for: $0.id).count > 0 } ?? false,
+            doneWarning: opened.map { doneWarnings.contains($0.id) && primaryAction(for: $0.id) == .sendAndDone } ?? false)
     }
 
     /// The ask a key acts on: the open detail, else the selected row.
@@ -1298,6 +1351,9 @@ extension Store: PanelViewModel {
         case .openSelection: if let id = listSelection { open(id) }
         case .done: if let id = target { close(id, .done) }
         case .sendAndDone: if let id = target { sendAndDone(id) }
+        case .warnUnsent: if let id = target { warnUnsent(id) }
+        case .discardAndDone: if let id = target { discardAndDone(id) }
+        case .cancelDoneWarning: if let id = navigation.selectedID { cancelDoneWarning(id) }
         case .skip: if let id = target { close(id, .declined) }
         case .reopen: if let id = target { reopen(id) }
         case .copyLink: if let id = target { copyLink(id) }

@@ -32,19 +32,22 @@ struct DetailView<Model: PanelViewModel>: View {
         queue.closed.contains { $0.id == id }
     }
 
-    /// Closed: its text and Reopen. Open: the primary title (Flow.primaryAction), busy while sending.
+    /// Closed: its text and Reopen. The Done warning while it shows (busy while Send & Done
+    /// sends). Open: the primary (Flow.primaryAction), busy while sending.
     static func actionMode(_ snapshot: DetailSnapshot) -> ActionBarMode {
         if let closedText = snapshot.closedText { return .closed(closedText) }
+        if snapshot.doneWarning, let kind = snapshot.unsentKind { return .warning(kind, busy: snapshot.busy) }
         return snapshot.busy ? .busy(snapshot.primary) : .open(snapshot.primary)
     }
 
-    /// The bar caption for an open ask: "Done sends your answer first" while anything is
-    /// unsent, else the unanswered count; a failed answers send replaces it.
+    /// The bar caption for an open ask: the warning's "You have an unsent answer" while it
+    /// shows, else the unanswered count; a failed answers send replaces it.
     static func answers(_ snapshot: DetailSnapshot) -> ActionBarAnswers {
         guard snapshot.closedText == nil else { return .none }
         var failure: String?
         if case .failed(let reason)? = snapshot.answerState { failure = reason }
-        return ActionBarAnswers(caption: snapshot.primary.caption ?? snapshot.unansweredCaption, failure: failure)
+        let warning = snapshot.doneWarning ? snapshot.unsentKind?.caption : nil
+        return ActionBarAnswers(caption: warning ?? snapshot.unansweredCaption, failure: failure)
     }
 
     /// The ask a header chevron opens; nil at the ends and outside the filter (disabled).
@@ -355,7 +358,9 @@ struct DetailView<Model: PanelViewModel>: View {
             ActionBar(mode: Self.actionMode(snapshot), answers: Self.answers(snapshot),
                       onSkip: { model.close(id, .declined) },
                       onPrimary: { primary(snapshot) },
-                      onReopen: { model.reopen(id) })
+                      onReopen: { model.reopen(id) },
+                      onSendAndDone: { model.sendAndDone(id) },
+                      onDiscard: { model.discardAndDone(id) })
         }
         .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: model.undoInfo)
         // The bars grow past DS.Metric.actionBar (a wrapped caption, the undo bar), so the
@@ -370,7 +375,7 @@ struct DetailView<Model: PanelViewModel>: View {
     private func primary(_ snapshot: DetailSnapshot) {
         switch snapshot.primary {
         case .done: model.close(id, .done)
-        case .sendAndDone: model.sendAndDone(id)
+        case .sendAndDone: model.warnUnsent(id)
         }
     }
 }

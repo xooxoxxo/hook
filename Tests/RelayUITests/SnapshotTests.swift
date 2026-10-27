@@ -354,6 +354,13 @@ private let phase3Now = Date(timeIntervalSince1970: 1_792_143_600)
         #expect(DetailView<FixturePanelModel>.actionMode(snapshot) == .open(.sendAndDone))
         snapshot.busy = true
         #expect(DetailView<FixturePanelModel>.actionMode(snapshot) == .busy(.sendAndDone))
+        snapshot.unsentKind = .reply
+        snapshot.doneWarning = true
+        #expect(DetailView<FixturePanelModel>.actionMode(snapshot) == .warning(.reply, busy: true))
+        snapshot.busy = false
+        #expect(DetailView<FixturePanelModel>.actionMode(snapshot) == .warning(.reply, busy: false))
+        snapshot.closedText = "Done by you"
+        #expect(DetailView<FixturePanelModel>.actionMode(snapshot) == .closed("Done by you"))
     }
 
     @Test func neighbourTargets() {

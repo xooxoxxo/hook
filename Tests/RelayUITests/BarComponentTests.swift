@@ -32,7 +32,10 @@ private let deadline = Date(timeIntervalSince1970: 1_000)
 
     @Test func actionBarHelp() {
         #expect(ActionBar.primaryHelp(.done) == "Done (⌘↩)")
-        #expect(ActionBar.primaryHelp(.sendAndDone) == "Send your answer, then close (⌘↩)")
+        #expect(ActionBar.primaryHelp(.sendAndDone) == "Done: asks first, as something is unsent (⌘↩)")
+        #expect(ActionBar.sendAndDoneTitle == "Send & Done")
+        #expect(ActionBar.discardTitle == "Discard & Done")
+        #expect(ActionBar.sendAndDoneHelp.contains("⌘↩") && ActionBar.sendAndDoneHelp.contains("Esc"))
         #expect(ActionBar.skipHelp == "Skip (⌘⌫)")
         #expect(ActionBar.reopenHelp == "Reopen (⇧⌘R)")
     }

@@ -7,12 +7,16 @@ public enum ActionBarMode: Equatable, Sendable {
     case open(PrimaryAction)
     /// A labelled spinner while the close is sent; both buttons disabled.
     case busy(PrimaryAction)
+    /// Done was pressed with something unsent: the warning caption, Discard & Done and the
+    /// prominent Send & Done (⌘↩). Esc, through the key router, goes back to editing.
+    /// `busy` while Send & Done is sending: a spinner and both buttons disabled.
+    case warning(UnsentKind, busy: Bool)
     /// The closed line ("Done by you · …") and Reopen.
     case closed(String)
 }
 
-/// What the bar says beside its buttons: the caption ("Done sends your answer first", or the
-/// unanswered count, R6), and a failed send's reason, which replaces the caption.
+/// What the bar says beside its buttons: the caption (the unanswered count, R6, or the
+/// warning's "You have an unsent answer"), and a failed send's reason, which replaces it.
 public struct ActionBarAnswers: Equatable, Sendable {
     public var caption: String?
     public var failure: String?
@@ -26,7 +30,8 @@ public struct ActionBarAnswers: Equatable, Sendable {
 }
 
 /// Design/ActionBar: the detail's bottom bar, Skip and Done only: every reply and question
-/// has its own Send, and Done sends what is unsent first. The open state carries ⌘↩ and ⌘⌫;
+/// has its own Send. Done with something unsent never sends or drops it silently: the bar
+/// switches to its warning (Send & Done, Discard & Done). The open state carries ⌘↩ and ⌘⌫;
 /// ⌘S (send every unsent answer) and ⇧⌘R (Reopen) go through the panel's key router.
 /// A caption or failure that doesn't fit beside the buttons goes on its own line above them.
 public struct ActionBar: View {
@@ -35,14 +40,21 @@ public struct ActionBar: View {
     let onSkip: () -> Void
     let onPrimary: () -> Void
     let onReopen: () -> Void
+    /// The warning's Send & Done.
+    let onSendAndDone: () -> Void
+    /// The warning's Discard & Done.
+    let onDiscard: () -> Void
 
     public init(mode: ActionBarMode, answers: ActionBarAnswers = .none, onSkip: @escaping () -> Void,
-                onPrimary: @escaping () -> Void, onReopen: @escaping () -> Void) {
+                onPrimary: @escaping () -> Void, onReopen: @escaping () -> Void,
+                onSendAndDone: @escaping () -> Void = {}, onDiscard: @escaping () -> Void = {}) {
         self.mode = mode
         self.answers = answers
         self.onSkip = onSkip
         self.onPrimary = onPrimary
         self.onReopen = onReopen
+        self.onSendAndDone = onSendAndDone
+        self.onDiscard = onDiscard
     }
 
     public var body: some View {
@@ -54,6 +66,8 @@ public struct ActionBar: View {
                     withNote { buttons(action, keyed: true) }
                 case let .busy(action):
                     withNote(busy: true) { buttons(action, keyed: false).disabled(true) }
+                case let .warning(_, busy):
+                    withNote(busy: busy) { warningButtons(keyed: !busy).disabled(busy) }
                 case let .closed(text):
                     HStack(spacing: DS.Space.inline) {
                         Text(text).font(DS.Font.meta).foregroundStyle(DS.Color.secondary).monospacedDigit()
@@ -106,10 +120,26 @@ public struct ActionBar: View {
 
     private var noteText: String? { answers.failure ?? answers.caption }
 
-    private func noteView(_ text: String) -> some View {
-        Text(verbatim: text)
+    private var isWarning: Bool {
+        if case .warning = mode { return true }
+        return false
+    }
+
+    /// The caption in secondary; the warning's with its symbol, in the primary colour; a
+    /// failure in red.
+    @ViewBuilder private func noteView(_ text: String) -> some View {
+        if answers.failure != nil {
+            Text(verbatim: text).font(DS.Font.caption).foregroundStyle(DS.Color.error)
+        } else if isWarning {
+            Label {
+                Text(verbatim: text).font(DS.Font.caption).foregroundStyle(DS.Color.primary)
+            } icon: {
+                Image(systemName: DS.Symbol.warning).foregroundStyle(DS.Color.warn).accessibilityHidden(true)
+            }
             .font(DS.Font.caption)
-            .foregroundStyle(answers.failure == nil ? DS.Color.secondary : DS.Color.error)
+        } else {
+            Text(verbatim: text).font(DS.Font.caption).foregroundStyle(DS.Color.secondary)
+        }
     }
 
     /// Skip and the primary. Only `.open` carries ⌘⌫ and ⌘↩ (busy is disabled, closed has
@@ -125,9 +155,24 @@ public struct ActionBar: View {
             .keyboardShortcut(keyed ? KeyboardShortcut(.return, modifiers: .command) : nil)
     }
 
-    public static func primaryHelp(_ action: PrimaryAction) -> String {
-        action == .done ? "Done (⌘↩)" : "Send your answer, then close (⌘↩)"
+    /// Discard & Done, then the prominent Send & Done (⌘↩). Discard takes no key on purpose.
+    @ViewBuilder private func warningButtons(keyed: Bool) -> some View {
+        Button(Self.discardTitle, action: onDiscard)
+            .help(Self.discardHelp)
+        Button(Self.sendAndDoneTitle, action: onSendAndDone)
+            .buttonStyle(.borderedProminent)
+            .help(Self.sendAndDoneHelp)
+            .keyboardShortcut(keyed ? KeyboardShortcut(.return, modifiers: .command) : nil)
     }
+
+    public static func primaryHelp(_ action: PrimaryAction) -> String {
+        action == .done ? "Done (⌘↩)" : "Done: asks first, as something is unsent (⌘↩)"
+    }
+
+    public static let sendAndDoneTitle = "Send & Done"
+    public static let discardTitle = "Discard & Done"
+    public static let sendAndDoneHelp = "Send what is unsent, then close (⌘↩). Esc goes back to editing."
+    public static let discardHelp = "Close without sending; the unsent text and picks go. Esc goes back to editing."
 
     public static let skipHelp = "Skip (⌘⌫)"
     public static let reopenHelp = "Reopen (⇧⌘R)"

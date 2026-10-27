@@ -134,19 +134,27 @@ public enum StatusSymbol: Equatable, Sendable { case ok, down, connecting, notSe
 
 public enum NoticeKind: Equatable, Sendable { case error, info }
 
-/// The detail's prominent button.
-/// The bar's one prominent button. Both read "Done": `.sendAndDone` sends what is unsent
-/// first (step answers, then the reply), and the bar says so in its caption.
+/// The detail's prominent button. Both read "Done": `.sendAndDone` means something is
+/// unsent, so Done first asks (the bar's warning state) instead of closing: it never sends
+/// or drops an answer silently.
 public enum PrimaryAction: Equatable, Sendable {
     case done, sendAndDone
 
     public var title: String { "Done" }
+}
 
-    /// The bar caption while Done would send first; nil for a plain Done.
-    public var caption: String? {
+/// What Done would leave unsent, which the bar's warning names.
+public enum UnsentKind: Equatable, Sendable {
+    /// One or more step answers, with or without a reply.
+    case answer
+    /// Only the reply: its typed text or picked choice.
+    case reply
+
+    /// The warning's caption.
+    public var caption: String {
         switch self {
-        case .done: return nil
-        case .sendAndDone: return "Done sends your answer first"
+        case .answer: return "You have an unsent answer"
+        case .reply: return "You have an unsent reply"
         }
     }
 }

@@ -60,12 +60,19 @@ import Testing
         #expect(byHand.map(\.path) == ["1", "2", "2.1", "2.2", "3"])
     }
 
-    /// One Done: while anything is unsent the bar says Done sends it first.
+    /// One Done, no "Done sends first" caption: the unanswered count, and the warning's
+    /// caption only once Done was pressed with something unsent.
     @Test func theBarCaption() {
         var snapshot = GalleryFixtures.detailSteps
         snapshot.primary = .sendAndDone
+        snapshot.unsentKind = .answer
         snapshot.unansweredCaption = "1 question unanswered"
-        #expect(DetailView<FixturePanelModel>.answers(snapshot).caption == "Done sends your answer first")
+        #expect(DetailView<FixturePanelModel>.answers(snapshot).caption == "1 question unanswered")
+        snapshot.doneWarning = true
+        #expect(DetailView<FixturePanelModel>.answers(snapshot).caption == "You have an unsent answer")
+        snapshot.unsentKind = .reply
+        #expect(DetailView<FixturePanelModel>.answers(snapshot).caption == "You have an unsent reply")
+        snapshot.doneWarning = false
         snapshot.primary = .done
         #expect(DetailView<FixturePanelModel>.answers(snapshot).caption == "1 question unanswered")
         snapshot.answerState = .failed(reason: "Couldn't send the answers. timed out")

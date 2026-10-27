@@ -68,7 +68,14 @@ public struct PanelShellActions: Sendable {
     func toggleTick(_ path: String, in id: String)
     func sendReply(_ id: String)
     func sendChoice(_ id: String)
+    /// Send & Done in the Done warning: sends what is unsent, then closes.
     func sendAndDone(_ id: String)
+    /// Done with something unsent: shows the bar's warning instead of closing.
+    func warnUnsent(_ id: String)
+    /// Discard & Done in the Done warning: drops the unsent text, picks and answers, then closes.
+    func discardAndDone(_ id: String)
+    /// Esc in the Done warning: back to editing, nothing sent or dropped.
+    func cancelDoneWarning(_ id: String)
     /// ⌘S: sends the open ask's unsent step answers.
     func sendAnswers(_ id: String)
     /// One question's own Send (and Return in its field): sends that step's unsent answer.

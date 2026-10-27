@@ -227,8 +227,16 @@ let longProject = "Quarterly planning for the public launch of the pricing page"
         Sample("StatusDetails · config error") { details(configError) },
         Sample("StatusDetails · listener") { details(listenerDown) },
         Sample("ActionBar · open") { ActionBar(mode: .open(.done), onSkip: {}, onPrimary: {}, onReopen: {}) },
-        Sample("ActionBar · Done sends first") {
-            ActionBar(mode: .open(.sendAndDone), answers: ActionBarAnswers(caption: PrimaryAction.sendAndDone.caption),
+        Sample("ActionBar · warning, unsent answer") {
+            ActionBar(mode: .warning(.answer, busy: false), answers: ActionBarAnswers(caption: UnsentKind.answer.caption),
+                      onSkip: {}, onPrimary: {}, onReopen: {})
+        },
+        Sample("ActionBar · warning, unsent reply") {
+            ActionBar(mode: .warning(.reply, busy: false), answers: ActionBarAnswers(caption: UnsentKind.reply.caption),
+                      onSkip: {}, onPrimary: {}, onReopen: {})
+        },
+        Sample("ActionBar · warning, sending") {
+            ActionBar(mode: .warning(.answer, busy: true), answers: ActionBarAnswers(caption: UnsentKind.answer.caption),
                       onSkip: {}, onPrimary: {}, onReopen: {})
         },
         Sample("ActionBar · busy") { ActionBar(mode: .busy(.done), onSkip: {}, onPrimary: {}, onReopen: {}) },

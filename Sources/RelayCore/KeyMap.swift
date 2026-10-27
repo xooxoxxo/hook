@@ -33,13 +33,16 @@ public struct KeyContext: Equatable, Sendable {
     public var askHasProject: Bool
     public var choiceCount: Int
     public var hasDraftOrPick: Bool
-    /// Detail: step answers are drafted and not sent (⌘S sends them; ⌘↩ sends them, then closes).
+    /// Detail: step answers are drafted and not sent (⌘S sends them; ⌘↩ warns first).
     public var hasUnsentAnswers: Bool
+    /// Detail: Done was pressed with something unsent and the bar is warning about it
+    /// (⌘↩ is Send & Done, Esc goes back to editing).
+    public var doneWarning: Bool
 
     public init(mode: Mode, textFieldFocused: Bool = false, popoverOpen: Bool = false, undoAvailable: Bool = false,
                 filterOn: Bool = false, selectionOpen: Bool? = nil, selectionHasProject: Bool = false, closedHeaderFocused: Bool = false,
                 askOpen: Bool = true, askHasProject: Bool = false, choiceCount: Int = 0, hasDraftOrPick: Bool = false,
-                hasUnsentAnswers: Bool = false) {
+                hasUnsentAnswers: Bool = false, doneWarning: Bool = false) {
         self.mode = mode
         self.textFieldFocused = textFieldFocused
         self.popoverOpen = popoverOpen
@@ -53,12 +56,16 @@ public struct KeyContext: Equatable, Sendable {
         self.choiceCount = choiceCount
         self.hasDraftOrPick = hasDraftOrPick
         self.hasUnsentAnswers = hasUnsentAnswers
+        self.doneWarning = doneWarning
     }
 }
 
 public enum PanelCommand: Equatable, Sendable {
     case closePopover, endEditing, back, hide, refresh, openSettings, undoClose, quit, dock(SidebarEdge), switchGrouping, clearFilter
     case showOnlyProject, openSelection, done, sendAndDone, skip, reopen, copyLink, setClosedExpanded(Bool)
+    /// Done with something unsent: the bar shows its warning instead of closing.
+    /// In the warning: `sendAndDone` (Send & Done), `discardAndDone`, and Esc's `cancelDoneWarning`.
+    case warnUnsent, discardAndDone, cancelDoneWarning
     /// `pickChoice(i)`: the 0-based choice index.
     case previousAsk, nextAsk, tickCurrent, untickLast, copyCurrentCode, openCurrentURL, focusReply, pickChoice(Int)
     /// ⌘S: send the open ask's unsent step answers.
@@ -71,6 +78,7 @@ public enum KeyMap {
     public static func command(for key: PanelKey, in c: KeyContext) -> PanelCommand? {
         if key == .escape {
             if c.popoverOpen { return .closePopover }
+            if c.mode == .detail && c.doneWarning { return .cancelDoneWarning }
             if c.textFieldFocused { return .endEditing }
             return c.mode == .detail ? .back : .hide
         }
@@ -116,9 +124,13 @@ public enum KeyMap {
         case .cmdLeftBracket: return .back
         case .cmdUp: return c.textFieldFocused ? nil : .previousAsk
         case .cmdDown: return c.textFieldFocused ? nil : .nextAsk
-        case .cmdReturn: return c.askOpen ? (c.hasDraftOrPick || c.hasUnsentAnswers ? .sendAndDone : .done) : nil
+        case .cmdReturn:
+            guard c.askOpen else { return nil }
+            if c.doneWarning { return .sendAndDone }
+            return c.hasDraftOrPick || c.hasUnsentAnswers ? .warnUnsent : .done
         case .cmdS: return c.askOpen && c.hasUnsentAnswers ? .sendAnswers : nil
-        case .cmdDelete: return !c.textFieldFocused && c.askOpen ? .skip : nil
+        // The warning has no Skip, and Discard & Done takes no key: dropping an answer is a click.
+        case .cmdDelete: return !c.textFieldFocused && c.askOpen && !c.doneWarning ? .skip : nil
         case .shiftCmdR: return c.askOpen ? nil : .reopen
         case .cmdT: return c.askOpen ? .tickCurrent : nil
         case .shiftCmdT: return c.askOpen ? .untickLast : nil

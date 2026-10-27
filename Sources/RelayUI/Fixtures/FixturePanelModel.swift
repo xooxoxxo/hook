@@ -56,6 +56,9 @@ public final class FixturePanelModel: PanelViewModel {
     public func sendReply(_ id: String) {}
     public func sendChoice(_ id: String) {}
     public func sendAndDone(_ id: String) {}
+    public func warnUnsent(_ id: String) {}
+    public func discardAndDone(_ id: String) {}
+    public func cancelDoneWarning(_ id: String) {}
     public func sendAnswers(_ id: String) {}
     public func sendAnswer(_ id: String, path: String) {}
     public func dismissNotice() {}

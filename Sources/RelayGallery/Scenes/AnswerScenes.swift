@@ -38,11 +38,13 @@ private func answerEvent(_ id: String, seq: Int, _ entry: JSONValue) -> Event {
 @MainActor private func answersScene(_ name: String, _ item: WireItem, events: [Event] = [], ticks: Set<String> = [],
                                      drafts: [String: AnswerDraft] = [:], closedText: String? = nil,
                                      height: CGFloat? = nil, expanded: Set<String> = [], editing: Set<String> = [],
+                                     doneWarning: Bool = false,
                                      setUp: (FixturePanelModel, String) -> Void = { _, _ in },
                                      overrides: PanelGalleryOverrides = fullHeight) -> GalleryScene {
     var snapshot = DetailSnapshot.build(
         item: item, detail: AskDetail(item: item, events: events), ticks: ticks, load: .loaded, reply: .idle,
-        draft: nil, pendingChoice: nil, busy: false, previous: .end, next: .end, closedBy: nil, answerDrafts: drafts)
+        draft: nil, pendingChoice: nil, busy: false, previous: .end, next: .end, closedBy: nil, answerDrafts: drafts,
+        doneWarning: doneWarning)
     snapshot.replies = ReplyText.lines(events: events, locale: galleryGB, timeZone: galleryUTC)
     if let closedText {
         snapshot.closedText = closedText
@@ -110,15 +112,25 @@ private func answerEvent(_ id: String, seq: Int, _ entry: JSONValue) -> Event {
     return answersScene("answers-parent", item)
 }
 
-/// Three questions, two drafted: each block has its own Send, and the bar says "Done sends your answer first".
-@MainActor private var barScene: GalleryScene {
-    let item = answersItem("kestrel-q6", "Set up the Kestrel release", steps: [
+private func barItem() -> WireItem {
+    answersItem("kestrel-q6", "Set up the Kestrel release", steps: [
         Step(action: "Pick the deploy target", question: environment),
         Step(action: "Choose the flags", question: flags),
         Step(action: "Name the release", question: releaseName),
     ])
-    return answersScene("answers-bar", item, drafts: ["1": .picked(["Staging"]), "2": .picked(["Search", "Dark mode"])],
-                        height: 820)
+}
+
+private let barDrafts: [String: AnswerDraft] = ["1": .picked(["Staging"]), "2": .picked(["Search", "Dark mode"])]
+
+/// Three questions, two drafted: each block has its own Send; the bar is Skip and Done.
+@MainActor private var barScene: GalleryScene {
+    answersScene("answers-bar", barItem(), drafts: barDrafts, height: 820)
+}
+
+/// answers-bar after Done: the bar's warning, "You have an unsent answer", Discard & Done
+/// and Send & Done (⌘↩).
+@MainActor private var barWarningScene: GalleryScene {
+    answersScene("answers-bar-warning", barItem(), drafts: barDrafts, height: 820, doneWarning: true)
 }
 
 /// A closed ask: read-only, the answered line or "Not answered", no controls (R5).
@@ -185,6 +197,6 @@ private let regionReply = ReplySpec(prompt: "Which region should the backups use
 }
 
 @MainActor var answerScenes: [GalleryScene] {
-    [segmentedScene, radioScene, multiScene, textScene, parentScene, barScene, closedScene,
+    [segmentedScene, radioScene, multiScene, textScene, parentScene, barScene, barWarningScene, closedScene,
      answeredScene, changingScene, replyAnsweredScene, replyChangingScene]
 }

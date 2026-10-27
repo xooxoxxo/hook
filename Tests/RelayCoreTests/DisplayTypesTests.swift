@@ -50,9 +50,9 @@ import Testing
 
     @Test func smallValues() {
         #expect(PrimaryAction.done.title == "Done")
-        #expect(PrimaryAction.sendAndDone.title == "Done")      // one Done; the caption says it sends first
-        #expect(PrimaryAction.done.caption == nil)
-        #expect(PrimaryAction.sendAndDone.caption == "Done sends your answer first")
+        #expect(PrimaryAction.sendAndDone.title == "Done")      // one Done; with something unsent it warns first
+        #expect(UnsentKind.answer.caption == "You have an unsent answer")
+        #expect(UnsentKind.reply.caption == "You have an unsent reply")
         #expect(HiddenCount.zero == HiddenCount(total: 0, now: 0))
         #expect(MenuProject(name: "Acme", open: 3).id == "Acme")
         #expect(SettingsTabID.allCases.map(\.rawValue) == ["general", "panel", "queue", "notifications", "connect"])

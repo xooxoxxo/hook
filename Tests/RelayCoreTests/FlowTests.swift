@@ -96,6 +96,18 @@ private let nodes = DetailModel.nodes(
     }
 }
 
+@Suite struct UnsentKindTests {
+    @Test func answersWinOverTheReply() {
+        #expect(Flow.unsentKind(draft: nil, choice: nil, sent: nil) == nil)
+        #expect(Flow.unsentKind(draft: "C07", choice: nil, sent: nil) == .reply)
+        #expect(Flow.unsentKind(draft: nil, choice: 1, sent: 0) == .reply)
+        #expect(Flow.unsentKind(draft: nil, choice: 1, sent: 1) == nil)
+        #expect(Flow.unsentKind(draft: nil, choice: nil, sent: nil, unsentAnswers: 1) == .answer)
+        #expect(Flow.unsentKind(draft: "C07", choice: nil, sent: nil, unsentAnswers: 2) == .answer)
+        #expect(Flow.unsentKind(draft: "Kestrel 2.4", choice: nil, sent: nil, sentText: "Kestrel 2.4") == nil)
+    }
+}
+
 @Suite struct PrimaryActionTests {
     @Test func doneByDefault() {
         #expect(Flow.primaryAction(draft: nil, choice: nil, sent: nil) == .done)

@@ -105,7 +105,7 @@ private func typing(_ c: KeyContext) -> KeyContext { var c = c; c.textFieldFocus
         #expect(cmd(.cmdReturn, detail) == .done)
         var draft = typing(detail)
         draft.hasDraftOrPick = true
-        #expect(cmd(.cmdReturn, draft) == .sendAndDone)
+        #expect(cmd(.cmdReturn, draft) == .warnUnsent)    // never sends silently: the bar warns
         var closed = detail
         closed.askOpen = false
         #expect(cmd(.cmdReturn, closed) == nil)
@@ -273,13 +273,32 @@ private func typing(_ c: KeyContext) -> KeyContext { var c = c; c.textFieldFocus
         #expect(cmd(.cmdS, KeyContext(mode: .list, selectionOpen: true, hasUnsentAnswers: true)) == nil)
     }
 
-    @Test func cmdReturnIsSendAndDoneWithAnswersUnsent() {
+    @Test func cmdReturnWarnsWithAnswersUnsent() {
         var c = detail
         #expect(cmd(.cmdReturn, c) == .done)
         c.hasUnsentAnswers = true
-        #expect(cmd(.cmdReturn, c) == .sendAndDone)
+        #expect(cmd(.cmdReturn, c) == .warnUnsent)
         c.askOpen = false
         #expect(cmd(.cmdReturn, c) == nil)
+    }
+
+    /// The Done warning: ⌘↩ is Send & Done, Esc goes back to editing (even from a field),
+    /// and ⌘⌫ does nothing, as the warning has no Skip and Discard takes no key.
+    @Test func theDoneWarningKeys() {
+        var c = detail
+        c.hasUnsentAnswers = true
+        c.doneWarning = true
+        #expect(cmd(.cmdReturn, c) == .sendAndDone)
+        #expect(cmd(.cmdReturn, typing(c)) == .sendAndDone)
+        #expect(cmd(.escape, c) == .cancelDoneWarning)
+        #expect(cmd(.escape, typing(c)) == .cancelDoneWarning)
+        #expect(cmd(.cmdDelete, c) == nil)
+        var popover = c
+        popover.popoverOpen = true
+        #expect(cmd(.escape, popover) == .closePopover)   // a popover closes first
+        var list = KeyContext(mode: .list, selectionOpen: true)
+        list.doneWarning = true
+        #expect(cmd(.escape, list) == .hide)               // the warning is a detail state
     }
 
     @Test func cmdSDecodes() {

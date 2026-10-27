@@ -173,15 +173,23 @@ extension Flow {
         return nil
     }
 
-    /// `.sendAndDone` (Done that sends first) while step answers are unsent, the reply field
-    /// has text other than the latest sent text (`sentText`, a Change prefill), or a picked
-    /// choice isn't the latest sent one.
+    /// What is unsent: `.answer` while step answers are unsent, else `.reply` while the reply
+    /// field has text other than the latest sent text (`sentText`, a Change prefill) or a
+    /// picked choice isn't the latest sent one; nil when nothing is.
+    public static func unsentKind(draft: String?, choice: Int?, sent: Int?, unsentAnswers: Int = 0,
+                                  sentText: String? = nil) -> UnsentKind? {
+        if unsentAnswers > 0 { return .answer }
+        if let draft, AnswerEditing.isNewText(draft, sentText: sentText) { return .reply }
+        if let choice, choice != sent { return .reply }
+        return nil
+    }
+
+    /// `.sendAndDone` while anything is unsent (`unsentKind`): Done then warns before it
+    /// closes. `.done` otherwise.
     public static func primaryAction(draft: String?, choice: Int?, sent: Int?, unsentAnswers: Int = 0,
                                      sentText: String? = nil) -> PrimaryAction {
-        if unsentAnswers > 0 { return .sendAndDone }
-        if let draft, AnswerEditing.isNewText(draft, sentText: sentText) { return .sendAndDone }
-        if let choice, choice != sent { return .sendAndDone }
-        return .done
+        unsentKind(draft: draft, choice: choice, sent: sent, unsentAnswers: unsentAnswers, sentText: sentText) == nil
+            ? .done : .sendAndDone
     }
 }
 

@@ -211,11 +211,12 @@ let blockingJSON = #"""
     return detailScene("detail-blocking", snapshot, height: nil, rules: topColumnRules, overrides: fullHeight)
 }
 
-/// detail-steps with a draft typed into its reply field: Done sends it first (the bar caption).
+/// detail-steps with a draft typed into its reply field: Done would warn before closing.
 @MainActor func freeTypingScene() -> GalleryScene {
     var snapshot = GalleryFixtures.detailSteps
     let draft = "C0123ABCDEF"
     snapshot.primary = Flow.primaryAction(draft: draft, choice: nil, sent: nil)
+    snapshot.unsentKind = .reply
     let model = FixturePanelModel(
         queue: GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false),
         details: [snapshot.id: snapshot],
@@ -268,6 +269,7 @@ let blockingJSON = #"""
     let drafts: [String: AnswerDraft] = ["4": .picked(["Search", "Newsletter"])]
     snapshot.answerDrafts = drafts
     snapshot.primary = .sendAndDone
+    snapshot.unsentKind = .answer
     let model = FixturePanelModel(
         queue: GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false),
         details: [snapshot.id: snapshot],
