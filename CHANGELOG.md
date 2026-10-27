@@ -21,8 +21,8 @@ and versions follow Semantic Versioning.
   same way, with Cancel beside Send while you change it. Nothing about editing is stored.
 - Set Up Hook, a seven-page first-run window with progress dots and a full-width Continue:
   Welcome, where asks come from (with a connection test), connecting your agents (register the
-  MCP server, install the skill, add the replies hook to `~/.claude/settings.json` with a
-  `.bak` copy, copy the CLAUDE.md section), notifications, the shortcut and login item, a test
+  MCP server, install the skill, add the replies hook to `~/.claude/settings.json`, keys kept in
+  order, with a `.bak` copy that never overwrites an older one, copy the CLAUDE.md section), notifications, the shortcut and login item, a test
   ask, and Done. Pages push in, and the welcome icon bounces, unless Reduce Motion is on.
   install.sh writes `onboarding: "pending"` only into a config it creates, so existing installs
   never see it; finishing or closing the window removes the key. The menu has Run Setup Again….

@@ -88,12 +88,14 @@ extension ConnectInfo {
         case alreadyPresent
     }
 
-    /// Adds the replies hook to ~/.claude/settings.json. Keeps every other key and hook,
-    /// copies the old file to settings.json.bak first, and replaces the file in one rename
-    /// (through a symlink, the file it points to). Never rewrites a file it can't parse,
-    /// and writes nothing when the hook is already there.
+    /// Adds the replies hook to ~/.claude/settings.json. Keeps every other key and hook, in
+    /// their order and as written (OrderedJSON), though the file is rewritten as JSON with
+    /// two-space indents. Copies the old file first to settings.json.bak, or, when that is
+    /// taken, settings.json.bak-YYYYMMDD-HHMMSS (`backupURL`); an old backup is never
+    /// overwritten. Replaces the file in one rename (through a symlink, the file it points
+    /// to). Never rewrites a file it can't parse, and writes nothing when the hook is there.
     @discardableResult
-    public static func installRepliesHook(home: URL) throws -> HookMerge {
+    public static func installRepliesHook(home: URL, now: Date = Date()) throws -> HookMerge {
         let link = settingsPath(home: home)
         let fm = FileManager.default
         let exists = (try? fm.attributesOfItem(atPath: link.path)) != nil
@@ -104,36 +106,42 @@ extension ConnectInfo {
             object = parsed
         }
         if hasRepliesHook(object) { return .alreadyPresent }
-        let entry: [String: Any] = ["hooks": [[
-            "type": "command", "command": repliesHookCommand, "timeout": repliesHookTimeout,
-        ]]]
-        var hooks: [String: Any]
-        switch object["hooks"] {
-        case nil: hooks = [:]
-        case let existing as [String: Any]: hooks = existing
-        default: throw AgentSetupError.settingsUnexpected(tilde(link, home: home))
+        // The shape check on the parsed object; the edit on the ordered copy.
+        let hooksValue = object["hooks"]
+        guard hooksValue == nil || hooksValue is [String: Any] else {
+            throw AgentSetupError.settingsUnexpected(tilde(link, home: home))
         }
-        var list: [Any]
-        switch hooks["UserPromptSubmit"] {
-        case nil: list = []
-        case let existing as [Any]: list = existing
-        default: throw AgentSetupError.settingsUnexpected(tilde(link, home: home))
+        let listValue = (hooksValue as? [String: Any])?["UserPromptSubmit"]
+        guard listValue == nil || listValue is [Any] else {
+            throw AgentSetupError.settingsUnexpected(tilde(link, home: home))
         }
-        list.append(entry)
-        hooks["UserPromptSubmit"] = list
-        object["hooks"] = hooks
-        var data = try JSONSerialization.data(
-            withJSONObject: object, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
-        data.append(0x0A)
+        var document = OrderedJSON.object([])
+        if exists {
+            guard let parsed = try? OrderedJSON.parse(Data(contentsOf: path)) else {
+                throw AgentSetupError.settingsInvalid(tilde(link, home: home))
+            }
+            document = parsed
+        }
+        var hooks = document.member("hooks") ?? .object([])
+        var list: [OrderedJSON] = []
+        if case .array(let items)? = hooks.member("UserPromptSubmit") { list = items }
+        list.append(repliesHookEntry)
+        hooks.setMember("UserPromptSubmit", .array(list))
+        document.setMember("hooks", hooks)
+        let data = Data((document.text() + "\n").utf8)
 
         var backup: URL?
         let permissions = (try? fm.attributesOfItem(atPath: path.path))?[.posixPermissions]
         if exists {
-            let bak = path.appendingPathExtension("bak")
+            let bak = backupURL(for: path, now: now)
             let tmp = path.deletingLastPathComponent().appending(path: ".\(path.lastPathComponent).bak.\(UUID().uuidString)")
             try fm.copyItem(at: path, to: tmp)
-            if (try? fm.attributesOfItem(atPath: bak.path)) != nil { try fm.removeItem(at: bak) }
-            try fm.moveItem(at: tmp, to: bak)
+            do {
+                try fm.moveItem(at: tmp, to: bak)
+            } catch {
+                try? fm.removeItem(at: tmp)
+                throw error
+            }
             backup = bak
         } else {
             try fm.createDirectory(at: path.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -141,6 +149,38 @@ extension ConnectInfo {
         try data.write(to: path, options: .atomic)
         if let permissions { try? fm.setAttributes([.posixPermissions: permissions], ofItemAtPath: path.path) }
         return .added(backup: backup)
+    }
+
+    /// `{"hooks": [{"type": "command", "command": …, "timeout": 5}]}`, keys in that order.
+    static var repliesHookEntry: OrderedJSON {
+        .object([.init(key: "\"hooks\"", value: .array([.object([
+            .init(key: "\"type\"", value: .scalar("\"command\"")),
+            .init(key: "\"command\"", value: OrderedJSON.string(repliesHookCommand)),
+            .init(key: "\"timeout\"", value: .scalar(String(repliesHookTimeout))),
+        ])]))])
+    }
+
+    /// Where the old settings file goes: `<name>.bak` when that is free, else
+    /// `<name>.bak-YYYYMMDD-HHMMSS` in local time (as install.sh names a set-aside config),
+    /// with `-2`, `-3`… when even that is taken.
+    public static func backupURL(for path: URL, now: Date, timeZone: TimeZone = .current) -> URL {
+        let fm = FileManager.default
+        let taken = { (url: URL) in (try? fm.attributesOfItem(atPath: url.path)) != nil }
+        let plain = path.appendingPathExtension("bak")
+        guard taken(plain) else { return plain }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = timeZone
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        let stamped = path.deletingLastPathComponent()
+            .appending(path: path.lastPathComponent + ".bak-" + formatter.string(from: now))
+        var candidate = stamped
+        var count = 2
+        while taken(candidate) {
+            candidate = stamped.deletingLastPathComponent().appending(path: stamped.lastPathComponent + "-\(count)")
+            count += 1
+        }
+        return candidate
     }
 
     static func hasRepliesHook(_ object: [String: Any]) -> Bool {

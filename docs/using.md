@@ -4,7 +4,7 @@ Hook lives in the menu bar and shows asks in a panel docked to the edge of a dis
 
 ## First run
 
-A new install opens **Set Up Hook**, seven short pages: Welcome; where asks come from (This Mac or a mailbox, tested when you press Continue); connecting your agents (register the MCP server, install the skill, add the replies hook to `~/.claude/settings.json`, keeping the old file as `settings.json.bak`, and copy the CLAUDE.md section; every item can be copied instead, or skipped); notifications; the shortcut and Start at login; a test ask; and Done. Anything you skip is in Settings. Close the window to skip the rest; once a source is set, it doesn't come back on its own. Run it again from the menu: **Run Setup Again…**. Updating an existing install never shows it.
+A new install opens **Set Up Hook**, seven short pages: Welcome; where asks come from (This Mac or a mailbox, tested when you press Continue); connecting your agents (register the MCP server, install the skill, add the replies hook to `~/.claude/settings.json`, which is rewritten as JSON with your keys in their order, keeping the old file as `settings.json.bak` (or `settings.json.bak-<date>-<time>` when that exists), and copy the CLAUDE.md section; every item can be copied instead, or skipped); notifications; the shortcut and Start at login; a test ask; and Done. Anything you skip is in Settings. Close the window to skip the rest; once a source is set, it doesn't come back on its own. Run it again from the menu: **Run Setup Again…**. Updating an existing install never shows it.
 
 ## Menu bar
 

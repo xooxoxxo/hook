@@ -64,6 +64,70 @@ private func promptCommands(_ object: [String: Any]) -> [String] {
         #expect(mode == 0o600)
     }
 
+    /// Keys keep their file order (not sorted), and values are written as they were.
+    @Test func theHookMergeKeepsKeyOrder() throws {
+        let home = try tempHome()
+        defer { try? FileManager.default.removeItem(at: home) }
+        let path = ConnectInfo.settingsPath(home: home)
+        try write(#"{"zeta": 1, "model": "opus", "hooks": {"Stop": []}, "alpha": 1.50, "url": "https:\/\/a.example"}"#,
+                  to: path)
+        try ConnectInfo.installRepliesHook(home: home)
+        let text = try String(contentsOf: path, encoding: .utf8)
+        let expected = #"""
+        {
+          "zeta": 1,
+          "model": "opus",
+          "hooks": {
+            "Stop": [],
+            "UserPromptSubmit": [
+              {
+                "hooks": [
+                  {
+                    "type": "command",
+                    "command": "relay replies --new --hook",
+                    "timeout": 5
+                  }
+                ]
+              }
+            ]
+          },
+          "alpha": 1.50,
+          "url": "https:\/\/a.example"
+        }
+
+        """#
+        #expect(text == expected)
+        #expect(ConnectInfo.repliesHookInstalled(home: home))
+    }
+
+    /// settings.json.bak is kept when it exists: the new backup gets a timestamp, and a
+    /// second one in the same second a counter.
+    @Test func anOldBackupIsNeverOverwritten() throws {
+        let home = try tempHome()
+        defer { try? FileManager.default.removeItem(at: home) }
+        let path = ConnectInfo.settingsPath(home: home)
+        let bak = path.appendingPathExtension("bak")
+        try write("old backup", to: bak)
+        try write(#"{"model": "opus"}"#, to: path)
+        var parts = DateComponents()
+        (parts.year, parts.month, parts.day, parts.hour, parts.minute, parts.second) = (2026, 10, 27, 9, 5, 7)
+        let now = try #require(Calendar.current.date(from: parts))
+        let result = try ConnectInfo.installRepliesHook(home: home, now: now)
+        let stamped = path.deletingLastPathComponent().appending(path: "settings.json.bak-20261027-090507")
+        #expect(result == .added(backup: stamped))
+        #expect(try String(contentsOf: bak, encoding: .utf8) == "old backup")
+        #expect(try String(contentsOf: stamped, encoding: .utf8) == #"{"model": "opus"}"#)
+        let next = ConnectInfo.backupURL(for: path, now: now)
+        #expect(next.lastPathComponent == "settings.json.bak-20261027-090507-2")
+    }
+
+    @Test func aFreeBakNameIsUsedAsIs() throws {
+        let home = try tempHome()
+        defer { try? FileManager.default.removeItem(at: home) }
+        let path = ConnectInfo.settingsPath(home: home)
+        #expect(ConnectInfo.backupURL(for: path, now: Date()).lastPathComponent == "settings.json.bak")
+    }
+
     @Test func theHookMergeIsIdempotent() throws {
         let home = try tempHome()
         defer { try? FileManager.default.removeItem(at: home) }

@@ -394,6 +394,6 @@ public enum WelcomeCopy {
     public static let shortcut = "Show or hide Hook from anywhere."
     public static let testAsk = "Send one, and watch it arrive in the panel."
     public static let mcpHelp = "Lets every Claude Code session on this Mac post an ask (relay_post, relay_status, relay_list). Register runs claude mcp add in your login shell. Or copy the command and run it in Terminal."
-    public static let hookHelp = "Shows your answers in every session: before each prompt it prints answers given since the last one. Add puts one entry into ~/.claude/settings.json and keeps the old file as settings.json.bak. A file that isn't valid JSON is left alone. Or copy the snippet and add it yourself."
+    public static let hookHelp = "Shows your answers in every session: before each prompt it prints answers given since the last one. Add puts one entry into ~/.claude/settings.json. The file is rewritten as JSON (your keys keep their order, the spacing becomes two-space indents), and a backup of the old file is kept: settings.json.bak, or settings.json.bak-<date and time> when that already exists. A file that isn't valid JSON is left alone. Or copy the snippet and add it yourself."
     public static let claudeMdHelp = "A short section that tells agents to ask through Hook. Copy it, then paste it into ~/.claude/CLAUDE.md."
 }
