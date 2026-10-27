@@ -197,7 +197,10 @@ public struct SetupHeading: View {
 }
 
 /// One setup row: a symbol and the title (its "?" after it), the control on the trailing
-/// edge, and a status or error caption under the control.
+/// edge, and a status or error caption under the control. The label lines up with the
+/// control's vertical centre, not its first baseline, so a tall control (the shortcut
+/// recorder with its clear button) doesn't leave the label at its top; an error caption
+/// under the control doesn't move the label.
 public struct SetupRow<Control: View>: View {
     let symbol: String
     let title: String
@@ -215,18 +218,9 @@ public struct SetupRow<Control: View>: View {
     }
 
     public var body: some View {
-        LabeledContent {
-            VStack(alignment: .trailing, spacing: DS.Space.rowLine) {
-                control
-                if let error {
-                    Text(error)
-                        .font(DS.Font.caption)
-                        .foregroundStyle(DS.Color.error)
-                        .multilineTextAlignment(.trailing)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-        } label: {
+        // Not LabeledContent: the grouped Form lines its label up with the content's first
+        // baseline, which left the label at the top of a tall control.
+        HStack(alignment: .setupControlCenter, spacing: DS.Space.inline) {
             HStack(spacing: DS.Space.inline) {
                 Image(systemName: symbol)
                     .foregroundStyle(DS.Color.accent)
@@ -237,8 +231,32 @@ public struct SetupRow<Control: View>: View {
                     HelpButton(rowLabel: title, text: help)
                 }
             }
+            .alignmentGuide(.setupControlCenter) { $0[VerticalAlignment.center] }
+            Spacer(minLength: DS.Space.inline)
+            VStack(alignment: .trailing, spacing: DS.Space.rowLine) {
+                control
+                    .alignmentGuide(.setupControlCenter) { $0[VerticalAlignment.center] }
+                if let error {
+                    Text(error)
+                        .font(DS.Font.caption)
+                        .foregroundStyle(DS.Color.error)
+                        .multilineTextAlignment(.trailing)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(title)
     }
+}
+
+extension VerticalAlignment {
+    /// A setup row's label centre and its control's centre (not the error under it).
+    private enum SetupControlCenter: AlignmentID {
+        static func defaultValue(in context: ViewDimensions) -> CGFloat { context[VerticalAlignment.center] }
+    }
+
+    static let setupControlCenter = VerticalAlignment(SetupControlCenter.self)
 }
 
 /// A row's done mark: a green tick and a word ("Connected", "Installed").
