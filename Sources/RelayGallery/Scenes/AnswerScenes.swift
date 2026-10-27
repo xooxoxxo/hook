@@ -67,7 +67,7 @@ private func answerEvent(_ id: String, seq: Int, _ entry: JSONValue) -> Event {
     return answersScene("answers-radio-answered", item, events: events)
 }
 
-/// A multi pick answered "Search", with "Exports" ticked since: "Not sent", Send 1 answer.
+/// A multi pick answered "Search", with "Exports" ticked since: "Not sent" beside its own Send.
 @MainActor private var multiScene: GalleryScene {
     let item = answersItem("kestrel-q3", "Turn on the release flags", steps: [
         Step(action: "Choose the flags", place: "Flags dashboard", question: flags),
@@ -99,7 +99,7 @@ private func answerEvent(_ id: String, seq: Int, _ entry: JSONValue) -> Event {
     return answersScene("answers-parent", item)
 }
 
-/// Three questions, two drafted: Send 2 answers, Send & Done, and "1 question unanswered".
+/// Three questions, two drafted: each block has its own Send, and the bar says "Done sends your answer first".
 @MainActor private var barScene: GalleryScene {
     let item = answersItem("kestrel-q6", "Set up the Kestrel release", steps: [
         Step(action: "Pick the deploy target", question: environment),

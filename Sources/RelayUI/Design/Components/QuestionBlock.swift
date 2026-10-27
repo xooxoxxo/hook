@@ -8,12 +8,19 @@ public struct StepQuestion {
     public var answer: Answer?
     public var draft: Binding<AnswerDraft?>
     public var readOnly: Bool
+    /// The block's own Send: sends this step's answer only.
+    public var onSend: () -> Void
+    /// An answers send for this ask is in flight.
+    public var sending: Bool
 
-    public init(question: Question, answer: Answer?, draft: Binding<AnswerDraft?>, readOnly: Bool) {
+    public init(question: Question, answer: Answer?, draft: Binding<AnswerDraft?>, readOnly: Bool,
+                sending: Bool = false, onSend: @escaping () -> Void = {}) {
         self.question = question
         self.answer = answer
         self.draft = draft
         self.readOnly = readOnly
+        self.sending = sending
+        self.onSend = onSend
     }
 
     /// The draft if there is one, else the sent answer: what a control starts from.
@@ -25,12 +32,15 @@ public struct StepQuestion {
     }
 
     var isUnsent: Bool { AnswerDrafts.isUnsent(draft.wrappedValue, question: question, answer: answer) }
+
+    /// Send is on while the draft would send something new and no send is out.
+    var canSend: Bool { !readOnly && !sending && isUnsent }
 }
 
 /// Design/QuestionBlock: a step's question under its text and above its sub-steps.
-/// The prompt, then a stock control (segmented or radio pick, checkboxes, or a text field),
-/// then the answered line and "Not sent" for a draft that differs from it. Read-only: the
-/// answered line, or "Not answered", and no control.
+/// The prompt, then the control (OptionRows for a pick, single or multi, or a text field),
+/// then the answered line or "Not sent", and the block's own Send (Return sends in the
+/// field). Read-only: the answered line, or "Not answered", and no control.
 public struct QuestionBlock: View {
     let model: StepQuestion
 
@@ -41,13 +51,12 @@ public struct QuestionBlock: View {
     private var question: Question { model.question }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: DS.Space.stepPart) {
+        VStack(alignment: .leading, spacing: DS.Space.inline) {
             Text(verbatim: prose(question.prompt))
-                .font(DS.Font.prose)
-                .foregroundStyle(DS.Color.secondary)
+                .font(DS.Font.body)
                 .fixedSize(horizontal: false, vertical: true)
             if !model.readOnly { control }
-            statusLine
+            footer
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -58,81 +67,59 @@ public struct QuestionBlock: View {
             TextField("Your answer", text: textBinding, axis: .vertical)
                 .lineLimit(1...5)
                 .textFieldStyle(.roundedBorder)
+                .onSubmit { if model.canSend { model.onSend() } }
                 .accessibilityLabel(line(question.prompt))
-        } else if question.allowsMany {
-            VStack(alignment: .leading, spacing: DS.Space.stepPart) {
-                ForEach(question.options, id: \.self) { choice in
-                    Toggle(line(choice), isOn: pickBinding(choice))
-                        .toggleStyle(.checkbox)
-                }
-            }
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel(line(question.prompt))
-        } else if AnswerDrafts.usesSegments(question) {
-            Picker(selection: singleBinding) {
-                ForEach(question.options, id: \.self) { choice in
-                    Text(verbatim: line(choice)).tag(Optional(choice))
-                }
-            } label: {
-                Text(verbatim: line(question.prompt))
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .fixedSize()
         } else {
-            Picker(selection: singleBinding) {
-                ForEach(question.options, id: \.self) { choice in
-                    Text(verbatim: line(choice)).tag(Optional(choice))
+            OptionRows(prompt: question.prompt, options: question.options, multi: question.allowsMany,
+                       selected: Set(question.options.indices.filter { model.picks.contains(question.options[$0]) }),
+                       onPick: pick)
+        }
+    }
+
+    /// The status on the left, Send on the right (not on a closed ask).
+    @ViewBuilder private var footer: some View {
+        if model.readOnly {
+            statusLine
+        } else {
+            HStack(alignment: .firstTextBaseline, spacing: DS.Space.inline) {
+                statusLine
+                Spacer(minLength: DS.Space.inline)
+                if model.sending {
+                    ProgressView().controlSize(DS.Control.inline).accessibilityLabel("Sending")
+                } else {
+                    Button("Send", action: model.onSend)
+                        .controlSize(DS.Control.form)
+                        .disabled(!model.canSend)
+                        .help(question.isFreeText ? "Send this answer (Return)" : "Send this answer")
                 }
-            } label: {
-                Text(verbatim: line(question.prompt))
             }
-            .pickerStyle(.radioGroup)
-            .labelsHidden()
-            .fixedSize(horizontal: false, vertical: true)
         }
     }
 
     @ViewBuilder private var statusLine: some View {
         let unsent = !model.readOnly && model.isUnsent
-        if model.answer != nil || unsent || model.readOnly {
-            HStack(alignment: .firstTextBaseline, spacing: DS.Space.inline) {
-                if let answer = model.answer {
-                    Label {
-                        Text(verbatim: line(AnswerDrafts.answeredText(answer)))
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                    } icon: {
-                        Image(systemName: DS.Symbol.answered).foregroundStyle(DS.Color.done)
-                    }
-                    .foregroundStyle(DS.Color.secondary)
-                } else if model.readOnly {
-                    Text("Not answered").foregroundStyle(DS.Color.secondary)
+        HStack(alignment: .firstTextBaseline, spacing: DS.Space.inline) {
+            if let answer = model.answer {
+                Label {
+                    Text(verbatim: line(AnswerDrafts.answeredText(answer)))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                } icon: {
+                    Image(systemName: DS.Symbol.answered).foregroundStyle(DS.Color.done)
                 }
-                if unsent {
-                    Text("Not sent").foregroundStyle(DS.Color.warn)
-                }
+                .foregroundStyle(DS.Color.secondary)
+            } else if model.readOnly {
+                Text("Not answered").foregroundStyle(DS.Color.secondary)
             }
-            .font(DS.Font.caption)
+            if unsent {
+                Text("Not sent").foregroundStyle(DS.Color.warn)
+            }
         }
+        .font(DS.Font.caption)
     }
 
-    /// A single pick: the draft's pick, else the sent one; nil (nothing selected) before either.
-    private var singleBinding: Binding<String?> {
-        Binding(get: { model.picks.first },
-                set: { model.draft.wrappedValue = $0.map { .picked([$0]) } })
-    }
-
-    /// One checkbox of a multi pick; the picks stay in choice order.
-    private func pickBinding(_ choice: String) -> Binding<Bool> {
-        let options = question.options
-        return Binding(
-            get: { model.picks.contains(choice) },
-            set: { on in
-                var picks = Set(model.picks)
-                if on { picks.insert(choice) } else { picks.remove(choice) }
-                model.draft.wrappedValue = .picked(options.filter(picks.contains))
-            })
+    private func pick(_ index: Int) {
+        if let next = AnswerDrafts.pick(index, in: question, picks: model.picks) { model.draft.wrappedValue = next }
     }
 
     /// Free text: the draft, else the sent text. Clearing a never-answered field keeps no draft.

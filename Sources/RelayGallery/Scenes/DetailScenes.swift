@@ -178,9 +178,39 @@ let nonWebLinksJSON = #"""
     freeTypingScene(),
     choiceScene("detail-choice", sent: false),
     choiceScene("detail-choice-sent", sent: true),
+    blockingScene(),
+    unlockedScene(),
 ]
 
-/// detail-steps with a draft typed into its reply field: the primary reads Send & Done.
+/// A blocking step with its warning box (current), a locked step after it, and a multi
+/// question further down, locked too; a sub-step blocking its later sibling in step 5.
+let blockingJSON = #"""
+{"item": {"id": "00000000-0000-4000-8000-0000000000d1", "title": "Move the Kestrel site to the new host",
+  "status": "open", "projectId": "Kestrel", "created": "2026-10-16T09:30:00+00:00", "updated": "2026-10-16T09:30:00+00:00",
+  "payload": {"instructable": {"v": 1, "title": "Move the Kestrel site to the new host", "urgency": "today",
+    "why": "The old host shuts down on Friday. Each step takes a minute or two.",
+    "steps": [{"do": "Export the site backup", "code": "kestrel export > site.tar"},
+              {"do": "Point the domain at the new host", "where": "DNS provider", "blocking": true,
+               "detail": "Change the A record to the new address.",
+               "warning": "Wait for DNS to update before going on: the next steps check the new host."},
+              {"do": "Check the site loads over HTTPS", "url": "https://kestrel.example.com"},
+              {"do": "Choose the features to turn back on",
+               "question": {"prompt": "Which features go back on?", "choices": ["Search", "Comments", "Newsletter"], "multi": true}},
+              {"do": "Retire the old host", "substeps": [
+                {"do": "Download the old logs", "blocking": true},
+                {"do": "Delete the old server"}]}]}}},
+ "events": []}
+"""#
+
+/// blockingJSON with step 1 ticked: step 2 blocks and is current; 3 onwards are locked.
+@MainActor func blockingScene() -> GalleryScene {
+    var snapshot = detailSnapshot(decodeDetail(blockingJSON), base: GalleryFixtures.detailSteps, ticks: ["1"])
+    snapshot.replies = []
+    snapshot.model?.reply = nil
+    return detailScene("detail-blocking", snapshot, height: nil, rules: topColumnRules, overrides: fullHeight)
+}
+
+/// detail-steps with a draft typed into its reply field: Done sends it first (the bar caption).
 @MainActor func freeTypingScene() -> GalleryScene {
     var snapshot = GalleryFixtures.detailSteps
     let draft = "C0123ABCDEF"
@@ -226,4 +256,22 @@ let nonWebLinksJSON = #"""
         status: readyStatus)
     model.expandedDone[snapshot.id] = ["2"]
     return panelScene("detail-substeps-done-expanded", model, height: nil, rules: stepColumnRules, overrides: fullHeight)
+}
+
+/// The same ask past the block: 1–3 ticked, the multi question current with two picks
+/// drafted, and step 5 opened by hand: its blocking sub-step 5a locks 5b.
+@MainActor func unlockedScene() -> GalleryScene {
+    var snapshot = detailSnapshot(decodeDetail(blockingJSON), base: GalleryFixtures.detailSteps, ticks: ["1", "2", "3"])
+    snapshot.replies = []
+    snapshot.model?.reply = nil
+    let drafts: [String: AnswerDraft] = ["4": .picked(["Search", "Newsletter"])]
+    snapshot.answerDrafts = drafts
+    snapshot.primary = .sendAndDone
+    let model = FixturePanelModel(
+        queue: GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false),
+        details: [snapshot.id: snapshot],
+        navigation: PanelNavigation(listSelection: snapshot.id, selectedID: snapshot.id), status: readyStatus)
+    model.answerDrafts[snapshot.id] = drafts
+    model.expandedTodo[snapshot.id] = ["5"]
+    return panelScene("detail-blocking-unlocked", model, height: nil, rules: stepColumnRules, overrides: fullHeight)
 }

@@ -1,8 +1,9 @@
 import RelayCore
 import SwiftUI
 
-/// Design/ChoiceGroup: the ask's choices as a radio group, numbered for the
-/// 1–9 keys, with "Sent" after each choice already sent and Send (a spinner while sending).
+/// Design/ChoiceGroup: the ask's choices as option rows (OptionRows, single pick),
+/// numbered for the 1–9 keys, with "Sent" on each choice already sent, and the reply's own
+/// Send (a spinner while sending).
 public struct ChoiceGroup: View {
     let prompt: String
     let choices: [String]
@@ -38,19 +39,14 @@ public struct ChoiceGroup: View {
                 .font(DS.Font.body)
                 .foregroundStyle(DS.Color.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            Picker(selection: picked) {
-                ForEach(choices.indices, id: \.self) { i in
-                    choiceLabel(i).tag(Optional(i))
-                }
-            } label: {
-                Text(line(prompt))
-            }
-            .pickerStyle(.radioGroup)
-            .labelsHidden()
-            .fixedSize(horizontal: false, vertical: true)
-            .accessibilityHint(Self.hint(count: choices.count))
-            HStack {
-                Spacer()
+            OptionRows(prompt: prompt, options: choices, selected: picked.wrappedValue.map { [$0] } ?? [],
+                       sent: sent, disabled: sending, filled: true, onPick: { picked.wrappedValue = $0 })
+                .accessibilityHint(Self.hint(count: choices.count))
+            HStack(alignment: .firstTextBaseline, spacing: DS.Space.inline) {
+                Text(Self.hint(count: choices.count))
+                    .font(DS.Font.caption)
+                    .foregroundStyle(DS.Color.secondary)
+                Spacer(minLength: DS.Space.inline)
                 if sending {
                     ProgressView().controlSize(DS.Control.inline).accessibilityLabel("Sending")
                 } else {
@@ -59,13 +55,6 @@ public struct ChoiceGroup: View {
                 }
             }
         }
-    }
-
-    private func choiceLabel(_ i: Int) -> Text {
-        // Same text as Self.label(index:choice:), with the number in secondary.
-        var label = Text("\(i + 1)").foregroundStyle(DS.Color.secondary) + Text("  " + line(choices[i]))
-        if sent.contains(i) { label = label + Text("   Sent").foregroundStyle(DS.Color.secondary) }
-        return label
     }
 
     /// A pick, no send in flight, and not the choice sent last.

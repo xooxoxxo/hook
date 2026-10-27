@@ -47,6 +47,12 @@ public enum StepAccessibility {
         line(action) + ". " + question(prompt: prompt, answer: answer)
     }
 
+    /// A locked step's marker: "Step 4, locked: Check the site. Finish step 3 first."
+    public static func lockedLabel(level: StepLevel, action: String, lockText: String) -> String {
+        let name = level == .verify ? "Verify" : "Step \(level.label)"
+        return "\(name), locked: \(line(action)). \(line(lockText))."
+    }
+
     public static func copyLabel(level: StepLevel) -> String {
         level == .verify ? "Copy the verify command" : "Copy the command for step \(level.label)"
     }

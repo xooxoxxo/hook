@@ -11,15 +11,13 @@ public enum ActionBarMode: Equatable, Sendable {
     case closed(String)
 }
 
-/// What the bar says about step answers: how many are unsent (Send answers shows above 0),
-/// the unanswered caption (R6), and a failed send's reason, which replaces the caption.
+/// What the bar says beside its buttons: the caption ("Done sends your answer first", or the
+/// unanswered count, R6), and a failed send's reason, which replaces the caption.
 public struct ActionBarAnswers: Equatable, Sendable {
-    public var unsent: Int
     public var caption: String?
     public var failure: String?
 
-    public init(unsent: Int = 0, caption: String? = nil, failure: String? = nil) {
-        self.unsent = unsent
+    public init(caption: String? = nil, failure: String? = nil) {
         self.caption = caption
         self.failure = failure
     }
@@ -27,8 +25,9 @@ public struct ActionBarAnswers: Equatable, Sendable {
     public static let none = ActionBarAnswers()
 }
 
-/// Design/ActionBar: the detail's bottom bar. The open state carries ⌘↩, ⌘⌫ and, with
-/// answers unsent, ⌘S; ⇧⌘R (Reopen) is attached by the panel. The help strings name them.
+/// Design/ActionBar: the detail's bottom bar, Skip and Done only: every reply and question
+/// has its own Send, and Done sends what is unsent first. The open state carries ⌘↩ and ⌘⌫;
+/// ⌘S (send every unsent answer) and ⇧⌘R (Reopen) go through the panel's key router.
 /// A caption or failure that doesn't fit beside the buttons goes on its own line above them.
 public struct ActionBar: View {
     let mode: ActionBarMode
@@ -36,17 +35,14 @@ public struct ActionBar: View {
     let onSkip: () -> Void
     let onPrimary: () -> Void
     let onReopen: () -> Void
-    let onSendAnswers: () -> Void
 
     public init(mode: ActionBarMode, answers: ActionBarAnswers = .none, onSkip: @escaping () -> Void,
-                onPrimary: @escaping () -> Void, onReopen: @escaping () -> Void,
-                onSendAnswers: @escaping () -> Void = {}) {
+                onPrimary: @escaping () -> Void, onReopen: @escaping () -> Void) {
         self.mode = mode
         self.answers = answers
         self.onSkip = onSkip
         self.onPrimary = onPrimary
         self.onReopen = onReopen
-        self.onSendAnswers = onSendAnswers
     }
 
     public var body: some View {
@@ -116,15 +112,10 @@ public struct ActionBar: View {
             .foregroundStyle(answers.failure == nil ? DS.Color.secondary : DS.Color.error)
     }
 
-    /// Send answers (with answers unsent), Skip and the primary. Only `.open` carries ⌘S, ⌘⌫
-    /// and ⌘↩ (busy is disabled, closed has no primary). The panel's key router consumes
-    /// them before the view hierarchy, so ⌘↩ and ⌘⌫ never fire inside a text field.
+    /// Skip and the primary. Only `.open` carries ⌘⌫ and ⌘↩ (busy is disabled, closed has
+    /// no primary). The panel's key router consumes them before the view hierarchy, so ⌘↩
+    /// and ⌘⌫ never fire inside a text field.
     @ViewBuilder private func buttons(_ action: PrimaryAction, keyed: Bool) -> some View {
-        if answers.unsent > 0 {
-            Button(AnswerDrafts.sendTitle(answers.unsent), action: onSendAnswers)
-                .help(Self.sendAnswersHelp)
-                .keyboardShortcut(keyed ? KeyboardShortcut("s", modifiers: .command) : nil)
-        }
         Button("Skip", action: onSkip)
             .help(Self.skipHelp)
             .keyboardShortcut(keyed ? KeyboardShortcut(.delete, modifiers: .command) : nil)
@@ -135,10 +126,9 @@ public struct ActionBar: View {
     }
 
     public static func primaryHelp(_ action: PrimaryAction) -> String {
-        action == .done ? "Done (⌘↩)" : "Send and close (⌘↩)"
+        action == .done ? "Done (⌘↩)" : "Send your answer, then close (⌘↩)"
     }
 
     public static let skipHelp = "Skip (⌘⌫)"
-    public static let sendAnswersHelp = "Send answers (⌘S)"
     public static let reopenHelp = "Reopen (⇧⌘R)"
 }

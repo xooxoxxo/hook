@@ -47,6 +47,19 @@ public enum DS {
         public static let cardInsetV: CGFloat = cardGap / 2 + cardPadding
         /// Where card text starts, and (mirrored) where its trailing text ends.
         public static let cardText: CGFloat = cardEdge + cardPadding
+        /// A grouped step row's inner padding (the inset grouped list in the detail).
+        public static let groupRowH: CGFloat = 12
+        public static let groupRowV: CGFloat = 9
+        /// A sub-step row's top and bottom padding inside its parent's row.
+        public static let subRowV: CGFloat = 5
+        /// Where a grouped row's text starts, from the group's edge: the padding, then the
+        /// marker column (hit) and its gap. Hairlines between rows start here.
+        public static let groupText: CGFloat = groupRowH + Metric.hit + marker
+        /// An option row's inner padding.
+        public static let optionH: CGFloat = 12
+        public static let optionV: CGFloat = 8
+        /// Where an option's text starts: the padding, the number column and its gap.
+        public static let optionText: CGFloat = optionH + Metric.optionNumber + inline
     }
 
     public enum Metric {
@@ -78,6 +91,14 @@ public enum DS {
         public static let cardSelectedBorder: CGFloat = 2
         public static let monogram: CGFloat = 18
         public static let monogramRadius: CGFloat = 5
+        /// The inset grouped steps list's corner.
+        public static let groupRadius: CGFloat = 10
+        /// An option list's corner.
+        public static let optionRadius: CGFloat = 8
+        /// An option row's minimum height: roomier than a stock radio row.
+        public static let optionRow: CGFloat = 36
+        /// The number column of an option row (keys 1–9).
+        public static let optionNumber: CGFloat = 14
     }
 
     public enum Font {
@@ -162,6 +183,15 @@ public enum DS {
         public static func monogram(_ project: String) -> SwiftUI.Color {
             monogramPalette[Monogram.colorIndex(project) % monogramPalette.count]
         }
+        /// The inset grouped steps list: near-white over the light panel, a faint lift over the dark one.
+        public static let groupFill = adaptive(light: .white.withAlphaComponent(0.8), dark: .white.withAlphaComponent(0.06))
+        public static let groupStroke = SwiftUI.Color.primary.opacity(0.07)
+        /// An option list's hairline, and the picked option's tint.
+        public static let optionStroke = SwiftUI.Color.primary.opacity(0.14)
+        public static let optionSelected = SwiftUI.Color.accentColor.opacity(0.10)
+        /// The blocking step's warning box.
+        public static let warnFill = SwiftUI.Color.orange.opacity(0.12)
+        public static let warnStroke = SwiftUI.Color.orange.opacity(0.35)
         /// The panel's backdrop material.
         public static var panelMaterial: NSVisualEffectView.Material { .sidebar }
     }
@@ -205,6 +235,12 @@ public enum DS {
         /// The detail header's ask menu (Resume Session).
         public static let more = "ellipsis.circle"
         public static let warning = "exclamationmark.triangle.fill"
+        /// A step locked behind an unfinished blocking step.
+        public static let locked = "lock.fill"
+        /// A picked single option; a multi option's box, ticked and not.
+        public static let optionPicked = "checkmark"
+        public static let checkboxOn = "checkmark.square.fill"
+        public static let checkboxOff = "square"
         public static let sent = "checkmark"
         /// A step question's answered line.
         public static let answered = "checkmark.circle.fill"

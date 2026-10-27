@@ -38,12 +38,13 @@ struct DetailView<Model: PanelViewModel>: View {
         return snapshot.busy ? .busy(snapshot.primary) : .open(snapshot.primary)
     }
 
-    /// Send answers' count, the unanswered caption and a failed answers send, for an open ask.
+    /// The bar caption for an open ask: "Done sends your answer first" while anything is
+    /// unsent, else the unanswered count; a failed answers send replaces it.
     static func answers(_ snapshot: DetailSnapshot) -> ActionBarAnswers {
         guard snapshot.closedText == nil else { return .none }
         var failure: String?
         if case .failed(let reason)? = snapshot.answerState { failure = reason }
-        return ActionBarAnswers(unsent: snapshot.unsent.count, caption: snapshot.unansweredCaption, failure: failure)
+        return ActionBarAnswers(caption: snapshot.primary.caption ?? snapshot.unansweredCaption, failure: failure)
     }
 
     /// The ask a header chevron opens; nil at the ends and outside the filter (disabled).
@@ -339,8 +340,7 @@ struct DetailView<Model: PanelViewModel>: View {
             ActionBar(mode: Self.actionMode(snapshot), answers: Self.answers(snapshot),
                       onSkip: { model.close(id, .declined) },
                       onPrimary: { primary(snapshot) },
-                      onReopen: { model.reopen(id) },
-                      onSendAnswers: { model.sendAnswers(id) })
+                      onReopen: { model.reopen(id) })
         }
         .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: model.undoInfo)
         // The bars grow past DS.Metric.actionBar (a wrapped caption, the undo bar), so the

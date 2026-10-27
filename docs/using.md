@@ -26,11 +26,12 @@ A "now" ask slides the hidden panel in on that ask without taking focus from the
 
 ## An ask
 
-- Tick steps as you go. A step can have indented **sub-steps** ("2a", "2b"), each with its own tick; ticking the parent ticks them all. The current step is boxed.
+- Steps are one grouped list. Tick steps as you go. The current step is open; done steps fold to a ✓ and their title, and upcoming ones show only their title. Click a done or upcoming step to open it. A step can have **sub-steps** ("2a", "2b"), each with its own tick; ticking the parent ticks them all.
+- **Blocking steps** carry a tinted warning box. The steps after one stay locked ("Finish step 2 first") until it is done: they can't be opened, ticked or answered.
 - **Copy** copies exactly the code shown, with no trailing newline, so a paste never runs by itself.
-- Answer with **Done**, **Skip** or a reply (text, or one of the offered choices). With a reply typed or a choice picked, Done becomes **Send & Done**.
+- Answer with **Done**, **Skip** or a reply (text, or one of the offered choices), which has its own **Send**. With a reply typed or a choice picked but not sent, Done sends it first, and the bar says so.
 - **After Done or Skip** the panel opens the next ask in the list (Settings › Panel can make it go back to the queue instead). An Undo bar shows for 10 seconds; Undo or ⌘Z brings the ask back. Hook sends your answer only after that.
-- **Answering questions.** A step can ask a question under its text: pick one choice (a segmented control or radio buttons), tick several checkboxes, or type an answer. A question step has no tick; it counts as done once its answer is sent. Changes you haven't sent say **Not sent**. **Send answers** (⌘S) sends them all at once and leaves the ask open, so you can answer some now and the rest later; the bar counts the questions still unanswered. With answers unsent, Done becomes **Send & Done**: it sends the answers, then any reply, and closes only if every send worked. You can change an answer until the ask closes; a closed ask shows its answers read-only until you **Reopen** it.
+- **Answering questions.** A step can ask a question under its text: pick one option or several, or type an answer. A question step has no tick; it counts as done once its answer is sent. Each question has its own **Send** (Return sends a typed answer); ⌘S sends every unsent answer at once and leaves the ask open, so you can answer some now and the rest later. Changes you haven't sent say **Not sent**; the bar counts the questions still unanswered. With anything unsent, Done sends the answers, then any reply, and closes only if every send worked. You can change an answer until the ask closes; a closed ask shows its answers read-only until you **Reopen** it.
 - **From** shows the folder, Mac and short session id of the session that asked, with a command that resumes it in Claude Code.
 - **Resume Session**, in a card's context menu or the ⋯ menu at the top of an ask, opens a new terminal window in the session's folder and runs `claude --resume` with its session. Pick the terminal in Settings › General (Automatic means Terminal; Ghostty, iTerm2, kitty, WezTerm, Warp and Alacritty work too). It works only for a session on this Mac; for one on another Mac the item is dimmed and says which Mac. If the terminal doesn't open, Hook copies the resume command and says why.
 - Drafts, ticks and where you scrolled survive going back, switching asks and hiding the panel. Ticks also survive a relaunch.
@@ -56,7 +57,7 @@ A "now" ask slides the hidden panel in on that ask without taking focus from the
 | List, ask | ⌃⌘P | Show only this ask's project |
 | Ask | Esc, ⌘[ | Back to the list |
 | Ask | ⌘↑ / ⌘↓ | Previous / next ask |
-| Ask | ⌘↩ | Done, or Send & Done with a reply, choice or unsent answers |
+| Ask | ⌘↩ | Done (sending an unsent reply, choice or answers first) |
 | Ask | ⌘S | Send the step answers |
 | Ask | ⌘⌫ | Skip |
 | Ask | ⌘T / ⇧⌘T | Tick the current step or sub-step / untick the last |

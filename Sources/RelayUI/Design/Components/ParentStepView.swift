@@ -12,11 +12,14 @@ struct NodeFramesKey: PreferenceKey {
     }
 }
 
-/// Design/ParentStepView: a step with sub-steps. The parent tick is derived from
-/// its sub-steps; ticking it ticks or unticks them all. Once every sub-step is done the parent
-/// collapses into a disclosure. A parent that asks its own question shows it under its text,
-/// above the sub-steps; the question is one more item of its count, and its marker is not a
-/// tick (only an answer completes the question; the sub-steps keep their own ticks).
+/// Design/ParentStepView: a step with sub-steps, as one row of the grouped steps list with
+/// its sub-steps as rows inside it. It follows StepView's rules: done (every sub-step, and
+/// its own question, done) collapses to ✓ and the title; holding the current item it is open;
+/// upcoming it shows the title and opens by click; locked it shows a lock and the lock line.
+/// The parent tick is derived from its sub-steps; ticking it ticks or unticks them all (the
+/// Store leaves locked ones alone). A parent that asks its own question shows it under its
+/// text, above the sub-steps; the question is one more item of its count, and its marker is
+/// not a tick.
 public struct ParentStepView: View {
     let content: StepContent
     let number: Int
@@ -33,6 +36,10 @@ public struct ParentStepView: View {
     let question: StepQuestion?
     /// The parent's own question's state (Flow.state(of: parent)); nil when it asks none.
     let ownState: StepState?
+    /// The parent's lock line when the whole step is locked; nil when it isn't.
+    let lockText: String?
+    /// Each sub-step's lock line, when locked (after a blocking sub-step); one per entry of `children`.
+    let childLockTexts: [String?]
     let onToggleParent: () -> Void
     let onToggleChild: (Int) -> Void
     let onCopy: (String) -> Void
@@ -41,7 +48,8 @@ public struct ParentStepView: View {
     public init(content: StepContent, number: Int, total: Int, children: [StepContent], childPaths: [String],
                 childStates: [StepState], readOnly: Bool, expanded: Binding<Bool>,
                 childExpanded: @escaping (Int) -> Binding<Bool>, childQuestions: [StepQuestion?] = [],
-                question: StepQuestion? = nil, ownState: StepState? = nil,
+                question: StepQuestion? = nil, ownState: StepState? = nil, lockText: String? = nil,
+                childLockTexts: [String?] = [],
                 onToggleParent: @escaping () -> Void,
                 onToggleChild: @escaping (Int) -> Void, onCopy: @escaping (String) -> Void) {
         self.content = content
@@ -56,6 +64,8 @@ public struct ParentStepView: View {
         self.childQuestions = childQuestions
         self.question = question
         self.ownState = question == nil ? nil : ownState
+        self.lockText = lockText
+        self.childLockTexts = childLockTexts
         self.onToggleParent = onToggleParent
         self.onToggleChild = onToggleChild
         self.onCopy = onCopy
@@ -66,29 +76,38 @@ public struct ParentStepView: View {
     private var itemTotal: Int { children.count + (ownState == nil ? 0 : 1) }
     private var allDone: Bool { ticked == itemTotal }
     private var holdsCurrent: Bool { childStates.contains(.current) || ownState == .current }
+    private var locked: Bool { lockText != nil }
+    /// The row's state: done, current (holds the current item) or upcoming.
+    private var state: StepState { ParentStepView.rowState(allDone: allDone, holdsCurrent: holdsCurrent) }
+    private var isOpen: Bool { StepRow.isOpen(state: state, locked: locked, expanded: expanded.wrappedValue) }
+    private var expandable: Bool { StepRow.isExpandable(state: state, locked: locked) }
     /// No parent tick on a parent that asks: Mark All acts on ticks, never on the question.
-    private var tickable: Bool { !readOnly && question == nil }
+    private var tickable: Bool { !readOnly && question == nil && !locked }
+
+    public static func rowState(allDone: Bool, holdsCurrent: Bool) -> StepState {
+        allDone ? .done : (holdsCurrent ? .current : .todo)
+    }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: DS.Space.subStep) {
-            if allDone { rowMenu(doneRow) } else { rowMenu(openRow) }
-            if !allDone || expanded.wrappedValue {
-                VStack(alignment: .leading, spacing: DS.Space.subStep) {
-                    ForEach(children.indices, id: \.self) { i in
-                        StepView(content: children[i], level: .sub(number, i), state: childStates[i], total: total,
-                                 readOnly: readOnly, expanded: childExpanded(i),
-                                 question: childQuestions.indices.contains(i) ? childQuestions[i] : nil,
-                                 onToggle: { onToggleChild(i) }, onCopy: onCopy)
-                            .id(childPaths[i])
-                            .background(GeometryReader { geometry in
-                                Color.clear.preference(key: NodeFramesKey.self,
-                                                       value: [childPaths[i]: geometry.frame(in: .named(detailScrollSpace))])
-                            })
-                    }
+        VStack(alignment: .leading, spacing: DS.Space.stepPart) {
+            rowMenu(header)
+            if let warning = StepRow.warning(content, state: state, locked: locked) {
+                WarningBox(warning).padding(.leading, DS.Space.subIndent)
+            }
+            if isOpen {
+                VStack(alignment: .leading, spacing: DS.Space.stepPart) {
+                    StepBody(content: content, level: .top(number), onCopy: onCopy)
+                    if let question { QuestionBlock(question).padding(.top, DS.Space.stepPart) }
+                    subSteps
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.leading, DS.Space.subIndent)
+                .transition(.opacity)
             }
         }
+        .padding(.horizontal, DS.Space.groupRowH)
+        .padding(.vertical, DS.Space.groupRowV)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityActions {
@@ -98,18 +117,42 @@ public struct ParentStepView: View {
         }
     }
 
+    private var subSteps: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(children.indices, id: \.self) { i in
+                StepView(content: children[i], level: .sub(number, i), state: childStates[i], total: total,
+                         readOnly: readOnly, expanded: childExpanded(i),
+                         question: childQuestions.indices.contains(i) ? childQuestions[i] : nil,
+                         lockText: lockText ?? (childLockTexts.indices.contains(i) ? childLockTexts[i] : nil),
+                         onToggle: { onToggleChild(i) }, onCopy: onCopy)
+                    .id(childPaths[i])
+                    .background(GeometryReader { geometry in
+                        Color.clear.preference(key: NodeFramesKey.self,
+                                               value: [childPaths[i]: geometry.frame(in: .named(detailScrollSpace))])
+                    })
+            }
+        }
+    }
+
     private var accessibilityLabel: String {
+        if let lockText {
+            return StepAccessibility.lockedLabel(level: .top(number), action: content.action, lockText: lockText)
+        }
         let label = StepAccessibility.parentLabel(number: number, action: content.action, done: ticked, total: itemTotal)
         guard let question else { return label }
         return label + ". " + StepAccessibility.question(prompt: question.question.prompt, answer: question.answer)
     }
 
-    @ViewBuilder private var tick: some View {
-        if question != nil {
+    @ViewBuilder private var marker: some View {
+        if let lockText {
+            LockMarker(level: .top(number),
+                       label: StepAccessibility.lockedLabel(level: .top(number), action: content.action, lockText: lockText))
+        } else if question != nil {
             StepMarker(level: .top(number), state: allDone ? .done : (ownState == .current ? .current : .todo),
                        label: line(content.action))
         } else {
-            TickButton(level: .top(number), state: allDone ? .done : .todo, label: line(content.action),
+            TickButton(level: .top(number), state: allDone ? .done : (holdsCurrent ? .current : .todo),
+                       label: line(content.action),
                        hint: StepAccessibility.hint(level: .top(number), total: total),
                        value: StepAccessibility.parentValue(done: ticked, total: children.count),
                        help: StepAccessibility.parentHelp(done: ticked, total: children.count),
@@ -117,49 +160,45 @@ public struct ParentStepView: View {
         }
     }
 
-    @ViewBuilder private var placeText: some View {
-        if let place = content.place {
-            Text(verbatim: line(place)).font(DS.Font.meta).foregroundStyle(DS.Color.secondary)
-        }
-    }
-
-    private var openRow: some View {
+    private var header: some View {
         HStack(alignment: .firstTextBaseline, spacing: DS.Space.marker) {
-            tick
-            VStack(alignment: .leading, spacing: DS.Space.stepPart) {
-                placeText
-                HStack(alignment: .firstTextBaseline, spacing: DS.Space.inline) {
-                    Text(verbatim: line(content.action))
-                        .font(holdsCurrent ? DS.Font.currentAction : DS.Font.body)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .alignmentProbe(.topActionText)
-                    Spacer(minLength: DS.Space.inline)
-                    Text(verbatim: "\(ticked) of \(itemTotal)")
-                        .font(DS.Font.meta).foregroundStyle(DS.Color.secondary).monospacedDigit()
+            marker
+            if expandable {
+                Button {
+                    withAnimation(DS.motion(DS.Motion.reveal, reduce: reduceMotion)) { expanded.wrappedValue.toggle() }
+                } label: {
+                    titleRow.contentShape(.rect)
                 }
-                StepBody(content: content, level: .top(number), onCopy: onCopy)
-                if let question { QuestionBlock(question) }
+                .buttonStyle(.plain)
+                .accessibilityValue(TrailingDisclosureStyle.value(expanded: expanded.wrappedValue))
+                .accessibilityHint(StepRow.disclosureHint(expanded: expanded.wrappedValue))
+            } else {
+                titleRow
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
-    private var doneRow: some View {
-        HStack(alignment: .firstTextBaseline, spacing: DS.Space.marker) {
-            tick
-            DisclosureGroup(isExpanded: expanded) {
-                VStack(alignment: .leading, spacing: DS.Space.stepPart) {
-                    placeText
-                    StepBody(content: content, level: .top(number), onCopy: onCopy)
-                    if let question { QuestionBlock(question) }
+    private var titleRow: some View {
+        HStack(alignment: .firstTextBaseline, spacing: DS.Space.inline) {
+            VStack(alignment: .leading, spacing: DS.Space.rowLine) {
+                if isOpen, let place = content.place {
+                    Text(verbatim: line(place)).font(DS.Font.meta).foregroundStyle(DS.Color.secondary)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.top, DS.Space.stepPart)
-            } label: {
-                Text(verbatim: line(content.action)).foregroundStyle(DS.Color.secondary).lineLimit(1)
+                Text(verbatim: line(content.action))
+                    .font(state == .current && !locked ? DS.Font.currentAction : DS.Font.body)
+                    .foregroundStyle(StepRow.dimmed(state: state, locked: locked) ? DS.Color.secondary : DS.Color.primary)
+                    .fixedSize(horizontal: false, vertical: true)
                     .alignmentProbe(.topActionText)
+                if let lockText {
+                    Text(verbatim: line(lockText)).font(DS.Font.caption).foregroundStyle(DS.Color.secondary)
+                }
             }
-            .disclosureGroupStyle(.trailing)
+            Spacer(minLength: DS.Space.inline)
+            if !locked {
+                Text(verbatim: "\(ticked) of \(itemTotal)")
+                    .font(DS.Font.meta).foregroundStyle(DS.Color.secondary).monospacedDigit()
+            }
+            if expandable { StepRow.chevron(open: expanded.wrappedValue) }
         }
     }
 

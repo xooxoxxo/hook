@@ -1,9 +1,10 @@
 import RelayCore
 import SwiftUI
 
-/// The Steps section: heading with the leaf count, then each node: a step,
-/// a parent with its indented sub-steps, verify last. Ticks and done-step expansion live
-/// in the model (ticks in UserDefaults, expansion in memory), so they survive back and forth.
+/// The Steps section: heading with the leaf count, then one inset grouped list with a row
+/// per node: a step, a parent with its sub-step rows, verify last. Rows after an unfinished
+/// blocking step are locked (Flow.lockedPaths). Ticks and expansion live in the model (ticks
+/// in UserDefaults; done and upcoming rows opened by hand in memory), so they survive back and forth.
 struct DetailSteps<Model: PanelViewModel>: View {
     @ObservedObject private var model: Model
     let snapshot: DetailSnapshot
@@ -38,19 +39,30 @@ struct DetailSteps<Model: PanelViewModel>: View {
         !node.children.isEmpty
     }
 
-    /// The Steps rotor's entries: every node that is on screen, in reading order. A parent whose
-    /// sub-steps are all done collapses (ParentStepView) and its sub-step rows are not rendered
-    /// unless the parent is expanded, so they are left out then; the parent itself stays.
-    /// A parent's own question counts too (Flow.parentProgress).
+    /// The Steps rotor's entries: every node that is on screen and not locked, in reading
+    /// order. A parent's sub-step rows are rendered only while the parent row is open (it holds
+    /// the current item, or was opened by hand), so they are left out otherwise; the parent
+    /// itself stays. A parent's own question counts too (Flow.parentProgress).
     static func rotorNodes(_ nodes: [DetailModel.Node], ticks: Set<String>, current: String?,
-                           expanded: Set<String>) -> [DetailModel.Node] {
+                           expanded: Set<String>, locked: Set<String> = []) -> [DetailModel.Node] {
         nodes.flatMap { node -> [DetailModel.Node] in
+            guard !locked.contains(node.path) else { return [] }
             guard rendersAsParent(node) else { return [node] }
-            let progress = Flow.parentProgress(node, ticks: ticks)
-            let allDone = progress.done == progress.total
-            return allDone && !expanded.contains(node.path) ? [node] : [node] + node.children
+            let open = StepRow.isOpen(state: parentState(node, ticks: ticks, current: current), locked: false,
+                                      expanded: expanded.contains(node.path))
+            return open ? [node] + node.children.filter { !locked.contains($0.path) } : [node]
         }
     }
+
+    /// A parent row's state: done when every item is, current while it holds the current item.
+    static func parentState(_ node: DetailModel.Node, ticks: Set<String>, current: String?) -> StepState {
+        let progress = Flow.parentProgress(node, ticks: ticks)
+        let holds = current != nil && (node.path == current || node.children.contains { $0.path == current })
+        return ParentStepView.rowState(allDone: progress.done == progress.total, holdsCurrent: holds)
+    }
+
+    private var locked: Set<String> { Set(Flow.lockedPaths(nodes: nodes, ticks: snapshot.ticks)) }
+    private var lockText: String? { Flow.lockText(nodes: nodes, ticks: snapshot.ticks) }
 
     /// "Step 3 of 5": top-level steps plus verify.
     private var total: Int { snapshot.model?.stepTotal ?? nodes.count }
@@ -68,9 +80,11 @@ struct DetailSteps<Model: PanelViewModel>: View {
                     .foregroundStyle(DS.Color.secondary)
                     .monospacedDigit()
             }
-            VStack(alignment: .leading, spacing: DS.Space.step) {
-                ForEach(nodes) { node in
-                    nodeView(node)
+            StepGroup {
+                let locked = locked, lockText = lockText
+                ForEach(Array(nodes.enumerated()), id: \.element.id) { index, node in
+                    if index > 0 { GroupDivider() }
+                    nodeView(node, locked: locked, lockText: lockText)
                         .id(node.path)
                         .background(GeometryReader { geometry in
                             Color.clear.preference(key: NodeFramesKey.self,
@@ -83,13 +97,16 @@ struct DetailSteps<Model: PanelViewModel>: View {
         .animation(DS.motion(DS.Motion.step, reduce: reduceMotion), value: snapshot.ticks)
         .accessibilityRotor("Steps") {
             ForEach(Self.rotorNodes(nodes, ticks: snapshot.ticks, current: snapshot.current,
-                                    expanded: model.expandedDone[snapshot.id] ?? [])) { node in
+                                    expanded: (model.expandedDone[snapshot.id] ?? [])
+                                        .union(model.expandedTodo[snapshot.id] ?? []),
+                                    locked: locked)) { node in
                 AccessibilityRotorEntry(Text(Self.rotorTitle(node)), id: node.path)
             }
         }
     }
 
-    @ViewBuilder private func nodeView(_ node: DetailModel.Node) -> some View {
+    @ViewBuilder private func nodeView(_ node: DetailModel.Node, locked: Set<String>, lockText: String?) -> some View {
+        let lock = { (path: String) in locked.contains(path) ? lockText : nil }
         if Self.rendersAsParent(node) {
             ParentStepView(
                 content: node.content, number: node.number, total: total,
@@ -97,20 +114,25 @@ struct DetailSteps<Model: PanelViewModel>: View {
                 childPaths: node.children.map(\.path),
                 childStates: node.children.map { Flow.state(of: $0, ticks: snapshot.ticks, current: snapshot.current) },
                 readOnly: readOnly,
-                expanded: expanded(node.path),
-                childExpanded: { index in expanded(node.children[index].path) },
+                expanded: expanded(node.path, state: Self.parentState(node, ticks: snapshot.ticks, current: snapshot.current)),
+                childExpanded: { index in
+                    let child = node.children[index]
+                    return expanded(child.path, state: Flow.state(of: child, ticks: snapshot.ticks, current: snapshot.current))
+                },
                 childQuestions: node.children.map(question),
                 question: question(node),
                 ownState: node.asks ? Flow.state(of: node, ticks: snapshot.ticks, current: snapshot.current) : nil,
+                lockText: lock(node.path),
+                childLockTexts: node.children.map { lock($0.path) },
                 onToggleParent: { model.toggleTick(node.path, in: snapshot.id) },
                 onToggleChild: { index in model.toggleTick(node.children[index].path, in: snapshot.id) },
                 onCopy: { model.shell.copy($0) })
         } else {
+            let state = Flow.state(of: node, ticks: snapshot.ticks, current: snapshot.current)
             StepView(
-                content: node.content, level: node.level,
-                state: Flow.state(of: node, ticks: snapshot.ticks, current: snapshot.current),
-                total: total, readOnly: readOnly, expanded: expanded(node.path),
-                question: question(node),
+                content: node.content, level: node.level, state: state,
+                total: total, readOnly: readOnly, expanded: expanded(node.path, state: state),
+                question: question(node), lockText: lock(node.path),
                 onToggle: { model.toggleTick(node.path, in: snapshot.id) },
                 onCopy: { model.shell.copy($0) })
         }
@@ -127,14 +149,23 @@ struct DetailSteps<Model: PanelViewModel>: View {
                 drafts[path] = value
                 model.answerDrafts[id] = drafts.isEmpty ? nil : drafts
             })
-        return StepQuestion(question: question, answer: node.answer, draft: draft, readOnly: readOnly)
+        return StepQuestion(question: question, answer: node.answer, draft: draft, readOnly: readOnly,
+                            sending: snapshot.answerState == .sending,
+                            onSend: { model.sendAnswer(id, path: path) })
     }
 
-    /// A done step's (or done parent's) expansion, by path, in `model.expandedDone[id]`.
-    private func expanded(_ path: String) -> Binding<Bool> {
+    /// A row's hand-opened state, by path: a done row's in `model.expandedDone[id]`, an
+    /// upcoming row's in `model.expandedTodo[id]`, so ticking a step it was opened as upcoming
+    /// doesn't leave it open once done. The current row ignores it (always open).
+    private func expanded(_ path: String, state: StepState) -> Binding<Bool> {
         let id = snapshot.id
+        if state == .done {
+            return Binding(
+                get: { model.expandedDone[id]?.contains(path) ?? false },
+                set: { model.expandedDone[id] = Self.toggled(model.expandedDone[id], path: path, expanded: $0) })
+        }
         return Binding(
-            get: { model.expandedDone[id]?.contains(path) ?? false },
-            set: { model.expandedDone[id] = Self.toggled(model.expandedDone[id], path: path, expanded: $0) })
+            get: { model.expandedTodo[id]?.contains(path) ?? false },
+            set: { model.expandedTodo[id] = Self.toggled(model.expandedTodo[id], path: path, expanded: $0) })
     }
 }

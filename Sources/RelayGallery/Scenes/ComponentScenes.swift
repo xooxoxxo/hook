@@ -227,7 +227,10 @@ let longProject = "Quarterly planning for the public launch of the pricing page"
         Sample("StatusDetails · config error") { details(configError) },
         Sample("StatusDetails · listener") { details(listenerDown) },
         Sample("ActionBar · open") { ActionBar(mode: .open(.done), onSkip: {}, onPrimary: {}, onReopen: {}) },
-        Sample("ActionBar · Send & Done") { ActionBar(mode: .open(.sendAndDone), onSkip: {}, onPrimary: {}, onReopen: {}) },
+        Sample("ActionBar · Done sends first") {
+            ActionBar(mode: .open(.sendAndDone), answers: ActionBarAnswers(caption: PrimaryAction.sendAndDone.caption),
+                      onSkip: {}, onPrimary: {}, onReopen: {})
+        },
         Sample("ActionBar · busy") { ActionBar(mode: .busy(.done), onSkip: {}, onPrimary: {}, onReopen: {}) },
         Sample("ActionBar · closed") { ActionBar(mode: .closed("Done by you · 16 Oct, 06:12"), onSkip: {}, onPrimary: {}, onReopen: {}) },
         Sample("Notice · error") { Notice(kind: .error, text: "Couldn't save the queue. The disk is full.", actionTitle: nil, onAction: {}, onDismiss: {}) },
@@ -266,6 +269,9 @@ let sampleSubs = [
 let sampleStep4 = StepContent(action: "Create an access token", place: "Developer portal",
                               detail: "Click New Token. Name it Acme and set it to expire in 90 days, then save. Treat the token like a password.",
                               url: "https://developer.example.com/tokens")
+let sampleBlocking = StepContent(action: "Point the domain at the new host", place: "DNS provider",
+                                 detail: "Change the A record to the new address.", blocking: true,
+                                 warning: "Wait for DNS to update before going on.")
 let sampleVerify = StepContent(action: "Check the release folder exists", place: "Mac terminal",
                                code: "test -d ~/src/acme/release && echo folder-ok", expect: "folder-ok")
 
@@ -293,6 +299,11 @@ let sampleVerify = StepContent(action: "Check the release folder exists", place:
         Sample("StepView · verify current") { step(sampleVerify, .verify, .current) },
         Sample("StepView · verify done") { step(sampleVerify, .verify, .done) },
         Sample("StepView · read-only") { step(sampleStep4, .top(4), .todo, readOnly: true) },
+        Sample("StepView · blocking, current") { step(sampleBlocking, .top(3), .current) },
+        Sample("StepView · locked") {
+            StepView(content: sampleStep1, level: .top(4), state: .todo, total: 6, readOnly: false,
+                     expanded: .constant(false), lockText: "Finish step 3 first", onToggle: {}, onCopy: { _ in })
+        },
         Sample("ParentStepView · read-only") { parent([.done, .todo, .todo], readOnly: true) },
     ])
 }
@@ -326,6 +337,10 @@ struct ReplySample: View {
         Sample("ChoiceGroup · none picked") { choice(picked: nil, sent: [], latest: nil) },
         Sample("ChoiceGroup · picked") { choice(picked: 0, sent: [], latest: nil) },
         Sample("ChoiceGroup · sent") { choice(picked: 0, sent: [0], latest: 0) },
+        Sample("OptionRows · multi") {
+            OptionRows(prompt: "Which flags?", options: ["Search", "Exports", "Dark mode"], multi: true,
+                       selected: [0, 2], onPick: { _ in })
+        },
         Sample("RepliesList") {
             RepliesList([ReplyLine(id: 1, text: "You chose: Europe", time: "09:12"), ReplyLine(id: 2, text: "C0123ABCDEF", time: "09:31")])
         },
