@@ -1,7 +1,36 @@
 # Changelog
 
-All notable changes to Relay are listed here. The format follows Keep a Changelog,
+All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
+
+## [0.8.0] - 2026-10-27
+
+Relay is now Hook.
+
+### Changed
+
+- The app is called Hook everywhere you see it: the app bundle (`~/Applications/Hook.app`, process `Hook`), menus, windows, Welcome, Settings, notifications, the menu-bar label and tooltips, alerts, the "Handed to Hook" link page, log prefixes, CLI and MCP messages, the schema title, the installer and the docs.
+- `scripts/install.sh` quits a running Hook or Relay, installs Hook.app, and only then unregisters and removes `~/Applications/Relay.app`. An existing Relay.app counts as installed, so an update keeps a login item you turned off. `--uninstall` removes both apps.
+- The CLI opens Hook when it isn't running, and falls back to Relay.app before the installer has run.
+- The update check accepts a checkout whose origin is `github.com/xooxoxxo/relay` or `github.com/xooxoxxo/hook`, so the GitHub repo can be renamed without breaking updates.
+
+### Added
+
+- A `hook` command: the installer links `~/.local/bin/hook` to the same CLI when that path is free, and leaves someone else's `hook` alone. The CLI prints the name it was run as, so `hook --version` prints `hook 0.8.0`.
+
+### Kept
+
+These names stay, because installs, permissions and sessions depend on them:
+
+- The bundle id `io.github.xooxoxxo.relay`, so settings, notification permission and the single-instance check carry over. The LaunchAgent labels stay too.
+- `~/.config/relay`, `~/Library/Application Support/Relay`, `~/Library/Logs/Relay` and `~/.local/state/relay/away`, so the config, token, queue and away flag carry over.
+- The `relay://` URL scheme (another app already owns `hook://`).
+- The `relay` command, the MCP server `relay` and its tools `relay_post`, `relay_status` and `relay_list`, which CLAUDE.md files, skills and permission lists name, and the `RELAY_*` environment variables.
+- The local API: the `/health` reply's `"app": "relay"`, the server proof and the `X-Relay-*` headers.
+
+### Fixed
+
+- ⌘T scrolls the current step clear of the bottom bars when they are taller than usual: when the "N questions unanswered" caption wraps onto its own line, or when the Undo bar shows. The panel now measures the bars instead of assuming their designed height.
 
 ## [0.7.1] - 2026-10-27
 
