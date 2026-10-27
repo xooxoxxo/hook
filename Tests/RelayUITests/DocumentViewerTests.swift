@@ -329,7 +329,7 @@ import UniformTypeIdentifiers
 
 /// A step whose only body is a file still opens to show its file row.
 @Suite struct FileStepBodyTests {
-    @Test func aFileIsABody() {
+    @Test @MainActor func aFileIsABody() {
         #expect(StepRow.hasBody(StepContent(action: "Read the plan", file: "~/plan.md")))
         #expect(!StepRow.hasBody(StepContent(action: "Read the plan")))
         #expect(FileRow.accessibilityLabel(name: "plan.md", detail: "File not found") == "plan.md, File not found")
