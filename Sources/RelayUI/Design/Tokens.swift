@@ -112,7 +112,7 @@ public enum DS {
         public static let optionRadius: CGFloat = 8
         /// An option row's minimum height: roomier than a stock radio row.
         public static let optionRow: CGFloat = 36
-        /// The number column of an option row (keys 1–9).
+        /// The number column of a reply choice row (keys 1–6).
         public static let optionNumber: CGFloat = 14
     }
 

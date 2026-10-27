@@ -2,7 +2,7 @@ import RelayCore
 import SwiftUI
 
 /// Design/ChoiceGroup: the ask's choices as option rows (OptionRows, single pick),
-/// numbered for the 1–9 keys, with "Sent" on each choice already sent, and the reply's own
+/// numbered for the 1–6 keys, with "Sent" on each choice already sent, and the reply's own
 /// Send (a spinner while sending).
 public struct ChoiceGroup: View {
     let prompt: String
@@ -43,7 +43,7 @@ public struct ChoiceGroup: View {
                 .foregroundStyle(DS.Color.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             OptionRows(prompt: prompt, options: choices, selected: picked.wrappedValue.map { [$0] } ?? [],
-                       sent: sent, disabled: sending, filled: true, onPick: { picked.wrappedValue = $0 })
+                       sent: sent, disabled: sending, filled: true, numbered: true, onPick: { picked.wrappedValue = $0 })
                 .accessibilityHint(Self.hint(count: choices.count))
             HStack(alignment: .firstTextBaseline, spacing: DS.Space.inline) {
                 Text(Self.hint(count: choices.count))

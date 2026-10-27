@@ -337,7 +337,10 @@ struct ReplySample: View {
         Sample("ChoiceGroup · none picked") { choice(picked: nil, sent: [], latest: nil) },
         Sample("ChoiceGroup · picked") { choice(picked: 0, sent: [], latest: nil) },
         Sample("ChoiceGroup · sent") { choice(picked: 0, sent: [0], latest: 0) },
-        Sample("OptionRows · multi") {
+        Sample("OptionRows · step single") {
+            OptionRows(prompt: "Which target?", options: ["Staging", "Production"], selected: [1], onPick: { _ in })
+        },
+        Sample("OptionRows · step multi") {
             OptionRows(prompt: "Which flags?", options: ["Search", "Exports", "Dark mode"], multi: true,
                        selected: [0, 2], onPick: { _ in })
         },

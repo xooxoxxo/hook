@@ -38,6 +38,8 @@ import Testing
         #expect(OptionRows.mark(multi: true, selected: true) == DS.Symbol.checkboxOn)
         #expect(OptionRows.mark(multi: true, selected: false) == DS.Symbol.checkboxOff)
         #expect(OptionRows.accessibilityText(index: 0, option: "Staging", sent: true) == "1, Staging, sent")
+        // Step options carry no number: no key picks them.
+        #expect(OptionRows.accessibilityText(index: 0, option: "Staging", sent: false, numbered: false) == "Staging")
     }
 
     /// The rotor leaves out locked rows and the sub-steps of a parent row that isn't open.

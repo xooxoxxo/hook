@@ -2,7 +2,8 @@ import RelayCore
 import SwiftUI
 
 /// Design/OptionRows: the one option list for reply choices and step questions, single or
-/// multi pick. Grouped rows on a hairline outline, each with its number (the 1–9 keys), the
+/// multi pick. Grouped rows on a hairline outline: the reply's choices lead with their number
+/// (the 1–6 keys pick them; `numbered`), step questions don't, since no key picks those. Then the
 /// choice in body text and a trailing mark: a checkmark on the picked single option, a
 /// checkbox on each multi option. VoiceOver reads a radio group or checkboxes
 /// (`accessibilityRepresentation`), never plain buttons.
@@ -17,11 +18,13 @@ public struct OptionRows: View {
     let disabled: Bool
     /// Draw the group fill under the rows: for a list that sits on the panel, not inside a StepGroup.
     let filled: Bool
+    /// Lead each row with its number: only for the reply's choices, which the digit keys pick.
+    let numbered: Bool
     /// Single: pick `index`. Multi: flip it.
     let onPick: (Int) -> Void
 
     public init(prompt: String, options: [String], multi: Bool = false, selected: Set<Int>, sent: Set<Int> = [],
-                disabled: Bool = false, filled: Bool = false, onPick: @escaping (Int) -> Void) {
+                disabled: Bool = false, filled: Bool = false, numbered: Bool = false, onPick: @escaping (Int) -> Void) {
         self.prompt = prompt
         self.options = options
         self.multi = multi
@@ -29,6 +32,7 @@ public struct OptionRows: View {
         self.sent = sent
         self.disabled = disabled
         self.filled = filled
+        self.numbered = numbered
         self.onPick = onPick
     }
 
@@ -38,16 +42,16 @@ public struct OptionRows: View {
         return selected ? DS.Symbol.optionPicked : nil
     }
 
-    /// What VoiceOver reads for one option: "1, Staging", plus ", sent".
-    public static func accessibilityText(index: Int, option: String, sent: Bool) -> String {
-        "\(index + 1), " + line(option) + (sent ? ", sent" : "")
+    /// What VoiceOver reads for one option: "1, Staging" (numbered) or "Staging", plus ", sent".
+    public static func accessibilityText(index: Int, option: String, sent: Bool, numbered: Bool = true) -> String {
+        (numbered ? "\(index + 1), " : "") + line(option) + (sent ? ", sent" : "")
     }
 
     public var body: some View {
         let shape = RoundedRectangle(cornerRadius: DS.Metric.optionRadius, style: .continuous)
         let rows = VStack(alignment: .leading, spacing: 0) {
             ForEach(options.indices, id: \.self) { i in
-                if i > 0 { Divider().padding(.leading, DS.Space.optionText) }
+                if i > 0 { Divider().padding(.leading, numbered ? DS.Space.optionText : DS.Space.optionH) }
                 row(i)
             }
         }
@@ -63,7 +67,7 @@ public struct OptionRows: View {
             rows.accessibilityRepresentation {
                 Picker(selection: Binding<Int?>(get: { selected.first }, set: { if let i = $0 { onPick(i) } })) {
                     ForEach(options.indices, id: \.self) { i in
-                        Text(verbatim: Self.accessibilityText(index: i, option: options[i], sent: sent.contains(i)))
+                        Text(verbatim: Self.accessibilityText(index: i, option: options[i], sent: sent.contains(i), numbered: numbered))
                             .tag(Optional(i))
                     }
                 } label: {
@@ -79,11 +83,13 @@ public struct OptionRows: View {
         let isOn = selected.contains(i)
         let button = Button { onPick(i) } label: {
             HStack(alignment: .firstTextBaseline, spacing: DS.Space.inline) {
-                Text(verbatim: "\(i + 1)")
-                    .font(DS.Font.meta)
-                    .monospacedDigit()
-                    .foregroundStyle(DS.Color.secondary)
-                    .frame(width: DS.Metric.optionNumber, alignment: .leading)
+                if numbered {
+                    Text(verbatim: "\(i + 1)")
+                        .font(DS.Font.meta)
+                        .monospacedDigit()
+                        .foregroundStyle(DS.Color.secondary)
+                        .frame(width: DS.Metric.optionNumber, alignment: .leading)
+                }
                 Text(verbatim: line(options[i]))
                     .font(DS.Font.body)
                     .fixedSize(horizontal: false, vertical: true)
@@ -106,7 +112,7 @@ public struct OptionRows: View {
         if multi {
             button.accessibilityRepresentation {
                 Toggle(isOn: Binding(get: { isOn }, set: { _ in onPick(i) })) {
-                    Text(verbatim: Self.accessibilityText(index: i, option: options[i], sent: sent.contains(i)))
+                    Text(verbatim: Self.accessibilityText(index: i, option: options[i], sent: sent.contains(i), numbered: numbered))
                 }
                 .toggleStyle(.checkbox)
                 .disabled(disabled)
