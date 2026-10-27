@@ -3,6 +3,21 @@
 All notable changes to Relay are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## [0.7.0] - 2026-10-27
+
+### Added
+
+- Steps and sub-steps can ask a question: one pick from up to 6 choices, several picks, or free text. Answer each in the ask and send them with Send answers (⌘S); the ask stays open. While answers are unsent, ⌘↩ becomes Send & Done.
+- An answered step shows "You chose …" or "You answered …". An edited answer shows "Not sent" until you send it. A caption counts the questions still unanswered, and Done stays available.
+- A closed ask shows its answers read-only until you reopen it.
+- `relay wait` wakes on answers. It then waits until 10 seconds pass without a new one, so a burst of answers wakes a session once. It prints one line per answer, then "answered X of Y; open: …".
+- `relay status`, `relay replies`, the prompt hook and the MCP server's `relay_status` (`answers`, `unanswered`) report answers.
+- The mailbox protocol adds `POST /asks/{id}/answers` and the `answer` event.
+
+### Changed
+
+- Queue cards count answered questions in "N of M" once the ask's detail is loaded.
+
 ## [0.6.6] - 2026-10-26
 
 ### Changed
