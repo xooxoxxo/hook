@@ -1,6 +1,6 @@
-# Relay
+# Hook
 
-A macOS menu-bar inbox for Claude Code. When a session needs a key, a decision or a manual step, it lands here as a checklist you tick off.
+Hook (formerly Relay) is a macOS menu-bar inbox for Claude Code. When a session needs a key, a decision or a manual step, it lands here as a checklist you tick off.
 
 [![CI](https://github.com/xooxoxxo/relay/actions/workflows/ci.yml/badge.svg)](https://github.com/xooxoxxo/relay/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -19,7 +19,7 @@ For people who run Claude Code on a Mac and want one place to answer what their 
 
 ## Quick start
 
-Relay builds from source; there is no prebuilt download yet. You need:
+Hook builds from source; there is no prebuilt download yet. You need:
 
 - macOS 14.5+ to build
 - Xcode Command Line Tools (`xcode-select --install`)
@@ -32,7 +32,7 @@ cd relay
 ./scripts/install.sh
 ```
 
-1. Right-click the menu-bar icon, choose Settings… › Connect › Copy CLAUDE.md section, and paste it into `~/.claude/CLAUDE.md`. This teaches your sessions to ask through Relay.
+1. Right-click the menu-bar icon, choose Settings… › Connect › Copy CLAUDE.md section, and paste it into `~/.claude/CLAUDE.md`. This teaches your sessions to ask through Hook.
 2. In Settings › Queue, click Send a test ask. A badge appears on the menu-bar icon; open the ask and press Done.
 
 ## Documentation

@@ -6,7 +6,7 @@ Please report vulnerabilities privately through GitHub private vulnerability
 reporting: open the repo's **Security** tab and choose **Report a vulnerability**.
 Don't open a public issue for a security problem.
 
-Include what you found, how to reproduce it, and the Relay version (`relay --version`).
+Include what you found, how to reproduce it, and the Hook version (`relay --version`).
 
 ## Scope
 

@@ -11,7 +11,7 @@ An ask is a `project` plus an instructable: a JSON object with a title and numbe
   "steps": [
     {"do": "Open Slack → + next to Channels → Create channel", "where": "Slack"},
     {"do": "Check Node", "where": "Terminal", "code": "node --version", "lang": "bash", "expect": "v22.13 or higher"},
-    {"do": "Pick the deploy target", "where": "Relay", "question": {"prompt": "Which environment?", "choices": ["Staging", "Prod"]}},
+    {"do": "Pick the deploy target", "where": "Hook", "question": {"prompt": "Which environment?", "choices": ["Staging", "Prod"]}},
     {"do": "Create the Slack app", "where": "Browser", "substeps": [
       {"do": "Click Create New App, then From scratch", "url": "https://api.slack.com/apps"},
       {"do": "Name it Acme Brief and pick the Acme workspace"}

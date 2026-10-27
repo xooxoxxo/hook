@@ -1,7 +1,7 @@
-# Owner asks go to Relay
+# Owner asks go to Hook
 
 The moment a step needs the owner (a key or token, a login, a decision, an approval,
-a manual command, a click only they can do), send ONE instructable to their Relay
+a manual command, a click only they can do), send ONE instructable to their Hook
 queue. The `instructables` skill has the format and the writing rules.
 
 - **How:** the MCP tool `relay_post {project, instructable}`. Without MCP:

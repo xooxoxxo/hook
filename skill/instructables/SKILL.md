@@ -1,12 +1,12 @@
 ---
 name: instructables
-description: Use whenever a session needs the owner, i.e. a manual step, an API key or token, a login, a click only they can do, a decision, an approval, an unlock or a confirmation. Sends ONE instructable (numbered steps with copy-paste code) to the owner's Relay queue with the relay_post MCP tool, or with `relay post` as a fallback. Triggers include "need the owner", "owner must", "ask the owner", "waiting on the owner", "manual step", "API key", "token", "secret", "credentials", "decision", "approve", "sign off", "click", "login", "sign in", "unlock", "only the owner can".
+description: Use whenever a session needs the owner, i.e. a manual step, an API key or token, a login, a click only they can do, a decision, an approval, an unlock or a confirmation. Sends ONE instructable (numbered steps with copy-paste code) to the owner's Hook queue with the relay_post MCP tool, or with `relay post` as a fallback. Triggers include "need the owner", "owner must", "ask the owner", "waiting on the owner", "manual step", "API key", "token", "secret", "credentials", "decision", "approve", "sign off", "click", "login", "sign in", "unlock", "only the owner can".
 ---
 
 # Instructables
 
 An instructable is one owner ask written as a puppet script: a title, a reason, and
-numbered steps with exact copy-paste commands. It lands in the owner's Relay queue:
+numbered steps with exact copy-paste commands. It lands in the owner's Hook queue:
 the menu-bar app on their Mac shows it in full, with a Copy button on every `code`
 block, and sends a notification.
 
@@ -42,7 +42,7 @@ on you" line in chat alone gets lost.
   answers it right on that step, without closing the ask:
 
   ```json
-  {"do": "Pick the deploy target", "where": "Relay",
+  {"do": "Pick the deploy target", "where": "Hook",
    "question": {"prompt": "Which environment?", "choices": ["Staging", "Prod"]}}
   ```
 
@@ -66,7 +66,7 @@ on you" line in chat alone gets lost.
 - Leave out `from`, because `relay_post` and `relay post` fill it in. Spell keys
   exactly: unknown keys are rejected. The whole thing must stay under 32 KB.
 
-**Never put a secret or its value in an instructable.** Relay rejects anything that
+**Never put a secret or its value in an instructable.** Hook rejects anything that
 looks like `sk-…`, `xoxb-…`, `ghp_…`, `github_pat_…`, `AKIA…` or a private key.
 When the owner has to give you a secret, write a step that stores it in the Keychain,
 then read it from there yourself:
@@ -114,7 +114,7 @@ Call `relay_post` with two arguments:
 It returns `{id, deduped, openUrl}`:
 - `deduped: true` means an ask with this title is already open. Don't post it again.
 - On `isError` with field paths (`steps[2].url: must be http(s)`), fix those fields and call again.
-- "Relay isn't running", "mailbox unreachable" or another connection error: tell the
+- "Hook isn't running", "mailbox unreachable" or another connection error: tell the
   owner in chat and carry on.
 
 ## Fallback without MCP
@@ -122,7 +122,7 @@ It returns `{id, deduped, openUrl}`:
 ```bash
 relay post Acme --json - <<'EOF'
 {"v": 1, "title": "Choose the Acme launch date", "urgency": "whenever",
- "steps": [{"do": "Pick a date for the public launch", "where": "Relay"}],
+ "steps": [{"do": "Pick a date for the public launch", "where": "Hook"}],
  "reply": {"prompt": "Which date?", "choices": ["2026-11-02", "2026-11-09", "Later"]}}
 EOF
 ```
@@ -162,7 +162,7 @@ Refused asks print `refused: <error>` and one line per field error on stderr, an
 - The owner may reopen an ask they closed by mistake (owner event `reopened`). Treat
   it as open again, and wait for the next answer with `relay wait <id> --after <last seq>`.
 - If the replies hook is set up, answers also show up in your next prompt as
-  `Relay: [<id>] <project> · <title> — <done|skipped|reply>: <text>`, or
+  `Hook: [<id>] <project> · <title> — <done|skipped|reply>: <text>`, or
   `— answer <path>: <value>` for a step answer. The hook shows
   answers to every session's asks: act only on ids you posted.
 - `relay_list` (or `relay list`) shows every open ask. Check it before posting, so you
@@ -174,4 +174,4 @@ Refused asks print `refused: <error>` and one line per field error on stderr, an
 If the need goes away or you solve it yourself: `relay done <id> "<what happened>"`,
 or `relay skip <id> "<why>"` when it no longer applies.
 
-Mention the ask and its id in chat too. Relay is the owner's queue; chat is the log.
+Mention the ask and its id in chat too. Hook is the owner's queue; chat is the log.

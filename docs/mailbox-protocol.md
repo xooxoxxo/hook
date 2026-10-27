@@ -1,6 +1,6 @@
 # Mailbox protocol
 
-What Relay sends to a mailbox service you run, and what it reads back. Relay includes no mailbox server.
+What Hook sends to a mailbox service you run, and what it reads back. Hook includes no mailbox server.
 
 The app polls every `pollSeconds`; the CLI and MCP server use the same routes.
 
@@ -8,11 +8,11 @@ The app polls every `pollSeconds`; the CLI and MCP server use the same routes.
 
 Every request carries `Authorization: Bearer <content of tokenFile>`. Bodies are JSON (`Content-Type: application/json`).
 
-| Request | Sent by | Body or query | Relay expects |
+| Request | Sent by | Body or query | Hook expects |
 |---|---|---|---|
 | `POST /asks` | CLI, MCP server, Settings › Queue test ask | `{project, context, instructable}` | 201 or 200 `{item, deduped?, openUrl?}` |
 | `GET /asks` | app, CLI, MCP server | `status=open`, `days=36500` | 200 `{items}`, newest first |
-| `GET /asks` | app (Closed today) | `status=done` or `status=dismissed`, `days=14` | 200 `{items}`; Relay keeps those whose `completedAt` falls in its window |
+| `GET /asks` | app (Closed today) | `status=done` or `status=dismissed`, `days=14` | 200 `{items}`; Hook keeps those whose `completedAt` falls in its window |
 | `GET /asks/{id}` | app, CLI (including `relay wait`), MCP server | none | 200 `{item, events}`, or 404 |
 | `POST /asks/{id}/resolve` | app (Done, Skip), CLI and MCP (`done`, `skip`) | `{verdict, actor, note?}`: `verdict` is `done` or `declined`; `actor` is `owner` from the app and `session` from the CLI and MCP server | 200 `{item}` |
 | `POST /asks/{id}/reopen` | app (Reopen in Closed today) | `{actor}`: always `owner` | 200 `{item}`, or 404 |
@@ -37,7 +37,7 @@ Every request carries `Authorization: Bearer <content of tokenFile>`. Bodies are
 
 ## Items
 
-Relay reads these item keys and ignores the rest.
+Hook reads these item keys and ignores the rest.
 
 | Key | Meaning |
 |---|---|

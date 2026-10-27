@@ -4,11 +4,11 @@ In This Mac only mode, the CLI and MCP server use this API. You need it only to 
 
 ## Access
 
-- Relay listens on `127.0.0.1:<port>` only (`port` in `config.json`, 47823 by default).
-- Every request except `/health` and `/i/<id>` needs `Authorization: Bearer <token>`: the 64 hex characters in `local-token` next to `config.json` (created by Relay, `0600`).
+- Hook listens on `127.0.0.1:<port>` only (`port` in `config.json`, 47823 by default).
+- Every request except `/health` and `/i/<id>` needs `Authorization: Bearer <token>`: the 64 hex characters in `local-token` next to `config.json` (created by Hook, `0600`).
 - Bodies are JSON objects of at most 65536 bytes. `Transfer-Encoding` is refused.
 
-Before checking anything else, Relay answers 403 `forbidden` to:
+Before checking anything else, Hook answers 403 `forbidden` to:
 - a `Host` other than `127.0.0.1:<port>` or `localhost:<port>`;
 - any request with an `Origin` header;
 - a `Sec-Fetch-Site` other than `none`.
@@ -23,7 +23,7 @@ Before checking anything else, Relay answers 403 `forbidden` to:
 | `POST /asks/{id}/resolve` | `{verdict: "done"\|"declined", actor?: "session", note?}` | 200 `{item}` (unchanged if already finished) | 400 `invalid verdict`, `invalid actor`, `invalid note`; 403 `owner actions are app-only`; 404 |
 | `GET /events` | `after` ≥ 0, `limit` 1–1000 (default 100) | 200 `{events, next, epoch}` | 400 `invalid query` |
 | `GET /health` | optional `X-Relay-Nonce` header (32–64 hex) | 200 `{"ok":true,"app":"relay","source":"local"\|"mailbox"\|"none"}`, plus `proof` in local mode | none |
-| `GET /i/<id>` | none | Brings Relay forward on that ask (`relay://i/<id>` does the same) | 403 for web-page requests |
+| `GET /i/<id>` | none | Brings Hook forward on that ask (`relay://i/<id>` does the same) | 403 for web-page requests |
 
 The body format and the `project` rule are in [Instructable format](instructables.md).
 

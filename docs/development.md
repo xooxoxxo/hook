@@ -1,6 +1,6 @@
 # Development
 
-Build Relay, run its tests and find your way around the code.
+Build Hook, run its tests and find your way around the code.
 
 ## Build and test
 
@@ -8,7 +8,7 @@ Build Relay, run its tests and find your way around the code.
 swift build && swift test                                   # RelayCore and RelayUI tests (Swift Testing)
 python3 -m unittest discover -s clients -p 'test_*.py' -v   # CLI and client
 python3 -m unittest discover -s mcp -p 'test_*.py' -v       # MCP server
-BUILD_ONLY=1 ./scripts/build.sh                             # assembles ./build/Relay.app, installs nothing
+BUILD_ONLY=1 ./scripts/build.sh                             # assembles ./build/Hook.app, installs nothing
 ./scripts/test-install.sh                                   # installer, in a sandbox HOME
 ./scripts/smoke-local.sh                                    # This Mac only, end to end
 scripts/gallery.sh [scene…]                                 # renders the UI offscreen to build/gallery/
@@ -17,7 +17,7 @@ scripts/gallery.sh [scene…]                                 # renders the UI o
 
 Test-only switches:
 - `RELAY_DATA_DIR` moves the app's queue folder.
-- `RELAY_NO_AUTOLAUNCH=1` stops the `relay` CLI from starting Relay. The smoke run sets it, so it can't touch an installed app.
+- `RELAY_NO_AUTOLAUNCH=1` stops the `relay` CLI from starting Hook. The smoke run sets it, so it can't touch an installed app.
 - `scripts/install.sh` honours `RELAY_SKIP_BUILD`, `RELAY_SKIP_LAUNCH` and `RELAY_SKIP_MCP` (see its header).
 
 ## Design gallery
