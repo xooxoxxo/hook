@@ -92,8 +92,11 @@ ours() { [ "$(bundle_id "$1")" = "$BUNDLE_ID" ]; }
 # PIDs of running copies of this app, by bundle id, whichever name they run under.
 # A copy whose bundle is gone (deleted, or replaced by a failed copy) counts only when
 # it ran from under $HOME as Hook or Relay; another app called Hook is never ours.
+# Only this user's processes count: pgrep sees every user's, and another user's Hook
+# (fast user switching) is never ours to quit or kill.
 our_pids() {
-  for pid in $(pgrep -x Hook 2>/dev/null) $(pgrep -x Relay 2>/dev/null); do
+  uid="$(id -u)"
+  for pid in $(pgrep -u "$uid" -x Hook 2>/dev/null) $(pgrep -u "$uid" -x Relay 2>/dev/null); do
     exe="$(ps -o comm= -p "$pid" 2>/dev/null)" || continue
     case "$exe" in */Contents/MacOS/*) ;; *) continue ;; esac
     bundle="${exe%%/Contents/MacOS/*}"
