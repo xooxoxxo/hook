@@ -291,4 +291,28 @@ grep -q "Hook.app is not this app" "$OUT" || fail "the foreign Hook.app was not 
 [ ! -e "$H/Applications/Relay.app" ] || fail "--uninstall kept the old Relay.app"
 ok "another app called Hook is left alone"
 
+# 20. A fresh app install over a kept config (Hook.app deleted, then reinstalled) sets
+#     onboarding "pending", so the setup window shows; an update over our bundle doesn't.
+rm -rf "$H/Applications/Hook.app" "$H/Applications/Relay.app"
+printf '{"source": "local", "custom": 1}\n' > "$CONFIG"
+run || { cat "$OUT"; fail "a fresh app install over a kept config exited non-zero"; }
+config_key onboarding '"pending"'
+config_key custom 1
+grep -q 'Hook.app is new here, so setup shows when it starts' "$OUT" || fail "the fresh app install was not reported"
+fake_app "$H/Applications/Hook.app"
+printf '{"source": "local", "custom": 1}\n' > "$CONFIG"
+run || { cat "$OUT"; fail "an update over our bundle exited non-zero"; }
+config_key onboarding 'null'
+if grep -q 'Hook.app is new here' "$OUT"; then fail "an update was reported as a fresh app install"; fi
+rm -rf "$H/Applications/Hook.app"
+fake_app "$H/Applications/Relay.app"
+run || { cat "$OUT"; fail "an update from Relay.app exited non-zero"; }
+config_key onboarding 'null'
+rm -rf "$H/Applications/Relay.app"
+fake_app "$H/Applications/Hook.app" com.example.other-hook
+run || { cat "$OUT"; fail "an install next to a foreign Hook.app exited non-zero"; }
+config_key onboarding '"pending"'
+rm -rf "$H/Applications/Hook.app"
+ok "a fresh app install shows setup again; an update doesn't"
+
 echo "INSTALL TESTS OK"

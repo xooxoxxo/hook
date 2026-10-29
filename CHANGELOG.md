@@ -11,6 +11,10 @@ and versions follow Semantic Versioning.
   checks out the newest release and runs `scripts/install.sh`. Installer options go after
   `bash -s --`. It refuses a folder that isn't a clone of Hook or has local changes.
 
+### Fixed
+- Deleting Hook.app and installing again shows the setup window again, filled in from the
+  config you kept, so you only confirm it. Before, setup showed only for a new config.
+
 ## [0.9.2] - 2026-10-27
 
 ### Changed

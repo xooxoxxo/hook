@@ -26,4 +26,16 @@ struct QueueSourceRadioTests {
         #expect(QueueSourceRadio.saved(RelayConfig(mailboxURL: "https://mailbox.example")) == .mailbox)
         #expect(QueueSourceRadio.saved(nil) == .local)
     }
+
+    /// A reinstalled app over a kept config: setup shows ("pending") and its source page
+    /// starts from the saved Pond, so a returning user only confirms.
+    @Test func setupOverAKeptConfigStartsFromIt() {
+        let kept = RelayConfig(source: .mailbox, mailboxURL: "https://mailbox.example:8790",
+                               tokenFile: "/home/tester/.config/relay/mailbox-token", context: "work",
+                               onboarding: RelayConfig.onboardingPending)
+        #expect(WelcomeFlow.showsAtLaunch(.loaded(kept)))
+        #expect(QueueSourceRadio.saved(kept) == .mailbox)
+        #expect(MailboxDraft(config: kept, home: "/home/tester")
+            == MailboxDraft(address: "https://mailbox.example:8790", tokenFile: "~/.config/relay/mailbox-token", context: "work"))
+    }
 }

@@ -212,6 +212,11 @@ private_dir "$DATA_DIR"
 first_install=0
 [ -e "$CONFIG" ] || first_install=1
 [ -d "$APP" ] || [ -d "$OLD_APP" ] || first_install=1
+# A fresh app install: no app of ours at ~/Applications/Hook.app yet (Relay.app, the app
+# before the rename, counts as installed). The setup window then shows again, even over a
+# kept config, prefilled from it.
+fresh_app=1
+if { [ -d "$APP" ] && ours "$APP"; } || { [ -d "$OLD_APP" ] && ours "$OLD_APP"; }; then fresh_app=0; fi
 if [ -e "$CONFIG" ]; then
   if ! python3 - "$CONFIG" <<'PY'
 import json, sys
@@ -229,9 +234,9 @@ PY
   fi
 fi
 
-python3 - "$CONFIG" "$mode" "$mailbox_url" "$token_file" "$REPO" <<'PY'
+python3 - "$CONFIG" "$mode" "$mailbox_url" "$token_file" "$REPO" "$fresh_app" <<'PY'
 import json, os, sys
-path, mode, url, token_file, repo = sys.argv[1:6]
+path, mode, url, token_file, repo, fresh_app = sys.argv[1:7]
 try:
     with open(path, encoding="utf-8-sig") as f:
         cfg = json.load(f)
@@ -244,8 +249,9 @@ elif mode == "mailbox":
     cfg.update({"source": "mailbox", "mailboxURL": url, "tokenFile": token_file})
 elif created:
     cfg["source"] = "local"
-if created:
-    # The app's setup window shows once for a new config; it removes the key when done.
+if created or fresh_app == "1":
+    # The app's setup window shows once for a new config or a new app; it removes the
+    # key when done.
     cfg["onboarding"] = "pending"
 cfg["repoPath"] = repo
 data = (json.dumps(cfg, indent=2, sort_keys=True, ensure_ascii=False) + "\n").encode("utf-8")
@@ -263,6 +269,8 @@ except BaseException:
     raise
 source = cfg.get("source") or ("mailbox" if "mailboxURL" in cfg else "not set")
 print("config: %s %s (source: %s)" % ("wrote" if created else "updated", path, source))
+if not created and fresh_app == "1":
+    print("config: Hook.app is new here, so setup shows when it starts")
 PY
 
 # --- 3. build; only after success, replace the running app ------------------------
