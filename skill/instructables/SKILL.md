@@ -243,6 +243,10 @@ reaches only the session that posted the ask, as a quote:
   - Answers carry the version they answered (`rev`, and `(version N)` in `relay wait`). A
     `stale` answer means the owner answered an earlier version of that question, before
     your correction changed it: it doesn't count, and the path is listed as unanswered.
+  - An answer follows its step id, not its path: when a correction moves a step, its
+    answer moves with it. `earlier` lists answers to steps the current version no longer
+    has (`id`, the `step` path the owner answered, `rev`). They don't count; never act on
+    one as an answer to the step now at that path.
   - `rev` is the newest version, `acceptedRev` the one the owner accepted, `editable`
     whether this Mac can correct the ask.
   - Only **owner** events, or a `(by owner)` status, are the owner's answer.

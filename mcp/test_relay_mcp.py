@@ -628,6 +628,7 @@ class ResolvedByTest(unittest.TestCase):
         self.assertEqual(result["answers"], {"3.2": {"picked": ["Staging"], "at": "2026-10-11T09:02:00+00:00", **plain},
                                              "4": {"text": "US", "at": "2026-10-11T09:04:00+00:00", **plain}})
         self.assertEqual(result["unanswered"], ["1", "2", "3", "4.2"])
+        self.assertEqual(result["earlier"], [])
         self.assertEqual([e["kind"] for e in result["ownerEvents"]], ["answer", "answer", "answer"])
 
     def test_ask_without_questions_has_empty_answers(self):

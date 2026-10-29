@@ -648,35 +648,74 @@ def accepted_rev(detail: Any) -> int:
     return value if isinstance(value, int) and not isinstance(value, bool) and value >= 1 else 1
 
 
-def answers_with_state(detail: Any) -> Dict[str, Dict[str, Any]]:
-    """The owner's latest answer per step, keyed by the step's path in the current instructable
-    (an answer follows its step id when the step moved). Each value is latest_answers' value plus
-    `rev` (the version answered), `id`, `auth`, and `stale`: the question in the version in force
-    (the accepted one) differs from the one the owner answered."""
+def _question_of(instructable: Any, step_id: str) -> Optional[Dict[str, Any]]:
+    entry = _steps_by_id(instructable).get(step_id)
+    question = entry[1].get("question") if entry is not None else None
+    return question if isinstance(question, dict) else None
+
+
+def answer_state(detail: Any) -> Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
+    """The owner's latest answer per step, as the Pond counts it: (current, earlier).
+
+    Answers are grouped by step id: an event's `id`, else its path mapped to an id through
+    the revision at the event's rev (an old Pond, or no revisions: the current instructable).
+    The latest answer per id wins. `current` keys it by that id's path in the current
+    instructable, so an answer follows its step when the step moves, and a path that another
+    step takes over never shows an answer given to the step that was there. `earlier` lists
+    the answers to steps the current instructable no longer has, in log order; they never
+    count. An answer with no id at all (an ask from before step ids) keeps its path.
+
+    Each value is latest_answers' value plus `rev` (the version answered), `id`, `step` (the
+    path the owner answered), `auth`, and `stale`: the question at that id in the version in
+    force (the accepted one) isn't the one the owner answered."""
     events = detail.get("events") if isinstance(detail, dict) and isinstance(detail.get("events"), list) else []
+    current_body = instructable_of(detail)
     bodies = revision_bodies(detail)
-    in_force = bodies.get(accepted_rev(detail))
-    current_ids = _steps_by_id(instructable_of(detail))
-    by_seq = {e.get("seq"): e for e in events if isinstance(e, dict)}
-    found: Dict[str, Dict[str, Any]] = {}
-    for path, answer in sorted(latest_answers(events).items(), key=lambda kv: _seq_of(kv[1])):
-        event = by_seq.get(answer.get("seq"), {})
-        body = parse_answer(event) or {}
+    in_force = bodies.get(accepted_rev(detail)) or current_body
+    latest: Dict[Tuple[str, str], Dict[str, Any]] = {}
+    for event in sorted((e for e in events if isinstance(e, dict)), key=_seq_of):
+        body = parse_answer(event)
+        value = latest_answers([event]).get(body["step"]) if body is not None else None
+        if value is None:
+            continue
         rev = event_rev(event)
+        answered = bodies.get(rev) or in_force
         step_id = body.get("id") if isinstance(body.get("id"), str) else None
-        answered = bodies.get(rev)
-        if step_id is None and answered is not None:
-            step = _step_at(answered, path)
+        if step_id is None:
+            step = _step_at(answered, body["step"])
             step_id = step.get("id") if step is not None and isinstance(step.get("id"), str) else None
-        stale = False
-        if step_id is not None and in_force is not None and answered is not None:
-            then = _steps_by_id(answered).get(step_id)
-            now = _steps_by_id(in_force).get(step_id)
-            stale = (then[1].get("question") if then else None) != (now[1].get("question") if now else None)
-        key = current_ids[step_id][0] if step_id is not None and step_id in current_ids else path
-        value = dict(answer, rev=rev, id=step_id, auth=event.get("auth"), stale=stale)
-        found[key] = value
-    return found
+        if step_id is None:
+            latest[("path", body["step"])] = dict(value, rev=rev, id=None, step=body["step"],
+                                                  auth=event.get("auth"), stale=False)
+            continue
+        asked = _question_of(answered, step_id)
+        stale = asked is None or asked != _question_of(in_force, step_id)
+        latest[("id", step_id)] = dict(value, rev=rev, id=step_id, step=body["step"],
+                                       auth=event.get("auth"), stale=stale)
+    current_ids = _steps_by_id(current_body)
+    found: Dict[str, Dict[str, Any]] = {}
+    earlier: List[Dict[str, Any]] = []
+    for (kind, key), value in sorted(latest.items(), key=lambda kv: _seq_of(kv[1])):
+        if kind == "path":
+            found[key] = value
+        elif key in current_ids:
+            found[current_ids[key][0]] = value
+        else:
+            earlier.append(value)
+    return found, earlier
+
+
+def answers_with_state(detail: Any) -> Dict[str, Dict[str, Any]]:
+    """The current half of answer_state: the owner's latest answer per step, keyed by the
+    step's path in the current instructable."""
+    return answer_state(detail)[0]
+
+
+def open_questions(detail: Any, given: Optional[Dict[str, Dict[str, Any]]] = None) -> List[str]:
+    """Paths of the current questions without a counted answer, in document order: an answer
+    to an earlier question (stale) or to a step that is gone doesn't count."""
+    given = answers_with_state(detail) if given is None else given
+    return [path for path in questions(instructable_of(detail)) if path not in given or given[path]["stale"]]
 
 
 def answer_value(answer: Dict[str, Any]) -> str:

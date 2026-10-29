@@ -19,7 +19,7 @@ import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from relay_client import (RelayError, Refused, Unreachable, answer_value, event_rev, instructable_of,
-                          parse_answer, questions, revision_hash_of, session_label, session_text, unanswered)
+                          open_questions, parse_answer, questions, revision_hash_of, session_label, session_text)
 
 DEFAULT_TIMEOUT_S = 28800.0       # 8 h
 LOCAL_INTERVAL_S = 2.0            # 127.0.0.1 is cheap to poll
@@ -101,7 +101,7 @@ def format_answer(detail: Dict[str, Any], ask_id: str, answers: List[Dict[str, A
     lines.extend(_foreign_versions(detail, ask_id, edit_keys))
     asked = questions(instructable_of(detail))
     if asked:
-        open_paths = unanswered(instructable_of(detail), events)
+        open_paths = open_questions(detail)
         summary = f"answered {len(asked) - len(open_paths)} of {len(asked)}"
         lines.append(summary + (f"; open: {', '.join(open_paths)}" if open_paths else ""))
     lines.append(f"last seq: {max(_seq(e) for e in events if isinstance(e, dict))}")

@@ -225,6 +225,93 @@ class RevisedStatusTest(unittest.TestCase):
         self.assertNotIn("1", data["answers"])
 
 
+def with_rev2(d, rev2, accepted):
+    """The `revised` ask with rev 2's body replaced and the owner's accepted version set."""
+    body = json.dumps(rev2)
+    d["item"]["payload"]["instructable"] = rev2
+    d["item"]["revision"].update(body=body, acceptedRev=accepted)
+    d["revisions"][1]["body"] = body
+    return d
+
+
+def id_answer(seq, step, step_id, picked, rev):
+    a = answer(seq, step, picked)
+    body = json.loads(a["text"])
+    body["id"] = step_id
+    a.update(text=json.dumps(body), rev=rev, auth="owner-key")
+    return a
+
+
+DELETE_DB = {"prompt": "Delete the database?", "choices": ["Yes", "No"]}
+
+
+class StepIdAnswersTest(unittest.TestCase):
+    """Answers follow step ids, as the Pond counts them, never a path another step took over."""
+
+    def replaced(self, accepted):
+        d = revised(question_change=False)
+        rev2 = d["item"]["payload"]["instructable"]
+        rev2["steps"][0] = {"id": "r2-1", "do": "Drop the old database", "question": DELETE_DB}
+        return with_rev2(d, rev2, accepted)
+
+    def assert_replaced(self, d):
+        data = relay_cli._status_json(d)
+        self.assertNotIn("1", data["answers"])
+        self.assertIn("1", data["unanswered"])
+        self.assertEqual(data["earlier"], [{"id": "s1", "step": "1", "picked": ["Staging"],
+                                            "at": "2026-10-11T09:02:00+00:00", "rev": 1, "verified": True}])
+        lines = relay_cli.format_status(d)
+        self.assertEqual(lines[lines.index("  1  \"Delete the database?\"") + 1], '  2  "Which signals?"')
+        self.assertEqual(lines[-2:], ["Answers to steps this version no longer has (they don't count):",
+                                      '  1 (version 1, step id s1)  "Staging"'])
+
+    def test_a_replaced_step_not_yet_accepted(self):
+        self.assert_replaced(self.replaced(accepted=1))
+
+    def test_a_replaced_step_accepted(self):
+        self.assert_replaced(self.replaced(accepted=2))
+
+    def test_wait_counts_by_step_id(self):
+        d = self.replaced(accepted=2)
+        lines = rw.format_answer(d, ASK_ID, [])
+        self.assertIn("answered 0 of 5; open: 1, 2, 3, 4, 4.2", lines)
+
+    def inserted(self):
+        """Rev 2 (accepted) puts a new question at path 1 and moves s1 to path 2."""
+        d = revised(question_change=False)
+        rev2 = d["item"]["payload"]["instructable"]
+        rev2["steps"].insert(0, {"id": "r2-1", "do": "Drop the old database", "question": DELETE_DB})
+        return with_rev2(d, rev2, accepted=2)
+
+    def test_a_path_another_step_reuses(self):
+        d = self.inserted()
+        d["events"].append(id_answer(4, "1", "r2-1", ["No"], rev=2))
+        data = relay_cli._status_json(d)
+        self.assertEqual(data["answers"]["1"]["picked"], ["No"])
+        self.assertEqual(data["answers"]["2"], {"picked": ["Staging"], "at": "2026-10-11T09:02:00+00:00",
+                                                "rev": 1, "stale": False, "verified": True})
+        self.assertNotIn("2", data["unanswered"])
+        self.assertEqual(data["earlier"], [])
+
+    def test_a_path_answer_without_an_id_maps_through_its_version(self):
+        d = self.inserted()
+        a = answer(4, "1", ["No"])
+        a["rev"] = 2
+        d["events"].append(a)
+        data = relay_cli._status_json(d)
+        self.assertEqual((data["answers"]["1"]["picked"], data["answers"]["2"]["picked"]), (["No"], ["Staging"]))
+
+    def test_the_new_step_is_open_until_answered(self):
+        data = relay_cli._status_json(self.inserted())
+        self.assertEqual(list(data["answers"]), ["2"])
+        self.assertIn("1", data["unanswered"])
+
+    def test_an_old_pond_keeps_paths(self):
+        data = relay_cli._status_json(detail(POSTED, answer(2, "1", ["Staging"])))
+        self.assertEqual(data["answers"]["1"]["picked"], ["Staging"])
+        self.assertEqual(data["earlier"], [])
+
+
 class RepliesAnswersTest(unittest.TestCase):
     def setUp(self):
         from test_relay_replies import FakeQueue

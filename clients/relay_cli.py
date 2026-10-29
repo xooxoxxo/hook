@@ -18,8 +18,8 @@ from typing import Any, Callable, Dict, List, Optional
 import relay_replies
 import relay_wait
 from relay_client import (OWNER_LABELS, VERSION, Client, EditKeys, PondTooOld, Refused, RelayError, accepted_rev,
-                          answer_value, answers_with_state, event_rev, instructable_of, questions, revision_of,
-                          session_label, session_text)
+                          answer_state, answer_value, event_rev, instructable_of, open_questions, questions,
+                          revision_of, session_label, session_text)
 
 DEFAULT_TIMEOUT = 10.0
 SUBSTEPS_SENTENCE = ("A step that needs more than one action can hold `substeps`: 1 to 10 step objects "
@@ -191,9 +191,9 @@ def format_status(detail: dict) -> list:
                      f"{session_label(problem['step'] or '?', 20)} (version {problem['rev']}), quoted: "
                      f"{session_text(problem['note'], OWNER_TEXT_CAP)}")
     asked = questions(instructable_of(detail))
+    given, earlier = answer_state(detail)
     if asked:
-        given = answers_with_state(detail)
-        open_paths = _unanswered(asked, given)
+        open_paths = open_questions(detail, given)
         lines.append(f"Answers ({len(asked) - len(open_paths)} of {len(asked)}):")
         for path, question in asked.items():
             prompt = str(question.get("prompt") or "").strip().split("\n")[0]
@@ -204,25 +204,30 @@ def format_status(detail: dict) -> list:
                 lines.append("     " + session_text(answer_value(answer), OWNER_TEXT_CAP) + note)
         if open_paths:
             lines.append("Unanswered: " + ", ".join(open_paths))
+    if earlier:
+        lines.append("Answers to steps this version no longer has (they don't count):")
+        for answer in earlier:
+            lines.append(f"  {session_label(answer['step'], 20)} (version {answer['rev']}, step id "
+                         f"{session_label(answer['id'], 40)})  " + session_text(answer_value(answer), OWNER_TEXT_CAP))
     return lines
 
 
-def _unanswered(asked: Dict[str, Any], given: Dict[str, Dict[str, Any]]) -> List[str]:
-    """Question paths without a current answer: an answer to an earlier question doesn't count."""
-    return [path for path in asked if path not in given or given[path]["stale"]]
+def _answer_json(answer: Dict[str, Any], *keys: str) -> Dict[str, Any]:
+    value = {k: v for k, v in answer.items() if k in ("picked", "text", "at", "rev") + keys}
+    value["verified"] = answer.get("auth") in ("owner-key", "telegram")
+    return value
 
 
 def answers_json(detail: dict) -> Dict[str, Any]:
-    """{"answers": {path: {picked|text, at, rev, stale, verified}}, "unanswered": [path, ...]} for status
-    --json and MCP. `stale`: the owner answered an earlier version of the question; `verified`: the
-    answer came with Hook's owner key or from Telegram."""
-    given = answers_with_state(detail)
-    answers = {}
-    for path, a in given.items():
-        value = {k: v for k, v in a.items() if k in ("picked", "text", "at", "rev", "stale")}
-        value["verified"] = a.get("auth") in ("owner-key", "telegram")
-        answers[path] = value
-    return {"answers": answers, "unanswered": _unanswered(questions(instructable_of(detail)), given)}
+    """{"answers": {path: {picked|text, at, rev, stale, verified}}, "unanswered": [path, ...],
+    "earlier": [{id, step, picked|text, at, rev, verified}, ...]} for status --json and MCP.
+    `stale`: the owner answered an earlier version of the question; `verified`: the answer came
+    with Hook's owner key or from Telegram; `earlier`: answers to steps the current version no
+    longer has (by step id, with the path the owner answered), which never count."""
+    given, earlier = answer_state(detail)
+    return {"answers": {path: _answer_json(a, "stale") for path, a in given.items()},
+            "unanswered": open_questions(detail, given),
+            "earlier": [_answer_json(a, "id", "step") for a in earlier]}
 
 
 def revision_json(detail: dict, editable: bool) -> Dict[str, Any]:
