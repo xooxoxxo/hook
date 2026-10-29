@@ -24,7 +24,10 @@ mkdir -p "$APP/Contents/MacOS"
 cp "$BIN" "$APP/Contents/MacOS/Hook"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 # The document viewer's scripts (vendored marked and DOMPurify, and viewer.js) and their licences.
-VIEWER="$(swift build -c release --show-bin-path)/Relay_RelayUI.bundle/Viewer"
+# Package.swift copies them unchanged (.copy), so they come straight from the source tree: where
+# SwiftPM puts its resource bundle differs between build systems (.build/out/Products/Release with
+# the newer one), and the app reads them from Contents/Resources/Viewer.
+VIEWER="$ROOT/Sources/RelayUI/Resources/Viewer"
 [ -f "$VIEWER/marked.umd.js" ] || { echo "build.sh: no viewer resources at $VIEWER" >&2; exit 1; }
 mkdir -p "$APP/Contents/Resources"
 cp -R "$VIEWER" "$APP/Contents/Resources/Viewer"

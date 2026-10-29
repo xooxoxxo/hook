@@ -3,6 +3,13 @@
 All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## [0.9.4] - 2026-10-29
+
+### Fixed
+- Installing or updating stopped with "build.sh: no viewer resources at …/.build/out/Products/Release/…"
+  on Macs whose Swift uses the newer build system, which puts resource bundles elsewhere. The
+  build now takes the viewer's files from the source tree, where they are kept unchanged.
+
 ## [0.9.3] - 2026-10-29
 
 ### Added
