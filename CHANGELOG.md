@@ -3,6 +3,14 @@
 All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## [Unreleased]
+
+### Added
+- A one-line install: `scripts/get.sh` (piped from GitHub into `bash`, as the README shows)
+  clones Hook to `~/.local/share/hook`, or updates the clone you already installed from,
+  checks out the newest release and runs `scripts/install.sh`. Installer options go after
+  `bash -s --`. It refuses a folder that isn't a clone of Hook or has local changes.
+
 ## [0.9.2] - 2026-10-27
 
 ### Changed

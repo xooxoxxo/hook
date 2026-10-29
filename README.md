@@ -27,6 +27,14 @@ Hook builds from source; there is no prebuilt download yet. You need:
 - Claude Code (the `claude` command)
 
 ```bash
+curl -fsSL https://raw.githubusercontent.com/xooxoxxo/hook/main/scripts/get.sh | bash
+```
+
+It clones Hook to `~/.local/share/hook`, checks out the latest release and runs `./scripts/install.sh`. Installer options go after `bash -s --`, for example `| bash -s -- --local`.
+
+Or clone it yourself:
+
+```bash
 git clone https://github.com/xooxoxxo/hook.git
 cd hook
 ./scripts/install.sh

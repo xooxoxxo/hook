@@ -11,6 +11,14 @@ Hook builds from source with one script.
 ## Install
 
 ```bash
+curl -fsSL https://raw.githubusercontent.com/xooxoxxo/hook/main/scripts/get.sh | bash
+```
+
+`scripts/get.sh` checks for macOS, git, Python and the Command Line Tools (it starts their installer when they are missing; run it again once that finishes). It clones Hook to `~/.local/share/hook` (or `$HOOK_DIR`), or updates the clone `~/.local/bin/relay` already links into, checks out the newest release tag, and runs `./scripts/install.sh`. It never touches a folder that isn't a clone of Hook or that has local changes. Pass installer options after `bash -s --`, for example `| bash -s -- --local`.
+
+Or clone it yourself:
+
+```bash
 git clone https://github.com/xooxoxxo/hook.git
 cd hook
 ./scripts/install.sh
@@ -38,7 +46,7 @@ The `relay` command, MCP server and skill run from the clone. If you move it, re
 
 ## Update
 
-`git pull && ./scripts/install.sh` keeps the config.
+Rerun the one-line install, or `git pull && ./scripts/install.sh` in the clone. Either keeps the config.
 
 Coming from Relay 0.7.x: the update replaces `Relay.app` with `Hook.app`. The config, token, queue, settings, notification permission, login item and the `relay` command all carry over, because their names and paths stay the same.
 

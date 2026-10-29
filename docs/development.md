@@ -10,6 +10,7 @@ python3 -m unittest discover -s clients -p 'test_*.py' -v   # CLI and client
 python3 -m unittest discover -s mcp -p 'test_*.py' -v       # MCP server
 BUILD_ONLY=1 ./scripts/build.sh                             # assembles ./build/Hook.app, installs nothing
 ./scripts/test-install.sh                                   # installer, in a sandbox HOME
+./scripts/test-get.sh                                       # one-line installer, against a local bare repo
 ./scripts/smoke-local.sh                                    # This Mac only, end to end
 scripts/gallery.sh [scene…]                                 # renders the UI offscreen to build/gallery/
 ./scripts/check-tokens.sh                                   # no literal sizes, colours or durations outside Design/
@@ -19,6 +20,7 @@ Test-only switches:
 - `RELAY_DATA_DIR` moves the app's queue folder.
 - `RELAY_NO_AUTOLAUNCH=1` stops the `relay` CLI from starting Hook. The smoke run sets it, so it can't touch an installed app.
 - `scripts/install.sh` honours `RELAY_SKIP_BUILD`, `RELAY_SKIP_LAUNCH` and `RELAY_SKIP_MCP` (see its header).
+- `scripts/get.sh` clones `HOOK_REPO_URL` instead of GitHub's repo.
 
 ## Design gallery
 
@@ -54,7 +56,7 @@ A pull request that changes `Sources/RelayUI/` attaches the before and after PNG
 
 ## CI
 
-[CI](../.github/workflows/ci.yml) runs on pushes to `main` and on pull requests. It builds, runs the Swift, client and MCP tests (again on `/usr/bin/python3` if it is 3.9+), and runs the installer tests.
+[CI](../.github/workflows/ci.yml) runs on pushes to `main` and on pull requests. It builds, runs the Swift, client and MCP tests (again on `/usr/bin/python3` if it is 3.9+), and runs the installer tests (`test-install.sh` and `test-get.sh`).
 
 ## Releasing
 
