@@ -1,10 +1,18 @@
 #!/usr/bin/env bash
-# Hook (formerly Relay) installer. Idempotent: re-run it after `git pull` to rebuild and re-register.
-#   scripts/install.sh                  build and install; keep the config (new installs get "This Mac only")
+# Hook (formerly Relay) installer. Idempotent: rerun it to reinstall and re-register.
+#   scripts/install.sh                  install; keep the config (new installs get "This Mac only")
 #   scripts/install.sh --local          the same, and set source "local" (This Mac only)
 #   scripts/install.sh --mailbox <dir>  the same, and use the mailbox named by <dir>/mailbox-url and <dir>/mailbox-token
+#   scripts/install.sh --prebuilt       install the release this script came with (scripts/get.sh runs it
+#                                       as ~/.local/share/hook/current/scripts/install.sh); nothing is built
 #   scripts/install.sh --uninstall      remove the app (Hook.app and an old Relay.app), LaunchAgent,
-#                                       this repo's CLI links, MCP server and this repo's skill link (keeps the config, token and queue)
+#                                       this install's CLI links, MCP server and skill link (keeps the config, token and queue)
+# Run from a clone, it builds Hook from source only in a developer's clone (HOOK_DEV=1, changes
+# that aren't committed, or a local branch other than main). Any other clone, such as one an
+# older Hook updates with git, hands over to the release download (scripts/get.sh), and builds
+# from source only when that download fails.
+# A --prebuilt install moves the CLI, MCP server and skill off an older clone to
+# ~/.local/share/hook/current and says the clone can be deleted; a developer's clone keeps its links.
 # This script never reads or prints any token.
 # Test-only switches, used by scripts/test-install.sh and nothing else:
 #   RELAY_SKIP_BUILD=1   no build, no app quit, no copy to ~/Applications
@@ -33,7 +41,6 @@ DATA_DIR="$HOME/Library/Application Support/Relay"
 CLI_LINK="$HOME/.local/bin/relay"
 CLI_ALIAS="$HOME/.local/bin/hook"   # the same CLI under the new name
 SKILL_LINK="$HOME/.claude/skills/instructables"
-MCP_CMD="claude mcp add --scope user relay -- python3 \"$REPO/mcp/relay_mcp.py\""
 GUI="gui/$(id -u)"
 LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 SKIP_BUILD="${RELAY_SKIP_BUILD:-0}"
@@ -44,23 +51,29 @@ TEST_STEP="${RELAY_TEST_STEP:-}"
 
 usage() {
   cat <<'EOF'
-Usage: scripts/install.sh [--local | --mailbox <dir> | --uninstall | --help]
+Usage: scripts/install.sh [--local | --mailbox <dir>] [--prebuilt] | --uninstall | --help
 
-  (no flag)        Build and install Hook. Keeps an existing config;
+  (no flag)        Install Hook. Keeps an existing config;
                    a new install starts in "This Mac only" mode.
+                   In a developer's clone it builds from source; another clone
+                   installs the release download instead (scripts/get.sh).
   --local          Also switch the config to "This Mac only" (source "local").
   --mailbox <dir>  Also switch to the Pond named by <dir>/mailbox-url (an http(s) URL)
                    and <dir>/mailbox-token (only its path is stored; it is never read).
-  --uninstall      Remove the app, LaunchAgent, CLI links, MCP server and this repo's
-                   skill link. Keeps the config, token and queue.
+  --prebuilt       Install the release this script came with (get.sh and Hook's
+                   updater run it from ~/.local/share/hook/current). Builds nothing.
+  --uninstall      Remove the app, LaunchAgent, CLI links, MCP server and this
+                   install's skill link. Keeps the config, token and queue.
 EOF
 }
 
 die() { echo "install: $*" >&2; exit 1; }
 
+ARGS=("$@")
 mode="keep"
 mailbox_dir=""
 uninstall=0
+prebuilt=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --local)
@@ -71,6 +84,7 @@ while [ $# -gt 0 ]; do
       [ $# -ge 2 ] || { echo "install: --mailbox needs a folder" >&2; exit 2; }
       mode="mailbox"; mailbox_dir="$2"; shift ;;
     --uninstall) uninstall=1 ;;
+    --prebuilt) prebuilt=1 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "install: unknown option: $1 (see --help)" >&2; exit 2 ;;
   esac
@@ -78,6 +92,81 @@ while [ $# -gt 0 ]; do
 done
 
 have_claude() { command -v claude >/dev/null 2>&1; }
+
+# A path with the home folder as ~, for messages.
+# shellcheck disable=SC2088
+tilde() { case "$1" in "$HOME"/*) printf '~/%s' "${1#"$HOME"/}" ;; *) printf '%s' "$1" ;; esac; }
+
+# A developer's clone builds from source and keeps its links: HOOK_DEV=1, changes that
+# aren't committed, or a local branch other than main. Without the Command Line Tools
+# git can't run, and nobody develops in that clone.
+dev_clone() {
+  [ -e "$1/.git" ] || return 1
+  [ "${HOOK_DEV:-0}" = "1" ] && return 0
+  xcode-select -p >/dev/null 2>&1 || return 1
+  changes="$(git -C "$1" status --porcelain 2>/dev/null)" || return 0
+  [ -z "$changes" ] || return 0
+  for branch in $(git -C "$1" for-each-ref --format='%(refname:short)' refs/heads/ 2>/dev/null); do
+    [ "$branch" = "main" ] || return 0
+  done
+  return 1
+}
+
+# --- where this install lives -----------------------------------------------------
+# A clone links the CLI, MCP server and skill to itself. A release payload
+# (~/.local/share/hook/<version>) links them through ~/.local/share/hook/current, so
+# the next release only moves that link.
+LINK_ROOT="$REPO"
+HOOK_HOME=""
+if [ "$prebuilt" -eq 1 ]; then
+  [ ! -e "$REPO/.git" ] || die "--prebuilt installs a release download; $REPO is a clone. Run ./scripts/install.sh without it"
+fi
+# A release download is always a --prebuilt install, --uninstall included.
+if [ ! -e "$REPO/.git" ] && [ -f "$REPO/VERSION" ] && [ -d "$REPO/Hook.app" ]; then prebuilt=1; fi
+if [ "$prebuilt" -eq 1 ]; then
+  [ -f "$REPO/VERSION" ] && [ -d "$REPO/Hook.app" ] || die "--prebuilt: $REPO is not a release download (no VERSION or Hook.app)"
+  HOOK_HOME="$(dirname "$REPO")"
+  [ "$(cd "$HOOK_HOME/current" 2>/dev/null && pwd -P)" = "$REPO" ] \
+    || die "--prebuilt: $(tilde "$HOOK_HOME/current") does not link to $(tilde "$REPO"); install with scripts/get.sh"
+  LINK_ROOT="$HOOK_HOME/current"
+fi
+MCP_CMD="claude mcp add --scope user relay -- python3 \"$LINK_ROOT/mcp/relay_mcp.py\""
+
+# Old clones the links moved off, to name at the end.
+OLD_COPIES=()
+
+# What a CLI or skill link is to this install: link_state <link> <path in the payload>
+# prints "free", "ours", "old" (a link a --prebuilt install takes over: another version
+# here, a dangling link, or an older clone of Hook; "old:<dir>" names that clone),
+# "dev:<dir>" (a developer's clone) or "other".
+link_state() {
+  if [ ! -e "$1" ] && [ ! -L "$1" ]; then echo free; return; fi
+  [ -L "$1" ] || { echo other; return; }
+  target="$(readlink "$1")"
+  if [ "$target" = "$LINK_ROOT/$2" ]; then echo ours; return; fi
+  [ "$prebuilt" -eq 1 ] || { echo other; return; }
+  case "$target" in
+    "$HOOK_HOME"/*/"$2") echo old; return ;;
+    /*/"$2") ;;
+    *) echo other; return ;;
+  esac
+  [ -e "$target" ] || { echo old; return; }
+  dir="${target%/"$2"}"
+  if [ -e "$dir/.git" ] && [ -f "$dir/mcp/relay_mcp.py" ]; then
+    if dev_clone "$dir"; then echo "dev:$dir"; else echo "old:$dir"; fi
+    return
+  fi
+  echo other
+}
+
+# Remembers an old clone once, to name at the end.
+note_old_copy() {
+  for seen in ${OLD_COPIES[@]+"${OLD_COPIES[@]}"}; do [ "$seen" = "$1" ] && return 0; done
+  OLD_COPIES+=("$1")
+}
+
+# Is this link one this install made (through current, or straight into this folder)?
+our_link() { [ -L "$1" ] && { [ "$(readlink "$1")" = "$LINK_ROOT/$2" ] || [ "$(readlink "$1")" = "$REPO/$2" ]; }; }
 
 # Creates a directory with mode 0700, or tightens an existing one to 0700.
 private_dir() { (umask 077; mkdir -p "$1"); chmod 700 "$1"; }
@@ -209,12 +298,12 @@ remove_app() {
   rm -rf "$1"
 }
 
-# Removes a CLI link only when it points at this repo's bin/relay.
+# Removes a CLI link only when it points at this install's bin/relay.
 remove_cli_link() {
-  if [ -L "$1" ] && [ "$(readlink "$1")" = "$REPO/bin/relay" ]; then
+  if our_link "$1" bin/relay; then
     rm "$1"
   elif [ -e "$1" ] || [ -L "$1" ]; then
-    echo "cli: $1 is not this repo's link; left alone"
+    echo "cli: $1 is not this install's link; left alone"
   fi
 }
 
@@ -252,10 +341,10 @@ if [ "$uninstall" -eq 1 ]; then
   remove_cli_link "$CLI_LINK"
   remove_cli_link "$CLI_ALIAS"
   if [ "$SKIP_MCP" != "1" ] && have_claude; then claude mcp remove relay --scope user >/dev/null 2>&1 || true; fi
-  if [ -L "$SKILL_LINK" ] && [ "$(readlink "$SKILL_LINK")" = "$REPO/skill/instructables" ]; then
+  if our_link "$SKILL_LINK" skill/instructables; then
     rm "$SKILL_LINK"
   elif [ -e "$SKILL_LINK" ] || [ -L "$SKILL_LINK" ]; then
-    echo "skill: $SKILL_LINK is not this repo's link; left alone"
+    echo "skill: $SKILL_LINK is not this install's link; left alone"
   fi
   echo "Hook uninstalled. Kept:"
   echo "  config: $CONFIG"
@@ -265,6 +354,22 @@ if [ "$uninstall" -eq 1 ]; then
   exit 0
 fi
 
+# --- a clone that isn't a developer's installs the release download ----------------
+# An older Hook's updater moves its clone to the new tag and runs this script there; so
+# does someone who cloned Hook to install it. Both get the prebuilt release of this
+# version. Only when that download fails (status 3: nothing changed) does the clone
+# build from source, as before.
+
+if [ "$prebuilt" -eq 0 ] && [ -e "$REPO/.git" ] && ! dev_clone "$REPO"; then
+  version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$REPO/Resources/Info.plist" 2>/dev/null || true)"
+  echo "install: $(tilde "$REPO") is not a developer's clone; installing the Hook ${version:-?} release download instead"
+  echo "install: (to build from source here, run HOOK_DEV=1 ./scripts/install.sh)"
+  status=0
+  HOOK_VERSION="$version" "$REPO/scripts/get.sh" ${ARGS[@]+"${ARGS[@]}"} || status=$?
+  [ "$status" -eq 3 ] || exit "$status"
+  echo "install: the release download failed; building from source in $(tilde "$REPO") instead" >&2
+fi
+
 # --- 1. checks -------------------------------------------------------------------
 
 macos="$(sw_vers -productVersion 2>/dev/null || echo 0)"
@@ -272,7 +377,7 @@ macos="$(sw_vers -productVersion 2>/dev/null || echo 0)"
 command -v python3 >/dev/null 2>&1 || die "python3 not found; install the Command Line Tools: xcode-select --install"
 python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)' \
   || die "python3 is older than 3.9; update the Command Line Tools in System Settings › Software Update"
-if [ "$SKIP_BUILD" != "1" ]; then
+if [ "$SKIP_BUILD" != "1" ] && [ "$prebuilt" -eq 0 ]; then
   xcode-select -p >/dev/null 2>&1 || die "the Command Line Tools are missing; run: xcode-select --install"
   swift_out="$(swift --version 2>&1 || true)"
   swift_major="$(printf '%s\n' "$swift_out" | sed -nE 's/.*Swift version ([0-9]+)\..*/\1/p' | head -1)"
@@ -337,7 +442,7 @@ PY
   fi
 fi
 
-python3 - "$CONFIG" "$mode" "$mailbox_url" "$token_file" "$REPO" "$fresh_app" <<'PY'
+python3 - "$CONFIG" "$mode" "$mailbox_url" "$token_file" "$LINK_ROOT" "$fresh_app" <<'PY'
 import json, os, sys
 path, mode, url, token_file, repo, fresh_app = sys.argv[1:7]
 try:
@@ -376,11 +481,17 @@ if not created and fresh_app == "1":
     print("config: Hook.app is new here, so setup shows when it starts")
 PY
 
-# --- 3. build; only after success, replace the running app ------------------------
+# --- 3. build (or take the release's app); only then replace the running app -------
 
-if [ "$SKIP_BUILD" != "1" ]; then
-  BUILD_ONLY=1 "$REPO/scripts/build.sh"
-  [ -d "$REPO/build/Hook.app" ] || die "build.sh did not produce $REPO/build/Hook.app"
+if [ "$prebuilt" -eq 1 ] || [ "$SKIP_BUILD" != "1" ]; then
+  if [ "$prebuilt" -eq 1 ]; then
+    NEW_APP="$REPO/Hook.app"
+    ours "$NEW_APP" || die "$NEW_APP is not Hook (bundle id $(bundle_id "$NEW_APP"))"
+  else
+    BUILD_ONLY=1 "$REPO/scripts/build.sh"
+    NEW_APP="$REPO/build/Hook.app"
+    [ -d "$NEW_APP" ] || die "build.sh did not produce $NEW_APP"
+  fi
   # An update from 0.7.x runs the old app's update job with this script, so Relay
   # is quit here too.
   if [ -d "$APP" ] && ! ours "$APP"; then
@@ -389,8 +500,12 @@ if [ "$SKIP_BUILD" != "1" ]; then
   if [ "$SKIP_LAUNCH" != "1" ]; then stop_apps; fi
   mkdir -p "$(dirname "$APP")"
   rm -rf "$APP"
-  ditto "$REPO/build/Hook.app" "$APP"
-  if [ "$SKIP_LAUNCH" != "1" ]; then "$LSREGISTER" -f "$APP"; fi
+  ditto "$NEW_APP" "$APP"
+  if [ "$SKIP_LAUNCH" != "1" ]; then
+    "$LSREGISTER" -f "$APP"
+    # relay:// must open ~/Applications/Hook.app, never the release's own copy.
+    if [ "$prebuilt" -eq 1 ]; then "$LSREGISTER" -u "$NEW_APP" 2>/dev/null || true; fi
+  fi
   echo "app: installed $APP"
 else
   echo "app: skipped (RELAY_SKIP_BUILD=1)"
@@ -413,25 +528,30 @@ warn() { echo "$*" >&2; }
 
 # --- 4. CLI; never replace a `relay` command that isn't ours ---------------------------
 
-if [ -L "$CLI_LINK" ] && [ "$(readlink "$CLI_LINK")" = "$REPO/bin/relay" ]; then
-  echo "cli: $CLI_LINK already links here"
-elif [ -e "$CLI_LINK" ] || [ -L "$CLI_LINK" ]; then
-  warn "cli: $CLI_LINK points elsewhere; left alone. To use this clone: rm ~/.local/bin/relay && ./scripts/install.sh"
-elif mkdir -p "$(dirname "$CLI_LINK")" && ln -s "$REPO/bin/relay" "$CLI_LINK"; then
-  echo "cli: $CLI_LINK -> $REPO/bin/relay"
-else
-  warn "cli: couldn't link $CLI_LINK; later run: ln -s \"$REPO/bin/relay\" \"$CLI_LINK\""
-fi
+# link_to <link> <path in the payload> <label> <what to say when it is someone else's>
+# Links <link> to this install unless something that isn't ours is there. A --prebuilt
+# install takes over a link into an older clone or another version; a developer's
+# clone keeps its link.
+link_to() {
+  state="$(link_state "$1" "$2")"
+  case "$state" in
+    ours) echo "$3: $1 already links here"; return 0 ;;
+    dev:*) warn "$3: $1 links into the developer clone $(tilde "${state#dev:}"); left alone. To use the release instead: rm $(tilde "$1") and run this again"; return 0 ;;
+    other) warn "$4"; return 0 ;;
+    old:*) note_old_copy "${state#old:}"; rm "$1" ;;
+    old) rm "$1" ;;
+  esac
+  if mkdir -p "$(dirname "$1")" && ln -s "$LINK_ROOT/$2" "$1"; then
+    echo "$3: $1 -> $LINK_ROOT/$2"
+  else
+    warn "$3: couldn't link $1; later run: ln -s \"$LINK_ROOT/$2\" \"$1\""
+  fi
+}
+
+link_to "$CLI_LINK" bin/relay cli \
+  "cli: $CLI_LINK points elsewhere; left alone. To use this install: rm ~/.local/bin/relay && ./scripts/install.sh"
 # The `hook` alias: the same CLI, linked only when the path is free.
-if [ -L "$CLI_ALIAS" ] && [ "$(readlink "$CLI_ALIAS")" = "$REPO/bin/relay" ]; then
-  echo "cli: $CLI_ALIAS already links here"
-elif [ -e "$CLI_ALIAS" ] || [ -L "$CLI_ALIAS" ]; then
-  warn "cli: $CLI_ALIAS is something else; left alone. The relay command works the same."
-elif mkdir -p "$(dirname "$CLI_ALIAS")" && ln -s "$REPO/bin/relay" "$CLI_ALIAS"; then
-  echo "cli: $CLI_ALIAS -> $REPO/bin/relay"
-else
-  warn "cli: couldn't link $CLI_ALIAS; later run: ln -s \"$REPO/bin/relay\" \"$CLI_ALIAS\""
-fi
+link_to "$CLI_ALIAS" bin/relay cli "cli: $CLI_ALIAS is something else; left alone. The relay command works the same."
 case ":$PATH:" in
   *":$HOME/.local/bin:"*) ;;
   *) echo "cli: ~/.local/bin is not on PATH; add this line to ~/.zshrc:"
@@ -444,7 +564,7 @@ if [ "$SKIP_MCP" = "1" ]; then
   echo "mcp: skipped (RELAY_SKIP_MCP=1)"
 elif have_claude; then
   claude mcp remove relay --scope user >/dev/null 2>&1 || true
-  if claude mcp add --scope user relay -- python3 "$REPO/mcp/relay_mcp.py"; then
+  if claude mcp add --scope user relay -- python3 "$LINK_ROOT/mcp/relay_mcp.py"; then
     echo "mcp: registered relay (user scope)"
   else
     warn "mcp: registration failed; later run: $MCP_CMD"
@@ -455,15 +575,12 @@ fi
 
 # --- 6. skill symlink; never replace something that isn't ours ---------------------
 
-if [ -L "$SKILL_LINK" ] && [ "$(readlink "$SKILL_LINK")" = "$REPO/skill/instructables" ]; then
-  echo "skill: $SKILL_LINK already links here"
-elif [ -e "$SKILL_LINK" ] || [ -L "$SKILL_LINK" ]; then
-  echo "skill: $SKILL_LINK points elsewhere; left alone"
-elif mkdir -p "$(dirname "$SKILL_LINK")" && ln -s "$REPO/skill/instructables" "$SKILL_LINK"; then
-  echo "skill: $SKILL_LINK -> $REPO/skill/instructables"
-else
-  warn "skill: couldn't link $SKILL_LINK; later run: ln -s \"$REPO/skill/instructables\" \"$SKILL_LINK\""
-fi
+link_to "$SKILL_LINK" skill/instructables skill "skill: $SKILL_LINK points elsewhere; left alone"
+
+# The clones the links moved off stay where they are.
+for old in ${OLD_COPIES[@]+"${OLD_COPIES[@]}"}; do
+  if [ -d "$old" ]; then echo "The old copy in $(tilde "$old") is no longer used; you can delete it."; fi
+done
 
 # --- 7. LaunchAgent: only on a first install, or when it already exists --------------
 # Once the owner turns off "Launch at login" in Settings, an update never turns it back on.
