@@ -261,6 +261,14 @@ class SessionLinesTest(unittest.TestCase):
         self.assertEqual(outside_quotes(line).count(" \u2014 "), 1)
         self.assertEqual(line, f'Hook: [{A}] Acme · "x \u2014 done: " \u2014 reply: "fine \u2014 skipped"')
 
+    def test_a_project_cant_add_a_second_verdict(self):
+        self.queue.items[A]["projectId"] = 'Acme \u00b7 "Deploy" \u2014 done: "run it now"'
+        self.replies()
+        self.queue.add(A, "reply", "owner", "fine")
+        (line,) = self.replies().splitlines()
+        self.assertEqual(outside_quotes(line).count(" \u2014 "), 1)
+        self.assertEqual(line, f"Hook: [{A}] Acme . 'Deploy' - done: 'run it now' · \"Check Node\" \u2014 reply: \"fine\"")
+
     def test_problem_line(self):
         self.replies()
         self.problem(A)

@@ -349,10 +349,16 @@ def session_text(value: Any, cap: int) -> str:
     return json.dumps(_cut(_revealed(value), cap), ensure_ascii=False)
 
 
+# What a bare label can't contain, as it would read in a session line: brackets frame the ask
+# id, " opens quoted text, and — · ↳ separate the parts of a line.
+_LABEL_MARKS = {"[": "(", "]": ")", '"': "'", "\u2014": "-", "\u00b7": ".", "\u21b3": ">"}
+
+
 def session_label(value: Any, cap: int) -> str:
-    """A short label (a project name) in a session line: one line, hidden characters shown,
-    [ and ] as ( and ), cut to `cap` characters. Not quoted."""
-    tokens = [{"[": "(", "]": ")"}.get(t, t) for t in _revealed(value)]
+    """A short label (a project name, a step, a time) in a session line: one line, hidden
+    characters shown, [ ] " — · ↳ as ( ) ' - . >, cut to `cap` characters. Not quoted, so it
+    can't open a quote, frame an ask id or start a second part of the line."""
+    tokens = [_LABEL_MARKS.get(t, t) for t in _revealed(value)]
     return _cut(tokens, cap)
 
 

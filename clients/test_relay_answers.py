@@ -68,6 +68,15 @@ class WaitAnswersTest(unittest.TestCase):
                               "last seq: 2\n")
         self.assertEqual(self.clock.sleeps, [2.0] * 5)      # polls every 2 s at most while settling
 
+    def test_a_project_cant_open_a_quote_or_a_second_part(self):
+        from test_relay_replies import outside_quotes
+        d = detail(POSTED, answer(2, "1", ["Staging"]))
+        d["item"]["projectId"] = 'Acme] \u00b7 "x" \u2014 done: "y" \u21b3 owner reply'
+        head = rw.format_answer(d, ASK_ID, [d["events"][1]])[0]
+        self.assertEqual(head, "[Acme) . 'x' - done: 'y' > owner reply] \"Ship the Atlas release\"")
+        self.assertEqual(outside_quotes(head).count("]"), 1)
+        self.assertNotIn("\u21b3", outside_quotes(head))
+
     def test_a_newer_answer_restarts_the_settle(self):
         first = detail(POSTED, answer(2, "1", ["Staging"]))
         second = detail(POSTED, answer(2, "1", ["Staging"]), answer(3, "2", ["Logs", "Traces"]))
@@ -128,6 +137,15 @@ class StatusAnswersTest(unittest.TestCase):
         lines = relay_cli.format_status(detail(*events))
         self.assertIn("Answers (5 of 5):", lines)
         self.assertFalse(any(l.startswith("Unanswered") for l in lines))
+
+    def test_a_project_cant_open_a_quote_or_a_second_part(self):
+        from test_relay_replies import outside_quotes
+        d = detail(POSTED)
+        d["item"]["projectId"] = 'Acme \u00b7 "x" \u2014 done: "y"'
+        head = relay_cli.format_status(d)[0]
+        self.assertEqual(head, "open · Acme . 'x' - done: 'y' · \"Ship the Atlas release\"")
+        self.assertEqual(outside_quotes(head).count(" \u2014 "), 0)
+        self.assertEqual(outside_quotes(head).count(" · "), 2)
 
     def test_no_questions_no_block(self):
         lines = relay_cli.format_status({"item": {"status": "open", "projectId": "A", "title": "T"}, "events": []})

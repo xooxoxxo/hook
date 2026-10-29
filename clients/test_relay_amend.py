@@ -379,6 +379,7 @@ class SessionTextTests(Base):
     def test_label(self):
         self.assertEqual(rc.session_label("[Liner]\n x", 60), "(Liner) ⏎  x")
         self.assertEqual(rc.session_label("Acme" * 20, 10), "AcmeAcmeA…")
+        self.assertEqual(rc.session_label('Acme \u00b7 "x" \u2014 done: \u21b3 y', 60), "Acme . 'x' - done: > y")
 
 
 if __name__ == "__main__":
