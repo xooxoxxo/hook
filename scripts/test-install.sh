@@ -2,11 +2,14 @@
 # Sandbox test for scripts/install.sh. HOME is a fresh temp folder and the test-only
 # switches are on, so nothing is built, launched or registered, and the real
 # ~/.config, ~/Applications, LaunchAgents, Claude config and running app are untouched.
+# The quit and start tests run fake app processes inside the temp folder, fenced to it
+# with RELAY_APP_SCOPE.
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd -P)"
 INSTALL="$REPO/scripts/install.sh"
 T="$(mktemp -d)"
 trap 'rm -rf "$T"' EXIT
+T="$(cd "$T" && pwd -P)"   # ps names processes by their real path
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 ok() { echo "ok - $*"; }
@@ -314,5 +317,68 @@ run || { cat "$OUT"; fail "an install next to a foreign Hook.app exited non-zero
 config_key onboarding '"pending"'
 rm -rf "$H/Applications/Hook.app"
 ok "a fresh app install shows setup again; an update doesn't"
+
+# 21. A Hook that ignores SIGTERM is force-quit before its bundle is replaced; another app
+#     called Hook is never touched; a copy whose bundle is gone counts as ours only from
+#     under HOME. RELAY_APP_SCOPE fences every step to the sandbox ($T, which holds the
+#     sandbox HOME and a folder outside it), so a real Hook running on this Mac is never seen. The fake app is a tiny C program, so its
+#     process name is Hook.
+command -v cc >/dev/null 2>&1 || fail "cc is needed for the fake app (install the Command Line Tools)"
+printf '#include <signal.h>\n#include <unistd.h>\nint main(void) { signal(SIGTERM, SIG_IGN); for (;;) pause(); }\n' > "$T/stubborn.c"
+cc -o "$T/stubborn" "$T/stubborn.c" || fail "couldn't build the fake app"
+PIDS="$T/pids"
+: > "$PIDS"
+trap 'while read -r p; do kill -9 "$p" 2>/dev/null || true; done < "$PIDS"; rm -rf "$T"' EXIT
+fake_running() {   # fake_running <app> [bundle id]: a bundle whose Hook ignores SIGTERM, started; prints its pid
+  fake_app "$1" "${2:-io.github.xooxoxxo.relay}"
+  mkdir -p "$1/Contents/MacOS"
+  cp "$T/stubborn" "$1/Contents/MacOS/Hook"
+  ( "$1/Contents/MacOS/Hook" >/dev/null 2>&1 & echo $! > "$T/last.pid" )
+  cat "$T/last.pid" >> "$PIDS"
+  cat "$T/last.pid"
+}
+alive() { kill -0 "$1" 2>/dev/null; }
+step() {   # step <stop|start>: one install.sh step, fenced to the sandbox
+  env HOME="$H" RELAY_APP_SCOPE="$T" RELAY_TEST_STEP="$1" "$INSTALL" >"$OUT" 2>&1
+}
+rm -rf "$H/Applications/Hook.app" "$H/Applications/Relay.app"
+ours_pid="$(fake_running "$H/Applications/Hook.app")"
+other_pid="$(fake_running "$H/Other/Hook.app" com.example.other-hook)"
+gone_pid="$(fake_running "$H/Gone/Hook.app")"
+outside="$T/outside-home/Hook.app"
+outside_pid="$(fake_running "$outside")"
+sleep 0.5   # let them load before their bundles go
+rm -rf "$H/Gone/Hook.app" "$outside"
+for p in "$ours_pid" "$other_pid" "$gone_pid" "$outside_pid"; do alive "$p" || fail "a fake app didn't start (pid $p)"; done
+step stop || { cat "$OUT"; fail "the stop step exited non-zero"; }
+! alive "$ours_pid" || fail "a Hook that ignores SIGTERM is still running"
+! alive "$gone_pid" || fail "a Hook whose bundle is gone (under HOME) is still running"
+alive "$other_pid" || fail "another app called Hook was killed"
+grep -qx "app: force-quit a Hook that did not quit (pid $ours_pid)" "$OUT" || { cat "$OUT"; fail "the force-quit was not reported"; }
+grep -qx "app: force-quit a Hook that did not quit (pid $gone_pid)" "$OUT" || { cat "$OUT"; fail "the gone bundle's force-quit was not reported"; }
+if grep -q "pid $other_pid" "$OUT"; then fail "another app called Hook was reported"; fi
+alive "$outside_pid" || fail "a Hook whose bundle is gone, outside HOME, was killed"
+ok "a Hook that ignores SIGTERM is force-quit; another app called Hook is left alone"
+kill -9 "$outside_pid" "$other_pid" 2>/dev/null || true
+
+# 22. After the start, a copy older than the install (open only brought it forward) is
+#     force-quit and the app started again; the new copy is left running.
+old_pid="$(fake_running "$H/Applications/Hook.app")"
+sleep 2   # older than the install by whole seconds
+step start || { cat "$OUT"; fail "the start step exited non-zero"; }
+! alive "$old_pid" || fail "the older Hook is still running after the start"
+grep -qx "app: an older Hook is still running; starting the new one again" "$OUT" || { cat "$OUT"; fail "the restart was not reported"; }
+grep -qx "app: force-quit a Hook that did not quit (pid $old_pid)" "$OUT" || { cat "$OUT"; fail "the older copy's force-quit was not reported"; }
+new_pid="$(pgrep -f "^$H/Applications/Hook.app/Contents/MacOS/Hook" || true)"
+[ -n "$new_pid" ] || fail "the new Hook was not started again"
+echo "$new_pid" >> "$PIDS"
+alive "$new_pid" || fail "the new Hook is not running"
+kill -9 $new_pid 2>/dev/null || true
+ok "an older copy found after the start is replaced by the new one"
+
+# 23. The single steps refuse to run without the sandbox fence.
+if env HOME="$H" RELAY_TEST_STEP=stop "$INSTALL" >"$OUT" 2>&1; then fail "RELAY_TEST_STEP ran without RELAY_APP_SCOPE"; fi
+grep -q 'RELAY_TEST_STEP needs RELAY_APP_SCOPE' "$OUT" || fail "no reason for the refusal"
+ok "single steps need the fence"
 
 echo "INSTALL TESTS OK"

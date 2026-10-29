@@ -206,6 +206,8 @@ public struct UpdatePlan: Equatable, Sendable {
 
     /// The script the job runs. Each step that fails logs which one, and Hook is
     /// started again if install.sh had already quit it. The job removes itself at the end.
+    /// install.sh does the quit and restart: it force-quits a copy that hangs on quit and
+    /// checks that the copy it started is the new one, so the job needs no quit of its own.
     public var script: String {
         let repo = Shell.quote(repoPath)
         let app = Shell.quote(appPath)

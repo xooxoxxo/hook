@@ -19,7 +19,7 @@ scripts/gallery.sh [scene…]                                 # renders the UI o
 Test-only switches:
 - `RELAY_DATA_DIR` moves the app's queue folder.
 - `RELAY_NO_AUTOLAUNCH=1` stops the `relay` CLI from starting Hook. The smoke run sets it, so it can't touch an installed app.
-- `scripts/install.sh` honours `RELAY_SKIP_BUILD`, `RELAY_SKIP_LAUNCH` and `RELAY_SKIP_MCP` (see its header).
+- `scripts/install.sh` honours `RELAY_SKIP_BUILD`, `RELAY_SKIP_LAUNCH` and `RELAY_SKIP_MCP`, and runs a single quit or start step under `RELAY_TEST_STEP` fenced by `RELAY_APP_SCOPE` (see its header).
 - `scripts/get.sh` clones `HOOK_REPO_URL` instead of GitHub's repo.
 
 ## Design gallery

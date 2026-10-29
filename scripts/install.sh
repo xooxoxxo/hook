@@ -10,7 +10,14 @@
 #   RELAY_SKIP_BUILD=1   no build, no app quit, no copy to ~/Applications
 #   RELAY_SKIP_LAUNCH=1  no launchctl, no pkill, no lsregister, no app start
 #   RELAY_SKIP_MCP=1     no `claude mcp` calls
+#   RELAY_APP_SCOPE=<dir>  only app copies whose bundle is under <dir> count as running
+#   RELAY_TEST_STEP=stop   with RELAY_APP_SCOPE: only quit (and force-quit) running copies, then exit
+#   RELAY_TEST_STEP=start  with RELAY_APP_SCOPE: only start the app and check no older copy runs,
+#                          then exit; the app's executable is run directly, not through `open`
 set -euo pipefail
+
+# Copies of the app that started before this moment are old ones.
+INSTALL_STARTED="$(date +%s)"
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 APP="$HOME/Applications/Hook.app"
@@ -32,6 +39,8 @@ LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchS
 SKIP_BUILD="${RELAY_SKIP_BUILD:-0}"
 SKIP_LAUNCH="${RELAY_SKIP_LAUNCH:-0}"
 SKIP_MCP="${RELAY_SKIP_MCP:-0}"
+APP_SCOPE="${RELAY_APP_SCOPE:-}"
+TEST_STEP="${RELAY_TEST_STEP:-}"
 
 usage() {
   cat <<'EOF'
@@ -81,11 +90,42 @@ bundle_id() { /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$1/Content
 ours() { [ "$(bundle_id "$1")" = "$BUNDLE_ID" ]; }
 
 # PIDs of running copies of this app, by bundle id, whichever name they run under.
+# A copy whose bundle is gone (deleted, or replaced by a failed copy) counts only when
+# it ran from under $HOME as Hook or Relay; another app called Hook is never ours.
 our_pids() {
   for pid in $(pgrep -x Hook 2>/dev/null) $(pgrep -x Relay 2>/dev/null); do
-    cmd="$(ps -o command= -p "$pid" 2>/dev/null)" || continue
-    case "$cmd" in */Contents/MacOS/*) ;; *) continue ;; esac
-    if ours "${cmd%%/Contents/MacOS/*}"; then echo "$pid"; fi
+    exe="$(ps -o comm= -p "$pid" 2>/dev/null)" || continue
+    case "$exe" in */Contents/MacOS/*) ;; *) continue ;; esac
+    bundle="${exe%%/Contents/MacOS/*}"
+    if [ -n "$APP_SCOPE" ]; then
+      case "$bundle" in "$APP_SCOPE"/*) ;; *) continue ;; esac
+    fi
+    if [ -d "$bundle" ]; then
+      if ours "$bundle"; then echo "$pid"; fi
+    else
+      case "$bundle" in "$HOME"/*) ;; *) continue ;; esac
+      case "${exe##*/}" in Hook|Relay) echo "$pid" ;; esac
+    fi
+  done
+}
+
+# Seconds since a process started (ps's elapsed time, [[dd-]hh:]mm:ss), or nothing.
+pid_age() {
+  e="$(ps -o etime= -p "$1" 2>/dev/null | tr -d ' ')" || return 0
+  [ -n "$e" ] || return 0
+  d=0
+  case "$e" in *-*) d="${e%%-*}"; e="${e#*-}" ;; esac
+  IFS=: read -r a b c <<<"$e"
+  if [ -z "$c" ]; then c="$b"; b="$a"; a=0; fi
+  echo $(( 10#$d * 86400 + 10#$a * 3600 + 10#$b * 60 + 10#$c ))
+}
+
+# PIDs of running copies of this app that started before this install began.
+old_pids() {
+  since=$(( $(date +%s) - INSTALL_STARTED ))
+  for pid in $(our_pids); do
+    age="$(pid_age "$pid")"
+    if [ -n "$age" ] && [ "$age" -gt "$since" ]; then echo "$pid"; fi
   done
 }
 
@@ -108,6 +148,54 @@ quit_apps() {
     [ -n "$(our_pids)" ] || return 0
     sleep 0.5
   done
+}
+
+# SIGKILLs the given copies of this app and waits up to 3 s for them to go. A copy that
+# hangs on quit would otherwise keep running the old version after the update: `open`
+# only brings it forward. Returns 1 when one is still there.
+force_quit() {
+  [ -n "$1" ] || return 0
+  for pid in $1; do
+    echo "app: force-quit a Hook that did not quit (pid $pid)"
+    kill -9 "$pid" 2>/dev/null || true
+  done
+  for _ in 1 2 3 4 5 6 7 8 9 10 11 12; do
+    [ -n "$(our_pids)" ] || return 0
+    sleep 0.25
+  done
+  return 1
+}
+
+# Quits running copies of this app; a copy that outlives the quit is force-quit, and one
+# that outlives that stops the install before anything is replaced.
+stop_apps() {
+  quit_apps
+  force_quit "$(our_pids)" \
+    || die "Hook (pid $(our_pids | tr '\n' ' ' | sed 's/ $//')) is still running after a force-quit; quit it in Activity Monitor and run this again"
+}
+
+# Starts the app (`open` brings a running copy forward instead).
+start_app() {
+  if [ "$TEST_STEP" = "start" ]; then
+    # Test only: what `open` does, without LaunchServices.
+    [ -n "$(our_pids)" ] || ( "$APP/Contents/MacOS/Hook" >/dev/null 2>&1 & )
+  else
+    open -g -a "$APP"
+  fi
+}
+
+# Starts the app and checks that every running copy started after this install began.
+# An older copy (one that survived the quit, or came back) is force-quit and the app
+# started once more; if an older copy still runs, the install fails.
+start_checked() {
+  start_app
+  old="$(old_pids)"
+  [ -n "$old" ] || return 0
+  echo "app: an older Hook is still running; starting the new one again"
+  force_quit "$old" || true
+  start_app
+  old="$(old_pids)"
+  [ -z "$old" ] || die "an older Hook (pid $(echo $old)) is still running instead of the new one; quit it in Activity Monitor, then open $APP"
 }
 
 # Unregisters and removes an app bundle of ours, if it is there.
@@ -135,12 +223,24 @@ remove_old_agent() {
   echo "launchagent: removed the old $OLD_LABEL LaunchAgent"
 }
 
+# --- test-only single steps (scripts/test-install.sh) -----------------------------
+
+if [ -n "$TEST_STEP" ]; then
+  [ -n "$APP_SCOPE" ] || die "RELAY_TEST_STEP needs RELAY_APP_SCOPE, so it never touches a real Hook"
+  case "$TEST_STEP" in
+    stop) stop_apps ;;
+    start) start_checked ;;
+    *) die "unknown RELAY_TEST_STEP: $TEST_STEP" ;;
+  esac
+  exit 0
+fi
+
 # --- uninstall -------------------------------------------------------------------
 
 if [ "$uninstall" -eq 1 ]; then
   if [ "$SKIP_LAUNCH" != "1" ]; then
     launchctl bootout "$GUI/$LABEL" 2>/dev/null || true
-    quit_apps
+    stop_apps
   fi
   rm -f "$PLIST"
   remove_old_agent
@@ -283,7 +383,7 @@ if [ "$SKIP_BUILD" != "1" ]; then
   if [ -d "$APP" ] && ! ours "$APP"; then
     die "$APP is another app (bundle id $(bundle_id "$APP")); move it out of ~/Applications and run this again"
   fi
-  if [ "$SKIP_LAUNCH" != "1" ]; then quit_apps; fi
+  if [ "$SKIP_LAUNCH" != "1" ]; then stop_apps; fi
   mkdir -p "$(dirname "$APP")"
   rm -rf "$APP"
   ditto "$REPO/build/Hook.app" "$APP"
@@ -426,7 +526,7 @@ except (OSError, ValueError, AttributeError):
 print(port if isinstance(port, int) and not isinstance(port, bool) and 1 <= port <= 65535 else 47823)
 PY
 )"
-open -g -a "$APP"
+start_checked
 for _ in $(seq 1 20); do
   health="$(curl -q --noproxy '*' -fsS --max-time 2 "http://127.0.0.1:$port/health" 2>/dev/null || true)"
   src="$(printf '%s' "$health" | python3 -c '

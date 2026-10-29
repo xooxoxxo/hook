@@ -33,12 +33,12 @@ cd hook
 
 1. Checks macOS, Swift and Python, and prints the fix for anything missing.
 2. Writes `~/.config/relay/config.json` (folder `0700`, file `0600`), keeping existing keys. A config that doesn't parse moves to `config.json.bad-<time>`. A new config, or a kept one when `~/Applications/Hook.app` is new (you deleted the app and installed again), gets `"onboarding": "pending"`, so Hook opens its setup window, filled in from the config.
-3. Builds `./build/Hook.app` and replaces `~/Applications/Hook.app` only on success. It quits a running Hook or Relay first, and once Hook.app is in place it removes an old `~/Applications/Relay.app`.
+3. Builds `./build/Hook.app` and replaces `~/Applications/Hook.app` only on success. It quits a running Hook or Relay first (force-quitting one that doesn't quit within 5 s, and stopping if it still runs), and once Hook.app is in place it removes an old `~/Applications/Relay.app`.
 4. Links `relay` to `~/.local/bin/relay` unless another `relay` is there, and `hook` (the same command) to `~/.local/bin/hook` unless another `hook` is there. Prints the `~/.zshrc` line if that folder isn't on your `PATH`.
 5. Runs `claude mcp add --scope user relay -- python3 "<repo>/mcp/relay_mcp.py"`, or prints it when `claude` is missing or the call fails.
 6. Links the skill to `~/.claude/skills/instructables` unless something else is there.
 7. Writes the login LaunchAgent `~/Library/LaunchAgents/io.github.xooxoxxo.relay.plist` only on a first install or if it exists, so turning it off sticks. Removes the pre-release `dev.instructables.relay` one.
-8. Starts Hook and checks `http://127.0.0.1:<port>/health` (port 47823 unless `port` says otherwise).
+8. Starts Hook, checks that no copy older than the install is still running (one is force-quit and Hook started again, once; then the install fails), and checks `http://127.0.0.1:<port>/health` (port 47823 unless `port` says otherwise).
 
 ## Keep the clone
 

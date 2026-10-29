@@ -19,6 +19,12 @@ and versions follow Semantic Versioning.
 ### Fixed
 - Deleting Hook.app and installing again shows the setup window again, filled in from the
   config you kept, so you only confirm it. Before, setup showed only for a new config.
+- An update could leave the old Hook running: when it didn't quit within 5 s, the installer
+  replaced the app anyway and `open` only brought the old copy forward, so `relay --version`
+  said the new version while the old app ran. The installer (and so Check for Updates) now
+  force-quits a copy that doesn't quit, and after starting Hook checks that no copy older
+  than the install is running: it force-quits one and starts Hook again, once, then fails
+  with a message. Another app called Hook is never touched.
 
 ## [0.9.2] - 2026-10-27
 
