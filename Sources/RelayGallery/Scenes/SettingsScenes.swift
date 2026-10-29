@@ -20,6 +20,12 @@ let settingsRules: [AlignmentRule] = [.sameTrailingPerGroup(.settingsTrailing, t
         settingsScene("settings-general", tab: .general) {
             GeneralTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot()))
         },
+        // Updates from a git checkout (developer mode) instead of the release download.
+        settingsScene("settings-general-developer", tab: .general) {
+            var snapshot = SettingsFixtures.snapshot()
+            snapshot.install = InstallKind.checkout(repo: "/Users/me/src/hook").line(home: "/Users/me")
+            return GeneralTab(model: FixtureSettingsModel(settings: snapshot))
+        },
         // "Open documents in" set to a chosen app, named in the picker.
         settingsScene("settings-general-document-app", tab: .general) {
             var config = SettingsFixtures.mailboxConfig

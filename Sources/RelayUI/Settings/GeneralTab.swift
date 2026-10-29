@@ -2,7 +2,7 @@ import RelayCore
 import SwiftUI
 
 /// Settings → General: shortcut, presence, login and the menu-bar badge, the terminal
-/// for Resume Session, appearance and version. Every control but the login item writes config.json through the model.
+/// for Resume Session, appearance and version, and how updates install. Every control but the login item writes config.json through the model.
 public struct GeneralTab<Model: SettingsViewModel>: View {
     @ObservedObject private var model: Model
 
@@ -116,6 +116,15 @@ public struct GeneralTab<Model: SettingsViewModel>: View {
             }
             .environment(\.settingsSection, "Appearance and version")
             .disabled(model.settings.readOnly)
+            if let install = model.settings.install {
+                Section("Updates") {
+                    SettingsRow("Installed as", help: install.detail) {
+                        Text(install.mode).foregroundStyle(DS.Color.secondary)
+                        Button("Check for Updates…") { model.perform(.checkForUpdates) }
+                    }
+                }
+                .environment(\.settingsSection, "Updates")
+            }
         }
         .formStyle(.grouped)
         .controlSize(DS.Control.form)

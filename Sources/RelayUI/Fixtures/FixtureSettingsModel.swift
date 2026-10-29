@@ -88,6 +88,7 @@ public enum SettingsFixtures {
             terminals: TerminalChoice.options(installed: [.terminal, .ghostty, .iterm],
                                               current: config?.terminal ?? RelayConfig.automaticTerminal),
             mailbox: sourceKey.hasPrefix("mailbox:") ? mailbox : nil,
+            install: InstallKind.release(home: "/Users/me/.local/share/hook").line(home: "/Users/me"),
             now: GalleryFixtures.now)
     }
 }
