@@ -3,7 +3,7 @@
 All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
-## [Unreleased]
+## [0.9.3] - 2026-10-29
 
 ### Added
 - A one-line install: `scripts/get.sh` (piped from GitHub into `bash`, as the README shows)

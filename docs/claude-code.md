@@ -29,7 +29,7 @@ Commands start Hook if it isn't running, except `relay replies --hook` and `rela
 | `relay done <id> [note]`, `relay skip <id> [note]` | `done <id>` / `skipped <id>`, or `already <status> (by <actor>) <id>` |
 | `relay replies [--new] [--hook]` | One line per new owner answer |
 | `relay wait <id> [--timeout SECONDS] [--interval SECONDS] [--after SEQ]` | See [below](#relay-wait) |
-| `relay --version` | `relay 0.9.2` (`hook --version` prints `hook 0.9.2`) |
+| `relay --version` | `relay 0.9.3` (`hook --version` prints `hook 0.9.3`) |
 
 `relay post` and `relay_post` check the Pond's protocol level (`GET /version`, cached for 5 minutes) before posting an instructable that uses `question` (level 2), `blocking` / `warning` (level 3) or `optional`, `file` or a link's `path` (level 4). A Pond that reports a level too low makes them refuse with ``This Pond speaks protocol M; `<key>` needs N. Ask the owner to update the Pond (Hook › Update Pond…).`` and exit 1; nothing is posted. In This Mac mode the refusal is ``Hook speaks protocol M; `<key>` needs N. Update Hook (Check for Updates…).`` A Pond without `/version` is unknown, and the instructable is posted for the Pond to validate. See [Instructable format](instructables.md#validation).
 
