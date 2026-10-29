@@ -7,7 +7,8 @@ from pathlib import Path
 
 SCHEMA = json.loads((Path(__file__).resolve().parent.parent / "schema" / "instructable.v1.json").read_text("utf-8"))
 VERIFY_KEYS = {"do", "where", "code", "lang", "expect", "detail", "url"}
-LEAF_KEYS = VERIFY_KEYS | {"question", "blocking", "warning", "optional", "file"}
+LEAF_KEYS = VERIFY_KEYS | {"question", "blocking", "warning", "optional", "file", "id"}
+ID_PATTERN = "^[a-z0-9][a-z0-9.-]{0,23}$"
 
 
 class SchemaTest(unittest.TestCase):
@@ -89,6 +90,21 @@ class SchemaTest(unittest.TestCase):
                          SCHEMA["$defs"]["leaf"]["properties"]["blocking"])
         self.assertEqual(SCHEMA["$defs"]["step"]["properties"]["warning"],
                          SCHEMA["$defs"]["leaf"]["properties"]["warning"])
+
+    def test_id_sits_on_steps_and_leaves_never_on_verify(self):
+        import re
+        for name in ("step", "leaf"):
+            prop = SCHEMA["$defs"][name]["properties"]["id"]
+            self.assertEqual((prop["type"], prop["pattern"]), ("string", ID_PATTERN))
+        self.assertEqual(SCHEMA["$defs"]["step"]["properties"]["id"], SCHEMA["$defs"]["leaf"]["properties"]["id"])
+        verify = SCHEMA["$defs"]["verify"]
+        self.assertNotIn("id", verify["properties"])
+        self.assertIs(verify["additionalProperties"], False)      # so verify.id is refused
+        pattern = re.compile(ID_PATTERN)
+        for good in ("s1", "r2-1", "s3.1", "a" * 24):
+            self.assertTrue(pattern.search(good), good)
+        for bad in ("S1x", "a" * 25, "-s1", ".s", "", "s 1"):
+            self.assertFalse(pattern.search(bad), bad)
 
     def test_steps_use_step(self):
         self.assertEqual(SCHEMA["properties"]["steps"]["items"], {"$ref": "#/$defs/step"})

@@ -122,8 +122,9 @@ class Session:
         env = {k: v for k, v in os.environ.items() if k not in ("CLAUDE_CODE_SESSION_ID", "CLAUDE_PROJECT_DIR")}
         env.update(RELAY_CONFIG=str(cfg), CLAUDE_SESSION_ID="test-session",
                    RELAY_EDIT_KEY_DIR=str(Path(tmp) / "edit-keys"))
+        self.keys_dir = Path(tmp) / "edit-keys"
         self.proc = subprocess.Popen(SERVER_CMD, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                     env=env, text=True)
+                                     stderr=subprocess.DEVNULL, env=env, text=True)
         self.last_id = 0
 
     @classmethod
@@ -184,7 +185,7 @@ class RelayMcpTest(StubServerCase):
             self.assertEqual(init["result"]["serverInfo"], {"name": "relay", "version": relay_mcp.relay_client.VERSION})
             s.notify("notifications/initialized")
             tools = {t["name"]: t for t in s.request("tools/list")["result"]["tools"]}
-            self.assertEqual(set(tools), {"relay_post", "relay_status", "relay_list"})
+            self.assertEqual(set(tools), {"relay_post", "relay_status", "relay_list", "relay_amend"})
             self.assertIn("instructable", tools["relay_post"]["inputSchema"]["properties"])
             self.assertIn("step", tools["relay_post"]["inputSchema"]["$defs"])   # "#/$defs/step" resolves
             detail = tools["relay_post"]["inputSchema"]["$defs"]["step"]["properties"]["detail"]
@@ -194,7 +195,8 @@ class RelayMcpTest(StubServerCase):
             post = s.call("relay_post", {"project": "Acme", "instructable": {
                 "v": 1, "title": "Check Node", "steps": [{"do": "Run it", "code": "node --version"}]}})
             self.assertFalse(post["isError"])
-            self.assertEqual(post["structuredContent"], {"id": ITEM_ID, "openUrl": OPEN_URL, "deduped": False})
+            self.assertEqual(post["structuredContent"], {"id": ITEM_ID, "openUrl": OPEN_URL, "deduped": False,
+                                                         "editable": False})
             self.assertEqual(POSTED[-1]["project"], "Acme")
             self.assertEqual(POSTED[-1]["context"], "work")
             self.assertEqual(POSTED[-1]["instructable"]["from"]["session"], "test-session")
@@ -372,6 +374,119 @@ class PondGateTest(StubServerCase):
         self.assertEqual(len(POSTED), 1)
 
 
+H1, H2 = "a" * 64, "b" * 64
+
+
+class StubPond(StubVersioned):
+    """A Pond at 1.1.0: keeps the posted editKeyHash, serves a revision, takes amend with the key."""
+    version = {"service": "pond", "version": "1.1.0", "protocol": 5}
+    key_hash = None
+
+    def do_POST(self):
+        self._record()
+        if not self._authorized():
+            return
+        body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+        POSTED.append(body)
+        if self.path == "/asks":
+            StubPond.key_hash = body.get("editKeyHash")
+            return self._send(201, {"item": {"id": ITEM_ID}, "openUrl": OPEN_URL,
+                                    "revision": {"rev": 1, "hash": H1}, "editable": True})
+        if self.path == f"/asks/{ITEM_ID}/amend":
+            if hashlib.sha256(body["editKey"].encode()).hexdigest() != StubPond.key_hash:
+                return self._send(403, {"error": "wrong edit key"})
+            return self._send(200, {"item": {"id": ITEM_ID}, "revision": {
+                "rev": 2, "hash": H2, "changed": [{"id": "s1", "path": "1", "fields": ["code"]}],
+                "added": [], "removed": [], "moved": [], "top": []}})
+        self._send(404, {"error": "not found"})
+
+    def do_GET(self):
+        if self.path == f"/asks/{ITEM_ID}":
+            self._record()
+            if self._authorized():
+                self._send(200, {"item": {"id": ITEM_ID, "title": "Fix", "status": "open",
+                                          "revision": {"rev": 1, "hash": H1, "acceptedRev": 1}},
+                                 "events": []})
+            return
+        super().do_GET()
+
+
+FIX = {"v": 1, "title": "Fix", "steps": [{"do": "Run it", "id": "s1"}]}
+
+
+class AmendToolTest(StubServerCase):
+    handler = StubPond
+
+    def test_tools_list_has_relay_amend_with_its_schema(self):
+        tool = next(t for t in relay_mcp.tool_list() if t["name"] == "relay_amend")
+        schema = tool["inputSchema"]
+        self.assertEqual(schema["required"], ["id", "reason", "instructable"])
+        self.assertIs(schema["additionalProperties"], False)
+        self.assertEqual(schema["properties"]["reason"]["maxLength"], 200)
+        self.assertEqual(schema["properties"]["baseRev"]["type"], "integer")
+        self.assertEqual(schema["$defs"]["step"]["properties"]["id"]["pattern"], "^[a-z0-9][a-z0-9.-]{0,23}$")
+        self.assertNotIn("id", schema["$defs"]["verify"]["properties"])
+        self.assertIn("keep every step's `id`", tool["description"])
+
+    def test_post_then_amend_through_the_server(self):
+        s = Session.mailbox(self.tmp.name, self.url)
+        try:
+            post = s.call("relay_post", {"project": "Acme", "instructable": {"v": 1, "title": "Fix",
+                                                                             "steps": [{"do": "Run it"}]}})
+            self.assertFalse(post["isError"], post)
+            self.assertIs(post["structuredContent"]["editable"], True)
+            self.assertNotIn("relay wait", post["content"][0]["text"])   # the session id reaches the server
+            record = json.loads((s.keys_dir / f"{ITEM_ID}.json").read_text())
+            self.assertEqual(hashlib.sha256(record["key"].encode()).hexdigest(), POSTED[0]["editKeyHash"])
+            amended = s.call("relay_amend", {"id": ITEM_ID, "reason": "the code was missing", "instructable": FIX})
+            self.assertFalse(amended["isError"], amended)
+            self.assertEqual(amended["structuredContent"],
+                             {"id": ITEM_ID, "rev": 2, "hash": H2, "changed": [{"id": "s1", "path": "1",
+                                                                                "fields": ["code"]}],
+                              "added": [], "removed": [], "moved": [], "top": [], "openUrl": None})
+            self.assertNotIn(record["key"], json.dumps(amended))
+            status = s.call("relay_status", {"id": ITEM_ID})["structuredContent"]
+            self.assertEqual((status["rev"], status["acceptedRev"], status["editable"]), (1, 1, True))
+            self.assertEqual(status["problems"], [])
+        finally:
+            s.close()
+
+    def test_no_edit_key_is_a_tool_error(self):
+        s = Session.mailbox(self.tmp.name, self.url)
+        try:
+            res = s.call("relay_amend", {"id": ITEM_ID, "reason": "why", "instructable": FIX})
+            self.assertTrue(res["isError"])
+            self.assertEqual(res["structuredContent"]["error"],
+                             f"No edit key for ask {ITEM_ID} on this Mac: only the process that posted it can "
+                             f"correct it. Close it (relay done {ITEM_ID}) and post a new one.")
+        finally:
+            s.close()
+
+    def test_bad_arguments(self):
+        for args, message in (({"reason": "x", "instructable": FIX}, "id must be a non-empty string"),
+                              ({"id": ITEM_ID, "reason": " ", "instructable": FIX},
+                               "reason must be a non-empty string"),
+                              ({"id": ITEM_ID, "reason": "x", "instructable": []},
+                               "instructable must be a JSON object"),
+                              ({"id": ITEM_ID, "reason": "x", "instructable": FIX, "baseRev": 0},
+                               "baseRev must be a whole number from 1")):
+            res = relay_mcp.call_tool({"name": "relay_amend", "arguments": args})
+            self.assertEqual(res["structuredContent"], {"error": message})
+
+
+class SessionIdLogTest(unittest.TestCase):
+    def start(self, env):
+        proc = subprocess.run(SERVER_CMD, input="", capture_output=True, text=True, env=env, timeout=10)
+        return proc.stderr
+
+    def test_logs_whether_the_session_id_is_there_never_the_value(self):
+        base = {k: v for k, v in os.environ.items() if k != "CLAUDE_CODE_SESSION_ID"}
+        self.assertEqual(self.start(base), "session id: absent\n")
+        err = self.start(dict(base, CLAUDE_CODE_SESSION_ID="sess-1234-abcd"))
+        self.assertEqual(err, "session id: present\n")
+        self.assertNotIn("sess-1234-abcd", err)
+
+
 class DescriptionTest(unittest.TestCase):
     def test_descriptions_are_machine_neutral(self):
         tools = relay_mcp.tool_list()
@@ -441,6 +556,13 @@ def event(seq, kind, actor, text=None):
 
 
 class ResolvedByTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        patcher = mock.patch.dict(os.environ, {"RELAY_EDIT_KEY_DIR": str(Path(self.tmp.name) / "edit-keys")})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def status(self, item_status, events):
         detail = {"item": {"id": ITEM_ID, "title": "Check Node", "status": item_status,
                            "completedAt": None}, "events": events}
@@ -511,6 +633,14 @@ class ResolvedByTest(unittest.TestCase):
     def test_ask_without_questions_has_empty_answers(self):
         result = self.status("open", [event(1, "posted", "session")])
         self.assertEqual((result["answers"], result["unanswered"]), ({}, []))
+
+    def test_status_carries_the_version_fields(self):
+        problem = dict(event(2, "problem", "owner", json.dumps({"id": "s1", "step": "1", "note": "nope"})), rev=1)
+        result = self.status("open", [event(1, "posted", "session"), problem])
+        self.assertEqual((result["rev"], result["hash"], result["acceptedRev"], result["editable"]),
+                         (1, None, 1, False))
+        self.assertEqual(result["problems"], [{"id": "s1", "step": "1", "note": "nope", "rev": 1,
+                                               "at": "2026-10-11T09:00:02+00:00"}])
 
 
 if __name__ == "__main__":

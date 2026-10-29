@@ -103,6 +103,7 @@
       "required": ["do"],
       "description": "A sub-step: one action, shown indented as 3a, 3b. It may ask a question.",
       "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]{0,23}$", "description": "A stable name for this step, unique in the ask: a-z, 0-9, '.' and '-', at most 24 characters. Give ids on every step and sub-step or on none (the Pond then names them s1, s2, s2.1). When you correct the ask with relay_amend, keep every id and leave ids out only on new steps." },
         "do": { "type": "string", "minLength": 1, "maxLength": 300 },
         "where": { "type": "string", "maxLength": 60 },
         "code": { "type": "string", "maxLength": 4000 },
@@ -127,6 +128,7 @@
       "required": ["do"],
       "description": "A step. When it needs more than one action, its actions go in substeps, shown indented and ticked one by one.",
       "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]{0,23}$", "description": "A stable name for this step, unique in the ask: a-z, 0-9, '.' and '-', at most 24 characters. Give ids on every step and sub-step or on none (the Pond then names them s1, s2, s2.1). When you correct the ask with relay_amend, keep every id and leave ids out only on new steps." },
         "do": { "type": "string", "minLength": 1, "maxLength": 300 },
         "where": { "type": "string", "maxLength": 60 },
         "code": { "type": "string", "maxLength": 4000 },
