@@ -502,8 +502,9 @@ class ResolvedByTest(unittest.TestCase):
                   answer(4, "4", text="US"), answer(5, "1", ["Prod"], actor="session")]
         with mock.patch.object(relay_mcp, "make_client", lambda: FakeClient(detail(*events))):
             result = relay_mcp.relay_status({"id": ITEM_ID})
-        self.assertEqual(result["answers"], {"3.2": {"picked": ["Staging"], "at": "2026-10-11T09:02:00+00:00"},
-                                             "4": {"text": "US", "at": "2026-10-11T09:04:00+00:00"}})
+        plain = {"rev": 1, "stale": False, "verified": False}
+        self.assertEqual(result["answers"], {"3.2": {"picked": ["Staging"], "at": "2026-10-11T09:02:00+00:00", **plain},
+                                             "4": {"text": "US", "at": "2026-10-11T09:04:00+00:00", **plain}})
         self.assertEqual(result["unanswered"], ["1", "2", "3", "4.2"])
         self.assertEqual([e["kind"] for e in result["ownerEvents"]], ["answer", "answer", "answer"])
 

@@ -581,6 +581,97 @@ def latest_answers(events: Any) -> Dict[str, Dict[str, Any]]:
     return current
 
 
+def event_rev(event: Any) -> int:
+    """The version an event belongs to: its `rev`, else 1 (an old Pond, or an event before revisions)."""
+    rev = event.get("rev") if isinstance(event, dict) else None
+    return rev if isinstance(rev, int) and not isinstance(rev, bool) and rev >= 1 else 1
+
+
+def _steps_by_id(instructable: Any) -> Dict[str, Tuple[str, Dict[str, Any]]]:
+    """{step id: (display path, step)} for the steps and sub-steps that carry an id."""
+    found: Dict[str, Tuple[str, Dict[str, Any]]] = {}
+    steps = instructable.get("steps") if isinstance(instructable, dict) else None
+    for i, step in enumerate(steps if isinstance(steps, list) else []):
+        if not isinstance(step, dict):
+            continue
+        if isinstance(step.get("id"), str):
+            found[step["id"]] = (f"{i + 1}", step)
+        subs = step.get("substeps")
+        for j, sub in enumerate(subs if isinstance(subs, list) else []):
+            if isinstance(sub, dict) and isinstance(sub.get("id"), str):
+                found[sub["id"]] = (f"{i + 1}.{j + 1}", sub)
+    return found
+
+
+def _step_at(instructable: Any, path: str) -> Optional[Dict[str, Any]]:
+    steps = instructable.get("steps") if isinstance(instructable, dict) else None
+    try:
+        parts = [int(p) - 1 for p in path.split(".")]
+        step = steps[parts[0]]
+        if len(parts) == 2:
+            step = step["substeps"][parts[1]]
+    except (AttributeError, IndexError, KeyError, TypeError, ValueError):
+        return None
+    return step if isinstance(step, dict) and len(parts) <= 2 and min(parts) >= 0 else None
+
+
+def revision_bodies(detail: Any) -> Dict[int, Dict[str, Any]]:
+    """{rev: decoded body} for every revision the detail carries (its history and its current
+    revision). The served payload stands in for the current revision when its body is missing."""
+    bodies: Dict[int, Dict[str, Any]] = {}
+    history = detail.get("revisions") if isinstance(detail, dict) else None
+    current = revision_of(detail)
+    for entry in (history if isinstance(history, list) else []) + ([current] if current else []):
+        if not isinstance(entry, dict) or not isinstance(entry.get("rev"), int):
+            continue
+        try:
+            body = json.loads(entry.get("body")) if isinstance(entry.get("body"), str) else None
+        except ValueError:
+            body = None
+        if isinstance(body, dict):
+            bodies[entry["rev"]] = body
+    if current is not None and current["rev"] not in bodies and instructable_of(detail):
+        bodies[current["rev"]] = instructable_of(detail)
+    return bodies
+
+
+def accepted_rev(detail: Any) -> int:
+    current = revision_of(detail)
+    value = current.get("acceptedRev") if current is not None else None
+    return value if isinstance(value, int) and not isinstance(value, bool) and value >= 1 else 1
+
+
+def answers_with_state(detail: Any) -> Dict[str, Dict[str, Any]]:
+    """The owner's latest answer per step, keyed by the step's path in the current instructable
+    (an answer follows its step id when the step moved). Each value is latest_answers' value plus
+    `rev` (the version answered), `id`, `auth`, and `stale`: the question in the version in force
+    (the accepted one) differs from the one the owner answered."""
+    events = detail.get("events") if isinstance(detail, dict) and isinstance(detail.get("events"), list) else []
+    bodies = revision_bodies(detail)
+    in_force = bodies.get(accepted_rev(detail))
+    current_ids = _steps_by_id(instructable_of(detail))
+    by_seq = {e.get("seq"): e for e in events if isinstance(e, dict)}
+    found: Dict[str, Dict[str, Any]] = {}
+    for path, answer in sorted(latest_answers(events).items(), key=lambda kv: _seq_of(kv[1])):
+        event = by_seq.get(answer.get("seq"), {})
+        body = parse_answer(event) or {}
+        rev = event_rev(event)
+        step_id = body.get("id") if isinstance(body.get("id"), str) else None
+        answered = bodies.get(rev)
+        if step_id is None and answered is not None:
+            step = _step_at(answered, path)
+            step_id = step.get("id") if step is not None and isinstance(step.get("id"), str) else None
+        stale = False
+        if step_id is not None and in_force is not None and answered is not None:
+            then = _steps_by_id(answered).get(step_id)
+            now = _steps_by_id(in_force).get(step_id)
+            stale = (then[1].get("question") if then else None) != (now[1].get("question") if now else None)
+        key = current_ids[step_id][0] if step_id is not None and step_id in current_ids else path
+        value = dict(answer, rev=rev, id=step_id, auth=event.get("auth"), stale=stale)
+        found[key] = value
+    return found
+
+
 def answer_value(answer: Dict[str, Any]) -> str:
     """An answer as one terminal line: picks joined with ', ', or the text."""
     if isinstance(answer.get("picked"), list):

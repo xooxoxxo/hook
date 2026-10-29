@@ -247,6 +247,99 @@ class AmendTests(Base):
         self.assertIn("another session", res["warning"])
 
 
+class CliAmendTests(Base):
+    """`relay amend` through a real Client against the fake Pond."""
+
+    def setUp(self):
+        super().setUp()
+        self.http = Pond()
+        self.mailbox(self.http).post("Acme", ASK)
+
+    def run_cli(self, *argv, stdin=None, http=None, local=False):
+        out, err = io.StringIO(), io.StringIO()
+
+        def factory(**kw):
+            return self.local(http or FakeHTTP()) if local else self.mailbox(http or self.http)
+        code = relay_cli.main(list(argv), stdin=stdin or io.StringIO(json.dumps(FIXED)), stdout=out, stderr=err,
+                              env=self.env, client_factory=factory)
+        return code, out.getvalue(), err.getvalue()
+
+    def test_success_line(self):
+        self.assertEqual(self.run_cli("amend", ITEM_ID, "--reason", "node -v was missing"),
+                         (0, f"corrected {ITEM_ID} \u2192 version 2 (changed: step 1). "
+                             "The owner must review it in Hook before acting.\n", ""))
+        sent = json.loads(self.http.sent(f"/asks/{ITEM_ID}/amend")[0].data)
+        self.assertEqual((sent["reason"], sent["instructable"]), ("node -v was missing", FIXED))
+
+    def test_from_a_file_with_a_base(self):
+        path = Path(self.tmp.name) / "fixed.json"
+        path.write_text(json.dumps(FIXED))
+        code, _, _ = self.run_cli("amend", ITEM_ID, "--reason", "why", "--base", "1", "--json", str(path))
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(self.http.sent(f"/asks/{ITEM_ID}/amend")[0].data)["baseRev"], 1)
+
+    def test_refusals_exit_1_with_the_message(self):
+        os.unlink(self.keys_dir / f"{ITEM_ID}.json")
+        code, out, err = self.run_cli("amend", ITEM_ID, "--reason", "why")
+        self.assertEqual((code, out), (1, ""))
+        self.assertEqual(err, f"relay: No edit key for ask {ITEM_ID} on this Mac: only the process that posted it "
+                              f"can correct it. Close it (relay done {ITEM_ID}) and post a new one.\n")
+
+    def test_corrections_off(self):
+        self.http.routes[("POST", f"/asks/{ITEM_ID}/amend")] = (409, {"error": "corrections not enabled"})
+        self.assertEqual(self.run_cli("amend", ITEM_ID, "--reason", "why"),
+                         (1, "", f"relay: The Pond doesn't take corrections yet. Close this ask (relay done {ITEM_ID}) "
+                                 "and post a new one.\n"))
+
+    def test_an_older_pond(self):
+        rc._ponds.clear()
+        self.http.routes[("GET", "/version")] = (200, {"version": "1.0.0", "protocol": 4})
+        code, _, err = self.run_cli("amend", ITEM_ID, "--reason", "why")
+        self.assertEqual(code, 1)
+        self.assertIn("older than `amend` needs (Pond 1.1.0 or newer)", err)
+
+    def test_this_mac_mode(self):
+        code, _, err = self.run_cli("amend", ITEM_ID, "--reason", "why", local=True)
+        self.assertEqual((code, err), (1, f"relay: This Mac mode can't correct asks yet: close this one "
+                                          f"(relay done {ITEM_ID}) and post a new one.\n"))
+
+    def test_changed_underneath(self):
+        self.http.routes[("GET", f"/asks/{ITEM_ID}")] = (200, detail(rev=3, hash_=H3))
+        code, _, err = self.run_cli("amend", ITEM_ID, "--reason", "why")
+        self.assertEqual(code, 1)
+        self.assertIn("changed since you last wrote it (version 3)", err)
+
+    def test_a_server_refusal_is_passed_on(self):
+        self.http.routes[("POST", f"/asks/{ITEM_ID}/amend")] = (429, {"error": "too soon", "retryAfter": 12})
+        self.assertEqual(self.run_cli("amend", ITEM_ID, "--reason", "why"), (1, "", "refused: too soon\n"))
+
+    def test_another_session_warns_on_stderr(self):
+        env = dict(self.env, CLAUDE_SESSION_ID="other")
+        out, err = io.StringIO(), io.StringIO()
+        cfg = {"mailboxURL": "https://mailbox.example/", "tokenFile": str(self.dir / "mailbox-token")}
+        code = relay_cli.main(["amend", ITEM_ID, "--reason", "why"], stdin=io.StringIO(json.dumps(FIXED)),
+                              stdout=out, stderr=err, env=env,
+                              client_factory=lambda **kw: rc.Client(cfg, env=env, urlopen=self.http))
+        self.assertEqual(code, 0)
+        self.assertIn("warning: ask", err.getvalue())
+
+    def test_the_key_never_reaches_stdout_or_stderr(self):
+        key = json.loads((self.keys_dir / f"{ITEM_ID}.json").read_text())["key"]
+        for route in (None, (409, {"error": "corrections not enabled"}), (400, {"error": "no change"})):
+            if route is not None:
+                self.http.routes[("POST", f"/asks/{ITEM_ID}/amend")] = route
+            _, out, err = self.run_cli("amend", ITEM_ID, "--reason", "why")
+            self.assertNotIn(key, out + err)
+
+    def test_change_summary(self):
+        self.assertEqual(relay_cli.change_summary(
+            {"changed": [{"id": "s3", "path": "3", "fields": ["code"]}, {"id": "s4", "path": "4", "fields": ["do"]}],
+             "added": [{"id": "r2-1", "path": "5"}], "removed": [], "moved": [{"id": "s1", "from": "1", "to": "2"}],
+             "top": ["verify"]}),
+            "changed: steps 3, 4, verify; added: step 5; moved: step 1 \u2192 2")
+        self.assertEqual(relay_cli.change_summary({}), "")
+
+
 class HeaderTests(Base):
     def test_every_request_carries_x_hook_protocol_5(self):
         http = Pond()
