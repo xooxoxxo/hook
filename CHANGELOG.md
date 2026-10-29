@@ -3,6 +3,31 @@
 All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## [Unreleased]
+
+### Added
+- Prebuilt releases: a `v*` tag builds a universal Hook.app and publishes `Hook-<version>.zip`
+  (the app plus the CLI, clients, MCP server, skill and installer) and `SHA256SUMS` on the
+  GitHub release. Signed with the repository's identity when it has one, else ad-hoc;
+  notarized when an Apple API key is set. `scripts/make-signing-cert.sh` makes a self-signed
+  identity and prints the two secrets to store; it uploads nothing.
+- `scripts/install.sh --prebuilt` installs the release download it came with.
+- Settings › General › Updates shows whether Hook is a release download or a developer
+  checkout, and what Check for Updates does with it.
+
+### Changed
+- `scripts/get.sh` downloads the newest release zip with curl and checks it against
+  `SHA256SUMS`, instead of cloning and compiling: no git and no Command Line Tools needed. It
+  installs to `~/.local/share/hook/<version>`, links `~/.local/share/hook/current` to it and
+  keeps the version before.
+- Check for Updates on a release download downloads the new release, refuses a zip that
+  doesn't match `SHA256SUMS`, and installs it in the background. A developer checkout still
+  moves to the release tag and rebuilds.
+- An install from a clone moves to the release download: the `relay` and `hook` links, the MCP
+  server and the skill go to `~/.local/share/hook/current`, and the clone is left in place
+  with a note that it can be deleted. A developer's clone (changes, a local branch other than
+  `main`, or `HOOK_DEV=1`) is left alone and builds from source as before.
+
 ## [0.9.3] - 2026-10-29
 
 ### Added
