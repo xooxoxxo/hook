@@ -158,7 +158,7 @@ private let page = "https://github.com/xooxoxxo/relay/releases/tag/v0.6.5"
 
     @Test func aFailureRestartsRelayIfItIsNotRunningAndTheJobRemovesItself() {
         let script = plan(.fastForward).script
-        #expect(script.contains("/usr/bin/pgrep -x Hook >/dev/null 2>&1 || /usr/bin/open -g -a '/Users/me/Applications/Hook.app'"))
+        #expect(script.contains("/usr/bin/pgrep -u \"$(/usr/bin/id -u)\" -x Hook >/dev/null 2>&1 || /usr/bin/open -g -a '/Users/me/Applications/Hook.app'"))
         #expect(script.contains("rm -f '/tmp/relay-update.plist' '/tmp/relay-update.sh'"))
         #expect(script.contains("exec /bin/launchctl remove 'io.github.xooxoxxo.relay.update'"))
         #expect(script.contains("export HOME='/Users/me'"))

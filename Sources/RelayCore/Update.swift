@@ -221,7 +221,7 @@ public struct UpdatePlan: Equatable, Sendable {
         }
         fail() {
           echo "update: failed: $1"
-          /usr/bin/pgrep -x Hook >/dev/null 2>&1 || /usr/bin/open -g -a \(app)
+          /usr/bin/pgrep -u "$(/usr/bin/id -u)" -x Hook >/dev/null 2>&1 || /usr/bin/open -g -a \(app)
           finish
         }
         echo "update: $(/bin/date '+%Y-%m-%d %H:%M:%S') Hook" \(Shell.quote(current)) "->" \(Shell.quote(tag)) "in" \(repo)
