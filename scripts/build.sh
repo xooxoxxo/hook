@@ -1,13 +1,21 @@
 #!/bin/bash
-# Build Hook.app from SwiftPM, ad-hoc sign it, and install it to ~/Applications.
+# Build Hook.app from SwiftPM, sign it, and install it to ~/Applications.
 # The SwiftPM executable target is still called Relay; it is copied in as MacOS/Hook.
-# BUILD_ONLY=1 assembles ./build/Hook.app and installs nothing.
+# BUILD_ONLY=1      assembles ./build/Hook.app and installs nothing.
+# UNIVERSAL=1       builds for arm64 and x86_64 in one binary (needs Xcode, as the release workflow has).
+# SIGN_IDENTITY=…   signs with that identity (a name or SHA-1 hash) instead of ad-hoc ("-").
+# SIGN_KEYCHAIN=…   the keychain that holds it.
+# HARDENED=1        with SIGN_IDENTITY: the hardened runtime, a secure timestamp and
+#                   Resources/Hook.entitlements, as notarization requires.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-swift build -c release
-BIN="$(swift build -c release --show-bin-path)/Relay"
+ARCHS=()
+if [ "${UNIVERSAL:-0}" = "1" ]; then ARCHS=(--arch arm64 --arch x86_64); fi
+swift build -c release ${ARCHS[@]+"${ARCHS[@]}"}
+BIN_DIR="$(swift build -c release ${ARCHS[@]+"${ARCHS[@]}"} --show-bin-path)"
+BIN="$BIN_DIR/Relay"
 
 if [ "${BUILD_ONLY:-0}" = "1" ]; then
   DEST="$ROOT/build"
@@ -24,13 +32,28 @@ mkdir -p "$APP/Contents/MacOS"
 cp "$BIN" "$APP/Contents/MacOS/Hook"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 # The document viewer's scripts (vendored marked and DOMPurify, and viewer.js) and their licences.
-VIEWER="$(swift build -c release --show-bin-path)/Relay_RelayUI.bundle/Viewer"
+# A single-arch build lays the bundle out flat; a universal (Xcode build system) one as a real bundle.
+VIEWER="$BIN_DIR/Relay_RelayUI.bundle/Viewer"
+[ -d "$VIEWER" ] || VIEWER="$BIN_DIR/Relay_RelayUI.bundle/Contents/Resources/Viewer"
 [ -f "$VIEWER/marked.umd.js" ] || { echo "build.sh: no viewer resources at $VIEWER" >&2; exit 1; }
 mkdir -p "$APP/Contents/Resources"
 cp -R "$VIEWER" "$APP/Contents/Resources/Viewer"
 cp THIRD_PARTY_NOTICES.md "$APP/Contents/Resources/THIRD_PARTY_NOTICES.md"
 plutil -lint "$APP/Contents/Info.plist"
-codesign --force -s - "$APP"
+IDENTITY="${SIGN_IDENTITY:--}"
+SIGN_ARGS=(--force -s "$IDENTITY")
+if [ -n "${SIGN_KEYCHAIN:-}" ]; then SIGN_ARGS+=(--keychain "$SIGN_KEYCHAIN"); fi
+if [ "$IDENTITY" != "-" ] && [ "${HARDENED:-0}" = "1" ]; then
+  SIGN_ARGS+=(--options runtime --timestamp --entitlements "$ROOT/Resources/Hook.entitlements")
+fi
+codesign "${SIGN_ARGS[@]}" "$APP"
+codesign --verify --strict "$APP"
+if [ "${UNIVERSAL:-0}" = "1" ]; then
+  archs="$(lipo -archs "$APP/Contents/MacOS/Hook")"
+  for arch in arm64 x86_64; do
+    case " $archs " in *" $arch "*) ;; *) echo "build.sh: $APP is $archs, not arm64 and x86_64" >&2; exit 1 ;; esac
+  done
+fi
 
 if [ "${BUILD_ONLY:-0}" != "1" ]; then
   # Launch Services must know the app for relay:// to resolve.

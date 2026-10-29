@@ -8,3 +8,5 @@ __pycache__/
 *.pyc
 .worktrees/
 .superpowers/
+dist/
+signing/
