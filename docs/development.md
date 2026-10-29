@@ -12,7 +12,7 @@ cd hook
 HOOK_DEV=1 ./scripts/install.sh
 ```
 
-`install.sh` builds Hook from source only in a developer's clone: `HOOK_DEV=1`, changes that aren't committed, or a local branch other than `main`. In any other clone it installs the prebuilt release of the clone's version instead (that is how 0.9.x's updater moves a clone install to the release download), and builds from source only when that download fails. Building needs macOS 14.5+ and the Command Line Tools with Swift 6 (`xcode-select --install`).
+`install.sh` builds Hook from source only in a developer's clone: `HOOK_DEV=1`, changes that aren't committed, or a local branch other than `main`. A build there is recorded in the config (`"updateMode": "developer"`, with `repoPath` naming the clone), so later runs in that clone, including the one Check for Updates starts, build from source too without `HOOK_DEV=1`. `HOOK_DEV=0 ./scripts/install.sh` ignores the record and moves a clean clone on `main` to the release download. In any other clone it installs the prebuilt release of the clone's version instead (that is how 0.9.x's updater moves a clone install to the release download), and builds from source only when that download fails. Building needs macOS 14.5+ and the Command Line Tools with Swift 6 (`xcode-select --install`).
 
 A developer checkout updates the old way: Check for Updates moves it to the newest release tag (from `main`, by fast-forward) and reruns `install.sh`; Settings › General › Updates shows **Developer checkout**. `get.sh` leaves a developer clone that `~/.local/bin/relay` links into alone.
 

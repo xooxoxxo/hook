@@ -63,7 +63,7 @@ PY
 # 1. Fresh install: {"source":"local"} plus repoPath and onboarding "pending" (the app's
 #    setup window shows once), 0600 in a 0700 folder.
 run || { cat "$OUT"; fail "fresh install exited non-zero"; }
-config_eq '{"source": "local", "repoPath": "@REPO@", "onboarding": "pending"}'
+config_eq '{"source": "local", "repoPath": "@REPO@", "onboarding": "pending", "updateMode": "developer"}'
 [ "$(mode_of "$CONFIG")" = "600" ] || fail "config.json is $(mode_of "$CONFIG"), not 600"
 [ "$(mode_of "$H/.config/relay")" = "700" ] || fail "~/.config/relay is not 700"
 [ "$(mode_of "$H/Library/Application Support/Relay")" = "700" ] || fail "the data folder is not 700"
@@ -95,7 +95,7 @@ open(sys.argv[1], "w").write(json.dumps(d))
 PY
 rm "$PLIST"
 run || { cat "$OUT"; fail "rerun exited non-zero"; }
-config_eq '{"source": "local", "repoPath": "@REPO@", "custom": 7, "hotkey": ""}'
+config_eq '{"source": "local", "repoPath": "@REPO@", "custom": 7, "hotkey": "", "updateMode": "developer"}'
 [ ! -e "$PLIST" ] || fail "rerun re-created a LaunchAgent the owner had removed"
 ok "rerun keeps unknown keys; LaunchAgent stays off"
 
@@ -140,7 +140,7 @@ echo '{"source": "local",' > "$CONFIG"
 run || { cat "$OUT"; fail "install over a broken config exited non-zero"; }
 ls "$H/.config/relay/" | grep -q '^config\.json\.bad-[0-9]\{8\}-[0-9]\{6\}$' || fail "broken config not moved to .bad-*"
 [ "$(cat "$H"/.config/relay/config.json.bad-*)" = '{"source": "local",' ] || fail "moved file lost its content"
-config_eq '{"source": "local", "repoPath": "@REPO@", "onboarding": "pending"}'
+config_eq '{"source": "local", "repoPath": "@REPO@", "onboarding": "pending", "updateMode": "developer"}'
 grep -q 'did not parse; moved it to' "$OUT" || fail "the move was not reported"
 ok "unparseable config moved aside"
 
@@ -459,7 +459,31 @@ prun "$U" env HOOK_RELEASES_URL="file://$T/no-releases" "$U/relay/scripts/instal
   || { cat "$OUT"; fail "the fallback exited non-zero"; }
 grep -q 'the release download failed; building from source' "$OUT" || { cat "$OUT"; fail "the fallback was not reported"; }
 [ "$(readlink "$U/.local/bin/relay")" = "$U/relay/bin/relay" ] || fail "the fallback moved the CLI link"
+if grep -q '"updateMode"' "$U/.config/relay/config.json"; then fail "the fallback build was recorded as a developer's"; fi
 ok "a failed download falls back to the source build"
+
+# 31. A clone built with HOOK_DEV=1 (clean, on main only) is recorded as a developer's, so
+#     the next run there without HOOK_DEV (as Hook's updater starts it) builds from source
+#     again and keeps its links, and get.sh leaves it alone. HOOK_DEV=0 moves it to the release.
+V="$T/v-home"
+mkdir -p "$V/.local/bin"
+old_clone "$V/dev"
+ln -s "$V/dev/bin/relay" "$V/.local/bin/relay"
+VCONF="$V/.config/relay/config.json"
+prun "$V" env HOOK_DEV=1 "$V/dev/scripts/install.sh" || { cat "$OUT"; fail "a HOOK_DEV=1 install exited non-zero"; }
+grep -q '"updateMode": "developer"' "$VCONF" || fail "HOOK_DEV=1 was not recorded: $(cat "$VCONF")"
+prun "$V" "$V/dev/scripts/install.sh" || { cat "$OUT"; fail "the rerun without HOOK_DEV exited non-zero"; }
+if grep -q 'release download instead' "$OUT"; then cat "$OUT"; fail "the recorded developer clone handed over to the release"; fi
+grep -q 'is a developer'"'"'s clone; building from source here' "$OUT" || { cat "$OUT"; fail "the rerun did not say it builds from source"; }
+[ "$(readlink "$V/.local/bin/relay")" = "$V/dev/bin/relay" ] || fail "the rerun moved the CLI link off the developer clone"
+grep -q "\"repoPath\": \"$V/dev\"" "$VCONF" && grep -q '"updateMode": "developer"' "$VCONF" || fail "the rerun changed the config: $(cat "$VCONF")"
+[ ! -e "$V/.local/share/hook" ] || fail "the rerun downloaded the release"
+status=0; prun "$V" bash "$REPO/scripts/get.sh" || status=$?
+[ "$status" = "1" ] && grep -q 'links into the developer clone' "$OUT" || { cat "$OUT"; fail "get.sh over a recorded developer clone: status $status"; }
+prun "$V" env HOOK_DEV=0 "$V/dev/scripts/install.sh" || { cat "$OUT"; fail "HOOK_DEV=0 exited non-zero"; }
+[ "$(readlink "$V/.local/bin/relay")" = "$V/.local/share/hook/current/bin/relay" ] || fail "HOOK_DEV=0 left the CLI on the clone"
+if grep -q '"updateMode"' "$VCONF"; then fail "the release install kept updateMode: $(cat "$VCONF")"; fi
+ok "a HOOK_DEV=1 clone stays a developer's on later runs; HOOK_DEV=0 moves it to the release"
 
 # 21. A Hook that ignores SIGTERM is force-quit before its bundle is replaced; another app
 #     called Hook is never touched; a copy whose bundle is gone counts as ours only from

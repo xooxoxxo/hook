@@ -19,14 +19,17 @@ and versions follow Semantic Versioning.
 - `scripts/get.sh` downloads the newest release zip with curl and checks it against
   `SHA256SUMS`, instead of cloning and compiling: no git and no Command Line Tools needed. It
   installs to `~/.local/share/hook/<version>`, links `~/.local/share/hook/current` to it and
-  keeps the version before.
+  keeps the version before. Old versions are removed only once the new one installs; a failed
+  install links `current` back to the version before.
 - Check for Updates on a release download downloads the new release, refuses a zip that
   doesn't match `SHA256SUMS`, and installs it in the background. A developer checkout still
   moves to the release tag and rebuilds.
 - An install from a clone moves to the release download: the `relay` and `hook` links, the MCP
   server and the skill go to `~/.local/share/hook/current`, and the clone is left in place
   with a note that it can be deleted. A developer's clone (changes, a local branch other than
-  `main`, or `HOOK_DEV=1`) is left alone and builds from source as before.
+  `main`, or `HOOK_DEV=1`) is left alone and builds from source as before. A build with
+  `HOOK_DEV=1` is recorded in the config (`"updateMode": "developer"`), so the clone's later
+  updates rebuild there too; `HOOK_DEV=0` switches it to the release download.
 
 ## [0.9.3] - 2026-10-29
 

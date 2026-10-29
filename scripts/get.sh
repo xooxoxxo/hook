@@ -13,7 +13,8 @@
 # links to the version before again and nothing is removed.
 #
 # Never touched: a developer's clone (one with changes, a local branch other than main,
-# or HOOK_DEV=1) that ~/.local/bin/relay links into. A clone of Hook at
+# HOOK_DEV=1, or one the config records as a developer's, "updateMode": "developer"; HOOK_DEV=0
+# ignores that record) that ~/.local/bin/relay links into. A clone of Hook at
 # ~/.local/share/hook itself (0.9.3's get.sh put one there) is moved to
 # ~/.local/share/hook-clone, and left for you to delete.
 #
@@ -45,12 +46,22 @@ main() {
   tilde() { case "$1" in "$HOME"/*) printf '~/%s' "${1#"$HOME"/}" ;; *) printf '%s' "$1" ;; esac; }
   is_version() { printf '%s' "$1" | grep -Eq '^(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})$'; }
 
-  # A developer's clone is never moved or relinked: HOOK_DEV=1, changes that aren't
-  # committed, or a local branch other than main. Without the Command Line Tools git
-  # can't run, and nobody develops in that clone.
+  # A developer's clone is never moved or relinked: HOOK_DEV=1, the clone a developer's
+  # install recorded in the config (updateMode "developer", repoPath naming it; HOOK_DEV=0
+  # ignores it), changes that aren't committed, or a local branch other than main.
+  # Without the Command Line Tools git can't run, and nobody develops in that clone.
+  local config="$HOME/.config/relay/config.json"
   dev_clone() {
     [ -e "$1/.git" ] || return 1
     [ "${HOOK_DEV:-0}" = "1" ] && return 0
+    if [ "${HOOK_DEV:-}" != "0" ] && [ -f "$config" ] \
+      && [ "$(plutil -extract updateMode raw -o - "$config" 2>/dev/null)" = "developer" ]; then
+      local recorded
+      recorded="$(plutil -extract repoPath raw -o - "$config" 2>/dev/null || true)"
+      if [ -n "$recorded" ] && [ "$(cd "$recorded" 2>/dev/null && pwd -P)" = "$(cd "$1" 2>/dev/null && pwd -P)" ]; then
+        return 0
+      fi
+    fi
     xcode-select -p >/dev/null 2>&1 || return 1
     local changes branch
     changes="$(git -C "$1" status --porcelain 2>/dev/null)" || return 0

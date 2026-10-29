@@ -8,7 +8,8 @@
 #   scripts/install.sh --uninstall      remove the app (Hook.app and an old Relay.app), LaunchAgent,
 #                                       this install's CLI links, MCP server and skill link (keeps the config, token and queue)
 # Run from a clone, it builds Hook from source only in a developer's clone (HOOK_DEV=1, changes
-# that aren't committed, or a local branch other than main). Any other clone, such as one an
+# that aren't committed, a local branch other than main, or a clone an earlier run built
+# from source as a developer's, which the config records as "updateMode": "developer"). Any other clone, such as one an
 # older Hook updates with git, hands over to the release download (scripts/get.sh), and builds
 # from source only when that download fails.
 # A --prebuilt install moves the CLI, MCP server and skill off an older clone to
@@ -97,12 +98,14 @@ have_claude() { command -v claude >/dev/null 2>&1; }
 # shellcheck disable=SC2088
 tilde() { case "$1" in "$HOME"/*) printf '~/%s' "${1#"$HOME"/}" ;; *) printf '%s' "$1" ;; esac; }
 
-# A developer's clone builds from source and keeps its links: HOOK_DEV=1, changes that
-# aren't committed, or a local branch other than main. Without the Command Line Tools
-# git can't run, and nobody develops in that clone.
+# A developer's clone builds from source and keeps its links: HOOK_DEV=1, the clone an
+# earlier developer's install recorded (see remembered_dev), changes that aren't
+# committed, or a local branch other than main. Without the Command Line Tools git
+# can't run, and nobody develops in that clone.
 dev_clone() {
   [ -e "$1/.git" ] || return 1
   [ "${HOOK_DEV:-0}" = "1" ] && return 0
+  remembered_dev "$1" && return 0
   xcode-select -p >/dev/null 2>&1 || return 1
   changes="$(git -C "$1" status --porcelain 2>/dev/null)" || return 0
   [ -z "$changes" ] || return 0
@@ -110,6 +113,16 @@ dev_clone() {
     [ "$branch" = "main" ] || return 0
   done
   return 1
+}
+
+# A build from a developer's clone records it in the config ("updateMode": "developer",
+# with repoPath naming the clone), so the next run there, such as the one Hook's updater
+# starts without HOOK_DEV=1, is a developer's too. HOOK_DEV=0 ignores the record.
+remembered_dev() {
+  [ "${HOOK_DEV:-}" != "0" ] && [ -f "$CONFIG" ] || return 1
+  [ "$(plutil -extract updateMode raw -o - "$CONFIG" 2>/dev/null)" = "developer" ] || return 1
+  recorded="$(plutil -extract repoPath raw -o - "$CONFIG" 2>/dev/null)" || return 1
+  [ -n "$recorded" ] && [ "$(cd "$recorded" 2>/dev/null && pwd -P)" = "$(cd "$1" 2>/dev/null && pwd -P)" ]
 }
 
 # --- where this install lives -----------------------------------------------------
@@ -360,7 +373,13 @@ fi
 # version. Only when that download fails (status 3: nothing changed) does the clone
 # build from source, as before.
 
-if [ "$prebuilt" -eq 0 ] && [ -e "$REPO/.git" ] && ! dev_clone "$REPO"; then
+# A developer's clone builds here and is recorded as one (updateMode, in the config).
+update_mode=""
+if [ "$prebuilt" -eq 0 ] && [ -e "$REPO/.git" ] && dev_clone "$REPO"; then
+  update_mode="developer"
+  echo "install: $(tilde "$REPO") is a developer's clone; building from source here, and Hook's updates will too"
+  echo "install: (to switch to the release download: HOOK_DEV=0 ./scripts/install.sh, in a clone on main without changes)"
+elif [ "$prebuilt" -eq 0 ] && [ -e "$REPO/.git" ]; then
   version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$REPO/Resources/Info.plist" 2>/dev/null || true)"
   echo "install: $(tilde "$REPO") is not a developer's clone; installing the Hook ${version:-?} release download instead"
   echo "install: (to build from source here, run HOOK_DEV=1 ./scripts/install.sh)"
@@ -442,9 +461,9 @@ PY
   fi
 fi
 
-python3 - "$CONFIG" "$mode" "$mailbox_url" "$token_file" "$LINK_ROOT" "$fresh_app" <<'PY'
+python3 - "$CONFIG" "$mode" "$mailbox_url" "$token_file" "$LINK_ROOT" "$fresh_app" "$update_mode" <<'PY'
 import json, os, sys
-path, mode, url, token_file, repo, fresh_app = sys.argv[1:7]
+path, mode, url, token_file, repo, fresh_app, update_mode = sys.argv[1:8]
 try:
     with open(path, encoding="utf-8-sig") as f:
         cfg = json.load(f)
@@ -462,6 +481,12 @@ if created or fresh_app == "1":
     # key when done.
     cfg["onboarding"] = "pending"
 cfg["repoPath"] = repo
+# "developer": a build from a developer's clone, which Hook's updates rebuild there.
+# Anything else (the release download, a build after a failed download) records nothing.
+if update_mode:
+    cfg["updateMode"] = update_mode
+else:
+    cfg.pop("updateMode", None)
 data = (json.dumps(cfg, indent=2, sort_keys=True, ensure_ascii=False) + "\n").encode("utf-8")
 tmp = os.path.join(os.path.dirname(path), ".config.json.%d.tmp" % os.getpid())
 fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)

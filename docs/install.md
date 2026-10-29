@@ -47,7 +47,9 @@ Check for Updates… (in the menu-bar menu, or Settings › General › Updates)
 
 Settings › General › Updates shows how this Hook was installed: **Release download**, or **Developer checkout** for a clone you build yourself (see [development.md](development.md#build-from-source)).
 
-To go back to the version before: `ln -sfn <version> ~/.local/share/hook/current && ~/.local/share/hook/current/scripts/install.sh --prebuilt`.
+An install that fails links `current` back to the version before, so the CLI, MCP server and skill keep working, and prints the command that puts that version's app back. Nothing is removed until a new version installs.
+
+To go back to the version before by hand: `ln -sfn <version> ~/.local/share/hook/current && ~/.local/share/hook/current/scripts/install.sh --prebuilt`.
 
 ### Coming from a clone
 
@@ -57,7 +59,7 @@ Hook 0.9.x and earlier ran from a git clone (often `~/relay`, or `~/.local/share
 The old copy in ~/relay is no longer used; you can delete it.
 ```
 
-A clone at `~/.local/share/hook` itself moves to `~/.local/share/hook-clone` first. A developer's clone (one with changes, a local branch other than `main`, or `HOOK_DEV=1`) is left alone and keeps building from source.
+A clone at `~/.local/share/hook` itself moves to `~/.local/share/hook-clone` first. A developer's clone (one with changes, a local branch other than `main`, or one built with `HOOK_DEV=1`, which the config records) is left alone and keeps building from source.
 
 Coming from Relay 0.7.x: the update replaces `Relay.app` with `Hook.app`. The config, token, queue, settings, notification permission, login item and the `relay` command all carry over, because their names and paths stay the same.
 
