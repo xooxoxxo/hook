@@ -17,7 +17,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 import relay_replies
 import relay_wait
-from relay_client import (OWNER_LABELS, VERSION, Client, ProtocolTooOld, Refused, RelayError, answer_value,
+from relay_client import (OWNER_LABELS, VERSION, Client, PondTooOld, Refused, RelayError, answer_value,
                           instructable_of, latest_answers, one_line, questions, unanswered)
 
 DEFAULT_TIMEOUT = 10.0
@@ -324,7 +324,7 @@ def main(argv: Optional[List[str]] = None, *, stdin: Any = None, stdout: Any = N
     ctx = _Ctx(stdin, out, err, factory)
     try:
         return COMMANDS[args.command](args, ctx)
-    except ProtocolTooOld as exc:
+    except PondTooOld as exc:
         err.write(f"{prog}: {exc.error}\n")
         return exc.exit_code
     except Refused as exc:

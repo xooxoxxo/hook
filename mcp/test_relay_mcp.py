@@ -120,7 +120,8 @@ class Session:
             cfg.write_text(json.dumps(config))
         self.config_path = cfg
         env = {k: v for k, v in os.environ.items() if k not in ("CLAUDE_CODE_SESSION_ID", "CLAUDE_PROJECT_DIR")}
-        env.update(RELAY_CONFIG=str(cfg), CLAUDE_SESSION_ID="test-session")
+        env.update(RELAY_CONFIG=str(cfg), CLAUDE_SESSION_ID="test-session",
+                   RELAY_EDIT_KEY_DIR=str(Path(tmp) / "edit-keys"))
         self.proc = subprocess.Popen(SERVER_CMD, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                      env=env, text=True)
         self.last_id = 0
@@ -294,40 +295,41 @@ class LocalModeTest(StubServerCase):
 
 
 class StubVersioned(StubQueue):
-    """A mailbox that answers GET /version at PROTOCOL (None: no such route, level unknown)."""
-    protocol = None
+    """A Pond that answers GET /version with VERSION (None: no such route, 404)."""
+    version = None
 
     def do_GET(self):
-        if self.path == "/version" and self.protocol is not None:
+        if self.path == "/version" and self.version is not None:
             self._record()
             if self._authorized():
-                self._send(200, {"service": "mailbox", "version": "x", "protocol": self.protocol})
+                self._send(200, self.version)
             return
         super().do_GET()
 
 
-class Level2(StubVersioned):
-    protocol = 2
+class OldPond3(StubVersioned):
+    version = {"service": "mailbox", "version": "2026.10.20.1", "protocol": 3}
 
 
-class Level3(StubVersioned):
-    protocol = 3
+class OldPond4(StubVersioned):
+    version = {"service": "mailbox", "version": "2026.10.27.1", "protocol": 4}
 
 
-class Level4(StubVersioned):
-    protocol = 4
+class Pond100(StubVersioned):
+    version = {"service": "pond", "version": "1.0.0", "protocol": 4}
 
 
-TOO_OLD = ("This Pond speaks protocol {m}; `{key}` needs {n}. "
-           "Ask the owner to update the Pond (Hook \u203a Update Pond\u2026).")
+TOO_OLD = ("Your Pond ({m}) is older than `{key}` needs (Pond {n} or newer). "
+           "Update the Pond, or leave the key out.")
 BLOCKING = {"v": 1, "title": "Gate", "steps": [{"do": "Run it", "blocking": True, "warning": "Later steps fail"}]}
 ASKING = {"v": 1, "title": "Pick", "steps": [{"do": "Choose", "substeps": [
     {"do": "Env", "question": {"prompt": "Which?", "choices": ["a", "b"]}}]}]}
 PLAIN = {"v": 1, "title": "Plain", "steps": [{"do": "Run it"}]}
 OPTIONAL = {"v": 1, "title": "Feedback", "steps": [{"do": "Tell us", "optional": True, "question": {"prompt": "Any?"}}]}
+WITH_IDS = {"v": 1, "title": "Ids", "steps": [{"do": "Run it", "id": "run"}]}
 
 
-class ProtocolCheckTest(StubServerCase):
+class PondGateTest(StubServerCase):
     def post(self, instructable):
         s = Session.mailbox(self.tmp.name, self.url)
         try:
@@ -335,42 +337,39 @@ class ProtocolCheckTest(StubServerCase):
         finally:
             s.close()
 
-    def test_blocking_is_refused_by_a_level_2_mailbox_without_posting(self):
-        self.httpd.RequestHandlerClass = Level2
+    def test_blocking_is_refused_by_an_old_level_3_pond_without_posting(self):
+        self.httpd.RequestHandlerClass = OldPond3
         res = self.post(BLOCKING)
         self.assertTrue(res["isError"])
-        self.assertEqual(res["structuredContent"]["error"], TOO_OLD.format(m=2, key="blocking", n=3))
+        self.assertEqual(res["structuredContent"]["error"], TOO_OLD.format(m="protocol 3", key="blocking", n="1.0.0"))
         self.assertEqual(POSTED, [])
 
-    def test_a_mailbox_without_version_is_unknown_and_the_post_goes_through(self):
+    def test_a_pond_without_version_is_protocol_1(self):
         res = self.post(ASKING)
-        self.assertFalse(res["isError"], res)
-        self.assertEqual(len(POSTED), 1)
+        self.assertTrue(res["isError"])
+        self.assertEqual(res["structuredContent"]["error"], TOO_OLD.format(m="protocol 1", key="question", n="1.0.0"))
+        self.assertEqual(POSTED, [])
         self.assertIn("/version", [path for _, path, _ in SEEN])
 
-    def test_a_level_3_mailbox_takes_blocking(self):
-        self.httpd.RequestHandlerClass = Level3
-        res = self.post(BLOCKING)
-        self.assertFalse(res["isError"], res)
-        self.assertEqual(len(POSTED), 1)
+    def test_an_old_level_4_pond_and_pond_1_0_0_take_every_older_key(self):
+        for handler in (OldPond4, Pond100):
+            self.httpd.RequestHandlerClass = handler
+            for ask in (BLOCKING, ASKING, OPTIONAL):
+                res = self.post(ask)
+                self.assertFalse(res["isError"], res)
+        self.assertEqual(len(POSTED), 6)
+        self.assertTrue(all("editKeyHash" not in body for body in POSTED))
 
-    def test_optional_is_refused_by_a_level_3_mailbox_and_taken_by_level_4(self):
-        self.httpd.RequestHandlerClass = Level3
-        res = self.post(OPTIONAL)
-        self.assertTrue(res["isError"])
-        self.assertEqual(res["structuredContent"]["error"], TOO_OLD.format(m=3, key="optional", n=4))
+    def test_step_ids_need_pond_1_1_0(self):
+        self.httpd.RequestHandlerClass = Pond100
+        res = self.post(WITH_IDS)
+        self.assertEqual(res["structuredContent"]["error"], TOO_OLD.format(m="1.0.0", key="id", n="1.1.0"))
         self.assertEqual(POSTED, [])
 
-    def test_a_level_4_mailbox_takes_optional(self):
-        self.httpd.RequestHandlerClass = Level4
-        res = self.post(OPTIONAL)
-        self.assertFalse(res["isError"], res)
-        self.assertEqual(len(POSTED), 1)
-
-    def test_an_instructable_without_those_keys_makes_no_version_call(self):
+    def test_a_plain_instructable_still_posts_on_a_pond_without_version(self):
         res = self.post(PLAIN)
         self.assertFalse(res["isError"], res)
-        self.assertNotIn("/version", [path for _, path, _ in SEEN])
+        self.assertEqual(len(POSTED), 1)
 
 
 class DescriptionTest(unittest.TestCase):

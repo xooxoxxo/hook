@@ -103,7 +103,11 @@ class Base(unittest.TestCase):
         self.dir = Path(self.tmp.name) / "relay"
         self.dir.mkdir()
         self.cfg_path = self.dir / "config.json"
-        self.env = {"RELAY_CONFIG": str(self.cfg_path), "CLAUDE_SESSION_ID": "test-session"}
+        self.keys_dir = Path(self.tmp.name) / "state" / "edit-keys"
+        self.env = {"RELAY_CONFIG": str(self.cfg_path), "CLAUDE_SESSION_ID": "test-session",
+                    "RELAY_EDIT_KEY_DIR": str(self.keys_dir)}
+        rc._ponds.clear()
+        self.addCleanup(rc._ponds.clear)
         (self.dir / "local-token").write_text(LOCAL_TOKEN + "\n")
         (self.dir / "mailbox-token").write_text(MAILBOX_TOKEN + "\n")
 
@@ -304,16 +308,14 @@ class LaunchTests(Base):
         self.assertEqual(self.clock.sleeps, [])
 
 
-class ProtocolCheckTests(Base):
-    """GET /version before posting a key that needs protocol 2 or 3."""
+class PondGateTests(Base):
+    """GET /version before posting a key a Pond takes only from some version on."""
 
-    MESSAGE = ("This Pond speaks protocol {m}; `{key}` needs {n}. "
-               "Ask the owner to update the Pond (Hook \u203a Update Pond\u2026).")
+    MESSAGE = ("Your Pond ({m}) is older than `{key}` needs (Pond {n} or newer). "
+               "Update the Pond, or leave the key out.")
 
     def setUp(self):
         super().setUp()
-        rc._levels.clear()
-        self.addCleanup(rc._levels.clear)
         self.http = FakeHTTP()
         self.http.routes[("POST", "/asks")] = (201, {"item": {"id": ITEM_ID}})
         self.clock = FakeClock()
@@ -325,114 +327,102 @@ class ProtocolCheckTests(Base):
     def ask(**step):
         return {"v": 1, "title": "Gate", "steps": [dict({"do": "Run it"}, **step)]}
 
-    def level(self, protocol):
-        self.http.routes[("GET", "/version")] = (200, {"service": "mailbox", "version": "1.2.3", "protocol": protocol})
+    def pond(self, version, protocol=5):
+        rc._ponds.clear()
+        self.http.routes[("GET", "/version")] = (200, {"service": "pond", "version": version, "protocol": protocol})
 
-    def test_blocking_needs_3_and_names_the_key(self):
-        self.level(2)
-        with self.assertRaises(rc.Refused) as ctx:
-            self.client().post("Acme", self.ask(blocking=True))
-        self.assertEqual(ctx.exception.error, self.MESSAGE.format(m=2, key="blocking", n=3))
+    def old_pond(self, protocol):
+        rc._ponds.clear()
+        self.http.routes[("GET", "/version")] = (200, {"service": "mailbox", "version": "2026.10.27.1",
+                                                       "protocol": protocol})
+
+    def refused(self, ask):
+        with self.assertRaises(rc.PondTooOld) as ctx:
+            self.client().post("Acme", ask)
+        self.assertEqual(self.http.sent("/asks"), [])
         self.assertEqual(ctx.exception.exit_code, 1)
-        self.assertEqual(self.http.sent("/asks"), [])
+        return ctx.exception.error
 
-    def test_warning_needs_3(self):
-        self.level(1)
-        with self.assertRaises(rc.Refused) as ctx:
-            self.client().post("Acme", self.ask(warning="Careful"))
-        self.assertEqual(ctx.exception.error, self.MESSAGE.format(m=1, key="warning", n=3))
+    def test_step_ids_need_1_1_0(self):
+        ask = {"v": 1, "title": "Ids", "steps": [{"do": "Go", "id": "s1"}]}
+        for pond in (lambda: self.pond("1.0.0", 4), lambda: self.old_pond(4)):
+            pond()
+            self.assertIn("`id` needs (Pond 1.1.0 or newer)", self.refused(ask))
+        self.pond("1.0.0", 4)
+        self.assertEqual(self.refused(ask), self.MESSAGE.format(m="1.0.0", key="id", n="1.1.0"))
+        self.old_pond(4)
+        self.assertEqual(self.refused(ask), self.MESSAGE.format(m="protocol 4", key="id", n="1.1.0"))
+        for version in ("1.1.0", "1.3.2"):
+            self.pond(version)
+            self.assertEqual(self.client().post("Acme", ask)["item"]["id"], ITEM_ID)
 
-    def test_question_needs_2_also_on_a_substep(self):
-        self.level(1)
+    def test_pond_1_0_0_and_an_old_level_4_pond_take_every_older_key(self):
+        ask = {"v": 1, "title": "All", "steps": [
+            {"do": "Go", "optional": True, "file": "/tmp/plan.md", "question": {"prompt": "?"}},
+            {"do": "Then", "blocking": True, "warning": "Why"}],
+            "links": [{"label": "Plan", "path": "~/plan.md"}]}
+        for pond in (lambda: self.pond("1.0.0", 4), lambda: self.old_pond(4)):
+            pond()
+            self.assertEqual(self.client().post("Acme", ask)["item"]["id"], ITEM_ID)
+
+    def test_an_old_level_3_pond_is_below_1_0_0(self):
+        self.old_pond(3)
+        self.assertEqual(self.refused(self.ask(blocking=True)),
+                         self.MESSAGE.format(m="protocol 3", key="blocking", n="1.0.0"))
+
+    def test_question_on_a_substep_is_checked(self):
+        self.old_pond(2)
         ask = {"v": 1, "title": "Pick", "steps": [{"do": "Go", "substeps": [{"do": "Env", "question": {"prompt": "?"}}]}]}
-        with self.assertRaises(rc.Refused) as ctx:
-            self.client().post("Acme", ask)
-        self.assertEqual(ctx.exception.error, self.MESSAGE.format(m=1, key="question", n=2))
-        self.level(2)
-        rc._levels.clear()
-        self.assertEqual(self.client().post("Acme", ask)["item"]["id"], ITEM_ID)
+        self.assertEqual(self.refused(ask), self.MESSAGE.format(m="protocol 2", key="question", n="1.0.0"))
 
-    def test_the_highest_need_is_named(self):
-        self.level(2)
-        ask = self.ask(question={"prompt": "?"}, blocking=True)
-        with self.assertRaises(rc.Refused) as ctx:
-            self.client().post("Acme", ask)
-        self.assertIn("`blocking` needs 3", ctx.exception.error)
+    def test_the_highest_need_is_named_then_the_first_key(self):
+        self.old_pond(3)
+        ask = self.ask(question={"prompt": "?"}, blocking=True, optional=True, id="s1")
+        self.assertIn("`id` needs", self.refused(ask))
+        self.assertIn("`optional` needs", self.refused(self.ask(question={"prompt": "?"}, warning="w", optional=True)))
 
-    def test_optional_needs_4_also_on_a_substep(self):
-        self.level(3)
-        ask = {"v": 1, "title": "Try", "steps": [{"do": "Go", "substeps": [{"do": "Note it", "optional": True}]}]}
-        with self.assertRaises(rc.Refused) as ctx:
-            self.client().post("Acme", ask)
-        self.assertEqual(ctx.exception.error, self.MESSAGE.format(m=3, key="optional", n=4))
-        self.assertEqual(self.http.sent("/asks"), [])
-        self.level(4)
-        rc._levels.clear()
-        self.assertEqual(self.client().post("Acme", ask)["item"]["id"], ITEM_ID)
-
-    def test_file_needs_4_also_on_a_substep(self):
-        self.level(3)
-        ask = {"v": 1, "title": "Read", "steps": [{"do": "Go", "substeps": [{"do": "Read it", "file": "/tmp/plan.md"}]}]}
-        with self.assertRaises(rc.Refused) as ctx:
-            self.client().post("Acme", ask)
-        self.assertEqual(ctx.exception.error, self.MESSAGE.format(m=3, key="file", n=4))
-        self.assertEqual(self.http.sent("/asks"), [])
-        self.level(4)
-        rc._levels.clear()
-        self.assertEqual(self.client().post("Acme", ask)["item"]["id"], ITEM_ID)
-
-    def test_a_link_path_needs_4(self):
-        self.level(3)
+    def test_a_link_path_is_checked(self):
+        self.old_pond(3)
         ask = {"v": 1, "title": "Read", "steps": [{"do": "Go"}],
                "links": [{"label": "Web", "url": "https://example.com"}, {"label": "Plan", "path": "~/plan.md"}]}
-        with self.assertRaises(rc.Refused) as ctx:
-            self.client().post("Acme", ask)
-        self.assertEqual(ctx.exception.error, self.MESSAGE.format(m=3, key="links[].path", n=4))
-        self.assertEqual(self.http.sent("/asks"), [])
+        self.assertEqual(self.refused(ask), self.MESSAGE.format(m="protocol 3", key="links[].path", n="1.0.0"))
 
-    def test_url_links_make_no_extra_call(self):
-        ask = {"v": 1, "title": "Read", "steps": [{"do": "Go"}], "links": [{"label": "Web", "url": "https://example.com"}]}
-        self.client().post("Acme", ask)
-        self.assertEqual(self.http.sent("/version"), [])
+    def test_verify_is_not_checked(self):
+        self.old_pond(1)
+        ask = {"v": 1, "title": "Gate", "steps": [{"do": "Run it"}],
+               "verify": {"do": "Look", "warning": "x", "file": "/tmp/x.md", "optional": True}}
+        self.assertEqual(self.client().post("Acme", ask)["item"]["id"], ITEM_ID)
 
-    def test_file_on_verify_is_not_checked(self):
-        ask = {"v": 1, "title": "Gate", "steps": [{"do": "Run it"}], "verify": {"do": "Look", "file": "/tmp/x.md"}}
-        self.client().post("Acme", ask)
-        self.assertEqual(self.http.sent("/version"), [])
-
-    def test_optional_is_named_over_lower_needs(self):
-        self.level(2)
-        with self.assertRaises(rc.Refused) as ctx:
-            self.client().post("Acme", self.ask(question={"prompt": "?"}, warning="w", optional=True))
-        self.assertIn("`optional` needs 4", ctx.exception.error)
-
-    def test_optional_on_verify_is_not_checked(self):
-        ask = {"v": 1, "title": "Gate", "steps": [{"do": "Run it"}], "verify": {"do": "Look", "optional": True}}
-        self.client().post("Acme", ask)
-        self.assertEqual(self.http.sent("/version"), [])
-
-    def test_an_unknown_level_posts_optional_and_the_server_validates(self):
+    def test_no_version_route_is_protocol_1(self):
         self.http.routes[("GET", "/version")] = (404, {"error": "not found"})
-        self.assertEqual(self.client().post("Acme", self.ask(optional=True))["item"]["id"], ITEM_ID)
+        self.assertEqual(self.refused(self.ask(optional=True)),
+                         self.MESSAGE.format(m="protocol 1", key="optional", n="1.0.0"))
+        self.assertEqual(self.client().post("Acme", self.ask())["item"]["id"], ITEM_ID)
 
-    def test_a_high_enough_level_posts(self):
-        self.level(3)
-        self.assertEqual(self.client().post("Acme", self.ask(blocking=True, warning="Why"))["item"]["id"], ITEM_ID)
+    def test_an_unreadable_version_posts_and_the_server_validates(self):
+        for body in ({"service": "mailbox", "version": "0.1"}, {"protocol": "3"}, {"protocol": True},
+                     {"protocol": 0}, {"protocol": 2.5}, {}):
+            rc._ponds.clear()
+            self.http.routes[("GET", "/version")] = (200, body)
+            self.assertEqual(self.client().post("Acme", self.ask(warning="Why", id="s1"))["item"]["id"], ITEM_ID,
+                             body)
+            self.assertNotIn("editKeyHash", json.loads(self.http.sent("/asks")[-1].data))
+
+    def test_the_version_is_asked_with_the_token(self):
+        self.pond("1.0.0", 4)
+        self.client().post("Acme", self.ask(blocking=True, warning="Why"))
         (version,) = self.http.sent("/version")
         self.assertEqual(version.get_header("Authorization"), "Bearer " + MAILBOX_TOKEN)
 
-    def test_verify_is_not_checked(self):
-        ask = {"v": 1, "title": "Gate", "steps": [{"do": "Run it"}], "verify": {"do": "Look", "warning": "x"}}
-        self.client().post("Acme", ask)
-        self.assertEqual(self.http.sent("/version"), [])
-
-    def test_a_plain_instructable_makes_no_extra_call(self):
+    def test_a_plain_instructable_asks_once_then_uses_the_cache(self):
+        self.pond("1.0.0", 4)
         self.client().post("Acme", self.ask())
-        self.assertEqual(len(self.http.requests), 1)
-        self.assertEqual(self.http.sent("/version"), [])
+        self.client().post("Acme", self.ask())
+        self.assertEqual(len(self.http.sent("/version")), 1)
+        self.assertEqual(len(self.http.sent("/asks")), 2)
 
-    def test_the_level_is_cached_for_five_minutes_across_clients(self):
-        self.level(3)
+    def test_the_version_is_cached_for_five_minutes_across_clients(self):
+        self.pond("1.0.0", 4)
         self.client().post("Acme", self.ask(blocking=True))
         self.clock.now += 299
         self.client().post("Acme", self.ask(blocking=True))
@@ -442,38 +432,25 @@ class ProtocolCheckTests(Base):
         self.assertEqual(len(self.http.sent("/version")), 2)
 
     def test_an_upgrade_is_seen_after_the_cache_expires(self):
-        self.level(2)
-        with self.assertRaises(rc.Refused):
+        self.old_pond(3)
+        with self.assertRaises(rc.PondTooOld):
             self.client().post("Acme", self.ask(blocking=True))
-        self.level(3)
+        self.http.routes[("GET", "/version")] = (200, {"service": "pond", "version": "1.1.0", "protocol": 5})
         self.clock.now += 301
         self.assertEqual(self.client().post("Acme", self.ask(blocking=True))["item"]["id"], ITEM_ID)
 
-    def test_no_version_route_is_unknown_and_posts(self):
-        self.http.routes[("GET", "/version")] = (404, {"error": "not found"})
-        res = self.client().post("Acme", self.ask(blocking=True, question={"prompt": "?"}))
-        self.assertEqual(res["item"]["id"], ITEM_ID)
-        self.assertEqual(len(self.http.sent("/asks")), 1)
-
-    def test_a_version_without_an_integer_protocol_is_unknown_and_posts(self):
-        for body in ({"service": "mailbox", "version": "0.1"}, {"protocol": "3"}, {"protocol": True},
-                     {"protocol": 0}, {"protocol": 2.5}):
-            rc._levels.clear()
-            self.http.routes[("GET", "/version")] = (200, body)
-            self.assertEqual(self.client().post("Acme", self.ask(warning="Why"))["item"]["id"], ITEM_ID, body)
-
-    def test_an_unknown_level_is_cached_too(self):
-        self.http.routes[("GET", "/version")] = (404, {"error": "not found"})
+    def test_an_unreadable_version_is_cached_too(self):
+        self.http.routes[("GET", "/version")] = (200, {})
         self.client().post("Acme", self.ask(blocking=True))
         self.client().post("Acme", self.ask(blocking=True))
         self.assertEqual(len(self.http.sent("/version")), 1)
 
-    def test_a_server_refusal_after_an_unknown_level_is_passed_on(self):
-        self.http.routes[("GET", "/version")] = (404, {"error": "not found"})
+    def test_a_server_refusal_after_an_unreadable_version_is_passed_on(self):
+        self.http.routes[("GET", "/version")] = (200, {})
         self.http.routes[("POST", "/asks")] = (400, {"error": "invalid instructable", "details": ["steps[0].blocking"]})
         with self.assertRaises(rc.Refused) as ctx:
             self.client().post("Acme", self.ask(blocking=True))
-        self.assertNotIsInstance(ctx.exception, rc.ProtocolTooOld)
+        self.assertNotIsInstance(ctx.exception, rc.PondTooOld)
         self.assertEqual(ctx.exception.details, ["steps[0].blocking"])
 
     def test_an_unreachable_mailbox_is_unreachable_not_old(self):
@@ -481,22 +458,31 @@ class ProtocolCheckTests(Base):
         with self.assertRaises(rc.Unreachable):
             self.client().post("Acme", self.ask(blocking=True))
 
-    def test_local_mode_asks_the_app(self):
+    def test_the_old_name_still_works(self):
+        self.assertIs(rc.ProtocolTooOld, rc.PondTooOld)
+
+    def local_http(self, version, protocol):
         local = FakeHTTP()
-        local.routes[("GET", "/version")] = (200, {"service": "hook", "version": "0.9.0", "protocol": 3})
+        local.routes[("GET", "/version")] = (200, {"service": "hook", "version": version, "protocol": protocol})
         local.routes[("POST", "/asks")] = (201, {"item": {"id": ITEM_ID}})
+        return local
+
+    def test_local_mode_asks_the_app(self):
+        local = self.local_http("1.0.0", 4)
         self.assertEqual(self.local(local).post("Acme", self.ask(blocking=True))["item"]["id"], ITEM_ID)
         self.assertEqual(len(local.sent("/version")), 1)
+        self.assertNotIn("editKeyHash", json.loads(local.sent("/asks")[0].data))
 
-    def test_local_mode_too_old_names_hook_not_the_mailbox(self):
-        local = FakeHTTP()
-        local.routes[("GET", "/version")] = (200, {"service": "hook", "version": "0.8.0", "protocol": 2})
-        local.routes[("POST", "/asks")] = (201, {"item": {"id": ITEM_ID}})
-        with self.assertRaises(rc.ProtocolTooOld) as ctx:
-            self.local(local).post("Acme", self.ask(blocking=True))
-        self.assertEqual(ctx.exception.error,
-                         "Hook speaks protocol 2; `blocking` needs 3. Update Hook (Check for Updates\u2026).")
-        self.assertNotIn("mailbox", ctx.exception.error)
+    def test_local_mode_on_a_0_9_hook_counts_its_protocol(self):
+        # 0.9.x answers its app version in `version`; its protocol 4 is Pond 1.0.0.
+        local = self.local_http("0.9.3", 4)
+        self.assertEqual(self.local(local).post("Acme", self.ask(optional=True))["item"]["id"], ITEM_ID)
+
+    def test_local_mode_too_old_names_the_this_mac_queue(self):
+        local = self.local_http("1.0.0", 4)
+        with self.assertRaises(rc.PondTooOld) as ctx:
+            self.local(local).post("Acme", self.ask(id="s1"))
+        self.assertEqual(ctx.exception.error, "Hook's This Mac queue (Pond 1.0.0) can't take `id` yet.")
         self.assertEqual(local.sent("/asks"), [])
 
 
@@ -510,7 +496,8 @@ class MailboxTests(Base):
         res = self.mailbox(self.http, kind="mcp").post("Acme", {"v": 1, "title": "Check Node",
                                                                 "from": {"host": "h"}})
         self.assertTrue(res["deduped"])
-        (req,) = self.http.requests                      # no /health in mailbox mode
+        self.assertEqual(self.http.sent("/health"), [])   # no /health in mailbox mode
+        req = self.http.requests[-1]
         self.assertEqual(req.full_url, "https://mailbox.example/asks")
         self.assertEqual(req.get_header("Authorization"), "Bearer " + MAILBOX_TOKEN)
         self.assertEqual(req.get_header("X-relay-client"), "mcp/" + rc.VERSION)

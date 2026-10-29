@@ -14,7 +14,7 @@ from unittest import mock
 
 import relay_cli
 import relay_client
-from relay_client import ConfigMissing, NotFound, ProtocolTooOld, Refused, Unreachable
+from relay_client import ConfigMissing, NotFound, PondTooOld, Refused, Unreachable
 
 
 def flat(text: str) -> str:
@@ -149,11 +149,11 @@ class CliTest(unittest.TestCase):
         self.assertIn("never paste a whole document into an ask", relay_cli.FILES_SENTENCE)
 
     def test_post_too_old_mailbox_exits_1_with_the_sentence(self):
-        self.client.error = ProtocolTooOld(2, "blocking", 3)
+        self.client.error = PondTooOld("1.0.0", "id", "1.1.0")
         code, out, err = self.run_cli("post", "Acme", "--json", "-", stdin=io.StringIO('{"v":1}'))
         self.assertEqual((code, out), (1, ""))
-        self.assertEqual(err, "relay: This Pond speaks protocol 2; `blocking` needs 3. "
-                              "Ask the owner to update the Pond (Hook › Update Pond…).\n")
+        self.assertEqual(err, "relay: Your Pond (1.0.0) is older than `id` needs (Pond 1.1.0 or newer). "
+                              "Update the Pond, or leave the key out.\n")
 
     def test_post_bad_input(self):
         code, out, err = self.run_cli("post", "Acme", "--json", "-", stdin=io.StringIO("{nope"))

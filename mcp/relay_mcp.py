@@ -54,7 +54,7 @@ def make_client() -> relay_client.Client:
 
 
 def to_tool_error(exc: relay_client.RelayError, client: Optional[relay_client.Client]) -> ToolError:
-    if isinstance(exc, relay_client.ProtocolTooOld):
+    if isinstance(exc, relay_client.PondTooOld):
         return ToolError(exc.error)
     if isinstance(exc, relay_client.Refused):
         details = [str(d) for d in (exc.details or [])]
