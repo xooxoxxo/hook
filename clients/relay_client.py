@@ -9,23 +9,28 @@ Standard library only; runs on Python 3.9+.
 """
 from __future__ import annotations
 
+import datetime
 import hashlib
 import hmac
 import http.client
 import json
 import os
 import pathlib
+import re
 import secrets
 import socket
 import stat
 import subprocess
 import time
+import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
 from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 
-VERSION = "0.9.4"
+import relay_semver
+
+VERSION = "0.10.0"
 DEFAULT_CONFIG = "~/.config/relay/config.json"
 DEFAULT_PORT = 47823
 DEFAULT_CONTEXT = "personal"
@@ -41,15 +46,25 @@ LAUNCH_COMMANDS = (["open", "-g", "-b", BUNDLE_ID],)
 LAUNCH_WAIT_S = 5.0
 LAUNCH_POLL_S = 0.25
 PROOF_PREFIX = "relay-proof-v1\n"   # message: PROOF_PREFIX + str(port) + "\n" + nonce
-# Protocol levels a mailbox (or Hook's LocalAPI) can speak, as docs/mailbox-protocol.md defines them.
-# An instructable key that needs more than level 1 is checked before it is posted.
-KEY_LEVELS = (("optional", 4), ("file", 4), ("blocking", 3), ("warning", 3), ("question", 2))
-LINK_PATH_KEY, LINK_PATH_LEVEL = "links[].path", 4   # a link's `path` (a local file)
+# The first Pond version (semver) that takes each instructable key, as docs/mailbox-protocol.md
+# lists them. A gated key is checked before it is posted; a minor or patch Pond bump never
+# blocks a key it already took. 1.0.0 is what was protocol level 4.
+KEY_MIN_POND = (("id", "1.1.0"), ("optional", "1.0.0"), ("file", "1.0.0"), ("blocking", "1.0.0"),
+                ("warning", "1.0.0"), ("question", "1.0.0"))
+LINK_PATH_KEY, LINK_PATH_POND = "links[].path", "1.0.0"   # a link's `path` (a local file)
+AMEND_POND = "1.1.0"            # amend, edit keys, accept and problems
 PROTOCOL_CACHE_S = 300.0
-_levels: Dict[str, Tuple[float, Optional[int]]] = {}   # per process: source -> (when checked, level or None)
+# Per process: source -> (when checked, (effective version, legacy protocol or None) or None).
+_ponds: Dict[str, Tuple[float, Optional[Tuple[relay_semver.Version, Optional[int]]]]] = {}
+# Sent on every request: this client reads revision histories (it is not the Pond version it needs).
+PROTOCOL_HEADER, CLIENT_PROTOCOL = "X-Hook-Protocol", "5"
+EDIT_KEY_DIR = "~/.local/state/relay/edit-keys"
+PENDING_MAX_AGE_S = 24 * 3600   # a retry within this reuses the pending edit key
+_ASK_ID = re.compile(r"[0-9A-Za-z][0-9A-Za-z-]{0,63}")
 
 # Owner event kinds as the CLI and the hook print them.
-OWNER_LABELS = {"resolved": "done", "declined": "skipped", "reply": "reply", "reopened": "reopened"}
+OWNER_LABELS = {"resolved": "done", "declined": "skipped", "reply": "reply", "reopened": "reopened",
+                "problem": "problem", "accepted": "accepted"}
 
 
 class RelayError(Exception):
@@ -80,39 +95,79 @@ class NotFound(RelayError):
     exit_code = 1
 
 
-class ProtocolTooOld(Refused):
-    """The mailbox (or, in This Mac mode, Hook itself) speaks a lower protocol level than the
-    instructable's keys need."""
+class PondTooOld(Refused):
+    """The Pond (or, in This Mac mode, Hook's own queue) is older than a key or a call needs.
+    .version is the Pond as shown ("1.0.0", or "protocol 4" for an old dated Pond)."""
 
-    def __init__(self, level: int, key: str, needs: int, local: bool = False) -> None:
+    def __init__(self, version: str, key: str, needs: str, local: bool = False) -> None:
         if local:
-            message = (f"Hook speaks protocol {level}; `{key}` needs {needs}. "
-                       "Update Hook (Check for Updates…).")
+            message = f"Hook's This Mac queue (Pond {version}) can't take `{key}` yet."
         else:
-            message = (f"This Pond speaks protocol {level}; `{key}` needs {needs}. "
-                       "Ask the owner to update the Pond (Hook › Update Pond…).")
+            tail = ("close this ask and post a new one." if key == "amend" else "leave the key out.")
+            message = (f"Your Pond ({version}) is older than `{key}` needs (Pond {needs} or newer). "
+                       f"Update the Pond, or {tail}")
         super().__init__(0, message)
-        self.level, self.key, self.needs, self.local = level, key, needs, local
+        self.version, self.key, self.needs, self.local = version, key, needs, local
 
 
-def keys_needing_levels(instructable: Any) -> Dict[str, int]:
-    """{key: level} for the keys of steps and sub-steps (not verify) that need more than level 1,
+ProtocolTooOld = PondTooOld   # the name before Pond semver; kept for one release
+
+
+class LocalCantAmend(RelayError):
+    def __init__(self, ask_id: str) -> None:
+        super().__init__(f"This Mac mode can't correct asks yet: close this one (relay done {ask_id}) "
+                         "and post a new one.")
+
+
+class NoEditKey(RelayError):
+    def __init__(self, ask_id: str) -> None:
+        super().__init__(f"No edit key for ask {ask_id} on this Mac: only the process that posted it can "
+                         f"correct it. Close it (relay done {ask_id}) and post a new one.")
+
+
+class ChangedUnderneath(RelayError):
+    def __init__(self, ask_id: str, rev: int) -> None:
+        super().__init__(f"Ask {ask_id} changed since you last wrote it (version {rev}). "
+                         f"Run `relay status {ask_id} --json` and correct from that.")
+        self.rev = rev
+
+
+class CorrectionsOff(RelayError):
+    def __init__(self, ask_id: str) -> None:
+        super().__init__(f"The Pond doesn't take corrections yet. Close this ask (relay done {ask_id}) "
+                         "and post a new one.")
+
+
+def _version_key(minimum: str) -> relay_semver.Version:
+    v = relay_semver.parse_version(minimum)
+    assert v is not None, minimum
+    return v
+
+
+def keys_needing_pond(instructable: Any) -> Dict[str, str]:
+    """{key: first Pond version} for the gated keys of steps and sub-steps (not verify),
     plus LINK_PATH_KEY when a link carries `path`."""
-    found: Dict[str, int] = {}
+    found: Dict[str, str] = {}
     links = instructable.get("links") if isinstance(instructable, dict) else None
     if isinstance(links, list) and any(isinstance(link, dict) and "path" in link for link in links):
-        found[LINK_PATH_KEY] = LINK_PATH_LEVEL
+        found[LINK_PATH_KEY] = LINK_PATH_POND
     steps = instructable.get("steps") if isinstance(instructable, dict) else None
     stack = [s for s in steps if isinstance(s, dict)] if isinstance(steps, list) else []
     while stack:
         step = stack.pop()
-        for key, needs in KEY_LEVELS:
+        for key, needs in KEY_MIN_POND:
             if key in step:
                 found[key] = needs
         subs = step.get("substeps")
         if isinstance(subs, list):
             stack.extend(s for s in subs if isinstance(s, dict))
     return found
+
+
+def pond_display(pond: Tuple[relay_semver.Version, Optional[int]]) -> str:
+    """"1.1.0", or "protocol 4" for an old dated Pond."""
+    version, legacy = pond
+    return f"protocol {legacy}" if legacy is not None else str(version)
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -253,6 +308,214 @@ def one_line(text: str) -> str:
     return text.replace("\r\n", "\n").replace("\r", "\n").replace("\n", " ⏎ ")
 
 
+# The Pond's hidden-character policy (mailbox instructable.py, and Hook's Swift validator),
+# with no exceptions: in a line a session reads, even TAB and the emoji joiners are shown.
+_HIDDEN_CATEGORIES = frozenset(("Cc", "Cf", "Cs", "Co", "Cn", "Zl", "Zp"))
+_HIDDEN_RANGES = (
+    (0x034F, 0x034F), (0x115F, 0x1160), (0x17B4, 0x17B5), (0x180B, 0x180F),
+    (0x3164, 0x3164), (0xFE00, 0xFE0F), (0xFFA0, 0xFFA0), (0xFFF0, 0xFFF8),
+    (0xD800, 0xDFFF), (0xE0000, 0xE0FFF),
+)
+
+
+def _is_hidden(ch: str) -> bool:
+    cp = ord(ch)
+    return unicodedata.category(ch) in _HIDDEN_CATEGORIES or any(lo <= cp <= hi for lo, hi in _HIDDEN_RANGES)
+
+
+def _revealed(value: Any) -> List[str]:
+    """one_line, then every hidden or control scalar as ⟨U+XXXX⟩: one token per scalar."""
+    text = one_line(value if isinstance(value, str) else ("" if value is None else str(value)))
+    return [f"⟨U+{ord(ch):04X}⟩" if _is_hidden(ch) else ch for ch in text]
+
+
+def _cut(tokens: List[str], cap: int) -> str:
+    """At most `cap` characters, the … included; a revealed scalar is never split."""
+    if sum(len(t) for t in tokens) <= cap:
+        return "".join(tokens)
+    out, used = [], 0
+    for token in tokens:
+        if used + len(token) > cap - 1:
+            break
+        out.append(token)
+        used += len(token)
+    return "".join(out) + "…"
+
+
+def session_text(value: Any, cap: int) -> str:
+    """Text from the owner or an ask, as a session reads it: one line, hidden characters shown,
+    cut to `cap` characters, always double-quoted with " and \\ escaped, so it can't pass for
+    a line of its own."""
+    return json.dumps(_cut(_revealed(value), cap), ensure_ascii=False)
+
+
+# What a bare label can't contain, as it would read in a session line: brackets frame the ask
+# id, " opens quoted text, and — · ↳ separate the parts of a line.
+_LABEL_MARKS = {"[": "(", "]": ")", '"': "'", "\u2014": "-", "\u00b7": ".", "\u21b3": ">"}
+
+
+def session_label(value: Any, cap: int) -> str:
+    """A short label (a project name, a step, a time) in a session line: one line, hidden
+    characters shown, [ ] " — · ↳ as ( ) ' - . >, cut to `cap` characters. Not quoted, so it
+    can't open a quote, frame an ask id or start a second part of the line."""
+    tokens = [_LABEL_MARKS.get(t, t) for t in _revealed(value)]
+    return _cut(tokens, cap)
+
+
+def session_id(env: Optional[Mapping[str, str]] = None) -> str:
+    """This process's Claude Code session: $CLAUDE_CODE_SESSION_ID, else $CLAUDE_SESSION_ID, else ""."""
+    env = _env(env)
+    return env.get("CLAUDE_CODE_SESSION_ID") or env.get("CLAUDE_SESSION_ID") or ""
+
+
+def revision_of(detail: Any) -> Optional[Dict[str, Any]]:
+    """The served current revision ({rev, hash, …, acceptedRev}) of an ask detail, or None
+    (an old Pond, or This Mac mode)."""
+    if not isinstance(detail, dict):
+        return None
+    item = detail.get("item") if isinstance(detail.get("item"), dict) else {}
+    for value in (item.get("revision"), detail.get("revision")):
+        if isinstance(value, dict) and isinstance(value.get("rev"), int) and isinstance(value.get("hash"), str):
+            return value
+    return None
+
+
+def revision_hash_of(detail: Any, rev: int) -> Optional[str]:
+    """The hash of revision `rev` from the detail's history or its current revision, or None."""
+    history = detail.get("revisions") if isinstance(detail, dict) else None
+    for entry in history if isinstance(history, list) else []:
+        if isinstance(entry, dict) and entry.get("rev") == rev and isinstance(entry.get("hash"), str):
+            return entry["hash"]
+    current = revision_of(detail)
+    return current["hash"] if current is not None and current["rev"] == rev else None
+
+
+def _now_iso() -> str:
+    return datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+
+
+class EditKeys:
+    """The edit keys of the asks this Mac posted, one 0600 file per ask in a 0700 folder
+    (~/.local/state/relay/edit-keys, or $RELAY_EDIT_KEY_DIR). The Pond stores only a key's
+    SHA-256; whoever holds the file can correct that ask. A key is made before the POST, as
+    pending-<sha1(project + "\n" + title)[:16]>.json, so a retry after a timeout reuses it."""
+
+    def __init__(self, env: Optional[Mapping[str, str]] = None) -> None:
+        self.env = _env(env)
+        custom = self.env.get("RELAY_EDIT_KEY_DIR")
+        self.dir = pathlib.Path(custom or EDIT_KEY_DIR).expanduser()
+
+    @staticmethod
+    def key_hash(key: str) -> str:
+        return hashlib.sha256(key.encode("utf-8")).hexdigest()
+
+    def _pending_path(self, project: str, title: str) -> pathlib.Path:
+        digest = hashlib.sha1((project + "\n" + title).encode("utf-8")).hexdigest()[:16]
+        return self.dir / f"pending-{digest}.json"
+
+    def _path(self, ask_id: str) -> Optional[pathlib.Path]:
+        return self.dir / f"{ask_id}.json" if isinstance(ask_id, str) and _ASK_ID.fullmatch(ask_id) else None
+
+    def _read(self, path: pathlib.Path) -> Optional[Dict[str, Any]]:
+        try:
+            check_trusted_dir(self.dir)
+        except FileNotFoundError:
+            return None
+        check_trusted_file(path)
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        return data if isinstance(data, dict) else None
+
+    def _write(self, path: pathlib.Path, data: Dict[str, Any]) -> None:
+        private_write(path, (json.dumps(data, indent=1, sort_keys=True) + "\n").encode("utf-8"))
+
+    def pending(self, project: str, title: str) -> Tuple[str, str]:
+        """(key, key hash) for a post: the pending key of this project and title when it is
+        younger than 24 h, else a new one."""
+        path = self._pending_path(project, title)
+        data = self._read(path)
+        key = data.get("key") if data else None
+        try:
+            fresh = time.time() - os.stat(str(path)).st_mtime < PENDING_MAX_AGE_S
+        except OSError:
+            fresh = False
+        if not isinstance(key, str) or len(key) != 43 or not fresh:
+            key = secrets.token_urlsafe(32)
+            self._write(path, {"key": key, "created": _now_iso()})
+        return key, self.key_hash(key)
+
+    def commit(self, project: str, title: str, ask_id: str, rev: int, hash_: str, session: str,
+               source: str) -> None:
+        """The pending key becomes <ask_id>.json. A file already there for the same key is kept."""
+        pending = self._pending_path(project, title)
+        data = self._read(pending)
+        key = data.get("key") if data else None
+        path = self._path(ask_id)
+        if not isinstance(key, str) or path is None:
+            return
+        existing = self._read(path)
+        if not (existing and existing.get("key") == key):
+            self._write(path, {"key": key, "session": session, "source": source, "lastRev": rev,
+                               "lastHash": hash_, "hashes": [hash_] if hash_ else [], "created": _now_iso()})
+        self.drop_pending(project, title)
+
+    def drop_pending(self, project: str, title: str) -> None:
+        try:
+            os.unlink(str(self._pending_path(project, title)))
+        except OSError:
+            pass
+
+    def load(self, ask_id: str) -> Optional[Dict[str, Any]]:
+        path = self._path(ask_id)
+        return self._read(path) if path is not None else None
+
+    def record_write(self, ask_id: str, rev: int, hash_: str) -> None:
+        """After a correction: the newest revision this Mac wrote, and its hash among `hashes`."""
+        path = self._path(ask_id)
+        data = self._read(path) if path is not None else None
+        if path is None or data is None:
+            return
+        hashes = [h for h in data.get("hashes") or [] if isinstance(h, str)]
+        if hash_ not in hashes:
+            hashes.append(hash_)
+        data.update(lastRev=rev, lastHash=hash_, hashes=hashes)
+        self._write(path, data)
+
+    def prune(self, max_age_days: int = 30) -> None:
+        """Drops key files (and pending ones) untouched for max_age_days."""
+        try:
+            entries = list(self.dir.iterdir())
+        except OSError:
+            return
+        cutoff = time.time() - max_age_days * 86400
+        for entry in entries:
+            if entry.suffix != ".json":
+                continue
+            try:
+                if entry.stat().st_mtime < cutoff:
+                    entry.unlink()
+            except OSError:
+                pass
+
+    def owners(self) -> Dict[str, str]:
+        """{ask id: posting session} for every key file ("" when the session was unknown)."""
+        found: Dict[str, str] = {}
+        try:
+            entries = sorted(self.dir.iterdir())
+        except OSError:
+            return found
+        for entry in entries:
+            if entry.suffix != ".json" or entry.name.startswith("pending-"):
+                continue
+            data = self.load(entry.stem)
+            if data is not None and isinstance(data.get("key"), str):
+                session = data.get("session")
+                found[entry.stem] = session if isinstance(session, str) else ""
+        return found
+
+
 def instructable_of(detail: Any) -> Dict[str, Any]:
     """The instructable of an ask detail: payload.instructable, as a dict ({} when absent).
     A JSON string (a local item may carry it encoded) is decoded."""
@@ -323,6 +586,136 @@ def latest_answers(events: Any) -> Dict[str, Dict[str, Any]]:
         value.update(at=event.get("at"), seq=event.get("seq"))
         current[body["step"]] = value
     return current
+
+
+def event_rev(event: Any) -> int:
+    """The version an event belongs to: its `rev`, else 1 (an old Pond, or an event before revisions)."""
+    rev = event.get("rev") if isinstance(event, dict) else None
+    return rev if isinstance(rev, int) and not isinstance(rev, bool) and rev >= 1 else 1
+
+
+def _steps_by_id(instructable: Any) -> Dict[str, Tuple[str, Dict[str, Any]]]:
+    """{step id: (display path, step)} for the steps and sub-steps that carry an id."""
+    found: Dict[str, Tuple[str, Dict[str, Any]]] = {}
+    steps = instructable.get("steps") if isinstance(instructable, dict) else None
+    for i, step in enumerate(steps if isinstance(steps, list) else []):
+        if not isinstance(step, dict):
+            continue
+        if isinstance(step.get("id"), str):
+            found[step["id"]] = (f"{i + 1}", step)
+        subs = step.get("substeps")
+        for j, sub in enumerate(subs if isinstance(subs, list) else []):
+            if isinstance(sub, dict) and isinstance(sub.get("id"), str):
+                found[sub["id"]] = (f"{i + 1}.{j + 1}", sub)
+    return found
+
+
+def _step_at(instructable: Any, path: str) -> Optional[Dict[str, Any]]:
+    steps = instructable.get("steps") if isinstance(instructable, dict) else None
+    try:
+        parts = [int(p) - 1 for p in path.split(".")]
+        step = steps[parts[0]]
+        if len(parts) == 2:
+            step = step["substeps"][parts[1]]
+    except (AttributeError, IndexError, KeyError, TypeError, ValueError):
+        return None
+    return step if isinstance(step, dict) and len(parts) <= 2 and min(parts) >= 0 else None
+
+
+def revision_bodies(detail: Any) -> Dict[int, Dict[str, Any]]:
+    """{rev: decoded body} for every revision the detail carries (its history and its current
+    revision). The served payload stands in for the current revision when its body is missing."""
+    bodies: Dict[int, Dict[str, Any]] = {}
+    history = detail.get("revisions") if isinstance(detail, dict) else None
+    current = revision_of(detail)
+    for entry in (history if isinstance(history, list) else []) + ([current] if current else []):
+        if not isinstance(entry, dict) or not isinstance(entry.get("rev"), int):
+            continue
+        try:
+            body = json.loads(entry.get("body")) if isinstance(entry.get("body"), str) else None
+        except ValueError:
+            body = None
+        if isinstance(body, dict):
+            bodies[entry["rev"]] = body
+    if current is not None and current["rev"] not in bodies and instructable_of(detail):
+        bodies[current["rev"]] = instructable_of(detail)
+    return bodies
+
+
+def accepted_rev(detail: Any) -> int:
+    current = revision_of(detail)
+    value = current.get("acceptedRev") if current is not None else None
+    return value if isinstance(value, int) and not isinstance(value, bool) and value >= 1 else 1
+
+
+def _question_of(instructable: Any, step_id: str) -> Optional[Dict[str, Any]]:
+    entry = _steps_by_id(instructable).get(step_id)
+    question = entry[1].get("question") if entry is not None else None
+    return question if isinstance(question, dict) else None
+
+
+def answer_state(detail: Any) -> Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
+    """The owner's latest answer per step, as the Pond counts it: (current, earlier).
+
+    Answers are grouped by step id: an event's `id`, else its path mapped to an id through
+    the revision at the event's rev (an old Pond, or no revisions: the current instructable).
+    The latest answer per id wins. `current` keys it by that id's path in the current
+    instructable, so an answer follows its step when the step moves, and a path that another
+    step takes over never shows an answer given to the step that was there. `earlier` lists
+    the answers to steps the current instructable no longer has, in log order; they never
+    count. An answer with no id at all (an ask from before step ids) keeps its path.
+
+    Each value is latest_answers' value plus `rev` (the version answered), `id`, `step` (the
+    path the owner answered), `auth`, and `stale`: the question at that id in the version in
+    force (the accepted one) isn't the one the owner answered."""
+    events = detail.get("events") if isinstance(detail, dict) and isinstance(detail.get("events"), list) else []
+    current_body = instructable_of(detail)
+    bodies = revision_bodies(detail)
+    in_force = bodies.get(accepted_rev(detail)) or current_body
+    latest: Dict[Tuple[str, str], Dict[str, Any]] = {}
+    for event in sorted((e for e in events if isinstance(e, dict)), key=_seq_of):
+        body = parse_answer(event)
+        value = latest_answers([event]).get(body["step"]) if body is not None else None
+        if value is None:
+            continue
+        rev = event_rev(event)
+        answered = bodies.get(rev) or in_force
+        step_id = body.get("id") if isinstance(body.get("id"), str) else None
+        if step_id is None:
+            step = _step_at(answered, body["step"])
+            step_id = step.get("id") if step is not None and isinstance(step.get("id"), str) else None
+        if step_id is None:
+            latest[("path", body["step"])] = dict(value, rev=rev, id=None, step=body["step"],
+                                                  auth=event.get("auth"), stale=False)
+            continue
+        asked = _question_of(answered, step_id)
+        stale = asked is None or asked != _question_of(in_force, step_id)
+        latest[("id", step_id)] = dict(value, rev=rev, id=step_id, step=body["step"],
+                                       auth=event.get("auth"), stale=stale)
+    current_ids = _steps_by_id(current_body)
+    found: Dict[str, Dict[str, Any]] = {}
+    earlier: List[Dict[str, Any]] = []
+    for (kind, key), value in sorted(latest.items(), key=lambda kv: _seq_of(kv[1])):
+        if kind == "path":
+            found[key] = value
+        elif key in current_ids:
+            found[current_ids[key][0]] = value
+        else:
+            earlier.append(value)
+    return found, earlier
+
+
+def answers_with_state(detail: Any) -> Dict[str, Dict[str, Any]]:
+    """The current half of answer_state: the owner's latest answer per step, keyed by the
+    step's path in the current instructable."""
+    return answer_state(detail)[0]
+
+
+def open_questions(detail: Any, given: Optional[Dict[str, Dict[str, Any]]] = None) -> List[str]:
+    """Paths of the current questions without a counted answer, in document order: an answer
+    to an earlier question (stale) or to a step that is gone doesn't count."""
+    given = answers_with_state(detail) if given is None else given
+    return [path for path in questions(instructable_of(detail)) if path not in given or given[path]["stale"]]
 
 
 def answer_value(answer: Dict[str, Any]) -> str:
@@ -436,45 +829,125 @@ class Client:
             raise Unreachable(f"Pond at {self.base} answered HTTP {status} with a non-JSON body")
         return obj
 
-    def protocol_level(self) -> Optional[int]:
-        """The protocol level the mailbox (or LocalAPI) reports on GET /version, or None when
-        it is unknown: no such route (404), or a 200 without an integer `protocol` >= 1.
-        Cached for PROTOCOL_CACHE_S per source, per process (an unknown level too)."""
+    def pond_info(self) -> Optional[Tuple[relay_semver.Version, Optional[int]]]:
+        """(effective Pond version, legacy protocol or None) from GET /version, through
+        relay_semver.pond_version: an old dated Pond counts by its `protocol` (4 is 1.0.0),
+        and no such route (404) is protocol 1, 0.1.0. None when the reply can't be read
+        (a 200 with neither a semver `version` nor an integer `protocol`).
+        In This Mac mode a 0.9.x Hook answers its own app version: its `protocol` counts too.
+        Cached for PROTOCOL_CACHE_S per source, per process (an unreadable reply too)."""
         key = self.source_key() + "|" + self.base
         now = self._monotonic()
-        hit = _levels.get(key)
+        hit = _ponds.get(key)
         if hit is not None and 0 <= now - hit[0] < PROTOCOL_CACHE_S:
             return hit[1]
-        level: Optional[int] = None
+        pond: Optional[Tuple[relay_semver.Version, Optional[int]]]
         try:
-            protocol = self._call("GET", "/version").get("protocol")
-            if isinstance(protocol, int) and not isinstance(protocol, bool) and protocol >= 1:
-                level = protocol
+            info: Optional[Dict[str, Any]] = self._call("GET", "/version")
         except NotFound:
-            pass
-        _levels[key] = (now, level)
-        return level
+            info = None
+        protocol = info.get("protocol") if info is not None else None
+        has_protocol = isinstance(protocol, int) and not isinstance(protocol, bool) and protocol >= 1
+        semver = relay_semver.parse_version(info.get("version")) if info is not None else None
+        if info is not None and semver is None and not has_protocol:
+            pond = None
+        elif self.local and semver is not None and has_protocol:
+            pond = (max(semver, relay_semver.legacy_version(protocol)), None)
+        else:
+            pond = relay_semver.pond_version(info)
+        _ponds[key] = (now, pond)
+        return pond
 
-    def check_protocol(self, instructable: Dict[str, Any]) -> None:
-        """Refuses (ProtocolTooOld) an instructable whose keys need a higher level than the
-        mailbox reports. An unknown level posts as before and the server validates; one
-        without such keys makes no extra call."""
-        needed = keys_needing_levels(instructable)
+    def pond_version(self) -> Optional[relay_semver.Version]:
+        """The effective Pond version (see pond_info), or None when it can't be read."""
+        pond = self.pond_info()
+        return pond[0] if pond is not None else None
+
+    def check_pond(self, instructable: Dict[str, Any]) -> None:
+        """Refuses (PondTooOld) an instructable with a key the Pond is too old for. An
+        unreadable version posts as before and the server validates."""
+        needed = keys_needing_pond(instructable)
         if not needed:
             return
-        level = self.protocol_level()
-        if level is None:
+        pond = self.pond_info()
+        if pond is None:
             return
-        for key, needs in sorted(needed.items(), key=lambda kv: -kv[1]):
-            if level < needs:
-                raise ProtocolTooOld(level, key, needs, local=self.local)
+        order = [k for k, _ in KEY_MIN_POND] + [LINK_PATH_KEY]
+        for key, needs in sorted(needed.items(), key=lambda kv: (_version_key(kv[1]), -order.index(kv[0])),
+                                 reverse=True):
+            if not relay_semver.at_least(pond[0], needs):
+                raise PondTooOld(pond_display(pond), key, needs, local=self.local)
 
-    def post(self, project: str, instructable: Dict[str, Any]) -> Dict[str, Any]:
-        self.check_protocol(instructable)
+    def post(self, project: str, instructable: Dict[str, Any], *,
+             edit_keys: Optional[EditKeys] = None) -> Dict[str, Any]:
+        """POST /asks. On a Pond that takes corrections, an edit key is made first and only its
+        hash is sent; the key is kept when the Pond says the ask is `editable`."""
+        self.check_pond(instructable)
         body: Dict[str, Any] = {"project": project, "instructable": fill_from(instructable, self.env)}
+        keys: Optional[EditKeys] = None
+        title = str(instructable.get("title") or "")
         if not self.local:
             body["context"] = self.source["context"]
-        return self._call("POST", "/asks", body)
+            pond = self.pond_info()
+            if pond is not None and relay_semver.at_least(pond[0], AMEND_POND):
+                keys = edit_keys if edit_keys is not None else EditKeys(self.env)
+                body["editKeyHash"] = keys.pending(project, title)[1]
+        resp = self._call("POST", "/asks", body)
+        if keys is not None:
+            item = resp.get("item") if isinstance(resp.get("item"), dict) else {}
+            revision = resp.get("revision") if isinstance(resp.get("revision"), dict) else {}
+            rev = revision.get("rev") if isinstance(revision.get("rev"), int) else 1
+            hash_ = revision.get("hash") if isinstance(revision.get("hash"), str) else ""
+            if resp.get("editable") is True and isinstance(item.get("id"), str):
+                keys.commit(project, title, item["id"], rev, hash_, session_id(self.env), self.source_key())
+            else:
+                keys.drop_pending(project, title)
+            keys.prune()
+        return resp
+
+    def amend(self, ask_id: str, reason: str, instructable: Dict[str, Any], base_rev: Optional[int] = None, *,
+              edit_keys: Optional[EditKeys] = None) -> Dict[str, Any]:
+        """POST /asks/{id}/amend with this Mac's edit key: a corrected version of an open ask.
+        Without base_rev it corrects the newest version, and only when that is the one this
+        Mac wrote last (else ChangedUnderneath). Adds `warning` when another session posted it."""
+        ask_id = ask_id.strip()
+        if self.local:
+            raise LocalCantAmend(ask_id)
+        pond = self.pond_info()
+        if pond is not None and not relay_semver.at_least(pond[0], AMEND_POND):
+            raise PondTooOld(pond_display(pond), "amend", AMEND_POND)
+        keys = edit_keys if edit_keys is not None else EditKeys(self.env)
+        record = keys.load(ask_id)
+        if record is None or not isinstance(record.get("key"), str):
+            raise NoEditKey(ask_id)
+        detail = self.get(ask_id)
+        current = revision_of(detail)
+        last_hash = record.get("lastHash") if isinstance(record.get("lastHash"), str) else ""
+        cur_rev = current["rev"] if current is not None else 1
+        cur_hash = current["hash"] if current is not None else last_hash
+        if base_rev is None:
+            if current is not None and last_hash and current["hash"] != last_hash:
+                raise ChangedUnderneath(ask_id, cur_rev)
+            base_rev, base_hash = cur_rev, cur_hash
+        else:
+            base_hash = revision_hash_of(detail, base_rev) or cur_hash
+        body = {"editKey": record["key"], "baseRev": base_rev, "baseHash": base_hash, "reason": reason,
+                "instructable": instructable}
+        try:
+            resp = self._call("POST", "/asks/" + self._quote(ask_id) + "/amend", body,
+                              not_found=f"no ask with id {ask_id}")
+        except Refused as exc:
+            if exc.status == 409 and exc.error == "corrections not enabled":
+                raise CorrectionsOff(ask_id) from None
+            raise
+        revision = resp.get("revision") if isinstance(resp.get("revision"), dict) else {}
+        if isinstance(revision.get("rev"), int) and isinstance(revision.get("hash"), str):
+            keys.record_write(ask_id, revision["rev"], revision["hash"])
+        poster = record.get("session") if isinstance(record.get("session"), str) else ""
+        if poster and poster != session_id(self.env):
+            resp = dict(resp, warning=f"ask {ask_id} was posted from another session; "
+                                      "correct only the asks you posted")
+        return resp
 
     def list(self, status: str = "open", days: int = 36500) -> List[Dict[str, Any]]:
         query = urllib.parse.urlencode({"status": status, "days": int(days)})
@@ -589,7 +1062,8 @@ class Client:
     def _transport(self, method: str, path: str, *, body: Optional[Dict[str, Any]] = None,
                    headers: Optional[Dict[str, str]] = None, auth: Optional[str] = None) -> Tuple[int, Any]:
         """One HTTP exchange → (status, decoded JSON or None). Never raises on HTTP status."""
-        hdrs = {"X-Relay-Client": f"{self.kind}/{VERSION}", "Accept": "application/json"}
+        hdrs = {"X-Relay-Client": f"{self.kind}/{VERSION}", "Accept": "application/json",
+                PROTOCOL_HEADER: CLIENT_PROTOCOL}
         hdrs.update(headers or {})
         data = None
         if body is not None:

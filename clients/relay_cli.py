@@ -17,8 +17,9 @@ from typing import Any, Callable, Dict, List, Optional
 
 import relay_replies
 import relay_wait
-from relay_client import (OWNER_LABELS, VERSION, Client, ProtocolTooOld, Refused, RelayError, answer_value,
-                          instructable_of, latest_answers, one_line, questions, unanswered)
+from relay_client import (OWNER_LABELS, VERSION, Client, EditKeys, PondTooOld, Refused, RelayError, accepted_rev,
+                          answer_state, answer_value, event_rev, instructable_of, open_questions, questions,
+                          revision_of, session_label, session_text)
 
 DEFAULT_TIMEOUT = 10.0
 SUBSTEPS_SENTENCE = ("A step that needs more than one action can hold `substeps`: 1 to 10 step objects "
@@ -40,6 +41,12 @@ FILES_SENTENCE = ("When the owner should read a document, write it as a Markdown
                   "an absolute path (/... or ~/...) on the owner's Mac, which Hook opens rendered. Keep `do` to "
                   "one action and `detail` to a few lines; never paste a whole document into an ask. "
                   "A Pond that is too old refuses these keys.")
+
+
+AMEND_SENTENCE = ("Send the whole corrected instructable: keep every step's `id` and leave ids out only on new "
+                  "steps. Only the process that posted the ask holds its edit key. The owner reviews the change "
+                  "in Hook before acting on it.")
+OWNER_TEXT_CAP = 300
 
 
 class _ParserExit(Exception):
@@ -100,12 +107,23 @@ def _parser(out: Any, err: Any, prog: str = "relay") -> argparse.ArgumentParser:
                       help="seconds between checks, at least 1 (default 2 on This Mac, 20 with a Pond)")
     wait.add_argument("--after", type=int, default=0, metavar="SEQ",
                       help="only answers after this event seq (the last seq a previous wait printed)")
+    amend = sub.add_parser("amend", help="correct an open ask you posted (the owner reviews it in Hook)",
+                           description=AMEND_SENTENCE)
+    amend.add_argument("id")
+    amend.add_argument("--reason", required=True, metavar="TEXT",
+                       help="what was wrong and what changed, one line (at most 200 chars)")
+    amend.add_argument("--base", type=int, default=None, metavar="REV",
+                       help="the version you corrected (default: the newest, if this Mac wrote it)")
+    amend.add_argument("--json", dest="json_src", default="-", metavar="FILE|-",
+                       help="the whole corrected instructable, from a file or - for stdin (the default)")
     return parser
 
 
 class _Ctx:
-    def __init__(self, stdin: Any, out: Any, err: Any, factory: Callable[..., Any]) -> None:
+    def __init__(self, stdin: Any, out: Any, err: Any, factory: Callable[..., Any],
+                 env: Optional[Dict[str, str]] = None) -> None:
         self.stdin, self.out, self.err, self.factory = stdin, out, err, factory
+        self.env = env
 
     def say(self, line: str) -> None:
         self.out.write(line + "\n")
@@ -124,46 +142,114 @@ def resolved_by(events: list) -> Optional[str]:
     return None
 
 
+def problems(detail: dict) -> List[Dict[str, Any]]:
+    """The owner's problem reports: [{"id", "step", "note", "rev", "at"}], oldest first."""
+    events = detail.get("events") if isinstance(detail.get("events"), list) else []
+    found: List[Dict[str, Any]] = []
+    for event in events:
+        if not isinstance(event, dict) or event.get("kind") != "problem" or event.get("actor") != "owner":
+            continue
+        try:
+            body = json.loads(event.get("text") or "")
+        except (TypeError, ValueError):
+            body = None
+        body = body if isinstance(body, dict) else {}
+        found.append({"id": body.get("id"), "step": body.get("step"), "note": body.get("note"),
+                      "rev": event_rev(event), "at": event.get("at")})
+    return found
+
+
 def format_status(detail: dict) -> list:
+    """`relay status`: owner text and answers quoted on one line each (session_text), so nothing
+    the owner or an ask says can pass for a line of its own."""
     item = detail.get("item") if isinstance(detail.get("item"), dict) else {}
     events = detail.get("events") if isinstance(detail.get("events"), list) else []
     status = item.get("status") or "?"
-    where = f"{item.get('projectId') or '?'} · {item.get('title') or '?'}"
+    title = session_text(item["title"], 120) if item.get("title") else "?"
+    where = f"{session_label(item.get('projectId') or '?', 60)} · {title}"
     by = None if status == "open" else resolved_by(events)
     lines = [f"{status} (by {by}) · {where}" if by else f"{status} · {where}"]
+    current = revision_of(detail)
+    if current is not None and current["rev"] > 1:
+        lines.append(f"version {current['rev']}, accepted by the owner: version {accepted_rev(detail)}")
     for event in events:
         if not isinstance(event, dict) or event.get("actor") != "owner":
+            continue
+        at = session_label(event.get("at") or "?", 40)
+        if event.get("kind") == "problem":
+            continue
+        if event.get("kind") == "accepted":
+            lines.append(f"{at} accepted version {event_rev(event)}")
             continue
         label = OWNER_LABELS.get(event.get("kind"))
         if label is None:
             continue
-        text = one_line(event.get("text") or "")
-        at = event.get("at") or "?"
-        lines.append(f"{at} {label}: {text}" if text else f"{at} {label}")
+        text = event.get("text") or ""
+        lines.append(f"{at} {label}: {session_text(text, OWNER_TEXT_CAP)}" if text else f"{at} {label}")
+    for problem in problems(detail):
+        lines.append(f"{session_label(problem['at'] or '?', 40)} problem on step "
+                     f"{session_label(problem['step'] or '?', 20)} (version {problem['rev']}), quoted: "
+                     f"{session_text(problem['note'], OWNER_TEXT_CAP)}")
     asked = questions(instructable_of(detail))
+    given, earlier = answer_state(detail)
     if asked:
-        given = latest_answers(events)
-        open_paths = unanswered(instructable_of(detail), events)
+        open_paths = open_questions(detail, given)
         lines.append(f"Answers ({len(asked) - len(open_paths)} of {len(asked)}):")
         for path, question in asked.items():
             prompt = str(question.get("prompt") or "").strip().split("\n")[0]
-            lines.append(f"  {path}  {prompt}")
+            lines.append(f"  {path}  {session_text(prompt, 120)}")
             if path in given:
-                lines.append("     " + answer_value(given[path]))
+                answer = given[path]
+                note = f" (version {answer['rev']}, an earlier question)" if answer["stale"] else ""
+                lines.append("     " + session_text(answer_value(answer), OWNER_TEXT_CAP) + note)
         if open_paths:
             lines.append("Unanswered: " + ", ".join(open_paths))
+    if earlier:
+        lines.append("Answers to steps this version no longer has (they don't count):")
+        for answer in earlier:
+            lines.append(f"  {session_label(answer['step'], 20)} (version {answer['rev']}, step id "
+                         f"{session_label(answer['id'], 40)})  " + session_text(answer_value(answer), OWNER_TEXT_CAP))
     return lines
 
 
+def _answer_json(answer: Dict[str, Any], *keys: str) -> Dict[str, Any]:
+    value = {k: v for k, v in answer.items() if k in ("picked", "text", "at", "rev") + keys}
+    value["verified"] = answer.get("auth") in ("owner-key", "telegram")
+    return value
+
+
 def answers_json(detail: dict) -> Dict[str, Any]:
-    """{"answers": {path: {picked|text, at}}, "unanswered": [path, ...]} for status --json and MCP."""
-    events = detail.get("events") if isinstance(detail.get("events"), list) else []
-    given = latest_answers(events)
-    answers = {path: {k: v for k, v in a.items() if k != "seq"} for path, a in given.items()}
-    return {"answers": answers, "unanswered": unanswered(instructable_of(detail), events)}
+    """{"answers": {path: {picked|text, at, rev, stale, verified}}, "unanswered": [path, ...],
+    "earlier": [{id, step, picked|text, at, rev, verified}, ...]} for status --json and MCP.
+    `stale`: the owner answered an earlier version of the question; `verified`: the answer came
+    with Hook's owner key or from Telegram; `earlier`: answers to steps the current version no
+    longer has (by step id, with the path the owner answered), which never count."""
+    given, earlier = answer_state(detail)
+    return {"answers": {path: _answer_json(a, "stale") for path, a in given.items()},
+            "unanswered": open_questions(detail, given),
+            "earlier": [_answer_json(a, "id", "step") for a in earlier]}
 
 
-def _status_json(detail: dict) -> Dict[str, Any]:
+def revision_json(detail: dict, editable: bool) -> Dict[str, Any]:
+    """The version fields of status --json and relay_status: rev, hash, acceptedRev, the current
+    instructable (with step ids), the owner's problem reports, and whether this Mac can correct it."""
+    current = revision_of(detail)
+    return {"rev": current["rev"] if current is not None else 1,
+            "hash": current["hash"] if current is not None else None,
+            "acceptedRev": accepted_rev(detail), "instructable": instructable_of(detail),
+            "problems": problems(detail), "editable": editable}
+
+
+def is_editable(ask_id: Any, env: Optional[Dict[str, str]] = None) -> bool:
+    """Is there an edit-key file for this ask on this Mac? An unreadable folder counts as no."""
+    try:
+        record = EditKeys(env).load(str(ask_id or ""))
+    except RelayError:
+        return False
+    return record is not None and isinstance(record.get("key"), str)
+
+
+def _status_json(detail: dict, editable: bool = False) -> Dict[str, Any]:
     item = detail.get("item") if isinstance(detail.get("item"), dict) else {}
     events = detail.get("events") if isinstance(detail.get("events"), list) else []
     status = item.get("status")
@@ -172,7 +258,7 @@ def _status_json(detail: dict) -> Dict[str, Any]:
             "project": item.get("projectId"), "title": item.get("title"),
             "ownerEvents": [{"kind": e.get("kind"), "text": e.get("text"), "at": e.get("at")}
                             for e in events if isinstance(e, dict) and e.get("actor") == "owner"],
-            **answers_json(detail)}
+            **answers_json(detail), **revision_json(detail, editable)}
 
 
 def _read_instructable(src: str, stdin: Any) -> Dict[str, Any]:
@@ -214,7 +300,8 @@ def _cmd_post(args: argparse.Namespace, ctx: _Ctx) -> int:
 def _cmd_status(args: argparse.Namespace, ctx: _Ctx) -> int:
     detail = ctx.factory(autolaunch=True, timeout=DEFAULT_TIMEOUT).get(args.id)
     if args.json:
-        ctx.say(json.dumps(_status_json(detail), ensure_ascii=False, indent=2))
+        editable = is_editable(args.id.strip(), ctx.env)
+        ctx.say(json.dumps(_status_json(detail, editable), ensure_ascii=False, indent=2))
     else:
         for line in format_status(detail):
             ctx.say(line)
@@ -282,12 +369,48 @@ def _cmd_wait(args: argparse.Namespace, ctx: _Ctx) -> int:
     # Never auto-launch: the wait can outlive a quit Hook, and an unreachable source is retried.
     client = ctx.factory(autolaunch=False, timeout=DEFAULT_TIMEOUT)
     return relay_wait.run(client, args.id, timeout=args.timeout, interval=args.interval, after=args.after,
-                          out=ctx.out, err=ctx.err)
+                          out=ctx.out, err=ctx.err, edit_keys=EditKeys(ctx.env))
+
+
+def change_summary(revision: Any) -> str:
+    """"changed: step 3, verify; added: step 4" from an amend result's revision, or ""."""
+    revision = revision if isinstance(revision, dict) else {}
+
+    def paths(key: str, field: str = "path") -> List[str]:
+        entries = revision.get(key) if isinstance(revision.get(key), list) else []
+        return [str(e.get(field)) for e in entries if isinstance(e, dict) and e.get(field) is not None]
+
+    def steps(found: List[str]) -> List[str]:
+        return [("step " if len(found) == 1 else "steps ") + ", ".join(found)] if found else []
+
+    top = [str(t) for t in revision.get("top") or [] if isinstance(t, str)]
+    moved = [f"step {e.get('from')} → {e.get('to')}" for e in revision.get("moved") or []
+             if isinstance(e, dict)]
+    parts = []
+    for label, found in (("changed", steps(paths("changed")) + top), ("added", steps(paths("added"))),
+                         ("removed", steps(paths("removed"))), ("moved", moved)):
+        if found:
+            parts.append(f"{label}: " + ", ".join(found))
+    return "; ".join(parts)
+
+
+def _cmd_amend(args: argparse.Namespace, ctx: _Ctx) -> int:
+    instructable = _read_instructable(args.json_src, ctx.stdin)
+    client = ctx.factory(autolaunch=True, timeout=DEFAULT_TIMEOUT)
+    res = client.amend(args.id, args.reason, instructable, args.base, edit_keys=EditKeys(ctx.env))
+    revision = res.get("revision") if isinstance(res.get("revision"), dict) else {}
+    summary = change_summary(revision)
+    ctx.say(f"corrected {args.id.strip()} → version {revision.get('rev', '?')}"
+            + (f" ({summary})" if summary else "")
+            + ". The owner must review it in Hook before acting.")
+    if res.get("warning"):
+        ctx.err.write(f"warning: {res['warning']}\n")
+    return 0
 
 
 COMMANDS: Dict[str, Callable[[argparse.Namespace, _Ctx], int]] = {
     "post": _cmd_post, "status": _cmd_status, "list": _cmd_list,
-    "done": _cmd_done, "skip": _cmd_skip, "replies": _cmd_replies, "wait": _cmd_wait,
+    "done": _cmd_done, "skip": _cmd_skip, "replies": _cmd_replies, "wait": _cmd_wait, "amend": _cmd_amend,
 }
 
 
@@ -321,10 +444,10 @@ def main(argv: Optional[List[str]] = None, *, stdin: Any = None, stdout: Any = N
     if not args.command:
         parser.print_usage(err)
         return 2
-    ctx = _Ctx(stdin, out, err, factory)
+    ctx = _Ctx(stdin, out, err, factory, env)
     try:
         return COMMANDS[args.command](args, ctx)
-    except ProtocolTooOld as exc:
+    except PondTooOld as exc:
         err.write(f"{prog}: {exc.error}\n")
         return exc.exit_code
     except Refused as exc:

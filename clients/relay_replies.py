@@ -3,7 +3,10 @@
 Cursor file: replies-cursor.json next to config.json, under an flock on
 replies-cursor.json.lock. With --hook it reads only `session_id` from the hook's stdin,
 never auto-launches Hook, keeps to a 2 s budget and always exits 0 (exit 2 from a
-UserPromptSubmit hook would block the prompt). Standard library only; Python 3.9+.
+UserPromptSubmit hook would block the prompt). With --hook, problem reports and accepted
+versions are printed only to the session that posted the ask (its edit-key file says which).
+Everything the owner or an ask says is printed quoted on one line (session_text), so no title,
+note or reply can pass for a line of its own. Standard library only; Python 3.9+.
 """
 from __future__ import annotations
 
@@ -12,18 +15,23 @@ import fcntl
 import json
 import os
 import pathlib
+import re
 import select
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from relay_client import (OWNER_LABELS, NotFound, RelayError, answer_value, check_trusted_dir, check_trusted_file,
-                          config_dir, ensure_private_dir, one_line, parse_answer, private_write)
+from relay_client import (OWNER_LABELS, EditKeys, NotFound, RelayError, answer_value, check_trusted_dir,
+                          check_trusted_file, config_dir, ensure_private_dir, event_rev, parse_answer, private_write,
+                          session_label, session_text)
 
 CURSOR_FILE = "replies-cursor.json"
 HOOK_BUDGET_S = 2.0
 HOOK_STDIN_LIMIT = 1024 * 1024
 HOOK_STDIN_WAIT_S = 0.5
 PAGE = 1000
+TEXT_CAP = 300
+UUID = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+POSTER_ONLY = ("problem", "accepted")   # in hook mode, only for the session that posted the ask
 
 
 class CursorStore:
@@ -224,19 +232,59 @@ def _page(client: Any, after: int, deadline: Optional[float],
 
 def _where(client: Any, item_id: str, cache: Dict[str, str], deadline: Optional[float],
            clock: Callable[[], float]) -> str:
+    """'<project> · "<title>"' for the line, or (removed); the title quoted by session_text."""
     if item_id not in cache:
         _arm(client, deadline, clock)
         try:
             detail = client.get(item_id)
             item = detail.get("item") if isinstance(detail.get("item"), dict) else {}
-            cache[item_id] = f"{item.get('projectId') or '?'} · {item.get('title') or '?'}"
+            title = session_text(item["title"], 120) if item.get("title") else "?"
+            cache[item_id] = f"{session_label(item.get('projectId') or '?', 60)} · {title}"
         except NotFound:
             cache[item_id] = "(removed)"
     return cache[item_id]
 
 
+def _verdict(event: Dict[str, Any], label: str, body: Optional[Dict[str, Any]]) -> str:
+    """The part after the em dash: `<label>: "<text>"`, every value through session_text."""
+    kind = event.get("kind")
+    if kind == "answer":
+        if body is None:
+            text = event.get("text") or ""
+            return f"answer: {session_text(text, TEXT_CAP)}" if text else "answer"
+        return (f"answer {session_label(body['step'], 20)} (version {event_rev(event)}): "
+                f"{session_text(answer_value(body), TEXT_CAP)}")
+    if kind == "problem":
+        try:
+            report = json.loads(event.get("text") or "")
+        except (TypeError, ValueError):
+            report = None
+        report = report if isinstance(report, dict) else {}
+        return (f"owner problem on step {session_label(report.get('step') or '?', 20)} "
+                f"(version {event_rev(event)}), quoted: {session_text(report.get('note'), TEXT_CAP)}")
+    if kind == "accepted":
+        return f"accepted version {event_rev(event)}"
+    text = event.get("text") or ""
+    return f"{label}: {session_text(text, TEXT_CAP)}" if text else label
+
+
+def _posted_by(client: Any, item_id: str, session_id: Optional[str], cache: Dict[str, bool]) -> bool:
+    """Did this session post the ask? Its edit-key file names the session; no file, another
+    session or an empty one is no."""
+    if item_id not in cache:
+        try:
+            record = EditKeys(getattr(client, "env", None)).load(item_id)
+        except RelayError:
+            record = None
+        poster = record.get("session") if isinstance(record, dict) else None
+        cache[item_id] = bool(session_id) and isinstance(poster, str) and bool(poster) and poster == session_id
+    return cache[item_id]
+
+
 def _collect(client: Any, key: str, new: bool, deadline: Optional[float],
-             clock: Callable[[], float]) -> Tuple[List[str], bool]:
+             clock: Callable[[], float], session_id: Optional[str] = None) -> Tuple[List[str], bool]:
+    """The new owner lines. session_id is set in hook mode: problem and accepted lines then go
+    only to the session that posted the ask."""
     source_key = client.source_key()
     path = config_dir(getattr(client, "env", None)) / CURSOR_FILE
     lock_wait = HOOK_BUDGET_S if deadline is None else max(0.05, deadline - clock())
@@ -255,6 +303,7 @@ def _collect(client: Any, key: str, new: bool, deadline: Optional[float],
         first_run = cursor is None                         # silent: starts from head
         lines: List[str] = []
         titles: Dict[str, str] = {}
+        posters: Dict[str, bool] = {}
         last = start
         for event in events:
             seq = event.get("seq")
@@ -265,15 +314,18 @@ def _collect(client: Any, key: str, new: bool, deadline: Optional[float],
             if event.get("kind") == "answer" and event.get("actor") == "owner":
                 label = f"answer {body['step']}" if body else "answer"
             if not first_run and label is not None and event.get("actor") == "owner":
-                item_id = str(event.get("itemId"))
+                item_id = event.get("itemId")
+                valid = isinstance(item_id, str) and UUID.fullmatch(item_id) is not None
+                if session_id is not None and event.get("kind") in POSTER_ONLY and \
+                        not (valid and _posted_by(client, item_id, session_id, posters)):
+                    last = max(last, seq)
+                    continue
                 try:
-                    where = _where(client, item_id, titles, deadline, clock)
+                    where = _where(client, item_id, titles, deadline, clock) if valid else "?"
                 except _OutOfTime:
                     partial = True
                     break
-                text = answer_value(body) if body else one_line(event.get("text") or "")
-                lines.append(f"Hook: [{item_id}] {where} — {label}: {text}" if text
-                             else f"Hook: [{item_id}] {where} — {label}")
+                lines.append(f"Hook: [{item_id if valid else '(bad id)'}] {where} — {_verdict(event, label, body)}")
             last = max(last, seq)
         store.set_head(source_key, last)
         store.set_cursor(source_key, key, last if (first_run or new) else (cursor or 0))
@@ -289,7 +341,7 @@ def run(client: Any, *, new: bool, hook: bool, session_id: Optional[str], out: A
         if hook and not session_id:
             raise RelayError("no session_id on stdin")
         key = "session:" + session_id if hook and session_id else "cli"
-        lines, partial = _collect(client, key, new, deadline, clock)
+        lines, partial = _collect(client, key, new, deadline, clock, session_id if hook else None)
     except _OutOfTime:
         err.write("relay replies: ran out of time\n")
         return 0

@@ -14,13 +14,15 @@ from unittest import mock
 
 import relay_cli
 import relay_client
-from relay_client import ConfigMissing, NotFound, ProtocolTooOld, Refused, Unreachable
+from relay_client import ConfigMissing, NotFound, PondTooOld, Refused, Unreachable
 
 
 def flat(text: str) -> str:
     """Text as one line: argparse wraps help at word gaps and after hyphens ("sub-" / "steps")."""
     return re.sub(r"-\s+", "-", " ".join(text.split()))
 
+# Never this Mac's real edit-key folder: a path that does not exist.
+NO_KEYS = "/nonexistent/relay-test/edit-keys"
 ITEM_ID = "0b8f3f0e-6c1a-4e0b-9a51-2f4f1d9c7a10"
 OPEN_URL = "http://127.0.0.1:47823/i/" + ITEM_ID
 BIN = Path(__file__).resolve().parent.parent / "bin" / "relay"
@@ -75,7 +77,8 @@ class CliTest(unittest.TestCase):
     def run_cli(self, *argv, stdin=None):
         out, err = io.StringIO(), io.StringIO()
         code = relay_cli.main(list(argv), stdin=stdin if stdin is not None else io.StringIO(""),
-                              stdout=out, stderr=err, env={}, client_factory=self.factory)
+                              stdout=out, stderr=err, env={"RELAY_EDIT_KEY_DIR": NO_KEYS},
+                              client_factory=self.factory)
         return code, out.getvalue(), err.getvalue()
 
     def test_version(self):
@@ -149,11 +152,11 @@ class CliTest(unittest.TestCase):
         self.assertIn("never paste a whole document into an ask", relay_cli.FILES_SENTENCE)
 
     def test_post_too_old_mailbox_exits_1_with_the_sentence(self):
-        self.client.error = ProtocolTooOld(2, "blocking", 3)
+        self.client.error = PondTooOld("1.0.0", "id", "1.1.0")
         code, out, err = self.run_cli("post", "Acme", "--json", "-", stdin=io.StringIO('{"v":1}'))
         self.assertEqual((code, out), (1, ""))
-        self.assertEqual(err, "relay: This Pond speaks protocol 2; `blocking` needs 3. "
-                              "Ask the owner to update the Pond (Hook › Update Pond…).\n")
+        self.assertEqual(err, "relay: Your Pond (1.0.0) is older than `id` needs (Pond 1.1.0 or newer). "
+                              "Update the Pond, or leave the key out.\n")
 
     def test_post_bad_input(self):
         code, out, err = self.run_cli("post", "Acme", "--json", "-", stdin=io.StringIO("{nope"))
@@ -175,20 +178,20 @@ class CliTest(unittest.TestCase):
         self.assertEqual((code, err.getvalue()), (2, "relay: No Hook config; run scripts/install.sh\n"))
 
     def test_status_open(self):
-        self.assertEqual(self.run_cli("status", ITEM_ID), (0, "open · Acme · Check Node\n", ""))
+        self.assertEqual(self.run_cli("status", ITEM_ID), (0, 'open · Acme · "Check Node"\n', ""))
 
     def test_status_done_by_session(self):
         self.client.detail = {"item": dict(ITEM, status="done"),
                               "events": [event(1, "posted", "session"), event(2, "resolved", "session", "fixed")]}
-        self.assertEqual(self.run_cli("status", ITEM_ID), (0, "done (by session) · Acme · Check Node\n", ""))
+        self.assertEqual(self.run_cli("status", ITEM_ID), (0, 'done (by session) · Acme · "Check Node"\n', ""))
 
     def test_status_with_owner_events(self):
         self.client.detail = {"item": dict(ITEM, status="dismissed"), "events": [
             event(1, "posted", "session"), event(2, "reply", "owner", "line one\nline two"),
             event(3, "declined", "owner")]}
         self.assertEqual(self.run_cli("status", ITEM_ID)[1],
-                         "dismissed (by owner) · Acme · Check Node\n"
-                         "2026-10-11T09:02:00+00:00 reply: line one ⏎ line two\n"
+                         'dismissed (by owner) · Acme · "Check Node"\n'
+                         '2026-10-11T09:02:00+00:00 reply: "line one ⏎ line two"\n'
                          "2026-10-11T09:03:00+00:00 skipped\n")
 
     def test_status_json(self):
@@ -204,7 +207,7 @@ class CliTest(unittest.TestCase):
         self.client.detail = {"item": dict(ITEM, status="open"), "events": [
             event(1, "posted", "session"), event(2, "resolved", "owner"), event(3, "reopened", "owner")]}
         self.assertEqual(self.run_cli("status", ITEM_ID)[1],
-                         "open · Acme · Check Node\n"
+                         'open · Acme · "Check Node"\n'
                          "2026-10-11T09:02:00+00:00 done\n"
                          "2026-10-11T09:03:00+00:00 reopened\n")
         data = json.loads(self.run_cli("status", ITEM_ID, "--json")[1])
