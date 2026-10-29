@@ -7,9 +7,10 @@
 #
 # Where things go: the release's support payload (CLI, clients, MCP server, skill and
 # installer) and its Hook.app to ~/.local/share/hook/<version>, with
-# ~/.local/share/hook/current linking to it. The version before is kept, for going back;
-# older ones are removed. Then current/scripts/install.sh --prebuilt copies Hook.app to
-# ~/Applications and does the rest.
+# ~/.local/share/hook/current linking to it. Then current/scripts/install.sh --prebuilt
+# copies Hook.app to ~/Applications and does the rest. Once that succeeds, the version
+# before is kept, for going back, and older ones are removed. When it fails, current
+# links to the version before again and nothing is removed.
 #
 # Never touched: a developer's clone (one with changes, a local branch other than main,
 # or HOOK_DEV=1) that ~/.local/bin/relay links into. A clone of Hook at
@@ -159,11 +160,21 @@ main() {
   [ ! -e "$hook_home" ] || [ -d "$hook_home" ] || die "$(tilde "$hook_home") is not a folder; left alone. Move it, then run this again"
   mkdir -p "$hook_home"
 
-  local dest="$hook_home/$version" previous=""
+  # The version to go back to: the one current links to, unless that is this version
+  # (a retry, or a rerun) or gone; then the newest other version here.
+  local dest="$hook_home/$version" previous="" entry name
   if [ -L "$hook_home/current" ]; then
     previous="$(readlink "$hook_home/current")"
     previous="${previous%/}"
     previous="${previous##*/}"
+  fi
+  if [ "$previous" = "$version" ] || ! is_version "$previous" || [ ! -d "$hook_home/$previous" ] || [ -L "$hook_home/$previous" ]; then
+    previous="$(
+      for entry in "$hook_home"/*; do
+        name="${entry##*/}"
+        if [ -d "$entry" ] && [ ! -L "$entry" ] && is_version "$name" && [ "$name" != "$version" ]; then echo "$name"; fi
+      done | sort -t. -k1,1n -k2,2n -k3,3n | tail -1
+    )"
   fi
   if [ -e "$dest" ]; then mv "$dest" "$work/replaced"; fi   # the same version again: a fresh copy
   mv "$support" "$dest"
@@ -171,8 +182,22 @@ main() {
   ln -sfn "$version" "$hook_home/current"
   echo "get: $(tilde "$hook_home/current") -> $version"
 
-  # Keep this version and the one before; remove older ones. Anything else stays.
-  local entry name
+  local status=0
+  "$hook_home/current/scripts/install.sh" --prebuilt "$@" || status=$?
+  if [ "$status" -ne 0 ]; then
+    # current goes back to the version that worked; nothing is removed.
+    if [ -n "$previous" ]; then
+      ln -sfn "$previous" "$hook_home/current"
+      echo "get: installing Hook $version failed; $(tilde "$hook_home/current") links to $previous again (the CLI, MCP server and skill use it)" >&2
+      echo "get: to put Hook $previous's app back too, run: '$hook_home/current/scripts/install.sh' --prebuilt" >&2
+    else
+      echo "get: installing Hook $version failed, and there is no earlier version here to go back to" >&2
+    fi
+    return "$status"
+  fi
+
+  # Only now that it installed: keep this version and the one before; remove older ones.
+  # Anything else stays.
   for entry in "$hook_home"/*; do
     name="${entry##*/}"
     if [ ! -d "$entry" ] || [ -L "$entry" ] || ! is_version "$name"; then continue; fi
@@ -180,13 +205,6 @@ main() {
     rm -rf "$entry"
     echo "get: removed Hook $name"
   done
-
-  local status=0
-  "$hook_home/current/scripts/install.sh" --prebuilt "$@" || status=$?
-  if [ "$status" -ne 0 ] && [ -n "$previous" ] && [ "$previous" != "$version" ] && [ -d "$hook_home/$previous" ]; then
-    echo "get: to go back to $previous: ln -sfn $previous \"$(tilde "$hook_home")/current\" && \"$(tilde "$hook_home")/current/scripts/install.sh\" --prebuilt" >&2
-  fi
-  return "$status"
 }
 
 main "$@"

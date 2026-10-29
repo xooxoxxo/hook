@@ -40,10 +40,11 @@ g() {
     -c init.defaultBranch=main -c commit.gpgsign=false "$@"
 }
 
-# release <version> [bundle id]: a fixture release under $REL, laid out as GitHub's
-# releases/download/v<version>/…; the newest one made is also latest/download/.
+# release <version> [bundle id] [status]: a fixture release under $REL, laid out as GitHub's
+# releases/download/v<version>/…; the newest one made is also latest/download/. Its
+# install.sh exits with <status> (default 0).
 release() {
-  local v="$1" id="${2:-io.github.xooxoxxo.relay}" s="$T/stage-$1"
+  local v="$1" id="${2:-io.github.xooxoxxo.relay}" code="${3:-0}" s="$T/stage-$1"
   rm -rf "$s"
   mkdir -p "$s/Hook.app/Contents/MacOS" "$s/support/scripts" "$s/support/bin"
   cat > "$s/Hook.app/Contents/Info.plist" <<PLIST
@@ -54,8 +55,8 @@ release() {
 <key>CFBundleShortVersionString</key><string>$v</string>
 </dict></plist>
 PLIST
-  printf '#!/bin/sh\necho "install-stub $(cat "$(dirname "$0")/../VERSION") in:$(cd "$(dirname "$0")/.." && pwd -P) args:$*"\n' \
-    > "$s/support/scripts/install.sh"
+  printf '#!/bin/sh\necho "install-stub $(cat "$(dirname "$0")/../VERSION") in:$(cd "$(dirname "$0")/.." && pwd -P) args:$*"\nexit %s\n' \
+    "$code" > "$s/support/scripts/install.sh"
   chmod +x "$s/support/scripts/install.sh"
   : > "$s/support/bin/relay"
   echo "$v" > "$s/support/VERSION"
@@ -221,5 +222,34 @@ if run bash < "$GET"; then fail "macOS 13 was accepted"; fi
 grep -q 'needs macOS 14 or newer (this Mac has 13.6)' "$OUT" || { cat "$OUT"; fail "no macOS version message"; }
 rm "$FAKE/sw_vers"
 ok "macOS checks"
+
+# 12. A failed install puts current back on the version before and removes nothing; a
+#     retry, or a rerun of the same version, keeps that version for going back.
+rm -rf "$HH"
+release 1.0.0
+run bash < "$GET" || { cat "$OUT"; fail "1.0.0 exited non-zero"; }
+release 1.0.1
+run bash < "$GET" || { cat "$OUT"; fail "1.0.1 exited non-zero"; }
+run bash < "$GET" || { cat "$OUT"; fail "a rerun of 1.0.1 exited non-zero"; }
+[ "$(versions)" = "1.0.0 1.0.1 " ] || fail "a rerun of the same version left $(versions)"
+release 1.0.2 io.github.xooxoxxo.relay 1
+status=0; run bash < "$GET" || status=$?
+[ "$status" = "1" ] || { cat "$OUT"; fail "a failing install exited $status, not 1"; }
+[ "$(current)" = "1.0.1" ] || fail "after a failed install current is $(current), not 1.0.1"
+[ "$(versions)" = "1.0.0 1.0.1 1.0.2 " ] || fail "a failed install left $(versions)"
+if grep -q 'removed Hook' "$OUT"; then fail "a failed install removed a version"; fi
+grep -q 'links to 1.0.1 again' "$OUT" || { cat "$OUT"; fail "the rollback was not reported"; }
+grep -qF "run: '$HH/current/scripts/install.sh' --prebuilt" "$OUT" || { cat "$OUT"; fail "the reinstall command is not a full path"; }
+status=0; run bash < "$GET" || status=$?
+[ "$status" = "1" ] && [ "$(current)" = "1.0.1" ] || { cat "$OUT"; fail "a retry: status $status, current $(current)"; }
+[ -d "$HH/1.0.1" ] || fail "a retry removed 1.0.1"
+# An install cut short leaves current on the new version; the retry still goes back to 1.0.1.
+ln -sfn 1.0.2 "$HH/current"
+status=0; run bash < "$GET" || status=$?
+[ "$status" = "1" ] && [ "$(current)" = "1.0.1" ] && [ -d "$HH/1.0.1" ] || { cat "$OUT"; fail "a retry from a cut-short install: status $status, current $(current), versions $(versions)"; }
+release 1.0.2
+run bash < "$GET" || { cat "$OUT"; fail "the fixed 1.0.2 exited non-zero"; }
+[ "$(current)" = "1.0.2" ] && [ "$(versions)" = "1.0.1 1.0.2 " ] || fail "after the fixed 1.0.2: current $(current), versions $(versions)"
+ok "a failed install rolls back; retries and reruns keep the version before"
 
 echo "GET TESTS OK"
