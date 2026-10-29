@@ -178,6 +178,9 @@ def format_status(detail: dict) -> list:
         at = session_label(event.get("at") or "?", 40)
         if event.get("kind") == "problem":
             continue
+        if event.get("kind") == "accepted":
+            lines.append(f"{at} accepted version {event_rev(event)}")
+            continue
         label = OWNER_LABELS.get(event.get("kind"))
         if label is None:
             continue

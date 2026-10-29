@@ -229,9 +229,10 @@ class RepliesAnswersTest(unittest.TestCase):
         self.queue.add(ASK_ID, "answer", "session", '{"step":"1","picked":["Prod"]}')
         self.queue.add(ASK_ID, "answer", "owner", "garbled")
         code, out, _ = self.replies(hook=True, session_id="s1")
-        self.assertEqual(out, f"Hook: [{ASK_ID}] Acme · Ship the Atlas release — answer 3.2: Staging\n"
-                              f"Hook: [{ASK_ID}] Acme · Ship the Atlas release — answer 4: Use the EU region\n"
-                              f"Hook: [{ASK_ID}] Acme · Ship the Atlas release — answer: garbled\n")
+        where = 'Acme · "Ship the Atlas release"'
+        self.assertEqual(out, f'Hook: [{ASK_ID}] {where} — answer 3.2 (version 1): "Staging"\n'
+                              f'Hook: [{ASK_ID}] {where} — answer 4 (version 1): "Use the EU region"\n'
+                              f'Hook: [{ASK_ID}] {where} — answer: "garbled"\n')
 
 
 if __name__ == "__main__":

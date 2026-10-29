@@ -63,7 +63,8 @@ PENDING_MAX_AGE_S = 24 * 3600   # a retry within this reuses the pending edit ke
 _ASK_ID = re.compile(r"[0-9A-Za-z][0-9A-Za-z-]{0,63}")
 
 # Owner event kinds as the CLI and the hook print them.
-OWNER_LABELS = {"resolved": "done", "declined": "skipped", "reply": "reply", "reopened": "reopened"}
+OWNER_LABELS = {"resolved": "done", "declined": "skipped", "reply": "reply", "reopened": "reopened",
+                "problem": "problem", "accepted": "accepted"}
 
 
 class RelayError(Exception):
