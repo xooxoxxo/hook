@@ -24,6 +24,10 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
+# --app and --out may be relative to the folder this runs in; the zip is written from
+# inside the staging folder, so both become absolute.
+[ -d "$app" ] || die "$app is not an app (no such folder)"
+app="$(cd "$app" && pwd -P)"
 
 [ -f "$app/Contents/Info.plist" ] || die "$app is not an app (no Contents/Info.plist)"
 id="$(plutil -extract CFBundleIdentifier raw "$app/Contents/Info.plist" 2>/dev/null || true)"
@@ -62,6 +66,7 @@ chmod 755 "$S/bin/relay" "$S/scripts/install.sh" "$S/scripts/get.sh"
 ditto "$app" "$stage/Hook.app"
 
 mkdir -p "$out"
+out="$(cd "$out" && pwd -P)"
 zip="Hook-$version.zip"
 rm -f "$out/$zip" "$out/SHA256SUMS"
 (cd "$stage" && ditto -c -k --norsrc . "$out/$zip")

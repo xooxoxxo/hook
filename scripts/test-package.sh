@@ -56,6 +56,15 @@ fi
 [ -x "$T/x/Hook.app/Contents/MacOS/Hook" ] || fail "the app lost its executable"
 ok "zip layout and SHA256SUMS"
 
+# 1b. Relative --app and --out (as the release workflow passes --out dist) resolve
+#     against the folder it runs in.
+mkdir -p "$T/cwd"
+(cd "$T/cwd" && "$PACK" --app ../build/Hook.app --out dist) >"$OUT" 2>&1 || { cat "$OUT"; fail "packaging with a relative --out exited non-zero"; }
+[ -f "$T/cwd/dist/Hook-$VERSION.zip" ] || { cat "$OUT"; fail "no dist/Hook-$VERSION.zip under the working folder"; }
+[ "$(cat "$T/cwd/dist/SHA256SUMS")" = "$(cd "$T/cwd/dist" && shasum -a 256 "Hook-$VERSION.zip")" ] \
+  || fail "a relative --out wrote SHA256SUMS $(cat "$T/cwd/dist/SHA256SUMS")"
+ok "relative --app and --out"
+
 # 2. A tag that doesn't match the app's version, and an app that isn't Hook, are refused.
 if RELEASE_TAG="v9.9.9" "$PACK" --app "$T/build/Hook.app" --out "$T/dist2" >"$OUT" 2>&1; then fail "a wrong tag was packed"; fi
 grep -q "tag v9.9.9 does not match" "$OUT" || { cat "$OUT"; fail "no reason for the wrong tag"; }
