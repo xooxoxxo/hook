@@ -2,7 +2,7 @@ import Foundation
 
 /// What a menu-bar menu item does; MenuBarController maps it to AppDelegate.
 public enum MenuAction: Equatable, Sendable {
-    case setUp, runSetup, togglePanel, setPresence(PresenceMode), refresh, dock(SidebarEdge), pinDisplay(String?), redock
+    case setUp, togglePanel, setPresence(PresenceMode), refresh, dock(SidebarEdge), pinDisplay(String?), redock
     case settings, about, update, checkForUpdates, updateMailbox, quit
 }
 
@@ -67,6 +67,7 @@ public enum MenuBarMenu {
             entries.append(action("Update Hook to \(Sanitize.revealLine(version))…", .update))
             entries.append(.separator)
         }
+        // The only way into setup before Hook is set up; afterwards it is in About Hook.
         if inputs.notSetUp { entries.append(action("Set Up Hook…", .setUp)) }
         let toggle = inputs.panelVisible ? "Hide Hook" : "Show Hook"
         if let spec = inputs.shortcut, let key = keyEquivalent(for: spec) {
@@ -97,7 +98,6 @@ public enum MenuBarMenu {
         entries.append(.submenu(title: "Panel", entries: panel))
         entries.append(.separator)
         entries.append(action("Settings…", .settings, key: ",", modifiers: [.command]))
-        if !inputs.notSetUp { entries.append(action("Run Setup Again…", .runSetup)) }
         entries.append(action("About Hook", .about))
         entries.append(action("Check for Updates…", .checkForUpdates))
         if inputs.mailbox { entries.append(action("Update Pond…", .updateMailbox)) }

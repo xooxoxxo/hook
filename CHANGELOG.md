@@ -11,6 +11,11 @@ and versions follow Semantic Versioning.
   checks out the newest release and runs `scripts/install.sh`. Installer options go after
   `bash -s --`. It refuses a folder that isn't a clone of Hook or has local changes.
 
+### Changed
+- **Run Setup Again…** moved from the menu-bar menu to the About window. About Hook now opens
+  Hook's own About window: the icon, version, the GitHub link, Support Hook and Run Setup
+  Again…. Before setup, the menu still has **Set Up Hook…**.
+
 ### Fixed
 - Deleting Hook.app and installing again shows the setup window again, filled in from the
   config you kept, so you only confirm it. Before, setup showed only for a new config.

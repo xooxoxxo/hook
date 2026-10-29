@@ -81,6 +81,8 @@ final class BadgeStrip: NSView {
                settings: SettingsFixtures.snapshot(config: SettingsFixtures.localConfig),
                testResult: .sent(id: SettingsFixtures.testAskID)),
     setupScene("setup-7-done", page: .done),
+    GalleryScene(name: "about", size: .wide(width: DS.Metric.aboutWidth, height: nil), standIn: false, rules: [],
+                 view: { welcomeWindow(AboutView(version: "0.9.3", onRunSetup: {})) }, appKit: nil),
 ]
 
 /// The window background the real Welcome window paints behind its title and buttons;

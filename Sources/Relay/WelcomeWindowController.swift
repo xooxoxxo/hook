@@ -4,8 +4,8 @@ import RelayUI
 import SwiftUI
 
 /// The setup window: shown at launch for a missing or incomplete config or one that holds
-/// `onboarding: "pending"`, and again from the menu's "Set Up Hook…" or "Run Setup Again…"
-/// or the panel's Not set up state. Closing it, by Open Hook or the close button, ends setup.
+/// `onboarding: "pending"`, and again from the menu's "Set Up Hook…", About's "Run Setup
+/// Again…" or the panel's Not set up state. Closing it, by Open Hook or the close button, ends setup.
 @MainActor final class WelcomeWindowController: NSObject, NSWindowDelegate {
     private let window: NSWindow
     private let onClose: @MainActor () -> Void

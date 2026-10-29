@@ -35,7 +35,7 @@ private func submenu(_ entries: [MenuEntry], _ title: String) -> [MenuEntry] {
     @Test func theMenuHasTheSpecTitlesInOrder() {
         #expect(titles(MenuBarMenu.entries(inputs())) == [
             "Show Hook", "—", "Pond · ready · updated 10:42", "Home · active", "Presence ▸", "—",
-            "Refresh", "Panel ▸", "—", "Settings…", "Run Setup Again…", "About Hook", "Check for Updates…", "—", "Quit Hook",
+            "Refresh", "Panel ▸", "—", "Settings…", "About Hook", "Check for Updates…", "—", "Quit Hook",
         ])
     }
 
@@ -58,9 +58,9 @@ private func submenu(_ entries: [MenuEntry], _ title: String) -> [MenuEntry] {
         #expect(!titles(MenuBarMenu.entries(inputs())).contains("Set Up Hook…"))
     }
 
-    @Test func runSetupAgainShowsOnceSetUp() {
-        #expect(item(MenuBarMenu.entries(inputs()), "Run Setup Again…")
-            == .item(title: "Run Setup Again…", action: .runSetup, key: nil, modifiers: [], enabled: true, checked: false))
+    /// Run Setup Again… lives in the About window, never in the menu.
+    @Test func runSetupAgainIsNotInTheMenu() {
+        #expect(!titles(MenuBarMenu.entries(inputs())).contains("Run Setup Again…"))
         #expect(!titles(MenuBarMenu.entries(inputs(notSetUp: true))).contains("Run Setup Again…"))
     }
 

@@ -16,6 +16,7 @@ import RelayUI
     private var hotKeys: HotKeyManager?
     private var settings: SettingsWindowController?
     private var welcome: WelcomeWindowController?
+    private var about: AboutWindowController?
     private var notifier: Notifier?
     private var menuBar: MenuBarController?
     private var sessionLauncher: SessionLauncher?
@@ -615,7 +616,6 @@ import RelayUI
     private func perform(_ action: MenuAction) {
         switch action {
         case .setUp: setUp()
-        case .runSetup: showWelcome()
         case .togglePanel: togglePanel(from: .shortcut)
         case .setPresence(let mode): model?.save(set: ["presence": mode.rawValue])
         case .refresh: refreshNow()
@@ -624,9 +624,7 @@ import RelayUI
             if let id { model?.save(set: ["sidebarDisplay": id]) } else { model?.save(set: [:], remove: ["sidebarDisplay"]) }
         case .redock: panel?.redock()
         case .settings: showSettings(nil)
-        case .about:
-            NSApp.activate()
-            NSApp.orderFrontStandardAboutPanel(nil)
+        case .about: showAbout()
         case .update: confirmUpdate()
         case .checkForUpdates: checkForUpdatesNow()
         case .updateMailbox: mailbox.updateMailbox()
@@ -761,7 +759,15 @@ import RelayUI
         settings?.show()
     }
 
-    /// First run, "Set Up Hook…", "Run Setup Again…", and the panel's Set Up… before setup
+    /// About Hook…: the About window, whose Run Setup Again… opens the setup window.
+    private func showAbout() {
+        if about == nil {
+            about = AboutWindowController(onRunSetup: { [weak self] in self?.showWelcome() })
+        }
+        about?.show()
+    }
+
+    /// First run, "Set Up Hook…", About's "Run Setup Again…", and the panel's Set Up… before setup
     /// was finished. A closed window starts again on page 1.
     private func showWelcome() {
         guard let model else { return }

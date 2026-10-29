@@ -88,6 +88,8 @@ public enum DS {
         public static let welcomeWidth: CGFloat = 480
         /// The setup window's fixed height, so pages push without the window resizing.
         public static let welcomeHeight: CGFloat = 500
+        /// The About window's width.
+        public static let aboutWidth: CGFloat = 340
         /// The Welcome page's app icon (the placeholder until the logo lands).
         public static let appIcon: CGFloat = 72
         public static let appIconRadius: CGFloat = 16
