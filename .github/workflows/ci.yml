@@ -45,4 +45,4 @@ jobs:
           fi
 
       - name: Installer tests
-        run: ./scripts/test-install.sh && ./scripts/test-get.sh && ./scripts/test-package.sh
+        run: ./scripts/test-install.sh && ./scripts/test-get.sh && ./scripts/test-package.sh && ./scripts/test-make-signing-cert.sh
