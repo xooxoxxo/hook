@@ -246,7 +246,7 @@ class SessionLinesTest(unittest.TestCase):
 
     def own(self, ask_id, session):
         keys = rc.EditKeys(self.env)
-        keys.pending("Acme", ask_id)
+        keys.pending("Acme", ask_id, "local")
         keys.commit("Acme", ask_id, ask_id, 1, "a" * 64, session, "local")
 
     def problem(self, ask_id, note="permission denied on /var/lib/grafana", rev=1):

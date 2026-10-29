@@ -176,6 +176,13 @@ class AmendTests(Base):
                                 "reason": "node -v was missing", "instructable": FIXED})
         self.assertEqual((record["lastRev"], record["lastHash"], record["hashes"]), (2, H2, [H1, H2]))
 
+    def test_a_key_never_goes_to_another_pond(self):
+        other = {"mailboxURL": "https://other-pond.example/", "tokenFile": str(self.dir / "mailbox-token"),
+                 "context": "work"}
+        with self.assertRaises(rc.NoEditKey):
+            rc.Client(other, env=self.env, urlopen=self.http).amend(ITEM_ID, "node -v was missing", FIXED)
+        self.assertEqual(self.http.sent(f"/asks/{ITEM_ID}/amend"), [])
+
     def test_older_ponds_are_refused_naming_amend(self):
         for version, protocol, shown in (("1.0.0", 4, "1.0.0"), ("2026.10.27.1", 4, "protocol 4")):
             rc._ponds.clear()

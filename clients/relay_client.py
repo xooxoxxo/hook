@@ -409,8 +409,9 @@ class EditKeys:
     def key_hash(key: str) -> str:
         return hashlib.sha256(key.encode("utf-8")).hexdigest()
 
-    def _pending_path(self, project: str, title: str) -> pathlib.Path:
-        digest = hashlib.sha1((project + "\n" + title).encode("utf-8")).hexdigest()[:16]
+    def _pending_path(self, project: str, title: str, source: str = "") -> pathlib.Path:
+        # The source is part of the name, so a key made for one Pond is never reused for another.
+        digest = hashlib.sha1((source + "\n" + project + "\n" + title).encode("utf-8")).hexdigest()[:16]
         return self.dir / f"pending-{digest}.json"
 
     def _path(self, ask_id: str) -> Optional[pathlib.Path]:
@@ -431,10 +432,10 @@ class EditKeys:
     def _write(self, path: pathlib.Path, data: Dict[str, Any]) -> None:
         private_write(path, (json.dumps(data, indent=1, sort_keys=True) + "\n").encode("utf-8"))
 
-    def pending(self, project: str, title: str) -> Tuple[str, str]:
+    def pending(self, project: str, title: str, source: str = "") -> Tuple[str, str]:
         """(key, key hash) for a post: the pending key of this project and title when it is
         younger than 24 h, else a new one."""
-        path = self._pending_path(project, title)
+        path = self._pending_path(project, title, source)
         data = self._read(path)
         key = data.get("key") if data else None
         try:
@@ -449,7 +450,7 @@ class EditKeys:
     def commit(self, project: str, title: str, ask_id: str, rev: int, hash_: str, session: str,
                source: str) -> None:
         """The pending key becomes <ask_id>.json. A file already there for the same key is kept."""
-        pending = self._pending_path(project, title)
+        pending = self._pending_path(project, title, source)
         data = self._read(pending)
         key = data.get("key") if data else None
         path = self._path(ask_id)
@@ -459,11 +460,11 @@ class EditKeys:
         if not (existing and existing.get("key") == key):
             self._write(path, {"key": key, "session": session, "source": source, "lastRev": rev,
                                "lastHash": hash_, "hashes": [hash_] if hash_ else [], "created": _now_iso()})
-        self.drop_pending(project, title)
+        self.drop_pending(project, title, source)
 
-    def drop_pending(self, project: str, title: str) -> None:
+    def drop_pending(self, project: str, title: str, source: str = "") -> None:
         try:
-            os.unlink(str(self._pending_path(project, title)))
+            os.unlink(str(self._pending_path(project, title, source)))
         except OSError:
             pass
 
@@ -891,7 +892,7 @@ class Client:
             pond = self.pond_info()
             if pond is not None and relay_semver.at_least(pond[0], AMEND_POND):
                 keys = edit_keys if edit_keys is not None else EditKeys(self.env)
-                body["editKeyHash"] = keys.pending(project, title)[1]
+                body["editKeyHash"] = keys.pending(project, title, self.source_key())[1]
         resp = self._call("POST", "/asks", body)
         if keys is not None:
             item = resp.get("item") if isinstance(resp.get("item"), dict) else {}
@@ -901,7 +902,7 @@ class Client:
             if resp.get("editable") is True and isinstance(item.get("id"), str):
                 keys.commit(project, title, item["id"], rev, hash_, session_id(self.env), self.source_key())
             else:
-                keys.drop_pending(project, title)
+                keys.drop_pending(project, title, self.source_key())
             keys.prune()
         return resp
 
@@ -918,7 +919,8 @@ class Client:
             raise PondTooOld(pond_display(pond), "amend", AMEND_POND)
         keys = edit_keys if edit_keys is not None else EditKeys(self.env)
         record = keys.load(ask_id)
-        if record is None or not isinstance(record.get("key"), str):
+        # A key only ever goes to the Pond it was made for: after a source change it stays home.
+        if record is None or not isinstance(record.get("key"), str) or record.get("source") != self.source_key():
             raise NoEditKey(ask_id)
         detail = self.get(ask_id)
         current = revision_of(detail)

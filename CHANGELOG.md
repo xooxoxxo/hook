@@ -3,7 +3,7 @@
 All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
-## [Unreleased]
+## [0.10.0] - 2026-10-29
 
 ### Added
 - Prebuilt releases: a `v*` tag builds a universal Hook.app and publishes `Hook-<version>.zip`
@@ -14,6 +14,14 @@ and versions follow Semantic Versioning.
 - `scripts/install.sh --prebuilt` installs the release download it came with.
 - Settings › General › Updates shows whether Hook is a release download or a developer
   checkout, and what Check for Updates does with it.
+
+- Session clients: `relay amend` and the MCP tool `relay_amend` correct an open ask you posted, with
+  a reason. Each post keeps a per-ask edit key in a private folder; the Pond stores only its hash,
+  and a key is only ever sent to the Pond it was made for. Correcting needs a Pond that supports
+  it (1.1.0 or newer), and Hook's review of a corrected ask comes in the next release, so for
+  now amend refuses with a clear message on every Pond.
+- Pond versions follow semver, and the clients check features against npm-style ranges (`^1.1.0`)
+  instead of protocol levels; an older Pond that reports only a level still works.
 
 ### Changed
 - `scripts/get.sh` downloads the newest release zip with curl and checks it against
