@@ -160,7 +160,7 @@ ok "reinstall of the same version"
 python3 -u -m http.server --bind 127.0.0.1 --directory "$REL" 0 >"$T/server.log" 2>&1 &
 SERVER_PID=$!
 port=""
-for _ in $(seq 1 50); do
+for _ in $(seq 1 300); do   # 30 s: a cold CI runner takes a while to start Python
   port="$(sed -nE 's/.*port ([0-9]+).*/\1/p' "$T/server.log" | head -1)"
   [ -n "$port" ] && break
   sleep 0.1
