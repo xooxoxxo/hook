@@ -38,6 +38,9 @@ and versions follow Semantic Versioning.
   `main`, or `HOOK_DEV=1`) is left alone and builds from source as before. A build with
   `HOOK_DEV=1` is recorded in the config (`"updateMode": "developer"`), so the clone's later
   updates rebuild there too; `HOOK_DEV=0` switches it to the release download.
+<!-- hook:pond=^1.0.0 -->
+<!-- hook:mailbox-protocol=4 -->
+
 ## [0.9.4] - 2026-10-29
 
 ### Fixed
