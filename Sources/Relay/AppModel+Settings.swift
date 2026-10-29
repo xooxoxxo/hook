@@ -16,6 +16,7 @@ struct SettingsHooks {
     var resumeShortcut: @MainActor () -> Void = {}
     var checkMailbox: @MainActor () -> Void = {}
     var updateMailbox: @MainActor () -> Void = {}
+    var checkForUpdates: @MainActor () -> Void = {}
 }
 
 extension AppModel: SettingsViewModel {
@@ -53,6 +54,8 @@ extension AppModel: SettingsViewModel {
             terminals: settingsTerminals(),
             mailbox: sourceKey.hasPrefix("mailbox:") ? mailboxLine : nil,
             documentAppName: documentAppName(),
+            install: InstallKind.detect(repoPath: repo, fileExists: { FileManager.default.fileExists(atPath: $0) })
+                .line(home: home.path),
             now: settings.now)
         guard next != settings else { return }
         next.now = Date()
@@ -191,6 +194,8 @@ extension AppModel: SettingsViewModel {
             hooks.checkMailbox()
         case .updateMailbox:
             hooks.updateMailbox()
+        case .checkForUpdates:
+            hooks.checkForUpdates()
         case .chooseDocumentApp:
             if let app = DocumentApps.choose(title: "Choose the app for documents") {
                 save(set: ["openDocumentsIn": DocumentApps.configValue(for: app)])

@@ -162,7 +162,7 @@ public enum UpdateGate {
 }
 
 /// The detached job that moves the checkout to the release and runs install.sh.
-public struct UpdatePlan: Equatable, Sendable {
+public struct UpdatePlan: UpdateJob, Equatable, Sendable {
     public static let jobLabel = "io.github.xooxoxxo.relay.update"
 
     public var repoPath: String
@@ -235,28 +235,7 @@ public struct UpdatePlan: Equatable, Sendable {
         """
     }
 
-    /// A one-shot LaunchAgent: launchd runs the script outside Hook, so it survives
-    /// install.sh quitting Hook, and never runs it again.
-    public var jobPlist: [String: Any] {
-        [
-            "Label": Self.jobLabel,
-            "ProgramArguments": ["/bin/sh", scriptPath],
-            "RunAtLoad": true,
-            "KeepAlive": false,
-            "AbandonProcessGroup": true,
-            "StandardOutPath": logPath,
-            "StandardErrorPath": logPath,
-            "WorkingDirectory": repoPath,
-        ]
-    }
-
-    /// The launchctl calls, in order: drop a stale job of the same label, then load this one.
-    public func launchCommands(uid: UInt32) -> [[String]] {
-        [
-            ["/bin/launchctl", "bootout", "gui/\(uid)/\(Self.jobLabel)"],
-            ["/bin/launchctl", "bootstrap", "gui/\(uid)", plistPath],
-        ]
-    }
+    public var workingDirectory: String { repoPath }
 }
 
 public enum Shell {

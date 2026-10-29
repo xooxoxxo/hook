@@ -124,7 +124,8 @@ import RelayUI
             suspendShortcut: { [weak hotKeys] in hotKeys?.suspend() },
             resumeShortcut: { [weak hotKeys] in hotKeys?.resume() },
             checkMailbox: { [weak self] in self?.mailbox.checkNow() },
-            updateMailbox: { [weak self] in self?.mailbox.updateMailbox() })
+            updateMailbox: { [weak self] in self?.mailbox.updateMailbox() },
+            checkForUpdates: { [weak self] in self?.checkForUpdatesNow() })
         store.onCloseSent = { [weak self] id in self?.notifier?.remove(ids: [id]) }
 
         model.onApply = { [weak self] _, new in
@@ -683,27 +684,30 @@ import RelayUI
         }
     }
 
-    /// Gate the checkout, then start the detached update job.
+    /// A release download: download the release and check it. A checkout: gate it. Then
+    /// start the detached update job.
     private func startUpdate() {
         guard !updateStarted, case .available(let version, let tag, _) = updates.state else { return }
         updateStarted = true
         let repoPath = model?.config?.repoPath
+        let kind = InstallKind.detect(repoPath: repoPath, fileExists: { FileManager.default.fileExists(atPath: $0) })
         Task { @MainActor [weak self] in
             guard let self else { return }
-            switch await UpdateRunner.gate(repoPath: repoPath) {
-            case .failure(let error):
-                self.updateStarted = false
-                Self.alert("Hook can't update.", error.reason)
-            case .success(let checkout):
-                do {
+            do {
+                if case .release(let hookHome) = kind {
+                    guard let release = ReleaseVersion(tag) else { throw UpdateCheckError("The release tag \(tag) isn't a version.") }
+                    let download = try await UpdateRunner.downloadRelease(tag: tag, version: release).get()
+                    try UpdateRunner.launchRelease(hookHome: hookHome, tag: tag, version: release, download: download)
+                } else {
+                    let checkout = try await UpdateRunner.gate(repoPath: repoPath).get()
                     try UpdateRunner.launch(repo: checkout.repo, tag: tag, mode: checkout.mode)
-                    let log = TildePath.abbreviate(UpdateRunner.logPath, home: UpdateRunner.home)
-                    self.store?.post(.updating(version: version, logPath: log))
-                    self.panel?.present(focus: false, animated: true)
-                } catch {
-                    self.updateStarted = false
-                    Self.alert("Hook can't update.", UserFacingError.text(error))
                 }
+                let log = TildePath.abbreviate(UpdateRunner.logPath, home: UpdateRunner.home)
+                self.store?.post(.updating(version: version, logPath: log))
+                self.panel?.present(focus: false, animated: true)
+            } catch {
+                self.updateStarted = false
+                Self.alert("Hook can't update.", (error as? UpdateCheckError)?.reason ?? UserFacingError.text(error))
             }
         }
     }

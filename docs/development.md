@@ -2,6 +2,20 @@
 
 Build Hook, run its tests and find your way around the code.
 
+## Build from source
+
+A clone you build yourself is a developer checkout:
+
+```bash
+git clone https://github.com/xooxoxxo/hook.git
+cd hook
+HOOK_DEV=1 ./scripts/install.sh
+```
+
+`install.sh` builds Hook from source only in a developer's clone: `HOOK_DEV=1`, changes that aren't committed, or a local branch other than `main`. A build there is recorded in the config (`"updateMode": "developer"`, with `repoPath` naming the clone), so later runs in that clone, including the one Check for Updates starts, build from source too without `HOOK_DEV=1`. `HOOK_DEV=0 ./scripts/install.sh` ignores the record and moves a clean clone on `main` to the release download. In any other clone it installs the prebuilt release of the clone's version instead (that is how 0.9.x's updater moves a clone install to the release download), and builds from source only when that download fails. Building needs macOS 14.5+ and the Command Line Tools with Swift 6 (`xcode-select --install`).
+
+A developer checkout updates the old way: Check for Updates moves it to the newest release tag (from `main`, by fast-forward) and reruns `install.sh`; Settings › General › Updates shows **Developer checkout**. `get.sh` leaves a developer clone that `~/.local/bin/relay` links into alone.
+
 ## Build and test
 
 ```bash
@@ -10,7 +24,9 @@ python3 -m unittest discover -s clients -p 'test_*.py' -v   # CLI and client
 python3 -m unittest discover -s mcp -p 'test_*.py' -v       # MCP server
 BUILD_ONLY=1 ./scripts/build.sh                             # assembles ./build/Hook.app, installs nothing
 ./scripts/test-install.sh                                   # installer, in a sandbox HOME
-./scripts/test-get.sh                                       # one-line installer, against a local bare repo
+./scripts/test-get.sh                                       # one-line installer, against fixture releases on file:// and a local http server
+./scripts/test-package.sh                                   # release zip, SHA256SUMS and release notes
+./scripts/test-make-signing-cert.sh                         # the signing certificate script, uploads nothing
 ./scripts/smoke-local.sh                                    # This Mac only, end to end
 scripts/gallery.sh [scene…]                                 # renders the UI offscreen to build/gallery/
 ./scripts/check-tokens.sh                                   # no literal sizes, colours or durations outside Design/
@@ -20,7 +36,7 @@ Test-only switches:
 - `RELAY_DATA_DIR` moves the app's queue folder.
 - `RELAY_NO_AUTOLAUNCH=1` stops the `relay` CLI from starting Hook. The smoke run sets it, so it can't touch an installed app.
 - `scripts/install.sh` honours `RELAY_SKIP_BUILD`, `RELAY_SKIP_LAUNCH` and `RELAY_SKIP_MCP`, and runs a single quit or start step under `RELAY_TEST_STEP` fenced by `RELAY_APP_SCOPE` (see its header).
-- `scripts/get.sh` clones `HOOK_REPO_URL` instead of GitHub's repo.
+- `scripts/get.sh` downloads from `HOOK_RELEASES_URL` (a folder laid out like GitHub's `releases/`) instead of GitHub.
 
 ## Design gallery
 
@@ -56,7 +72,9 @@ A pull request that changes `Sources/RelayUI/` attaches the before and after PNG
 
 ## CI
 
-[CI](../.github/workflows/ci.yml) runs on pushes to `main` and on pull requests. It builds, runs the Swift, client and MCP tests (again on `/usr/bin/python3` if it is 3.9+), and runs the installer tests (`test-install.sh` and `test-get.sh`).
+[CI](../.github/workflows/ci.yml) runs on pushes to `main` and on pull requests. It builds, runs the Swift, client and MCP tests (again on `/usr/bin/python3` if it is 3.9+), and runs the installer and packaging tests (`test-install.sh`, `test-get.sh`, `test-package.sh` and `test-make-signing-cert.sh`).
+
+[Release](../.github/workflows/release.yml) runs on a `vX.Y.Z` tag: see [Releasing](#releasing).
 
 ## Releasing
 
@@ -69,14 +87,39 @@ A pull request that changes `Sources/RelayUI/` attaches the before and after PNG
    (`git diff vX.Y.Z-1..HEAD`) for personal names, home-folder paths (`/Users/<name>`), host
    names, internal ticket ids and tokens, and remove any you find.
 4. **CI.** Push the release commit and wait for [CI](../.github/workflows/ci.yml) to pass on it.
-5. **Tag.** `git tag vX.Y.Z` on that commit and push the tag. Hook's updater moves a checkout to
-   the latest release tag, so tag only a commit that passed CI.
-6. **Release notes.** Create the GitHub release for the tag with that version's CHANGELOG
-   section as its notes. Every release's notes carry the hidden marker
-   `<!-- hook:mailbox-protocol=N -->`, where N is the Pond protocol level that release needs
-   (4 from 0.9.1; see [Pond protocol](mailbox-protocol.md#protocol-levels)). Before updating,
-   Hook compares N with the connected Pond's level and offers to update the Pond first.
-   Raise N only when the release needs a Pond feature older Ponds lack.
+5. **Pond markers.** The version's CHANGELOG section ends with the two hidden markers its
+   release notes need: `<!-- hook:pond=<range> -->`, the npm-style Pond range this release
+   needs (read by Hook 0.10 and later), and `<!-- hook:mailbox-protocol=N -->`, the old
+   protocol level (read by 0.9.x updaters; see [Pond protocol](mailbox-protocol.md)). Before
+   updating, Hook checks the connected Pond against them and offers to update the Pond first.
+   `scripts/release-notes.sh X.Y.Z` prints the section and fails without them.
+6. **Tag.** `git tag vX.Y.Z` on that commit and push the tag. Tag only a commit that passed CI.
+7. **Release workflow.** The tag runs [Release](../.github/workflows/release.yml): it checks the
+   tag matches `Info.plist` and the notes carry both markers, builds a universal (arm64 and
+   x86_64) Hook.app, packs `Hook-X.Y.Z.zip` (the app and the `support/` payload:
+   `bin/relay`, `clients/`, `mcp/`, `schema/`, `skill/`, `scripts/install.sh`, `scripts/get.sh`,
+   `docs/claude-md-section.md`, `VERSION`) with `scripts/package-release.sh`, writes
+   `SHA256SUMS`, and publishes the release with the CHANGELOG section as its notes. A new
+   release stays a draft until both files are attached, so `get.sh` and the updater never see
+   a release they can't download. A release you made by hand gets the files attached and keeps
+   its notes.
+
+### Signing
+
+Without signing secrets the release is ad-hoc signed, and macOS asks once more for Keychain
+access after every update. With a stable identity it doesn't:
+
+- **Self-signed.** `scripts/make-signing-cert.sh` makes a code-signing certificate in
+  `./signing` (git-ignored, `0700`) and prints the two values to store as repository secrets,
+  `MACOS_SIGN_P12` (the base64 `.p12`) and `MACOS_SIGN_PASSWORD`. It uploads nothing. Keep the
+  folder safe: a new certificate is a new identity.
+- **Developer ID.** Store the Developer ID identity the same way, plus an App Store Connect API
+  key as `APPLE_API_KEY` (the base64 `.p8`), `APPLE_API_KEY_ID` and `APPLE_API_ISSUER_ID`. The
+  workflow then signs with the hardened runtime (`Resources/Hook.entitlements`), notarizes
+  and staples, and a browser download opens normally.
+
+Locally, `SIGN_IDENTITY`, `SIGN_KEYCHAIN`, `HARDENED=1` and `UNIVERSAL=1` do the same for
+`scripts/build.sh`.
 
 ## Layout
 

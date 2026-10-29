@@ -1,0 +1,136 @@
+name: Release
+
+# A vX.Y.Z tag builds a universal Hook.app, packs Hook-X.Y.Z.zip (the app and the support
+# payload) and SHA256SUMS, and publishes them on the tag's GitHub release, with that
+# version's CHANGELOG section as the notes. scripts/get.sh and Hook's updater install
+# from those two files.
+#
+# Optional repository secrets:
+#   MACOS_SIGN_P12, MACOS_SIGN_PASSWORD   a code-signing identity (base64 .p12 and its
+#       password; scripts/make-signing-cert.sh makes a self-signed one). Without them the
+#       app is ad-hoc signed.
+#   APPLE_API_KEY, APPLE_API_KEY_ID, APPLE_API_ISSUER_ID   an App Store Connect API key
+#       (base64 .p8, its id, the issuer id). With these and a Developer ID identity the app
+#       is notarized and stapled.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Tag matches the version
+        run: |
+          version="$(plutil -extract CFBundleShortVersionString raw Resources/Info.plist)"
+          case "$GITHUB_REF_NAME" in
+            "v$version") ;;
+            *) echo "::error::tag $GITHUB_REF_NAME does not match Resources/Info.plist ($version)"; exit 1 ;;
+          esac
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Swift version
+        run: swift --version
+
+      - name: Release notes
+        run: ./scripts/release-notes.sh "$VERSION" > "$RUNNER_TEMP/notes.md"
+
+      - name: Packaging and installer tests
+        run: ./scripts/test-package.sh && ./scripts/test-install.sh && ./scripts/test-get.sh
+
+      - name: Signing identity
+        env:
+          MACOS_SIGN_P12: ${{ secrets.MACOS_SIGN_P12 }}
+          MACOS_SIGN_PASSWORD: ${{ secrets.MACOS_SIGN_PASSWORD }}
+        run: |
+          if [ -z "$MACOS_SIGN_P12" ] || [ -z "$MACOS_SIGN_PASSWORD" ]; then
+            echo "No signing secrets: the app is ad-hoc signed."
+            exit 0
+          fi
+          kc="$RUNNER_TEMP/signing.keychain-db"
+          kc_pass="$(openssl rand -hex 24)"
+          printf '%s' "$MACOS_SIGN_P12" | base64 --decode > "$RUNNER_TEMP/signing.p12"
+          security create-keychain -p "$kc_pass" "$kc"
+          security set-keychain-settings -lut 3600 "$kc"
+          security unlock-keychain -p "$kc_pass" "$kc"
+          security import "$RUNNER_TEMP/signing.p12" -k "$kc" -P "$MACOS_SIGN_PASSWORD" -T /usr/bin/codesign
+          rm -f "$RUNNER_TEMP/signing.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$kc_pass" "$kc" >/dev/null
+          # shellcheck disable=SC2046
+          security list-keychains -d user -s "$kc" $(security list-keychains -d user | tr -d '"')
+          # A self-signed identity isn't trusted, so it is picked by its hash, not with -v.
+          hash="$(security find-identity -p codesigning "$kc" | awk '/[0-9A-F]{40}/ { print $2; exit }')"
+          [ -n "$hash" ] || { echo "::error::MACOS_SIGN_P12 holds no code-signing identity"; exit 1; }
+          echo "SIGN_IDENTITY=$hash" >> "$GITHUB_ENV"
+          echo "SIGN_KEYCHAIN=$kc" >> "$GITHUB_ENV"
+          echo "Signing with identity $hash"
+
+      - name: Notarization key
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: |
+          if [ -z "$APPLE_API_KEY" ] || [ -z "$APPLE_API_KEY_ID" ] || [ -z "$APPLE_API_ISSUER_ID" ]; then
+            echo "No Apple API key: the app is not notarized."
+            exit 0
+          fi
+          if [ -z "${SIGN_IDENTITY:-}" ]; then
+            echo "::warning::an Apple API key without a signing identity: the app is not notarized"
+            exit 0
+          fi
+          printf '%s' "$APPLE_API_KEY" | base64 --decode > "$RUNNER_TEMP/notary-key.p8"
+          {
+            echo "NOTARY_KEY=$RUNNER_TEMP/notary-key.p8"
+            echo "NOTARY_KEY_ID=$APPLE_API_KEY_ID"
+            echo "NOTARY_ISSUER=$APPLE_API_ISSUER_ID"
+            echo "HARDENED=1"
+          } >> "$GITHUB_ENV"
+
+      - name: Build universal Hook.app
+        run: UNIVERSAL=1 BUILD_ONLY=1 ./scripts/build.sh
+
+      - name: Notarize and staple
+        if: env.NOTARY_KEY != ''
+        run: |
+          ditto -c -k --keepParent build/Hook.app "$RUNNER_TEMP/notarize.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" \
+            --key "$NOTARY_KEY" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER" --wait
+          xcrun stapler staple build/Hook.app
+          xcrun stapler validate build/Hook.app
+
+      - name: Package
+        run: RELEASE_TAG="$GITHUB_REF_NAME" ./scripts/package-release.sh --app build/Hook.app --out dist
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          zip="dist/Hook-$VERSION.zip"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            # A release made by hand: attach the files to it, notes as they are.
+            gh release upload "$GITHUB_REF_NAME" "$zip" dist/SHA256SUMS --clobber
+          else
+            # A draft until both files are attached, so "latest" never names a release
+            # that get.sh or the updater can't download.
+            gh release create "$GITHUB_REF_NAME" --verify-tag --draft \
+              --title "Hook $VERSION" --notes-file "$RUNNER_TEMP/notes.md"
+            gh release upload "$GITHUB_REF_NAME" "$zip" dist/SHA256SUMS
+            gh release edit "$GITHUB_REF_NAME" --draft=false --latest
+          fi
+
+      - name: Remove the signing keychain and key
+        if: always()
+        run: |
+          if [ -n "${SIGN_KEYCHAIN:-}" ]; then security delete-keychain "$SIGN_KEYCHAIN" || true; fi
+          rm -f "$RUNNER_TEMP/notary-key.p8" "$RUNNER_TEMP/signing.p12"

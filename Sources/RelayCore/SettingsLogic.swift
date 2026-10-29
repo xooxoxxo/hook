@@ -183,6 +183,8 @@ public struct SettingsSnapshot: Equatable {
     /// The display name of the app "Open documents in" names; nil when it names none or
     /// the app isn't installed.
     public var documentAppName: String?
+    /// Settings › General › Updates: how Hook was installed, so what an update does.
+    public var install: InstallLine?
     public var now: Date
 
     public init(config: RelayConfig? = nil, readOnly: Bool = false, version: String = "",
@@ -194,7 +196,8 @@ public struct SettingsSnapshot: Equatable {
                 connectionProblems: [String] = [], permission: NotificationPermission = .notDetermined,
                 repo: RepoState = RepoState(), localQueuePath: String? = nil,
                 terminals: [TerminalChoice] = [], mailbox: MailboxVersionLine? = nil,
-                documentAppName: String? = nil, now: Date = Date(timeIntervalSince1970: 0)) {
+                documentAppName: String? = nil, install: InstallLine? = nil,
+                now: Date = Date(timeIntervalSince1970: 0)) {
         self.config = config
         self.readOnly = readOnly
         self.version = version
@@ -213,6 +216,7 @@ public struct SettingsSnapshot: Equatable {
         self.terminals = terminals
         self.mailbox = mailbox
         self.documentAppName = documentAppName
+        self.install = install
         self.now = now
     }
 }
@@ -230,6 +234,8 @@ public enum SettingsAction: Equatable {
     case checkMailbox, updateMailbox
     /// Settings › General › Open documents in › Other App…: pick an app and save it.
     case chooseDocumentApp
+    /// Settings › General › Updates: Check for Updates….
+    case checkForUpdates
 }
 
 extension ShortcutProblem {

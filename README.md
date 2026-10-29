@@ -19,26 +19,15 @@ For people who run Claude Code on a Mac and want one place to answer what their 
 
 ## Quick start
 
-Hook builds from source; there is no prebuilt download yet. You need:
-
-- macOS 14.5+ to build
-- Xcode Command Line Tools (`xcode-select --install`)
-- Python 3.9+
-- Claude Code (the `claude` command)
+You need macOS 14+, Python 3.9+ and Claude Code (the `claude` command). Nothing is compiled on your Mac.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/xooxoxxo/hook/main/scripts/get.sh | bash
 ```
 
-It clones Hook to `~/.local/share/hook`, checks out the latest release and runs `./scripts/install.sh`. Installer options go after `bash -s --`, for example `| bash -s -- --local`.
+It downloads the latest release, checks it against the release's `SHA256SUMS`, and installs Hook.app to `~/Applications` and the `relay` command, MCP server and skill to `~/.local/share/hook`. Installer options go after `bash -s --`, for example `| bash -s -- --local`. Hook then updates itself (Check for Updates…).
 
-Or clone it yourself:
-
-```bash
-git clone https://github.com/xooxoxxo/hook.git
-cd hook
-./scripts/install.sh
-```
+Use this command rather than downloading the zip in a browser: macOS blocks a browser download of a build that isn't notarized. To build from source instead, see [development.md](docs/development.md#build-from-source).
 
 1. Right-click the menu-bar icon, choose Settings… › Connect › Copy CLAUDE.md section, and paste it into `~/.claude/CLAUDE.md`. This teaches your sessions to ask through Hook.
 2. In Settings › Queue, click Send a test ask. A badge appears on the menu-bar icon; open the ask and press Done.

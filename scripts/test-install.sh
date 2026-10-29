@@ -22,6 +22,10 @@ fake_app() {   # fake_app <path> [bundle id]: an app folder holding only an Info
 PLIST
 }
 
+# This checkout builds from source as a developer's clone would; without this, a clean
+# clone (as CI checks out) would hand over to the release download.
+export HOOK_DEV=1
+
 # Running install.sh without the switches would touch the real Mac; refuse early.
 grep -q 'RELAY_SKIP_LAUNCH' "$INSTALL" || fail "install.sh has no RELAY_SKIP_* switches yet"
 bash -n "$INSTALL" || fail "install.sh has a syntax error"
@@ -59,7 +63,7 @@ PY
 # 1. Fresh install: {"source":"local"} plus repoPath and onboarding "pending" (the app's
 #    setup window shows once), 0600 in a 0700 folder.
 run || { cat "$OUT"; fail "fresh install exited non-zero"; }
-config_eq '{"source": "local", "repoPath": "@REPO@", "onboarding": "pending"}'
+config_eq '{"source": "local", "repoPath": "@REPO@", "onboarding": "pending", "updateMode": "developer"}'
 [ "$(mode_of "$CONFIG")" = "600" ] || fail "config.json is $(mode_of "$CONFIG"), not 600"
 [ "$(mode_of "$H/.config/relay")" = "700" ] || fail "~/.config/relay is not 700"
 [ "$(mode_of "$H/Library/Application Support/Relay")" = "700" ] || fail "the data folder is not 700"
@@ -91,7 +95,7 @@ open(sys.argv[1], "w").write(json.dumps(d))
 PY
 rm "$PLIST"
 run || { cat "$OUT"; fail "rerun exited non-zero"; }
-config_eq '{"source": "local", "repoPath": "@REPO@", "custom": 7, "hotkey": ""}'
+config_eq '{"source": "local", "repoPath": "@REPO@", "custom": 7, "hotkey": "", "updateMode": "developer"}'
 [ ! -e "$PLIST" ] || fail "rerun re-created a LaunchAgent the owner had removed"
 ok "rerun keeps unknown keys; LaunchAgent stays off"
 
@@ -136,7 +140,7 @@ echo '{"source": "local",' > "$CONFIG"
 run || { cat "$OUT"; fail "install over a broken config exited non-zero"; }
 ls "$H/.config/relay/" | grep -q '^config\.json\.bad-[0-9]\{8\}-[0-9]\{6\}$' || fail "broken config not moved to .bad-*"
 [ "$(cat "$H"/.config/relay/config.json.bad-*)" = '{"source": "local",' ] || fail "moved file lost its content"
-config_eq '{"source": "local", "repoPath": "@REPO@", "onboarding": "pending"}'
+config_eq '{"source": "local", "repoPath": "@REPO@", "onboarding": "pending", "updateMode": "developer"}'
 grep -q 'did not parse; moved it to' "$OUT" || fail "the move was not reported"
 ok "unparseable config moved aside"
 
@@ -317,6 +321,169 @@ run || { cat "$OUT"; fail "an install next to a foreign Hook.app exited non-zero
 config_key onboarding '"pending"'
 rm -rf "$H/Applications/Hook.app"
 ok "a fresh app install shows setup again; an update doesn't"
+
+# --- prebuilt releases (scripts/get.sh, then install.sh --prebuilt) -----------------
+# A fixture release packed by package-release.sh from this checkout, with a stand-in
+# app, served over file://. Its install.sh is this checkout's.
+VERSION="$(plutil -extract CFBundleShortVersionString raw "$REPO/Resources/Info.plist")"
+REL="$T/releases"
+mkdir -p "$T/fixture-app/Hook.app/Contents/MacOS" "$REL/download/v$VERSION" "$REL/latest/download"
+cat > "$T/fixture-app/Hook.app/Contents/Info.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleIdentifier</key><string>io.github.xooxoxxo.relay</string>
+<key>CFBundleShortVersionString</key><string>$VERSION</string>
+</dict></plist>
+PLIST
+printf '#!/bin/sh\nexit 0\n' > "$T/fixture-app/Hook.app/Contents/MacOS/Hook"
+chmod +x "$T/fixture-app/Hook.app/Contents/MacOS/Hook"
+"$REPO/scripts/package-release.sh" --app "$T/fixture-app/Hook.app" --out "$REL/download/v$VERSION" >/dev/null
+cp "$REL/download/v$VERSION/"* "$REL/latest/download/"
+
+PFAKE="$T/prebuilt-fakebin"
+mkdir -p "$PFAKE"
+printf '#!/bin/sh\necho "$*" >> "%s/claude-prebuilt.log"\nexit 0\n' "$T" > "$PFAKE/claude"
+printf '#!/bin/sh\necho "swift $*" >> "%s/compiler.log"\nexit 1\n' "$T" > "$PFAKE/swift"
+chmod +x "$PFAKE/claude" "$PFAKE/swift"
+prun() {   # prun <home> <command…>: a sandboxed run with the fixture releases and a fake claude
+  local home="$1"; shift
+  env -u HOOK_DEV -u RELAY_SKIP_MCP HOME="$home" PATH="$PFAKE:$PATH" HOOK_RELEASES_URL="file://$REL" \
+    RELAY_SKIP_BUILD=1 RELAY_SKIP_LAUNCH=1 "$@" >"$OUT" 2>&1
+}
+g() {   # git that ignores the real ~/.gitconfig and never signs
+  env GIT_CONFIG_NOSYSTEM=1 HOME="$T" git -c user.name=Test -c user.email=test@example.invalid \
+    -c init.defaultBranch=main -c commit.gpgsign=false "$@"
+}
+old_clone() {   # old_clone <dir>: a clean clone of Hook as an older install left it, on main only
+  mkdir -p "$1"
+  (cd "$REPO" && tar -cf - Resources/Info.plist bin/relay mcp/relay_mcp.py scripts/install.sh scripts/get.sh \
+    scripts/build.sh skill/instructables docs/claude-md-section.md) | (cd "$1" && tar -xf -)
+  g init --quiet "$1"
+  g -C "$1" add -A
+  g -C "$1" commit --quiet -m release
+}
+
+# 24. A fresh install from the release: the app comes from the release (nothing is built),
+#     the CLI, alias, skill, MCP server and repoPath go through ~/.local/share/hook/current.
+P="$T/p-home"
+mkdir -p "$P"
+HC="$P/.local/share/hook/current"
+prun "$P" bash "$REPO/scripts/get.sh" --local || { cat "$OUT"; fail "a prebuilt install exited non-zero"; }
+[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$P/Applications/Hook.app/Contents/Info.plist")" = "io.github.xooxoxxo.relay" ] \
+  || fail "the release's Hook.app was not copied to ~/Applications"
+grep -q "app: installed $P/Applications/Hook.app" "$OUT" || { cat "$OUT"; fail "the app copy was not reported"; }
+[ "$(readlink "$P/.local/bin/relay")" = "$HC/bin/relay" ] || fail "CLI link is $(readlink "$P/.local/bin/relay")"
+[ "$(readlink "$P/.local/bin/hook")" = "$HC/bin/relay" ] || fail "hook alias is $(readlink "$P/.local/bin/hook")"
+[ "$(readlink "$P/.claude/skills/instructables")" = "$HC/skill/instructables" ] || fail "skill link is wrong"
+grep -qx "mcp add --scope user relay -- python3 $HC/mcp/relay_mcp.py" "$T/claude-prebuilt.log" \
+  || fail "MCP registration: $(cat "$T/claude-prebuilt.log")"
+python3 -c 'import json,sys; c=json.load(open(sys.argv[1])); sys.exit(0 if c["repoPath"]==sys.argv[2] and c["source"]=="local" else 1)' \
+  "$P/.config/relay/config.json" "$HC" || fail "config: $(cat "$P/.config/relay/config.json")"
+[ -f "$P/Library/LaunchAgents/io.github.xooxoxxo.relay.plist" ] || fail "a first prebuilt install wrote no LaunchAgent"
+[ ! -e "$T/compiler.log" ] || fail "a prebuilt install ran $(cat "$T/compiler.log")"
+"$P/.local/bin/relay" --version >/dev/null 2>&1 || fail "the linked CLI doesn't run"
+ok "prebuilt install through current"
+
+# 25. --uninstall from the release removes its own links.
+prun "$P" "$HC/scripts/install.sh" --uninstall || { cat "$OUT"; fail "a prebuilt --uninstall exited non-zero"; }
+for l in "$P/.local/bin/relay" "$P/.local/bin/hook" "$P/.claude/skills/instructables"; do
+  [ ! -e "$l" ] && [ ! -L "$l" ] || fail "--uninstall kept $l"
+done
+[ ! -e "$P/Applications/Hook.app" ] || fail "--uninstall kept Hook.app"
+ok "prebuilt --uninstall"
+
+# 26. --prebuilt refuses a clone, and a payload that current doesn't link to.
+prun "$P" "$INSTALL" --prebuilt && fail "--prebuilt ran from a clone"
+grep -q 'is a clone' "$OUT" || { cat "$OUT"; fail "no reason for refusing a clone"; }
+cp -R "$(cd "$HC" && pwd -P)" "$T/stray-$VERSION"
+prun "$P" "$T/stray-$VERSION/scripts/install.sh" --prebuilt && fail "--prebuilt ran from a folder current doesn't link to"
+grep -q 'does not link to' "$OUT" || { cat "$OUT"; fail "no reason for refusing a stray payload"; }
+ok "--prebuilt needs current"
+
+# 27. Migration: an install from an older clone (~/relay) moves its links, MCP server and
+#     repoPath to current, and the clone stays, named as no longer used.
+M="$T/m-home"
+mkdir -p "$M/.local/bin" "$M/.claude/skills" "$M/Applications" "$M/.config/relay"
+old_clone "$M/relay"
+ln -s "$M/relay/bin/relay" "$M/.local/bin/relay"
+ln -s "$M/relay/bin/relay" "$M/.local/bin/hook"
+ln -s "$M/relay/skill/instructables" "$M/.claude/skills/instructables"
+cp -R "$T/fixture-app/Hook.app" "$M/Applications/Hook.app"
+printf '{"source": "local", "repoPath": "%s"}\n' "$M/relay" > "$M/.config/relay/config.json"
+: > "$T/claude-prebuilt.log"
+prun "$M" bash "$REPO/scripts/get.sh" || { cat "$OUT"; fail "a migrating install exited non-zero"; }
+MC="$M/.local/share/hook/current"
+[ "$(readlink "$M/.local/bin/relay")" = "$MC/bin/relay" ] || fail "the CLI link stayed on the clone"
+[ "$(readlink "$M/.local/bin/hook")" = "$MC/bin/relay" ] || fail "the hook link stayed on the clone"
+[ "$(readlink "$M/.claude/skills/instructables")" = "$MC/skill/instructables" ] || fail "the skill link stayed on the clone"
+grep -qx "mcp add --scope user relay -- python3 $MC/mcp/relay_mcp.py" "$T/claude-prebuilt.log" || fail "MCP still on the clone"
+grep -q "\"repoPath\": \"$MC\"" "$M/.config/relay/config.json" || fail "repoPath: $(cat "$M/.config/relay/config.json")"
+grep -qx 'The old copy in ~/relay is no longer used; you can delete it.' "$OUT" || { cat "$OUT"; fail "no note about the old clone"; }
+[ -d "$M/relay/.git" ] && [ -f "$M/relay/bin/relay" ] || fail "the old clone was changed"
+ok "a clone install moves to current; the clone stays"
+
+# 28. A developer's clone keeps its links when a release is installed by hand.
+D="$T/d-home"
+mkdir -p "$D/.local/bin"
+old_clone "$D/dev"
+g -C "$D/dev" branch feature
+ln -s "$D/dev/bin/relay" "$D/.local/bin/relay"
+mkdir -p "$D/.local/share/hook"
+cp -R "$(cd "$HC" && pwd -P)" "$D/.local/share/hook/$VERSION"
+ln -s "$VERSION" "$D/.local/share/hook/current"
+prun "$D" "$D/.local/share/hook/current/scripts/install.sh" --prebuilt || { cat "$OUT"; fail "a prebuilt install next to a dev clone exited non-zero"; }
+[ "$(readlink "$D/.local/bin/relay")" = "$D/dev/bin/relay" ] || fail "a developer clone's link was taken over"
+grep -q 'links into the developer clone ~/dev; left alone' "$OUT" || { cat "$OUT"; fail "the developer clone was not reported"; }
+if grep -q 'old copy in ~/dev' "$OUT"; then fail "a developer clone was called unused"; fi
+ok "a developer clone keeps its links"
+
+# 29. install.sh in a clone that isn't a developer's (as an older Hook's updater runs it
+#     after moving the clone to the new tag) installs the release download instead.
+U="$T/u-home"
+mkdir -p "$U/.local/bin" "$U/Applications"
+old_clone "$U/relay"
+ln -s "$U/relay/bin/relay" "$U/.local/bin/relay"
+cp -R "$T/fixture-app/Hook.app" "$U/Applications/Hook.app"
+prun "$U" "$U/relay/scripts/install.sh" --local || { cat "$OUT"; fail "the clone's hand-over exited non-zero"; }
+grep -q "installing the Hook $VERSION release download instead" "$OUT" || { cat "$OUT"; fail "the hand-over was not reported"; }
+[ "$(readlink "$U/.local/bin/relay")" = "$U/.local/share/hook/current/bin/relay" ] || fail "the hand-over left the CLI on the clone"
+grep -qx 'The old copy in ~/relay is no longer used; you can delete it.' "$OUT" || { cat "$OUT"; fail "no note about the clone"; }
+[ ! -e "$T/compiler.log" ] || fail "the hand-over built from source"
+ok "a clone that isn't a developer's installs the release"
+
+# 30. When the release can't be downloaded, that clone builds from source as before.
+rm -rf "$U/.local/share/hook" "$U/.local/bin/relay"
+ln -s "$U/relay/bin/relay" "$U/.local/bin/relay"
+prun "$U" env HOOK_RELEASES_URL="file://$T/no-releases" "$U/relay/scripts/install.sh" \
+  || { cat "$OUT"; fail "the fallback exited non-zero"; }
+grep -q 'the release download failed; building from source' "$OUT" || { cat "$OUT"; fail "the fallback was not reported"; }
+[ "$(readlink "$U/.local/bin/relay")" = "$U/relay/bin/relay" ] || fail "the fallback moved the CLI link"
+if grep -q '"updateMode"' "$U/.config/relay/config.json"; then fail "the fallback build was recorded as a developer's"; fi
+ok "a failed download falls back to the source build"
+
+# 31. A clone built with HOOK_DEV=1 (clean, on main only) is recorded as a developer's, so
+#     the next run there without HOOK_DEV (as Hook's updater starts it) builds from source
+#     again and keeps its links, and get.sh leaves it alone. HOOK_DEV=0 moves it to the release.
+V="$T/v-home"
+mkdir -p "$V/.local/bin"
+old_clone "$V/dev"
+ln -s "$V/dev/bin/relay" "$V/.local/bin/relay"
+VCONF="$V/.config/relay/config.json"
+prun "$V" env HOOK_DEV=1 "$V/dev/scripts/install.sh" || { cat "$OUT"; fail "a HOOK_DEV=1 install exited non-zero"; }
+grep -q '"updateMode": "developer"' "$VCONF" || fail "HOOK_DEV=1 was not recorded: $(cat "$VCONF")"
+prun "$V" "$V/dev/scripts/install.sh" || { cat "$OUT"; fail "the rerun without HOOK_DEV exited non-zero"; }
+if grep -q 'release download instead' "$OUT"; then cat "$OUT"; fail "the recorded developer clone handed over to the release"; fi
+grep -q 'is a developer'"'"'s clone; building from source here' "$OUT" || { cat "$OUT"; fail "the rerun did not say it builds from source"; }
+[ "$(readlink "$V/.local/bin/relay")" = "$V/dev/bin/relay" ] || fail "the rerun moved the CLI link off the developer clone"
+grep -q "\"repoPath\": \"$V/dev\"" "$VCONF" && grep -q '"updateMode": "developer"' "$VCONF" || fail "the rerun changed the config: $(cat "$VCONF")"
+[ ! -e "$V/.local/share/hook" ] || fail "the rerun downloaded the release"
+status=0; prun "$V" bash "$REPO/scripts/get.sh" || status=$?
+[ "$status" = "1" ] && grep -q 'links into the developer clone' "$OUT" || { cat "$OUT"; fail "get.sh over a recorded developer clone: status $status"; }
+prun "$V" env HOOK_DEV=0 "$V/dev/scripts/install.sh" || { cat "$OUT"; fail "HOOK_DEV=0 exited non-zero"; }
+[ "$(readlink "$V/.local/bin/relay")" = "$V/.local/share/hook/current/bin/relay" ] || fail "HOOK_DEV=0 left the CLI on the clone"
+if grep -q '"updateMode"' "$VCONF"; then fail "the release install kept updateMode: $(cat "$VCONF")"; fi
+ok "a HOOK_DEV=1 clone stays a developer's on later runs; HOOK_DEV=0 moves it to the release"
 
 # 21. A Hook that ignores SIGTERM is force-quit before its bundle is replaced; another app
 #     called Hook is never touched; a copy whose bundle is gone counts as ours only from
