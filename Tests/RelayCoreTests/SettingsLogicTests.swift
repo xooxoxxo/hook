@@ -366,6 +366,22 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
         #expect(record(secrets) == nil)
     }
 
+    /// Setting up makes a fresh item: one already there, even one another app planted, is
+    /// deleted first, so the new key never lands in an item whose access list Hook didn't set.
+    @Test func setUpReplacesAPlantedItemWithAFreshOne() async throws {
+        let secrets = MemorySecretStore(), pond = OwnerPond(), keys = KeyMaker()
+        await pond.set(polls: ["approved"])
+        let planted = OwnerKeyRecord(key: "known-to-its-maker", enrollID: "e0", status: .approved)
+        secrets.plantForeign(.ownerKey(sourceKey: pondKey), try JSONEncoder().encode(planted))
+        let flow = makeFlow(secrets, pond: pond, keys: keys)
+        #expect(OwnerKeyFlow.provider(secrets, sourceKey: pondKey)() == nil)
+        await flow.setUp()?.value
+        let key = try #require(keys.last)
+        #expect(secrets.creates == 1)
+        #expect(flow.state == .approved)
+        #expect(OwnerKeyFlow.provider(secrets, sourceKey: pondKey)() == key)
+    }
+
     @Test func aKeychainThatCantSaveStopsBeforeThePond() async throws {
         let secrets = MemorySecretStore(), pond = OwnerPond()
         secrets.writeError = .writeFailed(-25308)

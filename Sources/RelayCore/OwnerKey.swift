@@ -67,10 +67,20 @@ public enum OwnerKeyVault {
         return try? JSONDecoder().decode(OwnerKeyRecord.self, from: data)
     }
 
+    /// Rewrites Hook's own item (a new status, the enroll id).
     public static func save(_ record: OwnerKeyRecord, _ store: any SecretStore, sourceKey: String) throws {
+        try store.write(.ownerKey(sourceKey: sourceKey), encode(record))
+    }
+
+    /// A new key: whatever item is there, Hook's or planted, is deleted and a fresh one added.
+    public static func create(_ record: OwnerKeyRecord, _ store: any SecretStore, sourceKey: String) throws {
+        try store.create(.ownerKey(sourceKey: sourceKey), encode(record))
+    }
+
+    private static func encode(_ record: OwnerKeyRecord) throws -> Data {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .sortedKeys
-        try store.write(.ownerKey(sourceKey: sourceKey), encoder.encode(record))
+        return try encoder.encode(record)
     }
 
     public static func delete(_ store: any SecretStore, sourceKey: String) throws {
@@ -175,6 +185,8 @@ public enum OwnerKeyState: Equatable, Sendable {
         let record: OwnerKeyRecord?
         do {
             record = try OwnerKeyVault.record(secrets, sourceKey: sourceKey)
+        } catch SecretStoreError.foreign {
+            record = nil                // not Hook's: never sent; setting up replaces it
         } catch {
             state = .unavailable(Self.readFailed)
             return nil
@@ -196,9 +208,10 @@ public enum OwnerKeyState: Equatable, Sendable {
         return nil
     }
 
-    /// Set up: the key and a pending record go to the Keychain first, then the Pond gets its
-    /// hash; the returned task polls until the owner answers on Telegram (or 10 minutes pass).
-    /// A Keychain that refuses the read gets nothing new: the old item stays.
+    /// Set up: the key and a pending record go to the Keychain first, in a fresh item (any item
+    /// already there is deleted, never filled), then the Pond gets its hash; the returned task
+    /// polls until the owner answers on Telegram (or 10 minutes pass). A Keychain that refuses
+    /// the read gets nothing new: the old item stays.
     @discardableResult
     public func setUp() -> Task<Void, Never>? {
         guard let sourceKey, let source, task == nil else { return nil }
@@ -211,13 +224,15 @@ public enum OwnerKeyState: Equatable, Sendable {
                 state = .approved
                 return nil
             }
+        } catch SecretStoreError.foreign {
+            // Not Hook's item: replaced below.
         } catch {
             state = .unavailable(Self.readFailed)
             return nil
         }
         let key = generate()
         do {
-            try OwnerKeyVault.save(OwnerKeyRecord(key: key, status: .pending), secrets, sourceKey: sourceKey)
+            try OwnerKeyVault.create(OwnerKeyRecord(key: key, status: .pending), secrets, sourceKey: sourceKey)
         } catch {
             state = .unavailable(Self.saveFailed)
             return nil

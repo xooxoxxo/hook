@@ -45,9 +45,62 @@ public enum SecretStoreError: Error, Equatable, Sendable {
 /// didn't make for itself throws `.foreign` from both `read` and `write`.
 public protocol SecretStore: Sendable {
     func read(_ name: SecretName) throws -> Data?
+    /// Updates Hook's own item in place, or adds one when there is none; never replaces a
+    /// foreign item.
     func write(_ name: SecretName, _ data: Data) throws
+    /// A new secret: whatever item has the name is deleted, and a fresh one is added with
+    /// Hook's own access list. An item that appears in between fails the add: nothing is
+    /// ever written into an item Hook didn't just make.
+    func create(_ name: SecretName, _ data: Data) throws
     /// Deleting a missing item is not an error.
     func delete(_ name: SecretName) throws
+}
+
+/// The Keychain calls `KeychainSecretStore` makes, apart from its rules, so tests can run
+/// the rules on a fake. Every call after `find` works on the item it returned, never on a
+/// second lookup by name, so the item can't be swapped between the check and the use.
+protocol KeychainOps: Sendable {
+    associatedtype Item
+    /// The item with this service and account; nil when there is none.
+    func find(_ name: SecretName) throws -> Item?
+    /// Its access list lets only this app read it.
+    func isOwn(_ item: Item) throws -> Bool
+    func data(_ item: Item) throws -> Data
+    func update(_ item: Item, _ data: Data) throws
+    /// A new item with this app's own access list; one already there is `writeFailed(errSecDuplicateItem)`.
+    func add(_ name: SecretName, _ data: Data) throws
+    func delete(_ name: SecretName) throws
+}
+
+/// `SecretStore`'s rules over any `KeychainOps`.
+struct KeychainRules<Ops: KeychainOps>: Sendable {
+    let ops: Ops
+
+    func read(_ name: SecretName) throws -> Data? {
+        guard let item = try ops.find(name) else { return nil }
+        guard try ops.isOwn(item) else { throw SecretStoreError.foreign }
+        return try ops.data(item)
+    }
+
+    /// Never an update by query and never update-then-add: the item found is checked and
+    /// updated, or, with none, one is added (and a duplicate then fails).
+    func write(_ name: SecretName, _ data: Data) throws {
+        guard let item = try ops.find(name) else {
+            try ops.add(name, data)
+            return
+        }
+        guard try ops.isOwn(item) else { throw SecretStoreError.foreign }
+        try ops.update(item, data)
+    }
+
+    func create(_ name: SecretName, _ data: Data) throws {
+        try ops.delete(name)
+        try ops.add(name, data)
+    }
+
+    func delete(_ name: SecretName) throws {
+        try ops.delete(name)
+    }
 }
 
 /// The login Keychain, each item readable without a prompt only by this app (an access list
@@ -56,53 +109,84 @@ public protocol SecretStore: Sendable {
 ///
 /// An item found by service and account is trusted only when every access-list entry that
 /// lets an app read its secret names this app alone: one made with "any app may read" or
-/// for another app is `.foreign`, since its maker may know the value.
+/// for another app is `.foreign`, since its maker may know the value. That check names an
+/// app by its path, which another app can name too, so it is no proof of who made the item:
+/// the review seal and the owner key also carry a creation marker (`ReviewSeal`, `OwnerKeyVault`).
 ///
-/// `SecAccessCreate`, `SecTrustedApplicationCreateFromPath` and the `SecACL` calls are
-/// deprecated but are the only way to give or read a file-based Keychain item's access list;
-/// they stay in this one file.
+/// `SecAccessCreate`, `SecTrustedApplicationCreateFromPath`, the `SecACL` calls and the
+/// `SecKeychainItem` calls are deprecated but are the only way to give or read a file-based
+/// Keychain item's access list, and to read or change the one item that was checked; they
+/// stay in this one file.
 public struct KeychainSecretStore: SecretStore {
+    private let rules = KeychainRules(ops: SystemKeychain())
+
     public init() {}
 
-    public func read(_ name: SecretName) throws -> Data? {
-        guard try Self.checkOwn(name) else { return nil }
+    public func read(_ name: SecretName) throws -> Data? { try rules.read(name) }
+    public func write(_ name: SecretName, _ data: Data) throws { try rules.write(name, data) }
+    public func create(_ name: SecretName, _ data: Data) throws { try rules.create(name, data) }
+    public func delete(_ name: SecretName) throws { try rules.delete(name) }
+
+    /// The rule, on the access list's contents: at least one entry allows reading, and every
+    /// such entry names a non-empty list of apps that are all this one.
+    static func isOwn(decryptLists: [[Data]?], me: Data) -> Bool {
+        !decryptLists.isEmpty && decryptLists.allSatisfy { apps in
+            guard let apps, !apps.isEmpty else { return false }
+            return apps.allSatisfy { $0 == me }
+        }
+    }
+}
+
+/// The file-based login Keychain.
+private struct SystemKeychain: KeychainOps {
+    func find(_ name: SecretName) throws -> SecKeychainItem? {
         var query = Self.query(name)
-        query[kSecReturnData as String] = true
+        query[kSecReturnRef as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
         var result: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
         switch status {
-        case errSecSuccess:
-            guard let data = result as? Data else { throw SecretStoreError.unreadable(errSecDecode) }
-            return data
-        case errSecItemNotFound:
-            return nil
-        default:
-            throw SecretStoreError.unreadable(status)
+        case errSecSuccess: break
+        case errSecItemNotFound: return nil
+        default: throw SecretStoreError.unreadable(status)
         }
+        guard let result, CFGetTypeID(result) == SecKeychainItemGetTypeID() else { throw SecretStoreError.foreign }
+        return (result as! SecKeychainItem)
     }
 
-    public func write(_ name: SecretName, _ data: Data) throws {
-        // Never update a planted item in place: the new secret would land where its maker reads.
-        _ = try Self.checkOwn(name)
-        let update = SecItemUpdate(Self.query(name) as CFDictionary, [kSecValueData as String: data] as CFDictionary)
-        switch update {
-        case errSecSuccess:
-            return
-        case errSecItemNotFound:
-            break
-        default:
-            throw SecretStoreError.writeFailed(update)
+    func isOwn(_ item: SecKeychainItem) throws -> Bool {
+        guard let me = Self.selfData() else { return false }
+        return KeychainSecretStore.isOwn(decryptLists: try Self.decryptLists(item), me: me)
+    }
+
+    func data(_ item: SecKeychainItem) throws -> Data {
+        var length: UInt32 = 0
+        var bytes: UnsafeMutableRawPointer?
+        let status = SecKeychainItemCopyContent(item, nil, nil, &length, &bytes)
+        guard status == errSecSuccess else { throw SecretStoreError.unreadable(status) }
+        defer { SecKeychainItemFreeContent(nil, bytes) }
+        guard let bytes else { return Data() }
+        return Data(bytes: bytes, count: Int(length))
+    }
+
+    func update(_ item: SecKeychainItem, _ data: Data) throws {
+        let status = data.withUnsafeBytes { buffer in
+            SecKeychainItemModifyAttributesAndData(item, nil, UInt32(buffer.count), buffer.baseAddress)
         }
+        guard status == errSecSuccess else { throw SecretStoreError.writeFailed(status) }
+    }
+
+    func add(_ name: SecretName, _ data: Data) throws {
         var add = Self.query(name)
         add[kSecValueData as String] = data
         add[kSecAttrLabel as String] = name.label
-        if let access = Self.access(label: name.label) { add[kSecAttrAccess as String] = access }
+        guard let access = Self.access(label: name.label) else { throw SecretStoreError.writeFailed(errSecAllocate) }
+        add[kSecAttrAccess as String] = access
         let status = SecItemAdd(add as CFDictionary, nil)
         guard status == errSecSuccess else { throw SecretStoreError.writeFailed(status) }
     }
 
-    public func delete(_ name: SecretName) throws {
+    func delete(_ name: SecretName) throws {
         let status = SecItemDelete(Self.query(name) as CFDictionary)
         guard status == errSecSuccess || status == errSecItemNotFound else {
             throw SecretStoreError.deleteFailed(status)
@@ -113,27 +197,6 @@ public struct KeychainSecretStore: SecretStore {
         [kSecClass as String: kSecClassGenericPassword,
          kSecAttrService as String: name.service,
          kSecAttrAccount as String: name.account]
-    }
-
-    /// False when there is no item; throws `.foreign` for an item whose access list isn't this
-    /// app's alone.
-    private static func checkOwn(_ name: SecretName) throws -> Bool {
-        var query = Self.query(name)
-        query[kSecReturnRef as String] = true
-        query[kSecMatchLimit as String] = kSecMatchLimitOne
-        var result: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-        switch status {
-        case errSecSuccess: break
-        case errSecItemNotFound: return false
-        default: throw SecretStoreError.unreadable(status)
-        }
-        guard let result, CFGetTypeID(result) == SecKeychainItemGetTypeID() else { throw SecretStoreError.foreign }
-        let item = result as! SecKeychainItem
-        guard let me = selfData(), isOwn(decryptLists: try decryptLists(item), me: me) else {
-            throw SecretStoreError.foreign
-        }
-        return true
     }
 
     /// Each access-list entry that allows decrypting (or anything): its trusted apps' data,
@@ -182,15 +245,6 @@ public struct KeychainSecretStore: SecretStore {
         return bytes
     }
 
-    /// The rule, on the access list's contents: at least one entry allows reading, and every
-    /// such entry names a non-empty list of apps that are all this one.
-    static func isOwn(decryptLists: [[Data]?], me: Data) -> Bool {
-        !decryptLists.isEmpty && decryptLists.allSatisfy { apps in
-            guard let apps, !apps.isEmpty else { return false }
-            return apps.allSatisfy { $0 == me }
-        }
-    }
-
     /// An access list whose only trusted application is this one (a nil path is the caller).
     private static func access(label: String) -> SecAccess? {
         var app: SecTrustedApplication?
@@ -210,6 +264,7 @@ public final class MemorySecretStore: SecretStore, @unchecked Sendable {
     private var _writeError: SecretStoreError?
     private var _deleteError: SecretStoreError?
     private var _writes = 0
+    private var _creates = 0
     private var foreign: Set<SecretName> = []
 
     public init(_ items: [SecretName: Data] = [:]) {
@@ -231,8 +286,11 @@ public final class MemorySecretStore: SecretStore, @unchecked Sendable {
         set { locked { _deleteError = newValue } }
     }
 
-    /// Successful writes so far.
+    /// Successful writes so far, `create` included.
     public var writes: Int { locked { _writes } }
+
+    /// Successful `create` calls so far.
+    public var creates: Int { locked { _creates } }
 
     /// An item another app made (any app may read it): `read` and `write` throw `.foreign`.
     public func plantForeign(_ name: SecretName, _ data: Data) {
@@ -259,6 +317,17 @@ public final class MemorySecretStore: SecretStore, @unchecked Sendable {
             if foreign.contains(name), items[name] != nil { throw SecretStoreError.foreign }
             items[name] = data
             _writes += 1
+        }
+    }
+
+    public func create(_ name: SecretName, _ data: Data) throws {
+        try locked {
+            if let error = _deleteError { throw error }
+            if let error = _writeError { throw error }
+            foreign.remove(name)
+            items[name] = data
+            _writes += 1
+            _creates += 1
         }
     }
 
