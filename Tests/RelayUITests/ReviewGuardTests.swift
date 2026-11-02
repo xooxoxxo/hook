@@ -90,6 +90,53 @@ import Testing
         #expect(recorder.opened.count == 1)
     }
 
+    /// Every link the detail shows (a step's link, a link, Markdown in a step's detail) opens and
+    /// copies through the Store's stamp-bound check, never straight to the shell.
+    @Test func everyLinkPathGoesThroughTheStampBoundCheck() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let recorder = ShellRecorder()
+        var body = idSteps(2, urls: [1: "https://example.com/a"])
+        body.steps[1].detail = "See [the docs](https://example.com/docs)."
+        var corrected = body
+        corrected.steps[0].code = "run one"
+        let store = reviewingStore(defaults)
+        store.shell = recorder.shell
+        let two = revised("a", [body, corrected])
+        let fake = FakeQueueSource(items: [two.item], details: ["a": two.detail])
+        await start(store, fake)
+        store.open("a")
+        let step = URL(string: "https://example.com/a")!, docs = URL(string: "https://example.com/docs")!
+
+        // Locked: nothing opens or copies, whatever the stamp.
+        for stamp in [store.detail("a")?.stamp, two.detail.revisions[1].stamp] {
+            store.openStepURL("a", stamp: stamp, url: step)
+            store.openStepURL("a", stamp: stamp, url: docs)
+            #expect(store.copyLinkAddress("a", stamp: stamp, url: step) == .refused)
+            #expect(store.copyLinkAddress("a", stamp: stamp, url: docs) == .refused)
+        }
+        #expect(recorder.opened.isEmpty)
+        #expect(recorder.copied.isEmpty)
+
+        markAccepted(store, "a", two.detail.revisions[1].stamp)
+        let shown = store.detail("a")?.stamp
+        store.openStepURL("a", stamp: shown, url: docs)
+        #expect(store.copyLinkAddress("a", stamp: shown, url: step) == .copied)
+        #expect(store.copyLinkAddress("a", stamp: shown, url: URL(string: "https://evil.example")!) == .refused)
+        #expect(recorder.opened == [docs])
+        #expect(recorder.copied == ["https://example.com/a"])
+
+        // A correction lands between the render and the click: the old stamp opens nothing.
+        let three = revised("a", [body, corrected, idSteps(3)])
+        await fake.setItems([three.item])
+        await fake.setDetail(three.detail)
+        await store.refresh()
+        store.openStepURL("a", stamp: shown, url: docs)
+        #expect(store.copyLinkAddress("a", stamp: shown, url: step) == .refused)
+        #expect(recorder.opened == [docs])
+        #expect(recorder.copied == ["https://example.com/a"])
+    }
+
     @Test func doneAnswersRepliesAndTicksAreRefusedWhilePendingAndSkipIsNot() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }

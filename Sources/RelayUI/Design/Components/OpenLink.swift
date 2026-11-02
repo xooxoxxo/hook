@@ -9,6 +9,7 @@ public struct OpenLink: View {
     let title: String
     let url: URL
     @Environment(\.askContentLocked) private var contentLocked
+    @Environment(\.copyLinkAddress) private var copyLinkAddress
 
     public init(title: String, url: URL) {
         self.title = title
@@ -39,11 +40,38 @@ public struct OpenLink: View {
         AskContentLock.allowsCopy(locked: locked) ? [copyAddressItem] : []
     }
 
+    /// Inside an ask, the Store's stamp-bound check decides (`copyLinkAddress`); only outside
+    /// one (the gallery) does the address go straight to the pasteboard.
     private func copyAddress() {
         guard AskContentLock.allowsCopy(locked: contentLocked) else { return }
+        if let copyLinkAddress {
+            copyLinkAddress.copy(url)
+            return
+        }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(url.absoluteString, forType: .string)
     }
 
     public static func accessibilityText(_ title: String) -> String { title + ", link" }
+}
+
+/// Copy Link Address for the open ask: DetailView sets it to the Store's `copyLinkAddress`,
+/// bound to the revision the detail rendered.
+public struct CopyLinkAddressAction: Sendable {
+    public var copy: @MainActor @Sendable (URL) -> Void
+
+    public init(_ copy: @escaping @MainActor @Sendable (URL) -> Void) {
+        self.copy = copy
+    }
+}
+
+private struct CopyLinkAddressKey: EnvironmentKey {
+    static let defaultValue: CopyLinkAddressAction? = nil
+}
+
+extension EnvironmentValues {
+    public var copyLinkAddress: CopyLinkAddressAction? {
+        get { self[CopyLinkAddressKey.self] }
+        set { self[CopyLinkAddressKey.self] = newValue }
+    }
 }

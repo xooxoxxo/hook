@@ -224,8 +224,15 @@ struct DetailView<Model: PanelViewModel>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .environment(\.fileRowContext, fileContext(snapshot))
         .environment(\.askContentLocked, snapshot.locked)
-        // Every link in the ask (step links, links, Markdown in a step's detail) opens only unlocked.
-        .environment(\.openURL, OpenURLAction { _ in snapshot.locked ? .discarded : .systemAction })
+        // Every link in the ask (step links, links, Markdown in a step's detail) opens and copies
+        // only through the Store's check, bound to the revision this snapshot rendered.
+        .environment(\.openURL, OpenURLAction { [model] url in
+            model.openStepURL(snapshot.id, stamp: snapshot.stamp, url: url)
+            return .handled
+        })
+        .environment(\.copyLinkAddress, CopyLinkAddressAction { [model] url in
+            model.copyLinkAddress(snapshot.id, stamp: snapshot.stamp, url: url)
+        })
         .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: model.notice)
     }
 

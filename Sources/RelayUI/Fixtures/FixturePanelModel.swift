@@ -78,6 +78,11 @@ public final class FixturePanelModel: PanelViewModel {
         guard details[id]?.locked != true else { return }
         shell.openURL(url)
     }
+    @discardableResult public func copyLinkAddress(_ id: String, stamp: RevisionStamp?, url: URL) -> CopyOutcome {
+        guard details[id]?.locked != true else { return .refused }
+        shell.copy(url.absoluteString)
+        return .copied
+    }
     public func reviewState(_ id: String) -> ReviewState { details[id]?.review ?? .legacy }
     public func accept(_ id: String, stamp: RevisionStamp) {}
     public func reportProblem(_ id: String, stepID: String, note: String) {}

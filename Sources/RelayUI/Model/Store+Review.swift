@@ -72,13 +72,27 @@ extension Store {
         return .copied
     }
 
-    /// Opens only under `copyCode`'s rule, and only a web URL a step or link of the rendered revision names.
+    /// Opens only under `copyCode`'s rule, and only a web URL the rendered revision shows.
     public func openStepURL(_ id: String, stamp: RevisionStamp?, url: URL) {
-        guard actsOnShown(id, stamp: stamp), LinkDisplay.isWeb(url.absoluteString) else { return }
-        let steps = (nodes(for: id).map(Flow.flattened) ?? []).compactMap(\.url)
-        let links = (item(for: id)?.instructable?.links ?? []).compactMap(\.url)
-        guard (steps + links).contains(where: { URL(string: $0) == url }) else { return }
+        guard actsOnShown(id, stamp: stamp), shows(id, url: url) else { return }
         shell.openURL(url)
+    }
+
+    /// Copy Link Address: copies only under `copyCode`'s rule, and only a web URL the rendered revision shows.
+    @discardableResult public func copyLinkAddress(_ id: String, stamp: RevisionStamp?, url: URL) -> CopyOutcome {
+        guard actsOnShown(id, stamp: stamp), shows(id, url: url) else { return .refused }
+        shell.copy(url.absoluteString)
+        return .copied
+    }
+
+    /// A web URL a step, a link, or a link in a step's detail of the rendered revision names.
+    private func shows(_ id: String, url: URL) -> Bool {
+        guard LinkDisplay.isWeb(url.absoluteString) else { return false }
+        let nodes = nodes(for: id).map(Flow.flattened) ?? []
+        let steps = nodes.compactMap(\.url)
+        let links = (item(for: id)?.instructable?.links ?? []).compactMap(\.url)
+        if (steps + links).contains(where: { URL(string: $0) == url }) { return true }
+        return nodes.compactMap(\.detail).contains { DetailText.webLinks($0).contains(url.absoluteString) }
     }
 
     /// The ask is unlocked and `stamp` is the revision it renders now.

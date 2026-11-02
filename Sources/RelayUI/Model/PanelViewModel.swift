@@ -111,8 +111,11 @@ public enum CopyOutcome: Equatable, Sendable {
     /// A command's Copy: copies only while the ask is current at `stamp` (the revision the
     /// snapshot rendered) and `text` is a command of that revision.
     @discardableResult func copyCode(_ id: String, stamp: RevisionStamp?, text: String) -> CopyOutcome
-    /// A step's link: opens only under the same rule as `copyCode`.
+    /// Any link the detail shows (a step's, a link, Markdown in a detail): opens only under the
+    /// same rule as `copyCode`.
     func openStepURL(_ id: String, stamp: RevisionStamp?, url: URL)
+    /// Copy Link Address, under the same rule.
+    @discardableResult func copyLinkAddress(_ id: String, stamp: RevisionStamp?, url: URL) -> CopyOutcome
     /// Where the ask stands with this Mac's review of its corrections.
     func reviewState(_ id: String) -> ReviewState
     /// Use Version N: accepts exactly `stamp` (Touch ID when a command, link or file changed).
