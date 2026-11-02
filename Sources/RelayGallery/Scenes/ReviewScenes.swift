@@ -101,11 +101,12 @@ private let firstView = ReviewState.pending(shown: nil, current: reviewStamps[3]
 
 /// Owner Key states in Settings › Queue.
 @MainActor private func ownerKeyScene(_ name: String, state: OwnerKeyState, status: OwnerStatus?,
-                                      canRequire: Bool = false) -> GalleryScene {
+                                      canRequire: Bool = false,
+                                      address: String = "https://mailbox.example:8790") -> GalleryScene {
     settingsScene(name, tab: .queue) {
         QueueTab(model: FixtureSettingsModel(
             settings: SettingsFixtures.snapshot(),
-            draft: MailboxDraft(address: "https://mailbox.example:8790", tokenFile: "~/.config/relay/mailbox-token"),
+            draft: MailboxDraft(address: address, tokenFile: "~/.config/relay/mailbox-token"),
             ownerKeyState: state, ownerStatus: status, canRequireOwnerKey: canRequire))
     }
 }
@@ -129,6 +130,7 @@ private let thisKey = OwnerKeyRow(id: "k3", label: "example-mac", status: "appro
                       canRequire: true),
         ownerKeyScene("settings-owner-key-not-used-here",
                       state: .notUsedHere(OwnerKeyFlow.notUsedHere(scheme: "https")),
-                      status: OwnerStatus(required: false, keys: [studioKey, thisKey])),
+                      status: OwnerStatus(required: false, keys: [studioKey, thisKey]),
+                      address: "http://mailbox.example:8790"),
     ]
 }
