@@ -790,8 +790,13 @@ public enum LinkCheck: Equatable, Sendable {
             shell.updateMailbox()
         case .mailboxNewer:
             shell.checkForUpdates()
+        case .corrected(let id, _):
+            if navigation.selectedID != id { open(id) }
+        case .historyChanged:
+            break
         case .storeFailed, .settingsReloaded, .updating, .resumeFailed, .mailboxUpToDate, .mailboxUpdateFailed,
-             .mailboxUpdateCommandInvalid, .ownerKeyRefused:
+             .mailboxUpdateCommandInvalid, .ownerKeyRefused, .reviewRecordsChanged, .reviewRecordsUnreadable,
+             .doneHeldBack:
             break
         }
     }

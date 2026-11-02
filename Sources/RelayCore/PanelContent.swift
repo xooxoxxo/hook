@@ -50,12 +50,24 @@ public enum PanelNotice: Equatable, Sendable {
     case mailboxUpdateCommandInvalid(reason: String)
     /// An owner act got 403 "unknown owner key": this Mac's key was revoked or never approved.
     case ownerKeyRefused
+    /// The open ask was corrected after the owner saw it; its review entry is `reviewAction`.
+    case corrected(id: String, rev: Int)
+    /// The open ask's history failed its checks or went back on what this Mac pinned.
+    case historyChanged(id: String)
+    /// A sealed review record failed its check and was dropped.
+    case reviewRecordsChanged
+    /// The Keychain refused the review seal key: corrected asks stay locked.
+    case reviewRecordsUnreadable
+    /// A Done held for Undo was dropped: the ask was corrected meanwhile.
+    case doneHeldBack(id: String, title: String)
 
     /// The open ask this Notice is about, when it belongs to that ask's detail: it goes when
     /// the owner leaves the ask and never shows on the queue.
     public var detailAskID: String? {
-        if case .sessionClosed(let id) = self { return id }
-        return nil
+        switch self {
+        case .sessionClosed(let id), .corrected(let id, _), .historyChanged(let id), .doneHeldBack(let id, _): return id
+        default: return nil
+        }
     }
 
     public var showsOnQueue: Bool { detailAskID == nil }
@@ -63,9 +75,10 @@ public enum PanelNotice: Equatable, Sendable {
     public var kind: NoticeKind {
         switch self {
         case .actionFailed, .reopenFailed, .storeFailed, .queueMoved, .resumeFailed, .mailboxOlder,
-             .mailboxUpdateFailed, .mailboxUpdateCommandInvalid, .ownerKeyRefused: return .error
+             .mailboxUpdateFailed, .mailboxUpdateCommandInvalid, .ownerKeyRefused, .historyChanged,
+             .reviewRecordsChanged, .reviewRecordsUnreadable: return .error
         case .settingsReloaded, .sessionClosed, .noLongerOpen, .offlineCached, .updating, .mailboxNewer,
-             .mailboxUpToDate: return .info
+             .mailboxUpToDate, .corrected, .doneHeldBack: return .info
         }
     }
 
@@ -104,6 +117,18 @@ public enum PanelNotice: Equatable, Sendable {
             return "The Pond update command in Settings can't be run: \(Sanitize.revealLine(reason))."
         case .ownerKeyRefused:
             return "The Pond no longer accepts this Mac's owner key. Set it up again in Settings › Queue."
+        case .corrected:
+            return "Corrected after you saw it. Review before you copy anything."
+        case .historyChanged:
+            return "This ask's history changed on the Pond. Don't act on it: skip it, or trust the Pond's history "
+                + "again after a restore."
+        case .reviewRecordsChanged:
+            return "Hook's review records were changed outside Hook, so corrected asks need a review again."
+        case .reviewRecordsUnreadable:
+            return "Hook couldn't read its review key from the Keychain, so corrected asks stay locked. "
+                + "Allow Hook when macOS asks."
+        case .doneHeldBack(_, let title):
+            return "Done was held back: “\(Sanitize.revealLine(title))” was corrected."
         }
     }
 
@@ -116,8 +141,11 @@ public enum PanelNotice: Equatable, Sendable {
         case .offlineCached: return "Try Again"
         case .mailboxOlder: return "Update Pond…"
         case .mailboxNewer: return "Check for Updates"
+        case .corrected: return "Review Changes"
+        case .historyChanged: return "Trust the Pond's History Again…"
         case .storeFailed, .settingsReloaded, .updating, .resumeFailed, .mailboxUpToDate, .mailboxUpdateFailed,
-             .mailboxUpdateCommandInvalid, .ownerKeyRefused:
+             .mailboxUpdateCommandInvalid, .ownerKeyRefused, .reviewRecordsChanged, .reviewRecordsUnreadable,
+             .doneHeldBack:
             return nil
         }
     }
