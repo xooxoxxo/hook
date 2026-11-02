@@ -43,6 +43,33 @@ A "now" ask slides the hidden panel in on that ask without taking focus from the
 - **Resume Session**, in a card's context menu or the ⋯ menu at the top of an ask, opens a new terminal window in the session's folder and runs `claude --resume` with its session. Pick the terminal in Settings › General (Automatic picks the first installed of Ghostty, iTerm2, WezTerm, kitty, Warp and Alacritty, else Terminal; the picker shows which, as in "Automatic (Ghostty)"). It works only for a session on this Mac; for one on another Mac the item is dimmed and says which Mac. If the terminal doesn't open, Hook copies the resume command and says why.
 - Drafts, ticks and where you scrolled survive going back, switching asks and hiding the panel. Ticks also survive a relaunch.
 
+## Corrected asks
+
+A session that posted an ask can correct it while it is open (a wrong port, a missing step), instead of closing it and posting a new one. This needs a Pond 1.1.0 or newer; This Mac mode doesn't take corrections yet. Each correction is a new version of the ask. Hook checks the whole history before it shows anything: every version is hashed, each one names the hash of the one before, and Hook remembers every hash it has seen on this Mac.
+
+- **The ask locks.** A corrected ask you haven't reviewed shows a bar in place of Done: **Corrected after you saw it** (or **Corrected before this Mac showed it**), with the version and how many corrections. Until you review it, Copy (the button, ⇧⌘C and text selection), links, files, answers, ticks and Done are off. **Skip always works.** The card in the list says **Corrected**, and Telegram shows only "Corrected: review in Hook". A copy refused because the ask changed that instant says "Changed just now. Review first."
+- **Review the changes.** **Show Changes** (or **Review Changes** in the Notice) opens the review inside the ask: one diff from the version you last accepted on this Mac to the newest, or the whole ask when this Mac never showed it. Above it, **The session says:** lists every reason the session gave. Changed steps, new steps and steps that moved ("Moved from step 2") are marked; unchanged ones are dimmed.
+- **Look closer.** Hook flags lines worth a second look: a host the first version didn't have, `sudo`, `rm -rf`, a download piped into a shell, decoding hidden content, `eval` and other generated code, characters that aren't plain ASCII, and paths outside the session's folder. These checks are incomplete: no flag never means safe.
+- **Use Version N** accepts the version you reviewed. When a correction changes a command, a link or a file, it asks for Touch ID (or your password). If another correction arrives while you review, the review says so ("Version 4 arrived during your review"); **Show Version 4** brings it in, and the older version can no longer be used.
+- **After you accept,** ticks and answers stay with their steps by the steps' ids, so a step that moved keeps its tick. A changed step loses its tick and shows **Changed**, a new one **New**, until you tick it.
+
+**When the history changes.** If the Pond serves a history that doesn't match what this Mac saw (a version is missing, changed or older, or a Pond older than 1.1.0 serves a corrected ask), the ask shows a red bar, **This ask's history changed on the Pond**, and every act but Skip stays off. That happens after a Pond restore, or when someone swapped the history. Skip the ask, or, only after a restore you made, press **Trust the Pond's History Again…** (Touch ID).
+
+**Review records.** What you accepted and the hashes Hook has seen live in `reviews.json` in Hook's Application Support folder, sealed with a key in your Keychain ("Hook review seal"). If macOS asks for your password to let Hook read it, Allow. If the Keychain refuses, or `reviews.json` is gone while the key is still there, corrected asks stay locked and a Notice says the review records are unreadable. **Reset Review Records…** in that Notice (Touch ID) starts over: every corrected ask needs a review again, and the owner key has to be set up again. See [SECURITY.md](../SECURITY.md#keychain-items).
+
+## The owner key
+
+The owner key lets the Pond tell your answers apart from a session's. Accepting a correction always needs it; Done, Skip, replies, answers and Reopen send it too once it is set up. Each Mac makes its own key and keeps it in your Keychain ("Hook owner key"); the Pond stores only its hash, and only after you approve the Mac on Telegram. It needs a Pond 1.1.0 or newer at an `https` URL.
+
+1. Open Settings › Queue › **Owner Key** and press **Set Up This Mac…**.
+2. Hook shows a six-digit code for this Mac, and the Pond sends a request to your Telegram.
+3. Open the Hook message in Telegram and check it shows the same code. Tap **Approve**. If it shows another code, or you didn't start this, tap **Refuse**: someone else is trying to act as you. The request expires after 10 minutes.
+4. The row says **Approved**. Other Macs you approved are listed under **Other Macs**.
+
+The key goes only over https (or plain http to this Mac itself), and only to the scheme it was set up on: switching the Pond URL to http stops it. If the Pond stops accepting the key (it was revoked, or the Pond was reset), a Notice says so and the row offers **Set Up Again…**.
+
+**Require the owner key.** Once two Macs are approved, this one among them, **Require Owner Key…** makes the Pond refuse owner acts without a key: sessions and scripts can then no longer answer, press Done or reopen as you. Turning it off waits for your tap on Telegram.
+
 ## Keys
 
 | Where | Key | Action |
@@ -91,7 +118,7 @@ Hook checks GitHub for a new release a minute after launch and then daily. When 
 
 - **General:** shortcut, presence and away time, Start Hook when I log in, badge count, where documents open, the terminal for Resume Session, appearance, version.
 - **Panel:** edge, display, Re-dock Now, whether "now" asks slide the panel in, what happens after Done or Skip.
-- **Queue:** This Mac only or Pond, how long closed asks stay, the Pond URL, Pond token file, context and check interval (saved with Connect), connection status, Send a Test Ask.
+- **Queue:** This Mac only or Pond, how long closed asks stay, the Pond URL, Pond token file, context and check interval (saved with Connect), connection status and the Pond's version against the range this Hook needs, Send a Test Ask, and the [owner key](#the-owner-key).
 - **Notifications:** which urgencies notify, sound, permission, a test notification.
 - **Connect:** the MCP command, the relay command, the CLAUDE.md section, the skill and the replies hook.
 

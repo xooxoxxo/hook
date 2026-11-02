@@ -9,6 +9,7 @@ Registered by the installer.
 - `relay_post {project, instructable}` returns `{id, deduped, openUrl}`.
 - `relay_status {id}` returns `status`, `resolvedBy` (`owner`, `session` or null) and `ownerEvents`.
 - `relay_list {}` returns every open ask.
+- `relay_amend {id, reason, instructable, baseRev?}` corrects an open ask this Mac posted and returns `{id, rev, hash, changed, added, removed, moved, top, openUrl}` ([below](#correcting-an-ask)).
 
 ## Skill and CLAUDE.md
 
@@ -29,11 +30,23 @@ Commands start Hook if it isn't running, except `relay replies --hook` and `rela
 | `relay done <id> [note]`, `relay skip <id> [note]` | `done <id>` / `skipped <id>`, or `already <status> (by <actor>) <id>` |
 | `relay replies [--new] [--hook]` | One line per new owner answer |
 | `relay wait <id> [--timeout SECONDS] [--interval SECONDS] [--after SEQ]` | See [below](#relay-wait) |
+| `relay amend <id> --reason TEXT [--base REV] [--json FILE\|-]` | `corrected <id> → version N (changed: step 2; added: step 4). The owner must review it in Hook before acting.` See [below](#correcting-an-ask) |
 | `relay --version` | `relay 0.10.0` (`hook --version` prints `hook 0.10.0`) |
 
-`relay post` and `relay_post` check the Pond's protocol level (`GET /version`, cached for 5 minutes) before posting an instructable that uses `question` (level 2), `blocking` / `warning` (level 3) or `optional`, `file` or a link's `path` (level 4). A Pond that reports a level too low makes them refuse with ``This Pond speaks protocol M; `<key>` needs N. Ask the owner to update the Pond (Hook › Update Pond…).`` and exit 1; nothing is posted. In This Mac mode the refusal is ``Hook speaks protocol M; `<key>` needs N. Update Hook (Check for Updates…).`` A Pond without `/version` is unknown, and the instructable is posted for the Pond to validate. See [Instructable format](instructables.md#validation).
+`relay post` and `relay_post` check the Pond's version (`GET /version`, cached for 5 minutes) before posting an instructable that uses `question`, `blocking`, `warning`, `optional`, `file` or a link's `path` (Pond 1.0.0 or newer) or step `id`s (1.1.0 or newer). Pond versions follow semver, so a newer minor or patch Pond never stops a key working ([Pond versions](mailbox-protocol.md#pond-versions)). A Pond too old for a key makes them refuse with ``Your Pond (V) is older than `<key>` needs (Pond N or newer). Update the Pond, or leave the key out.`` and exit 1; nothing is posted. In This Mac mode the refusal is ``Hook's This Mac queue (Pond V) can't take `<key>` yet.`` A Pond without `/version` counts as protocol 1, too old for any of these keys; one whose answer can't be read is unknown, and the instructable is posted for the Pond to validate. See [Instructable format](instructables.md#validation).
 
 Exit codes: 0 success, 1 refused or not found, 2 no config or Hook unreachable, 3 `relay wait` timed out.
+
+## Correcting an ask
+
+When a step of an open ask is wrong, the session that posted it can correct it in place with `relay amend` or `relay_amend`, instead of closing it and posting a new one. It sends the whole corrected instructable and a one-line `reason` (at most 200 characters) saying what was wrong and what changed.
+
+- **Only the poster.** Posting to a Pond 1.1.0 or newer makes an edit key for the ask, kept in a `0600` file in `~/.local/state/relay/edit-keys` (a `0700` folder; `$RELAY_EDIT_KEY_DIR` overrides it). The Pond stores only the key's hash, and a key is only ever sent to the Pond it was made for. Without it the answer is `No edit key for ask <id> on this Mac`; close the ask and post a new one.
+- **Keep the step ids.** Read them with `relay status <id> --json` (field `instructable`) and keep each one; leave ids out only on new steps. An ask posted without ids has the Pond's (`s1`, `s2`, `s2.1`). `title`, `urgency` and `from` can't change.
+- **Based on the newest version.** The correction names the version it starts from. If the ask changed since this Mac last wrote it, `relay amend` refuses with `Ask <id> changed since you last wrote it (version N).`: read it again and correct from that, or pass `--base REV` (`baseRev`) to correct an older version on purpose.
+- **Limits.** At most 10 corrections per ask, at least 60 s apart.
+- **The owner reviews it.** Until the owner accepts the correction in Hook, the ask is locked on their Mac ([Corrected asks](using.md#corrected-asks)). Answers carry the version they answered: `relay status --json` and `relay_status` show `rev`, `acceptedRev` and `editable`, mark an answer to a question that changed since as `stale`, and list answers to removed steps under `earlier`.
+- **Where it can't.** An older Pond refuses with ``Your Pond (V) is older than `amend` needs (Pond 1.1.0 or newer). Update the Pond, or close this ask and post a new one.``; a Pond with corrections switched off gives `The Pond doesn't take corrections yet.`; This Mac mode says `This Mac mode can't correct asks yet`. In each case, close the ask (`relay done <id>`) and post a new one.
 
 ## Replies hook
 

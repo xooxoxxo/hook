@@ -12,6 +12,23 @@ What Hook protects, and how. To report a vulnerability, see [SECURITY.md](../SEC
 
 Agents can post, read and close asks. Only the app can record owner answers. Clients show who closed an ask (`by owner` or `by session`).
 
+## Corrections
+
+A session can correct an open ask it posted; Hook shows nothing from a corrected ask until it has checked the whole history.
+
+- Every revision is hashed and names the previous one's hash. Hook recomputes each hash, needs every revision from 1 up, and remembers every hash it has seen on this Mac. A history that fails, loses a revision or goes back locks the ask with a red Notice until you [trust it again](using.md#corrected-asks).
+- A correction you haven't accepted locks the ask: no copy, links, files, ticks, answers or Done. Skip always works. Accepting a change to a command, link or file needs Touch ID or your password.
+- Done, Skip and answers name the revision you saw, so the Pond can't apply them to another.
+- What you accepted and the hashes Hook has seen are sealed in `reviews.json` with a key in the Keychain that Hook made itself. Edit keys stay on the posting Mac; the Pond stores only their hashes.
+
+## The owner key
+
+- Each Mac makes its own 32-byte key in the Keychain; the Pond stores only its SHA-256, and only after you approve the Mac on Telegram with the code Hook shows.
+- The key goes only over https (or plain http to this Mac itself), and only to the scheme it was set up on.
+- With **Require the owner key** on, sessions and scripts can't answer, press Done or reopen as you. Accepting a correction always needs the key.
+
+What Hook doesn't defend against, and the Keychain limits of today's ad-hoc signed builds, are in [SECURITY.md](../SECURITY.md#threat-model).
+
 ## Browsers
 
 The Host check stops DNS rebinding, requests with `Origin` or a cross-site `Sec-Fetch-Site` are rejected, and no CORS headers are ever sent.

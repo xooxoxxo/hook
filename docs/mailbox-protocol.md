@@ -1,12 +1,12 @@
 # Pond protocol
 
-What Hook sends to your Pond (formerly called the mailbox), the small server you run that holds asks while you're away, and what it reads back. Hook includes no Pond server. The names in the protocol itself stay as they were: the `"service": "mailbox"` answer, the `mailboxURL` and `mailboxUpdateCommand` config keys and the `hook:mailbox-protocol` release marker.
+What Hook sends to your Pond (formerly called the mailbox), the small server you run that holds asks while you're away, and what it reads back. Hook includes no Pond server. The names in the protocol itself stay as they were: the `mailboxURL` and `mailboxUpdateCommand` config keys and the `hook:mailbox-protocol` release marker.
 
 The app polls every `pollSeconds`; the CLI and MCP server use the same routes.
 
 ## Requests
 
-Every request carries `Authorization: Bearer <content of tokenFile>`. Bodies are JSON (`Content-Type: application/json`).
+Every request carries `Authorization: Bearer <content of tokenFile>` and `X-Hook-Protocol: 5`, which says the client reads revision histories (without it a Pond 1.1.0 serves a corrected ask as a stub). Owner acts from the app also carry `X-Hook-Owner-Key` once this Mac's [owner key](#the-owner-key) is approved. Bodies are JSON (`Content-Type: application/json`).
 
 | Request | Sent by | Body or query | Hook expects |
 |---|---|---|---|
@@ -19,30 +19,42 @@ Every request carries `Authorization: Bearer <content of tokenFile>`. Bodies are
 | `POST /asks/{id}/reply` | app (Reply, reply choices) | `{text}` | 200 `{item}` |
 | `POST /asks/{id}/answers` | app (Send answers) | `{"answers": [...]}`: 1 to 20 of `{"step": "3.2", "picked": ["Staging"]}` or `{"step": "4", "text": "..."}` | 200 `{item}`; 409 when the ask is closed |
 | `GET /events` | `relay replies` | `after=<seq>`, `limit=1000` | 200 `{events, next, epoch?}`: events with `seq > after`, ascending; `next` is the last seq returned, or `after` |
-| `GET /version` | app (on connect, then at most every 30 minutes; Settings › Queue › Check), `relay post` and `relay_post` (before an instructable with `question`, `blocking` or `warning`; cached for 5 minutes) | none | 200 `{"service": "mailbox", "version": "<string>", "protocol": <int>}`; a 404 is level 1 to the app and unknown to the CLI and MCP server ([below](#protocol-levels)) |
+| `GET /version` | app (on connect, then at most every 30 minutes; Settings › Queue › Check), `relay post` and `relay_post` (before an instructable with a key that needs a newer Pond; cached for 5 minutes), `relay amend` | none | 200 `{"service": "pond", "version": "1.1.0", "protocol": 5}`; a 404 is protocol 1 ([below](#pond-versions)) |
+| `POST /asks/{id}/amend` | `relay amend`, `relay_amend` (Pond 1.1.0) | `{editKey, baseRev, baseHash, reason, instructable}` | 200 `{item, revision: {rev, hash, changed, added, removed, moved, top}, openUrl?, warning?}`; 409 `{"error": "corrections not enabled"}` when the Pond has them off |
+| `POST /asks/{id}/accept` | app (Use Version N; Pond 1.1.0, owner key required) | `{rev, hash}` | 200 `{item}` |
+| `GET /owner` | app (Settings › Queue › Owner Key) | none | 200 `{required, keys: [{id, label, status, created, approvedAt?}], self?}` |
+| `POST /owner/enroll`, `GET /owner/enroll/{id}` | app (Set Up This Mac…) | `{keyHash, label}`: only the key's SHA-256, never the key | 200 `{id, code?, status?, expires?}` |
+| `POST /owner/require` | app (Require Owner Key…, Turn Off…) | `{required}` | 200 `{required}`, or 202 `{pending: true}` while turning it off waits for Telegram |
 
-## Protocol levels
+<a id="protocol-levels"></a>
 
-`GET /version` names the Pond's protocol level in `protocol`. It is authenticated like every other route. Hook 0.9.1 uses level 4.
+## Pond versions
 
-| Level | Adds |
+`GET /version` names the Pond's version in `version`. It is authenticated like every other route. From 1.0.0 on, Pond versions follow [semver](https://semver.org): a minor release adds features without breaking anything, a patch fixes, and only a major release breaks clients. Each Hook release names the Pond versions it works with as an npm-style range: this one needs `^1.1.0` (1.1.0 or newer, below 2.0.0).
+
+| Pond | Adds |
 |---|---|
-| 1 | asks, events, resolve, reply, reopen (a Pond without `/version`) |
-| 2 | step `question` and `POST /asks/{id}/answers` (Hook 0.7) |
-| 3 | the `blocking` and `warning` step keys (Hook 0.9) |
-| 4 | the `optional` step key, and file links: the `file` step key and a link's `path` (Hook 0.9.1) |
+| 1.0.0 | everything up to the old protocol level 4: asks, events, resolve, reply, reopen, step `question` and `POST /asks/{id}/answers`, the `blocking`, `warning` and `optional` step keys, and file links (`file`, a link's `path`) |
+| 1.1.0 | step `id`s, revisions and corrections (`amend`, `accept`), and the owner key (`/owner`, `X-Hook-Owner-Key`) |
 
-A Pond that adds a level answers the higher number; one that doesn't change the protocol keeps its level whatever its own `version` says. In This Mac mode the app answers `GET /version` itself with its own level ([Local API](local-api.md)).
+A Pond 1.x still answers `protocol` (5 for 1.1.0) for Hook 0.9.x, which reads only that. Hook reads `version` first:
 
-How each side reads an answer it can't use:
+| `GET /version` answers | Hook reads it as |
+|---|---|
+| a strict semver `version` (`1.1.0`) | that version |
+| a dated `version` with an integer `protocol` (a Pond from before semver) | protocol 4 as 1.0.0, protocol N below 4 as 0.N.0; Settings shows "Pond (protocol 4)" |
+| 404 (no such route) | protocol 1: an older Pond, so the Notice and the update check apply |
+| 200 with neither | to the app, a failed check: no Notice, and Settings shows "Couldn't check"; to the CLI and MCP server, unknown: they post as before and let the Pond validate |
 
-| `GET /version` answers | The app | The CLI and MCP server |
-|---|---|---|
-| 200 with an integer `protocol` of 1 or more | that level | that level |
-| 404 (no such route) | level 1: an older Pond, so the Notice and the update check apply | unknown: post as before and let the Pond validate |
-| 200 without such a `protocol` | a failed check: no Notice, and Settings shows "Couldn't check" | unknown: post as before |
+In This Mac mode the app answers `GET /version` itself as Pond 1.0.0 ([Local API](local-api.md)): it has no corrections or owner key yet.
 
-The CLI and MCP server refuse an instructable only when the Pond reports a level below what one of its keys needs.
+How a version compares with the range:
+
+- **Inside it** (1.1.0, 1.4.2): Settings › Queue › Connection says "Pond 1.1.0 ✓ (needs ^1.1.0)".
+- **Below it** (1.0.0, protocol 4): "Pond 1.0.0 (needs ^1.1.0)" and **Needs an update**, and the panel's Notice says "Your Pond (1.0.0) is older than this Hook needs (^1.1.0).", naming what won't work until it is updated (step corrections and the owner key). An ask this Mac saw corrected stays locked while such a Pond serves it.
+- **A newer major** (2.0.0): "Pond 2.0.0 (this Hook needs ^1.1.0)" and **Newer than Hook**; the Notice says "Hook is older than your Pond (2.0.0). Update Hook to catch up.", with **Check for Updates**.
+
+A range is npm's syntax without the shortcuts: sets joined by `||`, each a space-separated list of comparators `^V`, `~V`, `>=V`, `>V`, `<=V`, `<V`, `=V` or a bare `V`, with full `MAJOR.MINOR.PATCH` versions. A pre-release such as `1.2.0-rc.1` matches only a range that names a pre-release of 1.2.0. The CLI and MCP server check each key against the first Pond version that has it, the same way.
 
 ## What the service should do
 
@@ -53,15 +65,35 @@ The CLI and MCP server refuse an instructable only when the Pond reports a level
 - **Answers.** Answer 404 for an unknown ask, then 409 `{"error": "ask is closed"}` unless the ask is open, then 400 `{"error": "invalid answers", "details": [...]}` when an answer doesn't fit its step's question. Otherwise add one `answer` event per answer (actor `owner`) in one transaction and leave the ask open. A later answer for the same step replaces the earlier one: the latest event wins, and the earlier ones stay in the log.
 - **Epoch.** Optional string. Change it when the event sequence restarts, so `relay replies` resets its cursors.
 
+## Corrections
+
+From Pond 1.1.0 an ask has revisions. Version 1 is the ask as posted; each `amend` adds the next. An item carries its newest one as `revision: {rev, hash, prev, at, reason, body, acceptedRev}`, and `GET /asks/{id}` adds `revisions`, every one from 1 up, oldest first.
+
+- **body** is the revision's instructable as a JSON string, exactly as served. Hook hashes the string as it is and reads it strictly: broken JSON, a lone surrogate or a key named twice in one object makes the history unreadable.
+- **hash** is the lowercase hex SHA-256 of `hook-rev-v1`, `rev`, `prev`, `at`, `reason` and `body`, joined with U+001F, over UTF-8. **prev** is the previous revision's hash, `""` for version 1, and version 1's `reason` is `""`.
+- **acceptedRev** is the revision the owner accepted, in force for Telegram, answers and Done.
+- Hook checks every hash and every `prev`, needs every revision from 1 to `rev`, and remembers each hash it has seen. A history that fails any of these, or serves a revision older than one this Mac saw, locks the ask with the history Notice.
+- **Edit keys.** `POST /asks` from the CLI or MCP server carries `editKeyHash`, the SHA-256 of a key the poster keeps. `amend` must bring the key, name the revision it starts from (`baseRev`, `baseHash`), and keep `title`, `urgency` and `from`.
+- **Acts bound to a version.** Done, Skip and answers from Hook add the `rev` and `hash` of the version shown to their body. A Pond whose version in force is another one answers 409 `{"error": "ask was corrected"}`, so an act never applies to a version the owner didn't see.
+
+## The owner key
+
+A Pond 1.1.0 can tell the owner's acts from a session's. Each Mac makes a 32-byte key, sends only its SHA-256 to `POST /owner/enroll` with a label, and shows the six-digit code the Pond's Telegram request repeats: the decimal value of the first 12 hex digits of `sha256("hook-enroll-v1\n" + id + "\n" + keyHash)`, modulo 1,000,000, zero-padded. Once the owner approves on Telegram, Hook sends the key as `X-Hook-Owner-Key` on owner acts, and only over https (or plain http to this Mac itself), to the scheme it was set up on.
+
+- `accept` always needs the key: 403 `{"error": "owner key required"}` without it.
+- With `required` on, every owner act needs it. A key the Pond doesn't know gets 403 `{"error": "unknown owner key"}`; Hook then marks it refused and asks the owner to set it up again.
+- Turning `required` on needs two approved keys, the caller's among them. Turning it off answers 202 and waits for the owner's tap on Telegram.
+
 <a id="updating-the-mailbox"></a>
 
 ## Updating the Pond
 
-**What Hook checks.** The app reads `GET /version` when it connects to the Pond, when you switch to another one, and then at most every 30 minutes while it is reachable. Settings › Queue › Connection shows the Pond's version and level, then ✓ or "Needs an update", with **Check** to read it again.
+**What Hook checks.** The app reads `GET /version` when it connects to the Pond, when you switch to another one, and then at most every 30 minutes while it is reachable. Settings › Queue › Connection shows the Pond's version against the range this Hook needs, then ✓ or "Needs an update", with **Check** to read it again.
 
-- **Older than Hook** (a level below Hook's): the panel says which features won't work ("per-step answers", "blocking steps", "optional steps", "file links") until the Pond is updated, with **Update Pond…** and **How to update** (this section).
-- **Newer than Hook** (a level Hook doesn't know): the panel says Hook is older, with **Check for Updates**.
-- **Before Hook updates itself.** A release's notes carry a hidden `<!-- hook:mailbox-protocol=N -->` marker: the level that release needs. When the connected Pond is below it, the update dialog says "Hook X needs Pond level N; yours is M." and offers **Update Pond First**, **Update Hook Anyway** and **Cancel**. When that check fails, the dialog says "Hook couldn't check your Pond" and still offers **Update Hook Anyway**. This Mac mode always passes.
+- **Older than Hook** (below the range this Hook needs): the panel says which features won't work ("step corrections and the owner key") until the Pond is updated, with **Update Pond…** and **How to update** (this section).
+- **Newer than Hook** (a newer major version): the panel says Hook is older, with **Check for Updates**. A newer minor or patch Pond needs nothing.
+- **Up to date:** once an update (or **Check** after one) brings the Pond into the range, "Your Pond is up to date (1.1.0)." shows for 8 seconds and goes on its own.
+- **Before Hook updates itself.** A release's notes carry a hidden `<!-- hook:pond=<range> -->` marker: the Pond range that release needs. When the connected Pond is below it, the update dialog says "Hook X needs Pond ^1.1.0. Your Pond is 1.0.0." and offers **Update Pond First**, **Update Hook Anyway** and **Cancel**. A Pond inside the range, or past it, passes, so a minor or patch Pond release never holds an update back. When the check fails, the dialog says "Hook couldn't check your Pond" and still offers **Update Hook Anyway**. This Mac mode always passes. Releases also keep the old `<!-- hook:mailbox-protocol=N -->` marker for older Hooks, which read only that.
 
 **Update Pond…** sits in the menu-bar menu next to Check for Updates… and in the panel's Notice. It runs the command in Settings › Queue › Pond › Update command (`mailboxUpdateCommand` in [config.json](configuration.md)) in a new window of your Resume terminal, through your login shell, so you see its output and answer any ssh or sudo prompt there. When the command ends, the window waits for Return and Hook reads the version again. Without a command, Update Pond… opens this section.
 
