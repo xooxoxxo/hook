@@ -57,6 +57,36 @@ import Testing
         #expect(try Data(contentsOf: url) == before)
     }
 
+    @Test func aPlantedSealKeyLoadsNoRecordsAndWritesNothing() async throws {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let url = reviewsURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        // Another app made the seal item with a key it knows, and sealed a pre-accepted record.
+        let planted = SymmetricKey(data: Data(repeating: 7, count: 32))
+        let two = revised("a", [idSteps(3), idSteps(4)])
+        let record = ReviewRecord(accepted: two.detail.revisions[1].stamp, seen: two.detail.revisions[1].stamp,
+                                  pins: Dictionary(uniqueKeysWithValues: two.detail.revisions.map { ($0.rev, $0.hash) }))
+        try ReviewStore.sealed(records: [ReviewStore.key(sourceKey: localIdentity.key, id: "a"): record], sealKey: planted)
+            .write(to: url)
+        let before = try Data(contentsOf: url)
+        let secrets = MemorySecretStore()
+        secrets.plantForeign(.reviewSeal, Data(repeating: 7, count: 32))
+        let store = reviewingStore(defaults, secrets: secrets, url: url)
+        let fake = FakeQueueSource(items: [two.item], details: ["a": two.detail])
+        await start(store, fake)
+
+        #expect(store.reviewsUnreadable)
+        #expect(store.notice == .reviewRecordsUnreadable)
+        #expect(store.record("a") == nil)
+        #expect(store.reviewState("a").isLocked)
+        #expect(!(await store.acceptRevision("a", stamp: two.detail.revisions[1].stamp)))
+        #expect(secrets.writes == 0)
+        #expect(!store.saveReviewsNow())
+        try? await Task.sleep(for: .milliseconds(50))
+        #expect(try Data(contentsOf: url) == before)
+    }
+
     @Test func aTamperedRecordIsDroppedWithANotice() async throws {
         let defaults = TestDefaults()
         defer { defaults.drop() }

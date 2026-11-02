@@ -30,6 +30,33 @@ import Testing
         #expect(store.peek(name) == Data("kept".utf8))
     }
 
+    @Test func aForeignItemIsNeitherReadNorUpdated() throws {
+        let store = MemorySecretStore()
+        store.plantForeign(.reviewSeal, Data(repeating: 7, count: 32))
+        #expect(throws: SecretStoreError.foreign) { try store.read(.reviewSeal) }
+        #expect(throws: SecretStoreError.foreign) { try store.write(.reviewSeal, Data(repeating: 1, count: 32)) }
+        #expect(store.peek(.reviewSeal) == Data(repeating: 7, count: 32))
+        #expect(store.writes == 0)
+        // Other items are unaffected.
+        try store.write(name, Data("one".utf8))
+        #expect(try store.read(name) == Data("one".utf8))
+    }
+
+    @Test func onlyAnAccessListNamingThisAppAloneIsOwn() {
+        let me = Data("/Applications/Hook.app".utf8), other = Data("/usr/bin/security".utf8)
+        #expect(KeychainSecretStore.isOwn(decryptLists: [[me]], me: me))
+        #expect(KeychainSecretStore.isOwn(decryptLists: [[me, me]], me: me))
+        // Any app may read (security add-generic-password -A).
+        #expect(!KeychainSecretStore.isOwn(decryptLists: [nil], me: me))
+        #expect(!KeychainSecretStore.isOwn(decryptLists: [[me], nil], me: me))
+        // Made for another app, or shared with one.
+        #expect(!KeychainSecretStore.isOwn(decryptLists: [[other]], me: me))
+        #expect(!KeychainSecretStore.isOwn(decryptLists: [[me, other]], me: me))
+        // No entry that reads, or one that names no app: not what Hook makes.
+        #expect(!KeychainSecretStore.isOwn(decryptLists: [], me: me))
+        #expect(!KeychainSecretStore.isOwn(decryptLists: [[]], me: me))
+    }
+
     @Test func theNamesHookUses() {
         #expect(name.service == "io.github.xooxoxxo.relay.owner-key")
         #expect(name.account == "mailbox:pond.example:8790#personal")

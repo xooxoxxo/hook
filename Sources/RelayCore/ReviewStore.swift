@@ -96,7 +96,8 @@ public enum ReviewStore {
 /// The review store's seal key: 32 random bytes in the Keychain item "Hook review seal".
 public enum ReviewSeal {
     /// The stored key, or a new one when there is no item. A read the Keychain refuses throws
-    /// (`SecretStoreError.unreadable`) and never mints a new key over the old one.
+    /// (`SecretStoreError.unreadable`) and never mints a new key over the old one; so does an
+    /// item another app can read (`.foreign`), which is neither used nor overwritten.
     public static func loadOrCreate(_ secrets: any SecretStore) throws -> SymmetricKey {
         if let data = try secrets.read(.reviewSeal) {
             guard data.count == 32 else { throw SecretStoreError.unreadable(errSecDecode) }

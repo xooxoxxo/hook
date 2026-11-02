@@ -486,14 +486,15 @@ extension Store {
 
     // MARK: Persistence
 
-    /// At launch: the seal key, then the records that still verify. A refused Keychain read
-    /// loads nothing and writes nothing; a failed write of a new key keeps records in memory only.
+    /// At launch: the seal key, then the records that still verify. A refused Keychain read,
+    /// or a seal item another app can read, loads nothing and writes nothing; a failed write of a new key keeps records in memory only.
     func loadReviews() {
         guard let reviewFile else { return }
         let key: SymmetricKey
         do {
             key = try ReviewSeal.loadOrCreate(reviewFile.secrets)
-        } catch SecretStoreError.unreadable {
+        } catch SecretStoreError.unreadable, SecretStoreError.foreign {
+            // A refused read, or a planted key whose maker could seal records: trust none.
             reviewsUnreadable = true
             pendingReviewNotice = .reviewRecordsUnreadable
             return

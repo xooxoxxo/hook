@@ -118,4 +118,12 @@ private func object(_ url: URL) throws -> [String: Any] {
         #expect(throws: SecretStoreError.unreadable(-25293)) { try ReviewSeal.loadOrCreate(secrets) }
         #expect(secrets.writes == 1)
     }
+
+    @Test func aPlantedSealKeyIsNeitherUsedNorReplaced() throws {
+        let secrets = MemorySecretStore()
+        secrets.plantForeign(.reviewSeal, Data(repeating: 7, count: 32))
+        #expect(throws: SecretStoreError.foreign) { try ReviewSeal.loadOrCreate(secrets) }
+        #expect(secrets.writes == 0)
+        #expect(secrets.peek(.reviewSeal) == Data(repeating: 7, count: 32))
+    }
 }
