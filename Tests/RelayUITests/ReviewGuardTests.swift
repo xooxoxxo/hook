@@ -199,6 +199,8 @@ import Testing
         #expect(StepRow.actions(content, locked: false, contentLocked: false) == ["Copy command", "Open link"])
         #expect(StepRow.actions(content, locked: false, contentLocked: true).isEmpty)
         #expect(StepRow.actions(content, locked: true, contentLocked: false).isEmpty)
+        #expect(OpenLink.menuItems(locked: false) == ["Copy Link Address"])
+        #expect(OpenLink.menuItems(locked: true).isEmpty)
         #expect(CopyOutcome.refusedText == "Changed just now. Review first.")
     }
 }

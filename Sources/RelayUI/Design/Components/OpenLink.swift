@@ -24,13 +24,25 @@ public struct OpenLink: View {
         .truncationMode(.middle)
         .help(line(url.absoluteString))
         .accessibilityLabel(Self.accessibilityText(title))
-        .disabled(!AskContentLock.allowsActions(locked: contentLocked))
         .contextMenu {
-            Button("Copy Link Address") {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(url.absoluteString, forType: .string)
+            ForEach(Self.menuItems(locked: contentLocked), id: \.self) { item in
+                Button(item) { copyAddress() }
             }
         }
+        .disabled(!AskContentLock.allowsActions(locked: contentLocked))
+    }
+
+    public static let copyAddressItem = "Copy Link Address"
+
+    /// The context menu: none while the ask's content is locked for review.
+    public static func menuItems(locked: Bool) -> [String] {
+        AskContentLock.allowsCopy(locked: locked) ? [copyAddressItem] : []
+    }
+
+    private func copyAddress() {
+        guard AskContentLock.allowsCopy(locked: contentLocked) else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(url.absoluteString, forType: .string)
     }
 
     public static func accessibilityText(_ title: String) -> String { title + ", link" }
