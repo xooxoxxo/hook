@@ -46,7 +46,18 @@ extension Store {
         histories[id] = RevisionCheck.merge(fetched: fetchedHistories[id], listed: listedHistories[id])
         pin(id)
         holdBackStaleDone(id)
+        endReviewIfLeft(id)
     }
+
+    /// The ask left the review another way than Not Now or Use Version N: it closed, or is no
+    /// longer pending (accepted, or its history failed).
+    private func endReviewIfLeft(_ id: String) {
+        guard reviewing[id] != nil else { return }
+        if case .pending = reviewState(id), served[id]?.status == "open" { return }
+        reviewing[id] = nil
+    }
+
+    public func isAccepting(_ id: String) -> Bool { accepting.contains(id) }
 
     /// A Done held for Undo was bound to the revision then shown; a new current revision
     /// drops it, so it can't land on a version the owner never saw.
@@ -140,6 +151,10 @@ extension Store {
     /// ID first. The acceptance is local and sealed before the Pond hears of it: the Pond is
     /// not trusted for it, so a failed Pond call keeps it and marks the record to resend.
     @discardableResult public func acceptRevision(_ id: String, stamp: RevisionStamp) async -> Bool {
+        // One at a time: a second press while Touch ID or the Pond call is up accepts nothing.
+        guard !accepting.contains(id) else { return false }
+        accepting.insert(id)
+        defer { accepting.remove(id) }
         if reviewsUnreadable { retryReviewKey() }
         guard !reviewsUnreadable else {
             post(.reviewRecordsUnreadable)

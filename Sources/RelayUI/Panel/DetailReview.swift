@@ -109,17 +109,29 @@ struct DetailReview: View {
     }
 }
 
-/// The review's sticky bar: the flag count (or the newer version's line), Not Now, and Use
-/// Version N (Touch ID when a command, link or file changed). Once a newer version arrived the
-/// primary shows it instead, and never accepts the one on screen.
+/// The review's sticky bar: the flag count (or the newer version's line), Skip (always
+/// allowed), Not Now, and Use Version N (Touch ID when a command, link or file changed), off
+/// while an accept is in flight. Once a newer version arrived the primary shows it instead, and
+/// never accepts the one on screen.
 struct DetailReviewBar<Model: PanelViewModel>: View {
     @ObservedObject var model: Model
     let id: String
     let page: ReviewPage?
 
+    /// The bar's buttons, left to right.
+    static func buttonTitles(page: ReviewPage?) -> [String] {
+        ["Skip", ReviewPage.notNow] + (page.map { [$0.primaryTitle] } ?? [])
+    }
+
+    /// The primary is off until the page is there, and while an accept is in flight.
+    static func primaryEnabled(page: ReviewPage?, accepting: Bool) -> Bool { page != nil && !accepting }
+
     var body: some View {
         ReviewBar(tone: .correction, title: page?.barTitle ?? "Loading the changes",
                   detail: page?.barDetail ?? LookCloser.incomplete, help: ReviewPage.lookCloserHelp) {
+            Button("Skip") { model.close(id, .declined) }
+                .help(ActionBar.skipHelp)
+                .keyboardShortcut(KeyboardShortcut(.delete, modifiers: .command))
             Button(ReviewPage.notNow) { model.endReview(id) }
             Spacer(minLength: DS.Space.inline)
             if let page {
@@ -133,6 +145,7 @@ struct DetailReviewBar<Model: PanelViewModel>: View {
                     }
                 }
                 .buttonStyle(.borderedProminent)
+                .disabled(!Self.primaryEnabled(page: page, accepting: model.isAccepting(id)))
                 .help(page.needsPresence && !page.isStale ? ReviewPage.presenceNote : page.primaryTitle)
             }
         }

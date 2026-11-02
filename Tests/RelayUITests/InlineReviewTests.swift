@@ -73,6 +73,66 @@ import Testing
         #expect(recorder.presenceAsked.count == 1)
     }
 
+    /// Use Version N is off while an accept is in flight (Touch ID up, or the Pond call), and a
+    /// second press accepts nothing more.
+    @Test func useVersionIsOffWhileAnAcceptIsInFlight() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let recorder = ShellRecorder()
+        let (store, fake, detail) = await pendingStore(defaults, recorder: recorder)
+        let gate = PresenceGate()
+        store.shell.confirmPresence = { _ in await gate.wait() }
+        store.startReview("a")
+        let page = store.reviewPage("a")
+        #expect(DetailReviewBar<Store>.primaryEnabled(page: page, accepting: store.isAccepting("a")))
+        store.accept("a", stamp: detail.revisions[1].stamp)
+        _ = await eventually { gate.waiting }
+        #expect(store.isAccepting("a"))
+        #expect(!DetailReviewBar<Store>.primaryEnabled(page: page, accepting: store.isAccepting("a")))
+        store.accept("a", stamp: detail.revisions[1].stamp)
+        #expect(!(await store.acceptRevision("a", stamp: detail.revisions[1].stamp)))
+        gate.open(true)
+        _ = await eventually { !store.isAccepting("a") }
+        #expect(!store.isAccepting("a"))
+        #expect(gate.asked == 1)
+        #expect(await fake.count("accept") == 1)
+        #expect(store.reviewState("a") == .current(detail.revisions[1].stamp))
+    }
+
+    /// Skip is in the review bar too: the design says it always works.
+    @Test func theReviewBarOffersSkip() async throws {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, _, _) = await pendingStore(defaults, recorder: ShellRecorder())
+        store.startReview("a")
+        let page = try #require(store.reviewPage("a"))
+        #expect(DetailReviewBar<Store>.buttonTitles(page: page) == ["Skip", ReviewPage.notNow, page.primaryTitle])
+        #expect(DetailReviewBar<Store>.buttonTitles(page: nil) == ["Skip", ReviewPage.notNow])
+    }
+
+    /// The review ends when the ask leaves it another way than Not Now or Use Version N.
+    @Test func skipCloseAndReopenEndTheReview() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, fake, detail) = await pendingStore(defaults, recorder: ShellRecorder())
+        store.startReview("a")
+        store.close("a", .declined)
+        #expect(store.reviewing["a"] == nil)
+
+        store.undo()
+        store.open("a")
+        store.startReview("a")
+        #expect(store.isReviewing("a"))
+        // Closed from somewhere else: the next list leaves it out, Recently closed has it.
+        _ = try? await fake.resolve("a", verdict: .declined, note: nil)
+        await store.refresh()
+        #expect(store.reviewing["a"] == nil)
+
+        store.reviewing["a"] = detail.revisions[1].stamp
+        await store.reopen("a")
+        #expect(store.reviewing["a"] == nil)
+    }
+
     @Test func theLockedDetailTagsTheShownVersion() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }
@@ -139,5 +199,22 @@ import Testing
                 == "studio⟨U+202E⟩mac · approved 28 Oct")
         let waiting = OwnerKeyRow(id: "k", label: "mini", status: "pending", created: "")
         #expect(OwnerKeyText.row(waiting) == "mini · waiting")
+    }
+}
+
+/// A Touch ID prompt that stays up until the test answers it.
+@MainActor final class PresenceGate {
+    private var continuation: CheckedContinuation<Bool, Never>?
+    private(set) var asked = 0
+    var waiting: Bool { continuation != nil }
+
+    func wait() async -> Bool {
+        asked += 1
+        return await withCheckedContinuation { continuation = $0 }
+    }
+
+    func open(_ answer: Bool) {
+        continuation?.resume(returning: answer)
+        continuation = nil
     }
 }

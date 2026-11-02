@@ -126,6 +126,8 @@ public enum LinkCheck: Equatable, Sendable {
     /// The version each ask's inline review shows, set by Show Changes; memory only. A newer
     /// version arriving during the review never replaces it on its own (`ReviewPage.isStale`).
     @Published public var reviewing: [String: RevisionStamp] = [:]
+    /// Asks whose Use Version N is in flight (Touch ID, then the Pond call).
+    @Published public internal(set) var accepting: Set<String> = []
     /// Tick paths as loaded from TickStore, per ask, with the step source they were loaded
     /// against; dropped when the ask's detail changes, and reloaded when the source differs.
     /// Keyed on the source, not the tree: comparing it is cheap, building the tree hashes every step.
@@ -782,6 +784,7 @@ public enum LinkCheck: Equatable, Sendable {
     public func close(_ id: String, _ verdict: Verdict) {
         guard source != nil else { return }
         if verdict == .done, isContentLocked(id) { return }
+        reviewing[id] = nil
         let order = visibleOrder
         let inDetail = navigation.selectedID == id
         doneWarnings.remove(id)
@@ -943,6 +946,7 @@ public enum LinkCheck: Equatable, Sendable {
         do {
             _ = try await source.reopen(id)
             guard gen == generation else { return }
+            reviewing[id] = nil
             quietIDs.insert(id)
             recentlyClosed.removeAll { $0.id == id }
             await freshRefresh()

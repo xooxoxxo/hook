@@ -94,6 +94,9 @@ public final class FixturePanelModel: PanelViewModel {
     public func reviewState(_ id: String) -> ReviewState { details[id]?.review ?? .legacy }
     public func reviewPage(_ id: String) -> ReviewPage? { reviewPages[id] }
     public func accept(_ id: String, stamp: RevisionStamp) {}
+    /// The gallery's in-flight accepts.
+    public var acceptingIDs: Set<String> = []
+    public func isAccepting(_ id: String) -> Bool { acceptingIDs.contains(id) }
     public func reportProblem(_ id: String, stepID: String, note: String) {}
     public func trustHistoryAgain() {}
 }
