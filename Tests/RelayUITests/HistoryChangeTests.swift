@@ -153,6 +153,54 @@ import Testing
         #expect(store.queue.rows["a"]?.historyChanged == false)
     }
 
+    /// The Pond controls the list: an ask it leaves out for a poll and then serves rolled back
+    /// is still caught, since a pinned record outlives its absence.
+    @Test func anAskHiddenForAPollThenRolledBackIsStillLocked() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let clock = TestClock()
+        let store = reviewingStore(defaults, now: { clock.now })
+        let two = revised("a", [idSteps(3), idSteps(4)])
+        let other = revised("b", [idSteps(2, id: "b")])
+        let fake = FakeQueueSource(items: [two.item, other.item], details: ["a": two.detail])
+        await start(store, fake)
+        markAccepted(store, "a", two.detail.revisions[1].stamp)
+
+        await fake.setItems([other.item])
+        await store.refresh()
+        #expect(store.record("a")?.pins[2] == two.detail.revisions[1].hash)
+
+        clock.advance(29 * 86_400)
+        let one = revised("a", [idSteps(3)])
+        await fake.setItems([one.item, other.item])
+        await fake.setDetail(one.detail)
+        await store.refresh()
+        #expect(store.reviewState("a") == .historyChanged(.rolledBack))
+        #expect(store.reviewState("a").isLocked)
+    }
+
+    /// A pinned record goes only after 30 days in which the Pond never listed the ask.
+    @Test func aPinnedRecordIsDroppedAfterThirtyDaysUnlisted() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let clock = TestClock()
+        let store = reviewingStore(defaults, now: { clock.now })
+        let two = revised("a", [idSteps(3), idSteps(4)])
+        let other = revised("b", [idSteps(2, id: "b")])
+        let fake = FakeQueueSource(items: [two.item, other.item], details: ["a": two.detail])
+        await start(store, fake)
+        #expect(store.record("a") != nil)
+
+        await fake.setItems([other.item])
+        clock.advance(10 * 86_400)
+        await store.refresh()
+        #expect(store.record("a") != nil)
+        clock.advance(21 * 86_400)
+        await store.refresh()
+        #expect(store.record("a") == nil)
+        #expect(store.record("b") != nil)
+    }
+
     /// Trust again re-pins only what verifies now: an ask whose served history fails its own
     /// checks, or isn't loaded, keeps every pin it had.
     @Test func trustingAgainKeepsThePinsOfAHistoryThatFails() async {

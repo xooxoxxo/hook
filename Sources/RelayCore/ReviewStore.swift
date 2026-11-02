@@ -21,13 +21,24 @@ public struct ReviewRecord: Codable, Equatable, Sendable {
     /// `ReviewGate.bodyHash` of the verified rev 1 body pinned at `pins[1]`: an older Pond may
     /// serve the ask without revisions, but only with exactly this payload.
     public var firstBodyHash: String?
+    /// The last day (whole days since 1970, UTC) the ask was listed, in Recently closed or open
+    /// here. The Pond controls the list, so a record with pins outlives a poll that leaves the
+    /// ask out: it goes only after `retentionDays` without one.
+    public var listedDay: Int?
+
+    /// How long a pinned record outlives its ask's absence from the list.
+    public static let retentionDays = 30
 
     public init(accepted: RevisionStamp? = nil, seen: RevisionStamp? = nil, pins: [Int: String] = [:],
                 changed: [String] = [], pondAcceptPending: Bool = false, added: [String] = [],
-                firstBodyHash: String? = nil) {
+                firstBodyHash: String? = nil, listedDay: Int? = nil) {
         self.accepted = accepted; self.seen = seen; self.pins = pins; self.changed = changed
         self.pondAcceptPending = pondAcceptPending; self.added = added; self.firstBodyHash = firstBodyHash
+        self.listedDay = listedDay
     }
+
+    /// Whole days since 1970, UTC.
+    public static func day(_ date: Date) -> Int { Int((date.timeIntervalSince1970 / 86_400).rounded(.down)) }
 
     /// The highest pinned rev; 0 without pins.
     public var highestPin: Int { pins.keys.max() ?? 0 }

@@ -352,13 +352,26 @@ extension Store {
         holdingQueue { ids.forEach(rerender) }
     }
 
-    /// Drops the records of this source's asks that left the list, Recently closed and the detail.
+    /// After a good list: the records of this source's asks still listed, in Recently closed or
+    /// open are marked listed today. One that left them goes at once only without pins; a pinned
+    /// one is rollback evidence the Pond could erase by leaving the ask out of one list, so it
+    /// goes only after `ReviewRecord.retentionDays` days unlisted.
     func pruneReviews(keep: Set<String>) {
+        guard !reviewsUnreadable else { return }
         let prefix = ReviewStore.key(sourceKey: sourceKey, id: "")
-        let gone = reviews.keys.filter { $0.hasPrefix(prefix) && !keep.contains(String($0.dropFirst(prefix.count))) }
-        guard !gone.isEmpty, !reviewsUnreadable else { return }
-        gone.forEach { reviews[$0] = nil }
-        scheduleReviewSave()
+        let today = ReviewRecord.day(now())
+        var changed = false
+        for (key, record) in reviews where key.hasPrefix(prefix) {
+            if keep.contains(String(key.dropFirst(prefix.count))) || (!record.pins.isEmpty && record.listedDay == nil) {
+                guard record.listedDay != today else { continue }
+                reviews[key]?.listedDay = today
+                changed = true
+            } else if record.pins.isEmpty || today - (record.listedDay ?? today) > ReviewRecord.retentionDays {
+                reviews[key] = nil
+                changed = true
+            }
+        }
+        if changed { scheduleReviewSave() }
     }
 
     // MARK: Review content
