@@ -92,6 +92,39 @@ private func removed(_ tokens: [DiffToken]) -> String {
         #expect(!diff.touchesCommandsLinksOrFiles)
     }
 
+    @Test func aDetailThatGainsALinkNeedsTouchID() {
+        let one = steps(2) { $0[0].detail = "See the docs." }
+        let linked = steps(2) { $0[0].detail = "See the [docs](https://evil.example/x)." }
+        let diff = RevisionDiff.make(baseline: one, firstRevision: one, current: linked, reasons: [])
+        #expect(diff.steps.first?.fields.map(\.name) == ["detail"])
+        #expect(diff.touchesCommandsLinksOrFiles)
+        // A changed link target, and a link in the Verify detail, count too.
+        let moved = steps(2) { $0[0].detail = "See the [docs](https://evil.example/y)." }
+        #expect(RevisionDiff.make(baseline: linked, firstRevision: one, current: moved, reasons: [])
+            .touchesCommandsLinksOrFiles)
+        var verify = steps(2)
+        verify.verify?.detail = "Compare with <https://evil.example/z>"
+        #expect(RevisionDiff.make(baseline: steps(2), firstRevision: steps(2), current: verify, reasons: [])
+            .touchesCommandsLinksOrFiles)
+        // On a first view, a link added since rev 1 counts.
+        #expect(RevisionDiff.make(baseline: nil, firstRevision: one, current: linked, reasons: [(2, "x")])
+            .touchesCommandsLinksOrFiles)
+    }
+
+    @Test func aDetailTextChangeWithoutANewLinkNeedsNoTouchID() {
+        let one = steps(2) { $0[0].detail = "See the [docs](https://docs.example.com/a)." }
+        let reworded = steps(2) { $0[0].detail = "Read the [docs](https://docs.example.com/a) first." }
+        #expect(!RevisionDiff.make(baseline: one, firstRevision: one, current: reworded, reasons: [])
+            .touchesCommandsLinksOrFiles)
+        let dropped = steps(2) { $0[0].detail = "Read the docs first." }
+        #expect(!RevisionDiff.make(baseline: one, firstRevision: one, current: dropped, reasons: [])
+            .touchesCommandsLinksOrFiles)
+        // A link DetailText refuses (not a web address) is plain text: nothing to click.
+        let refused = steps(2) { $0[0].detail = "See [here](file:///etc/hosts)." }
+        #expect(!RevisionDiff.make(baseline: steps(2), firstRevision: steps(2), current: refused, reasons: [])
+            .touchesCommandsLinksOrFiles)
+    }
+
     @Test func anExpectOnlyChangeNeedsNoTouchID() {
         let one = steps(2)
         let two = steps(2) { $0[0].expect = "Build succeeded" }

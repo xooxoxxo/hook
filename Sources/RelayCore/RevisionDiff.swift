@@ -111,10 +111,14 @@ public struct FieldDiff: Equatable, Sendable {
         tokens = WordDiff.tokens(old ?? "", new ?? "")
     }
 
-    /// A command, a link or a file: accepting a change to one needs Touch ID.
+    /// A command, a link or a file: accepting a change to one needs Touch ID. A `detail`
+    /// renders its web links as clickable (`DetailText`), so one that gains a link, or
+    /// changes one, counts as a link; a detail that only drops links or changes its words doesn't.
     public var isCommandLinkOrFile: Bool {
         let field = name.split(separator: ".").last.map(String.init) ?? name
-        return ["code", "url", "file", "path"].contains(field)
+        if ["code", "url", "file", "path"].contains(field) { return true }
+        guard field == "detail", let new else { return false }
+        return !DetailText.webLinks(new).isSubset(of: old.map(DetailText.webLinks) ?? [])
     }
 }
 

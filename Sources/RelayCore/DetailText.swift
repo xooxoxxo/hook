@@ -28,6 +28,11 @@ public enum DetailText {
         return text
     }
 
+    /// The web links `attributed` keeps for `raw`: what the owner can click in it.
+    public static func webLinks(_ raw: String) -> Set<String> {
+        Set(attributed(raw).runs.compactMap(\.link).map(\.absoluteString))
+    }
+
     /// The full address of every link left in `text`, one per line, for the text's
     /// tooltip: a label never hides where its link goes. "" when there is none.
     public static func linkHelp(_ text: AttributedString) -> String {

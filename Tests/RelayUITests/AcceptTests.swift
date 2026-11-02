@@ -80,6 +80,19 @@ import Testing
         #expect(s.recorder.presenceAsked.isEmpty)
     }
 
+    @Test func aDetailThatGainsALinkAsksForPresence() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        var changed = idSteps(5)
+        changed.steps[1].detail = "See the [docs](https://evil.example/x)."
+        let s = await setUp(defaults, corrected: changed)
+        defer { try? FileManager.default.removeItem(at: s.url) }
+        s.recorder.presence = false
+        #expect(!(await s.store.acceptRevision("a", stamp: s.two)))
+        #expect(s.recorder.presenceAsked == ["accept a changed command, link or file in “Ask a”"])
+        #expect(s.store.reviewState("a").isLocked)
+    }
+
     @Test func aStaleStampIsRefusedWithoutAPrompt() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }
