@@ -60,6 +60,9 @@ public enum PanelNotice: Equatable, Sendable {
     case reviewRecordsUnreadable
     /// A Done held for Undo was dropped: the ask was corrected meanwhile.
     case doneHeldBack(id: String, title: String)
+    /// The owner accepted a correction here, but the Pond didn't take it yet; Hook sends it
+    /// again before Done or answers.
+    case acceptFailed(id: String, title: String, reason: String)
 
     /// The open ask this Notice is about, when it belongs to that ask's detail: it goes when
     /// the owner leaves the ask and never shows on the queue.
@@ -75,7 +78,7 @@ public enum PanelNotice: Equatable, Sendable {
     public var kind: NoticeKind {
         switch self {
         case .actionFailed, .reopenFailed, .storeFailed, .queueMoved, .resumeFailed, .mailboxOlder,
-             .mailboxUpdateFailed, .mailboxUpdateCommandInvalid, .ownerKeyRefused, .historyChanged,
+             .mailboxUpdateFailed, .mailboxUpdateCommandInvalid, .ownerKeyRefused, .historyChanged, .acceptFailed,
              .reviewRecordsChanged, .reviewRecordsUnreadable: return .error
         case .settingsReloaded, .sessionClosed, .noLongerOpen, .offlineCached, .updating, .mailboxNewer,
              .mailboxUpToDate, .corrected, .doneHeldBack: return .info
@@ -129,6 +132,9 @@ public enum PanelNotice: Equatable, Sendable {
                 + "Allow Hook when macOS asks."
         case .doneHeldBack(_, let title):
             return "Done was held back: “\(Sanitize.revealLine(title))” was corrected."
+        case let .acceptFailed(_, title, reason):
+            return "The Pond didn't take your review of “\(Sanitize.revealLine(title))” yet: "
+                + "\(UserFacingError.text(reason)) Hook sends it again before Done or answers."
         }
     }
 
@@ -145,7 +151,7 @@ public enum PanelNotice: Equatable, Sendable {
         case .historyChanged: return "Trust the Pond's History Again…"
         case .storeFailed, .settingsReloaded, .updating, .resumeFailed, .mailboxUpToDate, .mailboxUpdateFailed,
              .mailboxUpdateCommandInvalid, .ownerKeyRefused, .reviewRecordsChanged, .reviewRecordsUnreadable,
-             .doneHeldBack:
+             .doneHeldBack, .acceptFailed:
             return nil
         }
     }

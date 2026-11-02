@@ -354,6 +354,11 @@ import RelayUI
             resume: { [weak self] origin in self?.resumeSession(origin) })
         store.shell.updateMailbox = { [weak self] in self?.mailbox.updateMailbox() }
         store.shell.checkForUpdates = { [weak self] in self?.checkForUpdatesNow() }
+        let presence: any PresenceCheck = UserPresence()
+        store.shell.confirmPresence = { reason in
+            NSApp.activate()
+            return await presence.confirm(reason: reason)
+        }
         store.shell.files = FileActions.live { [weak self] in
             DocumentTarget(config: self?.model?.config?.openDocumentsIn)
         }

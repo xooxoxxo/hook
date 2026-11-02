@@ -87,10 +87,138 @@ extension Store {
         }
     }
 
-    /// A failed act's reason; a correction that raced the act reads "the ask was corrected".
+    static let ownerKeySetUpReason = "Set up the owner key in Settings › Queue to act on corrected asks."
+
+    /// A failed act's reason; a correction that raced the act reads "the ask was corrected", and
+    /// a Pond that wants the owner key says where to set it up.
     static func failureReason(_ error: any Error) -> String {
-        if case QueueError.corrected? = error as? QueueError { return "the ask was corrected" }
-        return UserFacingError.text(error)
+        switch error as? QueueError {
+        case .corrected?: return "the ask was corrected"
+        case .rejected(403, "owner key required", _)?: return ownerKeySetUpReason
+        default: return UserFacingError.text(error)
+        }
+    }
+
+    /// A failure `failureReason` words itself rather than the answers' own text.
+    static func isReviewFailure(_ error: any Error) -> Bool {
+        switch error as? QueueError {
+        case .corrected?, .rejected(403, "owner key required", _)?: return true
+        default: return false
+        }
+    }
+
+    // MARK: Accept
+
+    /// Use Version N: accepts exactly `stamp`, the verified current revision. A change to a
+    /// command, link or file (since the baseline, or since rev 1 on a first view) asks for Touch
+    /// ID first. The acceptance is local and sealed before the Pond hears of it: the Pond is
+    /// not trusted for it, so a failed Pond call keeps it and marks the record to resend.
+    @discardableResult public func acceptRevision(_ id: String, stamp: RevisionStamp) async -> Bool {
+        if reviewsUnreadable { retryReviewKey() }
+        guard !reviewsUnreadable else {
+            post(.reviewRecordsUnreadable)
+            return false
+        }
+        guard case .pending(_, let current, _) = reviewState(id), current == stamp,
+              let diff = reviewDiff(id), let before = item(for: id)?.instructable else { return false }
+        if diff.touchesCommandsLinksOrFiles {
+            let title = Sanitize.revealLine(item(for: id)?.title ?? "")
+            guard await shell.confirmPresence("accept a changed command, link or file in “\(title)”") else { return false }
+            // A poll may have landed during the prompt: accept only what was on screen.
+            guard case .pending(_, let still, _) = reviewState(id), still == stamp else { return false }
+        }
+        var next = record(id) ?? ReviewRecord()
+        next.accepted = stamp
+        next.seen = stamp
+        next.changed = diff.changedIDs + diff.addedIDs
+        next.added = diff.addedIDs
+        next.pondAcceptPending = true
+        setRecord(next, for: id)
+        saveReviewsNow()
+        resetAfterAccept(id, before: before, diff: diff)
+        rerender(id)
+        queueInputChanged()
+        objectWillChange.send()
+
+        guard let source else { return true }
+        let gen = generation
+        do {
+            _ = try await source.accept(id, stamp: stamp)
+            guard gen == generation else { return true }
+            markAcceptSent(id)
+        } catch {
+            guard gen == generation else { return true }
+            if !ownerKeyRefused(error) {
+                post(.acceptFailed(id: id, title: item(for: id)?.title ?? "", reason: Self.failureReason(error)))
+            }
+        }
+        return true
+    }
+
+    /// Expanded rows, the scroll anchor, answers being changed, and drafts for changed or
+    /// removed questions go; a moved question's draft follows its step.
+    private func resetAfterAccept(_ id: String, before: Instructable, diff: RevisionDiff) {
+        expandedDone[id] = nil
+        expandedTodo[id] = nil
+        editingAnswers[id] = nil
+        let dropped = Set(diff.steps.filter { $0.kind == .changed || $0.kind == .removed }.map(\.stepID))
+        let oldIDs = Dictionary(StepIdentity.paths(before).map { ($1, $0) }) { first, _ in first }
+        let newPaths = (try? histories[id]?.get()).flatMap { $0.currentBody }.map(StepIdentity.paths) ?? [:]
+        if let drafts = answerDrafts[id] {
+            var kept: [String: AnswerDraft] = [:]
+            for (path, draft) in drafts {
+                guard let stepID = oldIDs[path], !dropped.contains(stepID), let moved = newPaths[stepID] else { continue }
+                kept[moved] = draft
+            }
+            answerDrafts[id] = kept.isEmpty ? nil : kept
+        }
+        if let first = diff.steps.first(where: { $0.kind == .changed || $0.kind == .added })?.newPath {
+            detailAnchor[id] = first
+        } else {
+            detailAnchor[id] = nil
+        }
+    }
+
+    /// The Pond took the acceptance: nothing to resend.
+    func markAcceptSent(_ id: String) {
+        guard var next = record(id), next.pondAcceptPending else { return }
+        next.pondAcceptPending = false
+        setRecord(next, for: id)
+        saveReviewsNow()
+    }
+
+    /// Before Done or answers: an acceptance the Pond hasn't taken yet is sent first. Throws
+    /// what the Pond answered, and then the act isn't sent.
+    func sendPendingAccept(_ id: String, via source: any QueueSource) async throws {
+        guard let record = record(id), record.pondAcceptPending, let accepted = record.accepted else { return }
+        _ = try await source.accept(id, stamp: accepted)
+        markAcceptSent(id)
+    }
+
+    /// A 409 whose in-force rev is below what this Mac accepted, for exactly the stamp it
+    /// accepted, means the Pond missed the acceptance: send it once and retry the act once.
+    /// Any other 409 is thrown as it is.
+    func withAcceptRecovery(_ id: String, via source: any QueueSource, _ act: () async throws -> Void) async throws {
+        do {
+            try await act()
+        } catch QueueError.corrected(let rev, let hash, let acceptedRev) {
+            guard let accepted = record(id)?.accepted, accepted == RevisionStamp(rev: rev, hash: hash),
+                  (acceptedRev ?? 0) < accepted.rev else {
+                throw QueueError.corrected(rev: rev, hash: hash, acceptedRev: acceptedRev)
+            }
+            _ = try await source.accept(id, stamp: accepted)
+            markAcceptSent(id)
+            try await act()
+        }
+    }
+
+    /// The seal key again, after a refused read: the owner may allow Hook this time.
+    func retryReviewKey() {
+        guard reviewsUnreadable else { return }
+        reviewsUnreadable = false
+        pendingReviewNotice = nil
+        loadReviews()
+        pendingReviewNotice = nil
     }
 
     /// The item with its payload replaced by the body the gate names, else the last body

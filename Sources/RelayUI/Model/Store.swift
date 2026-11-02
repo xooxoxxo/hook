@@ -195,7 +195,7 @@ public enum LinkCheck: Equatable, Sendable {
 
     public static let noSourceProblem = "No queue is set up"
 
-    private var source: (any QueueSource)?
+    var source: (any QueueSource)?
     private var pollSeconds = RelayConfig.defaultPollSeconds
     /// Bumped by every swap; results started under an older value are dropped.
     var generation = 0
@@ -843,7 +843,7 @@ public enum LinkCheck: Equatable, Sendable {
             break
         case .storeFailed, .settingsReloaded, .updating, .resumeFailed, .mailboxUpToDate, .mailboxUpdateFailed,
              .mailboxUpdateCommandInvalid, .ownerKeyRefused, .reviewRecordsChanged, .reviewRecordsUnreadable,
-             .doneHeldBack:
+             .doneHeldBack, .acceptFailed:
             break
         }
     }
@@ -1005,7 +1005,11 @@ public enum LinkCheck: Equatable, Sendable {
     /// the send has come back; on failure it reappears and a Notice says why.
     private func send(_ close: PendingClose, via source: any QueueSource, generation gen: Int) async {
         do {
-            _ = try await source.resolve(close.id, verdict: close.verdict, note: close.note, stamp: close.stamp)
+            // A local acceptance the Pond hasn't heard of goes first, or the Done would be refused.
+            if close.verdict == .done { try await sendPendingAccept(close.id, via: source) }
+            try await withAcceptRecovery(close.id, via: source) {
+                _ = try await source.resolve(close.id, verdict: close.verdict, note: close.note, stamp: close.stamp)
+            }
             guard gen == generation else { return }
             details[close.id] = nil
             await freshRefresh()
@@ -1026,7 +1030,7 @@ public enum LinkCheck: Equatable, Sendable {
     }
 
     /// True after posting `.ownerKeyRefused` and telling AppDelegate, for a 403 "unknown owner key".
-    private func ownerKeyRefused(_ error: any Error) -> Bool {
+    func ownerKeyRefused(_ error: any Error) -> Bool {
         guard case QueueError.ownerKeyRefused? = error as? QueueError else { return false }
         post(.ownerKeyRefused)
         onOwnerKeyRefused?()
@@ -1180,7 +1184,11 @@ public enum LinkCheck: Equatable, Sendable {
         answerStates[id] = .sending
         let gen = generation
         do {
-            _ = try await source.answer(id, answers: unsent.batch, stamp: renderedStamp(id))
+            try await sendPendingAccept(id, via: source)
+            let stamp = renderedStamp(id)
+            try await withAcceptRecovery(id, via: source) {
+                _ = try await source.answer(id, answers: unsent.batch, stamp: stamp)
+            }
             guard gen == generation else { return false }
             await load(id, from: source, generation: gen)
             guard gen == generation else { return false }
@@ -1197,7 +1205,8 @@ public enum LinkCheck: Equatable, Sendable {
             return true
         } catch {
             guard gen == generation else { return false }
-            answerStates[id] = .failed(reason: AnswerDrafts.failureText(error))
+            answerStates[id] = .failed(reason: Self.isReviewFailure(error) ? Self.failureReason(error)
+                                                                          : AnswerDrafts.failureText(error))
             _ = ownerKeyRefused(error)
             return false
         }
@@ -1350,7 +1359,7 @@ public enum LinkCheck: Equatable, Sendable {
         onStateChange?()
     }
 
-    private func queueInputChanged() {
+    func queueInputChanged() {
         if queueHolds > 0 {
             queueStale = true
         } else {
@@ -1506,6 +1515,7 @@ extension Store: PanelViewModel {
     public func sendAnswers(_ id: String) { Task { _ = await sendAnswers(id) } }
     public func sendAnswer(_ id: String, path: String) { Task { _ = await sendAnswers(id, only: [path]) } }
     public func performNoticeAction() { Task { await performNoticeAction() } }
+    public func accept(_ id: String, stamp: RevisionStamp) { Task { await acceptRevision(id, stamp: stamp) } }
 
     public func copyLink(_ id: String) { shell.copy("relay://i/\(id)") }
 

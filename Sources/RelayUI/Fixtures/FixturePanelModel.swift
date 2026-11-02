@@ -79,4 +79,5 @@ public final class FixturePanelModel: PanelViewModel {
         shell.openURL(url)
     }
     public func reviewState(_ id: String) -> ReviewState { details[id]?.review ?? .legacy }
+    public func accept(_ id: String, stamp: RevisionStamp) {}
 }

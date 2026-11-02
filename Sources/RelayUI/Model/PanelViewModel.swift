@@ -115,6 +115,8 @@ public enum CopyOutcome: Equatable, Sendable {
     func openStepURL(_ id: String, stamp: RevisionStamp?, url: URL)
     /// Where the ask stands with this Mac's review of its corrections.
     func reviewState(_ id: String) -> ReviewState
+    /// Use Version N: accepts exactly `stamp` (Touch ID when a command, link or file changed).
+    func accept(_ id: String, stamp: RevisionStamp)
 }
 
 /// Change and Cancel on an answered reply or step question. Edit state lives in the model,
