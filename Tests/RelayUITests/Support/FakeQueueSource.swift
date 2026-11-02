@@ -156,6 +156,11 @@ actor FakeQueueSource: QueueSource {
         try record("problem \(id) \(stepID) @\(stamp.rev)")
         problems.append((id, stepID, stamp, note))
         guard let item = items.first(where: { $0.id == id }) else { throw QueueError.notFound }
+        var detail = details[id] ?? AskDetail(item: item, events: [])
+        let text = String(decoding: JSONValue.object(["id": .string(stepID), "note": .string(note)]).data(), as: UTF8.self)
+        detail.events.append(Event(seq: detail.events.count + 1, itemId: id, kind: "problem", actor: "owner", text: text,
+                                   at: "2026-10-16T09:40:00+00:00", rev: stamp.rev, auth: "owner-key"))
+        details[id] = detail
         return item
     }
 

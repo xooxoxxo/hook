@@ -95,6 +95,9 @@ public enum LinkCheck: Equatable, Sendable {
     /// An owner act got 403 "unknown owner key": AppDelegate marks this Mac's key refused,
     /// so the next act goes without it.
     public var onOwnerKeyRefused: (@MainActor () -> Void)?
+    /// This Mac has an approved owner key for the Pond with this `SourceKey`; AppDelegate reads
+    /// the Keychain record. Report a Problem needs one.
+    public var ownerKeyApproved: @MainActor (String) -> Bool = { _ in false }
     /// Closes whose send failed, by id, for the Notice's Retry.
     private var failedCloses: [String: PendingClose] = [:]
     /// The ask that was open when the source swapped; checked against the first list.
@@ -1279,6 +1282,12 @@ public enum LinkCheck: Equatable, Sendable {
         MenuBarState.from(items: items, reachable: reachable, unseen: unseen, offlineReason: problem, away: away)
     }
 
+    /// Fetches the ask again from the current source.
+    func reload(_ id: String) async {
+        guard let source else { return }
+        await load(id, from: source, generation: generation)
+    }
+
     private func load(_ id: String, from source: any QueueSource, generation gen: Int) async {
         let result = await fetch(id, from: source)
         guard gen == generation else { return }
@@ -1427,7 +1436,7 @@ extension Store: PanelViewModel {
             draft: drafts[id], pendingChoice: pendingChoice[id], busy: replyStates[id] == .sending, previous: previous, next: next,
             closedBy: closedBy(item), answerDrafts: answerDrafts[id] ?? [:], answerState: answerStates[id],
             doneWarning: doneWarnings.contains(id), review: review, stamp: stamp,
-            history: try? histories[id]?.get(), chips: chips(id, review: review))
+            history: try? histories[id]?.get(), chips: chips(id, review: review), reported: reported(id))
     }
 
     public var status: PanelStatus {
@@ -1516,6 +1525,9 @@ extension Store: PanelViewModel {
     public func sendAnswer(_ id: String, path: String) { Task { _ = await sendAnswers(id, only: [path]) } }
     public func performNoticeAction() { Task { await performNoticeAction() } }
     public func accept(_ id: String, stamp: RevisionStamp) { Task { await acceptRevision(id, stamp: stamp) } }
+    public func reportProblem(_ id: String, stepID: String, note: String) {
+        Task { _ = await reportProblem(id, stepID: stepID, note: note) }
+    }
 
     public func copyLink(_ id: String) { shell.copy("relay://i/\(id)") }
 

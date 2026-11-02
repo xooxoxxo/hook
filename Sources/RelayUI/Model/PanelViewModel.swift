@@ -117,6 +117,8 @@ public enum CopyOutcome: Equatable, Sendable {
     func reviewState(_ id: String) -> ReviewState
     /// Use Version N: accepts exactly `stamp` (Touch ID when a command, link or file changed).
     func accept(_ id: String, stamp: RevisionStamp)
+    /// Report a Problem…'s Send: one step's note to the posting session, quoted.
+    func reportProblem(_ id: String, stepID: String, note: String)
 }
 
 /// Change and Cancel on an answered reply or step question. Edit state lives in the model,

@@ -360,6 +360,40 @@ extension Store {
         return LookCloser.flags(old: shown.flatMap(history.body), new: now, cwd: now.from?.cwd)
     }
 
+    // MARK: Report a problem
+
+    /// One step's problem, on the revision this Mac renders (the Pond takes the current or the
+    /// accepted one). Allowed while locked: it reports on the version shown. Needs the owner key,
+    /// so without an approved one nothing is sent.
+    public func reportProblem(_ id: String, stepID: String, note: String) async -> ReportResult {
+        guard ownerKeyApproved(sourceKey) else { return .notEnrolled }
+        let cleaned = ProblemReport.clean(note)
+        guard ProblemReport.canSend(cleaned) else {
+            return .refused("The note must be 1 to \(ProblemReport.limit) characters.")
+        }
+        guard let source, let stamp = renderedStamp(id) else {
+            return .refused("This ask comes from a Pond without problem reports.")
+        }
+        let gen = generation
+        do {
+            _ = try await source.problem(id, stepID: stepID, stamp: stamp, note: cleaned)
+            guard gen == generation else { return .sent }
+            await reload(id)
+            return .sent
+        } catch {
+            guard gen == generation else { return .refused(ProblemReport.refusal(error)) }
+            if ownerKeyRefused(error) { return .notEnrolled }
+            return .refused(ProblemReport.refusal(error))
+        }
+    }
+
+    /// The paths with a report the step hasn't been corrected since ("Reported · waiting for a correction").
+    func reported(_ id: String) -> Set<String> {
+        guard let events = details[id]?.events, events.contains(where: { $0.kind == "problem" }) else { return [] }
+        return ProblemReport.reported(events: events, history: try? histories[id]?.get(),
+                                      rendered: item(for: id)?.instructable, renderedRev: renderedStamp(id)?.rev)
+    }
+
     // MARK: Chips
 
     /// "Changed" and "New" by path in the rendered tree, while the accepted revision is current.
