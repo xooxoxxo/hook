@@ -17,8 +17,10 @@ and versions follow Semantic Versioning.
 - Acceptances, seen marks and pins live in `reviews.json`, each record sealed with a key in the
   Keychain item "Hook review seal". A Keychain that refuses the key keeps corrected asks locked,
   and so does a seal item that is there while `reviews.json` is gone; Reset Review Records… in
-  the Notice (Touch ID) starts the records and owner keys again. Hook uses only Keychain items it
-  made itself: see "Keychain items" in SECURITY.md.
+  the Notice (Touch ID) starts the records and owner keys again. Hook uses a seal item only when
+  `reviews.json` names it (an HMAC under the seal key), and an owner key only when its record
+  carries an HMAC under that seal; a process running as you that can read the seal, or rewrite
+  `reviews.json` too, can still plant both: see "Keychain items" in SECURITY.md.
 - Steps keep their ticks and answers across a correction by their stable ids; changed steps lose
   their tick and show Changed or New until ticked.
 - Report a Problem: a one-line note about one step goes to the posting session as a quoted
@@ -27,13 +29,14 @@ and versions follow Semantic Versioning.
   Keychain ("Hook owner key") and shows a six-digit code; approve the Pond's Telegram request
   only when it shows the same code. The Pond stores only the key's hash. Hook sends it on owner
   acts, only over https (or plain http to this Mac itself) and only to the scheme it was set up
-  on. Accepting a correction always needs it; Require the owner key, offered once two Macs are
-  approved, stops sessions and scripts from answering, pressing Done or reopening as you.
+  on; Settings says "Not used on this address" when the Pond URL is on another. Accepting a
+  correction always needs it; Require the owner key, offered once two Macs are approved, stops
+  sessions and scripts from answering, pressing Done or reopening as you.
 - SECURITY.md has a threat model and the residual risks, including the Keychain limits of
   ad-hoc signed builds until a Developer ID release.
-- A history that changed on the Pond (a rollback, a missing revision, or a Pond older than
-  1.1.0 serving a corrected ask) shows a red Notice and stops every act but Skip, until you
-  trust the Pond's history again (Touch ID).
+- A history that changed on the Pond (a rollback, a missing revision, a revision that changes
+  the title, urgency or origin, or a Pond older than 1.1.0 serving a corrected ask) shows a red
+  Notice and stops every act but Skip, until you trust the Pond's history again (Touch ID).
 
 ### Changed
 - Hook needs Pond `^1.1.0` (1.1.0 or newer, below 2.0.0) for step ids, corrections and the owner

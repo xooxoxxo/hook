@@ -25,7 +25,7 @@ The design is described in [docs/security.md](docs/security.md).
 Hook shows you instructions written by agents and relayed by a server, and some of them are commands you will paste into a terminal. It is built to keep three parties from making you run, open or approve something you didn't see:
 
 - **A session or an agent.** Anything that can post an ask can write anything into it. The validator refuses secrets and hidden characters, text shows hidden characters as `⟨U+XXXX⟩`, links show their real host, and files open only as the documents listed below. A session can correct only an ask it posted (it holds the ask's edit key), and every correction waits for your review: until you accept it, the ask is locked, and a change to a command, link or file needs Touch ID or your password. "Look closer" flags new hosts, `sudo`, pipes into a shell, decoding, `eval` and non-ASCII code; those checks are incomplete, and no flag never means safe. A session can't answer as you once the owner key is required.
-- **The Pond, or anyone between Hook and it.** Hook treats what the Pond serves as untrusted. Every revision is hashed and chained to the one before; Hook checks the whole chain, remembers every hash it has seen, and refuses a history that changed, lost a revision or went back to an older one: the ask locks until you trust the Pond's history again. Done, Skip and answers name the revision you saw, so the Pond can't apply them to another. The owner key travels only over https and the Pond stores only its hash.
+- **The Pond, or anyone between Hook and it.** Hook treats what the Pond serves as untrusted. Every revision is hashed and chained to the one before; Hook checks the whole chain, remembers every hash it has seen, and refuses a history that changed, lost a revision or went back to an older one: the ask locks until you trust the Pond's history again. Done and answers name the revision you saw, so the Pond can't apply them to another; Skip names none, so it works on any version. The owner key travels only over https and the Pond stores only its hash.
 - **A web page or another user on this Mac.** The loopback API checks Host and Origin, sends no CORS headers, and clients check the server proof before sending the token. Files are private to your account.
 
 **Not in scope: processes already running as you.** A process with your privileges can read Hook's token and queue, drive the UI, write Hook's data files and, with your permission, read or plant Keychain items. Hook makes such an attack harder where it can (see "Keychain items"), but it can't stop it. Neither can it protect against a Pond host you don't control: the Pond sees every ask it holds.
@@ -60,18 +60,21 @@ the bytes it read from the checked file's descriptor.
 Hook keeps two secrets in the login Keychain: the review seal ("Hook review seal"), which seals
 the review records in `reviews.json`, and this Mac's owner key for each Pond ("Hook owner key").
 
-- **Only items Hook made.** When Hook makes a secret (the seal's first key, each owner key setup)
-  it deletes whatever item has that name and adds a fresh one with an access list that trusts
-  only Hook; an item that appears in between fails the add. Hook never writes a secret into an
-  item it didn't just make.
-- **A creation marker.** An access list names an app by its path, which another app can name
-  too, so it doesn't prove who made an item. Hook also keeps a marker: `reviews.json` names the
-  seal Hook made, and each owner key record carries an HMAC under that seal. A seal item the
-  marker doesn't name, or an owner key record without a mark that verifies, is never used. A
-  seal item that is there while `reviews.json` or its marker is missing is not replaced either:
-  corrected asks stay locked ("review records unreadable") and nothing is written. Hook makes a
-  seal on its own only when there is no item at all. Each read and update works on the one item
-  Hook checked.
+- **A fresh item for each new secret.** When Hook makes a secret (the seal's first key, Reset
+  Review Records…, each owner key setup) it deletes whatever item has that name and adds a fresh
+  one with an access list that names only Hook's path; an item that appears in between fails the
+  add. Later writes (an owner key's status) update the item Hook just found and checked, in place:
+  its access list must name only Hook's path, and the owner key record must carry its mark. Each
+  read and update works on that one item, never a second lookup by name.
+- **What the markers check.** An access list names an app by its path, which another app can
+  name too, so it doesn't prove who made an item. Hook adds two checks. `reviews.json` stores an
+  HMAC of a fixed string under the seal key; a seal item whose key doesn't give that value is
+  never used. Each owner key record carries an HMAC of the Pond and the key under the seal; a
+  record without one that verifies is never sent. These prove that whoever wrote the item knew
+  the seal key (or wrote `reviews.json` to match it), not that Hook made it. A seal item that is
+  there while `reviews.json` or its marker is missing is not replaced: corrected asks stay locked
+  ("review records unreadable") and nothing is written. Hook makes a seal on its own only when
+  there is no item at all.
 - **Losing `reviews.json` resets the records and the owner keys.** With the file gone, the only
   way out of the lock is Reset Review Records… in that Notice, which asks for Touch ID (or your
   password) and makes a new seal. Every acceptance and rollback pin sealed under the old one is
@@ -85,7 +88,9 @@ protection Keychain, where only an app signed by the same team can make or read 
 access group. Until releases are signed with a Developer ID:
 
 - A process already running as you can read any Keychain item macOS lets it read (macOS asks you
-  first). Allow Hook only when the prompt names Hook and you just started it.
+  first). Allow Hook only when the prompt names Hook and you just started it. One that reads the
+  seal can mark review records and owner key records of its own, and one that reads an owner key
+  can act as you on the Pond.
 - A process that rewrites `reviews.json` as well as the Keychain items can plant a seal with a
   matching marker, and with it accepted records and owner key records. The checks above stop an
   item planted on its own, not this.

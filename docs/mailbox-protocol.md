@@ -72,9 +72,9 @@ From Pond 1.1.0 an ask has revisions. Version 1 is the ask as posted; each `amen
 - **body** is the revision's instructable as a JSON string, exactly as served. Hook hashes the string as it is and reads it strictly: broken JSON, a lone surrogate or a key named twice in one object makes the history unreadable.
 - **hash** is the lowercase hex SHA-256 of `hook-rev-v1`, `rev`, `prev`, `at`, `reason` and `body`, joined with U+001F, over UTF-8. **prev** is the previous revision's hash, `""` for version 1, and version 1's `reason` is `""`.
 - **acceptedRev** is the revision the owner accepted, in force for Telegram, answers and Done.
-- Hook checks every hash and every `prev`, needs every revision from 1 to `rev`, and remembers each hash it has seen. A history that fails any of these, or serves a revision older than one this Mac saw, locks the ask with the history Notice.
+- Hook checks every hash and every `prev`, needs every revision from 1 to `rev`, refuses one that changes `title`, `urgency` or `from`, and remembers each hash it has seen. A history that fails any of these, or serves a revision older than one this Mac saw, locks the ask with the history Notice.
 - **Edit keys.** `POST /asks` from the CLI or MCP server carries `editKeyHash`, the SHA-256 of a key the poster keeps. `amend` must bring the key, name the revision it starts from (`baseRev`, `baseHash`), and keep `title`, `urgency` and `from`.
-- **Acts bound to a version.** Done, Skip and answers from Hook add the `rev` and `hash` of the version shown to their body. A Pond whose version in force is another one answers 409 `{"error": "ask was corrected"}`, so an act never applies to a version the owner didn't see.
+- **Acts bound to a version.** Done and answers from Hook add the `rev` and `hash` of the version shown to their body. A Pond whose version in force is another one answers 409 `{"error": "ask was corrected"}`, so neither applies to a version the owner didn't see. Skip goes without a revision: it closes the ask whatever version is in force, so it always works.
 
 ## The owner key
 

@@ -18,8 +18,8 @@ A session can correct an open ask it posted; Hook shows nothing from a corrected
 
 - Every revision is hashed and names the previous one's hash. Hook recomputes each hash, needs every revision from 1 up, and remembers every hash it has seen on this Mac. A history that fails, loses a revision or goes back locks the ask with a red Notice until you [trust it again](using.md#corrected-asks).
 - A correction you haven't accepted locks the ask: no copy, links, files, ticks, answers or Done. Skip always works. Accepting a change to a command, link or file needs Touch ID or your password.
-- Done, Skip and answers name the revision you saw, so the Pond can't apply them to another.
-- What you accepted and the hashes Hook has seen are sealed in `reviews.json` with a key in the Keychain that Hook made itself. Edit keys stay on the posting Mac; the Pond stores only their hashes.
+- Done and answers name the revision you saw, so the Pond can't apply them to another. Skip names none, so it works whatever the version.
+- What you accepted and the hashes Hook has seen are sealed in `reviews.json` with a key in the Keychain ("Hook review seal"), which Hook uses only when `reviews.json` names it. A process running as you that can read that key, or rewrite both, can still forge them: see [Keychain items](../SECURITY.md#keychain-items). Edit keys stay on the posting Mac; the Pond stores only their hashes.
 
 ## The owner key
 
