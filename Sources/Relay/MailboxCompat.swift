@@ -116,7 +116,10 @@ import RelayUI
 
     private func handle(_ check: MailboxCheck, manual: Bool) {
         publishLine()
-        guard let store, let compatibility = check.compatibility, store.sourceKey == check.sourceKey else { return }
+        guard let store, store.sourceKey == check.sourceKey else { return }
+        // The review gate reads the Pond's version: a Pond below 1.1.0 can't serve corrections.
+        if let pond = check.pond { store.setPond(pond) }
+        guard let compatibility = check.compatibility, let pond = check.pond else { return }
         switch compatibility {
         case .ok:
             let wasBehind = noticed?.key == check.sourceKey && noticed?.compatibility != .ok
@@ -129,12 +132,12 @@ import RelayUI
             noticed = (check.sourceKey, .ok)
         case .pondOlder(let missing):
             if manual || noticed?.key != check.sourceKey || noticed?.compatibility != compatibility {
-                store.post(.mailboxOlder(missing: missing))
+                store.post(.pondOlder(current: pond.display, required: PondCompat.required, missing: missing))
             }
             noticed = (check.sourceKey, compatibility)
         case .hookOlder:
             if manual || noticed?.key != check.sourceKey || noticed?.compatibility != compatibility {
-                store.post(.mailboxNewer)
+                store.post(.hookOlder(pond: pond.display))
             }
             noticed = (check.sourceKey, compatibility)
         }
@@ -142,7 +145,7 @@ import RelayUI
 
     private static func isCompatibilityNotice(_ notice: PanelNotice?) -> Bool {
         switch notice {
-        case .mailboxOlder?, .mailboxNewer?: return true
+        case .pondOlder?, .hookOlder?: return true
         default: return false
         }
     }

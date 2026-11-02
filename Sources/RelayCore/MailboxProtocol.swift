@@ -235,8 +235,19 @@ public struct MailboxVersionLine: Equatable, Sendable {
     }
 }
 
-/// The `<!-- hook:mailbox-protocol=N -->` marker in a release's notes: "this Hook needs mailbox level N".
+/// The markers in a release's notes: `<!-- hook:pond=<range> -->`, the Pond range the release
+/// needs, and `<!-- hook:mailbox-protocol=N -->`, the level 0.9.x updaters read.
 public enum ReleaseMarker {
+    /// The first `hook:pond=` marker's range; nil when there is none or it doesn't parse (then
+    /// the level marker decides).
+    public static func pondRange(in body: String) -> SemverRange? {
+        let pattern = #"<!--\s*hook:pond\s*=\s*(.*?)\s*-->"#
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(in: body, range: NSRange(body.startIndex..., in: body)),
+              let range = Range(match.range(at: 1), in: body) else { return nil }
+        return try? SemverRange(String(body[range]))
+    }
+
     /// The first well-formed marker's level; nil when there is none.
     public static func mailboxLevel(in body: String) -> Int? {
         let pattern = #"<!--\s*hook:mailbox-protocol\s*=\s*([0-9]{1,4})\s*-->"#
@@ -249,30 +260,50 @@ public enum ReleaseMarker {
     }
 }
 
-/// Before Hook updates itself: is the connected mailbox new enough for the release?
+/// Before Hook updates itself: does the connected Pond fit what the release needs?
 public enum UpdatePreflight {
     public enum Decision: Equatable, Sendable {
         case proceed
-        /// The release needs `required`; the mailbox is at `current`.
-        case mailboxBehind(required: Int, current: Int)
+        /// The release needs `required` (a range, or "protocol N" from the old marker); the
+        /// Pond is `current`.
+        case pondBehind(required: String, current: PondVersion)
         /// The release needs `required`, but the version check just failed: the dialog says
         /// so and still lets the update go ahead.
-        case mailboxUnchecked(required: Int)
+        case pondUnchecked(required: String)
     }
 
-    /// This Mac mode always passes, and so does a release without a marker. A mailbox whose
-    /// level is unknown passes too, saying so when `checkFailed` (the check before the dialog
-    /// failed): Hook can't tell.
-    public static func decide(required: Int?, source: SourceKind?, mailboxLevel: Int?,
-                              checkFailed: Bool = false) -> Decision {
-        guard source == .mailbox, let required else { return .proceed }
-        guard let mailboxLevel else { return checkFailed ? .mailboxUnchecked(required: required) : .proceed }
-        return mailboxLevel < required ? .mailboxBehind(required: required, current: mailboxLevel) : .proceed
+    /// With a `hook:pond` range: a Pond that satisfies it, or is past it (same or newer major),
+    /// proceeds, so a minor or patch Pond bump never forces anything; one below it is behind.
+    /// A release with only the old level marker compares levels, as 0.9.x did: the Pond's
+    /// `protocol` (`pondLevel`), else its version read as a level. This Mac mode passes, and so
+    /// does a release without markers. An unread Pond passes too, saying so when `checkFailed`.
+    public static func decide(pondRange: SemverRange?, legacyLevel: Int?, source: SourceKind?, pond: PondVersion?,
+                              pondLevel: Int? = nil, checkFailed: Bool = false) -> Decision {
+        guard source == .mailbox, pondRange != nil || legacyLevel != nil else { return .proceed }
+        let required = pondRange?.description ?? "protocol \(legacyLevel ?? 0)"
+        guard let pond else { return checkFailed ? .pondUnchecked(required: required) : .proceed }
+        if let pondRange {
+            return pondRange.fit(pond.effective) == .below ? .pondBehind(required: required, current: pond) : .proceed
+        }
+        let level = pondLevel ?? Self.level(of: pond)
+        return level < (legacyLevel ?? 0) ? .pondBehind(required: required, current: pond) : .proceed
     }
 
-    /// Whether the dialog's first button starts Hook's update (rather than the mailbox's).
+    /// An old marker's level for a Pond: its protocol, or for a semver Pond the level it reports
+    /// (1.1.0 reports 5, 1.0.0 is 4, 0.N.0 is N).
+    static func level(of pond: PondVersion) -> Int {
+        switch pond {
+        case .legacy(let level): return level
+        case .semver(let v):
+            if v >= SemVer(major: 1, minor: 1, patch: 0) { return 5 }
+            if v.major >= 1 { return 4 }
+            return v.minor
+        }
+    }
+
+    /// Whether the dialog's first button starts Hook's update (rather than the Pond's).
     public static func firstButtonUpdatesHook(_ decision: Decision) -> Bool {
-        if case .mailboxBehind = decision { return false }
+        if case .pondBehind = decision { return false }
         return true
     }
 
@@ -309,22 +340,17 @@ public enum UpdatePreflight {
             return Prompt(message: "Update Hook to \(version)?",
                           informative: "Hook rebuilds from your checkout and restarts in about 2 minutes.",
                           buttons: ["Update", "Cancel"])
-        case let .mailboxBehind(required, current):
-            // What this Hook uses that the Pond lacks. Protocol 5 is what Pond 1.1.0 reports, so
-            // it has corrections even though an old dated Pond is read as 1.0.0.
-            let missing = MailboxProtocol.missingFeatures(pond: .legacy(protocol: current))
-                .filter { current < 5 || $0 != .corrections }
-            var informative = "Hook \(version) needs Pond level \(required); yours is \(current)."
-            if !missing.isEmpty {
-                informative += " Until the Pond is updated, \(MailboxProtocol.featureList(missing)) won't work."
-            }
+        case let .pondBehind(required, current):
+            let informative = "Hook \(version) needs Pond \(Sanitize.revealLine(required)). "
+                + "Your Pond is \(Sanitize.revealLine(current.display)). Update the Pond first, "
+                + "or update Hook now and the Pond later (Update Pond…)."
             return Prompt(message: "Update Hook to \(version)?", informative: informative,
                           buttons: [updateMailboxFirst, updateHookAnyway, "Cancel"])
-        case .mailboxUnchecked(let required):
+        case .pondUnchecked(let required):
             return Prompt(message: "Update Hook to \(version)?",
                           informative: "Hook couldn't check your Pond, so it can't tell whether the Pond "
-                              + "has level \(required), which Hook \(version) needs. You can update Hook now and "
-                              + "the Pond later (Update Pond…).",
+                              + "fits \(Sanitize.revealLine(required)), which Hook \(version) needs. You can update "
+                              + "Hook now and the Pond later (Update Pond…).",
                           buttons: [updateHookAnyway, "Cancel"])
         }
     }

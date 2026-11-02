@@ -200,36 +200,69 @@ private let everyFeature: [MailboxFeature] = [.answers, .blocking, .optional, .f
     }
 }
 
+private let caret110 = try! SemverRange("^1.1.0")
+
 @Suite struct UpdatePreflightTests {
-    @Test func aMailboxBehindTheReleaseStops() {
-        #expect(UpdatePreflight.decide(required: 3, source: .mailbox, mailboxLevel: 1)
-            == .mailboxBehind(required: 3, current: 1))
+    @Test func aPondBelowTheRangeStops() {
+        #expect(UpdatePreflight.decide(pondRange: caret110, legacyLevel: 5, source: .mailbox, pond: semver("1.0.0"))
+            == .pondBehind(required: "^1.1.0", current: semver("1.0.0")))
+        #expect(UpdatePreflight.decide(pondRange: try! SemverRange("^1.2.0"), legacyLevel: nil, source: .mailbox,
+                                       pond: semver("1.1.0"))
+            == .pondBehind(required: "^1.2.0", current: semver("1.1.0")))
     }
 
-    @Test func passes() {
-        #expect(UpdatePreflight.decide(required: 3, source: .mailbox, mailboxLevel: 3) == .proceed)
-        #expect(UpdatePreflight.decide(required: 3, source: .mailbox, mailboxLevel: 4) == .proceed)
-        #expect(UpdatePreflight.decide(required: nil, source: .mailbox, mailboxLevel: 1) == .proceed)
-        #expect(UpdatePreflight.decide(required: 3, source: .mailbox, mailboxLevel: nil) == .proceed)
+    @Test func aMinorPatchOrMajorBumpNeverForcesAPondUpdate() {
+        for pond in ["1.1.0", "1.4.0", "1.1.7", "2.0.0"] {
+            #expect(UpdatePreflight.decide(pondRange: caret110, legacyLevel: 5, source: .mailbox, pond: semver(pond))
+                == .proceed, "\(pond)")
+        }
+    }
+
+    @Test func onlyTheOldMarkerComparesLevelsAs09Did() {
+        #expect(UpdatePreflight.decide(pondRange: nil, legacyLevel: 5, source: .mailbox, pond: .legacy(protocol: 4))
+            == .pondBehind(required: "protocol 5", current: .legacy(protocol: 4)))
+        #expect(UpdatePreflight.decide(pondRange: nil, legacyLevel: 3, source: .mailbox, pond: .legacy(protocol: 3)) == .proceed)
+        #expect(UpdatePreflight.decide(pondRange: nil, legacyLevel: 4, source: .mailbox, pond: semver("1.0.0")) == .proceed)
+        #expect(UpdatePreflight.decide(pondRange: nil, legacyLevel: 5, source: .mailbox, pond: semver("1.1.0")) == .proceed)
+        // The protocol the Pond sent wins over its version read as a level.
+        #expect(UpdatePreflight.decide(pondRange: nil, legacyLevel: 5, source: .mailbox, pond: semver("1.0.0"), pondLevel: 5)
+            == .proceed)
+    }
+
+    @Test func anUnparsableRangeFallsBackToTheLevel() {
+        let body = "Notes\n<!-- hook:pond=garbage -->\n<!-- hook:mailbox-protocol=4 -->"
+        #expect(ReleaseMarker.pondRange(in: body) == nil)
+        #expect(ReleaseMarker.mailboxLevel(in: body) == 4)
+        #expect(UpdatePreflight.decide(pondRange: ReleaseMarker.pondRange(in: body), legacyLevel: ReleaseMarker.mailboxLevel(in: body),
+                                       source: .mailbox, pond: .legacy(protocol: 3))
+            == .pondBehind(required: "protocol 4", current: .legacy(protocol: 3)))
+    }
+
+    @Test func passesWithoutMarkersOrAReading() {
+        #expect(UpdatePreflight.decide(pondRange: nil, legacyLevel: nil, source: .mailbox, pond: semver("1.0.0")) == .proceed)
+        #expect(UpdatePreflight.decide(pondRange: caret110, legacyLevel: 5, source: .mailbox, pond: nil) == .proceed)
     }
 
     @Test func aFailedCheckSaysSoAndStillAllowsTheUpdate() {
-        let decision = UpdatePreflight.decide(required: 3, source: .mailbox, mailboxLevel: nil, checkFailed: true)
-        #expect(decision == .mailboxUnchecked(required: 3))
+        let decision = UpdatePreflight.decide(pondRange: caret110, legacyLevel: 5, source: .mailbox, pond: nil,
+                                              checkFailed: true)
+        #expect(decision == .pondUnchecked(required: "^1.1.0"))
         #expect(UpdatePreflight.firstButtonUpdatesHook(decision))
-        let prompt = UpdatePreflight.prompt(version: "0.9.1", decision: decision)
-        #expect(prompt.message == "Update Hook to 0.9.1?")
+        let prompt = UpdatePreflight.prompt(version: "0.11.0", decision: decision)
+        #expect(prompt.message == "Update Hook to 0.11.0?")
         #expect(prompt.informative.hasPrefix("Hook couldn't check your Pond"))
-        #expect(prompt.informative.contains("level 3"))
+        #expect(prompt.informative.contains("^1.1.0"))
         #expect(prompt.buttons == ["Update Hook Anyway", "Cancel"])
         // Without a marker, or in This Mac mode, a failed check changes nothing.
-        #expect(UpdatePreflight.decide(required: nil, source: .mailbox, mailboxLevel: nil, checkFailed: true) == .proceed)
-        #expect(UpdatePreflight.decide(required: 3, source: .local, mailboxLevel: nil, checkFailed: true) == .proceed)
+        #expect(UpdatePreflight.decide(pondRange: nil, legacyLevel: nil, source: .mailbox, pond: nil, checkFailed: true)
+            == .proceed)
+        #expect(UpdatePreflight.decide(pondRange: caret110, legacyLevel: 5, source: .local, pond: nil, checkFailed: true)
+            == .proceed)
     }
 
-    @Test func theFirstButtonUpdatesHookUnlessTheMailboxIsBehind() {
+    @Test func theFirstButtonUpdatesHookUnlessThePondIsBehind() {
         #expect(UpdatePreflight.firstButtonUpdatesHook(.proceed))
-        #expect(!UpdatePreflight.firstButtonUpdatesHook(.mailboxBehind(required: 3, current: 2)))
+        #expect(!UpdatePreflight.firstButtonUpdatesHook(.pondBehind(required: "^1.1.0", current: semver("1.0.0"))))
     }
 
     @Test func repeatClicksAreIgnoredUntilTheDialogCloses() {
@@ -246,22 +279,19 @@ private let everyFeature: [MailboxFeature] = [.answers, .blocking, .optional, .f
     }
 
     @Test func thisMacAlwaysPasses() {
-        #expect(UpdatePreflight.decide(required: 9, source: .local, mailboxLevel: 1) == .proceed)
-        #expect(UpdatePreflight.decide(required: 9, source: nil, mailboxLevel: nil) == .proceed)
+        #expect(UpdatePreflight.decide(pondRange: caret110, legacyLevel: 9, source: .local, pond: semver("0.1.0")) == .proceed)
+        #expect(UpdatePreflight.decide(pondRange: caret110, legacyLevel: 9, source: nil, pond: nil) == .proceed)
     }
 
-    @Test func theBehindPromptNamesBothLevelsAndOffersTheMailboxFirst() {
-        let prompt = UpdatePreflight.prompt(version: "0.9.1", decision: .mailboxBehind(required: 3, current: 2))
-        #expect(prompt.message == "Update Hook to 0.9.1?")
-        #expect(prompt.informative.hasPrefix("Hook 0.9.1 needs Pond level 3; yours is 2."))
-        #expect(prompt.informative.contains("blocking steps"))
+    @Test func theBehindPromptNamesBothVersionsAndOffersThePondFirst() {
+        let prompt = UpdatePreflight.prompt(version: "0.11.0",
+                                            decision: .pondBehind(required: "^1.2.0", current: semver("1.1.0")))
+        #expect(prompt.message == "Update Hook to 0.11.0?")
+        #expect(prompt.informative.hasPrefix("Hook 0.11.0 needs Pond ^1.2.0. Your Pond is 1.1.0."))
         #expect(prompt.buttons == ["Update Pond First", "Update Hook Anyway", "Cancel"])
-    }
-
-    @Test func theBehindPromptNamesWhatThisHookUsesAndThePondLacks() {
-        let prompt = UpdatePreflight.prompt(version: "0.10.0", decision: .mailboxBehind(required: 5, current: 4))
-        #expect(prompt.informative.contains("step corrections and the owner key won't work"))
-        #expect(!prompt.informative.contains("blocking steps"))
+        let legacy = UpdatePreflight.prompt(version: "0.11.0",
+                                            decision: .pondBehind(required: "protocol 5", current: .legacy(protocol: 4)))
+        #expect(legacy.informative.hasPrefix("Hook 0.11.0 needs Pond protocol 5. Your Pond is protocol 4."))
     }
 
     @Test func theUsualPromptIsUnchanged() {
@@ -272,22 +302,60 @@ private let everyFeature: [MailboxFeature] = [.answers, .blocking, .optional, .f
     }
 }
 
+@Suite struct PondRangeMarkerTests {
+    @Test func readsTheFirstRangeMarker() {
+        #expect(ReleaseMarker.pondRange(in: "x <!-- hook:pond=^1.1.0 --> <!-- hook:pond=^2.0.0 -->")?.description == "^1.1.0")
+        #expect(ReleaseMarker.pondRange(in: "<!--hook:pond= >=1.1.0 <2.0.0 -->")?.description == ">=1.1.0 <2.0.0")
+        #expect(ReleaseMarker.pondRange(in: "no marker") == nil)
+    }
+
+    @Test func latestReleaseCarriesTheRange() throws {
+        let reply = #"{"tag_name":"v0.11.0","html_url":"https://github.com/xooxoxxo/hook/releases/tag/v0.11.0","#
+            + #""body":"Notes\n<!-- hook:pond=^1.1.0 -->\n<!-- hook:mailbox-protocol=5 -->"}"#
+        let release = try #require(LatestRelease.parse(Data(reply.utf8)))
+        #expect(release.pondRange == "^1.1.0")
+        #expect(release.mailboxLevel == 5)
+    }
+
+    /// The next release's CHANGELOG section carries both markers, its range equal to what
+    /// this Hook requires (the first section is the one being released).
+    @Test func theNewestChangelogSectionCarriesBothMarkers() throws {
+        let changelog = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().appending(path: "CHANGELOG.md")
+        let text = try String(contentsOf: changelog, encoding: .utf8)
+        let sections = text.components(separatedBy: "\n## [")
+        #expect(sections.count > 2)
+        let newest = sections[1]
+        #expect(ReleaseMarker.pondRange(in: newest)?.description == PondCompat.required)
+        #expect(ReleaseMarker.mailboxLevel(in: newest) == 5)
+    }
+}
+
 @Suite struct MailboxNoticeTests {
-    @Test func olderNamesWhatWontWorkWithTwoButtons() {
-        let notice = PanelNotice.mailboxOlder(missing: [.blocking])
-        #expect(notice.text == "Your Pond is older than Hook: blocking steps won't work until it is updated.")
+    @Test func olderNamesBothVersionsWithTwoButtons() {
+        let notice = PanelNotice.pondOlder(current: "1.0.0", required: "^1.1.0", missing: [.corrections])
+        #expect(notice.text == "Your Pond (1.0.0) is older than this Hook needs (^1.1.0).")
         #expect(notice.kind == .error)
         #expect(notice.actionTitle == "Update Pond…")
         #expect(notice.secondaryActionTitle == "How to update")
-        #expect(notice.help != nil)
+        #expect(notice.help?.contains("step corrections and the owner key won't work") == true)
         #expect(notice.showsOnQueue)
+        #expect(PanelNotice.pondOlder(current: "protocol 4", required: "^1.1.0", missing: []).text
+            == "Your Pond (protocol 4) is older than this Hook needs (^1.1.0).")
     }
 
     @Test func newerOffersCheckForUpdates() {
-        #expect(PanelNotice.mailboxNewer.text.hasPrefix("Hook is older than your Pond"))
-        #expect(PanelNotice.mailboxNewer.actionTitle == "Check for Updates")
-        #expect(PanelNotice.mailboxNewer.secondaryActionTitle == nil)
-        #expect(PanelNotice.mailboxNewer.kind == .info)
+        let notice = PanelNotice.hookOlder(pond: "2.0.0")
+        #expect(notice.text.hasPrefix("Hook is older than your Pond (2.0.0)."))
+        #expect(notice.actionTitle == "Check for Updates")
+        #expect(notice.secondaryActionTitle == nil)
+        #expect(notice.kind == .info)
+    }
+
+    @Test func theCompatibilityByVersion() {
+        #expect(MailboxCompatibility.evaluate(pond: semver("1.0.0")) == .pondOlder(missing: [.corrections]))
+        #expect(MailboxCompatibility.evaluate(pond: semver("2.0.0")) == .hookOlder)
+        #expect(MailboxCompatibility.evaluate(pond: semver("1.2.0")) == .ok)
     }
 
     @Test func afterTheUpdate() {

@@ -17,7 +17,7 @@ import Testing
     private static let space = "column"
 
     private static func olderNotice() -> Notice {
-        let notice = PanelNotice.mailboxOlder(missing: MailboxFeature.allCases)
+        let notice = PanelNotice.pondOlder(current: "protocol 3", required: "^1.1.0", missing: MailboxFeature.allCases)
         return Notice(kind: notice.kind, text: notice.text, actionTitle: notice.actionTitle, help: notice.help,
                       secondaryTitle: notice.secondaryActionTitle, onAction: {}, onDismiss: {})
     }

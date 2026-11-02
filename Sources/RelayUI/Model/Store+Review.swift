@@ -360,6 +360,57 @@ extension Store {
         return LookCloser.flags(old: shown.flatMap(history.body), new: now, cwd: now.from?.cwd)
     }
 
+    // MARK: Trust again, and the review Notices
+
+    /// After a Pond restore: with the owner's presence, this source's pins are cleared and
+    /// every verified history is pinned again as served now. A history that fails its own
+    /// checks stays failed; nothing here can make a bad hash good.
+    @discardableResult public func trustHistoryAgain() async -> Bool {
+        guard await shell.confirmPresence("trust the Pond's history again") else { return false }
+        if reviewsUnreadable { retryReviewKey() }
+        guard !reviewsUnreadable else {
+            post(.reviewRecordsUnreadable)
+            return false
+        }
+        let prefix = ReviewStore.key(sourceKey: sourceKey, id: "")
+        for key in reviews.keys where key.hasPrefix(prefix) { reviews[key]?.pins = [:] }
+        let ids = Set(histories.keys).union(reviews.keys.filter { $0.hasPrefix(prefix) }.map { String($0.dropFirst(prefix.count)) })
+        holdingQueue {
+            for id in ids {
+                pin(id)
+                rerender(id)
+            }
+        }
+        saveReviewsNow()
+        if case .historyChanged? = notice { dismissNotice() }
+        reviewNoticed = [:]
+        if let selected = navigation.selectedID { noticeReview(selected) }
+        queueInputChanged()
+        objectWillChange.send()
+        return true
+    }
+
+    /// The open ask's review Notice, posted once per state: "Corrected after you saw it" for a
+    /// correction to a revision this Mac showed, the red history Notice for a failed history.
+    /// The review entry point never depends on it (`DetailSnapshot.reviewAction`).
+    func noticeReview(_ id: String) {
+        let state = reviewState(id)
+        guard reviewNoticed[id] != state else { return }
+        reviewNoticed[id] = state
+        switch state {
+        case .pending(let shown?, let current, _) where shown.rev < current.rev:
+            post(.corrected(id: id, rev: current.rev))
+        case .historyChanged:
+            post(.historyChanged(id: id))
+        case .legacy, .current, .pending:
+            switch notice {
+            case .corrected(let noticed, _)? where noticed == id: dismissNotice()
+            case .historyChanged(let noticed)? where noticed == id: dismissNotice()
+            default: break
+            }
+        }
+    }
+
     // MARK: Report a problem
 
     /// One step's problem, on the revision this Mac renders (the Pond takes the current or the

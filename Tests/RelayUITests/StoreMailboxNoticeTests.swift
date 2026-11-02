@@ -24,17 +24,17 @@ import Testing
         let calls = Calls()
         let (store, defaults) = store(calls)
         defer { defaults.drop() }
-        store.post(.mailboxOlder(missing: [.blocking]))
+        store.post(.pondOlder(current: "1.0.0", required: "^1.1.0", missing: [.corrections]))
         store.performNoticeSecondaryAction()
         #expect(calls.urls == [MailboxProtocol.updateDocsURL])
-        #expect(store.notice == .mailboxOlder(missing: [.blocking]))
+        #expect(store.notice == .pondOlder(current: "1.0.0", required: "^1.1.0", missing: [.corrections]))
     }
 
     @Test func updateMailboxRunsTheUpdateAndClearsTheNotice() async {
         let calls = Calls()
         let (store, defaults) = store(calls)
         defer { defaults.drop() }
-        store.post(.mailboxOlder(missing: [.blocking]))
+        store.post(.pondOlder(current: "1.0.0", required: "^1.1.0", missing: [.corrections]))
         await store.performNoticeAction()
         #expect(calls.updates == 1)
         #expect(store.notice == nil)
@@ -44,7 +44,7 @@ import Testing
         let calls = Calls()
         let (store, defaults) = store(calls)
         defer { defaults.drop() }
-        store.post(.mailboxNewer)
+        store.post(.hookOlder(pond: "2.0.0"))
         await store.performNoticeAction()
         #expect(calls.checks == 1)
         store.post(.settingsReloaded)

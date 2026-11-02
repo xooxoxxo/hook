@@ -683,16 +683,18 @@ import RelayUI
         guard !updateStarted, case .available(let version, _, _) = updates.state else { return }
         // Repeat clicks while the mailbox is checked or the dialog is open do nothing.
         guard confirmGate.begin() else { return }
-        let required = updates.requiredMailboxLevel
+        let legacy = updates.requiredMailboxLevel
+        let range = updates.requiredPondRange.flatMap { try? SemverRange($0) }
         Task { @MainActor [weak self] in
             guard let self else { return }
             defer { self.confirmGate.end() }
-            // A fresh read: the stored level can be 30 minutes old, or from before an update.
-            let check = required != nil ? await self.mailbox.freshCheck() : nil
+            // A fresh read: the stored version can be 30 minutes old, or from before an update.
+            let check = range != nil || legacy != nil ? await self.mailbox.freshCheck() : nil
             let checkFailed: Bool
             if case .failed? = check?.result { checkFailed = true } else { checkFailed = false }
             let source: SourceKind? = self.mailbox.isMailbox ? .mailbox : .local
-            let decision = UpdatePreflight.decide(required: required, source: source, mailboxLevel: check?.updaterLevel,
+            let decision = UpdatePreflight.decide(pondRange: range, legacyLevel: legacy, source: source,
+                                                  pond: check?.pond, pondLevel: check?.updaterLevel,
                                                   checkFailed: checkFailed)
             let prompt = UpdatePreflight.prompt(version: version, decision: decision)
             NSApp.activate()

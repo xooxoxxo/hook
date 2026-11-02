@@ -81,4 +81,5 @@ public final class FixturePanelModel: PanelViewModel {
     public func reviewState(_ id: String) -> ReviewState { details[id]?.review ?? .legacy }
     public func accept(_ id: String, stamp: RevisionStamp) {}
     public func reportProblem(_ id: String, stepID: String, note: String) {}
+    public func trustHistoryAgain() {}
 }

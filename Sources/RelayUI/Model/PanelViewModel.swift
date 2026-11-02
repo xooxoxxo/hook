@@ -119,6 +119,8 @@ public enum CopyOutcome: Equatable, Sendable {
     func accept(_ id: String, stamp: RevisionStamp)
     /// Report a Problem…'s Send: one step's note to the posting session, quoted.
     func reportProblem(_ id: String, stepID: String, note: String)
+    /// "Trust the Pond's History Again…" (Touch ID): after a Pond restore, re-pin what it serves now.
+    func trustHistoryAgain()
 }
 
 /// Change and Cancel on an answered reply or step question. Edit state lives in the model,

@@ -40,12 +40,16 @@ public struct LatestRelease: Equatable, Sendable {
     /// The mailbox level the release needs: its notes' `<!-- hook:mailbox-protocol=N -->`
     /// marker, or nil when the notes have none.
     public let mailboxLevel: Int?
+    /// The Pond range the release needs: its notes' `<!-- hook:pond=<range> -->` marker, when it
+    /// parses; nil otherwise (then `mailboxLevel` decides).
+    public let pondRange: String?
 
-    public init(tag: String, version: ReleaseVersion, url: URL, mailboxLevel: Int? = nil) {
+    public init(tag: String, version: ReleaseVersion, url: URL, mailboxLevel: Int? = nil, pondRange: String? = nil) {
         self.tag = tag
         self.version = version
         self.url = url
         self.mailboxLevel = mailboxLevel
+        self.pondRange = pondRange
     }
 
     /// nil for a reply that isn't a published, final release with a version tag and an https page.
@@ -56,8 +60,10 @@ public struct LatestRelease: Equatable, Sendable {
               let page = object["html_url"] as? String,
               let url = URL(string: page), url.scheme == "https", url.host != nil else { return nil }
         if object["draft"] as? Bool == true || object["prerelease"] as? Bool == true { return nil }
-        let level = (object["body"] as? String).flatMap(ReleaseMarker.mailboxLevel(in:))
-        return LatestRelease(tag: tag, version: version, url: url, mailboxLevel: level)
+        let body = object["body"] as? String
+        let level = body.flatMap(ReleaseMarker.mailboxLevel(in:))
+        let range = body.flatMap(ReleaseMarker.pondRange(in:))?.description
+        return LatestRelease(tag: tag, version: version, url: url, mailboxLevel: level, pondRange: range)
     }
 }
 

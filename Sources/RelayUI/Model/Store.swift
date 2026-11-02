@@ -251,6 +251,8 @@ public enum LinkCheck: Equatable, Sendable {
     var pendingReviewNotice: PanelNotice?
     /// The connected Pond's version (MailboxCheck.pond); nil until checked, and in This Mac mode.
     public internal(set) var pond: PondVersion?
+    /// The review state each open ask's Notice was last posted for, so a poll doesn't repost it.
+    var reviewNoticed: [String: ReviewState] = [:]
 
     public static let closedWindow: TimeInterval = DS.Timing.closedWindow
 
@@ -344,6 +346,7 @@ public enum LinkCheck: Equatable, Sendable {
         fetchedHistories = [:]
         listedHistories = [:]
         lastRendered = [:]
+        reviewNoticed = [:]
         pond = nil
         stateTimers.values.forEach { $0.cancel() }
         stateTimers = [:]
@@ -527,6 +530,7 @@ public enum LinkCheck: Equatable, Sendable {
             post(.sessionClosed(id: selected))
         }
         updateItems()
+        if let selected = navigation.selectedID { noticeReview(selected) }
         listOK = true
         if listProblem != nil { listProblem = nil }
         offlineNoticed = false
@@ -550,6 +554,8 @@ public enum LinkCheck: Equatable, Sendable {
             detailRequestedAt[id] = now()
             scheduleTimeoutTick()
         }
+        reviewNoticed[id] = nil
+        noticeReview(id)
         loadIfMissing(id)
     }
 
@@ -836,14 +842,14 @@ public enum LinkCheck: Equatable, Sendable {
             await refresh(manual: true)
         case .queueMoved(let path):
             onShowInFinder?(path)
-        case .mailboxOlder:
+        case .pondOlder:
             shell.updateMailbox()
-        case .mailboxNewer:
+        case .hookOlder:
             shell.checkForUpdates()
         case .corrected(let id, _):
             if navigation.selectedID != id { open(id) }
         case .historyChanged:
-            break
+            await trustHistoryAgain()
         case .storeFailed, .settingsReloaded, .updating, .resumeFailed, .mailboxUpToDate, .mailboxUpdateFailed,
              .mailboxUpdateCommandInvalid, .ownerKeyRefused, .reviewRecordsChanged, .reviewRecordsUnreadable,
              .doneHeldBack, .acceptFailed:
@@ -854,7 +860,7 @@ public enum LinkCheck: Equatable, Sendable {
     /// The Notice's second button: "How to update" opens the mailbox update guide. The
     /// Notice stays, so Update Mailbox… is still there after reading.
     public func performNoticeSecondaryAction() {
-        guard case .mailboxOlder? = notice else { return }
+        guard case .pondOlder? = notice else { return }
         shell.openURL(MailboxProtocol.updateDocsURL)
     }
 
@@ -1340,6 +1346,7 @@ public enum LinkCheck: Equatable, Sendable {
         dropStaleReplyChanges(next)
         if next != details { details = next }
         loaded.forEach(rerender)
+        if let selected = navigation.selectedID, loaded.contains(selected) { noticeReview(selected) }
     }
 
     /// Leaves Change on an ask whose untouched prefill a newer reply has overtaken.
@@ -1525,6 +1532,7 @@ extension Store: PanelViewModel {
     public func sendAnswer(_ id: String, path: String) { Task { _ = await sendAnswers(id, only: [path]) } }
     public func performNoticeAction() { Task { await performNoticeAction() } }
     public func accept(_ id: String, stamp: RevisionStamp) { Task { await acceptRevision(id, stamp: stamp) } }
+    public func trustHistoryAgain() { Task { await trustHistoryAgain() } }
     public func reportProblem(_ id: String, stepID: String, note: String) {
         Task { _ = await reportProblem(id, stepID: stepID, note: note) }
     }

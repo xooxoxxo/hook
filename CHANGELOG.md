@@ -3,6 +3,34 @@
 All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## [Unreleased]
+
+### Added
+- Hook reviews step corrections. Every revision of an ask is hashed; Hook checks the whole chain,
+  pins every hash it has seen, and renders only from a revision whose hash checked out. A
+  correction locks the whole ask until you accept it here: no copy (button, ⌘C or text
+  selection), no links or files, no Done, answers, replies or ticks. Skip always works.
+- The review is one cumulative diff from the version you last accepted on this Mac (the full
+  content when this Mac never showed the ask), with every reason the session gave and "Look
+  closer" flags for new hosts, `sudo`, pipes into a shell, decoding, `eval` and non-ASCII code.
+  Accepting a changed command, link or file asks for Touch ID (or your password).
+- Acceptances, seen marks and pins live in `reviews.json`, each record sealed with a key in the
+  Keychain item "Hook review seal". A Keychain that refuses the key keeps corrected asks locked.
+- Steps keep their ticks and answers across a correction by their stable ids; changed steps lose
+  their tick and show Changed or New until ticked.
+- Report a Problem: a one-line note about one step goes to the posting session as a quoted
+  report. It needs this Mac's owner key.
+- A history that changed on the Pond (a rollback, a missing revision, or a Pond older than
+  1.1.0 serving a corrected ask) shows a red Notice and stops every act but Skip, until you
+  trust the Pond's history again (Touch ID).
+
+### Changed
+- The update dialog reads the release's Pond range: it asks for a Pond update only when your
+  Pond is below it, never for a minor or patch Pond release. The Pond Notices name both
+  versions ("Your Pond (1.0.0) is older than this Hook needs (^1.1.0).").
+<!-- hook:pond=^1.1.0 -->
+<!-- hook:mailbox-protocol=5 -->
+
 ## [0.10.0] - 2026-10-29
 
 ### Added

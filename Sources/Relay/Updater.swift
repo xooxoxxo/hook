@@ -9,10 +9,13 @@ import RelayCore
     private static let latestTagKey = "updateLatestTag"
     private static let latestURLKey = "updateLatestURL"
     private static let latestMailboxLevelKey = "updateLatestMailboxLevel"
+    private static let latestPondRangeKey = "updateLatestPondRange"
 
     private(set) var state: UpdateState = .none
     /// The mailbox level the available release needs (its notes' marker); nil when it has none.
     private(set) var requiredMailboxLevel: Int?
+    /// The Pond range the available release needs (its notes' `hook:pond` marker); nil when it has none.
+    private(set) var requiredPondRange: String?
     var onChange: (@MainActor () -> Void)?
     private let defaults: UserDefaults
     private let current: String
@@ -25,6 +28,7 @@ import RelayCore
         let stored = Self.storedRelease(defaults)
         state = UpdateState.resolve(current: current, latest: stored)
         requiredMailboxLevel = stored?.mailboxLevel
+        requiredPondRange = stored?.pondRange
     }
 
     nonisolated static var runningVersion: String {
@@ -64,11 +68,17 @@ import RelayCore
         case .available(_, let tag, let url):
             defaults.set(tag, forKey: Self.latestTagKey)
             defaults.set(url.absoluteString, forKey: Self.latestURLKey)
-            let level = (try? reply.get()).flatMap(LatestRelease.parse)?.mailboxLevel
+            let release = (try? reply.get()).flatMap(LatestRelease.parse)
+            let level = release?.mailboxLevel
             if let level { defaults.set(level, forKey: Self.latestMailboxLevelKey) } else {
                 defaults.removeObject(forKey: Self.latestMailboxLevelKey)
             }
             requiredMailboxLevel = level
+            let range = release?.pondRange
+            if let range { defaults.set(range, forKey: Self.latestPondRangeKey) } else {
+                defaults.removeObject(forKey: Self.latestPondRangeKey)
+            }
+            requiredPondRange = range
             state = result
         case .none, .checking:
             state = .none
@@ -81,7 +91,8 @@ import RelayCore
         guard let tag = defaults.string(forKey: latestTagKey), let version = ReleaseVersion(tag),
               let page = defaults.string(forKey: latestURLKey), let url = URL(string: page) else { return nil }
         let level = defaults.object(forKey: latestMailboxLevelKey) as? Int
-        return LatestRelease(tag: tag, version: version, url: url, mailboxLevel: level)
+        let range = defaults.string(forKey: latestPondRangeKey).flatMap { (try? SemverRange($0))?.description }
+        return LatestRelease(tag: tag, version: version, url: url, mailboxLevel: level, pondRange: range)
     }
 
     private static func fetch() async -> Result<Data, UpdateCheckError> {

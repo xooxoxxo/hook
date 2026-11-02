@@ -38,10 +38,11 @@ public enum PanelNotice: Equatable, Sendable {
     case updating(version: String, logPath: String)
     /// Resume Session couldn't open the terminal; the command was copied instead.
     case resumeFailed(reason: String)
-    /// The mailbox's protocol level is below Hook's: these features won't work.
-    case mailboxOlder(missing: [MailboxFeature])
-    /// The mailbox speaks a level this Hook doesn't know.
-    case mailboxNewer
+    /// The Pond is below the range this Hook needs (`PondVersion.display`, `PondCompat.required`):
+    /// these features won't work until it is updated.
+    case pondOlder(current: String, required: String, missing: [MailboxFeature])
+    /// The Pond is on a newer major than this Hook's range.
+    case hookOlder(pond: String)
     /// After Update Pond…: the Pond now fits the range Hook needs (`PondVersion.display`).
     case mailboxUpToDate(pond: String)
     /// Update Mailbox… couldn't open the terminal; the command was copied instead.
@@ -77,10 +78,10 @@ public enum PanelNotice: Equatable, Sendable {
 
     public var kind: NoticeKind {
         switch self {
-        case .actionFailed, .reopenFailed, .storeFailed, .queueMoved, .resumeFailed, .mailboxOlder,
+        case .actionFailed, .reopenFailed, .storeFailed, .queueMoved, .resumeFailed, .pondOlder,
              .mailboxUpdateFailed, .mailboxUpdateCommandInvalid, .ownerKeyRefused, .historyChanged, .acceptFailed,
              .reviewRecordsChanged, .reviewRecordsUnreadable: return .error
-        case .settingsReloaded, .sessionClosed, .noLongerOpen, .offlineCached, .updating, .mailboxNewer,
+        case .settingsReloaded, .sessionClosed, .noLongerOpen, .offlineCached, .updating, .hookOlder,
              .mailboxUpToDate, .corrected, .doneHeldBack: return .info
         }
     }
@@ -107,11 +108,11 @@ public enum PanelNotice: Equatable, Sendable {
             return "Updating to \(Sanitize.revealLine(version)). Hook restarts in about 2 minutes."
         case .resumeFailed(let reason):
             return "Couldn't open the terminal, so the resume command is on the clipboard. \(Sanitize.revealLine(reason))"
-        case .mailboxOlder(let missing):
-            let features = MailboxProtocol.featureList(missing)
-            return "Your Pond is older than Hook: \(features) won't work until it is updated."
-        case .mailboxNewer:
-            return "Hook is older than your Pond. Update Hook to catch up."
+        case let .pondOlder(current, required, _):
+            return "Your Pond (\(Sanitize.revealLine(current))) is older than this Hook needs "
+                + "(\(Sanitize.revealLine(required)))."
+        case .hookOlder(let pond):
+            return "Hook is older than your Pond (\(Sanitize.revealLine(pond))). Update Hook to catch up."
         case .mailboxUpToDate(let pond):
             return "Your Pond is up to date (\(Sanitize.revealLine(pond)))."
         case .mailboxUpdateFailed(let reason):
@@ -145,8 +146,8 @@ public enum PanelNotice: Equatable, Sendable {
         case .sessionClosed: return "Next Ask"
         case .noLongerOpen(_, let canShowClosed): return canShowClosed ? "Show Closed Ask" : nil
         case .offlineCached: return "Try Again"
-        case .mailboxOlder: return "Update Pond…"
-        case .mailboxNewer: return "Check for Updates"
+        case .pondOlder: return "Update Pond…"
+        case .hookOlder: return "Check for Updates"
         case .corrected: return "Review Changes"
         case .historyChanged: return "Trust the Pond's History Again…"
         case .storeFailed, .settingsReloaded, .updating, .resumeFailed, .mailboxUpToDate, .mailboxUpdateFailed,
@@ -158,14 +159,15 @@ public enum PanelNotice: Equatable, Sendable {
 
     /// A second button before the first, when the Notice has one.
     public var secondaryActionTitle: String? {
-        if case .mailboxOlder = self { return "How to update" }
+        if case .pondOlder = self { return "How to update" }
         return nil
     }
 
     /// The text behind the Notice's "?", when it has one.
     public var help: String? {
-        if case .mailboxOlder = self {
-            return "Hook checks your Pond's protocol level when it connects and every 30 minutes. "
+        if case .pondOlder(_, _, let missing) = self {
+            let features = missing.isEmpty ? "" : "Until it is updated, \(MailboxProtocol.featureList(missing)) won't work. "
+            return features + "Hook checks your Pond's version when it connects and every 30 minutes. "
                 + "Update Pond… runs the update command from Settings › Queue in your terminal, "
                 + "or opens the update guide when none is set."
         }
