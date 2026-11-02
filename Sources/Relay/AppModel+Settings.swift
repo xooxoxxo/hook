@@ -20,6 +20,14 @@ struct SettingsHooks {
 }
 
 extension AppModel: SettingsViewModel {
+    var ownerKeyState: OwnerKeyState { ownerKey?.state ?? .notSetUp }
+    var ownerStatus: OwnerStatus? { ownerKey?.status }
+    var canRequireOwnerKey: Bool { ownerKey?.canRequireOwnerKey ?? false }
+    func setUpOwnerKey() { ownerKey?.setUp() }
+    func cancelOwnerKeySetup() { ownerKey?.cancelSetup() }
+    func requireOwnerKey(_ on: Bool) { ownerKey?.requireOwnerKey(on) }
+    func refreshOwnerStatus() { ownerKey?.refresh() }
+
     /// Rebuilds `settings` from the config, the Store, presence and the shortcut.
     /// AppDelegate calls it after every Store change, apply, presence and shortcut change.
     func refreshSettings() {

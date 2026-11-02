@@ -58,6 +58,8 @@ final class ServerRouting: Sendable {
     var hooks = SettingsHooks()
     weak var hotKeys: HotKeyManager?
     weak var notifier: Notifier?
+    /// Set by AppDelegate: this Mac's owner key for the connected Pond.
+    var ownerKey: OwnerKeyFlow?
     /// Set by AppDelegate on every presence change.
     var presenceLine = "Home · active"
     var away = false

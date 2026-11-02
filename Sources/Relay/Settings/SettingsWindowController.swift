@@ -40,6 +40,7 @@ import SwiftUI
         // selected tab fires no didSelect, so every show sets it again.
         model.setLastSeenPolling(shown == .connect)
         model.refreshSettings()
+        model.refreshOwnerStatus()
         if !window.isVisible { window.center() }
         NSApp.activate()
         window.makeKeyAndOrderFront(nil)

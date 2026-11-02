@@ -48,6 +48,8 @@ public enum PanelNotice: Equatable, Sendable {
     case mailboxUpdateFailed(reason: String)
     /// Update Mailbox… wasn't started: the command in Settings can't be run (`RunTarget.problem`).
     case mailboxUpdateCommandInvalid(reason: String)
+    /// An owner act got 403 "unknown owner key": this Mac's key was revoked or never approved.
+    case ownerKeyRefused
 
     /// The open ask this Notice is about, when it belongs to that ask's detail: it goes when
     /// the owner leaves the ask and never shows on the queue.
@@ -61,7 +63,7 @@ public enum PanelNotice: Equatable, Sendable {
     public var kind: NoticeKind {
         switch self {
         case .actionFailed, .reopenFailed, .storeFailed, .queueMoved, .resumeFailed, .mailboxOlder,
-             .mailboxUpdateFailed, .mailboxUpdateCommandInvalid: return .error
+             .mailboxUpdateFailed, .mailboxUpdateCommandInvalid, .ownerKeyRefused: return .error
         case .settingsReloaded, .sessionClosed, .noLongerOpen, .offlineCached, .updating, .mailboxNewer,
              .mailboxUpToDate: return .info
         }
@@ -100,6 +102,8 @@ public enum PanelNotice: Equatable, Sendable {
             return "Couldn't open the terminal, so the update command is on the clipboard. \(Sanitize.revealLine(reason))"
         case .mailboxUpdateCommandInvalid(let reason):
             return "The Pond update command in Settings can't be run: \(Sanitize.revealLine(reason))."
+        case .ownerKeyRefused:
+            return "The Pond no longer accepts this Mac's owner key. Set it up again in Settings › Queue."
         }
     }
 
@@ -113,7 +117,7 @@ public enum PanelNotice: Equatable, Sendable {
         case .mailboxOlder: return "Update Pond…"
         case .mailboxNewer: return "Check for Updates"
         case .storeFailed, .settingsReloaded, .updating, .resumeFailed, .mailboxUpToDate, .mailboxUpdateFailed,
-             .mailboxUpdateCommandInvalid:
+             .mailboxUpdateCommandInvalid, .ownerKeyRefused:
             return nil
         }
     }

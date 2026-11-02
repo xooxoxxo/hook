@@ -91,6 +91,9 @@ public enum LinkCheck: Equatable, Sendable {
     public var onAnnounce: (@MainActor (String) -> Void)?
     /// The queueMoved Notice's "Show in Finder".
     public var onShowInFinder: (@MainActor (String) -> Void)?
+    /// An owner act got 403 "unknown owner key": AppDelegate marks this Mac's key refused,
+    /// so the next act goes without it.
+    public var onOwnerKeyRefused: (@MainActor () -> Void)?
     /// Closes whose send failed, by id, for the Notice's Retry.
     private var failedCloses: [String: PendingClose] = [:]
     /// The ask that was open when the source swapped; checked against the first list.
@@ -788,7 +791,7 @@ public enum LinkCheck: Equatable, Sendable {
         case .mailboxNewer:
             shell.checkForUpdates()
         case .storeFailed, .settingsReloaded, .updating, .resumeFailed, .mailboxUpToDate, .mailboxUpdateFailed,
-             .mailboxUpdateCommandInvalid:
+             .mailboxUpdateCommandInvalid, .ownerKeyRefused:
             break
         }
     }
@@ -861,6 +864,7 @@ public enum LinkCheck: Equatable, Sendable {
             onAnnounce?("Ask reopened")
         } catch {
             guard gen == generation else { return }
+            if ownerKeyRefused(error) { return }
             post(.reopenFailed(id: id, title: item(for: id)?.title ?? "", reason: UserFacingError.text(error)))
         }
     }
@@ -963,8 +967,17 @@ public enum LinkCheck: Equatable, Sendable {
             updateItems()
             publishState()
             failedCloses[close.id] = close
+            if ownerKeyRefused(error) { return }
             post(.actionFailed(verdict: close.verdict, id: close.id, title: close.title, reason: UserFacingError.text(error)))
         }
+    }
+
+    /// True after posting `.ownerKeyRefused` and telling AppDelegate, for a 403 "unknown owner key".
+    private func ownerKeyRefused(_ error: any Error) -> Bool {
+        guard case QueueError.ownerKeyRefused? = error as? QueueError else { return false }
+        post(.ownerKeyRefused)
+        onOwnerKeyRefused?()
+        return true
     }
 
     /// A refresh that starts after this call: waits out one already running.
@@ -1005,6 +1018,7 @@ public enum LinkCheck: Equatable, Sendable {
             return .success(())
         } catch {
             guard gen == generation else { return .failure(CancellationError()) }
+            _ = ownerKeyRefused(error)
             return .failure(error)
         }
     }
@@ -1129,6 +1143,7 @@ public enum LinkCheck: Equatable, Sendable {
         } catch {
             guard gen == generation else { return false }
             answerStates[id] = .failed(reason: AnswerDrafts.failureText(error))
+            _ = ownerKeyRefused(error)
             return false
         }
     }

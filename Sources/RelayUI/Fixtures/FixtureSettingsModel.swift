@@ -5,16 +5,27 @@ import RelayCore
 public final class FixtureSettingsModel: SettingsViewModel {
     @Published public var settings: SettingsSnapshot
     @Published public var draft: MailboxDraft
+    @Published public var ownerKeyState: OwnerKeyState
+    @Published public var ownerStatus: OwnerStatus?
+    @Published public var canRequireOwnerKey: Bool
 
-    public init(settings: SettingsSnapshot, draft: MailboxDraft = MailboxDraft()) {
+    public init(settings: SettingsSnapshot, draft: MailboxDraft = MailboxDraft(), ownerKeyState: OwnerKeyState = .notSetUp,
+                ownerStatus: OwnerStatus? = nil, canRequireOwnerKey: Bool = false) {
         self.settings = settings
         self.draft = draft
+        self.ownerKeyState = ownerKeyState
+        self.ownerStatus = ownerStatus
+        self.canRequireOwnerKey = canRequireOwnerKey
     }
 
     public func save(set: [String: Any], remove: [String]) {}
     public func perform(_ action: SettingsAction) {}
     public func sendTestAsk() async -> TestAskResult { .sent(id: SettingsFixtures.testAskID) }
     public func connect() async -> String? { nil }
+    public func setUpOwnerKey() {}
+    public func cancelOwnerKeySetup() {}
+    public func requireOwnerKey(_ on: Bool) {}
+    public func refreshOwnerStatus() {}
 }
 
 /// Generic Settings states for the gallery. Paths start at `~` (a generic `~/src/relay`
@@ -31,9 +42,9 @@ public enum SettingsFixtures {
         source: .mailbox, mailboxURL: "https://mailbox.example:8790",
         tokenFile: "~/.config/relay/mailbox-token", repoPath: repoPath,
         mailboxUpdateCommand: "~/bin/update-mailbox")
-    /// Settings › Queue's Mailbox row: up to date, and three levels behind.
-    public static let mailboxOK = MailboxVersionLine(text: "0.9.1 · level 4", state: .ok)
-    public static let mailboxBehind = MailboxVersionLine(text: "level 1", state: .needsUpdate)
+    /// Settings › Queue's Pond row: in range, and below it.
+    public static let mailboxOK = MailboxVersionLine(text: "Pond 1.1.0 ✓ (needs ^1.1.0)", state: .ok)
+    public static let mailboxBehind = MailboxVersionLine(text: "Pond 1.0.0 (needs ^1.1.0)", state: .needsUpdate)
     /// The mailbox config with Presence set to Away by hand, so "Away after" is hidden.
     public static let manualAwayConfig: RelayConfig = {
         var config = mailboxConfig

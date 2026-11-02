@@ -13,6 +13,20 @@ import SwiftUI
     /// Validates and saves the draft, then waits for the first list (10 s cap).
     /// nil on success, else the reason as one sanitized line.
     func connect() async -> String?
+
+    // This Mac's owner key for the connected Pond (Settings › Queue; the section is drawn later).
+    var ownerKeyState: OwnerKeyState { get }
+    /// The last `GET /owner`; nil until read or outside mailbox mode.
+    var ownerStatus: OwnerStatus? { get }
+    /// Two Macs approved, this one among them (`OwnerKeyFlow.canRequireOwnerKey`).
+    var canRequireOwnerKey: Bool { get }
+    /// Makes the key, then waits for the owner's tap on Telegram.
+    func setUpOwnerKey()
+    func cancelOwnerKeySetup()
+    /// On at once; off waits for the Telegram tap.
+    func requireOwnerKey(_ on: Bool)
+    /// `GET /owner` again (on launch and each time Settings opens).
+    func refreshOwnerStatus()
 }
 
 extension SettingsViewModel {
