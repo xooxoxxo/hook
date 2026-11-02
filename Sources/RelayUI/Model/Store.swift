@@ -661,18 +661,19 @@ public enum LinkCheck: Equatable, Sendable {
         return stepTree(item, events: details[id]?.events ?? [])
     }
 
-    /// Ticks key on fingerprints only, so their loads pass no events.
+    /// Ticks key on fingerprints and content hashes only, so their loads pass no events.
     private func stepTree(_ item: WireItem, events: [Event] = []) -> [DetailModel.Node] {
         stepTreeBuilds += 1
-        return DetailModel.make(item: item, events: events).nodes
+        return DetailModel.make(item: item, events: events, history: try? histories[item.id]?.get()).nodes
     }
 
     /// The answered paths of an ask whose detail is cached; nil without one.
     private func answered(_ id: String) -> Set<String>? {
         guard let events = details[id]?.events else { return nil }
-        let key = [events.count, events.last?.seq ?? 0]
+        let key = [events.count, events.last?.seq ?? 0, renderedStamp(id)?.rev ?? 0]
         if let hit = answeredCache[id], hit.key == key { return hit.paths }
-        let paths = Set(Answers.latest(events).keys)
+        let paths = Set(Answers.current(events: events, history: try? histories[id]?.get(),
+                                        rendered: item(for: id)?.instructable).counted.keys)
         answeredCache[id] = (key, paths)
         return paths
     }
@@ -736,6 +737,7 @@ public enum LinkCheck: Equatable, Sendable {
         let leaves = ticks.intersection(Flow.items(of: nodes).map(\.path))
         tickCache[id] = item(for: id).map { (StepSource($0), leaves) }
         TickStore.save(defaults, sourceKey: sourceKey, id: id, ticks: leaves, nodes: nodes)
+        clearChips(id, ticked: Set(Flow.items(of: nodes).filter { leaves.contains($0.path) }.compactMap(\.stepID)))
         queueInputChanged()
     }
 
@@ -1201,7 +1203,8 @@ public enum LinkCheck: Equatable, Sendable {
         var next = answerDrafts
         for (id, drafts) in answerDrafts {
             guard let detail = details[id] else { continue }
-            let kept = AnswerDrafts.settled(drafts, nodes: DetailModel.make(detail).nodes)
+            let kept = AnswerDrafts.settled(drafts, nodes: DetailModel.make(
+                item: detail.item, events: detail.events, history: try? histories[id]?.get()).nodes)
             next[id] = kept.isEmpty ? nil : kept
         }
         if next != answerDrafts { answerDrafts = next }
@@ -1408,7 +1411,8 @@ extension Store: PanelViewModel {
             item: item, detail: details[id], ticks: ticks(for: id), load: load, reply: replyStates[id] ?? .idle,
             draft: drafts[id], pendingChoice: pendingChoice[id], busy: replyStates[id] == .sending, previous: previous, next: next,
             closedBy: closedBy(item), answerDrafts: answerDrafts[id] ?? [:], answerState: answerStates[id],
-            doneWarning: doneWarnings.contains(id), review: review, stamp: stamp)
+            doneWarning: doneWarnings.contains(id), review: review, stamp: stamp,
+            history: try? histories[id]?.get(), chips: chips(id, review: review))
     }
 
     public var status: PanelStatus {

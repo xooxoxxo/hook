@@ -18,11 +18,19 @@ public struct DetailModel: Sendable, Equatable {
         public var fingerprint: String
         /// The step's question, when it asks one (never on verify).
         public var question: Question?
-        /// The owner's current answer to `question` (`Answers.latest`); nil while unanswered.
+        /// The owner's current answer to `question` (`Answers.current`); nil while unanswered.
         public var answer: Answer?
+        /// An answer given to an earlier version of this question ("You answered an earlier
+        /// version"); it doesn't count.
+        public var earlierAnswer: Answer?
+        /// The step's stable id; "verify" for verify; nil for an ask without ids.
+        public var stepID: String?
+        /// `StepIdentity.contentHash`: every field the owner sees, its kind and its parent's id.
+        public var contentHash: String
 
         public init(path: String, label: String, kind: StepFingerprint.Kind, number: Int, content: StepContent,
-                    children: [Node] = [], fingerprint: String, question: Question? = nil, answer: Answer? = nil) {
+                    children: [Node] = [], fingerprint: String, question: Question? = nil, answer: Answer? = nil,
+                    earlierAnswer: Answer? = nil, stepID: String? = nil, contentHash: String = "") {
             self.path = path
             self.label = label
             self.kind = kind
@@ -32,6 +40,9 @@ public struct DetailModel: Sendable, Equatable {
             self.fingerprint = fingerprint
             self.question = question
             self.answer = question == nil ? nil : answer
+            self.earlierAnswer = question == nil ? nil : earlierAnswer
+            self.stepID = stepID
+            self.contentHash = contentHash
         }
 
         public var id: String { path }
@@ -101,8 +112,10 @@ public struct DetailModel: Sendable, Equatable {
     }
 
     /// Steps in order, each with its sub-steps (at most ten), then verify. `answers`
-    /// (path → current answer, from `Answers.latest`) fills each question node's answer.
-    public static func nodes(steps: [Step], verify: Step?, answers: [String: Answer] = [:]) -> [Node] {
+    /// (path → current answer, from `Answers.current`) fills each question node's answer, and
+    /// `earlier` its answer to an earlier version.
+    public static func nodes(steps: [Step], verify: Step?, answers: [String: Answer] = [:],
+                             earlier: [String: Answer] = [:]) -> [Node] {
         var nodes: [Node] = []
         for (index, step) in steps.enumerated() {
             let number = index + 1
@@ -110,22 +123,26 @@ public struct DetailModel: Sendable, Equatable {
             let fingerprint = StepFingerprint.make(kind: .step, action: step.action, place: content.place, code: content.code)
             let subs = (step.substeps ?? []).prefix(StepLevel.letters.count).enumerated().map { position, sub in
                 let subContent = Self.content(sub, inOptional: content.optional)
+                let path = "\(number).\(position + 1)"
                 return Node(
-                    path: "\(number).\(position + 1)", label: "\(number)" + StepLevel.letters[position], kind: .sub,
+                    path: path, label: "\(number)" + StepLevel.letters[position], kind: .sub,
                     number: number, content: subContent,
                     fingerprint: StepFingerprint.make(kind: .sub, action: sub.action, place: subContent.place,
                                                       code: subContent.code, parent: fingerprint),
-                    question: sub.question, answer: answers["\(number).\(position + 1)"])
+                    question: sub.question, answer: answers[path], earlierAnswer: earlier[path], stepID: sub.id,
+                    contentHash: StepIdentity.contentHash(sub, parentID: step.id, kind: .sub))
             }
             nodes.append(Node(path: "\(number)", label: "\(number)", kind: .step, number: number, content: content,
                               children: Array(subs), fingerprint: fingerprint,
-                              question: step.question, answer: answers["\(number)"]))
+                              question: step.question, answer: answers["\(number)"], earlierAnswer: earlier["\(number)"],
+                              stepID: step.id, contentHash: StepIdentity.contentHash(step, parentID: nil, kind: .step)))
         }
         if let verify {
             let content = content(verify, leaf: false)
             nodes.append(Node(
                 path: "verify", label: "Verify", kind: .verify, number: steps.count + 1, content: content,
-                fingerprint: StepFingerprint.make(kind: .verify, action: verify.action, place: content.place, code: content.code)))
+                fingerprint: StepFingerprint.make(kind: .verify, action: verify.action, place: content.place, code: content.code),
+                stepID: "verify", contentHash: StepIdentity.contentHash(verify, parentID: nil, kind: .verify)))
         }
         return nodes
     }
@@ -148,7 +165,9 @@ public struct DetailModel: Sendable, Equatable {
         make(item: detail.item, events: detail.events)
     }
 
-    public static func make(item: WireItem, events: [Event]) -> DetailModel {
+    /// `history`: the ask's verified revisions, so an answer given to an earlier revision maps
+    /// to its step by id and shows as earlier when its question changed since.
+    public static func make(item: WireItem, events: [Event], history: VerifiedHistory? = nil) -> DetailModel {
         var why: String?
         var notes: [String] = []
         var origin: AskOrigin?
@@ -158,7 +177,8 @@ public struct DetailModel: Sendable, Equatable {
 
         if let ins = item.instructable {
             why = present(ins.why)
-            nodes = Self.nodes(steps: ins.steps, verify: ins.verify, answers: Answers.latest(events))
+            let answers = Answers.current(events: events, history: history, rendered: ins)
+            nodes = Self.nodes(steps: ins.steps, verify: ins.verify, answers: answers.counted, earlier: answers.earlier)
             links = ins.links ?? []
             reply = ins.reply
             origin = AskOrigin(from: ins.from)

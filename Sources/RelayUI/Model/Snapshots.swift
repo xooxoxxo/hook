@@ -121,14 +121,17 @@ public struct DetailSnapshot: Equatable, Sendable {
     public var locked: Bool { review.isLocked }
     /// The review entry point, from the state alone, so a later Notice never hides it.
     public var reviewAction: ReviewAction? { review.action }
+    /// After an accept: the paths of steps that changed or were added, until ticked.
+    public var changedSteps: [String: StepChip] = [:]
 
     public static func build(item: WireItem, detail: AskDetail?, ticks: Set<String>, load: DetailLoadState,
                              reply: ReplyBoxState, draft: String?, pendingChoice: Int?, busy: Bool,
                              previous: Neighbour, next: Neighbour, closedBy: String?,
                              answerDrafts: [String: AnswerDraft] = [:], answerState: AnswerSendState? = nil,
                              doneWarning: Bool = false, review: ReviewState = .legacy,
-                             stamp: RevisionStamp? = nil) -> DetailSnapshot {
-        let model = detail.map(DetailModel.make)
+                             stamp: RevisionStamp? = nil, history: VerifiedHistory? = nil,
+                             chips: [String: StepChip] = [:]) -> DetailSnapshot {
+        let model = detail.map { DetailModel.make(item: $0.item, events: $0.events, history: history) }
         let nodes = model?.nodes ?? []
         let events = detail?.events ?? []
         let choices = item.instructable?.reply?.choices ?? []
@@ -156,6 +159,7 @@ public struct DetailSnapshot: Equatable, Sendable {
             answerDrafts: answerDrafts, unsent: unsent, answerState: answerState,
             unansweredCaption: isOpen ? AnswerDrafts.unansweredCaption(
                 AnswerDrafts.uncovered(unanswered: model?.unanswered ?? [], unsent: unsent)) : nil,
-            unsentKind: kind, doneWarning: doneWarning && kind != nil, review: review, stamp: stamp)
+            unsentKind: kind, doneWarning: doneWarning && kind != nil, review: review, stamp: stamp,
+            changedSteps: chips)
     }
 }

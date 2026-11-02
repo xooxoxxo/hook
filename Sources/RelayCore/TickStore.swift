@@ -4,11 +4,25 @@ import Foundation
 /// holds `[path: fingerprint]`, one entry per ticked item (Flow.items: the leaves, and a
 /// parent's own question, which only an optional parent's tick marks). A parent's done
 /// state is otherwise derived from its sub-steps, never stored.
+///
+/// An ask whose steps all carry ids (Pond 1.1.0) uses `relay.ticks.v3.<sourceKey>.<askId>`
+/// instead: `[stepID: contentHash]`, so a tick follows its step when a correction moves it and
+/// drops when a correction changes any field of it.
 public enum TickStore {
     public static let prefix = "relay.ticks.v2."
+    public static let prefixV3 = "relay.ticks.v3."
 
     public static func key(sourceKey: String, id: String) -> String {
         prefix + sourceKey + "." + id
+    }
+
+    public static func keyV3(sourceKey: String, id: String) -> String {
+        prefixV3 + sourceKey + "." + id
+    }
+
+    /// Every step and sub-step has an id (verify always has "verify").
+    static func usesIDs(_ nodes: [DetailModel.Node]) -> Bool {
+        !nodes.isEmpty && Flow.flattened(nodes).allSatisfy { $0.stepID != nil }
     }
 
     /// Called when the detail model is built, so the first frame is right. An entry
@@ -17,6 +31,7 @@ public enum TickStore {
     /// With a v2 key, any v1 key for the ask is deleted, so unticking everything (which
     /// removes the v2 key) can't bring the 0.5 ticks back on the next load.
     public static func load(_ defaults: UserDefaults, sourceKey: String, id: String, nodes: [DetailModel.Node]) -> Set<String> {
+        if usesIDs(nodes) { return loadV3(defaults, sourceKey: sourceKey, id: id, nodes: nodes) }
         let key = key(sourceKey: sourceKey, id: id)
         guard let stored = defaults.dictionary(forKey: key) as? [String: String] else {
             return migrateV1(defaults, sourceKey: sourceKey, id: id, nodes: nodes) ?? []
@@ -44,6 +59,14 @@ public enum TickStore {
     }
 
     public static func save(_ defaults: UserDefaults, sourceKey: String, id: String, ticks: Set<String>, nodes: [DetailModel.Node]) {
+        if usesIDs(nodes) {
+            var entries: [String: String] = [:]
+            for item in Flow.items(of: nodes) where ticks.contains(item.path) {
+                if let stepID = item.stepID { entries[stepID] = item.contentHash }
+            }
+            write(defaults, keyV3(sourceKey: sourceKey, id: id), entries)
+            return
+        }
         var entries: [String: String] = [:]
         for leaf in Flow.items(of: nodes) where ticks.contains(leaf.path) {
             entries[leaf.path] = leaf.fingerprint
@@ -54,13 +77,45 @@ public enum TickStore {
     /// Removes this source's v2 keys whose id isn't in `ids`. Ids never contain ".",
     /// so a remainder with a dot belongs to another source whose key starts the same way.
     public static func prune(_ defaults: UserDefaults, sourceKey: String, keep ids: Set<String>) {
-        let own = prefix + sourceKey + "."
-        for key in defaults.dictionaryRepresentation().keys where key.hasPrefix(own) {
+        let owners = [prefix + sourceKey + ".", prefixV3 + sourceKey + "."]
+        for key in defaults.dictionaryRepresentation().keys {
+            guard let own = owners.first(where: key.hasPrefix) else { continue }
             let id = String(key.dropFirst(own.count))
             if !id.contains("."), !ids.contains(id) {
                 defaults.removeObject(forKey: key)
             }
         }
+    }
+
+    /// The v3 ticks as paths: an entry whose step still has its content hash stays, any other
+    /// is dropped. With no v3 key, a v2 key migrates: each entry whose fingerprint matches the
+    /// node at its path becomes `[stepID: contentHash]`, and the v2 key (and any v1 key) goes.
+    static func loadV3(_ defaults: UserDefaults, sourceKey: String, id: String, nodes: [DetailModel.Node]) -> Set<String> {
+        let key = keyV3(sourceKey: sourceKey, id: id)
+        let items = Flow.items(of: nodes)
+        guard let stored = defaults.dictionary(forKey: key) as? [String: String] else {
+            let v2 = TickStore.key(sourceKey: sourceKey, id: id)
+            let old = defaults.dictionary(forKey: v2) as? [String: String]
+            let v1 = old == nil ? migrateV1(defaults, sourceKey: sourceKey, id: id, nodes: nodes, write: false) : nil
+            defaults.removeObject(forKey: v2)
+            defaults.removeObject(forKey: legacyKey(sourceKey: sourceKey, id: id))
+            var entries: [String: String] = [:]
+            for item in items {
+                let matches = old.map { $0[item.path] == item.fingerprint } ?? (v1?.contains(item.path) ?? false)
+                if matches, let stepID = item.stepID { entries[stepID] = item.contentHash }
+            }
+            write(defaults, key, entries)
+            return Set(items.filter { $0.stepID.map { entries[$0] != nil } ?? false }.map(\.path))
+        }
+        var kept: [String: String] = [:]
+        var ticks: Set<String> = []
+        for item in items {
+            guard let stepID = item.stepID, stored[stepID] == item.contentHash else { continue }
+            kept[stepID] = item.contentHash
+            ticks.insert(item.path)
+        }
+        if kept != stored { write(defaults, key, kept) }
+        return ticks
     }
 
     private static func write(_ defaults: UserDefaults, _ key: String, _ entries: [String: String]) {
@@ -81,7 +136,8 @@ extension TickStore {
     /// nil without a v1 key. Otherwise the v1 key is deleted and its ticks written as
     /// v2: index i < steps → step i+1 (every sub-step when the step now has them);
     /// i == steps with a verify → verify. Any index out of range migrates nothing.
-    static func migrateV1(_ defaults: UserDefaults, sourceKey: String, id: String, nodes: [DetailModel.Node]) -> Set<String>? {
+    static func migrateV1(_ defaults: UserDefaults, sourceKey: String, id: String, nodes: [DetailModel.Node],
+                          write: Bool = true) -> Set<String>? {
         let old = legacyKey(sourceKey: sourceKey, id: id)
         guard let indices = defaults.array(forKey: old) as? [Int] else { return nil }
         defaults.removeObject(forKey: old)
@@ -98,7 +154,7 @@ extension TickStore {
                 return []
             }
         }
-        save(defaults, sourceKey: sourceKey, id: id, ticks: ticks, nodes: nodes)
+        if write { save(defaults, sourceKey: sourceKey, id: id, ticks: ticks, nodes: nodes) }
         return ticks
     }
 }

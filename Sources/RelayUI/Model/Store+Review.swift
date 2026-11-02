@@ -159,6 +159,31 @@ extension Store {
         scheduleReviewSave()
     }
 
+    // MARK: Chips
+
+    /// "Changed" and "New" by path in the rendered tree, while the accepted revision is current.
+    func chips(_ id: String, review: ReviewState) -> [String: StepChip] {
+        guard case .current = review, let record = record(id), !record.changed.isEmpty,
+              let ins = item(for: id)?.instructable else { return [:] }
+        let paths = StepIdentity.paths(ins)
+        var chips: [String: StepChip] = [:]
+        for stepID in record.changed {
+            guard let path = stepID == "verify" ? (ins.verify == nil ? nil : "verify") : paths[stepID] else { continue }
+            chips[path] = record.added.contains(stepID) ? .new : .changed
+        }
+        return chips
+    }
+
+    /// Ticking a step ends its chip.
+    func clearChips(_ id: String, ticked: Set<String>) {
+        guard !ticked.isEmpty, !reviewsUnreadable, var next = record(id),
+              !ticked.isDisjoint(with: next.changed) else { return }
+        next.changed.removeAll { ticked.contains($0) }
+        next.added.removeAll { ticked.contains($0) }
+        setRecord(next, for: id)
+        scheduleReviewSave()
+    }
+
     // MARK: Persistence
 
     /// At launch: the seal key, then the records that still verify. A refused Keychain read
