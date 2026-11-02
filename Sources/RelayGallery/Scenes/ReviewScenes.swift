@@ -127,5 +127,8 @@ private let thisKey = OwnerKeyRow(id: "k3", label: "example-mac", status: "appro
         ownerKeyScene("settings-owner-key-approved", state: .approved,
                       status: OwnerStatus(required: false, keys: [studioKey, thisKey], self_: OwnerSelf(id: "k3", status: "approved")),
                       canRequire: true),
+        ownerKeyScene("settings-owner-key-not-used-here",
+                      state: .notUsedHere(OwnerKeyFlow.notUsedHere(scheme: "https")),
+                      status: OwnerStatus(required: false, keys: [studioKey, thisKey])),
     ]
 }

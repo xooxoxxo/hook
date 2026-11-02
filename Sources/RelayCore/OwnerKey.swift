@@ -142,6 +142,9 @@ public enum OwnerKeyState: Equatable, Sendable {
     /// Waiting for the owner's tap on Telegram; `code` is the one the request repeats.
     case waiting(id: String, code: String)
     case approved
+    /// Approved, but for another scheme than the Pond URL's now: Hook doesn't send it there
+    /// (`OwnerKeyVault.approvedKey`). The text says so.
+    case notUsedHere(String)
     /// Why this Mac has no key the Pond accepts.
     case refused(String)
     /// The Keychain refused a read or a write.
@@ -163,6 +166,12 @@ public enum OwnerKeyState: Equatable, Sendable {
     public nonisolated static let declined = "The request was turned down on Telegram."
     public nonisolated static let needsHTTPS = "The owner key needs a Pond URL that starts with https."
     public nonisolated static let expired = "The request expired before it was approved."
+
+    /// An approved key the Pond URL's scheme doesn't take (`scheme` is the one it was set up on).
+    public nonisolated static func notUsedHere(scheme: String?) -> String {
+        guard let scheme else { return "Hook doesn't send this Mac's key to this address." }
+        return "This Mac's key was approved for the Pond's \(scheme) address. Hook doesn't send it to this one."
+    }
 
     public private(set) var state: OwnerKeyState = .notSetUp { didSet { if state != oldValue { onChange?() } } }
     /// The last `GET /owner`; nil until read, or for a source without the owner key.
@@ -222,9 +231,12 @@ public enum OwnerKeyState: Equatable, Sendable {
     /// flight and reads its record; a pending request is polled again.
     @discardableResult
     public func attach(sourceKey: String?, url: URL?, source: (any QueueSource)?) -> Task<Void, Never>? {
+        let urlChanged = url != self.url
         self.url = url
         guard sourceKey != self.sourceKey else {
             self.source = source
+            // The same Pond on another scheme: an approved key may no longer go to it, or again.
+            if urlChanged, task == nil, let sourceKey, Self.followsURL(state) { rereadForURL(sourceKey) }
             return nil
         }
         task?.cancel()
@@ -247,7 +259,7 @@ public enum OwnerKeyState: Equatable, Sendable {
         }
         switch record?.status {
         case nil: state = .notSetUp
-        case .approved?: state = .approved
+        case .approved?: state = record.map(approvedState) ?? .notSetUp
         case .refused?: state = .refused(Self.noLongerAccepted)
         case .pending?:
             guard let record, let id = record.enrollID else {
@@ -272,14 +284,14 @@ public enum OwnerKeyState: Equatable, Sendable {
         guard let sourceKey, let source, task == nil else { return nil }
         switch state {
         case .waiting, .approved: return nil
-        case .notSetUp, .refused, .unavailable: break
+        case .notSetUp, .notUsedHere, .refused, .unavailable: break
         }
         guard let url, OwnerKey.mayCarry(url), let scheme = url.scheme?.lowercased() else {
             state = .refused(Self.needsHTTPS)
             return nil
         }
         do {
-            if try ownRecord(sourceKey)?.status == .approved {
+            if let record = try ownRecord(sourceKey), record.status == .approved, record.scheme == scheme {
                 state = .approved
                 return nil
             }
@@ -409,7 +421,7 @@ public enum OwnerKeyState: Equatable, Sendable {
                     var approved = record
                     approved.status = .approved
                     try OwnerKeyVault.save(approved, secrets, sourceKey: sourceKey, seal: markingSeal())
-                    state = .approved
+                    state = approvedState(approved)
                 } catch {
                     state = .unavailable(Self.saveFailed)
                 }
@@ -428,6 +440,42 @@ public enum OwnerKeyState: Equatable, Sendable {
         }
         guard !Task.isCancelled, self.sourceKey == sourceKey else { return }
         finish(sourceKey: sourceKey, reason: Self.expired)
+    }
+
+    /// An approved record's state for the URL attached now: `.approved` only where
+    /// `OwnerKeyVault.approvedKey` would send it.
+    private func approvedState(_ record: OwnerKeyRecord) -> OwnerKeyState {
+        guard let url, OwnerKey.mayCarry(url), let scheme = record.scheme, scheme == url.scheme?.lowercased() else {
+            return .notUsedHere(Self.notUsedHere(scheme: record.scheme))
+        }
+        return .approved
+    }
+
+    /// The states a new URL for the same Pond can change: an approved key, one not used on the
+    /// old URL, or a setup the old URL refused.
+    private nonisolated static func followsURL(_ state: OwnerKeyState) -> Bool {
+        switch state {
+        case .approved, .notUsedHere: return true
+        case .refused(let reason): return reason == needsHTTPS
+        case .notSetUp, .waiting, .unavailable: return false
+        }
+    }
+
+    /// The record read again for the URL attached now (`followsURL` states only).
+    private func rereadForURL(_ sourceKey: String) {
+        do {
+            guard let record = try ownRecord(sourceKey) else {
+                state = .notSetUp
+                return
+            }
+            switch record.status {
+            case .approved: state = approvedState(record)
+            case .refused: state = .refused(Self.noLongerAccepted)
+            case .pending: break
+            }
+        } catch {
+            state = .unavailable(Self.readFailed)
+        }
     }
 
     private func finish(sourceKey: String, reason: String) {

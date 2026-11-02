@@ -69,6 +69,20 @@ struct OwnerKeySection<Model: SettingsViewModel>: View {
             } icon: {
                 Image(systemName: DS.Symbol.mailboxOK).foregroundStyle(DS.Color.done)
             }
+        case .notUsedHere(let reason):
+            VStack(alignment: .trailing, spacing: 2) {
+                Label {
+                    Text(OwnerKeyText.notUsedHere)
+                } icon: {
+                    Image(systemName: DS.Symbol.ownerKey).foregroundStyle(DS.Color.secondary)
+                }
+                Text(verbatim: reason)
+                    .font(DS.Font.caption)
+                    .foregroundStyle(DS.Color.secondary)
+                    .multilineTextAlignment(.trailing)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button(OwnerKeyText.setUpAgain) { model.setUpOwnerKey() }
+            }
         case .refused(let reason), .unavailable(let reason):
             VStack(alignment: .trailing, spacing: 2) {
                 Text(verbatim: reason)
@@ -146,6 +160,8 @@ struct OwnerKeySection<Model: SettingsViewModel>: View {
 public enum OwnerKeyText {
     public static let setUp = "Set Up This Mac…"
     public static let setUpAgain = "Set Up Again…"
+    /// An approved key the Pond URL's scheme doesn't take (`OwnerKeyState.notUsedHere`).
+    public static let notUsedHere = "Not used on this address"
     public static let help = "The owner key lets the Pond tell your answers apart from a session's. Each Mac makes "
         + "its own key and keeps it in your Keychain; the Pond stores only its hash, and only after you approve "
         + "the Mac on Telegram."

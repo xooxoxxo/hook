@@ -426,6 +426,47 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
         #expect(http() == nil)
     }
 
+    /// A key approved over https isn't sent once the Pond URL switches to http, so the flow
+    /// says so instead of "approved"; switching back shows it approved again.
+    @Test func aKeyApprovedOverHTTPSIsNotUsedOnAnHTTPAddress() async throws {
+        let secrets = MemorySecretStore(), pond = OwnerPond(), keys = KeyMaker()
+        await pond.set(polls: ["approved"])
+        let flow = makeFlow(secrets, pond: pond, keys: keys)
+        await flow.setUp()?.value
+        #expect(flow.state == .approved)
+        let http = URL(string: "http://pond.example:8790")!
+        flow.attach(sourceKey: pondKey, url: http, source: pond)
+        #expect(flow.state == .notUsedHere(OwnerKeyFlow.notUsedHere(scheme: "https")))
+        #expect(OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: http, seal: { ownerSeal })() == nil)
+        // The record stays: Hook neither refuses nor drops a key it only doesn't send here.
+        await pond.set(owner: OwnerStatus(required: false, keys: [], self_: nil))
+        await flow.refresh()?.value
+        #expect(flow.state == .notUsedHere(OwnerKeyFlow.notUsedHere(scheme: "https")))
+        #expect(record(secrets)?.status == .approved)
+        #expect(flow.requireOwnerKey(true) == nil)
+        flow.keyRefused()
+        #expect(record(secrets)?.status == .approved)
+        flow.attach(sourceKey: pondKey, url: pondURL, source: pond)
+        #expect(flow.state == .approved)
+    }
+
+    /// Read at launch with the URL already on another scheme: not used here, never "approved".
+    @Test func aRecordForAnotherSchemeReadsAsNotUsedHereAtAttach() async throws {
+        let secrets = MemorySecretStore(), pond = OwnerPond(), keys = KeyMaker()
+        let approved = OwnerKeyRecord(key: OwnerKey.generate(), enrollID: "e0", status: .approved, scheme: "http")
+        try OwnerKeyVault.save(approved, secrets, sourceKey: pondKey, seal: ownerSeal)
+        let flow = makeFlow(secrets, pond: pond, keys: keys)
+        #expect(flow.state == .notUsedHere(OwnerKeyFlow.notUsedHere(scheme: "http")))
+        #expect(OwnerKeyFlow.notUsedHere(scheme: "http")
+                == "This Mac's key was approved for the Pond's http address. Hook doesn't send it to this one.")
+        // Setting up again makes a key for this address.
+        await pond.set(polls: ["approved"])
+        await flow.setUp()?.value
+        #expect(keys.count == 1)
+        #expect(flow.state == .approved)
+        #expect(record(secrets)?.scheme == "https")
+    }
+
     @Test func setUpReplacesAPlantedItemWithAFreshOne() async throws {
         let secrets = MemorySecretStore(), pond = OwnerPond(), keys = KeyMaker()
         await pond.set(polls: ["approved"])
