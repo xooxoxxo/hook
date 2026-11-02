@@ -15,8 +15,10 @@ and versions follow Semantic Versioning.
   closer" flags for new hosts, `sudo`, pipes into a shell, decoding, `eval` and non-ASCII code.
   Accepting a changed command, link or file asks for Touch ID (or your password).
 - Acceptances, seen marks and pins live in `reviews.json`, each record sealed with a key in the
-  Keychain item "Hook review seal". A Keychain that refuses the key keeps corrected asks locked.
-  Hook uses only Keychain items it made itself: see "Keychain items" in SECURITY.md.
+  Keychain item "Hook review seal". A Keychain that refuses the key keeps corrected asks locked,
+  and so does a seal item that is there while `reviews.json` is gone; Reset Review Records… in
+  the Notice (Touch ID) starts the records and owner keys again. Hook uses only Keychain items it
+  made itself: see "Keychain items" in SECURITY.md.
 - Steps keep their ticks and answers across a correction by their stable ids; changed steps lose
   their tick and show Changed or New until ticked.
 - Report a Problem: a one-line note about one step goes to the posting session as a quoted

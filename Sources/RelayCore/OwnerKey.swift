@@ -349,6 +349,15 @@ public enum OwnerKeyState: Equatable, Sendable {
         }
     }
 
+    /// The record read again, as `attach` reads it: after the review seal changed (Reset Review
+    /// Records…), a record marked under the old one reads as not set up.
+    @discardableResult
+    public func reread() -> Task<Void, Never>? {
+        let current = sourceKey
+        sourceKey = nil
+        return attach(sourceKey: current, url: url, source: source)
+    }
+
     /// An owner act got 403 "unknown owner key": the next one goes without a key.
     public func keyRefused() {
         guard let sourceKey, state == .approved else { return }

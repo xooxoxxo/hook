@@ -100,6 +100,8 @@ public enum LinkCheck: Equatable, Sendable {
     /// An owner act got 403 "unknown owner key": AppDelegate marks this Mac's key refused,
     /// so the next act goes without it.
     public var onOwnerKeyRefused: (@MainActor () -> Void)?
+    /// Reset Review Records… made a new seal: each owner key, marked under the old one, reads again.
+    public var onReviewRecordsReset: (@MainActor () -> Void)?
     /// This Mac has an approved owner key for the Pond with this `SourceKey`; AppDelegate reads
     /// the Keychain record. Report a Problem needs one.
     public var ownerKeyApproved: @MainActor (String, URL?) -> Bool = { _, _ in false }
@@ -831,7 +833,7 @@ public enum LinkCheck: Equatable, Sendable {
         sessionClosedNext = nil
     }
 
-    /// The Notice's button: Retry, Next Ask, Show Closed Ask, Try Again or Show in Finder.
+    /// The Notice's button: Retry, Next Ask, Show Closed Ask, Try Again, Show in Finder or Reset Review Records….
     public func performNoticeAction() async {
         guard let current = notice else { return }
         notice = nil
@@ -867,8 +869,11 @@ public enum LinkCheck: Equatable, Sendable {
             if navigation.selectedID != id { open(id) }
         case .historyChanged:
             await trustHistoryAgain()
+        case .reviewRecordsUnreadable:
+            // Declined, the lock and its Notice stay.
+            if !(await resetReviewRecords()), reviewsUnreadable { post(.reviewRecordsUnreadable) }
         case .storeFailed, .settingsReloaded, .updating, .resumeFailed, .mailboxUpToDate, .mailboxUpdateFailed,
-             .mailboxUpdateCommandInvalid, .ownerKeyRefused, .reviewRecordsChanged, .reviewRecordsUnreadable,
+             .mailboxUpdateCommandInvalid, .ownerKeyRefused, .reviewRecordsChanged,
              .doneHeldBack, .acceptFailed:
             break
         }

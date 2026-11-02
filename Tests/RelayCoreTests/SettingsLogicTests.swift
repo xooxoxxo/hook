@@ -324,6 +324,17 @@ private func makeFlow(_ secrets: MemorySecretStore = MemorySecretStore(), pond: 
     return flow
 }
 
+/// A seal that a test can swap, as Reset Review Records… does.
+private final class SealBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _key: SymmetricKey
+    init(_ key: SymmetricKey) { _key = key }
+    var key: SymmetricKey {
+        get { lock.lock(); defer { lock.unlock() }; return _key }
+        set { lock.lock(); _key = newValue; lock.unlock() }
+    }
+}
+
 /// The seal that marks the flow's records.
 private let ownerSeal = SymmetricKey(data: Data(repeating: 9, count: 32))
 
@@ -356,6 +367,23 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
         #expect(OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: pondURL, seal: { ownerSeal })() == key)
         await flow.refresh()?.value
         #expect(flow.status?.self_?.status == "approved")
+    }
+
+    /// After Reset Review Records… the seal is new, so the approved record's mark no longer
+    /// verifies: reading the record again shows the key as not set up, and none is sent.
+    @Test func aNewSealMakesTheApprovedKeyReadAsNotSetUp() async throws {
+        let secrets = MemorySecretStore(), pond = OwnerPond(), keys = KeyMaker()
+        await pond.set(polls: ["approved"])
+        let seal = SealBox(ownerSeal)
+        let flow = OwnerKeyFlow(secrets: secrets, seal: { seal.key }, label: "Studio", sleep: { _ in await Task.yield() },
+                                generate: { keys.make() })
+        flow.attach(sourceKey: pondKey, url: pondURL, source: pond)
+        await flow.setUp()?.value
+        #expect(flow.state == .approved)
+        seal.key = SymmetricKey(data: Data(repeating: 4, count: 32))
+        flow.reread()
+        #expect(flow.state == .notSetUp)
+        #expect(OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: pondURL, seal: { seal.key })() == nil)
     }
 
     @Test func whileWaitingTheCodeIsHooksOwn() async throws {

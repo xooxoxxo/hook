@@ -146,9 +146,9 @@ import Testing
     }
 
     /// A seal item that looks like Hook's (its access list can name Hook's path) with a review
-    /// file sealed under it, but no marker Hook wrote: Hook makes a fresh seal and trusts none
-    /// of the records, and says so.
-    @Test func aSealItemHookDidNotMarkIsReplacedAndItsRecordsAreNotLoaded() async throws {
+    /// file sealed under it, but no marker Hook wrote: Hook neither uses nor replaces it. The
+    /// records stay locked, nothing is written, and the Notice says so.
+    @Test func aSealItemHookDidNotMarkLocksTheRecordsAndIsLeftAsItIs() async throws {
         let defaults = TestDefaults()
         defer { defaults.drop() }
         let url = reviewsURL()
@@ -161,16 +161,94 @@ import Testing
             records: [ReviewStore.key(sourceKey: localIdentity.key, id: "a"): record], sealKey: planted)) as? [String: Any])
         file["seal"] = nil
         try JSONSerialization.data(withJSONObject: file).write(to: url)
+        let before = try Data(contentsOf: url)
         let secrets = MemorySecretStore([.reviewSeal: Data(repeating: 7, count: 32)])
         let store = reviewingStore(defaults, secrets: secrets, url: url)
         await start(store, FakeQueueSource(items: [two.item], details: ["a": two.detail]))
 
-        #expect(!store.reviewsUnreadable)
-        #expect(secrets.creates == 1)
-        #expect(secrets.peek(.reviewSeal) != Data(repeating: 7, count: 32))
+        #expect(store.reviewsUnreadable)
+        #expect(store.notice == .reviewRecordsUnreadable)
+        #expect(secrets.creates == 0)
+        #expect(secrets.writes == 0)
+        #expect(secrets.peek(.reviewSeal) == Data(repeating: 7, count: 32))
         #expect(store.record("a")?.accepted == nil)
         #expect(store.reviewState("a").isLocked)
+        #expect(!store.saveReviewsNow())
+        try? await Task.sleep(for: .milliseconds(50))
+        #expect(try Data(contentsOf: url) == before)
+    }
+
+    /// Deleting `reviews.json` once Hook has made its seal: not an empty record set, but the
+    /// locked state and its Notice, and the seal item stays as it was.
+    @Test func aDeletedReviewFileLocksInsteadOfStartingOver() async throws {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let url = reviewsURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let secrets = MemorySecretStore()
+        let seal = try ReviewSeal.loadOrCreate(secrets, file: url)
+        let two = revised("a", [idSteps(3), idSteps(4)])
+        let name = ReviewStore.key(sourceKey: localIdentity.key, id: "a")
+        try ReviewStore.sealed(records: [name: ReviewRecord(accepted: two.detail.revisions[1].stamp)], sealKey: seal)
+            .write(to: url)
+        try FileManager.default.removeItem(at: url)
+        let writes = secrets.writes
+        let store = reviewingStore(defaults, secrets: secrets, url: url)
+        await start(store, FakeQueueSource(items: [two.item], details: ["a": two.detail]))
+
+        #expect(store.reviewsUnreadable)
+        #expect(store.notice == .reviewRecordsUnreadable)
+        #expect(store.reviewState("a").isLocked)
+        #expect(secrets.writes == writes)
+        #expect(secrets.peek(.reviewSeal) == seal.withUnsafeBytes { Data($0) })
+        #expect(!(await store.acceptRevision("a", stamp: two.detail.revisions[1].stamp)))
+        #expect(!store.saveReviewsNow())
+        try? await Task.sleep(for: .milliseconds(50))
+        #expect(!FileManager.default.fileExists(atPath: url.path))
+    }
+
+    /// The way out of the lock is the owner's: Reset Review Records… asks for Touch ID, makes a
+    /// new seal, keeps this run's pins, and says the records changed. Declined, nothing moves.
+    @Test func resettingTheReviewRecordsTakesThePresenceCheckAndMakesANewSeal() async throws {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let url = reviewsURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let secrets = MemorySecretStore()
+        let old = try ReviewSeal.loadOrCreate(secrets, file: url)
+        try FileManager.default.removeItem(at: url)
+        let store = reviewingStore(defaults, secrets: secrets, url: url)
+        let recorder = ShellRecorder()
+        store.shell = recorder.shell
+        var resets = 0
+        store.onReviewRecordsReset = { resets += 1 }
+        let two = revised("a", [idSteps(3), idSteps(4)])
+        await start(store, FakeQueueSource(items: [two.item], details: ["a": two.detail]))
+        #expect(store.notice == .reviewRecordsUnreadable)
+        #expect(PanelNotice.reviewRecordsUnreadable.actionTitle == "Reset Review Records…")
+        let writes = secrets.writes
+
+        recorder.presence = false
+        await store.performNoticeAction()
+        #expect(recorder.presenceAsked == ["reset Hook's review records"])
+        #expect(store.reviewsUnreadable)
+        #expect(store.notice == .reviewRecordsUnreadable)
+        #expect(secrets.writes == writes)
+        #expect(resets == 0)
+        #expect(!FileManager.default.fileExists(atPath: url.path))
+
+        recorder.presence = true
+        await store.performNoticeAction()
+        #expect(resets == 1)
+        #expect(!store.reviewsUnreadable)
         #expect(store.notice == .reviewRecordsChanged)
+        #expect(secrets.creates == 2)
+        let key = try #require(try ReviewSeal.load(secrets, file: url))
+        #expect(key.withUnsafeBytes { Data($0) } != old.withUnsafeBytes { Data($0) })
+        #expect(store.record("a")?.pins[2] == two.detail.revisions[1].hash)
+        #expect(store.record("a")?.accepted == nil)
+        #expect(store.reviewState("a").isLocked)
+        #expect(ReviewStore.load(from: url, sealKey: key).records.values.first?.pins[2] == two.detail.revisions[1].hash)
     }
 
     @Test func aTamperedRecordIsDroppedWithANotice() async throws {

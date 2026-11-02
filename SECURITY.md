@@ -55,8 +55,16 @@ the review records in `reviews.json`, and this Mac's owner key for each Pond ("H
 - **A creation marker.** An access list names an app by its path, which another app can name
   too, so it doesn't prove who made an item. Hook also keeps a marker: `reviews.json` names the
   seal Hook made, and each owner key record carries an HMAC under that seal. A seal item the
-  marker doesn't name, or an owner key record without a mark that verifies, is never used; one
-  with no marker at all is replaced. Each read and update works on the one item Hook checked.
+  marker doesn't name, or an owner key record without a mark that verifies, is never used. A
+  seal item that is there while `reviews.json` or its marker is missing is not replaced either:
+  corrected asks stay locked ("review records unreadable") and nothing is written. Hook makes a
+  seal on its own only when there is no item at all. Each read and update works on the one item
+  Hook checked.
+- **Losing `reviews.json` resets the records and the owner keys.** With the file gone, the only
+  way out of the lock is Reset Review Records… in that Notice, which asks for Touch ID (or your
+  password) and makes a new seal. Every acceptance and rollback pin sealed under the old one is
+  gone, so each corrected ask needs a review again, and each owner key, marked under the old
+  seal, reads as not set up until you set it up again in Settings › Queue.
 - **The owner key travels only over https** (or plain http to this Mac itself), and only to the
   scheme it was set up on: a Pond URL switched to http gets no key.
 

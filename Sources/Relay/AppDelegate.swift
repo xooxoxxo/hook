@@ -99,6 +99,7 @@ import RelayUI
         let ownerKey = OwnerKeyFlow(secrets: secrets, seal: seal, label: HostName.current ?? "Mac")
         ownerKey.onChange = { [weak model] in model?.objectWillChange.send() }
         store.onOwnerKeyRefused = { [weak ownerKey] in ownerKey?.keyRefused() }
+        store.onReviewRecordsReset = { [weak ownerKey] in ownerKey?.reread() }
         store.ownerKeyApproved = { key, url in
             url.map { OwnerKeyVault.approvedKey(secrets, sourceKey: key, url: $0, seal: (try? seal()) ?? nil) != nil } ?? false
         }

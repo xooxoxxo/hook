@@ -124,10 +124,11 @@ public enum ReviewStore {
 /// The review store's seal key: 32 random bytes in the Keychain item "Hook review seal".
 ///
 /// The Keychain can't say who made an item (an access list names an app by a path another app
-/// can name too), so Hook trusts only the seal it made itself: at the first creation it deletes
-/// whatever item is there, adds a fresh one, and writes `reviews.json` naming it
-/// (`ReviewStore.sealID`). An item with no such marker is never used; one the marker doesn't
-/// name is `.foreign`.
+/// can name too), so Hook trusts only the seal it made itself: at the first creation it adds a
+/// fresh item and writes `reviews.json` naming it (`ReviewStore.sealID`). An item the marker
+/// doesn't name is `.foreign`, and so is any item while the marker is missing: losing
+/// `reviews.json` locks the records rather than resetting them. Only the owner's reset
+/// (`create`) replaces an item that is there.
 public enum ReviewSeal {
     /// Hook's seal key; nil when Hook hasn't made one (no marker in `file`, or no item). A read
     /// the Keychain refuses throws `.unreadable`; an item the marker doesn't name, or that another
@@ -139,9 +140,9 @@ public enum ReviewSeal {
         return key
     }
 
-    /// `load`, or else the first creation: a fresh item (any old one deleted, never filled) and
-    /// a `file` with no records that names it. A refused read, or a `.foreign` item, never mints
-    /// a new key over the old one.
+    /// `load`, or else the first creation: a fresh item and a `file` with no records that names
+    /// it, only when there is no item at all. A refused read, a `.foreign` item, or any item
+    /// while the marker is missing never mints a new key over the old one.
     public static func loadOrCreate(_ secrets: any SecretStore, file: URL) throws -> SymmetricKey {
         try open(secrets, file: file).key
     }
@@ -149,6 +150,17 @@ public enum ReviewSeal {
     /// `loadOrCreate`, saying whether this call made the key.
     public static func open(_ secrets: any SecretStore, file: URL) throws -> (key: SymmetricKey, created: Bool) {
         if let key = try load(secrets, file: file) { return (key, false) }
+        // With no marker, `load` didn't look: an item there, even one that can't be read, isn't
+        // known to be Hook's, and replacing it would erase every acceptance and pin unasked.
+        if ReviewStore.sealMarker(at: file) == nil, itemExists(secrets) { throw SecretStoreError.foreign }
+        return (try create(secrets, file: file), true)
+    }
+
+    /// A new seal in a fresh item (whatever item is there is deleted, never filled) and a `file`
+    /// with no records that names it. Every record and every owner key marked under the old seal
+    /// stops verifying: the owner starts it (Reset Review Records…), or `open` on a first launch.
+    @discardableResult
+    public static func create(_ secrets: any SecretStore, file: URL) throws -> SymmetricKey {
         var bytes = [UInt8](repeating: 0, count: 32)
         guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else {
             throw SecretStoreError.writeFailed(errSecAllocate)
@@ -156,7 +168,12 @@ public enum ReviewSeal {
         let key = SymmetricKey(data: bytes)
         try secrets.create(.reviewSeal, Data(bytes))
         try PrivateFile.write(ReviewStore.sealed(records: [:], sealKey: key), to: file)
-        return (key, true)
+        return key
+    }
+
+    /// Whether a seal item is there: one the Keychain refuses, or another app's, counts.
+    private static func itemExists(_ secrets: any SecretStore) -> Bool {
+        do { return try secrets.read(.reviewSeal) != nil } catch { return true }
     }
 }
 

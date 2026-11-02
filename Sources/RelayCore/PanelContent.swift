@@ -57,7 +57,8 @@ public enum PanelNotice: Equatable, Sendable {
     case historyChanged(id: String)
     /// A sealed review record failed its check and was dropped.
     case reviewRecordsChanged
-    /// The Keychain refused the review seal key: corrected asks stay locked.
+    /// The Keychain refused the review seal key, or the item isn't the one Hook marked (or
+    /// `reviews.json` is gone): corrected asks stay locked until the owner resets the records.
     case reviewRecordsUnreadable
     /// A Done held for Undo was dropped: the ask was corrected meanwhile.
     case doneHeldBack(id: String, title: String)
@@ -139,7 +140,7 @@ public enum PanelNotice: Equatable, Sendable {
             return "Hook's review records were changed outside Hook, so corrected asks need a review again."
         case .reviewRecordsUnreadable:
             return "Hook couldn't read its review key from the Keychain, so corrected asks stay locked. "
-                + "Allow Hook when macOS asks."
+                + "Allow Hook when macOS asks, or reset the review records."
         case .doneHeldBack(_, let title):
             return "Done was held back: “\(Sanitize.revealLine(title))” was corrected."
         case let .acceptFailed(_, title, reason):
@@ -159,8 +160,9 @@ public enum PanelNotice: Equatable, Sendable {
         case .hookOlder: return "Check for Updates"
         case .corrected: return "Review Changes"
         case .historyChanged: return "Trust the Pond's History Again…"
+        case .reviewRecordsUnreadable: return "Reset Review Records…"
         case .storeFailed, .settingsReloaded, .updating, .resumeFailed, .mailboxUpToDate, .mailboxUpdateFailed,
-             .mailboxUpdateCommandInvalid, .ownerKeyRefused, .reviewRecordsChanged, .reviewRecordsUnreadable,
+             .mailboxUpdateCommandInvalid, .ownerKeyRefused, .reviewRecordsChanged,
              .doneHeldBack, .acceptFailed:
             return nil
         }
@@ -179,6 +181,13 @@ public enum PanelNotice: Equatable, Sendable {
             return features + "Hook checks your Pond's version when it connects and every 30 minutes. "
                 + "Update Pond… runs the update command from Settings › Queue in your terminal, "
                 + "or opens the update guide when none is set."
+        }
+        if case .reviewRecordsUnreadable = self {
+            return "Hook seals what you reviewed in reviews.json, under a key in the Keychain it made itself. "
+                + "When macOS asks for your password, Allow lets Hook read the key again. If reviews.json was "
+                + "deleted, or the key isn't the one Hook made, Hook trusts neither. Reset Review Records… asks "
+                + "for Touch ID and makes a new key: every corrected ask needs a review again, and each owner "
+                + "key has to be set up again in Settings › Queue."
         }
         guard case .updating(_, let logPath) = self else { return nil }
         return "Hook rebuilds from your checkout, then quits and starts again. "

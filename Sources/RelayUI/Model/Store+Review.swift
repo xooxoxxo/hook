@@ -520,8 +520,9 @@ extension Store {
     // MARK: Persistence
 
     /// At launch: the seal key, then the records that still verify. A refused Keychain read, or a
-    /// seal item Hook didn't make (`.foreign`), loads nothing and writes nothing; a failed write
-    /// of a new key keeps records in memory only.
+    /// seal item Hook didn't make (`.foreign`, also any item while `reviews.json` or its marker
+    /// is gone), loads nothing and writes nothing until the owner resets the records; a failed
+    /// write of a new key keeps records in memory only.
     func loadReviews() {
         guard let reviewFile else { return }
         let key: SymmetricKey
@@ -529,10 +530,11 @@ extension Store {
         do {
             let seal = try ReviewSeal.open(reviewFile.secrets, file: reviewFile.url)
             key = seal.key
-            // A file sealed by a key Hook didn't make (or lost) was set aside with its records.
+            // A file whose seal item is gone was set aside with its records.
             if seal.created, hadFile { pendingReviewNotice = .reviewRecordsChanged }
         } catch SecretStoreError.unreadable, SecretStoreError.foreign {
-            // A refused read, or a key Hook didn't make, whose maker could seal records: trust none.
+            // A refused read, or a key Hook didn't make, whose maker could seal records: trust
+            // none, and replace nothing (Reset Review Records… is the owner's).
             reviewsUnreadable = true
             pendingReviewNotice = .reviewRecordsUnreadable
             return
@@ -548,6 +550,33 @@ extension Store {
             pendingReviewNotice = .reviewRecordsChanged
         }
         if loaded.tampered || reviews != loaded.records { scheduleReviewSave() }
+    }
+
+    /// Reset Review Records…: with the owner's presence, a new seal over whatever item is there,
+    /// and the records start again from this run's pins. Every correction needs a review again,
+    /// and each owner key, marked under the old seal, has to be set up again.
+    @discardableResult public func resetReviewRecords() async -> Bool {
+        guard let reviewFile, reviewsUnreadable,
+              await shell.confirmPresence("reset Hook's review records") else { return false }
+        let key: SymmetricKey
+        do {
+            key = try ReviewSeal.create(reviewFile.secrets, file: reviewFile.url)
+        } catch {
+            NSLog("Hook: couldn't reset the review records: %@", error.localizedDescription)
+            return false
+        }
+        sealKey = key
+        reviewsUnreadable = false
+        reviews = Self.joiningPins([:], reviews)
+        saveReviewsNow()
+        holdingQueue {
+            for id in histories.keys { rerender(id) }
+        }
+        post(.reviewRecordsChanged)
+        onReviewRecordsReset?()
+        queueInputChanged()
+        objectWillChange.send()
+        return true
     }
 
     /// The records on disk, with the pins taken in memory while the seal was refused added: a

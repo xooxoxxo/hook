@@ -122,25 +122,62 @@ private func object(_ url: URL) throws -> [String: Any] {
         #expect(secrets.creates == 1)
     }
 
-    /// An item Hook's marker doesn't name was never made by Hook, however its access list reads
-    /// (another app can name Hook's path in one): with no marker it is replaced, never used.
-    @Test func aSealItemWithoutHooksMarkerIsReplacedNotUsed() throws {
+    /// With the marker missing (no review file, one without `seal`, or one that doesn't decode),
+    /// an item that is there isn't known to be Hook's: it is refused, never replaced, and
+    /// nothing is written. Deleting `reviews.json` must not reset the records unasked.
+    @Test func aSealItemWithoutHooksMarkerIsRefusedAndNothingIsWritten() throws {
         let planted = Data(repeating: 7, count: 32)
-        for secrets in [MemorySecretStore([.reviewSeal: planted]), { let s = MemorySecretStore(); s.plantForeign(.reviewSeal, planted); return s }()] {
-            let url = tempFile()
-            defer { try? FileManager.default.removeItem(at: url) }
-            // A review file sealed with the planted key, but with no marker Hook wrote.
+        let unmarked: Data = try {
             var file = try JSONSerialization.jsonObject(with: ReviewStore.sealed(
                 records: [ReviewStore.key(sourceKey: source, id: "a"): record()], sealKey: SymmetricKey(data: planted))) as! [String: Any]
             file["seal"] = nil
-            try JSONSerialization.data(withJSONObject: file).write(to: url)
-            #expect(try ReviewSeal.load(secrets, file: url) == nil)
-            let key = try ReviewSeal.loadOrCreate(secrets, file: url)
-            #expect(key.withUnsafeBytes { Data($0) } != planted)
-            #expect(secrets.peek(.reviewSeal) != planted)
-            #expect(secrets.creates == 1)
-            #expect(ReviewStore.load(from: url, sealKey: key).records.isEmpty)
+            return try JSONSerialization.data(withJSONObject: file)
+        }()
+        let stores: [() -> MemorySecretStore] = [
+            { MemorySecretStore([.reviewSeal: planted]) },
+            { let s = MemorySecretStore(); s.plantForeign(.reviewSeal, planted); return s },
+            { let s = MemorySecretStore([.reviewSeal: planted]); s.readError = .unreadable(-128); return s },
+        ]
+        for make in stores {
+            for contents in [nil, unmarked, Data("not json".utf8)] {
+                let secrets = make(), url = tempFile()
+                defer { try? FileManager.default.removeItem(at: url) }
+                try contents?.write(to: url)
+                #expect(throws: SecretStoreError.foreign) { try ReviewSeal.open(secrets, file: url) }
+                #expect(throws: SecretStoreError.foreign) { try ReviewSeal.loadOrCreate(secrets, file: url) }
+                #expect(secrets.creates == 0)
+                #expect(secrets.writes == 0)
+                #expect(secrets.peek(.reviewSeal) == planted)
+                #expect((try? Data(contentsOf: url)) == contents)
+            }
         }
+    }
+
+    /// The deleted-file case end to end: a seal Hook made, then `reviews.json` gone.
+    @Test func losingTheReviewFileLocksTheSealInsteadOfMintingANewOne() throws {
+        let secrets = MemorySecretStore(), url = tempFile()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let first = try ReviewSeal.loadOrCreate(secrets, file: url)
+        try FileManager.default.removeItem(at: url)
+        #expect(throws: SecretStoreError.foreign) { try ReviewSeal.open(secrets, file: url) }
+        #expect(secrets.creates == 1)
+        #expect(secrets.peek(.reviewSeal) == first.withUnsafeBytes { Data($0) })
+        #expect(!FileManager.default.fileExists(atPath: url.path))
+    }
+
+    /// The owner's reset: a fresh item over whatever is there, and a file naming it, with no records.
+    @Test func createReplacesTheItemAndMarksTheNewSeal() throws {
+        let planted = Data(repeating: 7, count: 32)
+        let secrets = MemorySecretStore(), url = tempFile()
+        defer { try? FileManager.default.removeItem(at: url) }
+        secrets.plantForeign(.reviewSeal, planted)
+        let key = try ReviewSeal.create(secrets, file: url)
+        #expect(key.withUnsafeBytes { Data($0) } != planted)
+        #expect(secrets.peek(.reviewSeal) == key.withUnsafeBytes { Data($0) })
+        #expect(secrets.creates == 1)
+        #expect(try object(url)["seal"] as? String == ReviewStore.sealID(key))
+        #expect(ReviewStore.load(from: url, sealKey: key).records.isEmpty)
+        #expect(try ReviewSeal.open(secrets, file: url).created == false)
     }
 
     /// Once Hook has marked its seal, any other key in the item is refused, and left as it is.
