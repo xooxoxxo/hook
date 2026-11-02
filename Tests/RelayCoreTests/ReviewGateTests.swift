@@ -40,9 +40,33 @@ private func pins(_ h: VerifiedHistory) -> [Int: String] {
         let two = try history([idSteps(3), idSteps(4)])
         #expect(ReviewGate.resolve(record: ReviewRecord(pins: pins(two)), history: nil, pond: pond110)
             == .historyChanged(.missing))
-        // Pinned at rev 1 only: never corrected, so an older Pond hides nothing.
+        // Pinned at rev 1 only, on a Pond that serves revisions: a dropped revision is a swap.
         let one = try history([idSteps(3)])
-        #expect(ReviewGate.resolve(record: ReviewRecord(pins: pins(one)), history: nil, pond: pond110) == .legacy)
+        #expect(ReviewGate.resolve(record: ReviewRecord(pins: pins(one)), history: nil, pond: pond110,
+                                   served: idSteps(3)) == .historyChanged(.missing))
+    }
+
+    @Test func aRev1PinOnAnOlderPondIsLegacyOnlyForTheVerifiedBody() throws {
+        let one = try history([idSteps(3)])
+        let body = try #require(one.bodies[1])
+        let record = ReviewRecord(pins: pins(one), firstBodyHash: ReviewGate.bodyHash(body))
+        // A rollback to 1.0.0 (or before the version check) serving exactly rev 1: legacy.
+        #expect(ReviewGate.resolve(record: record, history: nil, pond: pond100, served: body) == .legacy)
+        #expect(ReviewGate.resolve(record: record, history: nil, pond: nil, served: body) == .legacy)
+        // Step ids are not shown: a payload from before them still matches.
+        var plain = body
+        for i in plain.steps.indices { plain.steps[i].id = nil }
+        #expect(ReviewGate.resolve(record: record, history: nil, pond: pond100, served: plain) == .legacy)
+        // Anything else is a swap.
+        var swapped = body
+        swapped.steps[0].code = "rm -rf ~/x"
+        #expect(ReviewGate.resolve(record: record, history: nil, pond: pond100, served: swapped) == .historyChanged(.missing))
+        #expect(ReviewGate.resolve(record: record, history: nil, pond: pond100, served: nil) == .historyChanged(.missing))
+        // No verified rev 1 body to compare with: locked.
+        #expect(ReviewGate.resolve(record: ReviewRecord(pins: pins(one)), history: nil, pond: pond100, served: body)
+            == .historyChanged(.missing))
+        #expect(ReviewGate.resolve(record: ReviewRecord(pins: pins(one)), history: nil, pond: nil, served: body)
+            == .historyChanged(.missing))
     }
 
     @Test func aPondBelow110WithPinsIsHistoryChanged() throws {

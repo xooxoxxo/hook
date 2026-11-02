@@ -18,11 +18,15 @@ public struct ReviewRecord: Codable, Equatable, Sendable {
     public var pondAcceptPending: Bool
     /// Of `changed`, the ids that were added (chip "New"); the rest show "Changed".
     public var added: [String]
+    /// `ReviewGate.bodyHash` of the verified rev 1 body pinned at `pins[1]`: an older Pond may
+    /// serve the ask without revisions, but only with exactly this payload.
+    public var firstBodyHash: String?
 
     public init(accepted: RevisionStamp? = nil, seen: RevisionStamp? = nil, pins: [Int: String] = [:],
-                changed: [String] = [], pondAcceptPending: Bool = false, added: [String] = []) {
+                changed: [String] = [], pondAcceptPending: Bool = false, added: [String] = [],
+                firstBodyHash: String? = nil) {
         self.accepted = accepted; self.seen = seen; self.pins = pins; self.changed = changed
-        self.pondAcceptPending = pondAcceptPending; self.added = added
+        self.pondAcceptPending = pondAcceptPending; self.added = added; self.firstBodyHash = firstBodyHash
     }
 
     /// The highest pinned rev; 0 without pins.

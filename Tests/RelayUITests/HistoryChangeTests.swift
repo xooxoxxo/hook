@@ -48,6 +48,62 @@ import Testing
         #expect(store.pending.contains("a"))
     }
 
+    /// A rev-1 ask (never corrected), seen and pinned on a Pond that serves revisions.
+    private func pinnedRev1(_ defaults: TestDefaults, recorder: ShellRecorder) async -> (Store, FakeQueueSource, AskDetail) {
+        let store = reviewingStore(defaults)
+        store.shell = recorder.shell
+        let one = revised("a", [idSteps(3)])
+        let fake = FakeQueueSource(items: [one.item], details: ["a": one.detail])
+        await start(store, fake)
+        store.setPond(.semver(SemVer(major: 1, minor: 1, patch: 0)))
+        #expect(store.reviewState("a") == .current(one.detail.revisions[0].stamp))
+        #expect(store.record("a")?.firstBodyHash != nil)
+        return (store, fake, one.detail)
+    }
+
+    private func withoutRevision(_ detail: AskDetail, payload: Instructable) -> WireItem {
+        var item = detail.item
+        item.revision = nil
+        item.payload = Payload(instructable: payload)
+        return item
+    }
+
+    @Test func aRev1AskServedWithoutItsRevisionAndAnotherPayloadIsLocked() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let recorder = ShellRecorder()
+        let (store, fake, detail) = await pinnedRev1(defaults, recorder: recorder)
+        let swapped = withoutRevision(detail, payload: idSteps(3, codes: [2: "rm -rf ~/x"]))
+        await fake.setItems([swapped])
+        await fake.setDetail(AskDetail(item: swapped, events: []))
+        await store.refresh()
+        store.open("a")
+
+        #expect(store.reviewState("a") == .historyChanged(.missing))
+        #expect(store.detail("a")?.locked == true)
+        #expect(store.copyCode("a", stamp: nil, text: "rm -rf ~/x") == .refused)
+        #expect(store.copyCode("a", stamp: detail.revisions[0].stamp, text: "run 2") == .refused)
+        #expect(recorder.copied.isEmpty)
+        #expect(store.listed.first?.instructable?.steps[1].code == "run 2")
+        // A rollback to Pond 1.0.0 doesn't unlock a swapped payload either.
+        store.setPond(.semver(SemVer(major: 1, minor: 0, patch: 0)))
+        #expect(store.reviewState("a") == .historyChanged(.missing))
+    }
+
+    @Test func aRollbackTo100ServingTheVerifiedRev1StaysUsable() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let recorder = ShellRecorder()
+        let (store, fake, detail) = await pinnedRev1(defaults, recorder: recorder)
+        let same = withoutRevision(detail, payload: idSteps(3))
+        await fake.setItems([same])
+        await fake.setDetail(AskDetail(item: same, events: []))
+        store.setPond(.semver(SemVer(major: 1, minor: 0, patch: 0)))
+        await store.refresh()
+        #expect(store.reviewState("a") == .legacy)
+        #expect(store.copyCode("a", stamp: nil, text: "run 2") == .copied)
+    }
+
     @Test func aPondBelow110ForAPinnedAskIsHistoryChanged() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }

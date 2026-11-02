@@ -276,7 +276,8 @@ extension Store {
     // MARK: The gate
 
     public func reviewState(_ id: String) -> ReviewState {
-        ReviewGate.resolve(record: record(id), history: histories[id], pond: pond)
+        ReviewGate.resolve(record: record(id), history: histories[id], pond: pond,
+                           served: served[id]?.payload.instructable)
     }
 
     /// The revision the card and detail render; nil for a legacy ask or a failed history.
@@ -304,6 +305,13 @@ extension Store {
         for (rev, stamp) in history.stamps where next.pins[rev] == nil {
             next.pins[rev] = stamp.hash
             changed = true
+        }
+        if let first = history.stamps[1], next.pins[1] == first.hash, let body = history.body(first) {
+            let hash = ReviewGate.bodyHash(body)
+            if next.firstBodyHash != hash {
+                next.firstBodyHash = hash
+                changed = true
+            }
         }
         guard changed else { return }
         setRecord(next, for: id)
@@ -376,7 +384,10 @@ extension Store {
             return false
         }
         let prefix = ReviewStore.key(sourceKey: sourceKey, id: "")
-        for key in reviews.keys where key.hasPrefix(prefix) { reviews[key]?.pins = [:] }
+        for key in reviews.keys where key.hasPrefix(prefix) {
+            reviews[key]?.pins = [:]
+            reviews[key]?.firstBodyHash = nil
+        }
         let ids = Set(histories.keys).union(reviews.keys.filter { $0.hasPrefix(prefix) }.map { String($0.dropFirst(prefix.count)) })
         holdingQueue {
             for id in ids {
