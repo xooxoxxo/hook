@@ -260,7 +260,8 @@ public struct MailboxClient: QueueSource {
         request.timeoutInterval = 10
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue(Self.clientProtocol, forHTTPHeaderField: Self.protocolHeader)
-        if owner, let key = ownerKey?() {
+        // Never over plain http to another host, whatever the provider says.
+        if owner, OwnerKey.mayCarry(url), let key = ownerKey?() {
             request.setValue(key, forHTTPHeaderField: Self.ownerKeyHeader)
         }
         if let body {

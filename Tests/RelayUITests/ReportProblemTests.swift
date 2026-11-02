@@ -9,7 +9,7 @@ import Testing
     private func started(_ defaults: TestDefaults, bodies: [Instructable] = [idSteps(3)], approved: Bool = true)
         async -> (Store, FakeQueueSource, AskDetail) {
         let store = reviewingStore(defaults)
-        store.ownerKeyApproved = { _ in approved }
+        store.ownerKeyApproved = { _, _ in approved }
         let ask = revised("a", bodies)
         let fake = FakeQueueSource(items: [ask.item], details: ["a": ask.detail])
         await start(store, fake)

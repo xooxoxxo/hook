@@ -86,10 +86,12 @@ private let rawInstructable = #"{"v":1,"title":"Rotate the key","steps":[{"do":"
 /// A client whose session only talks to the stub, for a host unique to the test.
 private func makeClient(
     writeToken: Bool = true,
+    scheme: String = "https",
+    host fixedHost: String? = nil,
     ownerKey: (@Sendable () -> String?)? = nil,
     _ handler: @escaping MailboxStubRegistry.Handler
 ) throws -> (client: MailboxClient, host: String) {
-    let host = "mbx-" + UUID().uuidString.lowercased() + ".test"
+    let host = fixedHost ?? "mbx-" + UUID().uuidString.lowercased() + ".test"
     MailboxStubRegistry.shared.register(host, handler)
     let dir = FileManager.default.temporaryDirectory.appending(path: "relay-mbx-\(UUID().uuidString)")
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -97,7 +99,7 @@ private func makeClient(
     if writeToken { try Data("tok-example\n".utf8).write(to: tokenFile) }
     let configuration = URLSessionConfiguration.ephemeral
     configuration.protocolClasses = [MailboxStubProtocol.self]
-    let settings = MailboxSettings(url: try #require(URL(string: "http://\(host):8790")),
+    let settings = MailboxSettings(url: try #require(URL(string: "\(scheme)://\(host):8790")),
                                    tokenFile: tokenFile.path, context: "work")
     let client = MailboxClient(settings: settings, session: URLSession(configuration: configuration), ownerKey: ownerKey)
     return (client, host)
@@ -487,6 +489,21 @@ private func sentHeader(_ host: String, _ name: String) -> String? {
         }
     }
 
+    /// The owner key never goes over plain http, except to this Mac itself.
+    @Test func theOwnerKeyIsSentOnlyOverHTTPSOrLoopback() async throws {
+        let (plain, plainHost) = try makeClient(scheme: "http", ownerKey: { ownerKeyValue }) { _, _ in
+            (200, #"{"item":\#(itemJSON)}"#)
+        }
+        _ = try await plain.reply(askID, text: "x")
+        #expect(MailboxStubRegistry.shared.last(plainHost) != nil)
+        #expect(sentHeader(plainHost, "X-Hook-Owner-Key") == nil)
+        let (loopback, loopbackHost) = try makeClient(scheme: "http", host: "127.0.0.1", ownerKey: { ownerKeyValue }) { _, _ in
+            (200, #"{"item":\#(itemJSON)}"#)
+        }
+        _ = try await loopback.reply(askID, text: "x")
+        #expect(sentHeader(loopbackHost, "X-Hook-Owner-Key") == ownerKeyValue)
+    }
+
     @Test func aClientWithoutAProviderSendsNoKey() async throws {
         let (client, host) = try makeClient { _, _ in (200, #"{"item":\#(itemJSON)}"#) }
         _ = try await client.reply(askID, text: "x")
@@ -590,8 +607,8 @@ private func sentHeader(_ host: String, _ name: String) -> String? {
         let sourceKey = "mailbox:pond.example:8790#personal"
         let seal = SymmetricKey(data: Data(repeating: 9, count: 32))
         let key = OwnerKey.generate()
-        try OwnerKeyVault.save(OwnerKeyRecord(key: key, enrollID: "e1", status: .pending), secrets, sourceKey: sourceKey, seal: seal)
-        let (client, host) = try makeClient(ownerKey: OwnerKeyFlow.provider(secrets, sourceKey: sourceKey, seal: { seal })) { _, _ in
+        try OwnerKeyVault.save(OwnerKeyRecord(key: key, enrollID: "e1", status: .pending, scheme: "https"), secrets, sourceKey: sourceKey, seal: seal)
+        let (client, host) = try makeClient(ownerKey: OwnerKeyFlow.provider(secrets, sourceKey: sourceKey, url: URL(string: "https://pond.example:8790")!, seal: { seal })) { _, _ in
             (200, #"{"item":\#(itemJSON)}"#)
         }
         _ = try await client.reply(askID, text: "x")
@@ -599,13 +616,13 @@ private func sentHeader(_ host: String, _ name: String) -> String? {
         _ = try await client.resolve(askID, verdict: .done, note: nil, stamp: stamp)
         #expect(sentHeader(host, "X-Hook-Owner-Key") == nil)
 
-        try OwnerKeyVault.save(OwnerKeyRecord(key: key, enrollID: "e1", status: .approved), secrets, sourceKey: sourceKey, seal: seal)
+        try OwnerKeyVault.save(OwnerKeyRecord(key: key, enrollID: "e1", status: .approved, scheme: "https"), secrets, sourceKey: sourceKey, seal: seal)
         _ = try await client.reply(askID, text: "x")
         #expect(sentHeader(host, "X-Hook-Owner-Key") == key)
         _ = try await client.resolve(askID, verdict: .done, note: nil, stamp: stamp)
         #expect(sentHeader(host, "X-Hook-Owner-Key") == key)
 
-        try OwnerKeyVault.save(OwnerKeyRecord(key: key, enrollID: "e1", status: .refused), secrets, sourceKey: sourceKey, seal: seal)
+        try OwnerKeyVault.save(OwnerKeyRecord(key: key, enrollID: "e1", status: .refused, scheme: "https"), secrets, sourceKey: sourceKey, seal: seal)
         _ = try await client.reply(askID, text: "x")
         #expect(sentHeader(host, "X-Hook-Owner-Key") == nil)
     }

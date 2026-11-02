@@ -99,7 +99,9 @@ import RelayUI
         let ownerKey = OwnerKeyFlow(secrets: secrets, seal: seal, label: HostName.current ?? "Mac")
         ownerKey.onChange = { [weak model] in model?.objectWillChange.send() }
         store.onOwnerKeyRefused = { [weak ownerKey] in ownerKey?.keyRefused() }
-        store.ownerKeyApproved = { key in OwnerKeyVault.approvedKey(secrets, sourceKey: key, seal: (try? seal()) ?? nil) != nil }
+        store.ownerKeyApproved = { key, url in
+            url.map { OwnerKeyVault.approvedKey(secrets, sourceKey: key, url: $0, seal: (try? seal()) ?? nil) != nil } ?? false
+        }
         self.ownerKey = ownerKey
         model.ownerKey = ownerKey
         store.setLocalHost(HostName.current)
@@ -437,7 +439,7 @@ import RelayUI
         let pollSeconds = config?.pollSeconds ?? RelayConfig.defaultPollSeconds
 
         let resolved = config?.resolvedSource() ?? .incomplete
-        if case .mailbox = resolved {} else { attachOwnerKey(nil, nil) }
+        if case .mailbox = resolved {} else { attachOwnerKey(nil, url: nil, nil) }
         switch resolved {
         case .local:
             let keepDays = config?.keepDays ?? RelayConfig.defaultKeepDays
@@ -465,11 +467,11 @@ import RelayUI
             let key = SourceKey.mailbox(settings)
             SourceKey.migrate(.standard, from: SourceKey.legacyMailbox(settings), to: key)
             let seal = self.seal ?? { nil }
-            let provider = secrets.map { OwnerKeyFlow.provider($0, sourceKey: key, seal: seal) }
+            let provider = secrets.map { OwnerKeyFlow.provider($0, sourceKey: key, url: settings.url, seal: seal) }
             swapIfNeeded(SourceIdentity(key: key, mailbox: settings), pollSeconds: pollSeconds) {
                 MailboxClient(settings: settings, ownerKey: provider)
             }
-            attachOwnerKey(key, MailboxClient(settings: settings, ownerKey: provider))
+            attachOwnerKey(key, url: settings.url, MailboxClient(settings: settings, ownerKey: provider))
         case .incomplete, .invalid:
             localProblem = nil
             model.localAPI = nil
@@ -484,10 +486,10 @@ import RelayUI
     }
 
     /// The owner key follows the connected Pond; a new one reads `GET /owner` (on launch too).
-    private func attachOwnerKey(_ key: String?, _ source: (any QueueSource)?) {
+    private func attachOwnerKey(_ key: String?, url: URL?, _ source: (any QueueSource)?) {
         guard let ownerKey else { return }
         let isNew = ownerKey.sourceKey != key
-        ownerKey.attach(sourceKey: key, source: source)
+        ownerKey.attach(sourceKey: key, url: url, source: source)
         if isNew { ownerKey.refresh() }
     }
 

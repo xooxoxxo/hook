@@ -30,6 +30,16 @@ public enum OwnerKey {
         return String(repeating: "0", count: 6 - code.count) + code
     }
 
+    /// Where the key may go: https, or plain http only to this Mac itself (127.0.0.1, ::1,
+    /// localhost). Anything else could be read on the way.
+    public static func mayCarry(_ url: URL) -> Bool {
+        switch url.scheme?.lowercased() {
+        case "https"?: return true
+        case "http"?: return ["127.0.0.1", "::1", "[::1]", "localhost"].contains((url.host(percentEncoded: false) ?? "").lowercased())
+        default: return false
+        }
+    }
+
     private static func hex(_ digest: SHA256.Digest) -> String {
         digest.map { String(format: "%02x", $0) }.joined()
     }
@@ -46,11 +56,16 @@ public struct OwnerKeyRecord: Codable, Equatable, Sendable {
     public var key: String
     public var enrollID: String?
     public var status: Status
+    /// The Pond URL's scheme when the key was set up (`https`, or `http` to this Mac itself): the
+    /// key goes to no other. nil names none.
+    public var scheme: String?
     /// Hook's creation marker (`OwnerKeyVault.mark`): set on every write, checked on every read.
     public var mark: String?
 
-    public init(v: Int = 1, key: String, enrollID: String? = nil, status: Status, mark: String? = nil) {
-        self.v = v; self.key = key; self.enrollID = enrollID; self.status = status; self.mark = mark
+    public init(v: Int = 1, key: String, enrollID: String? = nil, status: Status, scheme: String? = nil,
+                mark: String? = nil) {
+        self.v = v; self.key = key; self.enrollID = enrollID; self.status = status; self.scheme = scheme
+        self.mark = mark
     }
 }
 
@@ -61,10 +76,13 @@ public struct OwnerKeyRecord: Codable, Equatable, Sendable {
 /// the key under the review seal, which only Hook can read. A record without a mark that
 /// verifies, planted or copied from another Pond's item, is `.foreign`: never sent.
 public enum OwnerKeyVault {
-    /// The key, only while the record says approved and carries Hook's mark. Pending, refused,
-    /// unreadable, unmarked, malformed or missing → nil, so an owner act then goes without a key.
-    public static func approvedKey(_ store: any SecretStore, sourceKey: String, seal: SymmetricKey?) -> String? {
-        guard let record = try? record(store, sourceKey: sourceKey, seal: seal), record.status == .approved else {
+    /// The key, only while the record says approved and carries Hook's mark, and only for `url`
+    /// (the Pond's) when it may carry the key and has the scheme the key was set up on. Pending,
+    /// refused, unreadable, unmarked, malformed, missing, or another scheme → nil, so an owner act
+    /// then goes without a key.
+    public static func approvedKey(_ store: any SecretStore, sourceKey: String, url: URL, seal: SymmetricKey?) -> String? {
+        guard OwnerKey.mayCarry(url), let record = try? record(store, sourceKey: sourceKey, seal: seal),
+              record.status == .approved, let scheme = record.scheme, scheme == url.scheme?.lowercased() else {
             return nil
         }
         return record.key
@@ -143,6 +161,7 @@ public enum OwnerKeyState: Equatable, Sendable {
         "Hook couldn't read its key from the Keychain. Allow Hook when macOS asks, or set it up again."
     public nonisolated static let noLongerAccepted = "The Pond no longer accepts this Mac's key."
     public nonisolated static let declined = "The request was turned down on Telegram."
+    public nonisolated static let needsHTTPS = "The owner key needs a Pond URL that starts with https."
     public nonisolated static let expired = "The request expired before it was approved."
 
     public private(set) var state: OwnerKeyState = .notSetUp { didSet { if state != oldValue { onChange?() } } }
@@ -162,6 +181,8 @@ public enum OwnerKeyState: Equatable, Sendable {
     private let generate: @Sendable () -> String
     /// The Pond attached (`SourceKey`); nil outside mailbox mode.
     public private(set) var sourceKey: String?
+    /// Its URL, whose scheme a new key is bound to.
+    private var url: URL?
     private var source: (any QueueSource)?
     private var task: Task<Void, Never>?
 
@@ -184,10 +205,10 @@ public enum OwnerKeyState: Equatable, Sendable {
         return kept.isEmpty ? "Mac" : String(kept.prefix(maxLabel))
     }
 
-    /// The provider `MailboxClient` reads on each owner act: no seal, no key.
-    public nonisolated static func provider(_ secrets: any SecretStore, sourceKey: String,
+    /// The provider `MailboxClient` reads on each owner act to the Pond at `url`: no seal, no key.
+    public nonisolated static func provider(_ secrets: any SecretStore, sourceKey: String, url: URL,
                                             seal: @escaping @Sendable () throws -> SymmetricKey?) -> @Sendable () -> String? {
-        { OwnerKeyVault.approvedKey(secrets, sourceKey: sourceKey, seal: (try? seal()) ?? nil) }
+        { OwnerKeyVault.approvedKey(secrets, sourceKey: sourceKey, url: url, seal: (try? seal()) ?? nil) }
     }
 
     /// Require is offered only once two Macs are approved, this one among them, so turning it
@@ -197,10 +218,11 @@ public enum OwnerKeyState: Equatable, Sendable {
         return status.keys.filter { $0.status == "approved" }.count >= 2
     }
 
-    /// The connected Pond (nil outside mailbox mode). A new one stops any setup in flight and
-    /// reads its record; a pending request is polled again.
+    /// The connected Pond (nil outside mailbox mode) and its URL. A new one stops any setup in
+    /// flight and reads its record; a pending request is polled again.
     @discardableResult
-    public func attach(sourceKey: String?, source: (any QueueSource)?) -> Task<Void, Never>? {
+    public func attach(sourceKey: String?, url: URL?, source: (any QueueSource)?) -> Task<Void, Never>? {
+        self.url = url
         guard sourceKey != self.sourceKey else {
             self.source = source
             return nil
@@ -243,13 +265,18 @@ public enum OwnerKeyState: Equatable, Sendable {
     /// Set up: the key and a pending record go to the Keychain first, in a fresh item (any item
     /// already there is deleted, never filled), then the Pond gets its hash; the returned task
     /// polls until the owner answers on Telegram (or 10 minutes pass). A Keychain that refuses
-    /// the read gets nothing new: the old item stays.
+    /// the read gets nothing new: the old item stays. The key is bound to the Pond URL's scheme,
+    /// and only a URL that may carry it (`OwnerKey.mayCarry`) gets one.
     @discardableResult
     public func setUp() -> Task<Void, Never>? {
         guard let sourceKey, let source, task == nil else { return nil }
         switch state {
         case .waiting, .approved: return nil
         case .notSetUp, .refused, .unavailable: break
+        }
+        guard let url, OwnerKey.mayCarry(url), let scheme = url.scheme?.lowercased() else {
+            state = .refused(Self.needsHTTPS)
+            return nil
         }
         do {
             if try ownRecord(sourceKey)?.status == .approved {
@@ -262,8 +289,8 @@ public enum OwnerKeyState: Equatable, Sendable {
         }
         let key = generate()
         do {
-            try OwnerKeyVault.create(OwnerKeyRecord(key: key, status: .pending), secrets, sourceKey: sourceKey,
-                                     seal: markingSeal())
+            try OwnerKeyVault.create(OwnerKeyRecord(key: key, status: .pending, scheme: scheme), secrets,
+                                     sourceKey: sourceKey, seal: markingSeal())
         } catch {
             state = .unavailable(Self.saveFailed)
             return nil
@@ -283,8 +310,8 @@ public enum OwnerKeyState: Equatable, Sendable {
             }
             guard !Task.isCancelled, self.sourceKey == sourceKey else { return }
             do {
-                try OwnerKeyVault.save(OwnerKeyRecord(key: key, enrollID: enrollment.id, status: .pending), self.secrets,
-                                       sourceKey: sourceKey, seal: self.markingSeal())
+                try OwnerKeyVault.save(OwnerKeyRecord(key: key, enrollID: enrollment.id, status: .pending, scheme: scheme),
+                                       self.secrets, sourceKey: sourceKey, seal: self.markingSeal())
             } catch {
                 self.state = .unavailable(Self.saveFailed)
                 self.task = nil

@@ -57,6 +57,8 @@ the review records in `reviews.json`, and this Mac's owner key for each Pond ("H
   seal Hook made, and each owner key record carries an HMAC under that seal. A seal item the
   marker doesn't name, or an owner key record without a mark that verifies, is never used; one
   with no marker at all is replaced. Each read and update works on the one item Hook checked.
+- **The owner key travels only over https** (or plain http to this Mac itself), and only to the
+  scheme it was set up on: a Pond URL switched to http gets no key.
 
 **Known limit.** Builds are ad-hoc signed today, so Hook can't use the data protection Keychain,
 where only an app signed by the same team can make or read an item in Hook's access group. A

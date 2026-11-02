@@ -102,7 +102,7 @@ public enum LinkCheck: Equatable, Sendable {
     public var onOwnerKeyRefused: (@MainActor () -> Void)?
     /// This Mac has an approved owner key for the Pond with this `SourceKey`; AppDelegate reads
     /// the Keychain record. Report a Problem needs one.
-    public var ownerKeyApproved: @MainActor (String) -> Bool = { _ in false }
+    public var ownerKeyApproved: @MainActor (String, URL?) -> Bool = { _, _ in false }
     /// Closes whose send failed, by id, for the Notice's Retry.
     private var failedCloses: [String: PendingClose] = [:]
     /// The ask that was open when the source swapped; checked against the first list.

@@ -464,7 +464,7 @@ extension Store {
     /// accepted one). Allowed while locked: it reports on the version shown. Needs the owner key,
     /// so without an approved one nothing is sent.
     public func reportProblem(_ id: String, stepID: String, note: String) async -> ReportResult {
-        guard ownerKeyApproved(sourceKey) else { return .notEnrolled }
+        guard ownerKeyApproved(sourceKey, identity.mailbox?.url) else { return .notEnrolled }
         let cleaned = ProblemReport.clean(note)
         guard ProblemReport.canSend(cleaned) else {
             return .refused("The note must be 1 to \(ProblemReport.limit) characters.")
