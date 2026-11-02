@@ -124,3 +124,35 @@ private func rejection<T>(_ body: () async throws -> T) async -> QueueError? {
         #expect(LocalQueueError.textTooLong.wire.error == "text too long")
     }
 }
+
+/// This Mac mode implements Pond 1.0.0: the stamp variants forward, the 1.1.0 routes refuse.
+@Suite struct LocalQueueSourcePondTests {
+    private let notSupported = QueueError.rejected(status: 501, error: "not supported", details: [])
+    private let stamp = RevisionStamp(rev: 1, hash: String(repeating: "a", count: 64))
+
+    @Test func doneAndAnswersWithAStampStillWork() async throws {
+        let source = try await makeSource()
+        let ask = #"{"v":1,"title":"Pick","steps":[{"do":"Pick one","question":{"prompt":"Which?","choices":["A","B"]}}]}"#
+        let posted = try await source.post(project: "Acme", instructable: Data(ask.utf8))
+        let answered = try await source.answer(posted.item.id, answers: [Answers.entry(step: "1", picked: ["A"])],
+                                               stamp: stamp)
+        #expect(answered.status == "open")
+        let done = try await source.resolve(posted.item.id, verdict: .done, note: nil, stamp: stamp)
+        #expect(done.status == "done")
+        #expect(try await source.get(posted.item.id).events.map(\.kind) == ["posted", "answer", "resolved"])
+    }
+
+    @Test func theCorrectionAndOwnerRoutesAreNotSupported() async throws {
+        let source = try await makeSource()
+        let posted = try await source.post(project: "Acme", instructable: Data(rawAsk.utf8))
+        let id = posted.item.id
+        #expect(await rejection { try await source.accept(id, stamp: stamp) } == notSupported)
+        #expect(await rejection { try await source.problem(id, stepID: "s1", stamp: stamp, note: "n") } == notSupported)
+        #expect(await rejection { try await source.ownerStatus() } == notSupported)
+        #expect(await rejection { try await source.enroll(keyHash: String(repeating: "a", count: 64), label: "x") }
+            == notSupported)
+        #expect(await rejection { try await source.enrollment("e1") } == notSupported)
+        #expect(await rejection { try await source.requireOwnerKey(true) } == notSupported)
+        #expect(try await source.get(id).item.status == "open")
+    }
+}

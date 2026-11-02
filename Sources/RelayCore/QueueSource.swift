@@ -27,6 +27,22 @@ public protocol QueueSource: Sendable {
     /// nil: the Store polls every pollSeconds. Otherwise each call returns a NEW
     /// stream that yields after every committed change, until the caller cancels it.
     func changes() async -> AsyncStream<Void>?
+
+    // Pond 1.1.0. The defaults below are what a source without corrections does (This Mac
+    // mode): the stamped acts forward to the plain ones, the rest throw 501 "not supported".
+
+    /// Done or Skip bound to the revision the owner saw; a stale one throws `.corrected`.
+    func resolve(_ id: String, verdict: Verdict, note: String?, stamp: RevisionStamp?) async throws -> WireItem
+    /// Answers bound to the revision the owner saw; a stale one throws `.corrected`.
+    func answer(_ id: String, answers: [JSONValue], stamp: RevisionStamp?) async throws -> WireItem
+    /// The owner accepted this revision of a corrected ask.
+    func accept(_ id: String, stamp: RevisionStamp) async throws -> WireItem
+    /// A problem with one step (by id), sent to the posting session as quoted text.
+    func problem(_ id: String, stepID: String, stamp: RevisionStamp, note: String) async throws -> WireItem
+    func ownerStatus() async throws -> OwnerStatus
+    func enroll(keyHash: String, label: String) async throws -> Enrollment
+    func enrollment(_ id: String) async throws -> Enrollment
+    func requireOwnerKey(_ on: Bool) async throws -> OwnerKeyRequirement
 }
 
 extension QueueSource {
@@ -34,6 +50,28 @@ extension QueueSource {
     public func resolve(_ id: String, verdict: Verdict) async throws -> WireItem {
         try await resolve(id, verdict: verdict, note: nil)
     }
+
+    public func resolve(_ id: String, verdict: Verdict, note: String?, stamp: RevisionStamp?) async throws -> WireItem {
+        try await resolve(id, verdict: verdict, note: note)
+    }
+
+    public func answer(_ id: String, answers: [JSONValue], stamp: RevisionStamp?) async throws -> WireItem {
+        try await answer(id, answers: answers)
+    }
+
+    public func accept(_ id: String, stamp: RevisionStamp) async throws -> WireItem { throw QueueError.notSupported }
+
+    public func problem(_ id: String, stepID: String, stamp: RevisionStamp, note: String) async throws -> WireItem {
+        throw QueueError.notSupported
+    }
+
+    public func ownerStatus() async throws -> OwnerStatus { throw QueueError.notSupported }
+
+    public func enroll(keyHash: String, label: String) async throws -> Enrollment { throw QueueError.notSupported }
+
+    public func enrollment(_ id: String) async throws -> Enrollment { throw QueueError.notSupported }
+
+    public func requireOwnerKey(_ on: Bool) async throws -> OwnerKeyRequirement { throw QueueError.notSupported }
 }
 
 /// `POST /asks` → `{item, deduped?, openUrl?}`.
@@ -70,6 +108,14 @@ public enum QueueError: Error, Sendable, Equatable, LocalizedError {
     case storeFailed(String)
     /// Answers to a closed ask (mailbox 409): read-only until the owner reopens it.
     case askClosed
+    /// The act named a revision that isn't the one in force (409 "ask was corrected"):
+    /// `rev` and `hash` are the current revision, `acceptedRev` the one the owner accepted.
+    case corrected(rev: Int, hash: String, acceptedRev: Int?)
+    /// The Pond doesn't know this Mac's owner key, or it was revoked (403 "unknown owner key").
+    case ownerKeyRefused
+
+    /// What a source without a Pond 1.1.0 route answers.
+    public static let notSupported = QueueError.rejected(status: 501, error: "not supported", details: [])
 
     public var errorDescription: String? {
         switch self {
@@ -85,6 +131,10 @@ public enum QueueError: Error, Sendable, Equatable, LocalizedError {
             return "Couldn't save the queue: \(reason)"
         case .askClosed:
             return "This ask is closed. Reopen it to change the answers."
+        case .corrected:
+            return "This ask was corrected. Review the change before acting on it."
+        case .ownerKeyRefused:
+            return "The Pond no longer accepts this Mac's owner key."
         }
     }
 }

@@ -85,6 +85,7 @@ private let rawInstructable = #"{"v":1,"title":"Rotate the key","steps":[{"do":"
 /// A client whose session only talks to the stub, for a host unique to the test.
 private func makeClient(
     writeToken: Bool = true,
+    ownerKey: (@Sendable () -> String?)? = nil,
     _ handler: @escaping MailboxStubRegistry.Handler
 ) throws -> (client: MailboxClient, host: String) {
     let host = "mbx-" + UUID().uuidString.lowercased() + ".test"
@@ -95,10 +96,9 @@ private func makeClient(
     if writeToken { try Data("tok-example\n".utf8).write(to: tokenFile) }
     let configuration = URLSessionConfiguration.ephemeral
     configuration.protocolClasses = [MailboxStubProtocol.self]
-    let client = MailboxClient(
-        baseURL: try #require(URL(string: "http://\(host):8790")),
-        tokenFile: tokenFile.path, context: "work",
-        session: URLSession(configuration: configuration))
+    let settings = MailboxSettings(url: try #require(URL(string: "http://\(host):8790")),
+                                   tokenFile: tokenFile.path, context: "work")
+    let client = MailboxClient(settings: settings, session: URLSession(configuration: configuration), ownerKey: ownerKey)
     return (client, host)
 }
 
@@ -356,6 +356,7 @@ final class StatusLog: @unchecked Sendable {
         let (client, host) = try makeClient { _, _ in (200, #"{"service":"mailbox","version":"0.9.1","protocol":3}"#) }
         let version = try await client.version()
         #expect(version == MailboxVersion(service: "mailbox", version: "0.9.1", level: 3))
+        #expect(version.pond == .semver(SemVer(major: 0, minor: 9, patch: 1)))
         let sent = try #require(MailboxStubRegistry.shared.last(host))
         #expect(sent.request.httpMethod == "GET")
         #expect(sent.request.url?.path() == "/version")
@@ -373,9 +374,211 @@ final class StatusLog: @unchecked Sendable {
         await #expect(throws: QueueError.unauthorized) { try await client.version() }
     }
 
-    @Test(arguments: [#"{"version":"x"}"#, #"{"protocol":0}"#, #"{"protocol":"3"}"#, "not json"])
+    @Test(arguments: ["not json", "[]", #""1.1.0""#])
     func aBadReplyIsAnError(_ body: String) async throws {
         let (client, _) = try makeClient { _, _ in (200, body) }
         await #expect(throws: (any Error).self) { try await client.version() }
+    }
+
+    /// Read as relay_semver reads it: no strict version and no whole protocol of 1 or more is protocol 1.
+    @Test(arguments: [#"{"version":"x"}"#, #"{"protocol":0}"#, #"{"protocol":"3"}"#, "{}"])
+    func anOddReplyIsAnOldPond(_ body: String) async throws {
+        let (client, _) = try makeClient { _, _ in (200, body) }
+        #expect(try await client.version().pond == .legacy(protocol: 1))
+    }
+
+    @Test func aSemverPondIsReadByItsVersion() async throws {
+        let (client, _) = try makeClient { _, _ in (200, #"{"service":"pond","version":"1.1.0","protocol":5}"#) }
+        #expect(try await client.version().pond == .semver(SemVer(major: 1, minor: 1, patch: 0)))
+    }
+}
+
+// MARK: - Pond 1.1.0: the protocol header, the owner key, revision-bound acts
+
+private let hashA = String(repeating: "a", count: 64)
+private let ownerKeyValue = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+private let stamp = RevisionStamp(rev: 2, hash: hashA)
+
+/// A key provider whose answer the test changes.
+private final class KeyBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: String?
+    init(_ value: String?) { self.value = value }
+    var key: String? {
+        get { lock.lock(); defer { lock.unlock() }; return value }
+        set { lock.lock(); value = newValue; lock.unlock() }
+    }
+}
+
+private func sentBody(_ host: String) throws -> JSONValue {
+    try JSONValue.parse(try #require(MailboxStubRegistry.shared.last(host)).body)
+}
+
+private func sentHeader(_ host: String, _ name: String) -> String? {
+    MailboxStubRegistry.shared.last(host)?.request.value(forHTTPHeaderField: name)
+}
+
+@Suite struct MailboxClientRevisionTests {
+    @Test func everyRequestSaysItReadsRevisions() async throws {
+        let (client, host) = try makeClient { request, _ in
+            switch request.url?.path() ?? "" {
+            case "/asks" where request.httpMethod == "GET": return (200, #"{"items":[]}"#)
+            case "/asks": return (201, #"{"item":\#(itemJSON)}"#)
+            case "/version": return (200, #"{"version":"1.1.0","protocol":5}"#)
+            case "/owner": return (200, #"{"required":false,"keys":[]}"#)
+            case "/owner/enroll": return (201, #"{"id":"e1","code":"123456","expires":"x","status":"pending"}"#)
+            case "/owner/enroll/e1": return (200, #"{"id":"e1","status":"pending"}"#)
+            case "/asks/\(askID)": return (200, #"{"item":\#(itemJSON),"events":[]}"#)
+            default: return (200, #"{"item":\#(itemJSON)}"#)
+            }
+        }
+        let calls: [(String, () async throws -> Void)] = [
+            ("list", { _ = try await client.list() }),
+            ("get", { _ = try await client.get(askID) }),
+            ("post", { _ = try await client.post(project: "Acme", instructable: Data(rawInstructable.utf8)) }),
+            ("version", { _ = try await client.version() }),
+            ("resolve", { _ = try await client.resolve(askID, verdict: .done, note: nil, stamp: stamp) }),
+            ("reply", { _ = try await client.reply(askID, text: "x") }),
+            ("answer", { _ = try await client.answer(askID, answers: [], stamp: nil) }),
+            ("reopen", { _ = try await client.reopen(askID) }),
+            ("accept", { _ = try await client.accept(askID, stamp: stamp) }),
+            ("problem", { _ = try await client.problem(askID, stepID: "s1", stamp: stamp, note: "n") }),
+            ("owner", { _ = try await client.ownerStatus() }),
+            ("enroll", { _ = try await client.enroll(keyHash: hashA, label: "studio") }),
+            ("enrollment", { _ = try await client.enrollment("e1") }),
+        ]
+        for (name, call) in calls {
+            try await call()
+            #expect(sentHeader(host, "X-Hook-Protocol") == "5", "\(name)")
+        }
+    }
+
+    @Test func ownerActsCarryTheKeyOnlyWhileTheProviderHasOne() async throws {
+        let box = KeyBox(ownerKeyValue)
+        let (client, host) = try makeClient(ownerKey: { box.key }) { request, _ in
+            switch request.url?.path() ?? "" {
+            case "/owner": return (200, #"{"required":false,"keys":[]}"#)
+            case "/owner/require": return (200, #"{"required":true}"#)
+            case "/asks": return (200, #"{"items":[]}"#)
+            default: return (200, #"{"item":\#(itemJSON)}"#)
+            }
+        }
+        let ownerActs: [(String, () async throws -> Void)] = [
+            ("reply", { _ = try await client.reply(askID, text: "x") }),
+            ("resolve", { _ = try await client.resolve(askID, verdict: .declined, note: nil) }),
+            ("answer", { _ = try await client.answer(askID, answers: []) }),
+            ("reopen", { _ = try await client.reopen(askID) }),
+            ("accept", { _ = try await client.accept(askID, stamp: stamp) }),
+            ("problem", { _ = try await client.problem(askID, stepID: "s1", stamp: stamp, note: "n") }),
+            ("owner", { _ = try await client.ownerStatus() }),
+            ("require", { _ = try await client.requireOwnerKey(true) }),
+        ]
+        for (name, call) in ownerActs {
+            try await call()
+            #expect(sentHeader(host, "X-Hook-Owner-Key") == ownerKeyValue, "\(name)")
+        }
+        _ = try await client.list()
+        #expect(sentHeader(host, "X-Hook-Owner-Key") == nil)
+        box.key = nil
+        for (name, call) in ownerActs {
+            try await call()
+            #expect(sentHeader(host, "X-Hook-Owner-Key") == nil, "\(name)")
+        }
+    }
+
+    @Test func aClientWithoutAProviderSendsNoKey() async throws {
+        let (client, host) = try makeClient { _, _ in (200, #"{"item":\#(itemJSON)}"#) }
+        _ = try await client.reply(askID, text: "x")
+        #expect(sentHeader(host, "X-Hook-Owner-Key") == nil)
+    }
+
+    @Test func doneAndAnswersCarryTheRevisionTheyWereSeenAt() async throws {
+        let (client, host) = try makeClient { _, _ in (200, #"{"item":\#(itemJSON)}"#) }
+        _ = try await client.resolve(askID, verdict: .done, note: "ok", stamp: stamp)
+        #expect(try sentBody(host) == .object(["verdict": .string("done"), "actor": .string("owner"),
+                                               "note": .string("ok"), "rev": .int(2), "hash": .string(hashA)]))
+        _ = try await client.resolve(askID, verdict: .declined, note: nil, stamp: nil)
+        #expect(try sentBody(host) == .object(["verdict": .string("declined"), "actor": .string("owner")]))
+        _ = try await client.answer(askID, answers: [Answers.entry(step: "s1", text: "EU")], stamp: stamp)
+        #expect(try sentBody(host) == .object(["answers": .array([.object(["step": .string("s1"), "text": .string("EU")])]),
+                                               "rev": .int(2), "hash": .string(hashA)]))
+    }
+
+    @Test func acceptAndProblemsPostTheirBodies() async throws {
+        let (client, host) = try makeClient { _, _ in (200, #"{"item":\#(itemJSON)}"#) }
+        _ = try await client.accept(askID, stamp: stamp)
+        #expect(MailboxStubRegistry.shared.last(host)?.request.url?.path() == "/asks/\(askID)/accept")
+        #expect(try sentBody(host) == .object(["rev": .int(2), "hash": .string(hashA)]))
+        _ = try await client.problem(askID, stepID: "s2.1", stamp: stamp, note: "The port is wrong")
+        #expect(MailboxStubRegistry.shared.last(host)?.request.url?.path() == "/asks/\(askID)/problems")
+        #expect(try sentBody(host) == .object(["step": .string("s2.1"), "rev": .int(2), "hash": .string(hashA),
+                                               "note": .string("The port is wrong")]))
+    }
+
+    @Test func aCorrectedAskIsItsOwnError() async throws {
+        let corrected = #"{"error":"ask was corrected","rev":3,"hash":"\#(hashA)","acceptedRev":1}"#
+        let (client, _) = try makeClient { _, _ in (409, corrected) }
+        await #expect(throws: QueueError.corrected(rev: 3, hash: hashA, acceptedRev: 1)) {
+            try await client.resolve(askID, verdict: .done, note: nil, stamp: stamp)
+        }
+        // On /answers it is checked before the 409 → "ask is closed" fallback.
+        await #expect(throws: QueueError.corrected(rev: 3, hash: hashA, acceptedRev: 1)) {
+            try await client.answer(askID, answers: [], stamp: stamp)
+        }
+        let (closed, _) = try makeClient { _, _ in (409, #"{"error":"ask is closed"}"#) }
+        await #expect(throws: QueueError.askClosed) { try await closed.answer(askID, answers: [], stamp: stamp) }
+        let (noAccepted, _) = try makeClient { _, _ in (409, #"{"error":"ask was corrected","rev":2,"hash":"\#(hashA)"}"#) }
+        await #expect(throws: QueueError.corrected(rev: 2, hash: hashA, acceptedRev: nil)) {
+            try await noAccepted.accept(askID, stamp: stamp)
+        }
+    }
+
+    @Test func aRefusedOwnerKeyIsItsOwnError() async throws {
+        let (client, _) = try makeClient(ownerKey: { ownerKeyValue }) { _, _ in (403, #"{"error":"unknown owner key"}"#) }
+        await #expect(throws: QueueError.ownerKeyRefused) { try await client.reply(askID, text: "x") }
+        await #expect(throws: QueueError.ownerKeyRefused) { try await client.accept(askID, stamp: stamp) }
+        let (required, _) = try makeClient { _, _ in (403, #"{"error":"owner key required"}"#) }
+        await #expect(throws: QueueError.rejected(status: 403, error: "owner key required", details: [])) {
+            try await required.reply(askID, text: "x")
+        }
+    }
+
+    @Test func theOwnerRoutes() async throws {
+        let (client, host) = try makeClient(ownerKey: { ownerKeyValue }) { request, _ in
+            switch request.url?.path() ?? "" {
+            case "/owner":
+                return (200, #"{"required":false,"keys":[{"id":"k1","label":"studio","status":"approved","#
+                    + #""created":"2026-10-29T10:00:00+00:00","approvedAt":null}],"self":{"id":"k1","status":"approved"}}"#)
+            case "/owner/enroll":
+                return (201, #"{"id":"e1","code":"586039","expires":"2026-10-29T10:10:00+00:00","status":"pending"}"#)
+            case "/owner/enroll/e1": return (200, #"{"id":"e1","status":"approved"}"#)
+            default: return (404, #"{"error":"not found"}"#)
+            }
+        }
+        let status = try await client.ownerStatus()
+        #expect(status.self_ == OwnerSelf(id: "k1", status: "approved"))
+        #expect(MailboxStubRegistry.shared.last(host)?.request.httpMethod == "GET")
+
+        let enrollment = try await client.enroll(keyHash: hashA, label: "studio")
+        #expect(enrollment == Enrollment(id: "e1", code: "586039", status: "pending", expires: "2026-10-29T10:10:00+00:00"))
+        #expect(try sentBody(host) == .object(["keyHash": .string(hashA), "label": .string("studio")]))
+        // Enrolling sends only the hash, never a key.
+        #expect(sentHeader(host, "X-Hook-Owner-Key") == nil)
+
+        #expect(try await client.enrollment("e1").status == "approved")
+        #expect(sentHeader(host, "X-Hook-Owner-Key") == nil)
+        await #expect(throws: QueueError.notFound) { try await client.enrollment("e2") }
+    }
+
+    @Test func requiringTheOwnerKeyOnIsAtOnceAndOffWaitsForTelegram() async throws {
+        let (on, onHost) = try makeClient(ownerKey: { ownerKeyValue }) { _, _ in (200, #"{"required":true}"#) }
+        #expect(try await on.requireOwnerKey(true) == .on)
+        #expect(MailboxStubRegistry.shared.last(onHost)?.request.url?.path() == "/owner/require")
+        #expect(try sentBody(onHost) == .object(["required": .bool(true)]))
+        let (off, offHost) = try makeClient(ownerKey: { ownerKeyValue }) { _, _ in (202, #"{"pending":true}"#) }
+        #expect(try await off.requireOwnerKey(false) == .pending)
+        #expect(try sentBody(offHost) == .object(["required": .bool(false)]))
+        let (wasOff, _) = try makeClient(ownerKey: { ownerKeyValue }) { _, _ in (200, #"{"required":false}"#) }
+        #expect(try await wasOff.requireOwnerKey(false) == .off)
     }
 }

@@ -11,6 +11,15 @@ struct ItemResponse: Decodable {
 struct ErrorBody: Decodable {
     let error: String
     let details: [String]?
+    /// With "ask was corrected": the current revision and the one the owner accepted.
+    let rev: Int?
+    let hash: String?
+    let acceptedRev: Int?
+}
+
+struct RequireResponse: Decodable {
+    let required: Bool?
+    let pending: Bool?
 }
 
 /// Refuses every HTTP redirect, so the bearer token only ever reaches the configured mailbox.
@@ -22,14 +31,25 @@ final class NoRedirectDelegate: NSObject, URLSessionTaskDelegate, Sendable {
 }
 
 /// The mailbox service as a `QueueSource`. The token is read from the token file
-/// on every request, so it is never kept in memory longer than one call.
+/// on every request, so it is never kept in memory longer than one call; so is the owner key.
 public struct MailboxClient: QueueSource {
+    /// What every request says this client reads: revision histories (Pond 1.1.0). Without
+    /// it a corrected ask is served as a stub.
+    public static let protocolHeader = "X-Hook-Protocol"
+    public static let clientProtocol = "5"
+    /// The owner key's header, sent on owner acts while this Mac's key is approved.
+    public static let ownerKeyHeader = "X-Hook-Owner-Key"
+
     public let settings: MailboxSettings
     private let session: URLSession
+    /// Read on each owner act, never stored: it returns this Mac's key only while the Pond
+    /// has approved it (`OwnerKeyVault.approvedKey`).
+    private let ownerKey: (@Sendable () -> String?)?
 
-    public init(settings: MailboxSettings, session: URLSession = .shared) {
+    public init(settings: MailboxSettings, session: URLSession = .shared, ownerKey: (@Sendable () -> String?)? = nil) {
         self.settings = settings
         self.session = session
+        self.ownerKey = ownerKey
     }
 
     public init(baseURL: URL, tokenFile: String, context: String, session: URLSession = .shared) {
@@ -56,22 +76,39 @@ public struct MailboxClient: QueueSource {
 
     /// Done or Skip from Hook: always `actor: "owner"`.
     public func resolve(_ id: String, verdict: Verdict, note: String?) async throws -> WireItem {
-        var body = ["verdict": verdict.rawValue, "actor": "owner"]
-        if let note { body["note"] = note }
-        let response: ItemResponse = try await send("POST", "asks/\(id)/resolve", body: Self.encode(body))
+        try await resolve(id, verdict: verdict, note: note, stamp: nil)
+    }
+
+    /// Done or Skip bound to the revision the owner saw (`rev`, `hash`). A Pond whose
+    /// revision in force differs answers 409 → `.corrected`.
+    public func resolve(_ id: String, verdict: Verdict, note: String?, stamp: RevisionStamp?) async throws -> WireItem {
+        var body: [String: JSONValue] = ["verdict": .string(verdict.rawValue), "actor": .string("owner")]
+        if let note { body["note"] = .string(note) }
+        Self.add(stamp, to: &body)
+        let response: ItemResponse = try await send("POST", "asks/\(id)/resolve", body: JSONValue.object(body).data(),
+                                                    owner: true)
         return response.item
     }
 
     public func reply(_ id: String, text: String) async throws -> WireItem {
-        let response: ItemResponse = try await send("POST", "asks/\(id)/reply", body: Self.encode(["text": text]))
+        let response: ItemResponse = try await send("POST", "asks/\(id)/reply", body: Self.encode(["text": text]),
+                                                    owner: true)
         return response.item
     }
 
     /// `POST /asks/{id}/answers` with `{"answers":[...]}`. 409 (the ask is closed) → `.askClosed`.
     public func answer(_ id: String, answers: [JSONValue]) async throws -> WireItem {
-        let body = JSONValue.object(["answers": .array(answers)]).data()
+        try await answer(id, answers: answers, stamp: nil)
+    }
+
+    /// Answers bound to the revision the owner saw. A 409 "ask was corrected" is `.corrected`
+    /// (mapped in `send`, so it never reads as "This ask is closed"); any other 409 → `.askClosed`.
+    public func answer(_ id: String, answers: [JSONValue], stamp: RevisionStamp?) async throws -> WireItem {
+        var body: [String: JSONValue] = ["answers": .array(answers)]
+        Self.add(stamp, to: &body)
         do {
-            let response: ItemResponse = try await send("POST", "asks/\(id)/answers", body: body)
+            let response: ItemResponse = try await send("POST", "asks/\(id)/answers", body: JSONValue.object(body).data(),
+                                                        owner: true)
             return response.item
         } catch QueueError.rejected(let status, _, _) where status == 409 {
             throw QueueError.askClosed
@@ -81,8 +118,58 @@ public struct MailboxClient: QueueSource {
     /// Takes back a Done or Skip: always `actor: "owner"`. The mailbox returns an open
     /// ask unchanged.
     public func reopen(_ id: String) async throws -> WireItem {
-        let response: ItemResponse = try await send("POST", "asks/\(id)/reopen", body: Self.encode(["actor": "owner"]))
+        let response: ItemResponse = try await send("POST", "asks/\(id)/reopen", body: Self.encode(["actor": "owner"]),
+                                                    owner: true)
         return response.item
+    }
+
+    /// The owner accepted this revision (Pond 1.1.0; always needs the owner key).
+    public func accept(_ id: String, stamp: RevisionStamp) async throws -> WireItem {
+        var body: [String: JSONValue] = [:]
+        Self.add(stamp, to: &body)
+        let response: ItemResponse = try await send("POST", "asks/\(id)/accept", body: JSONValue.object(body).data(),
+                                                    owner: true)
+        return response.item
+    }
+
+    /// A problem report on one step (by its id), bound to the revision shown (Pond 1.1.0;
+    /// always needs the owner key).
+    public func problem(_ id: String, stepID: String, stamp: RevisionStamp, note: String) async throws -> WireItem {
+        var body: [String: JSONValue] = ["step": .string(stepID), "note": .string(note)]
+        Self.add(stamp, to: &body)
+        let response: ItemResponse = try await send("POST", "asks/\(id)/problems", body: JSONValue.object(body).data(),
+                                                    owner: true)
+        return response.item
+    }
+
+    /// `GET /owner`, with this Mac's key when approved, so `self` names it.
+    public func ownerStatus() async throws -> OwnerStatus {
+        try await send("GET", "owner", owner: true)
+    }
+
+    /// `POST /owner/enroll`: only the key's hash is sent, never a key.
+    public func enroll(keyHash: String, label: String) async throws -> Enrollment {
+        try await send("POST", "owner/enroll", body: Self.encode(["keyHash": keyHash, "label": label]))
+    }
+
+    public func enrollment(_ id: String) async throws -> Enrollment {
+        try await send("GET", "owner/enroll/\(id)")
+    }
+
+    /// `POST /owner/require`: on takes effect at once; off waits for the owner's tap on
+    /// Telegram (202 → `.pending`).
+    public func requireOwnerKey(_ on: Bool) async throws -> OwnerKeyRequirement {
+        let response: RequireResponse = try await send(
+            "POST", "owner/require", body: JSONValue.object(["required": .bool(on)]).data(), owner: true)
+        if response.pending == true { return .pending }
+        guard let required = response.required else { throw QueueError.unreachable("bad response from the Pond") }
+        return required ? .on : .off
+    }
+
+    static func add(_ stamp: RevisionStamp?, to body: inout [String: JSONValue]) {
+        guard let stamp else { return }
+        body["rev"] = .int(stamp.rev)
+        body["hash"] = .string(stamp.hash)
     }
 
     /// The mailbox's `days` filter counts from creation, so both lists reach back
@@ -118,8 +205,8 @@ public struct MailboxClient: QueueSource {
             .map(\.item)
     }
 
-    /// `GET /version`: the mailbox's protocol level. A mailbox from before `/version`
-    /// answers 404, which counts as level 1.
+    /// `GET /version`: the Pond's version. A Pond from before `/version` answers 404, which
+    /// counts as protocol 1.
     public func version() async throws -> MailboxVersion {
         do {
             return try await send("GET", "version")
@@ -153,7 +240,8 @@ public struct MailboxClient: QueueSource {
         _ method: String,
         _ path: String,
         query: [URLQueryItem] = [],
-        body: Data? = nil
+        body: Data? = nil,
+        owner: Bool = false
     ) async throws -> T {
         var components = URLComponents(
             url: settings.url.appending(path: path), resolvingAgainstBaseURL: false)
@@ -171,6 +259,10 @@ public struct MailboxClient: QueueSource {
         request.httpMethod = method
         request.timeoutInterval = 10
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue(Self.clientProtocol, forHTTPHeaderField: Self.protocolHeader)
+        if owner, let key = ownerKey?() {
+            request.setValue(key, forHTTPHeaderField: Self.ownerKeyHeader)
+        }
         if let body {
             request.httpBody = body
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -203,6 +295,12 @@ public struct MailboxClient: QueueSource {
             throw QueueError.notFound
         default:
             let body = try? JSONDecoder().decode(ErrorBody.self, from: data)
+            if http.statusCode == 409, body?.error == "ask was corrected", let rev = body?.rev, let hash = body?.hash {
+                throw QueueError.corrected(rev: rev, hash: hash, acceptedRev: body?.acceptedRev)
+            }
+            if http.statusCode == 403, body?.error == "unknown owner key" {
+                throw QueueError.ownerKeyRefused
+            }
             throw QueueError.rejected(
                 status: http.statusCode,
                 error: body?.error ?? "HTTP \(http.statusCode)",
