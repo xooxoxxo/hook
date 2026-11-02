@@ -10,15 +10,21 @@ public struct FileRowContext: Sendable {
     public var actions: FileActions
     public var copy: @MainActor @Sendable (String) -> Void
     public var home: String
+    /// The ask's content is locked (a correction is unreviewed): no Open, Open With, Reveal or Copy Path.
+    public var contentLocked: Bool
 
     public init(place: FilePlace = .here, actions: FileActions = .none,
                 copy: @escaping @MainActor @Sendable (String) -> Void = { _ in },
-                home: String = NSHomeDirectory()) {
+                home: String = NSHomeDirectory(), contentLocked: Bool = false) {
         self.place = place
         self.actions = actions
         self.copy = copy
         self.home = home
+        self.contentLocked = contentLocked
     }
+
+    /// Whether the row's buttons and menu items do anything.
+    public var actionsEnabled: Bool { AskContentLock.allowsActions(locked: contentLocked) }
 }
 
 private struct FileRowContextKey: EnvironmentKey {
@@ -97,6 +103,7 @@ public struct FileRow: View {
         .padding(.vertical, DS.Space.codeV)
         .background(DS.Color.codeFill, in: .rect(cornerRadius: DS.Metric.codeRadius))
         .contextMenu { menuItems(state) }
+        .disabled(!context.actionsEnabled)
     }
 
     /// Runs the click's check, then `action` on the checked file (its resolved URL and the
@@ -120,6 +127,7 @@ public struct FileRow: View {
     }
 
     private func check(_ then: @escaping @MainActor (FileCheck) -> Void) {
+        guard context.actionsEnabled else { return }
         let path = link.path
         let actions = context.actions
         Task { @MainActor in
@@ -170,6 +178,7 @@ public struct FileRow: View {
         }
         // From another machine, "~" means that machine's home: the path goes as sent.
         Button("Copy Path") {
+            guard context.actionsEnabled else { return }
             if case .otherMac = state { context.copy(link.raw) } else { context.copy(link.path) }
         }
     }

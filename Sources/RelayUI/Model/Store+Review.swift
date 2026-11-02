@@ -42,6 +42,55 @@ extension Store {
     private func settleHistory(_ id: String) {
         histories[id] = RevisionCheck.merge(fetched: fetchedHistories[id], listed: listedHistories[id])
         pin(id)
+        holdBackStaleDone(id)
+    }
+
+    /// A Done held for Undo was bound to the revision then shown; a new current revision
+    /// drops it, so it can't land on a version the owner never saw.
+    private func holdBackStaleDone(_ id: String) {
+        guard let close = pending.entry(id), close.verdict == .done, case .success(let history)? = histories[id] else { return }
+        let stale = close.stamp.map { $0 != history.current } ?? (history.current.rev > 1)
+        guard stale else { return }
+        _ = pending.undo(id)
+        updateItems()
+        post(.doneHeldBack(id: id, title: close.title))
+    }
+
+    // MARK: The copy and open guard
+
+    /// Copies only while the ask is legacy (and `stamp` is nil) or current at exactly `stamp`,
+    /// and `text` is a command the rendered revision shows. Runs on the main actor, the one that
+    /// applies polls, so no correction can land between the check and the copy.
+    @discardableResult public func copyCode(_ id: String, stamp: RevisionStamp?, text: String) -> CopyOutcome {
+        guard actsOnShown(id, stamp: stamp),
+              (nodes(for: id).map(Flow.flattened) ?? []).contains(where: { $0.code.map(Sanitize.copyText) == text })
+        else { return .refused }
+        shell.copy(text)
+        return .copied
+    }
+
+    /// Opens only under `copyCode`'s rule, and only a web URL a step or link of the rendered revision names.
+    public func openStepURL(_ id: String, stamp: RevisionStamp?, url: URL) {
+        guard actsOnShown(id, stamp: stamp), LinkDisplay.isWeb(url.absoluteString) else { return }
+        let steps = (nodes(for: id).map(Flow.flattened) ?? []).compactMap(\.url)
+        let links = (item(for: id)?.instructable?.links ?? []).compactMap(\.url)
+        guard (steps + links).contains(where: { URL(string: $0) == url }) else { return }
+        shell.openURL(url)
+    }
+
+    /// The ask is unlocked and `stamp` is the revision it renders now.
+    func actsOnShown(_ id: String, stamp: RevisionStamp?) -> Bool {
+        switch reviewState(id) {
+        case .legacy: return stamp == nil
+        case .current(let current): return stamp == current && renderedStamp(id) == current
+        case .pending, .historyChanged: return false
+        }
+    }
+
+    /// A failed act's reason; a correction that raced the act reads "the ask was corrected".
+    static func failureReason(_ error: any Error) -> String {
+        if case QueueError.corrected? = error as? QueueError { return "the ask was corrected" }
+        return UserFacingError.text(error)
     }
 
     /// The item with its payload replaced by the body the gate names, else the last body

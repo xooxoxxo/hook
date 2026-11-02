@@ -16,6 +16,9 @@ public struct PanelShellActions: Sendable {
     public var checkForUpdates: @MainActor @Sendable () -> Void = {}
     /// A file row's Open, Open With, Reveal in Finder, and its file checks.
     public var files: FileActions = .none
+    /// Touch ID, or the login password (so it works while screen sharing), with the reason
+    /// macOS shows ("accept a changed command, link or file in …"). False when refused or unavailable.
+    public var confirmPresence: @MainActor @Sendable (String) async -> Bool = { _ in false }
 
     public init(hide: @escaping @MainActor @Sendable () -> Void, setUp: @escaping @MainActor @Sendable () -> Void,
                 quit: @escaping @MainActor @Sendable () -> Void, dock: @escaping @MainActor @Sendable (SidebarEdge) -> Void,
@@ -34,6 +37,14 @@ public struct PanelShellActions: Sendable {
 
     public static let none = PanelShellActions(hide: {}, setUp: {}, quit: {}, dock: { _ in }, openSettings: { _ in },
                                                copy: { _ in }, openURL: { _ in })
+}
+
+/// What a guarded copy did: `.refused` when the ask changed under the click (a correction
+/// arrived or is unreviewed), so the block says "Changed just now. Review first." instead of "Copied".
+public enum CopyOutcome: Equatable, Sendable {
+    case copied, refused
+
+    public static let refusedText = "Changed just now. Review first."
 }
 
 /// The panel views' only way to the model. The Store conforms;
@@ -97,6 +108,13 @@ public struct PanelShellActions: Sendable {
     func performNoticeSecondaryAction()
     func copyLink(_ id: String)
     func retryDetail(_ id: String)
+    /// A command's Copy: copies only while the ask is current at `stamp` (the revision the
+    /// snapshot rendered) and `text` is a command of that revision.
+    @discardableResult func copyCode(_ id: String, stamp: RevisionStamp?, text: String) -> CopyOutcome
+    /// A step's link: opens only under the same rule as `copyCode`.
+    func openStepURL(_ id: String, stamp: RevisionStamp?, url: URL)
+    /// Where the ask stands with this Mac's review of its corrections.
+    func reviewState(_ id: String) -> ReviewState
 }
 
 /// Change and Cancel on an answered reply or step question. Edit state lives in the model,

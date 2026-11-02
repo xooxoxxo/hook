@@ -20,7 +20,7 @@ public enum LinkCheck: Equatable, Sendable {
     /// for Undo or being sent. Every list, count and badge reads this.
     @Published public private(set) var items: [WireItem] = [] { didSet { queueInputChanged() } }
     /// Done and Skip held back for `PendingCloses.delay` seconds so they can be undone.
-    @Published public private(set) var pending = PendingCloses()
+    @Published public internal(set) var pending = PendingCloses()
     /// Asks closed in the last 24 hours, newest first, without any still held back.
     @Published public internal(set) var recentlyClosed: [WireItem] = [] { didSet { queueInputChanged() } }
     /// A row's ticks are checked against its fetched detail's steps, so a new detail rebuilds the queue.
@@ -699,7 +699,7 @@ public enum LinkCheck: Equatable, Sendable {
     /// A leaf flips; a parent ticks or unticks all its sub-steps (Flow.toggle). Saves.
     /// A locked step (Flow.lockedPaths) is left as it is, and so are a parent's locked sub-steps.
     public func toggleTick(_ path: String, in id: String) {
-        guard let nodes = nodes(for: id), let node = Flow.flattened(nodes).first(where: { $0.path == path }) else { return }
+        guard !isContentLocked(id), let nodes = nodes(for: id), let node = Flow.flattened(nodes).first(where: { $0.path == path }) else { return }
         let before = ticks(for: id)
         let after = Flow.toggle(node, ticks: before, locked: Set(Flow.lockedPaths(nodes: nodes, ticks: before)))
         guard after != before else { return }
@@ -711,7 +711,7 @@ public enum LinkCheck: Equatable, Sendable {
     /// ⌘T: ticks the current item and returns its path (an optional question's too); nil when
     /// every item is done or the current one is a required question.
     @discardableResult public func tickCurrent(in id: String) -> String? {
-        guard let nodes = nodes(for: id) else { return nil }
+        guard !isContentLocked(id), let nodes = nodes(for: id) else { return nil }
         let result = Flow.tickCurrent(ticks: ticks(for: id), nodes: nodes)
         guard let path = result.path else { return nil }
         tickHistory[id, default: []].append(path)
@@ -721,7 +721,7 @@ public enum LinkCheck: Equatable, Sendable {
 
     /// ⇧⌘T: unticks the leaf ticked last this session, else the last ticked leaf in order.
     @discardableResult public func untickLast(in id: String) -> String? {
-        guard let nodes = nodes(for: id) else { return nil }
+        guard !isContentLocked(id), let nodes = nodes(for: id) else { return nil }
         let ticks = ticks(for: id)
         let result = Flow.untickLast(ticks: ticks, history: tickHistory[id] ?? [], nodes: nodes,
                                      locked: Set(Flow.lockedPaths(nodes: nodes, ticks: ticks)))
@@ -759,12 +759,15 @@ public enum LinkCheck: Equatable, Sendable {
 
     /// Done or Skip, held 10 s for Undo. In the detail, `afterClose` decides whether
     /// the next ask opens; from the list, the next row is selected.
+    /// While the ask is locked for review only Skip goes through: Done is refused here.
     public func close(_ id: String, _ verdict: Verdict) {
         guard source != nil else { return }
+        if verdict == .done, isContentLocked(id) { return }
         let order = visibleOrder
         let inDetail = navigation.selectedID == id
         doneWarnings.remove(id)
-        pending.add(id: id, verdict: verdict, note: nil, title: item(for: id)?.title ?? "", now: now())
+        pending.add(id: id, verdict: verdict, note: nil, title: item(for: id)?.title ?? "", now: now(),
+                    stamp: verdict == .done ? renderedStamp(id) : nil)
         onAnnounce?(UndoBar.announcement(for: verdict))
         recentlyClosed.removeAll { $0.id == id }
         if inDetail { notFoundID = nil }
@@ -871,7 +874,8 @@ public enum LinkCheck: Equatable, Sendable {
         let sent = await withTaskGroup(of: String?.self) { group in
             for close in all {
                 group.addTask {
-                    (try? await source.resolve(close.id, verdict: close.verdict, note: close.note)) != nil ? close.id : nil
+                    (try? await source.resolve(close.id, verdict: close.verdict, note: close.note, stamp: close.stamp)) != nil
+                        ? close.id : nil
                 }
             }
             var ids: [String] = []
@@ -1001,7 +1005,7 @@ public enum LinkCheck: Equatable, Sendable {
     /// the send has come back; on failure it reappears and a Notice says why.
     private func send(_ close: PendingClose, via source: any QueueSource, generation gen: Int) async {
         do {
-            _ = try await source.resolve(close.id, verdict: close.verdict, note: close.note)
+            _ = try await source.resolve(close.id, verdict: close.verdict, note: close.note, stamp: close.stamp)
             guard gen == generation else { return }
             details[close.id] = nil
             await freshRefresh()
@@ -1017,7 +1021,7 @@ public enum LinkCheck: Equatable, Sendable {
             publishState()
             failedCloses[close.id] = close
             if ownerKeyRefused(error) { return }
-            post(.actionFailed(verdict: close.verdict, id: close.id, title: close.title, reason: UserFacingError.text(error)))
+            post(.actionFailed(verdict: close.verdict, id: close.id, title: close.title, reason: Self.failureReason(error)))
         }
     }
 
@@ -1045,7 +1049,7 @@ public enum LinkCheck: Equatable, Sendable {
         Task.detached {
             for close in all {
                 do {
-                    _ = try await old.resolve(close.id, verdict: close.verdict, note: close.note)
+                    _ = try await old.resolve(close.id, verdict: close.verdict, note: close.note, stamp: close.stamp)
                     await onCloseSent?(close.id)
                 } catch {
                     NSLog("Hook: a held-back close couldn't be sent before the queue changed: %@",
@@ -1074,7 +1078,7 @@ public enum LinkCheck: Equatable, Sendable {
 
     public func sendReply(_ id: String) async -> Bool {
         let text = (drafts[id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, replyStates[id] != .sending else { return false }
+        guard !text.isEmpty, replyStates[id] != .sending, !isContentLocked(id) else { return false }
         return await send(text, for: id) {
             self.drafts[id] = nil
             self.editingReply.remove(id)
@@ -1083,7 +1087,7 @@ public enum LinkCheck: Equatable, Sendable {
 
     public func sendChoice(_ id: String) async -> Bool {
         guard let index = pendingChoice[id], let choices = item(for: id)?.instructable?.reply?.choices,
-              choices.indices.contains(index), replyStates[id] != .sending else { return false }
+              choices.indices.contains(index), replyStates[id] != .sending, !isContentLocked(id) else { return false }
         return await send(ReplyText.wire(choice: choices[index]), for: id) {
             self.pendingChoice[id] = nil
             self.editingReply.remove(id)
@@ -1094,6 +1098,7 @@ public enum LinkCheck: Equatable, Sendable {
     /// else shows the bar's warning; it never sends or drops an answer silently. From the
     /// queue, the ask opens first so the warning is on screen.
     public func warnUnsent(_ id: String) {
+        guard !isContentLocked(id) else { return }
         guard primaryAction(for: id) == .sendAndDone else {
             close(id, .done)
             return
@@ -1111,7 +1116,7 @@ public enum LinkCheck: Equatable, Sendable {
     /// Discard & Done: drops the unsent reply text, pick and step answers (and any Change in
     /// progress), then closes. Nothing is sent.
     public func discardAndDone(_ id: String) {
-        guard answerStates[id] != .sending, replyStates[id] != .sending else { return }
+        guard answerStates[id] != .sending, replyStates[id] != .sending, !isContentLocked(id) else { return }
         doneWarnings.remove(id)
         drafts[id] = nil
         pendingChoice[id] = nil
@@ -1133,6 +1138,7 @@ public enum LinkCheck: Equatable, Sendable {
     /// Order: the step answers, then the reply draft or pick, then Done; the first failure stops it
     /// and leaves the warning up, with the failure in place of its caption.
     public func sendAndDone(_ id: String) async {
+        guard !isContentLocked(id) else { return }
         guard primaryAction(for: id) == .sendAndDone else {
             close(id, .done)
             return
@@ -1165,7 +1171,7 @@ public enum LinkCheck: Equatable, Sendable {
     /// running, or it failed (the reason is in `answerStates`).
     public func sendAnswers(_ id: String, only: Set<String>? = nil) async -> Bool {
         let unsent = unsentAnswers(for: id, only: only)
-        guard unsent.count > 0, answerStates[id] != .sending else { return false }
+        guard unsent.count > 0, answerStates[id] != .sending, !isContentLocked(id) else { return false }
         guard let source else {
             answerStates[id] = .failed(reason: AnswerDrafts.failureText(QueueError.unreachable(Self.noSourceProblem)))
             return false
@@ -1174,7 +1180,7 @@ public enum LinkCheck: Equatable, Sendable {
         answerStates[id] = .sending
         let gen = generation
         do {
-            _ = try await source.answer(id, answers: unsent.batch)
+            _ = try await source.answer(id, answers: unsent.batch, stamp: renderedStamp(id))
             guard gen == generation else { return false }
             await load(id, from: source, generation: gen)
             guard gen == generation else { return false }
@@ -1472,9 +1478,14 @@ extension Store: PanelViewModel {
         case .tickCurrent: if let id = navigation.selectedID { tickCurrent(in: id) }
         case .untickLast: if let id = navigation.selectedID { untickLast(in: id) }
         case .copyCurrentCode:
-            if let leaf = currentLeaf, let code = leaf.code { shell.copy(Sanitize.copyText(code)) }
+            if let id = navigation.selectedID, let leaf = currentLeaf, let code = leaf.code {
+                copyCode(id, stamp: renderedStamp(id), text: Sanitize.copyText(code))
+            }
         case .openCurrentURL:
-            if let leaf = currentLeaf, let raw = leaf.url, LinkDisplay.isWeb(raw), let url = URL(string: raw) { shell.openURL(url) }
+            if let id = navigation.selectedID, let leaf = currentLeaf, let raw = leaf.url, LinkDisplay.isWeb(raw),
+               let url = URL(string: raw) {
+                openStepURL(id, stamp: renderedStamp(id), url: url)
+            }
         case .pickChoice(let index): if let id = target { pendingChoice[id] = index }
         case .sendAnswers: if let id = navigation.selectedID { sendAnswers(id) }
         }

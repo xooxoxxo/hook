@@ -25,6 +25,8 @@ public struct StepView: View {
     let onCopy: (String) -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.openURL) private var openURL
+    /// The review lock, apart from the blocking-step `locked`.
+    @Environment(\.askContentLocked) private var contentLocked
 
     public init(content: StepContent, level: StepLevel, state: StepState, total: Int, readOnly: Bool,
                 expanded: Binding<Bool>, question: StepQuestion? = nil, lockText: String? = nil,
@@ -172,11 +174,14 @@ public struct StepView: View {
 
     /// VoiceOver's custom actions and the context menu, where they apply; none on a locked step.
     @ViewBuilder private func actions(_ view: some View) -> some View {
-        let tickable = !readOnly && (question == nil || content.optional) && !locked
+        let tickable = !readOnly && (question == nil || content.optional) && !locked && !contentLocked
+        let offered = StepRow.actions(content, locked: locked, contentLocked: contentLocked)
         let withActions = view.accessibilityActions {
             if tickable { Button(StepAccessibility.markAction(state)) { toggle() } }
-            if !locked, let code = content.code { Button("Copy command") { onCopy(Sanitize.copyText(code)) } }
-            if !locked, let url = webURL { Button("Open link") { openURL(url) } }
+            if offered.contains(StepRow.copyAction), let code = content.code {
+                Button(StepRow.copyAction) { onCopy(Sanitize.copyText(code)) }
+            }
+            if offered.contains(StepRow.openAction), let url = webURL { Button(StepRow.openAction) { openURL(url) } }
         }
         if !tickable {
             withActions
@@ -188,6 +193,19 @@ public struct StepView: View {
 
 /// The row rules both step views share; static so tests can pin them.
 public enum StepRow {
+    public static let copyAction = "Copy command"
+    public static let openAction = "Open link"
+
+    /// The VoiceOver actions that copy or open: none on a step locked behind a blocking one
+    /// (`locked`), and none while the ask's content is locked for review (`contentLocked`).
+    public static func actions(_ content: StepContent, locked: Bool, contentLocked: Bool) -> [String] {
+        guard !locked, AskContentLock.allowsActions(locked: contentLocked) else { return [] }
+        var names: [String] = []
+        if content.code != nil { names.append(copyAction) }
+        if let raw = content.url, LinkDisplay.isWeb(raw), URL(string: raw) != nil { names.append(openAction) }
+        return names
+    }
+
     /// The current step is always open; a locked one never; done and upcoming ones when opened by hand.
     public static func isOpen(state: StepState, locked: Bool, expanded: Bool) -> Bool {
         guard !locked else { return false }

@@ -68,4 +68,15 @@ public final class FixturePanelModel: PanelViewModel {
     public func performNoticeSecondaryAction() {}
     public func copyLink(_ id: String) {}
     public func retryDetail(_ id: String) {}
+    /// The gallery copies what the fixture says; a locked snapshot refuses, as the Store does.
+    @discardableResult public func copyCode(_ id: String, stamp: RevisionStamp?, text: String) -> CopyOutcome {
+        guard details[id]?.locked != true else { return .refused }
+        shell.copy(text)
+        return .copied
+    }
+    public func openStepURL(_ id: String, stamp: RevisionStamp?, url: URL) {
+        guard details[id]?.locked != true else { return }
+        shell.openURL(url)
+    }
+    public func reviewState(_ id: String) -> ReviewState { details[id]?.review ?? .legacy }
 }

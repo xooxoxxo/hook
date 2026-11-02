@@ -98,3 +98,16 @@ private let t0 = Date(timeIntervalSince1970: 1_791_000_000)
         #expect(p.drainAll().isEmpty)
     }
 }
+
+@Suite struct PendingCloseStampTests {
+    @Test func addKeepsTheStamp() {
+        var p = PendingCloses()
+        let stamp = RevisionStamp(rev: 2, hash: String(repeating: "a", count: 64))
+        p.add(id: "a", verdict: .done, note: nil, title: "Rotate", now: t0, stamp: stamp)
+        #expect(p.entry("a")?.stamp == stamp)
+        #expect(p.drainAll().first?.stamp == stamp)
+        p.add(id: "b", verdict: .declined, note: nil, title: "Skip", now: t0)
+        #expect(p.entry("b")?.stamp == nil)
+        #expect(p.entry("c") == nil)
+    }
+}

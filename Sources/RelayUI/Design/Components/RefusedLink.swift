@@ -19,7 +19,7 @@ public struct RefusedLink: View {
         VStack(alignment: .leading, spacing: DS.Space.rowLine) {
             Label(text, systemImage: DS.Symbol.link)
                 .foregroundStyle(DS.Color.secondary)
-            Text(verbatim: line(raw)).textSelection(.enabled).foregroundStyle(DS.Color.secondary)
+            Text(verbatim: line(raw)).askTextSelection().foregroundStyle(DS.Color.secondary)
         }
         .font(DS.Font.prose)
     }

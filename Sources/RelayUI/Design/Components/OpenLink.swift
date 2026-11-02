@@ -8,6 +8,7 @@ import SwiftUI
 public struct OpenLink: View {
     let title: String
     let url: URL
+    @Environment(\.askContentLocked) private var contentLocked
 
     public init(title: String, url: URL) {
         self.title = title
@@ -23,6 +24,7 @@ public struct OpenLink: View {
         .truncationMode(.middle)
         .help(line(url.absoluteString))
         .accessibilityLabel(Self.accessibilityText(title))
+        .disabled(!AskContentLock.allowsActions(locked: contentLocked))
         .contextMenu {
             Button("Copy Link Address") {
                 NSPasteboard.general.clearContents()

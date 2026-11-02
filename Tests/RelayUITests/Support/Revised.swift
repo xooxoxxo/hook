@@ -57,3 +57,32 @@ func revised(_ id: String, _ bodies: [Instructable], reasons: [String] = [], acc
 func reviewsURL() -> URL {
     FileManager.default.temporaryDirectory.appending(path: "relay-reviews-\(UUID().uuidString).json")
 }
+
+/// What the shell was asked to copy, open and confirm.
+@MainActor final class ShellRecorder {
+    var copied: [String] = []
+    var opened: [URL] = []
+    var presenceAsked: [String] = []
+    /// What `confirmPresence` answers.
+    var presence = true
+
+    var shell: PanelShellActions {
+        var shell = PanelShellActions(hide: {}, setUp: {}, quit: {}, dock: { _ in }, openSettings: { _ in },
+                                      copy: { [weak self] in self?.copied.append($0) },
+                                      openURL: { [weak self] in self?.opened.append($0) })
+        shell.confirmPresence = { [weak self] reason in
+            guard let self else { return false }
+            self.presenceAsked.append(reason)
+            return self.presence
+        }
+        return shell
+    }
+}
+
+/// This Mac accepted `stamp` of `id`: the record as an accept leaves it, without the Pond call.
+@MainActor func markAccepted(_ store: Store, _ id: String, _ stamp: RevisionStamp) {
+    var record = store.record(id) ?? ReviewRecord()
+    record.accepted = stamp
+    store.setRecord(record, for: id)
+    store.rerender(id)
+}

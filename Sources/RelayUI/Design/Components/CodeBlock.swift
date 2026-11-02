@@ -11,6 +11,7 @@ public struct CodeBlock: View {
     let onCopy: (String) -> Void
     @State private var copied: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.askContentLocked) private var contentLocked
 
     /// `copied` seeds the state, for the gallery's "Copied" sample. `onCopy` receives
     /// `Sanitize.copyText(code)`, the text to put on the pasteboard.
@@ -30,12 +31,13 @@ public struct CodeBlock: View {
                 Text(verbatim: shown)
                     .font(DS.Font.code)
                     .multilineTextAlignment(.leading)   // a grouped Form's trailing column would right-align it
-                    .textSelection(.enabled)
+                    .askTextSelection()
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityLabel(Self.codeLabel(lang: lang))
                     .accessibilityValue(shown)
                 Button(Self.copyTitle(copied: copied, hidden: hidden)) { copy() }
+                    .disabled(!Self.allowsCopy(locked: contentLocked))
                     .controlSize(DS.Control.inline)
                     .contentTransition(.opacity)
                     .accessibilityLabel(copyLabel)
@@ -58,8 +60,12 @@ public struct CodeBlock: View {
     }
     public static func codeLabel(lang: String?) -> String { lang.map { "Command, " + line($0) } ?? "Command" }
     public static func shown(_ code: String) -> (text: String, hidden: Bool) { Sanitize.reveal(code, as: .code) }
+    /// While the ask's content is locked the command can't be selected or copied.
+    public static func allowsSelection(locked: Bool) -> Bool { AskContentLock.allowsSelection(locked: locked) }
+    public static func allowsCopy(locked: Bool) -> Bool { AskContentLock.allowsCopy(locked: locked) }
 
     private func copy() {
+        guard Self.allowsCopy(locked: contentLocked) else { return }
         onCopy(Sanitize.copyText(code))
         withAnimation(DS.motion(DS.Motion.reveal, reduce: reduceMotion)) { copied = true }
         AccessibilityNotification.Announcement("Copied").post()

@@ -128,7 +128,7 @@ struct DetailSteps<Model: PanelViewModel>: View {
                 childLockTexts: node.children.map { lock($0.path) },
                 onToggleParent: { model.toggleTick(node.path, in: snapshot.id) },
                 onToggleChild: { index in model.toggleTick(node.children[index].path, in: snapshot.id) },
-                onCopy: { model.shell.copy($0) })
+                onCopy: { model.copyCode(snapshot.id, stamp: snapshot.stamp, text: $0) })
         } else {
             let state = Flow.state(of: node, ticks: snapshot.ticks, current: snapshot.current)
             StepView(
@@ -136,7 +136,7 @@ struct DetailSteps<Model: PanelViewModel>: View {
                 total: total, readOnly: readOnly, expanded: expanded(node.path, state: state),
                 question: question(node), lockText: lock(node.path),
                 onToggle: { model.toggleTick(node.path, in: snapshot.id) },
-                onCopy: { model.shell.copy($0) })
+                onCopy: { model.copyCode(snapshot.id, stamp: snapshot.stamp, text: $0) })
         }
     }
 
@@ -151,7 +151,7 @@ struct DetailSteps<Model: PanelViewModel>: View {
                 drafts[path] = value
                 model.answerDrafts[id] = drafts.isEmpty ? nil : drafts
             })
-        return StepQuestion(question: question, answer: node.answer, draft: draft, readOnly: readOnly,
+        return StepQuestion(question: question, answer: node.answer, draft: draft, readOnly: readOnly || snapshot.locked,
                             sending: snapshot.answerState == .sending,
                             editing: model.editingAnswers[id]?.contains(path) ?? false,
                             time: node.answer.map { ClockText.time($0.at, locale: gallery.locale ?? .current,

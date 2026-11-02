@@ -27,7 +27,7 @@ public struct AnsweredRow: View {
                 .foregroundStyle(DS.Color.done)
                 .accessibilityHidden(true)
             label
-                .textSelection(.enabled)
+                .askTextSelection()
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(Self.accessibilityText(text: text, time: time))

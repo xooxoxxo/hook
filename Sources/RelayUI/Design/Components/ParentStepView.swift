@@ -84,7 +84,9 @@ public struct ParentStepView: View {
     private var expandable: Bool { StepRow.isExpandable(state: state, locked: locked) }
     /// No parent tick on a parent that asks a required question: Mark All acts on ticks, never
     /// on the answer. An optional parent's question is ticked with its sub-steps.
-    private var tickable: Bool { !readOnly && (question == nil || content.optional) && !locked }
+    private var tickable: Bool { !readOnly && (question == nil || content.optional) && !locked && !contentLocked }
+    /// The review lock, apart from the blocking-step `locked`.
+    @Environment(\.askContentLocked) private var contentLocked
 
     public static func rowState(allDone: Bool, holdsCurrent: Bool) -> StepState {
         allDone ? .done : (holdsCurrent ? .current : .todo)

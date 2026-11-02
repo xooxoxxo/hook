@@ -28,7 +28,7 @@ public struct StepBody: View {
                 Text(text)
                     .font(DS.Font.prose)
                     .help(DetailText.linkHelp(text))
-                    .textSelection(.enabled)
+                    .askTextSelection()
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let raw = content.file {

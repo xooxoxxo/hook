@@ -195,7 +195,7 @@ struct DetailView<Model: PanelViewModel>: View {
     private func fileContext(_ snapshot: DetailSnapshot?) -> FileRowContext {
         FileRowContext(place: FilePlace.of(askHost: snapshot?.model?.origin?.host, localHost: model.localHost,
                                            queueIsLocal: model.queueIsLocal),
-                       actions: model.shell.files, copy: model.shell.copy)
+                       actions: model.shell.files, copy: model.shell.copy, contentLocked: snapshot?.locked ?? false)
     }
 
     private func content(_ snapshot: DetailSnapshot) -> some View {
@@ -223,6 +223,7 @@ struct DetailView<Model: PanelViewModel>: View {
         .padding(.vertical, DS.Space.bodyV)
         .frame(maxWidth: .infinity, alignment: .leading)
         .environment(\.fileRowContext, fileContext(snapshot))
+        .environment(\.askContentLocked, snapshot.locked)
         .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: model.notice)
     }
 
@@ -252,7 +253,7 @@ struct DetailView<Model: PanelViewModel>: View {
         VStack(alignment: .leading, spacing: DS.Space.inline) {
             Text(line(snapshot.model?.title ?? snapshot.row.title))
                 .font(DS.Font.askTitle)
-                .textSelection(.enabled)
+                .askTextSelection()
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
                 .accessibilityHeading(.h1)
@@ -260,13 +261,13 @@ struct DetailView<Model: PanelViewModel>: View {
                 Text(prose(why))
                     .font(DS.Font.body)
                     .foregroundStyle(DS.Color.secondary)
-                    .textSelection(.enabled)
+                    .askTextSelection()
                     .fixedSize(horizontal: false, vertical: true)
             }
             ForEach(Array((snapshot.model?.notes ?? []).enumerated()), id: \.offset) { _, note in
                 Text(prose(note))
                     .font(DS.Font.body)
-                    .textSelection(.enabled)
+                    .askTextSelection()
                     .fixedSize(horizontal: false, vertical: true)
             }
         }

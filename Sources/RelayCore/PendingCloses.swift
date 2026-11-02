@@ -8,13 +8,17 @@ public struct PendingClose: Sendable, Equatable {
     /// For the Undo bar.
     public let title: String
     public let deadline: Date
+    /// The revision the owner saw when pressing Done (Pond 1.1.0); the resolve is bound to it.
+    /// nil for Skip, which is never bound, and for an ask without revisions.
+    public let stamp: RevisionStamp?
 
-    public init(id: String, verdict: Verdict, note: String?, title: String, deadline: Date) {
+    public init(id: String, verdict: Verdict, note: String?, title: String, deadline: Date, stamp: RevisionStamp? = nil) {
         self.id = id
         self.verdict = verdict
         self.note = note
         self.title = title
         self.deadline = deadline
+        self.stamp = stamp
     }
 }
 
@@ -42,11 +46,17 @@ public struct PendingCloses: Sendable {
         entries.contains { $0.id == id }
     }
 
+    /// The held close for `id`, if any.
+    public func entry(_ id: String) -> PendingClose? {
+        entries.first { $0.id == id }
+    }
+
     /// Adding an id that is already pending replaces it, with a new verdict and deadline.
-    public mutating func add(id: String, verdict: Verdict, note: String?, title: String, now: Date) {
+    public mutating func add(id: String, verdict: Verdict, note: String?, title: String, now: Date,
+                             stamp: RevisionStamp? = nil) {
         entries.removeAll { $0.id == id }
         entries.append(PendingClose(
-            id: id, verdict: verdict, note: note, title: title, deadline: now.addingTimeInterval(Self.delay)))
+            id: id, verdict: verdict, note: note, title: title, deadline: now.addingTimeInterval(Self.delay), stamp: stamp))
     }
 
     /// Removes and returns it.
