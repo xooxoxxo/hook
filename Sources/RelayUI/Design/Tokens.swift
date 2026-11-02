@@ -329,6 +329,8 @@ public enum DS {
         public static let undoHold: TimeInterval = 10
         /// How long the reply caption reads "Sent 10:42" after a send.
         public static let sentHold: TimeInterval = 4
+        /// How long a transient Notice ("This ask is no longer open.") stays.
+        public static let noticeHold: TimeInterval = 8
     }
 
     /// Store and Settings timings that are not animations.
