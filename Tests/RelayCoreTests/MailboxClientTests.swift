@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import Testing
 @testable import RelayCore
@@ -587,9 +588,10 @@ private func sentHeader(_ host: String, _ name: String) -> String? {
     @Test func aPendingKeyIsNeverSentAndAnApprovedOneIs() async throws {
         let secrets = MemorySecretStore()
         let sourceKey = "mailbox:pond.example:8790#personal"
+        let seal = SymmetricKey(data: Data(repeating: 9, count: 32))
         let key = OwnerKey.generate()
-        try OwnerKeyVault.save(OwnerKeyRecord(key: key, enrollID: "e1", status: .pending), secrets, sourceKey: sourceKey)
-        let (client, host) = try makeClient(ownerKey: OwnerKeyFlow.provider(secrets, sourceKey: sourceKey)) { _, _ in
+        try OwnerKeyVault.save(OwnerKeyRecord(key: key, enrollID: "e1", status: .pending), secrets, sourceKey: sourceKey, seal: seal)
+        let (client, host) = try makeClient(ownerKey: OwnerKeyFlow.provider(secrets, sourceKey: sourceKey, seal: { seal })) { _, _ in
             (200, #"{"item":\#(itemJSON)}"#)
         }
         _ = try await client.reply(askID, text: "x")
@@ -597,13 +599,13 @@ private func sentHeader(_ host: String, _ name: String) -> String? {
         _ = try await client.resolve(askID, verdict: .done, note: nil, stamp: stamp)
         #expect(sentHeader(host, "X-Hook-Owner-Key") == nil)
 
-        try OwnerKeyVault.save(OwnerKeyRecord(key: key, enrollID: "e1", status: .approved), secrets, sourceKey: sourceKey)
+        try OwnerKeyVault.save(OwnerKeyRecord(key: key, enrollID: "e1", status: .approved), secrets, sourceKey: sourceKey, seal: seal)
         _ = try await client.reply(askID, text: "x")
         #expect(sentHeader(host, "X-Hook-Owner-Key") == key)
         _ = try await client.resolve(askID, verdict: .done, note: nil, stamp: stamp)
         #expect(sentHeader(host, "X-Hook-Owner-Key") == key)
 
-        try OwnerKeyVault.save(OwnerKeyRecord(key: key, enrollID: "e1", status: .refused), secrets, sourceKey: sourceKey)
+        try OwnerKeyVault.save(OwnerKeyRecord(key: key, enrollID: "e1", status: .refused), secrets, sourceKey: sourceKey, seal: seal)
         _ = try await client.reply(askID, text: "x")
         #expect(sentHeader(host, "X-Hook-Owner-Key") == nil)
     }

@@ -34,7 +34,7 @@ import Testing
         let ask = revised("a", [idSteps(3), idSteps(4)])
         let one = ask.detail.revisions[0], two = ask.detail.revisions[1]
         // This Mac accepted rev 1 earlier: a sealed record on disk.
-        let key = try ReviewSeal.loadOrCreate(secrets)
+        let key = try ReviewSeal.loadOrCreate(secrets, file: url)
         let record = ReviewRecord(accepted: one.stamp, seen: one.stamp, pins: [1: one.hash])
         try ReviewStore.sealed(records: [ReviewStore.key(sourceKey: localIdentity.key, id: "a"): record], sealKey: key)
             .write(to: url)

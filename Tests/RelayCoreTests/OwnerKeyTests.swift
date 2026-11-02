@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import Testing
 @testable import RelayCore
@@ -17,9 +18,11 @@ private func revisionCases(_ kind: String) throws -> [JSONValue] {
 
 private let sourceKey = "mailbox:pond.example:8790#personal"
 
+private let seal = SymmetricKey(data: Data(repeating: 9, count: 32))
+
 private func store(with record: OwnerKeyRecord?) throws -> MemorySecretStore {
     let store = MemorySecretStore()
-    if let record { try OwnerKeyVault.save(record, store, sourceKey: sourceKey) }
+    if let record { try OwnerKeyVault.save(record, store, sourceKey: sourceKey, seal: seal) }
     return store
 }
 
@@ -59,24 +62,51 @@ private func store(with record: OwnerKeyRecord?) throws -> MemorySecretStore {
 
     @Test func onlyAnApprovedRecordGivesItsKey() throws {
         let key = OwnerKey.generate()
-        #expect(OwnerKeyVault.approvedKey(try store(with: nil), sourceKey: sourceKey) == nil)
+        #expect(OwnerKeyVault.approvedKey(try store(with: nil), sourceKey: sourceKey, seal: seal) == nil)
         for status in [OwnerKeyRecord.Status.pending, .refused] {
             let pending = try store(with: OwnerKeyRecord(key: key, enrollID: "e1", status: status))
-            #expect(OwnerKeyVault.approvedKey(pending, sourceKey: sourceKey) == nil, "\(status)")
+            #expect(OwnerKeyVault.approvedKey(pending, sourceKey: sourceKey, seal: seal) == nil, "\(status)")
         }
         let approved = try store(with: OwnerKeyRecord(key: key, enrollID: "e1", status: .approved))
-        #expect(OwnerKeyVault.approvedKey(approved, sourceKey: sourceKey) == key)
-        #expect(OwnerKeyVault.approvedKey(approved, sourceKey: "mailbox:other.example#personal") == nil)
+        #expect(OwnerKeyVault.approvedKey(approved, sourceKey: sourceKey, seal: seal) == key)
+        #expect(OwnerKeyVault.approvedKey(approved, sourceKey: "mailbox:other.example#personal", seal: seal) == nil)
         approved.readError = .unreadable(-128)
-        #expect(OwnerKeyVault.approvedKey(approved, sourceKey: sourceKey) == nil)
+        #expect(OwnerKeyVault.approvedKey(approved, sourceKey: sourceKey, seal: seal) == nil)
         let garbage = MemorySecretStore([.ownerKey(sourceKey: sourceKey): Data("not json".utf8)])
-        #expect(OwnerKeyVault.approvedKey(garbage, sourceKey: sourceKey) == nil)
+        #expect(OwnerKeyVault.approvedKey(garbage, sourceKey: sourceKey, seal: seal) == nil)
+    }
+
+    /// Hook marks each record it writes with an HMAC under its review seal: one another process
+    /// planted (whatever its access list says) has no such mark and is refused, never sent.
+    @Test func aRecordWithoutHooksMarkIsRefused() throws {
+        let key = OwnerKey.generate()
+        let name = SecretName.ownerKey(sourceKey: sourceKey)
+        let unmarked = try JSONEncoder().encode(OwnerKeyRecord(key: key, enrollID: "e1", status: .approved))
+        let planted = MemorySecretStore([name: unmarked])
+        #expect(OwnerKeyVault.approvedKey(planted, sourceKey: sourceKey, seal: seal) == nil)
+        #expect(throws: SecretStoreError.foreign) { try OwnerKeyVault.record(planted, sourceKey: sourceKey, seal: seal) }
+
+        var forged = OwnerKeyRecord(key: key, enrollID: "e1", status: .approved)
+        forged.mark = OwnerKeyVault.mark(key: key, sourceKey: sourceKey, seal: SymmetricKey(size: .bits256))
+        let wrongSeal = MemorySecretStore([name: try JSONEncoder().encode(forged)])
+        #expect(OwnerKeyVault.approvedKey(wrongSeal, sourceKey: sourceKey, seal: seal) == nil)
+
+        // Hook's own record, copied to another Pond's item, doesn't verify there.
+        let approved = try store(with: OwnerKeyRecord(key: key, enrollID: "e1", status: .approved))
+        let other = "mailbox:other.example#personal"
+        let copied = MemorySecretStore([.ownerKey(sourceKey: other): try #require(approved.peek(name))])
+        #expect(OwnerKeyVault.approvedKey(copied, sourceKey: other, seal: seal) == nil)
+        // With no seal to check the mark against, nothing is trusted.
+        #expect(OwnerKeyVault.approvedKey(approved, sourceKey: sourceKey, seal: nil) == nil)
+        #expect(throws: SecretStoreError.foreign) { try OwnerKeyVault.record(approved, sourceKey: sourceKey, seal: nil) }
     }
 
     @Test func theRecordIsOneJSONItem() throws {
         let store = try store(with: OwnerKeyRecord(key: "k", enrollID: nil, status: .pending))
         let data = try #require(store.peek(.ownerKey(sourceKey: sourceKey)))
-        #expect(String(decoding: data, as: UTF8.self) == #"{"key":"k","status":"pending","v":1}"#)
+        let mark = OwnerKeyVault.mark(key: "k", sourceKey: sourceKey, seal: seal)
+        #expect(mark.count == 64)
+        #expect(String(decoding: data, as: UTF8.self) == #"{"key":"k","mark":""# + mark + #"","status":"pending","v":1}"#)
     }
 
     @Test func aLabelIsOneShortLine() {

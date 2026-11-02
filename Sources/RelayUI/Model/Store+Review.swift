@@ -519,15 +519,20 @@ extension Store {
 
     // MARK: Persistence
 
-    /// At launch: the seal key, then the records that still verify. A refused Keychain read,
-    /// or a seal item another app can read, loads nothing and writes nothing; a failed write of a new key keeps records in memory only.
+    /// At launch: the seal key, then the records that still verify. A refused Keychain read, or a
+    /// seal item Hook didn't make (`.foreign`), loads nothing and writes nothing; a failed write
+    /// of a new key keeps records in memory only.
     func loadReviews() {
         guard let reviewFile else { return }
         let key: SymmetricKey
+        let hadFile = FileManager.default.fileExists(atPath: reviewFile.url.path)
         do {
-            key = try ReviewSeal.loadOrCreate(reviewFile.secrets)
+            let seal = try ReviewSeal.open(reviewFile.secrets, file: reviewFile.url)
+            key = seal.key
+            // A file sealed by a key Hook didn't make (or lost) was set aside with its records.
+            if seal.created, hadFile { pendingReviewNotice = .reviewRecordsChanged }
         } catch SecretStoreError.unreadable, SecretStoreError.foreign {
-            // A refused read, or a planted key whose maker could seal records: trust none.
+            // A refused read, or a key Hook didn't make, whose maker could seal records: trust none.
             reviewsUnreadable = true
             pendingReviewNotice = .reviewRecordsUnreadable
             return

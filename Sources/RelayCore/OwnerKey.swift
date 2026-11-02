@@ -46,41 +46,71 @@ public struct OwnerKeyRecord: Codable, Equatable, Sendable {
     public var key: String
     public var enrollID: String?
     public var status: Status
+    /// Hook's creation marker (`OwnerKeyVault.mark`): set on every write, checked on every read.
+    public var mark: String?
 
-    public init(v: Int = 1, key: String, enrollID: String? = nil, status: Status) {
-        self.v = v; self.key = key; self.enrollID = enrollID; self.status = status
+    public init(v: Int = 1, key: String, enrollID: String? = nil, status: Status, mark: String? = nil) {
+        self.v = v; self.key = key; self.enrollID = enrollID; self.status = status; self.mark = mark
     }
 }
 
 /// Reads and writes this Mac's owner key record for one Pond.
+///
+/// The Keychain can't say who made an item (an access list names an app by a path another
+/// app can name too), so Hook marks each record it writes: `mark` is an HMAC of the Pond and
+/// the key under the review seal, which only Hook can read. A record without a mark that
+/// verifies, planted or copied from another Pond's item, is `.foreign`: never sent.
 public enum OwnerKeyVault {
-    /// The key, only while the record says approved. Pending, refused, unreadable, malformed
-    /// or missing → nil, so an owner act then goes without a key.
-    public static func approvedKey(_ store: any SecretStore, sourceKey: String) -> String? {
-        guard let record = try? record(store, sourceKey: sourceKey), record.status == .approved else { return nil }
+    /// The key, only while the record says approved and carries Hook's mark. Pending, refused,
+    /// unreadable, unmarked, malformed or missing → nil, so an owner act then goes without a key.
+    public static func approvedKey(_ store: any SecretStore, sourceKey: String, seal: SymmetricKey?) -> String? {
+        guard let record = try? record(store, sourceKey: sourceKey, seal: seal), record.status == .approved else {
+            return nil
+        }
         return record.key
     }
 
-    /// nil when there is no item or its data isn't a record; throws when the Keychain refuses.
-    public static func record(_ store: any SecretStore, sourceKey: String) throws -> OwnerKeyRecord? {
-        guard let data = try store.read(.ownerKey(sourceKey: sourceKey)) else { return nil }
-        return try? JSONDecoder().decode(OwnerKeyRecord.self, from: data)
+    /// nil when there is no item or its data isn't a record; throws when the Keychain refuses,
+    /// and `.foreign` for a record whose mark doesn't verify under `seal` (or with no seal).
+    public static func record(_ store: any SecretStore, sourceKey: String, seal: SymmetricKey?) throws -> OwnerKeyRecord? {
+        guard let data = try store.read(.ownerKey(sourceKey: sourceKey)),
+              let record = try? JSONDecoder().decode(OwnerKeyRecord.self, from: data) else { return nil }
+        guard let seal, let mark = record.mark.flatMap({ Data(hex: $0) }),
+              HMAC<SHA256>.isValidAuthenticationCode(mark, authenticating: markInput(key: record.key, sourceKey: sourceKey),
+                                                     using: seal) else {
+            throw SecretStoreError.foreign
+        }
+        return record
     }
 
-    /// Rewrites Hook's own item (a new status, the enroll id).
-    public static func save(_ record: OwnerKeyRecord, _ store: any SecretStore, sourceKey: String) throws {
-        try store.write(.ownerKey(sourceKey: sourceKey), encode(record))
+    /// Hex HMAC-SHA256 under the seal of `"hook-owner-key-v1\n" + sourceKey + "\n" + key`.
+    public static func mark(key: String, sourceKey: String, seal: SymmetricKey) -> String {
+        Data(HMAC<SHA256>.authenticationCode(for: markInput(key: key, sourceKey: sourceKey), using: seal))
+            .map { String(format: "%02x", $0) }.joined()
     }
 
-    /// A new key: whatever item is there, Hook's or planted, is deleted and a fresh one added.
-    public static func create(_ record: OwnerKeyRecord, _ store: any SecretStore, sourceKey: String) throws {
-        try store.create(.ownerKey(sourceKey: sourceKey), encode(record))
+    /// Rewrites Hook's own item (a new status, the enroll id), marked.
+    public static func save(_ record: OwnerKeyRecord, _ store: any SecretStore, sourceKey: String,
+                            seal: SymmetricKey) throws {
+        try store.write(.ownerKey(sourceKey: sourceKey), encode(record, sourceKey: sourceKey, seal: seal))
     }
 
-    private static func encode(_ record: OwnerKeyRecord) throws -> Data {
+    /// A new key: whatever item is there, Hook's or planted, is deleted and a fresh one added, marked.
+    public static func create(_ record: OwnerKeyRecord, _ store: any SecretStore, sourceKey: String,
+                              seal: SymmetricKey) throws {
+        try store.create(.ownerKey(sourceKey: sourceKey), encode(record, sourceKey: sourceKey, seal: seal))
+    }
+
+    private static func markInput(key: String, sourceKey: String) -> Data {
+        Data(("hook-owner-key-v1\n" + sourceKey + "\n" + key).utf8)
+    }
+
+    private static func encode(_ record: OwnerKeyRecord, sourceKey: String, seal: SymmetricKey) throws -> Data {
+        var marked = record
+        marked.mark = mark(key: record.key, sourceKey: sourceKey, seal: seal)
         let encoder = JSONEncoder()
         encoder.outputFormatting = .sortedKeys
-        return try encoder.encode(record)
+        return try encoder.encode(marked)
     }
 
     public static func delete(_ store: any SecretStore, sourceKey: String) throws {
@@ -125,6 +155,8 @@ public enum OwnerKeyState: Equatable, Sendable {
     public var onChange: (@MainActor () -> Void)?
 
     private let secrets: any SecretStore
+    /// The review seal that marks this Mac's records (`OwnerKeyVault`); nil before Hook made one.
+    private let seal: @Sendable () throws -> SymmetricKey?
     private let label: String
     private let sleep: @Sendable (Duration) async throws -> Void
     private let generate: @Sendable () -> String
@@ -133,10 +165,11 @@ public enum OwnerKeyState: Equatable, Sendable {
     private var source: (any QueueSource)?
     private var task: Task<Void, Never>?
 
-    public init(secrets: any SecretStore, label: String,
+    public init(secrets: any SecretStore, seal: @escaping @Sendable () throws -> SymmetricKey?, label: String,
                 sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
                 generate: @escaping @Sendable () -> String = OwnerKey.generate) {
         self.secrets = secrets
+        self.seal = seal
         self.label = Self.label(from: label)
         self.sleep = sleep
         self.generate = generate
@@ -151,9 +184,10 @@ public enum OwnerKeyState: Equatable, Sendable {
         return kept.isEmpty ? "Mac" : String(kept.prefix(maxLabel))
     }
 
-    /// The provider `MailboxClient` reads on each owner act.
-    public nonisolated static func provider(_ secrets: any SecretStore, sourceKey: String) -> @Sendable () -> String? {
-        { OwnerKeyVault.approvedKey(secrets, sourceKey: sourceKey) }
+    /// The provider `MailboxClient` reads on each owner act: no seal, no key.
+    public nonisolated static func provider(_ secrets: any SecretStore, sourceKey: String,
+                                            seal: @escaping @Sendable () throws -> SymmetricKey?) -> @Sendable () -> String? {
+        { OwnerKeyVault.approvedKey(secrets, sourceKey: sourceKey, seal: (try? seal()) ?? nil) }
     }
 
     /// Require is offered only once two Macs are approved, this one among them, so turning it
@@ -184,9 +218,7 @@ public enum OwnerKeyState: Equatable, Sendable {
         }
         let record: OwnerKeyRecord?
         do {
-            record = try OwnerKeyVault.record(secrets, sourceKey: sourceKey)
-        } catch SecretStoreError.foreign {
-            record = nil                // not Hook's: never sent; setting up replaces it
+            record = try ownRecord(sourceKey)
         } catch {
             state = .unavailable(Self.readFailed)
             return nil
@@ -220,19 +252,18 @@ public enum OwnerKeyState: Equatable, Sendable {
         case .notSetUp, .refused, .unavailable: break
         }
         do {
-            if try OwnerKeyVault.record(secrets, sourceKey: sourceKey)?.status == .approved {
+            if try ownRecord(sourceKey)?.status == .approved {
                 state = .approved
                 return nil
             }
-        } catch SecretStoreError.foreign {
-            // Not Hook's item: replaced below.
         } catch {
             state = .unavailable(Self.readFailed)
             return nil
         }
         let key = generate()
         do {
-            try OwnerKeyVault.create(OwnerKeyRecord(key: key, status: .pending), secrets, sourceKey: sourceKey)
+            try OwnerKeyVault.create(OwnerKeyRecord(key: key, status: .pending), secrets, sourceKey: sourceKey,
+                                     seal: markingSeal())
         } catch {
             state = .unavailable(Self.saveFailed)
             return nil
@@ -253,7 +284,7 @@ public enum OwnerKeyState: Equatable, Sendable {
             guard !Task.isCancelled, self.sourceKey == sourceKey else { return }
             do {
                 try OwnerKeyVault.save(OwnerKeyRecord(key: key, enrollID: enrollment.id, status: .pending), self.secrets,
-                                       sourceKey: sourceKey)
+                                       sourceKey: sourceKey, seal: self.markingSeal())
             } catch {
                 self.state = .unavailable(Self.saveFailed)
                 self.task = nil
@@ -334,14 +365,14 @@ public enum OwnerKeyState: Equatable, Sendable {
             switch enrollment.status {
             case "approved"?:
                 do {
-                    guard let record = try OwnerKeyVault.record(secrets, sourceKey: sourceKey) else {
+                    guard let record = try ownRecord(sourceKey) else {
                         state = .refused(Self.noLongerAccepted)
                         task = nil
                         return
                     }
                     var approved = record
                     approved.status = .approved
-                    try OwnerKeyVault.save(approved, secrets, sourceKey: sourceKey)
+                    try OwnerKeyVault.save(approved, secrets, sourceKey: sourceKey, seal: markingSeal())
                     state = .approved
                 } catch {
                     state = .unavailable(Self.saveFailed)
@@ -375,7 +406,7 @@ public enum OwnerKeyState: Equatable, Sendable {
     private func refuse(sourceKey: String) {
         let record: OwnerKeyRecord?
         do {
-            record = try OwnerKeyVault.record(secrets, sourceKey: sourceKey)
+            record = try ownRecord(sourceKey)
         } catch {
             state = .unavailable(Self.readFailed)
             return
@@ -390,7 +421,7 @@ public enum OwnerKeyState: Equatable, Sendable {
         do {
             try OwnerKeyVault.delete(secrets, sourceKey: sourceKey)
         } catch {
-            guard let record = try? OwnerKeyVault.record(secrets, sourceKey: sourceKey) else { return }
+            guard let record = try? ownRecord(sourceKey) else { return }
             markRefused(record, sourceKey: sourceKey)
         }
     }
@@ -401,9 +432,26 @@ public enum OwnerKeyState: Equatable, Sendable {
         var refused = record
         refused.status = .refused
         do {
-            try OwnerKeyVault.save(refused, secrets, sourceKey: sourceKey)
+            try OwnerKeyVault.save(refused, secrets, sourceKey: sourceKey, seal: markingSeal())
         } catch {
             try? OwnerKeyVault.delete(secrets, sourceKey: sourceKey)
         }
+    }
+
+    /// This Mac's record, verified. One Hook didn't make (`.foreign`) is no record: it is never
+    /// sent, and setting up replaces it. A refused Keychain or seal read throws.
+    private func ownRecord(_ sourceKey: String) throws -> OwnerKeyRecord? {
+        let seal = try seal()
+        do {
+            return try OwnerKeyVault.record(secrets, sourceKey: sourceKey, seal: seal)
+        } catch SecretStoreError.foreign {
+            return nil
+        }
+    }
+
+    /// The seal a write marks with; without one nothing is written.
+    private func markingSeal() throws -> SymmetricKey {
+        guard let seal = try seal() else { throw SecretStoreError.writeFailed(errSecItemNotFound) }
+        return seal
     }
 }

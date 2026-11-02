@@ -1,4 +1,5 @@
 import AppKit
+import CryptoKit
 import SwiftUI
 import RelayCore
 import RelayUI
@@ -69,6 +70,8 @@ import RelayUI
     private let mailbox = MailboxCompat()
     /// The owner key and the review seal live here.
     private var secrets: (any SecretStore)?
+    /// The review seal that marks the owner key's records; nil when Hook has none yet.
+    private var seal: (@Sendable () throws -> SymmetricKey?)?
     /// This Mac's owner key for the connected Pond.
     private var ownerKey: OwnerKeyFlow?
 
@@ -88,12 +91,15 @@ import RelayUI
             dataDirectory: AppModel.dataDirectory(environment: environment))
         let secrets = KeychainSecretStore()
         self.secrets = secrets
-        let store = Store(reviews: ReviewPersistence(
-            secrets: secrets, url: model.dataDirectory.appending(path: "reviews.json", directoryHint: .notDirectory)))
-        let ownerKey = OwnerKeyFlow(secrets: secrets, label: HostName.current ?? "Mac")
+        let reviews = model.dataDirectory.appending(path: "reviews.json", directoryHint: .notDirectory)
+        // The Store makes the seal at launch, if Hook has none; the owner key only reads it.
+        let store = Store(reviews: ReviewPersistence(secrets: secrets, url: reviews))
+        let seal: @Sendable () throws -> SymmetricKey? = { try ReviewSeal.load(secrets, file: reviews) }
+        self.seal = seal
+        let ownerKey = OwnerKeyFlow(secrets: secrets, seal: seal, label: HostName.current ?? "Mac")
         ownerKey.onChange = { [weak model] in model?.objectWillChange.send() }
         store.onOwnerKeyRefused = { [weak ownerKey] in ownerKey?.keyRefused() }
-        store.ownerKeyApproved = { key in OwnerKeyVault.approvedKey(secrets, sourceKey: key) != nil }
+        store.ownerKeyApproved = { key in OwnerKeyVault.approvedKey(secrets, sourceKey: key, seal: (try? seal()) ?? nil) != nil }
         self.ownerKey = ownerKey
         model.ownerKey = ownerKey
         store.setLocalHost(HostName.current)
@@ -458,7 +464,8 @@ import RelayUI
             routing.update(ServerRouting.Routes(source: "mailbox", api: nil, token: nil))
             let key = SourceKey.mailbox(settings)
             SourceKey.migrate(.standard, from: SourceKey.legacyMailbox(settings), to: key)
-            let provider = secrets.map { OwnerKeyFlow.provider($0, sourceKey: key) }
+            let seal = self.seal ?? { nil }
+            let provider = secrets.map { OwnerKeyFlow.provider($0, sourceKey: key, seal: seal) }
             swapIfNeeded(SourceIdentity(key: key, mailbox: settings), pollSeconds: pollSeconds) {
                 MailboxClient(settings: settings, ownerKey: provider)
             }

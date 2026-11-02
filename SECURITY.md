@@ -43,6 +43,28 @@ checks the path still names the file it checked, but a process already running a
 swap the file in the instant after that last check. Hook's own viewer isn't affected: it shows
 the bytes it read from the checked file's descriptor.
 
+## Keychain items
+
+Hook keeps two secrets in the login Keychain: the review seal ("Hook review seal"), which seals
+the review records in `reviews.json`, and this Mac's owner key for each Pond ("Hook owner key").
+
+- **Only items Hook made.** When Hook makes a secret (the seal's first key, each owner key setup)
+  it deletes whatever item has that name and adds a fresh one with an access list that trusts
+  only Hook; an item that appears in between fails the add. Hook never writes a secret into an
+  item it didn't just make.
+- **A creation marker.** An access list names an app by its path, which another app can name
+  too, so it doesn't prove who made an item. Hook also keeps a marker: `reviews.json` names the
+  seal Hook made, and each owner key record carries an HMAC under that seal. A seal item the
+  marker doesn't name, or an owner key record without a mark that verifies, is never used; one
+  with no marker at all is replaced. Each read and update works on the one item Hook checked.
+
+**Known limit.** Builds are ad-hoc signed today, so Hook can't use the data protection Keychain,
+where only an app signed by the same team can make or read an item in Hook's access group. A
+process already running as you can still read any item macOS lets it read (it would ask you
+first), and one that rewrites Hook's data files as well as its Keychain items could plant a seal
+with a matching marker. The checks above stop an item planted on its own; signed releases will
+move both secrets to the data protection Keychain.
+
 ## Supported versions
 
 Fixes go into the latest release.

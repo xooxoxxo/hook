@@ -107,23 +107,57 @@ private func object(_ url: URL) throws -> [String: Any] {
         #expect(loaded.records[name]?.accepted?.rev == 1)
     }
 
-    @Test func theSealKeyIsMadeOnlyWhenThereIsNone() throws {
-        let secrets = MemorySecretStore()
-        let first = try ReviewSeal.loadOrCreate(secrets)
-        #expect(secrets.writes == 1)
-        let again = try ReviewSeal.loadOrCreate(secrets)
-        #expect(secrets.writes == 1)
+    @Test func theSealKeyIsMadeFreshOnceAndMarkedInTheReviewFile() throws {
+        let secrets = MemorySecretStore(), url = tempFile()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let first = try ReviewSeal.loadOrCreate(secrets, file: url)
+        #expect(secrets.creates == 1)
+        #expect(try object(url)["seal"] as? String == ReviewStore.sealID(first))
+        let again = try ReviewSeal.loadOrCreate(secrets, file: url)
+        #expect(secrets.creates == 1)
         #expect(first.withUnsafeBytes { Data($0) } == again.withUnsafeBytes { Data($0) })
+        #expect(try ReviewSeal.load(secrets, file: url).map { $0.withUnsafeBytes { Data($0) } } == first.withUnsafeBytes { Data($0) })
         secrets.readError = .unreadable(-25293)
-        #expect(throws: SecretStoreError.unreadable(-25293)) { try ReviewSeal.loadOrCreate(secrets) }
-        #expect(secrets.writes == 1)
+        #expect(throws: SecretStoreError.unreadable(-25293)) { try ReviewSeal.loadOrCreate(secrets, file: url) }
+        #expect(secrets.creates == 1)
     }
 
-    @Test func aPlantedSealKeyIsNeitherUsedNorReplaced() throws {
-        let secrets = MemorySecretStore()
-        secrets.plantForeign(.reviewSeal, Data(repeating: 7, count: 32))
-        #expect(throws: SecretStoreError.foreign) { try ReviewSeal.loadOrCreate(secrets) }
-        #expect(secrets.writes == 0)
-        #expect(secrets.peek(.reviewSeal) == Data(repeating: 7, count: 32))
+    /// An item Hook's marker doesn't name was never made by Hook, however its access list reads
+    /// (another app can name Hook's path in one): with no marker it is replaced, never used.
+    @Test func aSealItemWithoutHooksMarkerIsReplacedNotUsed() throws {
+        let planted = Data(repeating: 7, count: 32)
+        for secrets in [MemorySecretStore([.reviewSeal: planted]), { let s = MemorySecretStore(); s.plantForeign(.reviewSeal, planted); return s }()] {
+            let url = tempFile()
+            defer { try? FileManager.default.removeItem(at: url) }
+            // A review file sealed with the planted key, but with no marker Hook wrote.
+            var file = try JSONSerialization.jsonObject(with: ReviewStore.sealed(
+                records: [ReviewStore.key(sourceKey: source, id: "a"): record()], sealKey: SymmetricKey(data: planted))) as! [String: Any]
+            file["seal"] = nil
+            try JSONSerialization.data(withJSONObject: file).write(to: url)
+            #expect(try ReviewSeal.load(secrets, file: url) == nil)
+            let key = try ReviewSeal.loadOrCreate(secrets, file: url)
+            #expect(key.withUnsafeBytes { Data($0) } != planted)
+            #expect(secrets.peek(.reviewSeal) != planted)
+            #expect(secrets.creates == 1)
+            #expect(ReviewStore.load(from: url, sealKey: key).records.isEmpty)
+        }
+    }
+
+    /// Once Hook has marked its seal, any other key in the item is refused, and left as it is.
+    @Test func aSealItemThatIsntTheMarkedOneIsRefused() throws {
+        let secrets = MemorySecretStore(), url = tempFile()
+        defer { try? FileManager.default.removeItem(at: url) }
+        _ = try ReviewSeal.loadOrCreate(secrets, file: url)
+        let planted = Data(repeating: 7, count: 32)
+        try secrets.delete(.reviewSeal)
+        try secrets.write(.reviewSeal, planted)
+        let writes = secrets.writes
+        #expect(throws: SecretStoreError.foreign) { try ReviewSeal.loadOrCreate(secrets, file: url) }
+        #expect(throws: SecretStoreError.foreign) { try ReviewSeal.load(secrets, file: url) }
+        #expect(secrets.writes == writes)
+        #expect(secrets.peek(.reviewSeal) == planted)
+        // So is one whose access list lets another app read it.
+        secrets.plantForeign(.reviewSeal, planted)
+        #expect(throws: SecretStoreError.foreign) { try ReviewSeal.loadOrCreate(secrets, file: url) }
     }
 }

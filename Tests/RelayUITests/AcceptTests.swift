@@ -64,7 +64,7 @@ import Testing
         #expect(s.store.record("a")?.pondAcceptPending == false)
         #expect(s.store.reviewState("a") == .current(s.two))
         #expect(s.store.listed.first?.instructable?.steps[2].code == "run three --force")
-        let saved = ReviewStore.load(from: s.url, sealKey: try! ReviewSeal.loadOrCreate(s.secrets))
+        let saved = ReviewStore.load(from: s.url, sealKey: try! ReviewSeal.load(s.secrets, file: s.url)!)
         #expect(!saved.tampered)
         #expect(saved.records[ReviewStore.key(sourceKey: localIdentity.key, id: "a")]?.accepted == s.two)
     }

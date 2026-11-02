@@ -44,9 +44,11 @@ public struct ReviewRecord: Codable, Equatable, Sendable {
     public var highestPin: Int { pins.keys.max() ?? 0 }
 }
 
-/// `reviews.json`: `{"v":1,"records":{key:{"record":…,"mac":"<hex HMAC-SHA256>"}}}`. The MAC
-/// covers `"hook-review-v1\n" + key + "\n" + record` (sorted-keys JSON), so a record edited on
-/// disk, or copied to another ask's key, no longer verifies. App-local: no other side reads it.
+/// `reviews.json`: `{"v":1,"seal":"<id>","records":{key:{"record":…,"mac":"<hex HMAC-SHA256>"}}}`.
+/// The MAC covers `"hook-review-v1\n" + key + "\n" + record` (sorted-keys JSON), so a record
+/// edited on disk, or copied to another ask's key, no longer verifies. `seal` is `sealID` of the
+/// key that sealed it: Hook's creation marker for the seal item (`ReviewSeal`). App-local: no
+/// other side reads it.
 public enum ReviewStore {
     public static let version = 1
 
@@ -71,15 +73,29 @@ public enum ReviewStore {
         return (records, tampered)
     }
 
-    /// The whole file, every record sealed.
+    /// The whole file, every record sealed, naming its seal.
     public static func sealed(records: [String: ReviewRecord], sealKey: SymmetricKey) -> Data {
         var entries: [String: Entry] = [:]
         for (key, record) in records {
             let mac = HMAC<SHA256>.authenticationCode(for: macInput(key: key, record: record), using: sealKey)
-            entries[key] = Entry(record: record, mac: Data(mac).map { String(format: "%02x", $0) }.joined())
+            entries[key] = Entry(record: record, mac: hex(Data(mac)))
         }
-        return (try? encoder.encode(File(v: version, records: entries))) ?? Data()
+        return (try? encoder.encode(File(v: version, seal: sealID(sealKey), records: entries))) ?? Data()
     }
+
+    /// Names a seal key without giving it away: hex HMAC-SHA256 of `"hook-review-seal-v1"` under it.
+    public static func sealID(_ sealKey: SymmetricKey) -> String {
+        hex(Data(HMAC<SHA256>.authenticationCode(for: Data("hook-review-seal-v1".utf8), using: sealKey)))
+    }
+
+    /// The seal the file names; nil without a file, or one that isn't a review file or names none.
+    public static func sealMarker(at url: URL) -> String? {
+        guard let data = try? Data(contentsOf: url),
+              let file = try? JSONDecoder().decode(File.self, from: data), file.v == version else { return nil }
+        return file.seal
+    }
+
+    private static func hex(_ data: Data) -> String { data.map { String(format: "%02x", $0) }.joined() }
 
     static func macInput(key: String, record: ReviewRecord) -> Data {
         var input = Data(("hook-review-v1\n" + key + "\n").utf8)
@@ -95,6 +111,7 @@ public enum ReviewStore {
 
     private struct File: Codable {
         var v: Int
+        var seal: String?
         var records: [String: Entry]
     }
 
@@ -105,21 +122,41 @@ public enum ReviewStore {
 }
 
 /// The review store's seal key: 32 random bytes in the Keychain item "Hook review seal".
+///
+/// The Keychain can't say who made an item (an access list names an app by a path another app
+/// can name too), so Hook trusts only the seal it made itself: at the first creation it deletes
+/// whatever item is there, adds a fresh one, and writes `reviews.json` naming it
+/// (`ReviewStore.sealID`). An item with no such marker is never used; one the marker doesn't
+/// name is `.foreign`.
 public enum ReviewSeal {
-    /// The stored key, or a new one in a fresh item when there is none. A read the Keychain refuses throws
-    /// (`SecretStoreError.unreadable`) and never mints a new key over the old one; so does an
-    /// item another app can read (`.foreign`), which is neither used nor overwritten.
-    public static func loadOrCreate(_ secrets: any SecretStore) throws -> SymmetricKey {
-        if let data = try secrets.read(.reviewSeal) {
-            guard data.count == 32 else { throw SecretStoreError.unreadable(errSecDecode) }
-            return SymmetricKey(data: data)
-        }
+    /// Hook's seal key; nil when Hook hasn't made one (no marker in `file`, or no item). A read
+    /// the Keychain refuses throws `.unreadable`; an item the marker doesn't name, or that another
+    /// app can read, throws `.foreign`.
+    public static func load(_ secrets: any SecretStore, file: URL) throws -> SymmetricKey? {
+        guard let marker = ReviewStore.sealMarker(at: file), let data = try secrets.read(.reviewSeal) else { return nil }
+        let key = SymmetricKey(data: data)
+        guard data.count == 32, ReviewStore.sealID(key) == marker else { throw SecretStoreError.foreign }
+        return key
+    }
+
+    /// `load`, or else the first creation: a fresh item (any old one deleted, never filled) and
+    /// a `file` with no records that names it. A refused read, or a `.foreign` item, never mints
+    /// a new key over the old one.
+    public static func loadOrCreate(_ secrets: any SecretStore, file: URL) throws -> SymmetricKey {
+        try open(secrets, file: file).key
+    }
+
+    /// `loadOrCreate`, saying whether this call made the key.
+    public static func open(_ secrets: any SecretStore, file: URL) throws -> (key: SymmetricKey, created: Bool) {
+        if let key = try load(secrets, file: file) { return (key, false) }
         var bytes = [UInt8](repeating: 0, count: 32)
         guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else {
             throw SecretStoreError.writeFailed(errSecAllocate)
         }
+        let key = SymmetricKey(data: bytes)
         try secrets.create(.reviewSeal, Data(bytes))
-        return SymmetricKey(data: bytes)
+        try PrivateFile.write(ReviewStore.sealed(records: [:], sealKey: key), to: file)
+        return (key, true)
     }
 }
 
