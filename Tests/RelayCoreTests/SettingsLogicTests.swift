@@ -467,6 +467,46 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
         #expect(second.state == .refused("The Pond no longer accepts this Mac's key."))
     }
 
+    @Test func aRefusedReadAfterAttachKeepsTheApprovedKey() async throws {
+        let approved = OwnerKeyRecord(key: OwnerKey.generate(), enrollID: "e1", status: .approved)
+        let secrets = MemorySecretStore(), pond = OwnerPond()
+        try OwnerKeyVault.save(approved, secrets, sourceKey: pondKey)
+        // No key goes out while the Keychain refuses the read, so the Pond answers `self: null`.
+        await pond.set(owner: OwnerStatus(required: false, keys: [approvedRow("k1")]))
+        let flow = makeFlow(secrets, pond: pond)
+        #expect(flow.state == .approved)
+        secrets.readError = .unreadable(-128)
+        let writes = secrets.writes
+        await flow.refresh()?.value
+        #expect(flow.state == .unavailable(OwnerKeyFlow.readFailed))
+        #expect(secrets.writes == writes)
+        #expect(record(secrets) == approved)       // peek: the item stays, still approved
+    }
+
+    @Test func aRefusedKeyWhoseReadFailsKeepsTheItem() async throws {
+        let approved = OwnerKeyRecord(key: OwnerKey.generate(), enrollID: "e1", status: .approved)
+        let secrets = MemorySecretStore()
+        try OwnerKeyVault.save(approved, secrets, sourceKey: pondKey)
+        let flow = makeFlow(secrets)
+        #expect(flow.state == .approved)
+        secrets.readError = .unreadable(-128)
+        flow.keyRefused()
+        #expect(flow.state == .unavailable(OwnerKeyFlow.readFailed))
+        #expect(record(secrets) == approved)
+    }
+
+    @Test func aRefusedKeyWhoseWriteFailsIsDeleted() async throws {
+        let secrets = MemorySecretStore()
+        try OwnerKeyVault.save(OwnerKeyRecord(key: OwnerKey.generate(), enrollID: "e1", status: .approved), secrets,
+                               sourceKey: pondKey)
+        let flow = makeFlow(secrets)
+        secrets.writeError = .writeFailed(-25308)
+        flow.keyRefused()
+        #expect(flow.state == .refused("The Pond no longer accepts this Mac's key."))
+        #expect(record(secrets) == nil)
+        #expect(OwnerKeyFlow.provider(secrets, sourceKey: pondKey)() == nil)
+    }
+
     @Test func aPendingRequestIsPolledAgainAfterARestart() async throws {
         let secrets = MemorySecretStore(), pond = OwnerPond()
         let key = OwnerKey.generate()

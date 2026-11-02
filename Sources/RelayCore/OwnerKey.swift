@@ -261,7 +261,9 @@ public enum OwnerKeyState: Equatable, Sendable {
     }
 
     /// `GET /owner`, on launch and each time Settings opens. An approved record whose key the
-    /// Pond no longer lists as approved (revoked, rejected, or unknown) becomes refused.
+    /// Pond no longer lists as approved (revoked, rejected, or unknown) becomes refused, but only
+    /// when the record still reads: a Keychain that refuses the read sent no key, so the Pond's
+    /// `self: null` says nothing about it.
     @discardableResult
     public func refresh() -> Task<Void, Never>? {
         guard let source, let sourceKey else { return nil }
@@ -269,8 +271,8 @@ public enum OwnerKeyState: Equatable, Sendable {
             guard let status = try? await source.ownerStatus(), self.sourceKey == sourceKey else { return }
             self.status = status
             if !status.required { self.requireOffPending = false }     // the owner tapped Turn off
-            guard self.state == .approved else { return }
-            if status.self_?.status != "approved" { self.refuse(sourceKey: sourceKey) }
+            guard self.state == .approved, status.self_?.status != "approved" else { return }
+            self.refuse(sourceKey: sourceKey)
         }
     }
 
@@ -352,26 +354,39 @@ public enum OwnerKeyState: Equatable, Sendable {
         task = nil
     }
 
+    /// The Pond turned the key down: the record becomes refused. A read the Keychain refuses
+    /// leaves the item in place and only gives `.unavailable`, since the provider sends no key
+    /// then and the Pond's answer says nothing about it.
+    private func refuse(sourceKey: String) {
+        let record: OwnerKeyRecord?
+        do {
+            record = try OwnerKeyVault.record(secrets, sourceKey: sourceKey)
+        } catch {
+            state = .unavailable(Self.readFailed)
+            return
+        }
+        if let record { markRefused(record, sourceKey: sourceKey) }
+        state = .refused(Self.noLongerAccepted)
+    }
+
     /// Deletes the record; when the delete fails, marks it refused so the provider still gives nil.
+    /// A read the Keychain refuses changes nothing: the provider already gives nil then.
     private func drop(sourceKey: String) {
         do {
             try OwnerKeyVault.delete(secrets, sourceKey: sourceKey)
         } catch {
-            markRefused(sourceKey: sourceKey)
+            guard let record = try? OwnerKeyVault.record(secrets, sourceKey: sourceKey) else { return }
+            markRefused(record, sourceKey: sourceKey)
         }
     }
 
-    private func refuse(sourceKey: String) {
-        markRefused(sourceKey: sourceKey)
-        state = .refused(Self.noLongerAccepted)
-    }
-
-    /// Rewrites the record as refused; when that fails, deletes it. Either way the provider gives nil.
-    private func markRefused(sourceKey: String) {
+    /// Rewrites a record that read fine as refused; when that write fails, deletes it. Either way
+    /// the provider gives nil.
+    private func markRefused(_ record: OwnerKeyRecord, sourceKey: String) {
+        var refused = record
+        refused.status = .refused
         do {
-            guard var record = try OwnerKeyVault.record(secrets, sourceKey: sourceKey) else { return }
-            record.status = .refused
-            try OwnerKeyVault.save(record, secrets, sourceKey: sourceKey)
+            try OwnerKeyVault.save(refused, secrets, sourceKey: sourceKey)
         } catch {
             try? OwnerKeyVault.delete(secrets, sourceKey: sourceKey)
         }
