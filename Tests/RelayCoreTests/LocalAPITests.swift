@@ -444,7 +444,7 @@ private func details(_ response: HTTPResponse) -> [String] {
 }
 
 @Suite struct LocalAPIVersionTests {
-    @Test func versionAnswersTheAppsOwnLevel() async throws {
+    @Test func versionAnswersThePondVersionThisMacImplements() async throws {
         let dir = FileManager.default.temporaryDirectory.appending(path: "relay-api-\(UUID().uuidString)")
         let queue = LocalQueue(directory: dir, keepDays: 14)
         _ = try await queue.open()
@@ -453,8 +453,9 @@ private func details(_ response: HTTPResponse) -> [String] {
         let response = await h.send("GET", "/version")
         #expect(response.status == 200)
         let body = try json(response)
-        #expect(body["protocol"] == .int(MailboxProtocol.current))
-        #expect(body["version"] == .string("0.9.1"))
+        #expect(body["protocol"] == .int(4))
+        #expect(body["version"] == .string("1.0.0"))
+        #expect(body["version"] == .string(PondCompat.localVersion))
         #expect(body["service"] == .string("hook"))
     }
 

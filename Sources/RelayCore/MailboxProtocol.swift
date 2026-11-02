@@ -1,6 +1,6 @@
 import Foundation
 
-/// A mailbox feature Hook uses that older mailboxes don't have.
+/// A Pond feature Hook uses that older Ponds don't have.
 public enum MailboxFeature: String, CaseIterable, Sendable, Comparable {
     /// Step `question` and `POST /asks/{id}/answers` (Hook 0.7).
     case answers
@@ -10,13 +10,15 @@ public enum MailboxFeature: String, CaseIterable, Sendable, Comparable {
     case optional
     /// The `file` step key and a link's `path` (Hook 0.9.1).
     case fileLinks
+    /// Step ids, corrections (amend, accept), problem reports and owner acts with the owner key (Hook 0.10).
+    case corrections
 
-    /// The lowest mailbox protocol level that has the feature.
-    public var minimumLevel: Int {
+    /// The first Pond version that has the feature: everything up to the old protocol level 4
+    /// is in 1.0.0.
+    public var minimumPond: SemVer {
         switch self {
-        case .answers: return 2
-        case .blocking: return 3
-        case .optional, .fileLinks: return 4
+        case .answers, .blocking, .optional, .fileLinks: return SemVer(major: 1, minor: 0, patch: 0)
+        case .corrections: return SemVer(major: 1, minor: 1, patch: 0)
         }
     }
 
@@ -27,31 +29,33 @@ public enum MailboxFeature: String, CaseIterable, Sendable, Comparable {
         case .blocking: return "blocking steps"
         case .optional: return "optional steps"
         case .fileLinks: return "file links"
+        case .corrections: return "step corrections and the owner key"
         }
     }
 
-    /// By level, then in declaration order, so features of one level keep a fixed order.
+    /// By Pond version, then in declaration order, so features of one version keep a fixed order.
     public static func < (a: MailboxFeature, b: MailboxFeature) -> Bool {
-        if a.minimumLevel != b.minimumLevel { return a.minimumLevel < b.minimumLevel }
+        if a.minimumPond != b.minimumPond { return a.minimumPond < b.minimumPond }
         let all = allCases
         return all.firstIndex(of: a)! < all.firstIndex(of: b)!
     }
 }
 
-/// The mailbox protocol levels (docs/mailbox-protocol.md). A mailbox answers
-/// `GET /version` with its level; one without `/version` is level 1.
+/// The Pond's versions (docs/mailbox-protocol.md). A Pond answers `GET /version` with a
+/// semver `version` (1.0.0 on), or, before semver, a dated version and a protocol level; one
+/// without `/version` is protocol 1. `PondCompat.required` names the range this Hook needs.
 public enum MailboxProtocol {
-    /// The level this Hook speaks, and the one This Mac's LocalAPI answers with.
-    public static let current = 4
-    /// What a mailbox without `GET /version` (404) counts as.
+    /// What a Pond without `GET /version` (404) counts as.
     public static let baseline = 1
     /// The update guide that "How to update" and an unset `mailboxUpdateCommand` open.
     public static let updateDocsURL = URL(
         string: "https://github.com/xooxoxxo/hook/blob/main/docs/mailbox-protocol.md#updating-the-mailbox")!
 
-    /// The features a mailbox at `level` lacks, in level order.
-    public static func missingFeatures(level: Int) -> [MailboxFeature] {
-        MailboxFeature.allCases.filter { $0.minimumLevel > level }.sorted()
+    /// The features a Pond lacks, by its effective version, in version order. A protocol-4 Pond
+    /// (1.0.0) lacks only `corrections`; one below protocol 4 lacks everything (no Pond runs there).
+    public static func missingFeatures(pond: PondVersion) -> [MailboxFeature] {
+        let version = pond.effective
+        return MailboxFeature.allCases.filter { version < $0.minimumPond }.sorted()
     }
 
     /// "per-step answers", "per-step answers and blocking steps", …
@@ -65,52 +69,57 @@ public enum MailboxProtocol {
     }
 }
 
-/// `GET /version`'s reply: `{"service": "mailbox", "version": "<string>", "protocol": <int>}`.
+/// `GET /version`'s reply: `{"service": "pond", "version": "1.1.0", "protocol": 5}`.
 public struct MailboxVersion: Equatable, Sendable, Codable {
     public var service: String?
-    /// The server's own version string; nil for a mailbox without `/version`.
+    /// The server's own version string: semver from Pond 1.0.0 on, dated before; nil for a
+    /// Pond without `/version`.
     public var version: String?
-    public var level: Int
+    /// `protocol`: kept by Pond 1.x for 0.9.x Hooks; new code reads `version` first.
+    public var level: Int?
 
     enum CodingKeys: String, CodingKey {
         case service, version
         case level = "protocol"
     }
 
-    public init(service: String? = nil, version: String? = nil, level: Int) {
+    public init(service: String? = nil, version: String? = nil, level: Int?) {
         self.service = service
         self.version = version
         self.level = level
     }
 
-    /// A mailbox that answered 404: no `/version`, so level 1.
+    /// A Pond that answered 404: no `/version`, so protocol 1.
     public static let legacy = MailboxVersion(level: MailboxProtocol.baseline)
 
-    /// `protocol` must be a whole number of 1 or more; `service` and `version` are optional strings.
+    /// Any object decodes, as relay_semver reads it: `service` and `version` are optional
+    /// strings and `protocol` a whole number of 1 or more, else nil (protocol 1).
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        let level = try c.decode(Int.self, forKey: .level)
-        guard level >= 1 else {
-            throw DecodingError.dataCorruptedError(forKey: .level, in: c, debugDescription: "protocol must be 1 or more")
-        }
-        self.level = level
+        level = c.lenient(Int.self, .level).flatMap { $0 >= 1 ? $0 : nil }
         service = c.lenient(String.self, .service)
         version = c.lenient(String.self, .version)
     }
+
+    /// The Pond's version: semver when `version` is strict, else an old Pond by `protocol`.
+    public var pond: PondVersion { .from(version: version, protocol: level) }
 }
 
-/// How a mailbox's level compares with this Hook's.
+/// How a Pond's version fits the range this Hook needs.
 public enum MailboxCompatibility: Equatable, Sendable {
+    /// Within the range, or past it on the same major: nothing to say.
     case ok
-    /// The mailbox is behind: these features won't work until it is updated.
-    case mailboxOlder(missing: [MailboxFeature])
-    /// The mailbox speaks a level this Hook doesn't know: Hook should update.
-    case mailboxNewer
+    /// The Pond is below the range: these features won't work until it is updated.
+    case pondOlder(missing: [MailboxFeature])
+    /// The Pond is on a newer major than the range: Hook should update.
+    case hookOlder
 
-    public static func evaluate(level: Int, hookLevel: Int = MailboxProtocol.current) -> MailboxCompatibility {
-        if level > hookLevel { return .mailboxNewer }
-        let missing = MailboxProtocol.missingFeatures(level: level).filter { $0.minimumLevel <= hookLevel }
-        return missing.isEmpty ? .ok : .mailboxOlder(missing: missing)
+    public static func evaluate(pond: PondVersion, required: SemverRange = PondCompat.range) -> MailboxCompatibility {
+        switch required.fit(pond.effective) {
+        case .satisfies, .above: return .ok
+        case .below: return .pondOlder(missing: MailboxProtocol.missingFeatures(pond: pond))
+        case .newerMajor: return .hookOlder
+        }
     }
 
     public var isOK: Bool { self == .ok }
@@ -135,12 +144,22 @@ public struct MailboxCheck: Equatable, Sendable {
         self.checkedAt = checkedAt
     }
 
-    public var level: Int? {
-        if case .version(let version) = result { return version.level }
+    /// The Pond's version; nil when the check failed.
+    public var pond: PondVersion? {
+        if case .version(let version) = result { return version.pond }
         return nil
     }
 
-    public var compatibility: MailboxCompatibility? { level.map { MailboxCompatibility.evaluate(level: $0) } }
+    /// The level the update pre-check compares with a release's `mailbox-protocol` marker:
+    /// the `protocol` the Pond sent, 4 for a semver Pond that sent none, else 1.
+    public var updaterLevel: Int? {
+        guard case .version(let version) = result else { return nil }
+        if let level = version.level { return level }
+        if case .semver = version.pond { return 4 }
+        return MailboxProtocol.baseline
+    }
+
+    public var compatibility: MailboxCompatibility? { pond.map { MailboxCompatibility.evaluate(pond: $0) } }
 }
 
 /// When the app reads the mailbox's version: on connect, when the source changes, then at
@@ -179,21 +198,28 @@ public struct MailboxVersionLine: Equatable, Sendable {
         self.state = state
     }
 
-    /// "0.9.1 · level 4", "level 1" (a mailbox without `/version`), or why the check failed.
-    public static func line(_ check: MailboxCheck?, checking: Bool) -> MailboxVersionLine {
+    /// "Pond 1.1.0 ✓ (needs ^1.1.0)", "Pond 1.0.0 (needs ^1.1.0)", "Pond 2.0.0 (this Hook needs
+    /// ^1.1.0)", "Pond (protocol 4) (needs ^1.1.0)" for an old Pond, or why the check failed.
+    public static func line(_ check: MailboxCheck?, checking: Bool,
+                            required: String = PondCompat.required) -> MailboxVersionLine {
         guard let check else { return MailboxVersionLine(text: "Not checked yet", state: checking ? .checking : .failed) }
         switch check.result {
         case .failed(let reason):
             return MailboxVersionLine(text: "Couldn't check: " + UserFacingError.text(reason),
                                       state: checking ? .checking : .failed)
         case .version(let version):
-            let level = "level \(version.level)"
-            let text = version.version.map { Sanitize.revealLine($0) + " · " + level } ?? level
-            let state: State
-            switch MailboxCompatibility.evaluate(level: version.level) {
-            case .ok: state = .ok
-            case .mailboxOlder: state = .needsUpdate
-            case .mailboxNewer: state = .hookOlder
+            let pond = version.pond
+            let name: String
+            switch pond {
+            case .semver(let v): name = "Pond " + Sanitize.revealLine(v.description)
+            case .legacy: name = "Pond (\(pond.display))"
+            }
+            let range = (try? SemverRange(required)) ?? PondCompat.range
+            let text: String, state: State
+            switch MailboxCompatibility.evaluate(pond: pond, required: range) {
+            case .ok: (text, state) = ("\(name) ✓ (needs \(required))", .ok)
+            case .pondOlder: (text, state) = ("\(name) (needs \(required))", .needsUpdate)
+            case .hookOlder: (text, state) = ("\(name) (this Hook needs \(required))", .hookOlder)
             }
             return MailboxVersionLine(text: text, state: checking ? .checking : state)
         }
@@ -284,7 +310,10 @@ public enum UpdatePreflight {
                           informative: "Hook rebuilds from your checkout and restarts in about 2 minutes.",
                           buttons: ["Update", "Cancel"])
         case let .mailboxBehind(required, current):
-            let missing = MailboxProtocol.missingFeatures(level: current).filter { $0.minimumLevel <= required }
+            // What this Hook uses that the Pond lacks. Protocol 5 is what Pond 1.1.0 reports, so
+            // it has corrections even though an old dated Pond is read as 1.0.0.
+            let missing = MailboxProtocol.missingFeatures(pond: .legacy(protocol: current))
+                .filter { current < 5 || $0 != .corrections }
             var informative = "Hook \(version) needs Pond level \(required); yours is \(current)."
             if !missing.isEmpty {
                 informative += " Until the Pond is updated, \(MailboxProtocol.featureList(missing)) won't work."

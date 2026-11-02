@@ -42,8 +42,8 @@ public enum PanelNotice: Equatable, Sendable {
     case mailboxOlder(missing: [MailboxFeature])
     /// The mailbox speaks a level this Hook doesn't know.
     case mailboxNewer
-    /// After Update Mailbox…: the mailbox now speaks Hook's level.
-    case mailboxUpToDate(level: Int)
+    /// After Update Pond…: the Pond now fits the range Hook needs (`PondVersion.display`).
+    case mailboxUpToDate(pond: String)
     /// Update Mailbox… couldn't open the terminal; the command was copied instead.
     case mailboxUpdateFailed(reason: String)
     /// Update Mailbox… wasn't started: the command in Settings can't be run (`RunTarget.problem`).
@@ -94,8 +94,8 @@ public enum PanelNotice: Equatable, Sendable {
             return "Your Pond is older than Hook: \(features) won't work until it is updated."
         case .mailboxNewer:
             return "Hook is older than your Pond. Update Hook to catch up."
-        case .mailboxUpToDate(let level):
-            return "Your Pond is up to date (protocol level \(level))."
+        case .mailboxUpToDate(let pond):
+            return "Your Pond is up to date (\(Sanitize.revealLine(pond)))."
         case .mailboxUpdateFailed(let reason):
             return "Couldn't open the terminal, so the update command is on the clipboard. \(Sanitize.revealLine(reason))"
         case .mailboxUpdateCommandInvalid(let reason):

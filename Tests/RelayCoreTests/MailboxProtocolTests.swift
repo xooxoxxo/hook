@@ -6,21 +6,40 @@ private let key = "mailbox:mailbox.example:8790#personal"
 private let t0 = Date(timeIntervalSince1970: 1_800_000_000)
 
 private func check(level: Int?, key: String = key, at date: Date = t0) -> MailboxCheck {
-    MailboxCheck(sourceKey: key, result: level.map { .version(MailboxVersion(version: "0.9.1", level: $0)) }
+    MailboxCheck(sourceKey: key, result: level.map { .version(MailboxVersion(version: "2026.10.27.1", level: $0)) }
         ?? .failed(reason: "the mailbox didn't answer"), checkedAt: date)
 }
 
+private func check(pond version: String, level: Int? = 5) -> MailboxCheck {
+    MailboxCheck(sourceKey: key, result: .version(MailboxVersion(service: "pond", version: version, level: level)),
+                 checkedAt: t0)
+}
+
+private func semver(_ text: String) -> PondVersion { .semver(SemVer(strict: text)!) }
+
+private let everyFeature: [MailboxFeature] = [.answers, .blocking, .optional, .fileLinks, .corrections]
+
 @Suite struct MailboxProtocolTests {
-    @Test func featuresAndTheirLevels() {
-        #expect(MailboxFeature.answers.minimumLevel == 2)
-        #expect(MailboxFeature.blocking.minimumLevel == 3)
-        #expect(MailboxFeature.optional.minimumLevel == 4)
-        #expect(MailboxFeature.fileLinks.minimumLevel == 4)
-        #expect(MailboxProtocol.current == 4)
-        #expect(MailboxProtocol.missingFeatures(level: 1) == [.answers, .blocking, .optional, .fileLinks])
-        #expect(MailboxProtocol.missingFeatures(level: 2) == [.blocking, .optional, .fileLinks])
-        #expect(MailboxProtocol.missingFeatures(level: 3) == [.optional, .fileLinks])
-        #expect(MailboxProtocol.missingFeatures(level: 4) == [])
+    @Test func featuresAndThePondVersionsThatHaveThem() {
+        let v100 = SemVer(major: 1, minor: 0, patch: 0), v110 = SemVer(major: 1, minor: 1, patch: 0)
+        #expect(MailboxFeature.answers.minimumPond == v100)
+        #expect(MailboxFeature.blocking.minimumPond == v100)
+        #expect(MailboxFeature.optional.minimumPond == v100)
+        #expect(MailboxFeature.fileLinks.minimumPond == v100)
+        #expect(MailboxFeature.corrections.minimumPond == v110)
+        #expect(MailboxFeature.corrections.displayName == "step corrections and the owner key")
+        #expect(MailboxFeature.allCases.sorted() == everyFeature)
+    }
+
+    @Test func missingFeaturesComparesTheEffectiveVersion() {
+        #expect(MailboxProtocol.missingFeatures(pond: semver("1.0.0")) == [.corrections])
+        #expect(MailboxProtocol.missingFeatures(pond: .legacy(protocol: 4)) == [.corrections])
+        #expect(MailboxProtocol.missingFeatures(pond: semver("1.1.0")) == [])
+        #expect(MailboxProtocol.missingFeatures(pond: semver("1.4.2")) == [])
+        #expect(MailboxProtocol.missingFeatures(pond: semver("1.1.0-rc.1")) == [.corrections])
+        // Below 4 every feature is missing: accepted, as no Pond runs below protocol 4.
+        #expect(MailboxProtocol.missingFeatures(pond: .legacy(protocol: 3)) == everyFeature)
+        #expect(MailboxProtocol.missingFeatures(pond: .legacy(protocol: 1)) == everyFeature)
     }
 
     @Test func featureListReadsAsASentence() {
@@ -31,43 +50,80 @@ private func check(level: Int?, key: String = key, at date: Date = t0) -> Mailbo
         #expect(MailboxProtocol.featureList([.fileLinks, .optional]) == "optional steps and file links")
         #expect(MailboxProtocol.featureList([.fileLinks, .blocking, .optional, .answers])
             == "per-step answers, blocking steps, optional steps and file links")
+        #expect(MailboxProtocol.featureList([.corrections]) == "step corrections and the owner key")
         #expect(MailboxProtocol.featureList([]) == "")
     }
 
-    @Test(arguments: [(1, MailboxCompatibility.mailboxOlder(missing: [.answers, .blocking, .optional, .fileLinks])),
-                      (2, .mailboxOlder(missing: [.blocking, .optional, .fileLinks])),
-                      (3, .mailboxOlder(missing: [.optional, .fileLinks])),
-                      (4, .ok), (5, .mailboxNewer)])
-    func compatibility(_ level: Int, _ expected: MailboxCompatibility) {
-        #expect(MailboxCompatibility.evaluate(level: level) == expected)
+    @Test(arguments: [("1.0.0", MailboxCompatibility.pondOlder(missing: [.corrections])),
+                      ("1.1.0", .ok), ("1.7.0", .ok), ("1.2.0-rc.1", .ok), ("2.0.0", .hookOlder),
+                      ("1.1.0-rc.1", .pondOlder(missing: [.corrections]))])
+    func compatibility(_ version: String, _ expected: MailboxCompatibility) {
+        #expect(MailboxCompatibility.evaluate(pond: semver(version)) == expected)
     }
 
-    @Test func anOlderHookOnlyMissesWhatItUses() {
-        #expect(MailboxCompatibility.evaluate(level: 1, hookLevel: 2) == .mailboxOlder(missing: [.answers]))
-        #expect(MailboxCompatibility.evaluate(level: 3, hookLevel: 2) == .mailboxNewer)
+    @Test func oldPondsAreReadByTheirProtocol() throws {
+        let dated = try JSONDecoder().decode(MailboxVersion.self,
+                                             from: Data(#"{"version":"2026.10.27.1","protocol":4}"#.utf8))
+        #expect(dated.pond == .legacy(protocol: 4))
+        #expect(MailboxCompatibility.evaluate(pond: dated.pond) == .pondOlder(missing: [.corrections]))
+        #expect(MailboxVersion.legacy.pond == .legacy(protocol: 1))
+        #expect(MailboxCompatibility.evaluate(pond: MailboxVersion.legacy.pond) == .pondOlder(missing: everyFeature))
+    }
+
+    @Test func anotherRangeCanBeAsked() throws {
+        let range = try SemverRange("^1.2.0")
+        #expect(MailboxCompatibility.evaluate(pond: semver("1.1.0"), required: range) == .pondOlder(missing: []))
+        #expect(MailboxCompatibility.evaluate(pond: semver("1.3.0"), required: range) == .ok)
     }
 
     @Test func versionDecodesTheProtocolKey() throws {
-        let data = Data(#"{"service":"mailbox","version":"0.9.1","protocol":2,"extra":true}"#.utf8)
+        let data = Data(#"{"service":"pond","version":"1.1.0","protocol":5,"extra":true}"#.utf8)
         let version = try JSONDecoder().decode(MailboxVersion.self, from: data)
-        #expect(version == MailboxVersion(service: "mailbox", version: "0.9.1", level: 2))
+        #expect(version == MailboxVersion(service: "pond", version: "1.1.0", level: 5))
+        #expect(version.pond == semver("1.1.0"))
         let bare = try JSONDecoder().decode(MailboxVersion.self, from: Data(#"{"protocol":1,"version":7}"#.utf8))
         #expect(bare == MailboxVersion(level: 1))
+        let noProtocol = try JSONDecoder().decode(MailboxVersion.self, from: Data(#"{"version":"2.0.0"}"#.utf8))
+        #expect(noProtocol.level == nil && noProtocol.pond == semver("2.0.0"))
+    }
+
+    /// The same `pond` vectors relay_semver reads, through the `/version` decode.
+    @Test func everyPondVectorDecodesThroughVersion() throws {
+        let url = try #require(Bundle.module.url(
+            forResource: "semver-vectors", withExtension: "json", subdirectory: "Fixtures"))
+        guard case .array(let cases)? = try JSONValue.parse(Data(contentsOf: url))["cases"] else {
+            Issue.record("no cases")
+            return
+        }
+        let ponds = cases.filter { $0["kind"]?.stringValue == "pond" }
+        #expect(ponds.count >= 10)
+        for item in ponds {
+            let info = try #require(item["info"])
+            let version = info == .null ? MailboxVersion.legacy : try JSONDecoder().decode(MailboxVersion.self, from: info.data())
+            #expect(version.pond.effective.description == item["effective"]?.stringValue, "\(info)")
+            if case .int(let level)? = item["legacy"] {
+                #expect(version.pond == .legacy(protocol: level), "\(info)")
+            }
+        }
     }
 
     @Test func versionLine() {
-        #expect(MailboxVersionLine.line(check(level: 4), checking: false)
-            == MailboxVersionLine(text: "0.9.1 · level 4", state: .ok))
-        let behind = MailboxVersionLine.line(check(level: 2), checking: false)
-        #expect(behind.state == .needsUpdate)
+        #expect(MailboxVersionLine.line(check(pond: "1.1.0"), checking: false)
+            == MailboxVersionLine(text: "Pond 1.1.0 ✓ (needs ^1.1.0)", state: .ok))
+        #expect(MailboxVersionLine.line(check(pond: "1.7.0"), checking: false).state == .ok)
+        let behind = MailboxVersionLine.line(check(pond: "1.0.0", level: 4), checking: false)
+        #expect(behind == MailboxVersionLine(text: "Pond 1.0.0 (needs ^1.1.0)", state: .needsUpdate))
         #expect(behind.badge == "Needs an update")
-        #expect(MailboxVersionLine.line(check(level: 3), checking: false).state == .needsUpdate)
-        #expect(MailboxVersionLine.line(check(level: 5), checking: false).state == .hookOlder)
+        let newer = MailboxVersionLine.line(check(pond: "2.0.0", level: nil), checking: false)
+        #expect(newer == MailboxVersionLine(text: "Pond 2.0.0 (this Hook needs ^1.1.0)", state: .hookOlder))
+        #expect(newer.badge == "Newer than Hook")
+        #expect(MailboxVersionLine.line(check(pond: "2026.10.27.1", level: 4), checking: false)
+            == MailboxVersionLine(text: "Pond (protocol 4) (needs ^1.1.0)", state: .needsUpdate))
         let legacy = MailboxCheck(sourceKey: key, result: .version(.legacy), checkedAt: t0)
-        #expect(MailboxVersionLine.line(legacy, checking: false).text == "level 1")
+        #expect(MailboxVersionLine.line(legacy, checking: false).text == "Pond (protocol 1) (needs ^1.1.0)")
         #expect(MailboxVersionLine.line(check(level: nil), checking: false)
             == MailboxVersionLine(text: "Couldn't check: the mailbox didn't answer", state: .failed))
-        #expect(MailboxVersionLine.line(check(level: 3), checking: true).state == .checking)
+        #expect(MailboxVersionLine.line(check(pond: "1.1.0"), checking: true).state == .checking)
         #expect(MailboxVersionLine.line(nil, checking: false).text == "Not checked yet")
     }
 
@@ -75,6 +131,18 @@ private func check(level: Int?, key: String = key, at date: Date = t0) -> Mailbo
         let odd = MailboxCheck(sourceKey: key, result: .version(MailboxVersion(version: "1.0\u{202E}x", level: 3)),
                                checkedAt: t0)
         #expect(!MailboxVersionLine.line(odd, checking: false).text.contains("\u{202E}"))
+    }
+
+    @Test func aCheckCarriesThePondAndTheLevelTheUpdaterReads() {
+        #expect(check(pond: "1.1.0").pond == semver("1.1.0"))
+        #expect(check(pond: "1.1.0").updaterLevel == 5)
+        #expect(check(pond: "1.1.0", level: nil).updaterLevel == 4)
+        #expect(check(level: 3).pond == .legacy(protocol: 3))
+        #expect(check(level: 3).updaterLevel == 3)
+        #expect(check(level: nil).pond == nil)
+        #expect(check(level: nil).updaterLevel == nil)
+        #expect(check(level: nil).compatibility == nil)
+        #expect(check(pond: "1.0.0").compatibility == .pondOlder(missing: [.corrections]))
     }
 }
 
@@ -186,8 +254,14 @@ private func check(level: Int?, key: String = key, at date: Date = t0) -> Mailbo
         let prompt = UpdatePreflight.prompt(version: "0.9.1", decision: .mailboxBehind(required: 3, current: 2))
         #expect(prompt.message == "Update Hook to 0.9.1?")
         #expect(prompt.informative.hasPrefix("Hook 0.9.1 needs Pond level 3; yours is 2."))
-        #expect(prompt.informative.contains("blocking steps won't work"))
+        #expect(prompt.informative.contains("blocking steps"))
         #expect(prompt.buttons == ["Update Pond First", "Update Hook Anyway", "Cancel"])
+    }
+
+    @Test func theBehindPromptNamesWhatThisHookUsesAndThePondLacks() {
+        let prompt = UpdatePreflight.prompt(version: "0.10.0", decision: .mailboxBehind(required: 5, current: 4))
+        #expect(prompt.informative.contains("step corrections and the owner key won't work"))
+        #expect(!prompt.informative.contains("blocking steps"))
     }
 
     @Test func theUsualPromptIsUnchanged() {
@@ -217,7 +291,8 @@ private func check(level: Int?, key: String = key, at date: Date = t0) -> Mailbo
     }
 
     @Test func afterTheUpdate() {
-        #expect(PanelNotice.mailboxUpToDate(level: 3).text == "Your Pond is up to date (protocol level 3).")
+        #expect(PanelNotice.mailboxUpToDate(pond: "1.1.0").text == "Your Pond is up to date (1.1.0).")
+        #expect(PanelNotice.mailboxUpToDate(pond: "protocol 4").text == "Your Pond is up to date (protocol 4).")
         #expect(PanelNotice.mailboxUpdateFailed(reason: "Ghostty isn't installed.").kind == .error)
         #expect(PanelNotice.mailboxUpdateFailed(reason: "x").actionTitle == nil)
     }

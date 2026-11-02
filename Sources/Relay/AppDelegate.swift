@@ -662,7 +662,7 @@ import RelayUI
             let checkFailed: Bool
             if case .failed? = check?.result { checkFailed = true } else { checkFailed = false }
             let source: SourceKind? = self.mailbox.isMailbox ? .mailbox : .local
-            let decision = UpdatePreflight.decide(required: required, source: source, mailboxLevel: check?.level,
+            let decision = UpdatePreflight.decide(required: required, source: source, mailboxLevel: check?.updaterLevel,
                                                   checkFailed: checkFailed)
             let prompt = UpdatePreflight.prompt(version: version, decision: decision)
             NSApp.activate()

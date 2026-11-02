@@ -120,19 +120,19 @@ import RelayUI
         switch compatibility {
         case .ok:
             let wasBehind = noticed?.key == check.sourceKey && noticed?.compatibility != .ok
-            if watchKey == check.sourceKey || (manual && wasBehind), let level = check.level {
-                store.post(.mailboxUpToDate(level: level))
+            if watchKey == check.sourceKey || (manual && wasBehind), let pond = check.pond {
+                store.post(.mailboxUpToDate(pond: pond.display))
             } else if Self.isCompatibilityNotice(store.notice) {
                 store.dismissNotice()
             }
             if watchKey == check.sourceKey { stopWatch() }
             noticed = (check.sourceKey, .ok)
-        case .mailboxOlder(let missing):
+        case .pondOlder(let missing):
             if manual || noticed?.key != check.sourceKey || noticed?.compatibility != compatibility {
                 store.post(.mailboxOlder(missing: missing))
             }
             noticed = (check.sourceKey, compatibility)
-        case .mailboxNewer:
+        case .hookOlder:
             if manual || noticed?.key != check.sourceKey || noticed?.compatibility != compatibility {
                 store.post(.mailboxNewer)
             }

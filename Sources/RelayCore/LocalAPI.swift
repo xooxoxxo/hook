@@ -92,13 +92,14 @@ public actor LocalAPI {
 
     // MARK: - Routes
 
-    /// The mailbox protocol's `GET /version`, answered with this app's own level, so a
-    /// client checks This Mac the same way it checks a mailbox.
+    /// The Pond's `GET /version`, answered with the Pond version this queue implements
+    /// (`PondCompat.localVersion`) and its old protocol level, so a client checks This Mac the
+    /// same way it checks a Pond.
     private func version() -> HTTPResponse {
         .json(200, .object([
             "service": .string("hook"),
-            "version": .string(appVersion),
-            "protocol": .int(MailboxProtocol.current),
+            "version": .string(PondCompat.localVersion),
+            "protocol": .int(4),
         ]))
     }
 
