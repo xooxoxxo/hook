@@ -153,6 +153,37 @@ import Testing
         #expect(store.queue.rows["a"]?.historyChanged == false)
     }
 
+    /// Trust again re-pins only what verifies now: an ask whose served history fails its own
+    /// checks, or isn't loaded, keeps every pin it had.
+    @Test func trustingAgainKeepsThePinsOfAHistoryThatFails() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let recorder = ShellRecorder()
+        let store = reviewingStore(defaults)
+        store.shell = recorder.shell
+        let a = revised("a", [idSteps(3), idSteps(4)])
+        let b = revised("b", [idSteps(3, id: "b"), idSteps(4, id: "b")])
+        let fake = FakeQueueSource(items: [a.item, b.item], details: ["a": a.detail, "b": b.detail])
+        await start(store, fake)
+        let pinsB = store.record("b")?.pins
+        #expect(pinsB?[2] == b.detail.revisions[1].hash)
+
+        // a is rolled back (it verifies, but breaks its pins); b comes back with a broken hash.
+        let one = revised("a", [idSteps(3)])
+        var broken = b.item
+        broken.revision?.hash = String(repeating: "0", count: 64)
+        await fake.setItems([one.item, broken])
+        await fake.setDetail(one.detail)
+        await store.refresh()
+        #expect(store.reviewState("a") == .historyChanged(.rolledBack))
+        #expect(store.reviewState("b").isLocked)
+
+        #expect(await store.trustHistoryAgain())
+        #expect(store.record("a")?.pins == [1: one.detail.revisions[0].hash])
+        #expect(store.record("b")?.pins == pinsB)
+        #expect(store.reviewState("b").isLocked)
+    }
+
     @Test func aCorrectionAfterTheOwnerSawTheAskPostsTheCorrectedNoticeOnce() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }

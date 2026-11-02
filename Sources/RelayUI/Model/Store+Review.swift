@@ -387,9 +387,10 @@ extension Store {
 
     // MARK: Trust again, and the review Notices
 
-    /// After a Pond restore: with the owner's presence, this source's pins are cleared and
-    /// every verified history is pinned again as served now. A history that fails its own
-    /// checks stays failed; nothing here can make a bad hash good.
+    /// After a Pond restore: with the owner's presence, every ask whose history verifies now
+    /// has its pins cleared and is pinned again as served. An ask whose history fails its own
+    /// checks, or isn't loaded, keeps its pins: nothing here can make a bad hash good, or drop
+    /// the evidence of a rollback that hasn't been shown again.
     @discardableResult public func trustHistoryAgain() async -> Bool {
         guard await shell.confirmPresence("trust the Pond's history again") else { return false }
         if reviewsUnreadable { retryReviewKey() }
@@ -397,14 +398,17 @@ extension Store {
             post(.reviewRecordsUnreadable)
             return false
         }
-        let prefix = ReviewStore.key(sourceKey: sourceKey, id: "")
-        for key in reviews.keys where key.hasPrefix(prefix) {
-            reviews[key]?.pins = [:]
-            reviews[key]?.firstBodyHash = nil
+        let verified = histories.compactMap { id, history in
+            if case .success = history { return id } else { return nil }
         }
-        let ids = Set(histories.keys).union(reviews.keys.filter { $0.hasPrefix(prefix) }.map { String($0.dropFirst(prefix.count)) })
+        for id in verified {
+            guard var next = record(id) else { continue }
+            next.pins = [:]
+            next.firstBodyHash = nil
+            setRecord(next, for: id)
+        }
         holdingQueue {
-            for id in ids {
+            for id in verified {
                 pin(id)
                 rerender(id)
             }
