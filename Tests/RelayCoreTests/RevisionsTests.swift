@@ -193,4 +193,29 @@ private func int(_ value: JSONValue?) -> Int? {
             #expect(RevisionCheck.merge(fetched: fetched, listed: listed) == .failure(.fixedFieldChanged(3)))
         }
     }
+
+    @Test func aListedNextRevisionWhosePrevIsNotTheFetchedHashBreaksTheMerge() throws {
+        let fetchedDetail = revisedDetail([idSteps(3), idSteps(4)])
+        let fetched = RevisionCheck.verify(fetchedDetail)
+        // Rev 3 hashes over its own fields, but its prev names another rev 2.
+        let other = revisionChain([idSteps(3), idSteps(2), idSteps(5)])
+        var item = fetchedDetail.item
+        item.revision = served(other[2])
+        let listed = RevisionCheck.verify(listed: item)
+        #expect(try listed?.get().current.rev == 3)
+        let merged = RevisionCheck.merge(fetched: fetched, listed: listed)
+        #expect(merged == .failure(.badChain(3)))
+        #expect(ReviewGate.resolve(record: nil, history: merged, pond: nil) == .historyChanged(.badChain(3)))
+        // The right prev stacks and completes the history.
+        let good = RevisionCheck.verify(listed: revisedDetail([idSteps(3), idSteps(4), idSteps(5)]).item)
+        #expect(try RevisionCheck.merge(fetched: fetched, listed: good)?.get().isComplete == true)
+    }
+
+    @Test func aListedRevisionPastAGapStaysIncomplete() throws {
+        let fetched = RevisionCheck.verify(revisedDetail([idSteps(3), idSteps(4)]))
+        let four = RevisionCheck.verify(listed: revisedDetail([idSteps(3), idSteps(4), idSteps(5), idSteps(6)]).item)
+        let merged = try #require(try RevisionCheck.merge(fetched: fetched, listed: four)?.get())
+        #expect(merged.current.rev == 4)
+        #expect(!merged.isComplete)
+    }
 }

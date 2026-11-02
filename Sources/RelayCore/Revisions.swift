@@ -69,11 +69,13 @@ public struct VerifiedHistory: Equatable, Sendable {
     public var reasons: [Int: String]
     /// Each rev's `at`, as served.
     public var times: [Int: String]
+    /// Each rev's `prev`, as served (rev 1's is ""): merge checks a listed rev against it.
+    public var prevs: [Int: String]
 
     public init(bodies: [Int: Instructable], stamps: [Int: RevisionStamp], current: RevisionStamp, acceptedOnPond: Int,
-                reasons: [Int: String], times: [Int: String] = [:]) {
+                reasons: [Int: String], times: [Int: String] = [:], prevs: [Int: String] = [:]) {
         self.bodies = bodies; self.stamps = stamps; self.current = current; self.acceptedOnPond = acceptedOnPond
-        self.reasons = reasons; self.times = times
+        self.reasons = reasons; self.times = times; self.prevs = prevs
     }
 
     /// Every rev from 1 to the current one is here.
@@ -100,7 +102,7 @@ public enum RevisionCheck {
         let revisions = detail.revisions.sorted { $0.rev < $1.rev }
         guard !revisions.isEmpty, revisions.map(\.rev) == Array(1...revisions.count) else { return .failure(.missing) }
         var bodies: [Int: Instructable] = [:], stamps: [Int: RevisionStamp] = [:]
-        var reasons: [Int: String] = [:], times: [Int: String] = [:]
+        var reasons: [Int: String] = [:], times: [Int: String] = [:], prevs: [Int: String] = [:]
         var previous = ""
         for revision in revisions {
             guard hashes(revision.stamp, prev: revision.prev, at: revision.at, reason: revision.reason,
@@ -114,13 +116,15 @@ public enum RevisionCheck {
             stamps[revision.rev] = revision.stamp
             reasons[revision.rev] = revision.reason
             times[revision.rev] = revision.at
+            prevs[revision.rev] = revision.prev
             previous = revision.hash
         }
         let newest = revisions[revisions.count - 1].stamp
         guard newest.rev == served.rev else { return .failure(.missing) }
         guard newest == served.stamp else { return .failure(.badHash(served.rev)) }
         return .success(VerifiedHistory(bodies: bodies, stamps: stamps, current: newest,
-                                        acceptedOnPond: accepted(served), reasons: reasons, times: times))
+                                        acceptedOnPond: accepted(served), reasons: reasons, times: times,
+                                        prevs: prevs))
     }
 
     /// A list item's current revision on its own; nil for an item without one.
@@ -134,7 +138,8 @@ public enum RevisionCheck {
         guard let body = try? RevisionBody.parse(served.body) else { return .failure(.unreadable(served.rev)) }
         return .success(VerifiedHistory(bodies: [served.rev: body], stamps: [served.rev: served.stamp],
                                         current: served.stamp, acceptedOnPond: accepted(served),
-                                        reasons: [served.rev: served.reason], times: [served.rev: served.at]))
+                                        reasons: [served.rev: served.reason], times: [served.rev: served.at],
+                                        prevs: [served.rev: served.prev]))
     }
 
     /// `.rolledBack` when the current rev is below the highest pin, or a pinned rev the history
@@ -148,8 +153,10 @@ public enum RevisionCheck {
     }
 
     /// The fetched history brought up to date by the list: a newer listed revision is added on
-    /// top (the next fetch checks its chain), unless it changes a field no correction may
-    /// change (`.fixedFieldChanged`), the same one keeps the fetched history, and a
+    /// top, unless it changes a field no correction may change (`.fixedFieldChanged`). The
+    /// next rev must name the fetched current hash as its `prev` (else `.badChain`, locked
+    /// until a fetch verifies the whole chain); one past a gap leaves the history incomplete
+    /// (the next fetch checks its chain). The same one keeps the fetched history, and a
     /// fetched failure stands until the next fetch. The list decides whether there is a
     /// revision at all, and an older listed rev goes as it is (the pins catch it).
     public static func merge(fetched: Result<VerifiedHistory, HistoryProblem>?,
@@ -166,10 +173,14 @@ public enum RevisionCheck {
         if let first = history.bodies[1], let body = latest.bodies[rev], !RevisionFixedFields.same(first, body) {
             return .failure(.fixedFieldChanged(rev))
         }
+        if rev == history.current.rev + 1, latest.prevs[rev] != history.current.hash {
+            return .failure(.badChain(rev))
+        }
         history.bodies[rev] = latest.bodies[rev]
         history.stamps[rev] = latest.current
         history.reasons[rev] = latest.reasons[rev]
         history.times[rev] = latest.times[rev]
+        history.prevs[rev] = latest.prevs[rev]
         history.current = latest.current
         history.acceptedOnPond = latest.acceptedOnPond
         return .success(history)
