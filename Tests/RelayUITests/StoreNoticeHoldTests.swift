@@ -64,7 +64,7 @@ private let ab = [item("a", created: stamp(minutesAgo: 10)), item("b", created: 
     @Test func onlyReportNoticesAreTransient() {
         #expect(PanelNotice.noLongerOpen(id: "x", canShowClosed: true).isTransient)
         #expect(PanelNotice.settingsReloaded.isTransient)
-        #expect(PanelNotice.mailboxUpToDate(level: 4).isTransient)
+        #expect(PanelNotice.mailboxUpToDate(pond: "1.1.0").isTransient)
         #expect(!PanelNotice.sessionClosed(id: "x").isTransient)
         #expect(!PanelNotice.offlineCached(since: "10:42").isTransient)
         #expect(!PanelNotice.storeFailed(reason: "x").isTransient)
