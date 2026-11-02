@@ -40,6 +40,25 @@ enum OrderedJSON {
         (try? JSONSerialization.jsonObject(with: Data(raw.utf8), options: [.fragmentsAllowed])) as? String
     }
 
+    /// True when any object, at any depth, names a key twice. Keys compare by their decoded
+    /// text (`keyText`), so `"title"` and `"title"` are the same key; a key that doesn't
+    /// decode counts as a duplicate, so the body is refused rather than read two ways.
+    static func hasDuplicateKeys(_ value: OrderedJSON) -> Bool {
+        switch value {
+        case .scalar:
+            return false
+        case .array(let items):
+            return items.contains(where: hasDuplicateKeys)
+        case .object(let members):
+            var seen = Set<String>()
+            for member in members {
+                guard let key = keyText(member.key), seen.insert(key).inserted else { return true }
+                if hasDuplicateKeys(member.value) { return true }
+            }
+            return false
+        }
+    }
+
     /// The member named `key`, if this is an object that has one.
     func member(_ key: String) -> OrderedJSON? {
         guard case .object(let members) = self else { return nil }
