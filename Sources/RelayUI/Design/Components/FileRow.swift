@@ -10,21 +10,79 @@ public struct FileRowContext: Sendable {
     public var actions: FileActions
     public var copy: @MainActor @Sendable (String) -> Void
     public var home: String
-    /// The ask's content is locked (a correction is unreviewed): no Open, Open With, Reveal or Copy Path.
+    /// The ask's content was locked when the row rendered (a correction is unreviewed): the
+    /// row's buttons and menu items are disabled.
     public var contentLocked: Bool
+    /// The Store's stamp-bound check for the ask (`allowsFileAction`, bound to the revision the
+    /// detail rendered), given the path as sent: asked at the moment each action acts, so a
+    /// correction that lands after the render refuses it. Outside an ask (the gallery) it allows.
+    public var allows: @MainActor @Sendable (String) -> Bool
 
     public init(place: FilePlace = .here, actions: FileActions = .none,
                 copy: @escaping @MainActor @Sendable (String) -> Void = { _ in },
-                home: String = NSHomeDirectory(), contentLocked: Bool = false) {
+                home: String = NSHomeDirectory(), contentLocked: Bool = false,
+                allows: @escaping @MainActor @Sendable (String) -> Bool = { _ in true }) {
         self.place = place
         self.actions = actions
         self.copy = copy
         self.home = home
         self.contentLocked = contentLocked
+        self.allows = allows
     }
 
-    /// Whether the row's buttons and menu items do anything.
+    /// Whether the row's buttons and menu items do anything, as rendered.
     public var actionsEnabled: Bool { AskContentLock.allowsActions(locked: contentLocked) }
+
+    /// The rendered lock and the Store's check now: both must let `link` act.
+    @MainActor private func permits(_ link: FileLink) -> Bool { actionsEnabled && allows(link.raw) }
+
+    /// Runs `command` on `link`, whose row shows `state`. The Store's check runs before the
+    /// file check and again right before the act, so a correction that lands between the
+    /// render and the click, or during the check, refuses it (`.refused`, nothing runs).
+    @MainActor public func perform(_ command: FileRowCommand, on link: FileLink, state: FileRowState) async -> FileRowResult {
+        guard permits(link) else { return FileRowResult(outcome: .refused) }
+        if command == .copyPath {
+            // From another machine, "~" means that machine's home: the path goes as sent.
+            if case .otherMac = state { copy(link.raw) } else { copy(link.path) }
+            return FileRowResult(outcome: .done)
+        }
+        let found = await actions.check(link.path)
+        guard permits(link) else { return FileRowResult(outcome: .refused) }
+        switch (command, found) {
+        case (.open, .document(let file)): actions.open(file)
+        case (.openWith(let app), .document(let file)): actions.openWith(file, app)
+        case (.openWithOther, .document(let file)): actions.openWithOther(file)
+        case (.reveal, .document(let file)): actions.reveal(file.url)
+        case (.reveal, .refused(let url)): actions.reveal(url)
+        default: return FileRowResult(outcome: .unavailable, check: found)
+        }
+        return FileRowResult(outcome: .done, check: found)
+    }
+}
+
+/// What a file row's click asks for.
+public enum FileRowCommand: Equatable, Sendable {
+    case open, openWith(URL), openWithOther, reveal, copyPath
+}
+
+/// What a file row's click did, and what its file check found (nil when it didn't check).
+public struct FileRowResult: Equatable, Sendable {
+    public enum Outcome: Equatable, Sendable {
+        /// The action ran.
+        case done
+        /// The ask is locked, or changed since the row rendered: nothing ran.
+        case refused
+        /// The check found no document (or nothing to reveal): nothing ran.
+        case unavailable
+    }
+
+    public var outcome: Outcome
+    public var check: FileCheck?
+
+    public init(outcome: Outcome, check: FileCheck? = nil) {
+        self.outcome = outcome
+        self.check = check
+    }
 }
 
 private struct FileRowContextKey: EnvironmentKey {
@@ -93,7 +151,7 @@ public struct FileRow: View {
             .accessibilityElement(children: .combine)
             .accessibilityLabel(Self.accessibilityLabel(name: line(label ?? link.name), detail: secondary(state)))
             if state.canOpen {
-                Button("Open") { checked { context.actions.open($0) } }
+                Button("Open") { run(.open, state) }
                     .controlSize(DS.Control.inline)
                     .accessibilityLabel("Open " + line(link.name))
             }
@@ -106,34 +164,22 @@ public struct FileRow: View {
         .disabled(!context.actionsEnabled)
     }
 
-    /// Runs the click's check, then `action` on the checked file (its resolved URL and the
-    /// bytes the check read) when it is a document; otherwise the row shows what the check
-    /// found.
-    private func checked(_ action: @escaping @MainActor (CheckedFile) -> Void) {
-        check { result in
-            if case .document(let file) = result { action(file) } else { NSSound.beep() }
-        }
-    }
-
-    /// Reveal in Finder: the resolved file, a document or a refused one.
-    private func revealChecked(_ action: @escaping @MainActor (URL) -> Void) {
-        check { result in
-            switch result {
-            case .document(let file): action(file.url)
-            case .refused(let url): action(url)
-            case .missing, .network: NSSound.beep()
-            }
-        }
-    }
-
-    private func check(_ then: @escaping @MainActor (FileCheck) -> Void) {
-        guard context.actionsEnabled else { return }
-        let path = link.path
-        let actions = context.actions
+    /// Runs `command` through `FileRowContext.perform`: a refused click beeps and says
+    /// `CopyOutcome.refusedText`; a check that found no document beeps and the row shows what
+    /// it found.
+    private func run(_ command: FileRowCommand, _ state: FileRowState) {
+        let context = context
+        let link = link
         Task { @MainActor in
-            let result = await actions.check(path)
-            found = FileRowState.after(result).map { (path, $0) }
-            then(result)
+            let result = await context.perform(command, on: link, state: state)
+            if let check = result.check { found = FileRowState.after(check).map { (link.path, $0) } }
+            switch result.outcome {
+            case .done: break
+            case .refused:
+                NSSound.beep()
+                AccessibilityNotification.Announcement(CopyOutcome.refusedText).post()
+            case .unavailable: NSSound.beep()
+            }
         }
     }
 
@@ -165,22 +211,18 @@ public struct FileRow: View {
                 let apps = context.actions.apps(link.path)
                 ForEach(Array(apps.enumerated()), id: \.offset) { index, app in
                     Button(index == 0 ? DocumentApps.name(app) + " (default)" : DocumentApps.name(app)) {
-                        checked { context.actions.openWith($0, app) }
+                        run(.openWith(app), state)
                     }
                 }
                 if !apps.isEmpty { Divider() }
-                Button("Other…") { checked { context.actions.openWithOther($0) } }
+                Button("Other…") { run(.openWithOther, state) }
             }
         }
         if state.canReveal {
-            Button("Reveal in Finder") { revealChecked { context.actions.reveal($0) } }
+            Button("Reveal in Finder") { run(.reveal, state) }
             Divider()
         }
-        // From another machine, "~" means that machine's home: the path goes as sent.
-        Button("Copy Path") {
-            guard context.actionsEnabled else { return }
-            if case .otherMac = state { context.copy(link.raw) } else { context.copy(link.path) }
-        }
+        Button("Copy Path") { run(.copyPath, state) }
     }
 
     public static func accessibilityLabel(name: String, detail: String) -> String { name + ", " + detail }

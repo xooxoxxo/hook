@@ -116,6 +116,9 @@ public enum CopyOutcome: Equatable, Sendable {
     func openStepURL(_ id: String, stamp: RevisionStamp?, url: URL)
     /// Copy Link Address, under the same rule.
     @discardableResult func copyLinkAddress(_ id: String, stamp: RevisionStamp?, url: URL) -> CopyOutcome
+    /// A file row's Open, Open With, Reveal in Finder and Copy Path, under the same rule, for a
+    /// file (`path` as sent) the rendered revision names. Asked at the moment each one acts.
+    func allowsFileAction(_ id: String, stamp: RevisionStamp?, path: String) -> Bool
     /// Where the ask stands with this Mac's review of its corrections.
     func reviewState(_ id: String) -> ReviewState
     /// The version each ask's inline review shows (memory only); nil when not under review.

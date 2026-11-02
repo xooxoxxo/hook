@@ -192,10 +192,14 @@ struct DetailView<Model: PanelViewModel>: View {
 
     /// The file rows' context: is this ask from this Mac (its `from.host` against the cached
     /// host name; a hostless ask is here only in This Mac mode), and the shell's file actions.
-    private func fileContext(_ snapshot: DetailSnapshot?) -> FileRowContext {
-        FileRowContext(place: FilePlace.of(askHost: snapshot?.model?.origin?.host, localHost: model.localHost,
+    private func fileContext(_ snapshot: DetailSnapshot) -> FileRowContext {
+        FileRowContext(place: FilePlace.of(askHost: snapshot.model?.origin?.host, localHost: model.localHost,
                                            queueIsLocal: model.queueIsLocal),
-                       actions: model.shell.files, copy: model.shell.copy, contentLocked: snapshot?.locked ?? false)
+                       actions: model.shell.files, copy: model.shell.copy, contentLocked: snapshot.locked,
+                       // Each action asks the Store, bound to the revision this snapshot rendered.
+                       allows: { [model] path in
+                           model.allowsFileAction(snapshot.id, stamp: snapshot.stamp, path: path)
+                       })
     }
 
     /// The review bar says what the corrected and history Notices say for this ask, so they

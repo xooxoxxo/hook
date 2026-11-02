@@ -88,6 +88,9 @@ public final class FixturePanelModel: PanelViewModel {
         shell.copy(url.absoluteString)
         return .copied
     }
+    public func allowsFileAction(_ id: String, stamp: RevisionStamp?, path: String) -> Bool {
+        details[id]?.locked != true
+    }
     public func reviewState(_ id: String) -> ReviewState { details[id]?.review ?? .legacy }
     public func reviewPage(_ id: String) -> ReviewPage? { reviewPages[id] }
     public func accept(_ id: String, stamp: RevisionStamp) {}

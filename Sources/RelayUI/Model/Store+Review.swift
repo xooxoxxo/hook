@@ -85,6 +85,15 @@ extension Store {
         return .copied
     }
 
+    /// A file row's Open, Open With, Reveal in Finder or Copy Path: only under `copyCode`'s
+    /// rule, and only for a file (`path` as sent) a step or a link of the rendered revision names.
+    public func allowsFileAction(_ id: String, stamp: RevisionStamp?, path: String) -> Bool {
+        guard actsOnShown(id, stamp: stamp) else { return false }
+        let steps = (nodes(for: id).map(Flow.flattened) ?? []).compactMap(\.file)
+        let links = (item(for: id)?.instructable?.links ?? []).compactMap(\.file)
+        return (steps + links).contains(path)
+    }
+
     /// A web URL a step, a link, or a link in a step's detail of the rendered revision names.
     private func shows(_ id: String, url: URL) -> Bool {
         guard LinkDisplay.isWeb(url.absoluteString) else { return false }
