@@ -23,14 +23,33 @@ and versions follow Semantic Versioning.
   their tick and show Changed or New until ticked.
 - Report a Problem: a one-line note about one step goes to the posting session as a quoted
   report. It needs this Mac's owner key.
+- The owner key: Settings › Queue › Owner Key › Set Up This Mac… makes a key for this Mac in the
+  Keychain ("Hook owner key") and shows a six-digit code; approve the Pond's Telegram request
+  only when it shows the same code. The Pond stores only the key's hash. Hook sends it on owner
+  acts, only over https (or plain http to this Mac itself) and only to the scheme it was set up
+  on. Accepting a correction always needs it; Require the owner key, offered once two Macs are
+  approved, stops sessions and scripts from answering, pressing Done or reopening as you.
+- SECURITY.md has a threat model and the residual risks, including the Keychain limits of
+  ad-hoc signed builds until a Developer ID release.
 - A history that changed on the Pond (a rollback, a missing revision, or a Pond older than
   1.1.0 serving a corrected ask) shows a red Notice and stops every act but Skip, until you
   trust the Pond's history again (Touch ID).
 
 ### Changed
+- Hook needs Pond `^1.1.0` (1.1.0 or newer, below 2.0.0) for step ids, corrections and the owner
+  key. An older Pond keeps working for everything else, with a Notice that names the versions;
+  This Mac mode counts as Pond 1.0.0 and has neither yet. Settings › Queue › Connection shows the
+  Pond against the range ("Pond 1.1.0 ✓ (needs ^1.1.0)").
+- `relay amend` and `relay_amend` now reach a review in Hook. A Pond that has corrections
+  switched off still answers "The Pond doesn't take corrections yet."
 - The update dialog reads the release's Pond range: it asks for a Pond update only when your
   Pond is below it, never for a minor or patch Pond release. The Pond Notices name both
   versions ("Your Pond (1.0.0) is older than this Hook needs (^1.1.0).").
+
+### Fixed
+- Notices that only report something ("This ask is no longer open.", "Settings changed, so the
+  queue reloaded.", "Your Pond is up to date") now clear on their own after 8 seconds, or as soon as you open an ask.
+  Notices that need you still wait for ✕ or their action.
 <!-- hook:pond=^1.1.0 -->
 <!-- hook:mailbox-protocol=5 -->
 
