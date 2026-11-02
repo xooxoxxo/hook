@@ -311,8 +311,10 @@ extension Store {
 
     /// Pins every verified stamp the record doesn't have yet, for rollback detection only.
     /// A history that already breaks a pin keeps the old pins, and pinning never sets `seen`.
+    /// With the seal refused the pins still hold for this run, in memory only (the save is
+    /// skipped): an ask seen with a revision that comes back without one fails closed.
     func pin(_ id: String) {
-        guard !reviewsUnreadable, case .success(let history)? = histories[id] else { return }
+        guard case .success(let history)? = histories[id] else { return }
         var next = record(id) ?? ReviewRecord()
         guard RevisionCheck.checkPins(history, pins: next.pins) == nil else { return }
         var changed = false
@@ -535,11 +537,25 @@ extension Store {
         }
         sealKey = key
         let loaded = ReviewStore.load(from: reviewFile.url, sealKey: key)
-        reviews = loaded.records
+        let inMemory = reviews
+        reviews = Self.joiningPins(loaded.records, inMemory)
         if loaded.tampered {
             pendingReviewNotice = .reviewRecordsChanged
-            scheduleReviewSave()
         }
+        if loaded.tampered || reviews != loaded.records { scheduleReviewSave() }
+    }
+
+    /// The records on disk, with the pins taken in memory while the seal was refused added: a
+    /// rev the disk already pins keeps the disk's hash, so a clash still reads as changed history.
+    static func joiningPins(_ disk: [String: ReviewRecord], _ memory: [String: ReviewRecord]) -> [String: ReviewRecord] {
+        var out = disk
+        for (key, record) in memory where !record.pins.isEmpty {
+            var next = out[key] ?? ReviewRecord()
+            next.pins.merge(record.pins) { onDisk, _ in onDisk }
+            if next.firstBodyHash == nil, next.pins[1] == record.pins[1] { next.firstBodyHash = record.firstBodyHash }
+            out[key] = next
+        }
+        return out
     }
 
     /// One save at the end of this main-actor turn, however many records changed in it.
