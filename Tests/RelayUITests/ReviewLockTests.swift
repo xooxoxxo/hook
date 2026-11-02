@@ -296,4 +296,35 @@ import Testing
         #expect(PanelNotice.reviewRecordsChanged.showsOnQueue)
         #expect(PanelNotice.reviewRecordsUnreadable.text.hasPrefix("Hook couldn't read its review key"))
     }
+
+    /// A correction lands between render and click: the button still looked enabled, the Store
+    /// refuses, and the block says so instead of "Copied", to the eye and to VoiceOver.
+    @Test func aRefusedCopyNeverShowsCopied() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let recorder = ShellRecorder()
+        let store = reviewingStore(defaults)
+        store.shell = recorder.shell
+        let two = revised("a", [idSteps(3), idSteps(4)])
+        let fake = FakeQueueSource(items: [two.item], details: ["a": two.detail])
+        await start(store, fake)
+        store.open("a")
+        markAccepted(store, "a", two.detail.revisions[1].stamp)
+        let rendered = store.detail("a")
+        #expect(rendered?.locked == false)
+        #expect(store.copyCode("a", stamp: rendered?.stamp, text: "run 4") == .copied)
+        let three = revised("a", [idSteps(3), idSteps(4), idSteps(5)])
+        await fake.setItems([three.item])
+        await fake.setDetail(three.detail)
+        await store.refresh()
+
+        let outcome = store.copyCode("a", stamp: rendered?.stamp, text: "run 4")
+        #expect(outcome == .refused)
+        #expect(recorder.copied == ["run 4"])
+        for hidden in [false, true] {
+            #expect(CodeBlock.copyTitle(outcome: outcome, hidden: hidden) == CopyOutcome.refusedText)
+            #expect(CodeBlock.copyTitle(outcome: outcome, hidden: hidden) != "Copied")
+        }
+        #expect(CodeBlock.announcement(outcome) == "Changed just now. Review first.")
+    }
 }

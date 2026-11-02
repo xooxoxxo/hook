@@ -7,9 +7,9 @@ import SwiftUI
 public struct StepBody: View {
     let content: StepContent
     let level: StepLevel
-    let onCopy: (String) -> Void
+    let onCopy: (String) -> CopyOutcome
 
-    public init(content: StepContent, level: StepLevel, onCopy: @escaping (String) -> Void) {
+    public init(content: StepContent, level: StepLevel, onCopy: @escaping (String) -> CopyOutcome) {
         self.content = content
         self.level = level
         self.onCopy = onCopy

@@ -3,9 +3,11 @@ import Testing
 
 @Suite @MainActor struct CodeComponentTests {
     @Test func copyTitles() {
-        #expect(CodeBlock.copyTitle(copied: false, hidden: false) == "Copy")
-        #expect(CodeBlock.copyTitle(copied: false, hidden: true) == "Copy as Shown")
-        #expect(CodeBlock.copyTitle(copied: true, hidden: true) == "Copied")
+        #expect(CodeBlock.copyTitle(outcome: nil, hidden: false) == "Copy")
+        #expect(CodeBlock.copyTitle(outcome: nil, hidden: true) == "Copy as Shown")
+        #expect(CodeBlock.copyTitle(outcome: .copied, hidden: true) == "Copied")
+        #expect(CodeBlock.copyTitle(outcome: .refused, hidden: false) == "Changed just now. Review first.")
+        #expect(CodeBlock.announcement(.copied) == "Copied")
     }
 
     @Test func codeLabel() {

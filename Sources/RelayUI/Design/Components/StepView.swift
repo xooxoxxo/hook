@@ -22,7 +22,8 @@ public struct StepView: View {
     /// "Finish step 3 first" when the step is locked; nil when it isn't.
     let lockText: String?
     let onToggle: () -> Void
-    let onCopy: (String) -> Void
+    /// Copies a command; `.refused` when the ask changed under the click.
+    let onCopy: (String) -> CopyOutcome
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.openURL) private var openURL
     /// The review lock, apart from the blocking-step `locked`.
@@ -31,7 +32,7 @@ public struct StepView: View {
 
     public init(content: StepContent, level: StepLevel, state: StepState, total: Int, readOnly: Bool,
                 expanded: Binding<Bool>, question: StepQuestion? = nil, lockText: String? = nil,
-                onToggle: @escaping () -> Void, onCopy: @escaping (String) -> Void) {
+                onToggle: @escaping () -> Void, onCopy: @escaping (String) -> CopyOutcome) {
         self.content = content
         self.level = level
         self.state = state
@@ -181,7 +182,10 @@ public struct StepView: View {
         let withActions = view.accessibilityActions {
             if tickable { Button(StepAccessibility.markAction(state)) { toggle() } }
             if offered.contains(StepRow.copyAction), let code = content.code {
-                Button(StepRow.copyAction) { onCopy(Sanitize.copyText(code)) }
+                Button(StepRow.copyAction) {
+                    let outcome = onCopy(Sanitize.copyText(code))
+                    AccessibilityNotification.Announcement(CodeBlock.announcement(outcome)).post()
+                }
             }
             if offered.contains(StepRow.openAction), let url = webURL { Button(StepRow.openAction) { openURL(url) } }
         }

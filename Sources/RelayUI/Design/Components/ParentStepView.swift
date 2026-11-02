@@ -43,7 +43,7 @@ public struct ParentStepView: View {
     let childLockTexts: [String?]
     let onToggleParent: () -> Void
     let onToggleChild: (Int) -> Void
-    let onCopy: (String) -> Void
+    let onCopy: (String) -> CopyOutcome
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     public init(content: StepContent, number: Int, total: Int, children: [StepContent], childPaths: [String],
@@ -52,7 +52,7 @@ public struct ParentStepView: View {
                 question: StepQuestion? = nil, ownState: StepState? = nil, lockText: String? = nil,
                 childLockTexts: [String?] = [],
                 onToggleParent: @escaping () -> Void,
-                onToggleChild: @escaping (Int) -> Void, onCopy: @escaping (String) -> Void) {
+                onToggleChild: @escaping (Int) -> Void, onCopy: @escaping (String) -> CopyOutcome) {
         self.content = content
         self.number = number
         self.total = total

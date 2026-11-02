@@ -254,10 +254,11 @@ let longProject = "Quarterly planning for the public launch of the pricing page"
         OpenLink(title: LinkDisplay.stepTitle(raw) ?? raw, url: URL(string: raw)!)
     }
     return SheetSection(title: "Code and links", samples: [
-        Sample("CodeBlock · normal") { CodeBlock(code: store, copyLabel: "Copy the command for step 5", lang: "bash", onCopy: { _ in }) },
-        Sample("CodeBlock · copied") { CodeBlock(code: store, copyLabel: "Copy the command for step 5", copied: true, onCopy: { _ in }) },
-        Sample("CodeBlock · hidden characters") { CodeBlock(code: "echo token\u{200B}-ok", copyLabel: "Copy the verify command", onCopy: { _ in }) },
-        Sample("CodeBlock · long line wraps") { CodeBlock(code: String(repeating: "curl -s https://api.example.com/v1/items | ", count: 4) + "jq .", copyLabel: "Copy the command for step 2", onCopy: { _ in }) },
+        Sample("CodeBlock · normal") { CodeBlock(code: store, copyLabel: "Copy the command for step 5", lang: "bash", onCopy: { _ in .copied }) },
+        Sample("CodeBlock · copied") { CodeBlock(code: store, copyLabel: "Copy the command for step 5", outcome: .copied, onCopy: { _ in .copied }) },
+        Sample("CodeBlock · refused, changed just now") { CodeBlock(code: store, copyLabel: "Copy the command for step 5", outcome: .refused, onCopy: { _ in .refused }) },
+        Sample("CodeBlock · hidden characters") { CodeBlock(code: "echo token\u{200B}-ok", copyLabel: "Copy the verify command", onCopy: { _ in .copied }) },
+        Sample("CodeBlock · long line wraps") { CodeBlock(code: String(repeating: "curl -s https://api.example.com/v1/items | ", count: 4) + "jq .", copyLabel: "Copy the command for step 2", onCopy: { _ in .copied }) },
         Sample("OpenLink · web") { open("https://www.example.com/oauth/apps") },
         Sample("OpenLink · non-ASCII host") { open("https://xn--bcher-kva.example.com/apps") },
         Sample("RefusedLink · not a web address") { RefusedLink(text: LinkDisplay.refusedText(label: nil), raw: "ftp://files.example.com/brief.pdf") },
@@ -286,13 +287,13 @@ let sampleVerify = StepContent(action: "Check the release folder exists", place:
 @MainActor func steps() -> SheetSection {
     func step(_ c: StepContent, _ level: StepLevel, _ state: StepState, expanded: Bool = false, readOnly: Bool = false) -> some View {
         StepView(content: c, level: level, state: state, total: 6, readOnly: readOnly, expanded: .constant(expanded),
-                 onToggle: {}, onCopy: { _ in })
+                 onToggle: {}, onCopy: { _ in .copied })
     }
     func parent(_ states: [StepState], expanded: Bool = false, readOnly: Bool = false) -> some View {
         ParentStepView(content: sampleParent, number: 2, total: 6, children: sampleSubs, childPaths: ["2.1", "2.2", "2.3"],
                        childStates: states, readOnly: readOnly,
                        expanded: .constant(expanded), childExpanded: { _ in .constant(false) },
-                       onToggleParent: {}, onToggleChild: { _ in }, onCopy: { _ in })
+                       onToggleParent: {}, onToggleChild: { _ in }, onCopy: { _ in .copied })
     }
     return SheetSection(title: "Steps", samples: [
         Sample("StepView · done, collapsed") { step(sampleStep1, .top(1), .done) },
@@ -310,7 +311,7 @@ let sampleVerify = StepContent(action: "Check the release folder exists", place:
         Sample("StepView · blocking, current") { step(sampleBlocking, .top(3), .current) },
         Sample("StepView · locked") {
             StepView(content: sampleStep1, level: .top(4), state: .todo, total: 6, readOnly: false,
-                     expanded: .constant(false), lockText: "Finish step 3 first", onToggle: {}, onCopy: { _ in })
+                     expanded: .constant(false), lockText: "Finish step 3 first", onToggle: {}, onCopy: { _ in .copied })
         },
         Sample("ParentStepView · read-only") { parent([.done, .todo, .todo], readOnly: true) },
     ])

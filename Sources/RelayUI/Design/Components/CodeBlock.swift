@@ -8,20 +8,22 @@ public struct CodeBlock: View {
     let code: String
     let copyLabel: String
     let lang: String?
-    let onCopy: (String) -> Void
-    @State private var copied: Bool
+    let onCopy: (String) -> CopyOutcome
+    /// What the last click did, shown on the button for `copiedFor`; nil before one.
+    @State private var outcome: CopyOutcome?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.askContentLocked) private var contentLocked
 
-    /// `copied` seeds the state, for the gallery's "Copied" sample. `onCopy` receives
-    /// `Sanitize.copyText(code)`, the text to put on the pasteboard.
-    public init(code: String, copyLabel: String, lang: String? = nil, copied: Bool = false,
-                onCopy: @escaping (String) -> Void) {
+    /// `outcome` seeds the state, for the gallery's "Copied" and refused samples. `onCopy` receives
+    /// `Sanitize.copyText(code)`, the text to put on the pasteboard, and says whether it went there:
+    /// a guarded copy is refused when a correction landed between render and click.
+    public init(code: String, copyLabel: String, lang: String? = nil, outcome: CopyOutcome? = nil,
+                onCopy: @escaping (String) -> CopyOutcome) {
         self.code = code
         self.copyLabel = copyLabel
         self.lang = lang
         self.onCopy = onCopy
-        _copied = State(initialValue: copied)
+        _outcome = State(initialValue: outcome)
     }
 
     public var body: some View {
@@ -36,7 +38,7 @@ public struct CodeBlock: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityLabel(Self.codeLabel(lang: lang))
                     .accessibilityValue(shown)
-                Button(Self.copyTitle(copied: copied, hidden: hidden)) { copy() }
+                Button(Self.copyTitle(outcome: outcome, hidden: hidden)) { copy() }
                     .disabled(!Self.allowsCopy(locked: contentLocked))
                     .controlSize(DS.Control.inline)
                     .contentTransition(.opacity)
@@ -55,8 +57,13 @@ public struct CodeBlock: View {
     }
 
     public static let warning = "Hidden characters shown as ⟨U+…⟩. Check before running."
-    public static func copyTitle(copied: Bool, hidden: Bool) -> String {
-        copied ? "Copied" : (hidden ? "Copy as Shown" : "Copy")
+    /// "Copy", "Copy as Shown", then "Copied" or, when the copy was refused, `CopyOutcome.refusedText`.
+    public static func copyTitle(outcome: CopyOutcome?, hidden: Bool) -> String {
+        outcome.map(announcement) ?? (hidden ? "Copy as Shown" : "Copy")
+    }
+    /// What VoiceOver hears after a copy, from the button or the step's "Copy command" action.
+    public static func announcement(_ outcome: CopyOutcome) -> String {
+        outcome == .copied ? "Copied" : CopyOutcome.refusedText
     }
     public static func codeLabel(lang: String?) -> String { lang.map { "Command, " + line($0) } ?? "Command" }
     public static func shown(_ code: String) -> (text: String, hidden: Bool) { Sanitize.reveal(code, as: .code) }
@@ -66,12 +73,12 @@ public struct CodeBlock: View {
 
     private func copy() {
         guard Self.allowsCopy(locked: contentLocked) else { return }
-        onCopy(Sanitize.copyText(code))
-        withAnimation(DS.motion(DS.Motion.reveal, reduce: reduceMotion)) { copied = true }
-        AccessibilityNotification.Announcement("Copied").post()
+        let result = onCopy(Sanitize.copyText(code))
+        withAnimation(DS.motion(DS.Motion.reveal, reduce: reduceMotion)) { outcome = result }
+        AccessibilityNotification.Announcement(Self.announcement(result)).post()
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(DS.Motion.copiedFor))
-            withAnimation(DS.motion(DS.Motion.reveal, reduce: reduceMotion)) { copied = false }
+            withAnimation(DS.motion(DS.Motion.reveal, reduce: reduceMotion)) { outcome = nil }
         }
     }
 }

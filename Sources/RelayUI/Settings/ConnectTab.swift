@@ -99,9 +99,10 @@ public struct ConnectTab<Model: SettingsViewModel>: View {
         return ConnectInfo.lastCall(repo.lastCall, now: now)
     }
 
-    private func copy(_ text: String) {
+    private func copy(_ text: String) -> CopyOutcome {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
+        return .copied
     }
 
     private func copySection() {

@@ -32,7 +32,7 @@ public struct FromDisclosure: View {
                         Text("Resume").foregroundStyle(DS.Color.secondary)
                         Color.clear.gridCellUnsizedAxes([.horizontal, .vertical])
                     }
-                    CodeBlock(code: command, copyLabel: "Copy the resume command", onCopy: onCopy)
+                    CodeBlock(code: command, copyLabel: "Copy the resume command", onCopy: { onCopy($0); return .copied })
                         .gridCellColumns(2)
                 }
             }
