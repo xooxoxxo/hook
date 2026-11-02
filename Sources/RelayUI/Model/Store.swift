@@ -83,8 +83,13 @@ public enum LinkCheck: Equatable, Sendable {
     /// After Done or Skip in the detail; AppDelegate sets it from config.json.
     public var afterClose: AfterClose = .next
     /// One Notice at a time; the newest replaces the older; only ✕ or its action clears it,
-    /// except a Notice about the open ask, which also goes when the owner leaves that ask.
-    @Published public private(set) var notice: PanelNotice?
+    /// except a Notice about the open ask, which also goes when the owner leaves that ask,
+    /// and a transient one, which goes after `DS.Motion.noticeHold` or when an ask opens.
+    @Published public private(set) var notice: PanelNotice? {
+        didSet { if notice != oldValue { noticeReset?.cancel(); noticeReset = nil } }
+    }
+    /// The running timer that clears a transient Notice.
+    private var noticeReset: Task<Void, Never>?
     /// A close reached the source (sent after Undo, at quit, or before a swap) or an ask was
     /// reopened: remove its delivered notification.
     public var onCloseSent: (@MainActor (String) -> Void)?
@@ -803,12 +808,24 @@ public enum LinkCheck: Equatable, Sendable {
         return UndoInfo(verdict: latest.verdict, title: latest.title, deadline: latest.deadline, more: pending.count - 1)
     }
 
-    public func post(_ notice: PanelNotice) { self.notice = notice }
+    public func post(_ notice: PanelNotice) {
+        self.notice = notice
+        guard notice.isTransient, noticeReset == nil else { return }
+        noticeReset = Task { [weak self, sleep] in
+            try? await sleep(.seconds(DS.Motion.noticeHold))
+            guard !Task.isCancelled, let self, self.notice == notice else { return }
+            self.notice = nil
+        }
+    }
 
     public func dismissNotice() { notice = nil }
 
     /// Back, Esc, Next Ask or opening another ask leaves the closed ask, and its Notice with it.
     private func dropNoticeOfLeftAsk() {
+        if notice?.isTransient == true, navigation.selectedID != nil {
+            notice = nil
+            return
+        }
         guard let id = notice?.detailAskID, navigation.selectedID != id else { return }
         notice = nil
         sessionClosedNext = nil

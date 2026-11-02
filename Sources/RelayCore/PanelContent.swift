@@ -74,6 +74,15 @@ public enum PanelNotice: Equatable, Sendable {
         }
     }
 
+    /// A Notice that only reports something and asks nothing of the owner: it goes on its own
+    /// after `DS.Motion.noticeHold`, and when the owner opens an ask.
+    public var isTransient: Bool {
+        switch self {
+        case .noLongerOpen, .settingsReloaded, .mailboxUpToDate: return true
+        default: return false
+        }
+    }
+
     public var showsOnQueue: Bool { detailAskID == nil }
 
     public var kind: NoticeKind {
