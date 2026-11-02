@@ -112,12 +112,22 @@ public struct DetailSnapshot: Equatable, Sendable {
     /// Done was pressed with `unsentKind` set: the bar warns (Send & Done, Discard & Done).
     /// Never true without an `unsentKind`.
     public var doneWarning = false
+    /// Where the ask stands with this Mac's review of its corrections.
+    public var review: ReviewState = .legacy
+    /// The revision this snapshot renders; nil for a legacy ask or a failed history.
+    public var stamp: RevisionStamp?
+    /// The whole ask is locked: a correction is unreviewed or its history changed. No copy,
+    /// link, file, Done, answer, reply or tick; Skip still works.
+    public var locked: Bool { review.isLocked }
+    /// The review entry point, from the state alone, so a later Notice never hides it.
+    public var reviewAction: ReviewAction? { review.action }
 
     public static func build(item: WireItem, detail: AskDetail?, ticks: Set<String>, load: DetailLoadState,
                              reply: ReplyBoxState, draft: String?, pendingChoice: Int?, busy: Bool,
                              previous: Neighbour, next: Neighbour, closedBy: String?,
                              answerDrafts: [String: AnswerDraft] = [:], answerState: AnswerSendState? = nil,
-                             doneWarning: Bool = false) -> DetailSnapshot {
+                             doneWarning: Bool = false, review: ReviewState = .legacy,
+                             stamp: RevisionStamp? = nil) -> DetailSnapshot {
         let model = detail.map(DetailModel.make)
         let nodes = model?.nodes ?? []
         let events = detail?.events ?? []
@@ -146,6 +156,6 @@ public struct DetailSnapshot: Equatable, Sendable {
             answerDrafts: answerDrafts, unsent: unsent, answerState: answerState,
             unansweredCaption: isOpen ? AnswerDrafts.unansweredCaption(
                 AnswerDrafts.uncovered(unanswered: model?.unanswered ?? [], unsent: unsent)) : nil,
-            unsentKind: kind, doneWarning: doneWarning && kind != nil)
+            unsentKind: kind, doneWarning: doneWarning && kind != nil, review: review, stamp: stamp)
     }
 }

@@ -86,9 +86,10 @@ import RelayUI
         let model = AppModel(
             configURL: RelayConfig.path(environment: environment),
             dataDirectory: AppModel.dataDirectory(environment: environment))
-        let store = Store()
         let secrets = KeychainSecretStore()
         self.secrets = secrets
+        let store = Store(reviews: ReviewPersistence(
+            secrets: secrets, url: model.dataDirectory.appending(path: "reviews.json", directoryHint: .notDirectory)))
         let ownerKey = OwnerKeyFlow(secrets: secrets, label: HostName.current ?? "Mac")
         ownerKey.onChange = { [weak model] in model?.objectWillChange.send() }
         store.onOwnerKeyRefused = { [weak ownerKey] in ownerKey?.keyRefused() }

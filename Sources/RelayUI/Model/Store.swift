@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import RelayCore
 
@@ -21,10 +22,10 @@ public enum LinkCheck: Equatable, Sendable {
     /// Done and Skip held back for `PendingCloses.delay` seconds so they can be undone.
     @Published public private(set) var pending = PendingCloses()
     /// Asks closed in the last 24 hours, newest first, without any still held back.
-    @Published public private(set) var recentlyClosed: [WireItem] = [] { didSet { queueInputChanged() } }
+    @Published public internal(set) var recentlyClosed: [WireItem] = [] { didSet { queueInputChanged() } }
     /// A row's ticks are checked against its fetched detail's steps, so a new detail rebuilds the queue.
     /// A new detail also settles the answer drafts: one its events show as sent goes.
-    @Published public private(set) var details: [String: AskDetail] = [:] {
+    @Published public internal(set) var details: [String: AskDetail] = [:] {
         didSet {
             settleAnswerDrafts()
             settleDoneWarnings()
@@ -115,7 +116,7 @@ public enum LinkCheck: Equatable, Sendable {
     /// Tick paths as loaded from TickStore, per ask, with the step source they were loaded
     /// against; dropped when the ask's detail changes, and reloaded when the source differs.
     /// Keyed on the source, not the tree: comparing it is cheap, building the tree hashes every step.
-    private var tickCache: [String: (source: StepSource, ticks: Set<String>)] = [:]
+    var tickCache: [String: (source: StepSource, ticks: Set<String>)] = [:]
     /// How many times a step tree was built; tests check the tick cache saves this work.
     private(set) var stepTreeBuilds = 0
     /// Leaves ticked this session, in order, per ask (for ⇧⌘T).
@@ -224,6 +225,30 @@ public enum LinkCheck: Equatable, Sendable {
     /// Reopened asks: their return to the list is not a new ask to announce.
     private var quietIDs: Set<String> = []
 
+    // MARK: Review state (Store+Review.swift)
+
+    /// The raw served item per id, as the last list, detail or closed list brought it. Only
+    /// the review code reads it: `listed`, `details` and `recentlyClosed` hold rendered copies.
+    var served: [String: WireItem] = [:]
+    /// Each revised ask's history: the fetched detail's, brought up to date by the list.
+    public internal(set) var histories: [String: Result<VerifiedHistory, HistoryProblem>] = [:]
+    var fetchedHistories: [String: Result<VerifiedHistory, HistoryProblem>] = [:]
+    var listedHistories: [String: Result<VerifiedHistory, HistoryProblem>] = [:]
+    /// The last body rendered from a verified revision, for a locked ask whose shown body
+    /// isn't at hand (a list item before its detail, or a history that failed).
+    var lastRendered: [String: Instructable] = [:]
+    /// Every review record, by `ReviewStore.key`, for all sources; authoritative, saved sealed.
+    var reviews: [String: ReviewRecord] = [:]
+    let reviewFile: ReviewPersistence?
+    var sealKey: SymmetricKey?
+    /// The Keychain refused the seal key: no records loaded, nothing written, corrected asks locked.
+    public internal(set) var reviewsUnreadable = false
+    var reviewSaveScheduled = false
+    /// A load problem to post once the first swap has cleared the Notice slot.
+    var pendingReviewNotice: PanelNotice?
+    /// The connected Pond's version (MailboxCheck.pond); nil until checked, and in This Mac mode.
+    public internal(set) var pond: PondVersion?
+
     public static let closedWindow: TimeInterval = DS.Timing.closedWindow
 
     let defaults: UserDefaults
@@ -237,8 +262,10 @@ public enum LinkCheck: Equatable, Sendable {
     public init(defaults: UserDefaults = .standard, now: @escaping @MainActor () -> Date = { Date() },
                 sentHold: Duration = .seconds(DS.Motion.sentHold),
                 sleep: (@Sendable (Duration) async throws -> Void)? = nil,
-                timeoutSleep: (@Sendable (Duration) async -> Void)? = nil) {
+                timeoutSleep: (@Sendable (Duration) async -> Void)? = nil,
+                reviews: ReviewPersistence? = nil) {
         self.defaults = defaults
+        self.reviewFile = reviews
         self.now = now
         self.sentHold = sentHold
         self.sleep = sleep ?? Store.taskSleep
@@ -250,6 +277,7 @@ public enum LinkCheck: Equatable, Sendable {
             sourceKey: SourceKey.none, loadedOnce: false, reachable: false, problem: Store.noSourceProblem,
             waitedTenSeconds: false, manualRefreshing: false, updated: "")
         rebuildQueue()
+        loadReviews()
     }
 
     /// Swap: 1 bump the generation; 2 stop the poll or stream; 3 clear the
@@ -277,6 +305,10 @@ public enum LinkCheck: Equatable, Sendable {
         reloadCheckID = openID
         failedCloses = [:]
         notice = nil
+        if let pending = pendingReviewNotice {
+            pendingReviewNotice = nil
+            notice = pending
+        }
         offlineNoticed = false
         sessionClosedNext = nil
         filter = PanelPrefs.filter(defaults, sourceKey: identity.key)
@@ -304,6 +336,12 @@ public enum LinkCheck: Equatable, Sendable {
         swappedAt = now()
         detailRequestedAt = [:]
         detailFailed = []
+        served = [:]
+        histories = [:]
+        fetchedHistories = [:]
+        listedHistories = [:]
+        lastRendered = [:]
+        pond = nil
         stateTimers.values.forEach { $0.cancel() }
         stateTimers = [:]
         notFoundID = nil
@@ -471,7 +509,7 @@ public enum LinkCheck: Equatable, Sendable {
 
     /// The synchronous part of a good list, as one queue change.
     private func applyList(_ fresh: [WireItem], diff: QueueDiff) {
-        listed = fresh
+        listed = fresh.map(ingestListed)
         if let id = reloadCheckID {
             reloadCheckID = nil
             if !fresh.contains(where: { $0.id == id }) {
@@ -587,8 +625,11 @@ public enum LinkCheck: Equatable, Sendable {
         do {
             let detail = try await source.get(id)
             guard gen == generation else { return }
-            details[id] = detail
-            tickCache[id] = nil
+            holdingQueue {
+                details[id] = ingestDetail(detail)
+                tickCache[id] = nil
+                rerender(id)
+            }
         } catch QueueError.notFound {
             guard gen == generation else { return }
             await refresh()
@@ -707,6 +748,7 @@ public enum LinkCheck: Equatable, Sendable {
         var keep = Set(listed.map(\.id)).union(recentlyClosed.map(\.id)).union(sending)
         if let selected = navigation.selectedID { keep.insert(selected) }
         tickCache = tickCache.filter { keep.contains($0.key) }
+        pruneReviews(keep: keep)
         detailRequestedAt = detailRequestedAt.filter { keep.contains($0.key) }
         guard keep != prunedKeep else { return }
         prunedKeep = keep
@@ -880,7 +922,7 @@ public enum LinkCheck: Equatable, Sendable {
         guard let fresh = try? await source.recentlyClosed(within: Self.closedWindow) else { return }
         guard gen == generation else { return }
         let open = Set(listed.map(\.id))
-        let closed = fresh.filter { !open.contains($0.id) && !pending.contains($0.id) }
+        let closed = fresh.filter { !open.contains($0.id) && !pending.contains($0.id) }.map(ingestListed)
         var actors: [String: String] = [:]
         for item in closed {
             let key = Self.closedKey(item)
@@ -913,7 +955,7 @@ public enum LinkCheck: Equatable, Sendable {
         return ids
     }
 
-    private func updateItems() {
+    func updateItems() {
         let hidden = self.hidden
         let shown = hidden.isEmpty ? listed : listed.filter { !hidden.contains($0.id) }
         if shown != items { items = shown }
@@ -1241,12 +1283,20 @@ public enum LinkCheck: Equatable, Sendable {
         }
     }
 
-    /// Fetched details, as one change; an unchanged detail changes nothing.
+    /// Fetched details, as one change; an unchanged detail changes nothing. Each is stored as its
+    /// rendered copy, and the ask's list and closed rows are rendered again from its history.
     private func apply(_ fetched: [(id: String, result: DetailFetch)]) {
+        holdingQueue { applyDetails(fetched) }
+    }
+
+    private func applyDetails(_ fetched: [(id: String, result: DetailFetch)]) {
         var next = details
-        for (id, result) in fetched {
-            switch result {
-            case .loaded(let detail):
+        var loaded: [String] = []
+        for (id, fetch) in fetched {
+            switch fetch {
+            case .loaded(let raw):
+                let detail = ingestDetail(raw)
+                loaded.append(id)
                 if next[id] != detail {
                     next[id] = detail
                     tickCache[id] = nil
@@ -1262,6 +1312,7 @@ public enum LinkCheck: Equatable, Sendable {
         }
         dropStaleReplyChanges(next)
         if next != details { details = next }
+        loaded.forEach(rerender)
     }
 
     /// Leaves Change on an ask whose untouched prefill a newer reply has overtaken.
@@ -1299,7 +1350,7 @@ public enum LinkCheck: Equatable, Sendable {
     }
 
     /// Runs `body` with queue rebuilds held, then rebuilds once if any input changed.
-    private func holdingQueue(_ body: () -> Void) {
+    func holdingQueue(_ body: () -> Void) {
         queueHolds += 1
         body()
         queueHolds -= 1
@@ -1350,11 +1401,14 @@ extension Store: PanelViewModel {
         let (previous, next) = navigation.neighbours(of: id, visibleOrder: visibleOrder, closedOrder: closedShown.map(\.id))
         let load = DetailLoadState.resolve(hasModel: details[id] != nil, requestedAt: detailRequestedAt[id], now: now(),
                                            failed: detailFailed.contains(id), timeout: DS.Timing.detailLoadTimeout)
+        let review = reviewState(id)
+        let stamp = ReviewGate.renderedStamp(review, history: try? histories[id]?.get())
+        if case .current(let current) = review, details[id] != nil, stamp == current { markSeen(id, current) }
         return DetailSnapshot.build(
             item: item, detail: details[id], ticks: ticks(for: id), load: load, reply: replyStates[id] ?? .idle,
             draft: drafts[id], pendingChoice: pendingChoice[id], busy: replyStates[id] == .sending, previous: previous, next: next,
             closedBy: closedBy(item), answerDrafts: answerDrafts[id] ?? [:], answerState: answerStates[id],
-            doneWarning: doneWarnings.contains(id))
+            doneWarning: doneWarnings.contains(id), review: review, stamp: stamp)
     }
 
     public var status: PanelStatus {

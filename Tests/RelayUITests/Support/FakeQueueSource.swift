@@ -17,6 +17,10 @@ actor FakeQueueSource: QueueSource {
     private(set) var replies: [String: [String]] = [:]
     /// Every answer batch sent, per ask.
     private(set) var answers: [String: [[JSONValue]]] = [:]
+    /// The stamp each stamped act carried, in order ("resolve a", "answer a", "accept a").
+    private(set) var stamps: [(call: String, stamp: RevisionStamp)] = []
+    /// Every problem report sent.
+    private(set) var problems: [(id: String, stepID: String, stamp: RevisionStamp, note: String)] = []
 
     init(items: [WireItem] = [], details: [String: AskDetail] = [:]) {
         self.items = items
@@ -128,6 +132,32 @@ actor FakeQueueSource: QueueSource {
     }
 
     func recentlyClosed(within interval: TimeInterval) async throws -> [WireItem] { closedItems }
+
+    // Pond 1.1.0: the stamped acts record the rev they were bound to ("resolve a done @2").
+
+    func resolve(_ id: String, verdict: Verdict, note: String?, stamp: RevisionStamp?) async throws -> WireItem {
+        if let stamp { stamps.append(("resolve \(id)", stamp)) }
+        return try await resolve(id, verdict: verdict, note: note)
+    }
+
+    func answer(_ id: String, answers: [JSONValue], stamp: RevisionStamp?) async throws -> WireItem {
+        if let stamp { stamps.append(("answer \(id)", stamp)) }
+        return try await answer(id, answers: answers)
+    }
+
+    func accept(_ id: String, stamp: RevisionStamp) async throws -> WireItem {
+        try record("accept \(id) @\(stamp.rev)")
+        stamps.append(("accept \(id)", stamp))
+        guard let item = (items + closedItems).first(where: { $0.id == id }) else { throw QueueError.notFound }
+        return item
+    }
+
+    func problem(_ id: String, stepID: String, stamp: RevisionStamp, note: String) async throws -> WireItem {
+        try record("problem \(id) \(stepID) @\(stamp.rev)")
+        problems.append((id, stepID, stamp, note))
+        guard let item = items.first(where: { $0.id == id }) else { throw QueueError.notFound }
+        return item
+    }
 
     func changes() async -> AsyncStream<Void>? { nil }
 }
