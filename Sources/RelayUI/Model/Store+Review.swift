@@ -22,8 +22,11 @@ extension Store {
     /// A list (or closed-list) item: its current revision verified, merged into the fetched
     /// history, pinned, and rendered.
     func ingestListed(_ raw: WireItem) -> WireItem {
+        // An item served exactly as before was verified then; a poll re-checks only what changed.
+        if served[raw.id] != raw || listedHistories[raw.id] == nil {
+            listedHistories[raw.id] = RevisionCheck.verify(listed: raw)
+        }
         served[raw.id] = raw
-        listedHistories[raw.id] = RevisionCheck.verify(listed: raw)
         settleHistory(raw.id)
         return render(raw)
     }
