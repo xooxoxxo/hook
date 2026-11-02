@@ -50,7 +50,16 @@ public enum StepIdentity {
     }
 }
 
-/// The chip a step shows after the owner accepted a correction, until ticked.
+/// The chip a step shows after the owner accepted a correction, until ticked; and, on the
+/// locked version shown while a correction is pending, on the steps it changes or removes.
 public enum StepChip: Equatable, Sendable {
-    case changed, new
+    case changed, new, removed
+
+    public var title: String {
+        switch self {
+        case .changed: return "Changed"
+        case .new: return "New"
+        case .removed: return "Removed"
+        }
+    }
 }

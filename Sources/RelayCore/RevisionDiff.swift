@@ -163,6 +163,23 @@ public struct RevisionDiff: Equatable, Sendable {
     public var changedIDs: [String] { steps.filter { $0.kind == .changed }.map(\.stepID) }
     public var addedIDs: [String] { steps.filter { $0.kind == .added }.map(\.stepID) }
 
+    /// While the correction is pending: the tags on the version still shown, by its paths. A
+    /// changed step reads "Changed" and a removed one "Removed"; added ones aren't on it. None
+    /// on a first view, which has no shown version.
+    public var shownChips: [String: StepChip] {
+        guard !isFirstView else { return [:] }
+        var chips: [String: StepChip] = [:]
+        for change in steps {
+            guard let path = change.oldPath else { continue }
+            switch change.kind {
+            case .changed: chips[path] = .changed
+            case .removed: chips[path] = .removed
+            case .added, .moved: break
+            }
+        }
+        return chips
+    }
+
     public static func make(baseline: Instructable?, firstRevision: Instructable, current: Instructable,
                             reasons: [(rev: Int, reason: String)]) -> RevisionDiff {
         let since = changes(from: baseline ?? firstRevision, to: current)
