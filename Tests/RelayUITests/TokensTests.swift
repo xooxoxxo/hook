@@ -4,6 +4,34 @@ import SwiftUI
 import Testing
 @testable import RelayUI
 
+/// WCAG 2 contrast between sRGB colours, for the small text tints.
+private enum Contrast {
+    static func rgb(_ color: NSColor, _ appearance: NSAppearance.Name) -> (Double, Double, Double) {
+        var out = (0.0, 0.0, 0.0)
+        NSAppearance(named: appearance)!.performAsCurrentDrawingAppearance {
+            let c = color.usingColorSpace(.sRGB)!
+            out = (Double(c.redComponent), Double(c.greenComponent), Double(c.blueComponent))
+        }
+        return out
+    }
+
+    static func over(_ top: (Double, Double, Double), alpha: Double, _ bottom: (Double, Double, Double))
+        -> (Double, Double, Double) {
+        (top.0 * alpha + bottom.0 * (1 - alpha), top.1 * alpha + bottom.1 * (1 - alpha),
+         top.2 * alpha + bottom.2 * (1 - alpha))
+    }
+
+    static func luminance(_ c: (Double, Double, Double)) -> Double {
+        func lin(_ v: Double) -> Double { v <= 0.03928 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4) }
+        return 0.2126 * lin(c.0) + 0.7152 * lin(c.1) + 0.0722 * lin(c.2)
+    }
+
+    static func ratio(_ a: (Double, Double, Double), _ b: (Double, Double, Double)) -> Double {
+        let (x, y) = (luminance(a), luminance(b))
+        return (max(x, y) + 0.05) / (min(x, y) + 0.05)
+    }
+}
+
 @Suite struct TokensTests {
     @Test func spacingMatchesTheSpec() {
         let s = DS.Space.self
@@ -113,5 +141,30 @@ import Testing
         #expect(DS.Color.badge == NSColor.systemRed)
         #expect(DS.Color.panelMaterial == .sidebar)
         #expect(DS.Font.badgeDigit.pointSize == 9)
+    }
+
+    /// The Look-closer flags and the Changed, New and Removed tags are 11 pt: their tints reach
+    /// 4.5:1 on the steps list (its fill over the window background) and on their own tag's
+    /// tint, in both themes.
+    @Test func smallTextTintsReachFourAndAHalfToOne() {
+        typealias T = DS.Color.TextTint
+        let cases: [(NSAppearance.Name, [NSColor], Double)] = [
+            (.aqua, [T.warnLight, T.doneLight, T.errorLight], 0.8),
+            (.darkAqua, [T.warnDark, T.doneDark, T.errorDark], 0.06),
+        ]
+        for (appearance, tints, groupAlpha) in cases {
+            let window = Contrast.rgb(.windowBackgroundColor, appearance)
+            let list = Contrast.over((1, 1, 1), alpha: groupAlpha, window)
+            for tint in tints {
+                let text = Contrast.rgb(tint, appearance)
+                let tag = Contrast.over(text, alpha: DS.Color.tagFillOpacity, list)
+                #expect(Contrast.ratio(text, list) >= 4.5, "\(appearance.rawValue) \(tint) on the list")
+                #expect(Contrast.ratio(text, tag) >= 4.5, "\(appearance.rawValue) \(tint) on its tag")
+                #expect(Contrast.ratio(text, window) >= 4.5, "\(appearance.rawValue) \(tint) on the panel")
+            }
+        }
+        // The system orange the flags used reaches far less in light mode.
+        let window = Contrast.rgb(.windowBackgroundColor, .aqua)
+        #expect(Contrast.ratio(Contrast.rgb(.systemOrange, .aqua), Contrast.over((1, 1, 1), alpha: 0.8, window)) < 3)
     }
 }

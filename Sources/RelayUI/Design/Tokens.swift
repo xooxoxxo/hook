@@ -167,6 +167,23 @@ public enum DS {
         public static let done = SwiftUI.Color.green
         public static let warn = SwiftUI.Color.orange
         public static let error = SwiftUI.Color.red
+        /// Small (11 pt) text in the warn, done and error tints: Look-closer flags and the
+        /// Changed, New and Removed tags. The system colours reach only about 2.2:1 on the light
+        /// steps list, so light mode takes darker tints and dark mode lighter ones; each reaches
+        /// 4.5:1 on the list and on its own tag's tint (`TokensTests`).
+        public static let warnText = adaptive(light: TextTint.warnLight, dark: TextTint.warnDark)
+        public static let doneText = adaptive(light: TextTint.doneLight, dark: TextTint.doneDark)
+        public static let errorText = adaptive(light: TextTint.errorLight, dark: TextTint.errorDark)
+        /// A tag's capsule: its text colour at this opacity.
+        public static let tagFillOpacity: Double = 0.14
+        enum TextTint {
+            static let warnLight = NSColor(srgbRed: 0.60, green: 0.29, blue: 0.0, alpha: 1)
+            static let warnDark = NSColor(srgbRed: 1.0, green: 0.72, blue: 0.30, alpha: 1)
+            static let doneLight = NSColor(srgbRed: 0.10, green: 0.45, blue: 0.19, alpha: 1)
+            static let doneDark = NSColor(srgbRed: 0.40, green: 0.88, blue: 0.50, alpha: 1)
+            static let errorLight = NSColor(srgbRed: 0.70, green: 0.15, blue: 0.12, alpha: 1)
+            static let errorDark = NSColor(srgbRed: 1.0, green: 0.70, blue: 0.67, alpha: 1)
+        }
         public static let codeFill = AnyShapeStyle(.quaternary.opacity(0.6))
         public static let bar = Material.bar
         public static var badge: NSColor { .systemRed }

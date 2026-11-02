@@ -21,24 +21,25 @@ public struct StepTag: View {
             .foregroundStyle(color)
             .padding(.horizontal, 6)
             .padding(.vertical, 1)
-            .background(color.opacity(0.14), in: .capsule)
+            .background(color.opacity(DS.Color.tagFillOpacity), in: .capsule)
             .fixedSize()
     }
 
+    /// The text tints (`DS.Color.warnText`…), which reach 4.5:1 at 11 pt in both themes.
     public static func color(_ chip: StepChip) -> Color {
         switch chip {
-        case .changed: return DS.Color.warn
-        case .new: return DS.Color.done
-        case .removed: return DS.Color.error
+        case .changed: return DS.Color.warnText
+        case .new: return DS.Color.doneText
+        case .removed: return DS.Color.errorText
         }
     }
 
     /// A review row's tag colour, by its change.
     public static func color(_ change: ReviewPage.Change) -> Color {
         switch change {
-        case .changed: return DS.Color.warn
-        case .added: return DS.Color.done
-        case .removed: return DS.Color.error
+        case .changed: return DS.Color.warnText
+        case .added: return DS.Color.doneText
+        case .removed: return DS.Color.errorText
         case .moved, .same: return DS.Color.secondary
         }
     }
@@ -149,7 +150,7 @@ public struct LookCloserLine: View {
             Image(systemName: DS.Symbol.lookCloser).accessibilityHidden(true)
         }
         .font(DS.Font.caption.weight(.medium))
-        .foregroundStyle(DS.Color.warn)
+        .foregroundStyle(DS.Color.warnText)
         .accessibilityLabel("Look closer: " + flag.title)
     }
 }
