@@ -46,6 +46,15 @@ public enum HistoryProblem: Error, Equatable, Sendable {
     case rolledBack
     /// Revisions are missing: a gap, none served, or the item names one the history lacks.
     case missing
+    /// That rev changes the title, the urgency or `from`, which no correction may change.
+    case fixedFieldChanged(Int)
+}
+
+/// What a correction may never change: an ask keeps the title, urgency and origin of rev 1.
+public enum RevisionFixedFields {
+    public static func same(_ a: Instructable, _ b: Instructable) -> Bool {
+        a.title == b.title && a.urgency == b.urgency && a.from == b.from
+    }
 }
 
 /// The revisions whose hashes checked out, by rev. From a fetched detail it holds every rev
@@ -98,6 +107,9 @@ public enum RevisionCheck {
                          body: revision.body) else { return .failure(.badHash(revision.rev)) }
             guard revision.prev == previous else { return .failure(.badChain(revision.rev)) }
             guard let body = try? RevisionBody.parse(revision.body) else { return .failure(.unreadable(revision.rev)) }
+            if let first = bodies[1], !RevisionFixedFields.same(first, body) {
+                return .failure(.fixedFieldChanged(revision.rev))
+            }
             bodies[revision.rev] = body
             stamps[revision.rev] = revision.stamp
             reasons[revision.rev] = revision.reason
@@ -136,7 +148,8 @@ public enum RevisionCheck {
     }
 
     /// The fetched history brought up to date by the list: a newer listed revision is added on
-    /// top (the next fetch checks its chain), the same one keeps the fetched history, and a
+    /// top (the next fetch checks its chain), unless it changes a field no correction may
+    /// change (`.fixedFieldChanged`), the same one keeps the fetched history, and a
     /// fetched failure stands until the next fetch. The list decides whether there is a
     /// revision at all, and an older listed rev goes as it is (the pins catch it).
     public static func merge(fetched: Result<VerifiedHistory, HistoryProblem>?,
@@ -150,6 +163,9 @@ public enum RevisionCheck {
             return latest.current.rev == history.current.rev ? .failure(.badHash(latest.current.rev)) : listed
         }
         let rev = latest.current.rev
+        if let first = history.bodies[1], let body = latest.bodies[rev], !RevisionFixedFields.same(first, body) {
+            return .failure(.fixedFieldChanged(rev))
+        }
         history.bodies[rev] = latest.bodies[rev]
         history.stamps[rev] = latest.current
         history.reasons[rev] = latest.reasons[rev]

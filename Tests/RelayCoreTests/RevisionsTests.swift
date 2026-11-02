@@ -163,4 +163,34 @@ private func int(_ value: JSONValue?) -> Int? {
         // The list dropped the revision: the list decides.
         #expect(RevisionCheck.merge(fetched: fetched, listed: nil) == nil)
     }
+
+    @Test func aRevisionThatChangesTheTitleUrgencyOrFromIsABrokenHistory() throws {
+        var title = idSteps(4), urgency = idSteps(4), from = idSteps(4)
+        title.title = "Something else"
+        urgency.urgency = "now"
+        from.from = Origin(session: "other", host: "elsewhere", cwd: "/tmp")
+        for changed in [title, urgency, from] {
+            let detail = revisedDetail([idSteps(3), idSteps(3, codes: [3: "fixed"]), changed])
+            #expect(RevisionCheck.verify(detail) == .failure(.fixedFieldChanged(3)))
+            #expect(ReviewGate.resolve(record: nil, history: RevisionCheck.verify(detail), pond: nil)
+                    == .historyChanged(.fixedFieldChanged(3)))
+        }
+        // The steps, why, links and reply may change.
+        var steps = idSteps(5)
+        steps.why = "Because"
+        steps.links = [LinkRef(label: "Docs", url: "https://example.com")]
+        #expect(try RevisionCheck.verify(revisedDetail([idSteps(3), steps]))?.get().current.rev == 2)
+    }
+
+    @Test func aListedRevisionThatChangesTheTitleUrgencyOrFromBreaksTheMerge() throws {
+        let fetched = RevisionCheck.verify(revisedDetail([idSteps(3), idSteps(4)]))
+        var title = idSteps(5), urgency = idSteps(5), from = idSteps(5)
+        title.title = "Something else"
+        urgency.urgency = nil
+        from.from = Origin(host: "elsewhere")
+        for changed in [title, urgency, from] {
+            let listed = RevisionCheck.verify(listed: revisedDetail([idSteps(3), idSteps(4), changed]).item)
+            #expect(RevisionCheck.merge(fetched: fetched, listed: listed) == .failure(.fixedFieldChanged(3)))
+        }
+    }
 }
