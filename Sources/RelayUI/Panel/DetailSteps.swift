@@ -87,13 +87,20 @@ struct DetailSteps<Model: PanelViewModel>: View {
                 ForEach(Array(nodes.enumerated()), id: \.element.id) { index, node in
                     if index > 0 { GroupDivider() }
                     nodeView(node, locked: locked, lockText: lockText)
+                        .environment(\.stepTag, snapshot.changedSteps[node.path])
+                        .opacity(Self.dims(node, snapshot: snapshot) ? DS.Color.lockedOpacity : 1)
                         .id(node.path)
                         .background(GeometryReader { geometry in
                             Color.clear.preference(key: NodeFramesKey.self,
                                                    value: [node.path: geometry.frame(in: .named(detailScrollSpace))])
                         })
                 }
+                if snapshot.locked, snapshot.addedSinceShown > 0 {
+                    GroupDivider()
+                    addedRow(snapshot.addedSinceShown)
+                }
             }
+            .environment(\.stepTags, snapshot.changedSteps)
         }
         .animation(DS.motion(DS.Motion.step, reduce: reduceMotion), value: snapshot.current)
         .animation(DS.motion(DS.Motion.step, reduce: reduceMotion), value: snapshot.ticks)
@@ -105,6 +112,34 @@ struct DetailSteps<Model: PanelViewModel>: View {
                 AccessibilityRotorEntry(Text(Self.rotorTitle(node)), id: node.path)
             }
         }
+    }
+
+    /// While the ask is locked, every step the pending correction leaves alone is drawn dimmed;
+    /// the ones it changes or removes keep their tag at full strength.
+    static func dims(_ node: DetailModel.Node, snapshot: DetailSnapshot) -> Bool {
+        guard snapshot.locked else { return false }
+        return ([node.path] + node.children.map(\.path)).allSatisfy { snapshot.changedSteps[$0] == nil }
+    }
+
+    /// "2 steps added": the pending correction's new steps aren't drawn until reviewed.
+    static func addedText(_ count: Int) -> String { count == 1 ? "1 step added" : "\(count) steps added" }
+
+    private func addedRow(_ count: Int) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: DS.Space.marker) {
+            Image(systemName: DS.Symbol.stepAdded)
+                .font(.title3)
+                .foregroundStyle(DS.Color.done)
+                .frame(width: DS.Metric.hit)
+                .accessibilityHidden(true)
+            Text(verbatim: Self.addedText(count))
+                .font(DS.Font.body)
+                .foregroundStyle(DS.Color.secondary)
+            Spacer(minLength: DS.Space.inline)
+            StepTag(.new)
+        }
+        .padding(.horizontal, DS.Space.groupRowH)
+        .padding(.vertical, DS.Space.groupRowV)
+        .accessibilityElement(children: .combine)
     }
 
     @ViewBuilder private func nodeView(_ node: DetailModel.Node, locked: Set<String>, lockText: String?) -> some View {

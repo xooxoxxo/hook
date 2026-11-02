@@ -381,12 +381,17 @@ extension Store {
     /// The review of a pending ask: one cumulative diff from this Mac's accepted (else seen)
     /// revision, or the full content when this Mac never showed it; every reason after the
     /// baseline. nil when the ask isn't pending or its fetched history isn't at hand yet.
-    public func reviewDiff(_ id: String) -> RevisionDiff? {
+    public func reviewDiff(_ id: String) -> RevisionDiff? { reviewDiff(id, to: nil) }
+
+    /// The same, up to `target` (a verified revision above the baseline) instead of the current one.
+    func reviewDiff(_ id: String, to target: RevisionStamp?) -> RevisionDiff? {
         guard case .pending(let shown, let current, let baseline) = reviewState(id),
               case .success(let history)? = histories[id], history.isComplete,
-              let first = history.bodies[1], let now = history.body(current) else { return nil }
+              let first = history.bodies[1], let now = history.body(target ?? current) else { return nil }
         let from = baseline ?? 1
-        let reasons = (from + 1...current.rev).compactMap { rev in
+        let upTo = (target ?? current).rev
+        guard upTo > from else { return nil }
+        let reasons = (from + 1...upTo).compactMap { rev in
             history.reasons[rev].flatMap { $0.isEmpty ? nil : (rev: rev, reason: $0) }
         }
         return RevisionDiff.make(baseline: shown.flatMap(history.body), firstRevision: first, current: now,
@@ -394,10 +399,37 @@ extension Store {
     }
 
     /// The review's "Look closer" flags, over what changed since the baseline (all of it on a first view).
-    public func lookCloserFlags(_ id: String) -> [LookCloserFlag] {
+    public func lookCloserFlags(_ id: String) -> [LookCloserFlag] { lookCloserFlags(id, to: nil) }
+
+    func lookCloserFlags(_ id: String, to target: RevisionStamp?) -> [LookCloserFlag] {
         guard case .pending(let shown, let current, _) = reviewState(id), case .success(let history)? = histories[id],
-              let now = history.body(current) else { return [] }
+              let now = history.body(target ?? current) else { return [] }
         return LookCloser.flags(old: shown.flatMap(history.body), new: now, cwd: now.from?.cwd)
+    }
+
+    // MARK: The inline review
+
+    /// The inline review of the version `reviewing` names (else the current one): nil when the
+    /// ask isn't pending, or its full history hasn't arrived yet.
+    public func reviewPage(_ id: String) -> ReviewPage? {
+        guard case .pending(_, let current, let baseline) = reviewState(id),
+              case .success(let history)? = histories[id] else { return nil }
+        let target = reviewing[id].flatMap { history.stamps[$0.rev] == $0 && $0.rev <= current.rev ? $0 : nil } ?? current
+        guard let body = history.body(target), let diff = reviewDiff(id, to: target) else { return nil }
+        return ReviewPage.make(diff: diff, flags: lookCloserFlags(id, to: target), body: body, target: target,
+                               latest: current, baselineRev: baseline,
+                               time: { history.times[$0].map { ClockText.time($0) } ?? "" })
+    }
+
+    /// While a correction is pending: the shown version's tags (`RevisionDiff.shownChips`).
+    func pendingChips(_ id: String) -> [String: StepChip] {
+        reviewDiff(id)?.shownChips ?? [:]
+    }
+
+    /// Steps the pending correction adds, for the locked detail's "2 steps added" line.
+    func addedSinceShown(_ id: String, review: ReviewState) -> Int {
+        guard case .pending = review, let diff = reviewDiff(id), !diff.isFirstView else { return 0 }
+        return diff.addedIDs.count
     }
 
     // MARK: Trust again, and the review Notices
@@ -494,8 +526,10 @@ extension Store {
 
     // MARK: Chips
 
-    /// "Changed" and "New" by path in the rendered tree, while the accepted revision is current.
+    /// "Changed" and "New" by path in the rendered tree, while the accepted revision is current;
+    /// "Changed" and "Removed" on the shown version while a correction is pending.
     func chips(_ id: String, review: ReviewState) -> [String: StepChip] {
+        if case .pending = review { return pendingChips(id) }
         guard case .current = review, let record = record(id), !record.changed.isEmpty,
               let ins = item(for: id)?.instructable else { return [:] }
         let paths = StepIdentity.paths(ins)

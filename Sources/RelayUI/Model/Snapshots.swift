@@ -126,6 +126,10 @@ public struct DetailSnapshot: Equatable, Sendable {
     public var changedSteps: [String: StepChip] = [:]
     /// Paths with a problem report the step hasn't been corrected since.
     public var reported: Set<String> = []
+    /// While a correction is pending: how many steps it adds to the version shown.
+    public var addedSinceShown = 0
+    /// The bar that replaces the action bar while the ask is locked and not under review.
+    public var lockBar: ReviewLockBar? { ReviewLockBar.make(review) }
 
     public static func build(item: WireItem, detail: AskDetail?, ticks: Set<String>, load: DetailLoadState,
                              reply: ReplyBoxState, draft: String?, pendingChoice: Int?, busy: Bool,
@@ -133,7 +137,8 @@ public struct DetailSnapshot: Equatable, Sendable {
                              answerDrafts: [String: AnswerDraft] = [:], answerState: AnswerSendState? = nil,
                              doneWarning: Bool = false, review: ReviewState = .legacy,
                              stamp: RevisionStamp? = nil, history: VerifiedHistory? = nil,
-                             chips: [String: StepChip] = [:], reported: Set<String> = []) -> DetailSnapshot {
+                             chips: [String: StepChip] = [:], reported: Set<String> = [],
+                             addedSinceShown: Int = 0) -> DetailSnapshot {
         let model = detail.map { DetailModel.make(item: $0.item, events: $0.events, history: history) }
         let nodes = model?.nodes ?? []
         let events = detail?.events ?? []
@@ -163,6 +168,6 @@ public struct DetailSnapshot: Equatable, Sendable {
             unansweredCaption: isOpen ? AnswerDrafts.unansweredCaption(
                 AnswerDrafts.uncovered(unanswered: model?.unanswered ?? [], unsent: unsent)) : nil,
             unsentKind: kind, doneWarning: doneWarning && kind != nil, review: review, stamp: stamp,
-            changedSteps: chips, reported: reported)
+            changedSteps: chips, reported: reported, addedSinceShown: addedSinceShown)
     }
 }

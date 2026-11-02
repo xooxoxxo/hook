@@ -152,6 +152,8 @@ public enum DS {
         public static var appSymbol: SwiftUI.Font { .system(size: 34, weight: .semibold) }
         /// The Done page's hero symbol.
         public static var heroSymbol: SwiftUI.Font { .system(size: 52, weight: .regular) }
+        /// The owner key's 6-digit enrollment code in Settings › Queue.
+        public static var enrollCode: SwiftUI.Font { .system(size: 34, weight: .semibold, design: .monospaced) }
     }
 
     public enum Color {
@@ -217,6 +219,16 @@ public enum DS {
         /// The blocking step's warning box.
         public static let warnFill = SwiftUI.Color.orange.opacity(0.12)
         public static let warnStroke = SwiftUI.Color.orange.opacity(0.35)
+        /// The history bar's tint (a review lock that isn't a correction).
+        public static let errorFill = SwiftUI.Color.red.opacity(0.10)
+        /// The review's unified diff: a "−" line and a "+" line, and the changed words on them.
+        /// The words also carry a strikethrough or weight, and each line its glyph, for colour-blind safety.
+        public static let diffRemovedLine = SwiftUI.Color.red.opacity(0.08)
+        public static let diffAddedLine = SwiftUI.Color.green.opacity(0.09)
+        public static let diffRemovedWord = SwiftUI.Color.red.opacity(0.24)
+        public static let diffAddedWord = SwiftUI.Color.green.opacity(0.26)
+        /// A locked ask's unchanged steps, under the review bar.
+        public static let lockedOpacity: Double = 0.55
         /// The app icon placeholder's gradient, top to bottom.
         public static let appIconTop = SwiftUI.Color.accentColor
         public static let appIconBottom = SwiftUI.Color.accentColor.opacity(0.7)
@@ -305,6 +317,18 @@ public enum DS {
         public static let setupDone = "checkmark.circle.fill"
         public static let setupSupport = "heart"
         public static let copy = "doc.on.doc"
+        /// A correction waits for review: the bar, and the queue card's label.
+        public static let corrected = "pencil.circle.fill"
+        public static let correctedRow = "pencil.circle"
+        /// The ask's history failed its checks.
+        public static let historyChanged = "exclamationmark.triangle"
+        /// Use Version N when it asks for Touch ID.
+        public static let presence = "touchid"
+        public static let lookCloser = "exclamationmark.triangle.fill"
+        /// A step the pending correction adds.
+        public static let stepAdded = "plus.circle"
+        /// This Mac's owner key.
+        public static let ownerKey = "person.badge.key.fill"
     }
 
     public enum Control {

@@ -33,7 +33,7 @@ public struct AskRow: View, Equatable {
             VStack(alignment: .leading, spacing: DS.Space.rowLine) {
                 topRow
                 titleText
-                if !row.subline.isEmpty || row.hasDraft { subRow }
+                if !row.subline.isEmpty || row.hasDraft || Self.reviewLabel(row) != nil { subRow }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
@@ -96,6 +96,12 @@ public struct AskRow: View, Equatable {
             if row.hasDraft {
                 Image(systemName: DS.Symbol.draft).help("Unsent reply")
             }
+            if let label = Self.reviewLabel(row) {
+                Label(label, systemImage: row.historyChanged ? DS.Symbol.historyChanged : DS.Symbol.correctedRow)
+                    .foregroundStyle(row.historyChanged ? DS.Color.error : DS.Color.warn)
+                    .lineLimit(1)
+                    .fixedSize()
+            }
             Spacer(minLength: DS.Space.inline)
             if case let .steps(done, total) = row.summary, row.summary.showsProgress {
                 ProgressView(value: Double(done), total: Double(total))
@@ -124,7 +130,14 @@ public struct AskRow: View, Equatable {
             parts.append(row.subline)
         }
         if row.hasDraft { parts.append("Unsent reply") }
+        if let label = reviewLabel(row) { parts.append(label) }
         return parts.joined(separator: ". ")
+    }
+
+    /// "Corrected" while a correction waits for review, "Check history" when the history failed.
+    public static func reviewLabel(_ row: AskRowModel) -> String? {
+        if row.historyChanged { return "Check history" }
+        return row.corrected ? "Corrected" : nil
     }
 
     public static func titleHelp(_ title: String) -> String? { title.count > 70 ? line(title) : nil }

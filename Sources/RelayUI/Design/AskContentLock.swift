@@ -1,3 +1,4 @@
+import RelayCore
 import SwiftUI
 
 /// The review lock (`DetailSnapshot.locked`): while a correction is unreviewed, or the ask's
@@ -7,10 +8,30 @@ private struct AskContentLockedKey: EnvironmentKey {
     static let defaultValue = false
 }
 
+/// A corrected ask's step tags by path ("Changed", "New", "Removed"): DetailSteps sets the map,
+/// and each row its own `stepTag`, so StepView and ParentStepView draw it beside their title.
+private struct StepTagsKey: EnvironmentKey {
+    static let defaultValue: [String: StepChip] = [:]
+}
+
+private struct StepTagKey: EnvironmentKey {
+    static let defaultValue: StepChip? = nil
+}
+
 extension EnvironmentValues {
     public var askContentLocked: Bool {
         get { self[AskContentLockedKey.self] }
         set { self[AskContentLockedKey.self] = newValue }
+    }
+
+    public var stepTags: [String: StepChip] {
+        get { self[StepTagsKey.self] }
+        set { self[StepTagsKey.self] = newValue }
+    }
+
+    public var stepTag: StepChip? {
+        get { self[StepTagKey.self] }
+        set { self[StepTagKey.self] = newValue }
     }
 }
 

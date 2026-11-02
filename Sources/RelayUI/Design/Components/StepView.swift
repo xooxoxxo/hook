@@ -27,6 +27,7 @@ public struct StepView: View {
     @Environment(\.openURL) private var openURL
     /// The review lock, apart from the blocking-step `locked`.
     @Environment(\.askContentLocked) private var contentLocked
+    @Environment(\.stepTag) private var tag
 
     public init(content: StepContent, level: StepLevel, state: StepState, total: Int, readOnly: Bool,
                 expanded: Binding<Bool>, question: StepQuestion? = nil, lockText: String? = nil,
@@ -116,6 +117,7 @@ public struct StepView: View {
                 }
             }
             Spacer(minLength: DS.Space.inline)
+            if let tag { StepTag(tag) }
             if content.optional && !content.optionalByParent { StepRow.optionalCaption }
             if expandable { StepRow.chevron(open: expanded.wrappedValue) }
         }

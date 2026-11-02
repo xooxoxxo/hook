@@ -51,6 +51,9 @@ public struct QueueTab<Model: SettingsViewModel>: View {
                 mailboxSection
             }
             connectionSection
+            if choice == .mailbox, model.settings.sourceKey != SourceKey.none, !isUnsaved {
+                OwnerKeySection(model: model)
+            }
         }
         .formStyle(.grouped)
         .controlSize(DS.Control.form)

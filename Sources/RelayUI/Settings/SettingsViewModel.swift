@@ -14,8 +14,12 @@ import SwiftUI
     /// nil on success, else the reason as one sanitized line.
     func connect() async -> String?
 
-    // This Mac's owner key for the connected Pond (Settings › Queue; the section is drawn later).
+    // This Mac's owner key for the connected Pond (Settings › Queue › Owner Key).
     var ownerKeyState: OwnerKeyState { get }
+    /// Turning the requirement off waits for the owner's tap on Telegram.
+    var requireOffPending: Bool { get }
+    /// Why the last change to the requirement failed, as one line.
+    var requireProblem: String? { get }
     /// The last `GET /owner`; nil until read or outside mailbox mode.
     var ownerStatus: OwnerStatus? { get }
     /// Two Macs approved, this one among them (`OwnerKeyFlow.canRequireOwnerKey`).

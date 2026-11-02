@@ -8,6 +8,8 @@ public final class FixtureSettingsModel: SettingsViewModel {
     @Published public var ownerKeyState: OwnerKeyState
     @Published public var ownerStatus: OwnerStatus?
     @Published public var canRequireOwnerKey: Bool
+    @Published public var requireOffPending = false
+    @Published public var requireProblem: String?
 
     public init(settings: SettingsSnapshot, draft: MailboxDraft = MailboxDraft(), ownerKeyState: OwnerKeyState = .notSetUp,
                 ownerStatus: OwnerStatus? = nil, canRequireOwnerKey: Bool = false) {

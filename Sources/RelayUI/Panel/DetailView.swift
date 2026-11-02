@@ -198,10 +198,32 @@ struct DetailView<Model: PanelViewModel>: View {
                        actions: model.shell.files, copy: model.shell.copy, contentLocked: snapshot?.locked ?? false)
     }
 
+    /// The review bar says what the corrected and history Notices say for this ask, so they
+    /// don't show twice while it is up.
+    static func barCovers(_ notice: PanelNotice, _ snapshot: DetailSnapshot) -> Bool {
+        guard snapshot.closedText == nil, snapshot.lockBar != nil else { return false }
+        switch notice {
+        case .corrected(let id, _), .historyChanged(let id): return id == snapshot.id
+        default: return false
+        }
+    }
+
+    /// The bar under a locked ask: the review's while Show Changes is on, else the lock bar; an
+    /// unlocked or closed ask keeps the action bar.
+    enum Bar: Equatable {
+        case action, lock(ReviewLockBar), review
+    }
+
+    static func bar(_ snapshot: DetailSnapshot, reviewing: Bool) -> Bar {
+        guard snapshot.closedText == nil, let lock = snapshot.lockBar else { return .action }
+        return reviewing && lock.tone == .correction ? .review : .lock(lock)
+    }
+
     private func content(_ snapshot: DetailSnapshot) -> some View {
         let closed = snapshot.closedText != nil
+        let reviewing = Self.bar(snapshot, reviewing: model.isReviewing(id)) == .review
         return VStack(alignment: .leading, spacing: DS.Space.section) {
-            if let notice = model.notice {
+            if let notice = model.notice, !Self.barCovers(notice, snapshot) {
                 Notice(kind: notice.kind, text: notice.text, actionTitle: notice.actionTitle, help: notice.help,
                        secondaryTitle: notice.secondaryActionTitle, onSecondary: { model.performNoticeSecondaryAction() },
                        onAction: { model.performNoticeAction() }, onDismiss: { model.dismissNotice() })
@@ -213,11 +235,16 @@ struct DetailView<Model: PanelViewModel>: View {
                     Color.clear.preference(key: NodeFramesKey.self,
                                            value: [Self.titleAnchor: geometry.frame(in: .named(detailScrollSpace))])
                 })
-            stepsArea(snapshot, closed: closed)
-            replySection(snapshot, closed: closed)
-            repliesSection(snapshot)
-            linksSection(snapshot)
-            fromSection(snapshot)
+            if reviewing {
+                DetailReview(page: model.reviewPage(id))
+            } else {
+                stepsArea(snapshot, closed: closed)
+                replySection(snapshot, closed: closed)
+                    .disabled(snapshot.locked)
+                repliesSection(snapshot)
+                linksSection(snapshot)
+                fromSection(snapshot)
+            }
         }
         .padding(.horizontal, DS.Space.gutter)
         .padding(.vertical, DS.Space.bodyV)
@@ -378,12 +405,19 @@ struct DetailView<Model: PanelViewModel>: View {
                 UndoBar(undo: undo, sending: model.sendingCloses > 0, onUndo: { model.undo() })
                     .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
             }
-            ActionBar(mode: Self.actionMode(snapshot), answers: Self.answers(snapshot),
-                      onSkip: { model.close(id, .declined) },
-                      onPrimary: { primary(snapshot) },
-                      onReopen: { model.reopen(id) },
-                      onSendAndDone: { model.sendAndDone(id) },
-                      onDiscard: { model.discardAndDone(id) })
+            switch Self.bar(snapshot, reviewing: model.isReviewing(id)) {
+            case .review:
+                DetailReviewBar(model: model, id: id, page: model.reviewPage(id))
+            case .lock(let bar):
+                DetailLockBar(model: model, id: id, bar: bar)
+            case .action:
+                ActionBar(mode: Self.actionMode(snapshot), answers: Self.answers(snapshot),
+                          onSkip: { model.close(id, .declined) },
+                          onPrimary: { primary(snapshot) },
+                          onReopen: { model.reopen(id) },
+                          onSendAndDone: { model.sendAndDone(id) },
+                          onDiscard: { model.discardAndDone(id) })
+            }
         }
         .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: model.undoInfo)
         // The bars grow past DS.Metric.actionBar (a wrapped caption, the undo bar), so the

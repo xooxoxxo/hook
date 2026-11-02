@@ -14,6 +14,7 @@ public final class FixturePanelModel: PanelViewModel {
     @Published public var editingAnswers: [String: Set<String>] = [:]
     @Published public var expandedTodo: [String: Set<String>] = [:]
     @Published public var detailAnchor: [String: String] = [:]
+    @Published public var reviewing: [String: RevisionStamp] = [:]
     @Published public var notice: PanelNotice?
     @Published public var undoInfo: UndoInfo?
     @Published public var status: PanelStatus
@@ -22,11 +23,15 @@ public final class FixturePanelModel: PanelViewModel {
     public var localHost: String?
     public var queueIsLocal = false
     private let details: [String: DetailSnapshot]
+    private let reviewPages: [String: ReviewPage]
 
     public init(queue: QueueSnapshot, details: [String: DetailSnapshot] = [:], navigation: PanelNavigation = .init(),
-                notice: PanelNotice? = nil, undo: UndoInfo? = nil, status: PanelStatus) {
+                notice: PanelNotice? = nil, undo: UndoInfo? = nil, status: PanelStatus,
+                reviewPages: [String: ReviewPage] = [:]) {
         self.queue = queue
         self.details = details
+        self.reviewPages = reviewPages
+        reviewing = reviewPages.mapValues(\.target)
         self.navigation = navigation
         self.notice = notice
         undoInfo = undo
@@ -84,6 +89,7 @@ public final class FixturePanelModel: PanelViewModel {
         return .copied
     }
     public func reviewState(_ id: String) -> ReviewState { details[id]?.review ?? .legacy }
+    public func reviewPage(_ id: String) -> ReviewPage? { reviewPages[id] }
     public func accept(_ id: String, stamp: RevisionStamp) {}
     public func reportProblem(_ id: String, stepID: String, note: String) {}
     public func trustHistoryAgain() {}

@@ -118,12 +118,37 @@ public enum CopyOutcome: Equatable, Sendable {
     @discardableResult func copyLinkAddress(_ id: String, stamp: RevisionStamp?, url: URL) -> CopyOutcome
     /// Where the ask stands with this Mac's review of its corrections.
     func reviewState(_ id: String) -> ReviewState
+    /// The version each ask's inline review shows (memory only); nil when not under review.
+    var reviewing: [String: RevisionStamp] { get set }
+    /// The inline review of `reviewing[id]` (else the current version); nil when the ask isn't
+    /// pending or its history hasn't arrived yet.
+    func reviewPage(_ id: String) -> ReviewPage?
     /// Use Version N: accepts exactly `stamp` (Touch ID when a command, link or file changed).
     func accept(_ id: String, stamp: RevisionStamp)
     /// Report a Problem…'s Send: one step's note to the posting session, quoted.
     func reportProblem(_ id: String, stepID: String, note: String)
     /// "Trust the Pond's History Again…" (Touch ID): after a Pond restore, re-pin what it serves now.
     func trustHistoryAgain()
+}
+
+/// Show Changes, Not Now and Show Version N+1: the inline review is view state in the model.
+extension PanelViewModel {
+    /// Reviews the current version; again after a newer one arrived, it re-diffs and never accepts the older.
+    public func startReview(_ id: String) {
+        guard case .pending(_, let current, _) = reviewState(id) else { return }
+        reviewing[id] = current
+    }
+
+    /// Not Now: back to the locked ask.
+    public func endReview(_ id: String) {
+        reviewing[id] = nil
+    }
+
+    /// The detail shows the inline review: Show Changes was pressed and the ask is still pending.
+    public func isReviewing(_ id: String) -> Bool {
+        guard reviewing[id] != nil, case .pending = reviewState(id) else { return false }
+        return true
+    }
 }
 
 /// Change and Cancel on an answered reply or step question. Edit state lives in the model,

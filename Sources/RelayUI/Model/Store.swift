@@ -123,6 +123,9 @@ public enum LinkCheck: Equatable, Sendable {
     @Published public var editingAnswers: [String: Set<String>] = [:]
     /// The path of the top visible node per ask, for the detail's scroll position. Memory only.
     @Published public var detailAnchor: [String: String] = [:]
+    /// The version each ask's inline review shows, set by Show Changes; memory only. A newer
+    /// version arriving during the review never replaces it on its own (`ReviewPage.isStale`).
+    @Published public var reviewing: [String: RevisionStamp] = [:]
     /// Tick paths as loaded from TickStore, per ask, with the step source they were loaded
     /// against; dropped when the ask's detail changes, and reloaded when the source differs.
     /// Keyed on the source, not the tree: comparing it is cheap, building the tree hashes every step.
@@ -867,6 +870,7 @@ public enum LinkCheck: Equatable, Sendable {
             shell.checkForUpdates()
         case .corrected(let id, _):
             if navigation.selectedID != id { open(id) }
+            startReview(id)
         case .historyChanged:
             await trustHistoryAgain()
         case .reviewRecordsUnreadable:
@@ -1465,7 +1469,8 @@ extension Store: PanelViewModel {
             draft: drafts[id], pendingChoice: pendingChoice[id], busy: replyStates[id] == .sending, previous: previous, next: next,
             closedBy: closedBy(item), answerDrafts: answerDrafts[id] ?? [:], answerState: answerStates[id],
             doneWarning: doneWarnings.contains(id), review: review, stamp: stamp,
-            history: try? histories[id]?.get(), chips: chips(id, review: review), reported: reported(id))
+            history: try? histories[id]?.get(), chips: chips(id, review: review), reported: reported(id),
+            addedSinceShown: addedSinceShown(id, review: review))
     }
 
     public var status: PanelStatus {
@@ -1553,7 +1558,12 @@ extension Store: PanelViewModel {
     public func sendAnswers(_ id: String) { Task { _ = await sendAnswers(id) } }
     public func sendAnswer(_ id: String, path: String) { Task { _ = await sendAnswers(id, only: [path]) } }
     public func performNoticeAction() { Task { await performNoticeAction() } }
-    public func accept(_ id: String, stamp: RevisionStamp) { Task { await acceptRevision(id, stamp: stamp) } }
+    /// Use Version N from the inline review: on success the review ends.
+    public func accept(_ id: String, stamp: RevisionStamp) {
+        Task {
+            if await acceptRevision(id, stamp: stamp), reviewing[id] == stamp { reviewing[id] = nil }
+        }
+    }
     public func trustHistoryAgain() { Task { await trustHistoryAgain() } }
     public func reportProblem(_ id: String, stepID: String, note: String) {
         Task { _ = await reportProblem(id, stepID: stepID, note: note) }

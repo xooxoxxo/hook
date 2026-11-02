@@ -22,6 +22,8 @@ struct SettingsHooks {
 extension AppModel: SettingsViewModel {
     var ownerKeyState: OwnerKeyState { ownerKey?.state ?? .notSetUp }
     var ownerStatus: OwnerStatus? { ownerKey?.status }
+    var requireOffPending: Bool { ownerKey?.requireOffPending ?? false }
+    var requireProblem: String? { ownerKey?.requireProblem }
     var canRequireOwnerKey: Bool { ownerKey?.canRequireOwnerKey ?? false }
     func setUpOwnerKey() { ownerKey?.setUp() }
     func cancelOwnerKeySetup() { ownerKey?.cancelSetup() }

@@ -87,6 +87,8 @@ public struct ParentStepView: View {
     private var tickable: Bool { !readOnly && (question == nil || content.optional) && !locked && !contentLocked }
     /// The review lock, apart from the blocking-step `locked`.
     @Environment(\.askContentLocked) private var contentLocked
+    @Environment(\.stepTag) private var tag
+    @Environment(\.stepTags) private var tags
 
     public static func rowState(allDone: Bool, holdsCurrent: Bool) -> StepState {
         allDone ? .done : (holdsCurrent ? .current : .todo)
@@ -129,6 +131,7 @@ public struct ParentStepView: View {
                          question: childQuestions.indices.contains(i) ? childQuestions[i] : nil,
                          lockText: lockText ?? (childLockTexts.indices.contains(i) ? childLockTexts[i] : nil),
                          onToggle: { onToggleChild(i) }, onCopy: onCopy)
+                    .environment(\.stepTag, tags[childPaths[i]])
                     .id(childPaths[i])
                     .background(GeometryReader { geometry in
                         Color.clear.preference(key: NodeFramesKey.self,
@@ -200,6 +203,7 @@ public struct ParentStepView: View {
                 }
             }
             Spacer(minLength: DS.Space.inline)
+            if let tag { StepTag(tag) }
             if content.optional { StepRow.optionalCaption }
             if !locked {
                 Text(verbatim: "\(ticked) of \(itemTotal)")
