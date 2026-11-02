@@ -247,12 +247,16 @@ public struct AskRowModel: Equatable, Sendable, Identifiable {
     public var resumeCommand: String?
     /// Where the ask came from; Resume Session reads its folder, session and host.
     public var origin: AskOrigin?
+    /// A correction waits for the owner's review (ReviewState.pending): the card's Corrected badge.
+    public var corrected = false
+    /// The ask's history failed its checks (ReviewState.historyChanged): "Check history".
+    public var historyChanged = false
 
     public var isOpen: Bool { closed == nil }
 
     public init(id: String, title: String, project: String, urgency: Urgency, created: String,
                 summary: RowSummary, subline: String? = nil, hasDraft: Bool = false, closed: ClosedInfo? = nil,
-                resumeCommand: String? = nil, origin: AskOrigin? = nil) {
+                resumeCommand: String? = nil, origin: AskOrigin? = nil, review: ReviewState = .legacy) {
         self.id = id
         self.title = title
         self.project = project
@@ -265,6 +269,8 @@ public struct AskRowModel: Equatable, Sendable, Identifiable {
         self.closed = closed
         self.resumeCommand = resumeCommand
         self.origin = origin
+        if case .pending = review { corrected = true }
+        if case .historyChanged = review { historyChanged = true }
     }
 }
 

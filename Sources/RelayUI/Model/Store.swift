@@ -1379,7 +1379,7 @@ public enum LinkCheck: Equatable, Sendable {
             sections: sections, shownClosed: closed, open: items, grouping: grouping, filter: filter,
             ticks: { self.ticks($0.id, item: $0) }, answered: { self.answered($0.id) },
             hasDraft: { self.draftsWithText.contains($0) },
-            closedBy: { self.closedBy($0) },
+            closedBy: { self.closedBy($0) }, review: { self.reviewState($0.id) },
             sourceKey: sourceKey, loadedOnce: loadedOnce, reachable: reachable, problem: listProblem,
             waitedTenSeconds: swappedAt.map { now().timeIntervalSince($0) >= DS.Timing.detailLoadTimeout } ?? false,
             manualRefreshing: manualRefreshing, updated: lastListAt.map { ClockText.time($0) } ?? "")

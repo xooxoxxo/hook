@@ -208,6 +208,30 @@ extension Store {
         scheduleReviewSave()
     }
 
+    // MARK: Review content
+
+    /// The review of a pending ask: one cumulative diff from this Mac's accepted (else seen)
+    /// revision, or the full content when this Mac never showed it; every reason after the
+    /// baseline. nil when the ask isn't pending or its fetched history isn't at hand yet.
+    public func reviewDiff(_ id: String) -> RevisionDiff? {
+        guard case .pending(let shown, let current, let baseline) = reviewState(id),
+              case .success(let history)? = histories[id], history.isComplete,
+              let first = history.bodies[1], let now = history.body(current) else { return nil }
+        let from = baseline ?? 1
+        let reasons = (from + 1...current.rev).compactMap { rev in
+            history.reasons[rev].flatMap { $0.isEmpty ? nil : (rev: rev, reason: $0) }
+        }
+        return RevisionDiff.make(baseline: shown.flatMap(history.body), firstRevision: first, current: now,
+                                 reasons: reasons)
+    }
+
+    /// The review's "Look closer" flags, over what changed since the baseline (all of it on a first view).
+    public func lookCloserFlags(_ id: String) -> [LookCloserFlag] {
+        guard case .pending(let shown, let current, _) = reviewState(id), case .success(let history)? = histories[id],
+              let now = history.body(current) else { return [] }
+        return LookCloser.flags(old: shown.flatMap(history.body), new: now, cwd: now.from?.cwd)
+    }
+
     // MARK: Chips
 
     /// "Changed" and "New" by path in the rendered tree, while the accepted revision is current.

@@ -33,6 +33,7 @@ public struct QueueSnapshot: Equatable, Sendable {
                              grouping: QueueGrouping, filter: String?,
                              ticks: (WireItem) -> Set<String>, answered: (WireItem) -> Set<String>?,
                              hasDraft: (String) -> Bool, closedBy: (WireItem) -> String?,
+                             review: (WireItem) -> ReviewState = { _ in .legacy },
                              sourceKey: String, loadedOnce: Bool, reachable: Bool, problem: String?, waitedTenSeconds: Bool,
                              manualRefreshing: Bool, updated: String) -> QueueSnapshot {
         var rows: [String: AskRowModel] = [:]
@@ -41,11 +42,11 @@ public struct QueueSnapshot: Equatable, Sendable {
             for item in section.items {
                 shownCount += 1
                 rows[item.id] = row(item, ticked: ticks(item), answered: answered(item), hasDraft: hasDraft(item.id),
-                                    closedBy: nil)
+                                    closedBy: nil, review: review(item))
             }
         }
         let closedRows = shownClosed.map {
-            row($0, ticked: ticks($0), answered: answered($0), hasDraft: false, closedBy: closedBy($0))
+            row($0, ticked: ticks($0), answered: answered($0), hasDraft: false, closedBy: closedBy($0), review: review($0))
         }
         let content = PanelContent.resolve(sourceKey: sourceKey, loadedOnce: loadedOnce, reachable: reachable, problem: problem,
                                            waitedTenSeconds: waitedTenSeconds, filter: filter,
@@ -62,7 +63,7 @@ public struct QueueSnapshot: Equatable, Sendable {
     /// One row; a non-open item gets its ClosedInfo, with `closedBy` the closing actor when known.
     /// `answered`: the answered step paths, when the ask's detail is cached (QueueLayout.summary).
     public static func row(_ item: WireItem, ticked: Set<String>, answered: Set<String>? = nil, hasDraft: Bool,
-                           closedBy: String?) -> AskRowModel {
+                           closedBy: String?, review: ReviewState = .legacy) -> AskRowModel {
         let isClosed = item.status != "open"
         let summary = QueueLayout.summary(for: item, ticked: ticked, answered: answered)
         let ins = item.instructable
@@ -73,7 +74,7 @@ public struct QueueSnapshot: Equatable, Sendable {
             subline: SubLine.text(summary, choices: ins?.reply?.choices?.count ?? 0, places: ins.map(SubLine.places) ?? []),
             hasDraft: hasDraft,
             closed: isClosed ? ClosedInfo(status: item.status, closedBy: closedBy, completedAt: item.completedAt) : nil,
-            resumeCommand: origin?.resumeCommand, origin: origin)
+            resumeCommand: origin?.resumeCommand, origin: origin, review: review)
     }
 
     static func hasText(_ text: String?) -> Bool {
@@ -146,7 +147,7 @@ public struct DetailSnapshot: Equatable, Sendable {
         return DetailSnapshot(
             id: item.id,
             row: QueueSnapshot.row(item, ticked: ticks, answered: answered, hasDraft: QueueSnapshot.hasText(draft),
-                                   closedBy: model?.closedBy ?? closedBy),
+                                   closedBy: model?.closedBy ?? closedBy, review: review),
             model: model, load: load, ticks: ticks,
             current: Flow.currentStep(ticks: ticks, nodes: nodes), progress: Flow.progress(ticks: ticks, nodes: nodes),
             replies: replies, sentChoices: ReplyText.sentChoices(events: events, choices: choices),
