@@ -255,3 +255,96 @@ private func decodeInstructable(_ json: String) throws -> Instructable {
     #expect(QueueLayout.summary(for: item, ticked: ["1", "2"], answered: ["1"]) == .steps(done: 1, total: 3))
     #expect(QueueLayout.summary(for: item, ticked: ["3"], answered: ["2"]) == .steps(done: 2, total: 3))
 }
+
+// MARK: - Revisions, step ids and the owner (Pond 1.1.0)
+
+private let revisedItemJSON = """
+    {"id":"6f1c2b0e-8a1d-4c55-9a77-0d2f3c4b5a61","title":"Deploy","status":"open","projectId":"Acme",
+     "created":"2026-10-29T10:00:00+00:00","updated":"2026-10-29T10:05:00+00:00",
+     "payload":{"instructable":{"v":1,"title":"Deploy","steps":[{"do":"Build it","id":"s1"},
+       {"do":"Check","id":"s2","substeps":[{"do":"Open","id":"s2.1"}]}]}},
+     "revision":{"rev":2,"hash":"\(String(repeating: "b", count: 64))","prev":"\(String(repeating: "a", count: 64))",
+       "at":"2026-10-29T10:05:00+00:00","reason":"Fix the build step",
+       "body":"{\\"steps\\":[]}","acceptedRev":1}}
+    """
+
+@Test func aRevisedItemDecodesItsRevision() throws {
+    let item = try JSONDecoder().decode(WireItem.self, from: Data(revisedItemJSON.utf8))
+    let revision = try #require(item.revision)
+    #expect(revision.rev == 2)
+    #expect(revision.prev == String(repeating: "a", count: 64))
+    #expect(revision.reason == "Fix the build step")
+    #expect(revision.body == #"{"steps":[]}"#)
+    #expect(revision.acceptedRev == 1)
+    #expect(revision.stamp == RevisionStamp(rev: 2, hash: String(repeating: "b", count: 64)))
+    #expect(item.instructable?.steps.map(\.id) == ["s1", "s2"])
+    #expect(item.instructable?.steps[1].substeps?.first?.id == "s2.1")
+}
+
+@Test func anItemFromAnOlderPondHasNoRevision() throws {
+    let json = """
+        {"id":"x","title":"Deploy","status":"open","created":"2026-10-29T10:00:00+00:00",
+         "updated":"2026-10-29T10:00:00+00:00","payload":{"instructable":{"title":"Deploy","steps":[{"do":"a"}]}}}
+        """
+    let item = try JSONDecoder().decode(WireItem.self, from: Data(json.utf8))
+    #expect(item.revision == nil)
+    #expect(item.instructable?.steps.first?.id == nil)
+    // A malformed revision is dropped, not the ask.
+    let odd = json.replacingOccurrences(of: #""payload""#, with: #""revision":{"rev":"2"},"payload""#)
+    #expect(try JSONDecoder().decode(WireItem.self, from: Data(odd.utf8)).revision == nil)
+}
+
+@Test func aMalformedStepIdIsNil() throws {
+    let ins = try JSONDecoder().decode(Instructable.self, from: Data(#"{"title":"t","steps":[{"do":"a","id":7}]}"#.utf8))
+    #expect(ins.steps.first?.id == nil)
+    #expect(ins.steps.first?.action == "a")
+}
+
+@Test func theDetailCarriesTheRevisionHistory() throws {
+    let json = """
+        {"item":\(revisedItemJSON),"events":[
+          {"seq":1,"itemId":"x","kind":"answer","actor":"owner","text":"{}","at":"2026-10-29T10:06:00+00:00",
+           "rev":2,"auth":"owner-key"},
+          {"seq":2,"itemId":"x","kind":"problem","actor":"owner","text":"note","at":"2026-10-29T10:07:00+00:00"},
+          {"seq":3,"itemId":"x","kind":"accepted","actor":"owner","text":null,"at":"2026-10-29T10:08:00+00:00",
+           "rev":null,"auth":null}],
+         "revisions":[{"rev":1,"hash":"\(String(repeating: "a", count: 64))","prev":"","at":"2026-10-29T10:00:00+00:00",
+           "reason":"","body":"{}"}]}
+        """
+    let detail = try JSONDecoder().decode(AskDetail.self, from: Data(json.utf8))
+    #expect(detail.revisions.map(\.rev) == [1])
+    #expect(detail.revisions.first?.prev == "")
+    #expect(detail.events[0].rev == 2)
+    #expect(detail.events[0].auth == "owner-key")
+    #expect(detail.events[1].rev == nil && detail.events[1].auth == nil)
+    #expect(detail.ownerEvents.map(\.kind) == ["answer", "problem", "accepted"])
+    let bare = #"{"item":\#(revisedItemJSON),"events":[]}"#
+    #expect(try JSONDecoder().decode(AskDetail.self, from: Data(bare.utf8)).revisions == [])
+}
+
+@Test func ownerStatusDecodesWithAndWithoutSelf() throws {
+    let json = """
+        {"required":false,"keys":[{"id":"k1","label":"studio","status":"approved","created":"2026-10-29T10:00:00+00:00",
+          "approvedAt":"2026-10-29T10:01:00+00:00"},
+         {"id":"k2","label":"laptop","status":"pending","created":"2026-10-29T10:02:00+00:00","approvedAt":null}],
+         "self":{"id":"k1","status":"approved"}}
+        """
+    let status = try JSONDecoder().decode(OwnerStatus.self, from: Data(json.utf8))
+    #expect(!status.required)
+    #expect(status.keys.map(\.status) == ["approved", "pending"])
+    #expect(status.keys[1].approvedAt == nil)
+    #expect(status.self_ == OwnerSelf(id: "k1", status: "approved"))
+    let none = #"{"required":true,"keys":[],"self":null}"#
+    #expect(try JSONDecoder().decode(OwnerStatus.self, from: Data(none.utf8)).self_ == nil)
+    let absent = #"{"required":true,"keys":[]}"#
+    #expect(try JSONDecoder().decode(OwnerStatus.self, from: Data(absent.utf8)).self_ == nil)
+}
+
+@Test func anEnrollmentDecodesBothReplies() throws {
+    let created = #"{"id":"e1","code":"586039","expires":"2026-10-29T10:10:00+00:00","status":"pending"}"#
+    #expect(try JSONDecoder().decode(Enrollment.self, from: Data(created.utf8))
+        == Enrollment(id: "e1", code: "586039", status: "pending", expires: "2026-10-29T10:10:00+00:00"))
+    let polled = #"{"id":"e1","status":"approved"}"#
+    #expect(try JSONDecoder().decode(Enrollment.self, from: Data(polled.utf8))
+        == Enrollment(id: "e1", code: nil, status: "approved", expires: nil))
+}

@@ -26,19 +26,24 @@ public struct Step: Codable, Sendable, Equatable {
     /// An absolute local path ("/…" or "~/…") to a document the owner should read,
     /// usually Markdown (never on verify).
     public var file: String?
+    /// The step's stable id (Pond 1.1.0): "s1", "s3.1", or a session's own. Corrections keep
+    /// it, so ticks and answers follow the step (never on verify).
+    public var id: String?
 
     enum CodingKeys: String, CodingKey {
         case action = "do"
         case place = "where"
-        case code, lang, expect, detail, url, substeps, question, blocking, warning, optional, file
+        case code, lang, expect, detail, url, substeps, question, blocking, warning, optional, file, id
     }
 
     public init(action: String, place: String? = nil, code: String? = nil, lang: String? = nil, expect: String? = nil,
                 detail: String? = nil, url: String? = nil, substeps: [Step]? = nil, question: Question? = nil,
-                blocking: Bool? = nil, warning: String? = nil, optional: Bool? = nil, file: String? = nil) {
+                blocking: Bool? = nil, warning: String? = nil, optional: Bool? = nil, file: String? = nil,
+                id: String? = nil) {
         self.action = action; self.place = place; self.code = code; self.lang = lang; self.expect = expect
         self.detail = detail; self.url = url; self.substeps = substeps; self.question = question
         self.blocking = blocking; self.warning = warning; self.optional = optional; self.file = file
+        self.id = id
     }
 }
 
@@ -62,7 +67,7 @@ public struct Question: Codable, Sendable, Equatable {
 
 extension Step {
     /// As the synthesized decoder did, plus a lenient `substeps`, `question`, `blocking`,
-    /// `warning`, `optional` and `file`: null,
+    /// `warning`, `optional`, `file` and `id`: null,
     /// the wrong type or a malformed value becomes nil instead of failing the instructable.
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -79,6 +84,7 @@ extension Step {
         warning = (try? c.decodeIfPresent(String.self, forKey: .warning)) ?? nil
         optional = (try? c.decodeIfPresent(Bool.self, forKey: .optional)) ?? nil
         file = (try? c.decodeIfPresent(String.self, forKey: .file)) ?? nil
+        id = (try? c.decodeIfPresent(String.self, forKey: .id)) ?? nil
     }
 }
 
@@ -177,6 +183,54 @@ extension Payload {
     }
 }
 
+/// Which revision of an ask an owner act was made on (Pond 1.1.0).
+public struct RevisionStamp: Codable, Sendable, Hashable {
+    public var rev: Int
+    public var hash: String
+
+    public init(rev: Int, hash: String) { self.rev = rev; self.hash = hash }
+}
+
+/// One entry of an ask's revision history (`revisions` in `GET /asks/{id}`). `body` is the
+/// canonical JSON string the hash covers: hash it as served, never re-encode it.
+public struct Revision: Codable, Sendable, Equatable {
+    public var rev: Int
+    public var hash: String
+    /// The previous revision's hash; "" for rev 1.
+    public var prev: String
+    public var at: String
+    /// Why the session corrected the ask; "" for rev 1.
+    public var reason: String
+    public var body: String
+
+    public init(rev: Int, hash: String, prev: String, at: String, reason: String, body: String) {
+        self.rev = rev; self.hash = hash; self.prev = prev; self.at = at; self.reason = reason; self.body = body
+    }
+
+    public var stamp: RevisionStamp { RevisionStamp(rev: rev, hash: hash) }
+}
+
+/// An item's current revision (`item.revision`), served to a client that sends
+/// `X-Hook-Protocol: 5`, with the revision the owner last accepted.
+public struct ServedRevision: Codable, Sendable, Equatable {
+    public var rev: Int
+    public var hash: String
+    public var prev: String
+    public var at: String
+    public var reason: String
+    public var body: String
+    /// The revision in force for Telegram, answers and Done; nil when the Pond names none.
+    public var acceptedRev: Int?
+
+    public init(rev: Int, hash: String, prev: String, at: String, reason: String, body: String,
+                acceptedRev: Int? = nil) {
+        self.rev = rev; self.hash = hash; self.prev = prev; self.at = at; self.reason = reason; self.body = body
+        self.acceptedRev = acceptedRev
+    }
+
+    public var stamp: RevisionStamp { RevisionStamp(rev: rev, hash: hash) }
+}
+
 /// The fields of the mailbox's item envelope that Hook uses.
 public struct WireItem: Codable, Sendable, Equatable, Identifiable {
     public var id: String
@@ -189,11 +243,33 @@ public struct WireItem: Codable, Sendable, Equatable, Identifiable {
     public var payload: Payload
     /// When the ask was last closed; nil while it is open.
     public var completedAt: String? = nil
+    /// The current revision (Pond 1.1.0); nil from an older Pond or This Mac mode.
+    public var revision: ServedRevision? = nil
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, status, projectId, created, updated, payload, completedAt, revision
+    }
 
     public init(id: String, title: String, status: String, projectId: String? = nil, created: String, updated: String,
-                payload: Payload, completedAt: String? = nil) {
+                payload: Payload, completedAt: String? = nil, revision: ServedRevision? = nil) {
         self.id = id; self.title = title; self.status = status; self.projectId = projectId
         self.created = created; self.updated = updated; self.payload = payload; self.completedAt = completedAt
+        self.revision = revision
+    }
+
+    /// As the synthesized decoder did, plus a lenient `revision`: a malformed one is nil,
+    /// so the ask reads as one from an older Pond rather than failing the list.
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        title = try c.decode(String.self, forKey: .title)
+        status = try c.decode(String.self, forKey: .status)
+        projectId = try c.decodeIfPresent(String.self, forKey: .projectId)
+        created = try c.decode(String.self, forKey: .created)
+        updated = try c.decode(String.self, forKey: .updated)
+        payload = try c.decode(Payload.self, forKey: .payload)
+        completedAt = try c.decodeIfPresent(String.self, forKey: .completedAt)
+        revision = (try? c.decodeIfPresent(ServedRevision.self, forKey: .revision)) ?? nil
     }
 
     public var instructable: Instructable? { payload.instructable }
@@ -209,13 +285,21 @@ public struct Event: Codable, Sendable, Equatable {
     public var actor: String
     public var text: String?
     public var at: String
+    /// The revision the act was bound to (Pond 1.1.0); nil before, or for an unbound act.
+    public var rev: Int?
+    /// How the Pond checked the owner: "owner-key" or "token"; nil before Pond 1.1.0.
+    public var auth: String?
 
-    public init(seq: Int, itemId: String, kind: String, actor: String, text: String? = nil, at: String) {
+    public init(seq: Int, itemId: String, kind: String, actor: String, text: String? = nil, at: String,
+                rev: Int? = nil, auth: String? = nil) {
         self.seq = seq; self.itemId = itemId; self.kind = kind; self.actor = actor; self.text = text; self.at = at
+        self.rev = rev; self.auth = auth
     }
 
-    /// The kinds an owner's action records: a reply, a step answer, a close, or a reopen.
-    public static let ownerKinds: Set<String> = ["reply", "answer", "resolved", "declined", "reopened"]
+    /// The kinds an owner's action records: a reply, a step answer, a close, a reopen, a
+    /// problem report or an accepted correction.
+    public static let ownerKinds: Set<String> = ["reply", "answer", "resolved", "declined", "reopened", "problem",
+                                                 "accepted"]
     /// The kinds that change whether an ask is open: a close or a reopen.
     public static let statusKinds: Set<String> = ["resolved", "declined", "reopened"]
 
@@ -226,8 +310,24 @@ public struct Event: Codable, Sendable, Equatable {
 public struct AskDetail: Codable, Sendable, Equatable {
     public var item: WireItem
     public var events: [Event]
+    /// Every revision, oldest first (Pond 1.1.0); [] from an older Pond or This Mac mode.
+    public var revisions: [Revision]
 
-    public init(item: WireItem, events: [Event]) { self.item = item; self.events = events }
+    enum CodingKeys: String, CodingKey {
+        case item, events, revisions
+    }
+
+    public init(item: WireItem, events: [Event], revisions: [Revision] = []) {
+        self.item = item; self.events = events; self.revisions = revisions
+    }
+
+    /// `revisions` is [] when absent or malformed.
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        item = try c.decode(WireItem.self, forKey: .item)
+        events = try c.decode([Event].self, forKey: .events)
+        revisions = (try? c.decodeIfPresent([Revision].self, forKey: .revisions)) ?? []
+    }
 
     /// The owner's replies, oldest first.
     public var ownerReplies: [String] {
@@ -238,4 +338,64 @@ public struct AskDetail: Codable, Sendable, Equatable {
     public var ownerEvents: [Event] {
         events.filter(\.isOwnerEvent)
     }
+}
+
+// MARK: - The owner key (Pond 1.1.0)
+
+/// One key in `GET /owner`'s `keys`: never its hash or code.
+public struct OwnerKeyRow: Decodable, Sendable, Equatable {
+    public var id: String
+    public var label: String
+    /// "pending" or "approved" (the Pond lists only those).
+    public var status: String
+    public var created: String
+    public var approvedAt: String?
+
+    public init(id: String, label: String, status: String, created: String, approvedAt: String? = nil) {
+        self.id = id; self.label = label; self.status = status; self.created = created; self.approvedAt = approvedAt
+    }
+}
+
+/// The key the request was sent with, in any status ("pending", "approved", "rejected", "revoked", …).
+public struct OwnerSelf: Decodable, Sendable, Equatable {
+    public var id: String
+    public var status: String
+
+    public init(id: String, status: String) { self.id = id; self.status = status }
+}
+
+/// `GET /owner`: whether owner acts need a key, the approved and pending keys, and this Mac's.
+public struct OwnerStatus: Decodable, Sendable, Equatable {
+    public var required: Bool
+    public var keys: [OwnerKeyRow]
+    /// This Mac's key, when the request carried one the Pond knows; nil otherwise.
+    public var self_: OwnerSelf?
+
+    enum CodingKeys: String, CodingKey {
+        case required, keys
+        case self_ = "self"
+    }
+
+    public init(required: Bool, keys: [OwnerKeyRow], self_: OwnerSelf? = nil) {
+        self.required = required; self.keys = keys; self.self_ = self_
+    }
+}
+
+/// `POST /owner/enroll` (`id`, `code`, `expires`, `status`) or `GET /owner/enroll/{id}` (`id`, `status`).
+public struct Enrollment: Decodable, Sendable, Equatable {
+    public var id: String
+    /// The 6-digit code Hook shows and the Telegram request repeats.
+    public var code: String?
+    /// "pending", "approved", "rejected" or "expired".
+    public var status: String?
+    public var expires: String?
+
+    public init(id: String, code: String? = nil, status: String? = nil, expires: String? = nil) {
+        self.id = id; self.code = code; self.status = status; self.expires = expires
+    }
+}
+
+/// `POST /owner/require`'s outcome: on and off at once, or off waiting for the owner's tap on Telegram.
+public enum OwnerKeyRequirement: Equatable, Sendable {
+    case on, off, pending
 }
