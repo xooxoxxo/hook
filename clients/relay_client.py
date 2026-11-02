@@ -30,7 +30,7 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 
 import relay_semver
 
-VERSION = "0.10.0"
+VERSION = "0.11.0"
 DEFAULT_CONFIG = "~/.config/relay/config.json"
 DEFAULT_PORT = 47823
 DEFAULT_CONTEXT = "personal"

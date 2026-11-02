@@ -3,7 +3,7 @@
 All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
-## [Unreleased]
+## [0.11.0] - 2026-11-03
 
 ### Added
 - Hook reviews step corrections. Every revision of an ask is hashed; Hook checks the whole chain,
