@@ -24,7 +24,7 @@ public enum Validator {
     /// Verify: a leaf that asks, blocks and opts out of nothing.
     static let verifyKeys: Set<String> = ["do", "where", "code", "lang", "expect", "detail", "url"]
     /// A sub-step.
-    static let leafKeys: Set<String> = verifyKeys.union(["question", "blocking", "warning", "optional", "file"])
+    static let leafKeys: Set<String> = verifyKeys.union(["question", "blocking", "warning", "optional", "file", "id"])
     /// `warning`: multi-line, like `detail`.
     static let warningLimit = 300
     /// An entry of `steps`.
@@ -40,6 +40,9 @@ public enum Validator {
     /// `file` and a link's `path`: an absolute local path of at most this many characters.
     static let maxPath = 500
     static let fromKeys = ["session", "host", "cwd"]
+    /// A step id (Pond 1.1.0), matched whole: on steps and sub-steps, never on verify.
+    public static let idPattern = "[a-z0-9][a-z0-9.-]{0,23}"
+    static let idsAllOrNone = "steps: ids must be given for every step or for none"
     /// Step fields in the reference's order: name, limit, text class.
     static let stepFields: [(name: String, limit: Int, kind: TextKind)] = [
         ("do", 300, .single), ("where", 60, .single), ("code", 4000, .code),
@@ -89,6 +92,7 @@ public enum Validator {
             if questionCount(steps) > maxQuestions {
                 errors.append("steps: more than \(maxQuestions) questions in total")
             }
+            ids(&errors, steps)
         } else {
             errors.append("steps: must be a list of 1 to \(maxSteps) steps")
         }
@@ -433,6 +437,60 @@ public enum Validator {
         default:
             errors.append("\(path).multi: must be true or false")
         }
+    }
+
+    /// `_ids`: each id a string matching `idPattern` whole, not reading as a step number
+    /// ("2", "3.1": `step` in an answer or a problem may be a path or an id) and used once, in
+    /// document order (a step, then its sub-steps); then all of them or none. Null counts as absent.
+    static func ids(_ errors: inout [String], _ steps: [JSONValue]) {
+        var seen = Set<String>()
+        var given = 0, total = 0
+        for (index, item) in steps.enumerated() {
+            guard case .object(let step) = item else { continue }
+            var entries = [("steps[\(index)]", step)]
+            if case .array(let subs)? = step["substeps"] {
+                for (subIndex, sub) in subs.enumerated() {
+                    if case .object(let members) = sub { entries.append(("steps[\(index)].substeps[\(subIndex)]", members)) }
+                }
+            }
+            for (path, entry) in entries {
+                total += 1
+                guard let value = present(entry["id"]) else { continue }
+                given += 1
+                guard case .string(let id) = value else {
+                    errors.append("\(path).id: must be a string")
+                    continue
+                }
+                if !isStepID(id) {
+                    errors.append("\(path).id: must match \(idPattern)")
+                } else if looksLikeStepNumber(id) {
+                    errors.append("\(path).id: must not look like a step number")
+                } else if !seen.insert(id).inserted {
+                    errors.append("\(path).id: duplicate")
+                }
+            }
+        }
+        if 0 < given && given < total {
+            errors.append(idsAllOrNone)
+        }
+    }
+
+    /// `[a-z0-9][a-z0-9.-]{0,23}`, whole.
+    public static func isStepID(_ id: String) -> Bool {
+        let scalars = Array(id.unicodeScalars)
+        guard (1...24).contains(scalars.count), isLowerAlphanumeric(scalars[0]) else { return false }
+        return scalars.dropFirst().allSatisfy { isLowerAlphanumeric($0) || $0 == "." || $0 == "-" }
+    }
+
+    /// `\d+(\.\d+)?`, whole: an id that would read as a step's path.
+    public static func looksLikeStepNumber(_ id: String) -> Bool {
+        let parts = id.split(separator: ".", omittingEmptySubsequences: false)
+        guard (1...2).contains(parts.count) else { return false }
+        return parts.allSatisfy { !$0.isEmpty && $0.unicodeScalars.allSatisfy { ("0"..."9").contains($0) } }
+    }
+
+    static func isLowerAlphanumeric(_ scalar: Unicode.Scalar) -> Bool {
+        ("a"..."z").contains(scalar) || ("0"..."9").contains(scalar)
     }
 
     /// `_every_step` counted: each step object, then each object in its `substeps`

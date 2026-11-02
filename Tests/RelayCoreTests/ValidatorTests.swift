@@ -248,7 +248,8 @@ private let minimal: [String: JSONValue] = [
 
     @Test func stepAndLeafKeys() {
         #expect(Validator.verifyKeys == ["do", "where", "code", "lang", "expect", "detail", "url"])
-        #expect(Validator.leafKeys == Validator.verifyKeys.union(["question", "blocking", "warning", "optional", "file"]))
+        #expect(Validator.leafKeys == Validator.verifyKeys.union(["question", "blocking", "warning", "optional", "file", "id"]))
+        #expect(!Validator.verifyKeys.contains("id"))
         #expect(Validator.linkKeys == ["label", "url", "path"])
         #expect(Validator.maxPath == 500)
         #expect(Validator.warningLimit == 300)
@@ -257,5 +258,78 @@ private let minimal: [String: JSONValue] = [
         #expect(Validator.stepKeys == Validator.leafKeys.union(["substeps"]))
         #expect(Validator.maxSubsteps == 10)
         #expect(Validator.maxStepTotal == 60)
+    }
+}
+
+/// Step ids (Pond 1.1.0), with the errors the Pond's `instructable.validate` gives for each
+/// input: the same messages and order. The Pond's generated vectors don't carry an `id-`
+/// family yet; these were computed from its validator.
+@Suite struct ValidatorStepIdTests {
+    static let cases: [(name: String, input: String, errors: [String])] = [
+        ("id-valid-all", #"{"v":1,"title":"Deploy","steps":[{"do":"a","id":"s1"},{"do":"b","id":"build-2","substeps":[{"do":"c","id":"b.1"}]}]}"#,
+         []),
+        ("id-valid-digit-start", #"{"v":1,"title":"Deploy","steps":[{"do":"a","id":"1a"},{"do":"b","id":"1.2.3"}]}"#,
+         []),
+        ("id-valid-24", #"{"v":1,"title":"Deploy","steps":[{"do":"a","id":"aaaaaaaaaaaaaaaaaaaaaaaa"}]}"#,
+         []),
+        ("id-bad-upper", #"{"v":1,"title":"Deploy","steps":[{"do":"a","id":"S1x"}]}"#,
+         ["steps[0].id: must match [a-z0-9][a-z0-9.-]{0,23}"]),
+        ("id-bad-25", #"{"v":1,"title":"Deploy","steps":[{"do":"a","id":"aaaaaaaaaaaaaaaaaaaaaaaaa"}]}"#,
+         ["steps[0].id: must match [a-z0-9][a-z0-9.-]{0,23}"]),
+        ("id-bad-empty", #"{"v":1,"title":"Deploy","steps":[{"do":"a","id":""}]}"#,
+         ["steps[0].id: must match [a-z0-9][a-z0-9.-]{0,23}"]),
+        ("id-bad-hyphen-start", #"{"v":1,"title":"Deploy","steps":[{"do":"a","id":"-a"}]}"#,
+         ["steps[0].id: must match [a-z0-9][a-z0-9.-]{0,23}"]),
+        ("id-bad-hidden", #"{"v":1,"title":"Deploy","steps":[{"do":"a","id":"a\u202eb"}]}"#,
+         ["steps[0].id: must match [a-z0-9][a-z0-9.-]{0,23}"]),
+        ("id-bad-space", #"{"v":1,"title":"Deploy","steps":[{"do":"a","id":"a b"}]}"#,
+         ["steps[0].id: must match [a-z0-9][a-z0-9.-]{0,23}"]),
+        ("id-bad-unicode-digit", #"{"v":1,"title":"Deploy","steps":[{"do":"a","id":"a\u0661"}]}"#,
+         ["steps[0].id: must match [a-z0-9][a-z0-9.-]{0,23}"]),
+        ("id-step-number", #"{"v":1,"title":"Deploy","steps":[{"do":"a","id":"2"},{"do":"b","id":"3.1"}]}"#,
+         ["steps[0].id: must not look like a step number", "steps[1].id: must not look like a step number"]),
+        ("id-step-number-ok-like", #"{"v":1,"title":"Deploy","steps":[{"do":"a","id":"3.1.1"},{"do":"b","id":"3."}]}"#,
+         []),
+        ("id-duplicate", #"{"v":1,"title":"Deploy","steps":[{"do":"a","id":"s1"},{"do":"b","id":"s2","substeps":[{"do":"c","id":"s1"}]}]}"#,
+         ["steps[1].substeps[0].id: duplicate"]),
+        ("id-not-string", #"{"v":1,"title":"Deploy","steps":[{"do":"a","id":7},{"do":"b","id":true}]}"#,
+         ["steps[0].id: must be a string", "steps[1].id: must be a string"]),
+        ("id-partial", #"{"v":1,"title":"Deploy","steps":[{"do":"a","id":"s1"},{"do":"b"}]}"#,
+         ["steps: ids must be given for every step or for none"]),
+        ("id-partial-null", #"{"v":1,"title":"Deploy","steps":[{"do":"a","id":null},{"do":"b","id":"s2"}]}"#,
+         ["steps: ids must be given for every step or for none"]),
+        ("id-partial-substep", #"{"v":1,"title":"Deploy","steps":[{"do":"a","id":"s1","substeps":[{"do":"c"}]}]}"#,
+         ["steps: ids must be given for every step or for none"]),
+        ("id-none-at-all", #"{"v":1,"title":"Deploy","steps":[{"do":"a","substeps":[{"do":"c"}]}]}"#,
+         []),
+        ("id-verify-unknown", #"{"v":1,"title":"Deploy","steps":[{"do":"a","id":"s1"}],"verify":{"do":"v","id":"v1"}}"#,
+         ["verify.id: unknown key"]),
+        ("id-order", #"{"v":1,"title":"Deploy","steps":[{"id":"S"}],"verify":{"do":"v","id":"v"}}"#,
+         ["steps[0].do: required", "steps[0].id: must match [a-z0-9][a-z0-9.-]{0,23}", "verify.id: unknown key"]),
+        ("id-secret", #"{"v":1,"title":"Deploy","steps":[{"do":"a","id":"sk-ant-abc"}]}"#,
+         ["steps[0].id: secret-like value"]),
+        ("id-non-object-step", #"{"v":1,"title":"Deploy","steps":["x",{"do":"a","id":"s1"}]}"#,
+         ["steps[0]: must be an object"]),
+        ("id-bad-and-partial", #"{"v":1,"title":"Deploy","steps":[{"do":"a","id":"Bad"},{"do":"b"}]}"#,
+         ["steps[0].id: must match [a-z0-9][a-z0-9.-]{0,23}", "steps: ids must be given for every step or for none"]),
+    ]
+
+    @Test func idsMatchThePond() throws {
+        for (name, input, errors) in Self.cases {
+            let value = try JSONValue.parse(Data(input.utf8))
+            switch Validator.validate(value) {
+            case .success: #expect(errors.isEmpty, "\(name) should fail with \(errors)")
+            case .failure(let failure): #expect(failure.errors == errors, "\(name)")
+            }
+        }
+    }
+
+    @Test func anAcceptedIdIsKept() throws {
+        let value = try JSONValue.parse(Data(#"{"v":1,"title":"t","steps":[{"do":"a","id":"s1"}]}"#.utf8))
+        guard case .success(let clean) = Validator.validate(value) else {
+            Issue.record("should pass")
+            return
+        }
+        #expect(clean["steps"] == .array([.object(["do": .string("a"), "id": .string("s1")])]))
     }
 }
