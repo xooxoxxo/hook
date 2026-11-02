@@ -53,6 +53,15 @@ private func reviewPage(latest: Int = 3) -> ReviewPage {
                     time: { reviewTimes[$0] ?? "10:50" })
 }
 
+/// A first view: this Mac never showed the ask, so version 3 is shown whole, untagged and
+/// undimmed, with every Look-closer flag under its step.
+private func firstViewPage() -> ReviewPage {
+    let diff = RevisionDiff.make(baseline: nil, firstRevision: reviewV1, current: reviewV3, reasons: reviewReasons)
+    return ReviewPage.make(diff: diff, flags: LookCloser.flags(old: nil, new: reviewV3, cwd: reviewOrigin.cwd),
+                           body: reviewV3, target: reviewStamps[3]!, latest: reviewStamps[3]!, baselineRev: nil,
+                           time: { reviewTimes[$0] ?? "10:50" })
+}
+
 private func reviewItem(_ ins: Instructable) -> WireItem {
     WireItem(id: reviewID, title: ins.title, status: "open", projectId: "Kestrel",
              created: "2026-10-16T09:20:00+00:00", updated: "2026-10-16T10:42:00+00:00",
@@ -64,12 +73,17 @@ private func reviewItem(_ ins: Instructable) -> WireItem {
 @MainActor private func lockedSnapshot(_ review: ReviewState) -> DetailSnapshot {
     let item = reviewItem(reviewV1)
     var pending = false
-    if case .pending = review { pending = true }
+    var firstView = false
+    if case .pending(let shown, _, let baseline) = review {
+        pending = true
+        firstView = shown == nil && baseline == nil
+    }
+    let tagged = pending && !firstView
     return DetailSnapshot.build(
-        item: item, detail: AskDetail(item: item, events: []), ticks: ["1", "2"], load: .loaded, reply: .idle,
-        draft: nil, pendingChoice: nil, busy: false, previous: .end, next: .end, closedBy: nil, review: review,
-        stamp: pending ? reviewStamps[1] : nil, chips: pending ? reviewDiff.shownChips : [:],
-        addedSinceShown: pending ? reviewDiff.addedIDs.count : 0)
+        item: item, detail: AskDetail(item: item, events: []), ticks: firstView ? [] : ["1", "2"], load: .loaded,
+        reply: .idle, draft: nil, pendingChoice: nil, busy: false, previous: .end, next: .end, closedBy: nil,
+        review: review, stamp: pending ? reviewStamps[1] : nil, chips: tagged ? reviewDiff.shownChips : [:],
+        addedSinceShown: tagged ? reviewDiff.addedIDs.count : 0)
 }
 
 @MainActor private func reviewScene(_ name: String, _ snapshot: DetailSnapshot, page: ReviewPage? = nil,
@@ -83,6 +97,7 @@ private func reviewItem(_ ins: Instructable) -> WireItem {
 }
 
 private let pending = ReviewState.pending(shown: reviewStamps[1], current: reviewStamps[3]!, baseline: 1)
+private let firstView = ReviewState.pending(shown: nil, current: reviewStamps[3]!, baseline: nil)
 
 /// Owner Key states in Settings › Queue.
 @MainActor private func ownerKeyScene(_ name: String, state: OwnerKeyState, status: OwnerStatus?,
@@ -105,6 +120,7 @@ private let thisKey = OwnerKeyRow(id: "k3", label: "example-mac", status: "appro
         reviewScene("detail-locked", lockedSnapshot(pending)),
         reviewScene("detail-review", lockedSnapshot(pending), page: reviewPage(), height: 1180),
         reviewScene("detail-review-newer", lockedSnapshot(pending), page: reviewPage(latest: 4), height: 1180),
+        reviewScene("detail-review-first-view", lockedSnapshot(firstView), page: firstViewPage(), height: 1180),
         reviewScene("detail-history-changed", lockedSnapshot(.historyChanged(.rolledBack))),
         ownerKeyScene("settings-owner-key-waiting", state: .waiting(id: "e1", code: "482913"),
                       status: OwnerStatus(required: false, keys: [studioKey])),

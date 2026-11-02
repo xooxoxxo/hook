@@ -56,6 +56,9 @@ public struct ReviewPage: Equatable, Sendable {
         public var note: String?
         public var fields: [Field]
         public var flags: [Flag]
+        /// Drawn dimmed: an unchanged step with nothing under it. Never on a first view, where
+        /// every row is untagged and all of it is to be read, and never with fields or flags.
+        public var dimmed: Bool
 
         /// "Changed", "New", "Removed", "Moved"; nil for an unchanged row and on a first view.
         public var tag: String? {
@@ -161,13 +164,15 @@ public struct ReviewPage: Equatable, Sendable {
                 case .removed: kind = .removed
                 }
             }
+            let shownFields = first || (kind != .same && kind != .moved) ? fields : []
+            let stepFlags = flagRows["step " + id] ?? []
             steps.append(Row(
                 id: id, label: RevisionDiff.label(entry.path), action: Sanitize.revealLine(entry.step.action),
                 was: kind == .changed ? wasAction.map(Sanitize.revealLine) : nil, change: kind,
                 isSub: entry.path.contains("."),
                 note: kind == .moved ? change?.oldPath.map { "Moved from step " + RevisionDiff.label($0) } : nil,
-                fields: first || (kind != .same && kind != .moved) ? fields : [],
-                flags: flagRows["step " + id] ?? []))
+                fields: shownFields, flags: stepFlags,
+                dimmed: dims(kind, fields: shownFields, flags: stepFlags, first: first)))
         }
         if !first {
             for change in diff.steps where change.kind == .removed {
@@ -176,7 +181,7 @@ public struct ReviewPage: Equatable, Sendable {
                     id: "removed:" + change.stepID, label: change.oldPath.map(RevisionDiff.label) ?? "",
                     action: Sanitize.revealLine(action), was: nil, change: .removed,
                     isSub: change.oldPath?.contains(".") ?? false, note: nil,
-                    fields: stepFields(change.fields), flags: []))
+                    fields: stepFields(change.fields), flags: [], dimmed: false))
             }
         }
 
@@ -189,6 +194,12 @@ public struct ReviewPage: Equatable, Sendable {
             reasons: diff.reasons.map { Reason(rev: $0.rev, time: time($0.rev), text: ReviewText.reason($0.reason)) },
             steps: steps, others: others(diff.top, body: body, flags: flagRows, first: first),
             resets: diff.resets, needsPresence: diff.touchesCommandsLinksOrFiles)
+    }
+
+    /// Only an unchanged row with no diff and no flag under it is dimmed, and none on a first
+    /// view: there `.same` means untagged, and every command and flag is still to be read.
+    public static func dims(_ change: Change, fields: [Field], flags: [Flag], first: Bool) -> Bool {
+        !first && change == .same && fields.isEmpty && flags.isEmpty
     }
 
     // MARK: Fields
@@ -265,10 +276,12 @@ public struct ReviewPage: Equatable, Sendable {
             let removed = diffs.allSatisfy { $0.new == nil }
             let added = diffs.allSatisfy { $0.old == nil }
             let was = key == "verify" ? diffs.first { $0.name == "verify.do" && $0.old != nil && $0.new != nil }?.old : nil
+            let change: Change = first ? .same : (removed ? .removed : (added ? .added : .changed))
+            let shown = fields.map { field($0, name: $0.name) }
+            let rowFlags = flags[key] ?? []
             return Row(id: key, label: label, action: action, was: first ? nil : was.map(Sanitize.revealLine),
-                       change: first ? .same : (removed ? .removed : (added ? .added : .changed)), isSub: false, note: nil,
-                       fields: fields.map { field($0, name: $0.name) },
-                       flags: flags[key] ?? [])
+                       change: change, isSub: false, note: nil, fields: shown, flags: rowFlags,
+                       dimmed: dims(change, fields: shown, flags: rowFlags, first: first))
         }
     }
 

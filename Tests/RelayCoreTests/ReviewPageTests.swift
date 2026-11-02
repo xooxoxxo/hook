@@ -43,6 +43,7 @@ import Testing
         #expect(p.steps.map(\.tag) == [nil, "Changed", "Changed", "New", "Removed"])
         #expect(p.steps.map(\.label) == ["1", "2", "3", "4", "4"])
         #expect(p.steps[0].fields.isEmpty)
+        #expect(p.steps.map(\.dimmed) == [true, false, false, false, false])
         #expect(p.stepsSummary == "2 changed · 1 added · 1 removed")
     }
 
@@ -108,6 +109,23 @@ import Testing
         #expect(p.steps.allSatisfy { !$0.fields.isEmpty })
         #expect(p.since.hasPrefix(ReviewText.firstViewHeading))
         #expect(p.stepsSummary == "4 steps")
+    }
+
+    /// A first view keeps every row `.same`, yet none is dimmed: the commands and the flags
+    /// under them are what the owner reads before Use Version 3.
+    @Test func aFirstViewDimsNothing() {
+        let p = page()
+        #expect(p.isFirstView)
+        #expect(p.steps.allSatisfy { $0.change == .same })
+        #expect((p.steps + p.others).allSatisfy { !$0.dimmed })
+        #expect(p.steps.contains { !$0.flags.isEmpty })
+        // An unchanged row is dimmed only with nothing under it.
+        let flags = p.steps.first { !$0.flags.isEmpty }?.flags ?? []
+        #expect(ReviewPage.dims(.same, fields: [], flags: [], first: false))
+        #expect(!ReviewPage.dims(.same, fields: [], flags: flags, first: false))
+        #expect(!ReviewPage.dims(.same, fields: p.steps[0].fields, flags: [], first: false))
+        #expect(!ReviewPage.dims(.same, fields: [], flags: [], first: true))
+        #expect(!ReviewPage.dims(.changed, fields: [], flags: [], first: false))
     }
 
     @Test func shownChipsTagTheVersionStillShown() {

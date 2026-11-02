@@ -229,7 +229,7 @@ public struct ReasonQuote: View {
 }
 
 /// Design/ReviewRow: one row of the review: its number, text and tag, then "Was:", the diffs and the flags.
-/// An unchanged step is its text only, dimmed.
+/// An unchanged step is its text only, dimmed (`Row.dimmed`; never on a first view, nor with a diff or flag).
 public struct ReviewRow: View {
     let row: ReviewPage.Row
 
@@ -245,7 +245,7 @@ public struct ReviewRow: View {
                     Text(verbatim: row.action)
                         .font(DS.Font.body)
                         .strikethrough(row.change == .removed)
-                        .foregroundStyle(row.change == .same ? DS.Color.secondary : DS.Color.primary)
+                        .foregroundStyle(row.dimmed ? DS.Color.secondary : DS.Color.primary)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
                     if let tag = row.tag { StepTag(tag, color: StepTag.color(row.change)) }
@@ -268,7 +268,7 @@ public struct ReviewRow: View {
         .padding(.leading, row.isSub ? DS.Space.subIndent : 0)
         .padding(.horizontal, DS.Space.groupRowH)
         .padding(.vertical, DS.Space.groupRowV)
-        .opacity(row.change == .same ? DS.Color.lockedOpacity : 1)
+        .opacity(row.dimmed ? DS.Color.lockedOpacity : 1)
         .accessibilityElement(children: .contain)
     }
 
