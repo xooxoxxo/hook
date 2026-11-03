@@ -1,0 +1,360 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Hook harness table",
+  "description": "One entry per agent harness that `relay integrations` installs Hook into: how to detect it and, per piece (mcp, skill, instructions, replies), an ordered list of install methods. The engine uses the first alternative whose `requires` binary is found. Placeholders in {{double braces}} are filled per machine.",
+  "type": "array",
+  "minItems": 1,
+  "items": {"$ref": "#/$defs/entry"},
+  "$defs": {
+    "verified": {
+      "enum": ["machine", "pending", "docs-only"],
+      "description": "machine: run for real on a Mac; pending: on the owner's Mac, not run yet; docs-only: from the harness's docs only."
+    },
+    "note": {"type": "string", "minLength": 1, "maxLength": 300},
+    "path": {
+      "type": "string",
+      "minLength": 2,
+      "pattern": "^(~/|/|\\{\\{(home|harness_home|plugins)\\}\\}(/|$))",
+      "description": "An absolute path, a ~/ path, or one under {{home}}, {{harness_home}} or {{plugins}}."
+    },
+    "argv": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/arg"},
+      "description": "A command line, run without a shell. argv[0] is the binary."
+    },
+    "arg": {
+      "oneOf": [
+        {"type": "string", "minLength": 1},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["json"],
+          "properties": {
+            "json": {"description": "A JSON value whose strings are filled, then passed as one argument, serialized."}
+          }
+        }
+      ]
+    },
+    "keyPath": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1},
+      "description": "The key path inside a structured file; each item is one key name, even when it holds dots."
+    },
+    "format": {"enum": ["json", "jsonc", "toml", "yaml"]},
+    "prefer": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/path"},
+      "description": "Paths tried before `path`, in order: the first that exists and is not empty is used instead."
+    },
+    "writes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "format"],
+      "description": "What a native command writes, so the engine can confirm it by reading the file. format `exists` means the path (a file, folder or link) exists.",
+      "properties": {
+        "path": {"$ref": "#/$defs/path"},
+        "format": {"enum": ["json", "jsonc", "toml", "yaml", "exists"]},
+        "key": {"$ref": "#/$defs/keyPath"}
+      }
+    },
+    "home": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["default"],
+      "description": "{{harness_home}}: $env when it is set and not empty, else default.",
+      "properties": {"env": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*$"}, "default": {"$ref": "#/$defs/path"}}
+    },
+    "detect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bins", "paths", "apps", "probe"],
+      "description": "Found when any bin is on PATH (or a usual bin folder), any path exists, any app bundle exists, or the probe passes. Only a probe ever runs the harness.",
+      "properties": {
+        "bins": {"type": "array", "items": {"type": "string", "pattern": "^[A-Za-z0-9._-]+$"}},
+        "paths": {"type": "array", "items": {"$ref": "#/$defs/path"}},
+        "apps": {"type": "array", "items": {"type": "string", "pattern": "^/Applications/[^/]+\\.app$"}},
+        "probe": {
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["argv", "expect", "timeout"],
+              "description": "Run argv (its binary must be found) with a timeout in seconds; found when stdout or stderr contains expect.",
+              "properties": {
+                "argv": {"$ref": "#/$defs/argv"},
+                "expect": {"type": "string", "minLength": 1},
+                "timeout": {"type": "integer"}
+              }
+            }
+          ]
+        }
+      }
+    },
+    "alternative": {
+      "oneOf": [
+        {"$ref": "#/$defs/plugin_alt"},
+        {"$ref": "#/$defs/cli"},
+        {"$ref": "#/$defs/file"},
+        {"$ref": "#/$defs/copy"},
+        {"$ref": "#/$defs/block_full"},
+        {"$ref": "#/$defs/block_ref"},
+        {"$ref": "#/$defs/key_set"},
+        {"$ref": "#/$defs/key_append"},
+        {"$ref": "#/$defs/owner"},
+        {"$ref": "#/$defs/none"}
+      ]
+    },
+    "plugin_alt": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Provided by the entry's plugin.",
+      "required": ["method", "verified"],
+      "properties": {
+        "method": {"const": "plugin"},
+        "verified": {"$ref": "#/$defs/verified"},
+        "note": {"$ref": "#/$defs/note"}
+      }
+    },
+    "cli": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The harness's own command; used when `requires` is found.",
+      "required": ["method", "requires", "add", "remove", "verified"],
+      "properties": {
+        "method": {"const": "cli"},
+        "verified": {"$ref": "#/$defs/verified"},
+        "note": {"$ref": "#/$defs/note"},
+        "requires": {"type": "string", "minLength": 1},
+        "add": {"$ref": "#/$defs/argv"},
+        "remove": {"$ref": "#/$defs/argv"},
+        "writes": {"$ref": "#/$defs/writes"}
+      }
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A file Hook owns, rendered from a bundle file.",
+      "required": ["method", "path", "source", "verified"],
+      "properties": {
+        "method": {"const": "file"},
+        "verified": {"$ref": "#/$defs/verified"},
+        "note": {"$ref": "#/$defs/note"},
+        "path": {"$ref": "#/$defs/path"},
+        "source": {"type": "string", "pattern": "^(instructions|files)/[^/]+$"}
+      }
+    },
+    "copy": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A folder Hook owns, copied from the bundle (never a symlink).",
+      "required": ["method", "path", "source", "verified"],
+      "properties": {
+        "method": {"const": "copy"},
+        "verified": {"$ref": "#/$defs/verified"},
+        "note": {"$ref": "#/$defs/note"},
+        "path": {"$ref": "#/$defs/path"},
+        "source": {"type": "string", "pattern": "^skills/[a-z0-9-]+$"}
+      }
+    },
+    "block_full": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A marked block in a Markdown file holding the full instructions.",
+      "required": ["method", "path", "content", "verified"],
+      "properties": {
+        "method": {"const": "block"},
+        "verified": {"$ref": "#/$defs/verified"},
+        "note": {"$ref": "#/$defs/note"},
+        "path": {"$ref": "#/$defs/path"},
+        "prefer": {"$ref": "#/$defs/prefer"},
+        "content": {"const": "full"}
+      }
+    },
+    "block_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A marked block holding ref (an include line), or the full text where ref can't be used.",
+      "required": ["method", "path", "content", "ref", "verified"],
+      "properties": {
+        "method": {"const": "block"},
+        "verified": {"$ref": "#/$defs/verified"},
+        "note": {"$ref": "#/$defs/note"},
+        "path": {"$ref": "#/$defs/path"},
+        "prefer": {"$ref": "#/$defs/prefer"},
+        "content": {"const": "ref-or-full"},
+        "ref": {"type": "string", "minLength": 1}
+      }
+    },
+    "key_set": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One key in a structured file set to value.",
+      "required": ["method", "path", "format", "key", "value", "verified"],
+      "properties": {
+        "method": {"const": "key"},
+        "verified": {"$ref": "#/$defs/verified"},
+        "note": {"$ref": "#/$defs/note"},
+        "path": {"$ref": "#/$defs/path"},
+        "prefer": {"$ref": "#/$defs/prefer"},
+        "format": {"$ref": "#/$defs/format"},
+        "key": {"$ref": "#/$defs/keyPath"},
+        "value": {},
+        "op": {"const": "set"}
+      }
+    },
+    "key_append": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "value appended to the array at key, unless an element already matches.",
+      "required": ["method", "path", "format", "key", "value", "op", "match", "verified"],
+      "properties": {
+        "method": {"const": "key"},
+        "verified": {"$ref": "#/$defs/verified"},
+        "note": {"$ref": "#/$defs/note"},
+        "path": {"$ref": "#/$defs/path"},
+        "prefer": {"$ref": "#/$defs/prefer"},
+        "format": {"$ref": "#/$defs/format"},
+        "key": {"$ref": "#/$defs/keyPath"},
+        "value": {},
+        "op": {"const": "append"},
+        "match": {
+          "type": "string",
+          "minLength": 1,
+          "description": "An element counts as Hook's when one of its strings contains this."
+        }
+      }
+    },
+    "owner": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Only the owner can do it: the named owner step.",
+      "required": ["method", "step", "verified"],
+      "properties": {
+        "method": {"const": "owner"},
+        "verified": {"$ref": "#/$defs/verified"},
+        "note": {"$ref": "#/$defs/note"},
+        "step": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"}
+      }
+    },
+    "none": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Nothing to install, for the reason given.",
+      "required": ["method", "reason", "verified"],
+      "properties": {
+        "method": {"const": "none"},
+        "verified": {"$ref": "#/$defs/verified"},
+        "note": {"$ref": "#/$defs/note"},
+        "reason": {"type": "string", "minLength": 1, "maxLength": 300}
+      }
+    },
+    "piece": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/alternative"},
+      "description": "Alternatives in order of preference."
+    },
+    "plugin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "render", "dest", "add", "update", "remove", "verified"],
+      "description": "A plugin rendered per machine from the bundle's plugins/<id> into dest, then registered with the add commands (method cli) or used where it lies (method copy). update runs whenever the Hook version changes.",
+      "properties": {
+        "method": {"enum": ["cli", "copy"]},
+        "render": {"type": "string", "pattern": "^plugins/[a-z0-9-]+$"},
+        "dest": {"$ref": "#/$defs/path"},
+        "add": {"type": "array", "items": {"$ref": "#/$defs/argv"}},
+        "update": {"type": "array", "items": {"$ref": "#/$defs/argv"}},
+        "remove": {"type": "array", "items": {"$ref": "#/$defs/argv"}},
+        "writes": {"$ref": "#/$defs/writes"},
+        "verified": {"$ref": "#/$defs/verified"},
+        "note": {"$ref": "#/$defs/note"}
+      }
+    },
+    "ownerStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "when", "title", "why", "steps"],
+      "description": "An instructable for the owner (title, why, steps and verify as in schema/instructable.v1.json). when: after:<piece|plugin> posts it after Hook wrote or changed that piece; always posts it once at setup.",
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+        "when": {"type": "string", "pattern": "^(after:(mcp|skill|instructions|replies|plugin)|always)$"},
+        "title": {"type": "string", "minLength": 1, "maxLength": 120},
+        "why": {"type": "string", "minLength": 1, "maxLength": 300},
+        "steps": {"type": "array", "minItems": 1, "maxItems": 20, "items": {"type": "object", "required": ["do"]}},
+        "verify": {"type": "object", "required": ["do"]}
+      }
+    },
+    "smoke": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["argv"],
+          "description": "Run argv: it must exit 0 and, with expect, print it.",
+          "properties": {"argv": {"$ref": "#/$defs/argv"}, "expect": {"type": "string", "minLength": 1}}
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["parse"],
+          "description": "The parsed config holds Hook's key.",
+          "properties": {"parse": {"const": true}}
+        }
+      ]
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "home",
+        "detect",
+        "pieces",
+        "plugin",
+        "owner_steps",
+        "smoke",
+        "sources",
+        "checked",
+        "verified"
+      ],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+        "name": {"type": "string", "minLength": 1, "maxLength": 60},
+        "home": {"$ref": "#/$defs/home"},
+        "detect": {"$ref": "#/$defs/detect"},
+        "pieces": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mcp", "skill", "instructions", "replies"],
+          "properties": {
+            "mcp": {"$ref": "#/$defs/piece"},
+            "skill": {"$ref": "#/$defs/piece"},
+            "instructions": {"$ref": "#/$defs/piece"},
+            "replies": {"$ref": "#/$defs/piece"}
+          }
+        },
+        "plugin": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/plugin"}]},
+        "owner_steps": {"type": "array", "items": {"$ref": "#/$defs/ownerStep"}},
+        "smoke": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/smoke"}},
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^https://[^\\s]+$"}
+        },
+        "checked": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
+        "verified": {
+          "$ref": "#/$defs/verified",
+          "description": "The lowest level of the entry's alternatives and plugin."
+        },
+        "note": {"$ref": "#/$defs/note"}
+      }
+    }
+  }
+}

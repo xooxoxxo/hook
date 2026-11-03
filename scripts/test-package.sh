@@ -58,7 +58,7 @@ ok "zip layout and SHA256SUMS"
 
 # 1a. The integration bundle: built for this version, its files match bundle.json.
 I="$S/integration"
-for f in bundle.json instructions/hook.md skills/instructables/SKILL.md \
+for f in bundle.json harnesses.json instructions/hook.md skills/instructables/SKILL.md \
          plugins/claude/.claude-plugin/plugin.json; do
   [ -f "$I/$f" ] || fail "support/integration/$f is missing"
 done

@@ -1,0 +1,1048 @@
+[
+  {
+    "id": "claude-code",
+    "name": "Claude Code",
+    "home": {"default": "~/.claude"},
+    "detect": {"bins": ["claude"], "paths": ["~/.claude"], "apps": [], "probe": null},
+    "pieces": {
+      "mcp": [
+        {
+          "method": "cli",
+          "requires": "claude",
+          "add": [
+            "claude",
+            "mcp",
+            "add-json",
+            "--scope",
+            "user",
+            "relay",
+            {"json": {"type": "stdio", "command": "{{python}}", "args": ["{{mcp_server}}"]}}
+          ],
+          "remove": ["claude", "mcp", "remove", "relay", "--scope", "user"],
+          "writes": {"path": "~/.claude.json", "format": "json", "key": ["mcpServers", "relay"]},
+          "verified": "pending",
+          "note": "A user-scope server, not the plugin's: plugin servers get renamed tools."
+        }
+      ],
+      "skill": [{"method": "plugin", "verified": "pending"}],
+      "instructions": [
+        {
+          "method": "file",
+          "path": "{{harness_home}}/rules/hook.md",
+          "source": "instructions/hook.md",
+          "verified": "pending"
+        }
+      ],
+      "replies": [{"method": "plugin", "verified": "pending"}]
+    },
+    "plugin": {
+      "method": "cli",
+      "render": "plugins/claude",
+      "dest": "{{plugins}}/claude",
+      "add": [
+        ["claude", "plugin", "marketplace", "add", "{{plugins}}/claude"],
+        ["claude", "plugin", "install", "hook@hook", "--scope", "user"]
+      ],
+      "update": [["claude", "plugin", "marketplace", "update", "hook"]],
+      "remove": [
+        ["claude", "plugin", "uninstall", "hook@hook", "--scope", "user"],
+        ["claude", "plugin", "marketplace", "remove", "hook"]
+      ],
+      "verified": "pending"
+    },
+    "owner_steps": [],
+    "smoke": [
+      {"argv": ["claude", "mcp", "get", "relay"]},
+      {"argv": ["claude", "plugin", "list"], "expect": "hook@hook"}
+    ],
+    "sources": [
+      "https://code.claude.com/docs/en/memory",
+      "https://code.claude.com/docs/en/mcp",
+      "https://code.claude.com/docs/en/hooks",
+      "https://code.claude.com/docs/en/plugins-reference",
+      "https://code.claude.com/docs/en/plugins/loading",
+      "https://code.claude.com/docs/en/plugins/cli-reference"
+    ],
+    "checked": "2026-11-03",
+    "verified": "pending"
+  },
+  {
+    "id": "codex",
+    "name": "Codex",
+    "home": {"env": "CODEX_HOME", "default": "~/.codex"},
+    "detect": {"bins": ["codex"], "paths": ["{{harness_home}}"], "apps": [], "probe": null},
+    "pieces": {
+      "mcp": [
+        {
+          "method": "cli",
+          "requires": "codex",
+          "add": ["codex", "mcp", "add", "relay", "--", "{{python}}", "{{mcp_server}}"],
+          "remove": ["codex", "mcp", "remove", "relay"],
+          "writes": {"path": "{{harness_home}}/config.toml", "format": "toml", "key": ["mcp_servers", "relay"]},
+          "verified": "pending"
+        },
+        {
+          "method": "key",
+          "path": "{{harness_home}}/config.toml",
+          "format": "toml",
+          "key": ["mcp_servers", "relay"],
+          "value": {"command": "{{python}}", "args": ["{{mcp_server}}"]},
+          "verified": "pending"
+        }
+      ],
+      "skill": [
+        {
+          "method": "copy",
+          "path": "~/.agents/skills/instructables",
+          "source": "skills/instructables",
+          "verified": "pending"
+        }
+      ],
+      "instructions": [
+        {
+          "method": "block",
+          "path": "{{harness_home}}/AGENTS.md",
+          "prefer": ["{{harness_home}}/AGENTS.override.md"],
+          "content": "full",
+          "verified": "pending"
+        }
+      ],
+      "replies": [
+        {
+          "method": "key",
+          "path": "{{harness_home}}/hooks.json",
+          "format": "json",
+          "key": ["hooks", "UserPromptSubmit"],
+          "op": "append",
+          "match": "hook replies",
+          "value": {"hooks": [{"type": "command", "command": "{{replies:claude}}", "timeout": 5}]},
+          "verified": "pending"
+        }
+      ]
+    },
+    "plugin": null,
+    "owner_steps": [
+      {
+        "id": "codex-trust",
+        "when": "after:replies",
+        "title": "Trust Hook's prompt hook in Codex",
+        "why": "Codex runs a new hook only after you trust it once; the command stays the same across updates.",
+        "steps": [
+          {"do": "Start Codex in Terminal", "code": "codex", "lang": "bash", "where": "Mac terminal"},
+          {"do": "Open the list of hooks", "code": "/hooks", "lang": "text", "where": "Codex"},
+          {"do": "Select the hook that runs relay hook replies, and choose Trust", "where": "Codex"}
+        ],
+        "verify": {"do": "Answer any Hook ask, then send Codex a prompt: it shows a Hook line with your answer"}
+      }
+    ],
+    "smoke": [{"argv": ["codex", "mcp", "list"], "expect": "relay"}],
+    "sources": [
+      "https://learn.chatgpt.com/docs/agent-configuration/agents-md",
+      "https://developers.openai.com/codex/skills",
+      "https://learn.chatgpt.com/docs/config-file/config-reference",
+      "https://learn.chatgpt.com/docs/hooks"
+    ],
+    "checked": "2026-11-03",
+    "verified": "pending"
+  },
+  {
+    "id": "gemini-cli",
+    "name": "Gemini CLI",
+    "home": {"default": "~/.gemini"},
+    "detect": {"bins": ["gemini"], "paths": ["~/.gemini/settings.json"], "apps": [], "probe": null},
+    "pieces": {
+      "mcp": [{"method": "plugin", "verified": "pending"}],
+      "skill": [
+        {
+          "method": "copy",
+          "path": "~/.agents/skills/instructables",
+          "source": "skills/instructables",
+          "verified": "pending"
+        }
+      ],
+      "instructions": [{"method": "plugin", "verified": "pending", "note": "The extension's contextFileName."}],
+      "replies": [{"method": "plugin", "verified": "pending"}]
+    },
+    "plugin": {
+      "method": "cli",
+      "render": "plugins/gemini",
+      "dest": "{{plugins}}/gemini",
+      "add": [["gemini", "extensions", "link", "{{plugins}}/gemini", "--consent"]],
+      "update": [],
+      "remove": [["gemini", "extensions", "uninstall", "hook"]],
+      "writes": {"path": "~/.gemini/extensions/hook", "format": "exists"},
+      "verified": "pending"
+    },
+    "owner_steps": [],
+    "smoke": [{"argv": ["gemini", "extensions", "list"], "expect": "hook"}],
+    "sources": [
+      "https://geminicli.com/docs/cli/gemini-md/",
+      "https://geminicli.com/docs/cli/skills/",
+      "https://geminicli.com/docs/tools/mcp-server/",
+      "https://geminicli.com/docs/hooks/",
+      "https://geminicli.com/docs/hooks/reference/",
+      "https://geminicli.com/docs/extensions/reference/"
+    ],
+    "checked": "2026-11-03",
+    "verified": "pending"
+  },
+  {
+    "id": "antigravity",
+    "name": "Antigravity CLI",
+    "home": {"default": "~/.gemini/antigravity-cli"},
+    "detect": {"bins": ["agy"], "paths": ["~/.gemini/antigravity-cli"], "apps": [], "probe": null},
+    "pieces": {
+      "mcp": [{"method": "plugin", "verified": "docs-only"}],
+      "skill": [{"method": "plugin", "verified": "docs-only"}],
+      "instructions": [{"method": "plugin", "verified": "docs-only", "note": "A rule in the plugin."}],
+      "replies": [
+        {
+          "method": "plugin",
+          "verified": "docs-only",
+          "note": "A SessionStart hook: Antigravity lists no per-prompt hook."
+        }
+      ]
+    },
+    "plugin": {
+      "method": "cli",
+      "render": "plugins/antigravity",
+      "dest": "{{plugins}}/antigravity",
+      "add": [["agy", "plugin", "install", "{{plugins}}/antigravity"]],
+      "update": [["agy", "plugin", "uninstall", "hook"], ["agy", "plugin", "install", "{{plugins}}/antigravity"]],
+      "remove": [["agy", "plugin", "uninstall", "hook"]],
+      "verified": "docs-only"
+    },
+    "owner_steps": [],
+    "smoke": [{"argv": ["agy", "plugin", "list", "--json"], "expect": "hook"}],
+    "sources": ["https://www.antigravity.google/docs/plugins?tab=cli"],
+    "checked": "2026-11-03",
+    "verified": "docs-only"
+  },
+  {
+    "id": "copilot-cli",
+    "name": "Copilot CLI",
+    "home": {"env": "COPILOT_HOME", "default": "~/.copilot"},
+    "detect": {"bins": ["copilot"], "paths": ["{{harness_home}}"], "apps": [], "probe": null},
+    "pieces": {
+      "mcp": [
+        {
+          "method": "cli",
+          "requires": "copilot",
+          "add": ["copilot", "mcp", "add", "relay", "--", "{{python}}", "{{mcp_server}}"],
+          "remove": ["copilot", "mcp", "remove", "relay"],
+          "writes": {"path": "{{harness_home}}/mcp-config.json", "format": "json", "key": ["mcpServers", "relay"]},
+          "verified": "pending"
+        },
+        {
+          "method": "key",
+          "path": "{{harness_home}}/mcp-config.json",
+          "format": "json",
+          "key": ["mcpServers", "relay"],
+          "value": {"type": "local", "command": "{{python}}", "args": ["{{mcp_server}}"], "tools": ["*"]},
+          "verified": "pending"
+        }
+      ],
+      "skill": [
+        {
+          "method": "copy",
+          "path": "~/.agents/skills/instructables",
+          "source": "skills/instructables",
+          "verified": "pending"
+        }
+      ],
+      "instructions": [
+        {
+          "method": "file",
+          "path": "{{harness_home}}/instructions/hook.instructions.md",
+          "source": "instructions/hook.instructions.md",
+          "verified": "pending"
+        }
+      ],
+      "replies": [
+        {
+          "method": "file",
+          "path": "{{harness_home}}/hooks/hook.json",
+          "source": "files/copilot-hooks.json",
+          "verified": "pending",
+          "note": "sessionStart only: Copilot drops a userPromptSubmitted hook's output."
+        }
+      ]
+    },
+    "plugin": null,
+    "owner_steps": [],
+    "smoke": [{"argv": ["copilot", "mcp", "list", "--json"], "expect": "relay"}],
+    "sources": [
+      "https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference",
+      "https://docs.github.com/en/copilot/reference/hooks-configuration",
+      "https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-plugin-reference"
+    ],
+    "checked": "2026-11-03",
+    "verified": "pending"
+  },
+  {
+    "id": "vscode-copilot",
+    "name": "VS Code Copilot",
+    "home": {"default": "~/.copilot"},
+    "detect": {"bins": ["code"], "paths": [], "apps": ["/Applications/Visual Studio Code.app"], "probe": null},
+    "pieces": {
+      "mcp": [
+        {
+          "method": "key",
+          "path": "~/.copilot/mcp-config.json",
+          "format": "json",
+          "key": ["mcpServers", "relay"],
+          "value": {"type": "local", "command": "{{python}}", "args": ["{{mcp_server}}"], "tools": ["*"]},
+          "verified": "docs-only",
+          "note": "Shared with Copilot CLI."
+        }
+      ],
+      "skill": [
+        {
+          "method": "copy",
+          "path": "~/.agents/skills/instructables",
+          "source": "skills/instructables",
+          "verified": "docs-only"
+        }
+      ],
+      "instructions": [
+        {
+          "method": "file",
+          "path": "~/.copilot/instructions/hook.instructions.md",
+          "source": "instructions/hook.instructions.md",
+          "verified": "docs-only"
+        }
+      ],
+      "replies": [
+        {
+          "method": "file",
+          "path": "~/.copilot/hooks/hook.json",
+          "source": "files/copilot-hooks.json",
+          "verified": "docs-only"
+        }
+      ]
+    },
+    "plugin": null,
+    "owner_steps": [],
+    "smoke": [{"parse": true}],
+    "sources": [
+      "https://code.visualstudio.com/docs/copilot/customization/custom-instructions",
+      "https://code.visualstudio.com/docs/copilot/customization/agent-skills",
+      "https://code.visualstudio.com/docs/copilot/customization/mcp-servers",
+      "https://code.visualstudio.com/docs/copilot/customization/hooks"
+    ],
+    "checked": "2026-11-03",
+    "verified": "docs-only",
+    "note": "Covered through Copilot CLI's files in ~/.copilot, which VS Code's Copilot harness reads."
+  },
+  {
+    "id": "cursor",
+    "name": "Cursor",
+    "home": {"default": "~/.cursor"},
+    "detect": {
+      "bins": ["agent", "cursor-agent"],
+      "paths": ["~/.cursor"],
+      "apps": ["/Applications/Cursor.app"],
+      "probe": null
+    },
+    "pieces": {
+      "mcp": [{"method": "plugin", "verified": "pending"}],
+      "skill": [
+        {
+          "method": "copy",
+          "path": "~/.agents/skills/instructables",
+          "source": "skills/instructables",
+          "verified": "pending"
+        }
+      ],
+      "instructions": [{"method": "plugin", "verified": "pending", "note": "rules/hook.mdc in the plugin."}],
+      "replies": [
+        {
+          "method": "plugin",
+          "verified": "pending",
+          "note": "sessionStart in the plugin; hooks in the agent CLI are docs-only."
+        }
+      ]
+    },
+    "plugin": {
+      "method": "copy",
+      "render": "plugins/cursor",
+      "dest": "~/.cursor/plugins/local/hook",
+      "add": [],
+      "update": [],
+      "remove": [],
+      "verified": "pending",
+      "note": "A real folder: Cursor loads a symlink only when its target is inside the plugins folder."
+    },
+    "owner_steps": [
+      {
+        "id": "cursor-reload",
+        "when": "after:plugin",
+        "title": "Reload Cursor to load Hook's plugin",
+        "why": "Cursor reads a local plugin only when a window loads, so it needs one reload after Hook adds or updates it.",
+        "steps": [
+          {"do": "In Cursor, open the Command Palette with Command-Shift-P", "where": "Cursor"},
+          {
+            "do": "Run the Reload Window command",
+            "code": "Developer: Reload Window",
+            "lang": "text",
+            "where": "Cursor"
+          }
+        ],
+        "verify": {"do": "Start a new Agent chat and ask which Hook tools it has: it lists relay_post"}
+      }
+    ],
+    "smoke": [{"parse": true}],
+    "sources": [
+      "https://cursor.com/docs/context/rules",
+      "https://cursor.com/docs/context/skills",
+      "https://cursor.com/docs/context/mcp",
+      "https://cursor.com/docs/cli/mcp",
+      "https://cursor.com/docs/agent/hooks",
+      "https://cursor.com/docs/plugins"
+    ],
+    "checked": "2026-11-03",
+    "verified": "pending"
+  },
+  {
+    "id": "opencode",
+    "name": "OpenCode",
+    "home": {"default": "~/.config/opencode"},
+    "detect": {"bins": ["opencode"], "paths": ["{{harness_home}}"], "apps": [], "probe": null},
+    "pieces": {
+      "mcp": [
+        {
+          "method": "key",
+          "path": "{{harness_home}}/opencode.json",
+          "prefer": ["{{harness_home}}/opencode.jsonc"],
+          "format": "jsonc",
+          "key": ["mcp", "relay"],
+          "value": {"type": "local", "command": ["{{python}}", "{{mcp_server}}"], "enabled": true},
+          "verified": "pending"
+        }
+      ],
+      "skill": [
+        {
+          "method": "copy",
+          "path": "~/.agents/skills/instructables",
+          "source": "skills/instructables",
+          "verified": "pending"
+        }
+      ],
+      "instructions": [
+        {
+          "method": "key",
+          "path": "{{harness_home}}/opencode.json",
+          "prefer": ["{{harness_home}}/opencode.jsonc"],
+          "format": "jsonc",
+          "key": ["instructions"],
+          "op": "append",
+          "match": "integration/instructions/hook.md",
+          "value": "{{instructions}}",
+          "verified": "pending"
+        }
+      ],
+      "replies": [
+        {
+          "method": "file",
+          "path": "{{harness_home}}/plugins/hook.ts",
+          "source": "files/opencode-hook.ts",
+          "verified": "pending",
+          "note": "Plugin API V1 and V2 in one file; V2 is docs-only."
+        }
+      ]
+    },
+    "plugin": null,
+    "owner_steps": [],
+    "smoke": [{"parse": true}],
+    "sources": [
+      "https://opencode.ai/docs/rules/",
+      "https://opencode.ai/docs/skills/",
+      "https://opencode.ai/docs/mcp-servers/",
+      "https://opencode.ai/docs/plugins/",
+      "https://github.com/anomalyco/opencode/blob/dev/services/www/src/docs/content/build/plugins/migrate-v1.mdx"
+    ],
+    "checked": "2026-11-03",
+    "verified": "pending"
+  },
+  {
+    "id": "zed",
+    "name": "Zed",
+    "home": {"default": "~/.config/zed"},
+    "detect": {"bins": ["zed"], "paths": ["~/.config/zed"], "apps": ["/Applications/Zed.app"], "probe": null},
+    "pieces": {
+      "mcp": [
+        {
+          "method": "key",
+          "path": "~/.config/zed/settings.json",
+          "prefer": ["~/.config/zed/settings.json", "~/Library/Application Support/Zed/settings.json"],
+          "format": "jsonc",
+          "key": ["context_servers", "relay"],
+          "value": {"command": "{{python}}", "args": ["{{mcp_server}}"], "env": {}},
+          "verified": "pending"
+        }
+      ],
+      "skill": [
+        {
+          "method": "copy",
+          "path": "~/.agents/skills/instructables",
+          "source": "skills/instructables",
+          "verified": "pending"
+        }
+      ],
+      "instructions": [{"method": "block", "path": "~/.config/zed/AGENTS.md", "content": "full", "verified": "pending"}],
+      "replies": [
+        {
+          "method": "none",
+          "reason": "Zed documents no prompt or session hooks; the instructions cover it.",
+          "verified": "pending"
+        }
+      ]
+    },
+    "plugin": null,
+    "owner_steps": [],
+    "smoke": [{"parse": true}],
+    "sources": [
+      "https://zed.dev/docs/ai/instructions.md",
+      "https://zed.dev/docs/ai/skills",
+      "https://zed.dev/docs/ai/mcp"
+    ],
+    "checked": "2026-11-03",
+    "verified": "pending"
+  },
+  {
+    "id": "pi",
+    "name": "pi",
+    "home": {"env": "PI_CODING_AGENT_DIR", "default": "~/.pi/agent"},
+    "detect": {
+      "bins": [],
+      "paths": ["{{harness_home}}"],
+      "apps": [],
+      "probe": {"argv": ["pi", "--help"], "expect": "coding agent", "timeout": 3}
+    },
+    "pieces": {
+      "mcp": [
+        {
+          "method": "key",
+          "path": "{{harness_home}}/mcp.json",
+          "format": "json",
+          "key": ["mcpServers", "relay"],
+          "value": {"command": "{{python}}", "args": ["{{mcp_server}}"]},
+          "verified": "pending"
+        }
+      ],
+      "skill": [
+        {
+          "method": "copy",
+          "path": "~/.agents/skills/instructables",
+          "source": "skills/instructables",
+          "verified": "pending"
+        }
+      ],
+      "instructions": [{"method": "block", "path": "{{harness_home}}/AGENTS.md", "content": "full", "verified": "pending"}],
+      "replies": [
+        {
+          "method": "file",
+          "path": "{{harness_home}}/extensions/hook.ts",
+          "source": "files/pi-hook.ts",
+          "verified": "pending"
+        }
+      ]
+    },
+    "plugin": null,
+    "owner_steps": [],
+    "smoke": [{"parse": true}],
+    "sources": [
+      "https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/configuration.md",
+      "https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/skills.md",
+      "https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/mcp.md",
+      "https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/extensions.md"
+    ],
+    "checked": "2026-11-03",
+    "verified": "pending",
+    "note": "A pi binary counts only when its help names a coding agent: other tools ship a pi too."
+  },
+  {
+    "id": "devin",
+    "name": "Devin",
+    "home": {"default": "~/.config/devin"},
+    "detect": {
+      "bins": ["devin"],
+      "paths": ["~/.config/devin"],
+      "apps": ["/Applications/Devin.app", "/Applications/Windsurf.app"],
+      "probe": null
+    },
+    "pieces": {
+      "mcp": [
+        {
+          "method": "cli",
+          "requires": "devin",
+          "add": ["devin", "mcp", "add", "-s", "user", "relay", "--", "{{python}}", "{{mcp_server}}"],
+          "remove": ["devin", "mcp", "remove", "-s", "user", "relay"],
+          "writes": {"path": "~/.config/devin/mcp_config.json", "format": "json", "key": ["mcpServers", "relay"]},
+          "verified": "docs-only"
+        },
+        {
+          "method": "key",
+          "path": "~/.config/devin/mcp_config.json",
+          "format": "json",
+          "key": ["mcpServers", "relay"],
+          "value": {"command": "{{python}}", "args": ["{{mcp_server}}"]},
+          "verified": "docs-only"
+        }
+      ],
+      "skill": [
+        {
+          "method": "copy",
+          "path": "~/.agents/skills/instructables",
+          "source": "skills/instructables",
+          "verified": "docs-only"
+        }
+      ],
+      "instructions": [
+        {
+          "method": "file",
+          "path": "~/.devin/rules/hook.md",
+          "source": "instructions/hook.md",
+          "verified": "docs-only"
+        }
+      ],
+      "replies": [
+        {
+          "method": "key",
+          "path": "~/.config/devin/config.json",
+          "format": "json",
+          "key": ["hooks", "UserPromptSubmit"],
+          "op": "append",
+          "match": "hook replies",
+          "value": {"hooks": [{"type": "command", "command": "{{replies:claude}}", "timeout": 5}]},
+          "verified": "docs-only"
+        }
+      ]
+    },
+    "plugin": null,
+    "owner_steps": [],
+    "smoke": [{"parse": true}],
+    "sources": [
+      "https://docs.devin.ai/cli/extensibility/rules.md",
+      "https://docs.devin.ai/cli/extensibility/skills/overview.md",
+      "https://docs.devin.ai/cli/extensibility/mcp/configuration.md",
+      "https://docs.devin.ai/cli/extensibility/hooks/overview.md",
+      "https://docs.devin.ai/desktop/devin-desktop-faq.md"
+    ],
+    "checked": "2026-11-03",
+    "verified": "docs-only"
+  },
+  {
+    "id": "factory",
+    "name": "Factory Droid",
+    "home": {"default": "~/.factory"},
+    "detect": {"bins": ["droid"], "paths": ["~/.factory"], "apps": [], "probe": null},
+    "pieces": {
+      "mcp": [
+        {
+          "method": "cli",
+          "requires": "droid",
+          "add": ["droid", "mcp", "add", "relay", "{{python}} {{mcp_server}}", "--type", "stdio"],
+          "remove": ["droid", "mcp", "remove", "relay"],
+          "writes": {"path": "~/.factory/mcp.json", "format": "json", "key": ["mcpServers", "relay"]},
+          "verified": "docs-only"
+        },
+        {
+          "method": "key",
+          "path": "~/.factory/mcp.json",
+          "format": "json",
+          "key": ["mcpServers", "relay"],
+          "value": {"command": "{{python}}", "args": ["{{mcp_server}}"], "type": "stdio"},
+          "verified": "docs-only"
+        }
+      ],
+      "skill": [
+        {
+          "method": "copy",
+          "path": "~/.agents/skills/instructables",
+          "source": "skills/instructables",
+          "verified": "docs-only"
+        }
+      ],
+      "instructions": [{"method": "block", "path": "~/.factory/AGENTS.md", "content": "full", "verified": "docs-only"}],
+      "replies": [
+        {
+          "method": "key",
+          "path": "~/.factory/hooks.json",
+          "format": "json",
+          "key": ["hooks", "UserPromptSubmit"],
+          "op": "append",
+          "match": "hook replies",
+          "value": {"hooks": [{"type": "command", "command": "{{replies:claude}}", "timeout": 5}]},
+          "verified": "docs-only"
+        }
+      ]
+    },
+    "plugin": null,
+    "owner_steps": [],
+    "smoke": [{"parse": true}],
+    "sources": [
+      "https://docs.factory.com/harness/agents-md.md",
+      "https://docs.factory.com/harness/skills.md",
+      "https://docs.factory.com/harness/mcp.md",
+      "https://docs.factory.com/harness/hooks.md"
+    ],
+    "checked": "2026-11-03",
+    "verified": "docs-only"
+  },
+  {
+    "id": "kiro",
+    "name": "Kiro",
+    "home": {"default": "~/.kiro"},
+    "detect": {"bins": ["kiro-cli"], "paths": ["~/.kiro"], "apps": ["/Applications/Kiro.app"], "probe": null},
+    "pieces": {
+      "mcp": [
+        {
+          "method": "cli",
+          "requires": "kiro-cli",
+          "add": [
+            "kiro-cli",
+            "mcp",
+            "add",
+            "--name",
+            "relay",
+            "--scope",
+            "global",
+            "--command",
+            "{{python}}",
+            "--args",
+            "{{mcp_server}}"
+          ],
+          "remove": ["kiro-cli", "mcp", "remove", "--name", "relay", "--scope", "global"],
+          "writes": {"path": "~/.kiro/settings/mcp.json", "format": "json", "key": ["mcpServers", "relay"]},
+          "verified": "docs-only"
+        },
+        {
+          "method": "key",
+          "path": "~/.kiro/settings/mcp.json",
+          "format": "json",
+          "key": ["mcpServers", "relay"],
+          "value": {"command": "{{python}}", "args": ["{{mcp_server}}"]},
+          "verified": "docs-only"
+        }
+      ],
+      "skill": [
+        {
+          "method": "copy",
+          "path": "~/.kiro/skills/instructables",
+          "source": "skills/instructables",
+          "verified": "docs-only",
+          "note": "Kiro reads only its own skills folder."
+        }
+      ],
+      "instructions": [
+        {
+          "method": "file",
+          "path": "~/.kiro/steering/hook.md",
+          "source": "instructions/hook.steering.md",
+          "verified": "docs-only"
+        }
+      ],
+      "replies": [
+        {
+          "method": "none",
+          "reason": "Kiro's global hooks folder is not documented; the instructions cover it.",
+          "verified": "docs-only"
+        }
+      ]
+    },
+    "plugin": null,
+    "owner_steps": [],
+    "smoke": [{"parse": true}],
+    "sources": [
+      "https://kiro.dev/docs/steering.md",
+      "https://kiro.dev/docs/skills.md",
+      "https://kiro.dev/docs/mcp/configuration.md",
+      "https://kiro.dev/docs/hooks/types.md"
+    ],
+    "checked": "2026-11-03",
+    "verified": "docs-only"
+  },
+  {
+    "id": "amp",
+    "name": "Amp",
+    "home": {"default": "~/.config/amp"},
+    "detect": {"bins": ["amp"], "paths": ["~/.config/amp"], "apps": [], "probe": null},
+    "pieces": {
+      "mcp": [
+        {
+          "method": "cli",
+          "requires": "amp",
+          "add": ["amp", "mcp", "add", "relay", "--", "{{python}}", "{{mcp_server}}"],
+          "remove": ["amp", "mcp", "remove", "relay"],
+          "writes": {"path": "~/.config/amp/settings.json", "format": "json", "key": ["amp.mcpServers", "relay"]},
+          "verified": "docs-only"
+        },
+        {
+          "method": "key",
+          "path": "~/.config/amp/settings.json",
+          "format": "json",
+          "key": ["amp.mcpServers", "relay"],
+          "value": {"command": "{{python}}", "args": ["{{mcp_server}}"]},
+          "verified": "docs-only"
+        }
+      ],
+      "skill": [
+        {
+          "method": "copy",
+          "path": "~/.agents/skills/instructables",
+          "source": "skills/instructables",
+          "verified": "docs-only"
+        }
+      ],
+      "instructions": [
+        {
+          "method": "block",
+          "path": "~/.config/amp/AGENTS.md",
+          "content": "ref-or-full",
+          "ref": "@{{instructions_home_ref}}",
+          "verified": "docs-only",
+          "note": "Amp includes @~/ paths only, never absolute ones."
+        }
+      ],
+      "replies": [
+        {
+          "method": "file",
+          "path": "~/.config/amp/plugins/hook.ts",
+          "source": "files/amp-hook.ts",
+          "verified": "docs-only"
+        }
+      ]
+    },
+    "plugin": null,
+    "owner_steps": [],
+    "smoke": [{"parse": true}],
+    "sources": [
+      "https://ampcode.com/docs/customize/agents-md",
+      "https://ampcode.com/docs/customize/skills",
+      "https://ampcode.com/docs/customize/mcp",
+      "https://ampcode.com/docs/customize/plugins"
+    ],
+    "checked": "2026-11-03",
+    "verified": "docs-only"
+  },
+  {
+    "id": "cline",
+    "name": "Cline",
+    "home": {"default": "~/.cline"},
+    "detect": {"bins": ["cline"], "paths": ["~/.cline"], "apps": [], "probe": null},
+    "pieces": {
+      "mcp": [
+        {
+          "method": "cli",
+          "requires": "cline",
+          "add": ["cline", "mcp", "add", "relay", "--yes", "--", "{{python}}", "{{mcp_server}}"],
+          "remove": ["cline", "mcp", "remove", "relay"],
+          "writes": {
+            "path": "~/.cline/data/settings/cline_mcp_settings.json",
+            "format": "json",
+            "key": ["mcpServers", "relay"]
+          },
+          "verified": "docs-only"
+        },
+        {
+          "method": "key",
+          "path": "~/.cline/data/settings/cline_mcp_settings.json",
+          "format": "json",
+          "key": ["mcpServers", "relay"],
+          "value": {"command": "{{python}}", "args": ["{{mcp_server}}"]},
+          "verified": "docs-only"
+        }
+      ],
+      "skill": [
+        {
+          "method": "copy",
+          "path": "~/.agents/skills/instructables",
+          "source": "skills/instructables",
+          "verified": "docs-only"
+        }
+      ],
+      "instructions": [
+        {
+          "method": "file",
+          "path": "~/.cline/rules/hook.md",
+          "source": "instructions/hook.md",
+          "verified": "docs-only",
+          "note": "Not the Documents rules folder: macOS would ask Hook for access to Documents."
+        }
+      ],
+      "replies": [
+        {
+          "method": "none",
+          "reason": "Cline's prompt hooks need an SDK plugin whose install is only partly documented; the instructions cover it.",
+          "verified": "docs-only"
+        }
+      ]
+    },
+    "plugin": null,
+    "owner_steps": [],
+    "smoke": [{"parse": true}],
+    "sources": [
+      "https://docs.cline.bot/customization/cline-rules.md",
+      "https://docs.cline.bot/getting-started/config.md",
+      "https://docs.cline.bot/mcp/mcp-overview.md",
+      "https://docs.cline.bot/sdk/plugins.md"
+    ],
+    "checked": "2026-11-03",
+    "verified": "docs-only"
+  },
+  {
+    "id": "goose",
+    "name": "Goose",
+    "home": {"default": "~/.config/goose"},
+    "detect": {"bins": ["goose"], "paths": ["~/.config/goose"], "apps": ["/Applications/Goose.app"], "probe": null},
+    "pieces": {
+      "mcp": [
+        {
+          "method": "key",
+          "path": "~/.config/goose/config.yaml",
+          "format": "yaml",
+          "key": ["extensions", "relay"],
+          "value": {
+            "type": "stdio",
+            "name": "relay",
+            "cmd": "{{python}}",
+            "args": ["{{mcp_server}}"],
+            "envs": {},
+            "enabled": true,
+            "timeout": 300
+          },
+          "verified": "docs-only"
+        }
+      ],
+      "skill": [
+        {
+          "method": "copy",
+          "path": "~/.agents/skills/instructables",
+          "source": "skills/instructables",
+          "verified": "docs-only"
+        }
+      ],
+      "instructions": [{"method": "block", "path": "~/.config/goose/.goosehints", "content": "full", "verified": "docs-only"}],
+      "replies": [
+        {
+          "method": "none",
+          "reason": "Goose hooks only return a decision on stdout; they can't add context.",
+          "verified": "docs-only"
+        }
+      ]
+    },
+    "plugin": null,
+    "owner_steps": [],
+    "smoke": [{"parse": true}],
+    "sources": [
+      "https://github.com/block/goose/blob/main/documentation/docs/guides/context-engineering/using-goosehints.md",
+      "https://github.com/block/goose/blob/main/documentation/docs/guides/context-engineering/using-skills.md",
+      "https://github.com/block/goose/blob/main/documentation/docs/guides/config-files.md",
+      "https://github.com/block/goose/blob/main/documentation/docs/guides/context-engineering/hooks.md"
+    ],
+    "checked": "2026-11-03",
+    "verified": "docs-only"
+  },
+  {
+    "id": "junie",
+    "name": "Junie",
+    "home": {"default": "~/.junie"},
+    "detect": {"bins": ["junie"], "paths": ["~/.junie"], "apps": [], "probe": null},
+    "pieces": {
+      "mcp": [
+        {
+          "method": "key",
+          "path": "~/.junie/mcp/mcp.json",
+          "format": "json",
+          "key": ["mcpServers", "relay"],
+          "value": {"command": "{{python}}", "args": ["{{mcp_server}}"]},
+          "verified": "docs-only"
+        }
+      ],
+      "skill": [
+        {
+          "method": "copy",
+          "path": "~/.agents/skills/instructables",
+          "source": "skills/instructables",
+          "verified": "docs-only"
+        }
+      ],
+      "instructions": [{"method": "block", "path": "~/.junie/AGENTS.md", "content": "full", "verified": "docs-only"}],
+      "replies": [
+        {
+          "method": "none",
+          "reason": "Junie's hooks are Early Access only; the instructions cover it.",
+          "verified": "docs-only"
+        }
+      ]
+    },
+    "plugin": null,
+    "owner_steps": [],
+    "smoke": [{"parse": true}],
+    "sources": [
+      "https://junie.jetbrains.com/docs/guidelines-and-memory.html",
+      "https://junie.jetbrains.com/docs/agent-skills.html",
+      "https://junie.jetbrains.com/docs/junie-cli-mcp-configuration.html",
+      "https://junie.jetbrains.com/docs/junie-cli-hooks.html"
+    ],
+    "checked": "2026-11-03",
+    "verified": "docs-only"
+  },
+  {
+    "id": "warp",
+    "name": "Warp",
+    "home": {"default": "~/.warp"},
+    "detect": {"bins": [], "paths": ["~/.warp"], "apps": ["/Applications/Warp.app"], "probe": null},
+    "pieces": {
+      "mcp": [
+        {
+          "method": "key",
+          "path": "~/.warp/.mcp.json",
+          "format": "json",
+          "key": ["mcpServers", "relay"],
+          "value": {"command": "{{python}}", "args": ["{{mcp_server}}"]},
+          "verified": "docs-only"
+        }
+      ],
+      "skill": [
+        {
+          "method": "copy",
+          "path": "~/.agents/skills/instructables",
+          "source": "skills/instructables",
+          "verified": "docs-only"
+        }
+      ],
+      "instructions": [{"method": "owner", "step": "warp-rule", "verified": "docs-only"}],
+      "replies": [{"method": "none", "reason": "Warp has no hooks; the rule covers it.", "verified": "docs-only"}]
+    },
+    "plugin": null,
+    "owner_steps": [
+      {
+        "id": "warp-rule",
+        "when": "always",
+        "title": "Add Hook's rule to Warp",
+        "why": "Warp keeps global rules only in Warp Drive, so Hook can't write its instructions there for you.",
+        "steps": [
+          {
+            "do": "Copy Hook's instructions to the clipboard",
+            "code": "pbcopy < '{{instructions}}'",
+            "lang": "bash",
+            "where": "Mac terminal"
+          },
+          {"do": "Or open the instructions and copy their text", "file": "{{instructions}}", "optional": true},
+          {"do": "In Warp, open Settings, then AI, then Rules, choose Add rule and paste", "where": "Warp"}
+        ],
+        "verify": {"do": "Ask Warp's agent how it sends the owner an ask: it names relay_post"}
+      }
+    ],
+    "smoke": [{"parse": true}],
+    "sources": [
+      "https://docs.warp.dev/agents/capabilities/rules.md",
+      "https://docs.warp.dev/agents/capabilities/skills.md",
+      "https://docs.warp.dev/agents/capabilities/mcp.md"
+    ],
+    "checked": "2026-11-03",
+    "verified": "docs-only"
+  }
+]
