@@ -21,9 +21,89 @@ sys.path.insert(0, str(CLIENTS))
 import relay_bundle as rb  # noqa: E402
 import relay_integrations as ri  # noqa: E402
 
+import relay_client  # noqa: E402
+import relay_owner_steps as ros  # noqa: E402
+
 FAKECLI = Path(__file__).resolve().parent / "fakecli.py"
 TEST_VERSION = "9.9.9"
 SECRET = "sk-test-not-a-secret"
+
+
+class FakeHub:
+    """A fake Hook queue for the owner steps: it records every post, checks each instructable
+    (relay_lint and the v1 schema, loudly), and lets a test answer, close or cut it off.
+    Nothing reaches a real Hook: the factory never reads a config."""
+
+    def __init__(self, *, local: bool = False) -> None:
+        self.local = local
+        self.posts: List[Dict[str, Any]] = []
+        self.asks: Dict[str, Dict[str, Any]] = {}
+        self.resolved: List[Any] = []
+        self.gets: List[str] = []
+        self.unreachable = False
+        self.missing = False
+        self.seq = 0
+
+    def factory(self, **kw: Any) -> "FakeClient":
+        if self.missing:
+            raise relay_client.ConfigMissing("No Hook config; run scripts/install.sh")
+        return FakeClient(self, **kw)
+
+    def answer(self, ask_id: str, step: str, picked: str, *, auth: str = "owner-key") -> None:
+        self.seq += 1
+        self.asks[ask_id]["events"].append({
+            "seq": self.seq, "kind": "answer", "actor": "owner", "auth": auth, "at": "2026-11-03T10:05:00Z",
+            "text": json.dumps({"step": step, "picked": [picked]})})
+
+    def close(self, ask_id: str, status: str = "resolved") -> None:
+        self.asks[ask_id]["item"]["status"] = status
+
+    def titles(self) -> List[str]:
+        return [p["instructable"]["title"] for p in self.posts]
+
+    def last(self, title_start: str) -> Dict[str, Any]:
+        return [p for p in self.posts if p["instructable"]["title"].startswith(title_start)][-1]
+
+    def text(self) -> str:
+        return json.dumps(self.posts)
+
+
+class FakeClient:
+    def __init__(self, hub: FakeHub, *, autolaunch: bool = True, timeout: float = 10.0) -> None:
+        assert autolaunch is False, "integrations never launch Hook"
+        self.hub = hub
+        self.local = hub.local
+        self.timeout = timeout
+
+    def post(self, project: str, instructable: Dict[str, Any]) -> Dict[str, Any]:
+        ros.validate(instructable)                 # raises InvalidAsk: a bug, loudly
+        if self.hub.unreachable:
+            raise relay_client.Unreachable("Hook isn't running")
+        title = instructable["title"]
+        for ask in self.hub.asks.values():
+            if ask["item"]["title"] == title and ask["item"]["status"] == "open":
+                return {"item": ask["item"], "deduped": True}
+        ask_id = f"ask-{len(self.hub.asks) + 1}"
+        self.hub.posts.append({"project": project, "instructable": instructable, "id": ask_id})
+        self.hub.asks[ask_id] = {"item": {"id": ask_id, "title": title, "status": "open", "projectId": project,
+                                          "payload": {"instructable": instructable}}, "events": []}
+        return {"item": self.hub.asks[ask_id]["item"]}
+
+    def get(self, ask_id: str) -> Dict[str, Any]:
+        if self.hub.unreachable:
+            raise relay_client.Unreachable("Hook isn't running")
+        self.hub.gets.append(ask_id)
+        if ask_id not in self.hub.asks:
+            raise relay_client.NotFound(f"no ask with id {ask_id}")
+        return json.loads(json.dumps(self.hub.asks[ask_id]))
+
+    def resolve(self, ask_id: str, verdict: str, note: Optional[str] = None) -> Dict[str, Any]:
+        if self.hub.unreachable:
+            raise relay_client.Unreachable("Hook isn't running")
+        self.hub.resolved.append((ask_id, verdict, note))
+        if ask_id in self.hub.asks:
+            self.hub.close(ask_id, verdict)
+        return {}
 
 
 def _static_prefix(argv: List[Any]) -> List[str]:
@@ -51,6 +131,7 @@ class World:
         self.state = self.root / "fakecli-state.json"
         self.config: Dict[str, Any] = {"rules": [], "fail": [], "sleep": {}, "stdout": {}}
         self.table = table
+        self.hub = FakeHub()
         self.link_root = self.home / ".local" / "share" / "hook" / "current"
         (self.link_root / "mcp").mkdir(parents=True)
         (self.link_root / "mcp" / "relay_mcp.py").write_text("# fake MCP server\n", "utf-8")
@@ -154,10 +235,11 @@ class World:
                          app_dirs=(self.home / "Applications",))
 
     def run(self, *argv: str, link_root: Optional[Path] = None, env: Optional[Dict[str, str]] = None,
-            now=None):
+            now=None, client_factory=None):
         out, err = io.StringIO(), io.StringIO()
         args = list(argv) + ["--link-root", str(link_root or self.link_root)]
-        rc = ri.main(args, env=env or self.env(), out=out, err=err, now=now)
+        rc = ri.main(args, env=env or self.env(), out=out, err=err, now=now,
+                     client_factory=client_factory or self.hub.factory)
         return rc, out.getvalue(), err.getvalue()
 
     def status(self, *extra: str) -> Dict[str, Any]:

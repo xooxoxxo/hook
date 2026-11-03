@@ -1140,6 +1140,9 @@ class Report:
     failed: int = 0
     dry_run: bool = False
     applied: Dict[str, List[str]] = field(default_factory=dict)   # harness → pieces written
+    changed: Dict[str, List[str]] = field(default_factory=dict)   # harness → pieces whose content changed
+    drifted: List[Dict[str, Any]] = field(default_factory=list)   # edited items a sync left alone
+    errors: List[str] = field(default_factory=list)
 
     def add(self, action: Action, outcome: str, note: Optional[str] = None) -> None:
         self.results.append({"harness": action.harness, "piece": action.piece, "action": action.kind,
@@ -1232,6 +1235,8 @@ class Applier:
                 continue
             try:
                 outcome = self.one(action)
+                if outcome == "skipped":
+                    self._note_drift(action)
                 self._clear_failure(action)
                 self.report.add(action, outcome, action.detail.get("note") if outcome in ("skipped", "left") else None)
             except _Blocked as exc:
@@ -1243,6 +1248,26 @@ class Applier:
                 self.report.failed += 1
                 self.report.add(action, "failed", note)
                 self._set_failure(action, note)
+
+    def _note_drift(self, action: Action) -> None:
+        """Remember an edited item a sync left alone, once per target, for the drift ask."""
+        item: Optional[Item] = action.detail.get("item")
+        if item is None or item.state not in ("drifted", "foreign") or item.key is None:
+            return
+        key = action.detail.get("key") or item.key
+        if any(d["key"] == key for d in self.report.drifted):
+            return
+        entry = self.ctx.by_id.get(action.harness) or {}
+        doc = None
+        if item.path is not None:
+            if item.path.is_file():
+                doc = self.ctx.tilde(item.path)
+            elif (item.path / "SKILL.md").is_file():
+                doc = self.ctx.tilde(item.path / "SKILL.md")
+        self.report.drifted.append({
+            "key": key, "disk": item.disk if item.disk is not None else ABSENT, "harness": action.harness,
+            "name": entry.get("name", action.harness), "piece": item.piece, "path": action.target,
+            "file": doc, "diffable": item.method in DIFFABLE})
 
     def _clear_failure(self, action: Action) -> None:
         h = self.manifest.harnesses.get(action.harness)
@@ -1301,7 +1326,10 @@ class Applier:
             self.remove(d["item"], d["key"])
             return "removed"
         item = d["item"]
+        old_sha = (item.record or {}).get("sha")
         record = self.write(item, kind)
+        if kind != "adopt" and (item.record is None or record.get("sha") != old_sha):
+            self.report.changed.setdefault(item.harness, []).append(item.piece)
         record.update({"kind": item.method, "piece": item.piece, "schema": self.values.schema,
                        "want": item.want, "written": _iso(self.now),
                        "linkRoot": tilde(self.values.link_root, self.values.home),
@@ -1570,24 +1598,84 @@ def apply(actions: List[Action], manifest: Manifest, values: Values, runner: Run
     return report
 
 
-# --- owner steps (T6 fills these in) ------------------------------------------------------------
+# --- owner steps and the drift ask -----------------------------------------------------------
 
-def _owner_steps(ctx: Context, report: Report, *, no_asks: bool) -> None:
-    """Record the owner steps that fell due as pending. Posting them is T6's job."""
-    asks = ctx.manifest.data.setdefault("asks", {})
+def default_client_factory(values: Values) -> Callable[..., Any]:
+    """relay_client.Client for this HOME, as `relay post` makes it. The client reads its own
+    config and token; this module never opens them."""
+    def make(**kw: Any) -> Any:
+        import relay_client
+        env = dict(values.env)
+        env.setdefault("RELAY_CONFIG", str(values.home / ".config" / "relay" / "config.json"))
+        return relay_client.Client(env=env, **kw)
+    return make
+
+
+def _owner_phase(ctx: Context, report: Report, poster: Any, now: datetime, *, harness: Optional[str],
+                 drift: bool) -> None:
+    """Post the owner steps that fell due in this run (or were left pending), then, after a
+    sync, one ask for the edited files it left alone."""
+    import relay_owner_steps as ros
+    steps = []
     for entry in ctx.table:
         hid = entry["id"]
-        if hid not in ctx.manifest.harnesses:
+        if hid not in ctx.manifest.harnesses or (harness is not None and hid != harness):
             continue
-        written = set(report.applied.get(hid, []))
-        for step in entry.get("owner_steps") or []:
-            when = step["when"]
-            due = when == "always" and step["id"] not in asks
-            if when.startswith("after:") and when.split(":", 1)[1] in written:
-                due = (asks.get(step["id"]) or {}).get("state") not in ("open", "pending")
-            if due:
-                asks[step["id"]] = {"askId": None, "title": step["title"], "posted": None,
-                                    "state": "pending", "harness": hid}
+        written = set(report.changed.get(hid, []))
+        for step in ros.due_steps(entry, ctx.manifest, written):
+            try:
+                doc = ros.render_step(entry, step, ctx.values)
+            except (ros.InvalidAsk, rb.BundleError) as exc:
+                report.errors.append(f"{hid} owner step {step['id']}: {exc}")
+                continue
+            steps.append({"id": step["id"], "title": step["title"], "harness": hid, "instructable": doc})
+    rows = ros.post_due(steps, ctx.manifest, None, no_asks=poster.no_asks, now=now, poster=poster)
+    for step, row in zip(steps, rows):
+        report.results.append({"harness": step["harness"], "piece": "owner", "action": "ask", "target": row["title"],
+                               "outcome": "posted" if row["askId"] else "pending",
+                               "note": None if row["askId"] else "Hook posts it at the next sync"})
+    if drift:
+        due = ros.drift_items_due(report.drifted, ctx.manifest)
+        try:
+            rec = ros.post_drift(due, ctx.manifest, ctx.values, poster, now)
+        except ros.InvalidAsk as exc:
+            report.errors.append(f"the drift ask: {exc}")
+            rec = None
+        if rec is not None:
+            report.results.append({"harness": "hook", "piece": "owner", "action": "ask", "target": rec["title"],
+                                   "outcome": "posted", "note": None})
+        ros.finish_drift(ctx.manifest, poster)
+    report.errors.extend(poster.errors)
+
+
+def _drift_answers(ctx: Context, report: Report, detections: Dict[str, Detection], now: datetime) -> None:
+    """Carry out the owner's answers to the drift ask: Keep mine is `accept`, Use Hook's is
+    `reinstall --force --piece` (owner pick 6, rule 17). An item that changed since is left
+    for a new ask."""
+    import relay_owner_steps as ros
+    for choice in ros.drift_choices(ctx.manifest):
+        row = choice["row"]
+        hid, piece = row["harness"], row["piece"]
+        if hid not in ctx.by_id:
+            row["done"] = "gone"
+            continue
+        items = [it for it in _select(ctx, hid, piece) if it.key == row["key"]]
+        here = items[0].disk if items and items[0].disk is not None else ABSENT
+        if not items or items[0].state not in ("drifted", "foreign") or here != row["disk"]:
+            row["done"] = "changed"
+            continue
+        if choice["choice"] == ros.KEEP:
+            for done in _accept(ctx, hid, piece, now):
+                report.results.append({"harness": hid, "piece": done["piece"], "action": "accept",
+                                       "target": done["target"], "outcome": "kept", "note": "your choice in Hook"})
+            row["done"] = "kept"
+        else:
+            actions = [a for a in plan(ctx.table, ctx.manifest, detections, ctx.values, ctx.runner, mode="reinstall",
+                                       harness=hid, force=True, include_new=False, piece=piece)
+                       if a.kind == "force" and a.detail.get("key") == row["key"]]
+            failed = report.failed
+            Applier(ctx, report, now).run(actions)
+            row["done"] = "replaced" if report.failed == failed else "failed"
 
 
 # --- status --------------------------------------------------------------------------------
@@ -1870,6 +1958,8 @@ def _human_status(st: Dict[str, Any], out) -> None:
 
 
 def _human_report(report: Report, out) -> None:
+    for e in report.errors:
+        print(f"note: {e}", file=out)
     for r in report.results:
         if report.dry_run:
             print(f"would {VERBS.get(r['action'], r['action'])} {r['harness']} {r['piece']}: {r['target']}"
@@ -1911,6 +2001,7 @@ def main(argv: Optional[List[str]] = None, *, env=None, runner=None, client_fact
         values, _ = _values(args, env, lambda p: Manifest.load(p, move=False))
         table = load_table(values.bundle)
         run = runner or Runner(values.env, values.home)
+        factory = client_factory if client_factory is not None else default_client_factory(values)
         if args.cmd == "status":
             manifest = Manifest.load(_config_dir(values) / MANIFEST, move=False)
             return _cmd_status(args, table, manifest, values, run, out)
@@ -1919,10 +2010,10 @@ def main(argv: Optional[List[str]] = None, *, env=None, runner=None, client_fact
             return _cmd_diff(args, table, manifest, values, run, out, err)
         if getattr(args, "dry_run", False):            # reads only: no lock, nothing moved
             manifest = Manifest.load(_config_dir(values) / MANIFEST, move=False)
-            return _cmd_write(args, table, manifest, values, run, when, out, err)
+            return _cmd_write(args, table, manifest, values, run, when, out, err, factory)
         with lock(values):
             manifest = Manifest.load(_config_dir(values) / MANIFEST, now=when)
-            return _cmd_write(args, table, manifest, values, run, when, out, err)
+            return _cmd_write(args, table, manifest, values, run, when, out, err, factory)
     except UsageError as exc:
         print(f"relay integrations: {exc}", file=err)
         return 1
@@ -1962,7 +2053,7 @@ def _table_sha(values: Values) -> str:
     return _sha((values.bundle / "harnesses.json").read_bytes())
 
 
-def _cmd_write(args, table, manifest, values, run, when, out, err) -> int:
+def _cmd_write(args, table, manifest, values, run, when, out, err, client_factory=None) -> int:
     if args.cmd == "set":
         manifest.data["autoSetup"] = args.value == "on"
         manifest.save()
@@ -1987,7 +2078,8 @@ def _cmd_write(args, table, manifest, values, run, when, out, err) -> int:
                 fresh = when - at < IF_CHANGED_AGE
             except ValueError:
                 fresh = False
-        if fresh and manifest.data.get("hookVersion") == values.version \
+        import relay_owner_steps as ros
+        if fresh and not ros.waiting(manifest) and manifest.data.get("hookVersion") == values.version \
                 and manifest.data.get("tableSha") == _table_sha(values) \
                 and manifest.data.get("linkRoot") == tilde(values.link_root, values.home):
             return _cmd_status(argparse.Namespace(harness=args.harness, json=args.json, smoke=False),
@@ -1999,6 +2091,18 @@ def _cmd_write(args, table, manifest, values, run, when, out, err) -> int:
         raise UsageError("--piece needs --harness")
     if piece is not None and piece not in PIECES + ("plugin",):
         raise UsageError(f"no piece {piece!r} (one of {', '.join(PIECES)})")
+    if args.harness and args.harness not in {e["id"] for e in table}:
+        raise UsageError(f"no harness {args.harness!r} in the table")
+    asks_on = mode in ("sync", "reinstall") and not args.dry_run
+    no_asks = bool(getattr(args, "no_asks", False))
+    ctx = Context(table, manifest, values, run)
+    report = Report(dry_run=args.dry_run)
+    if asks_on:
+        import relay_owner_steps as ros
+        if not no_asks:
+            ros.refresh(manifest, client_factory)
+        if mode == "sync":
+            _drift_answers(ctx, report, detections, when)
     if args.cmd == "remove":
         actions = plan(table, manifest, detections, values, run, mode="remove", harness=args.harness,
                        force=args.force, include_new=False)
@@ -2006,12 +2110,14 @@ def _cmd_write(args, table, manifest, values, run, when, out, err) -> int:
         actions = plan(table, manifest, detections, values, run, mode=mode, harness=args.harness,
                        force=getattr(args, "force", False), include_new=getattr(args, "include_new", False),
                        piece=piece, only_known=getattr(args, "only_known", False))
-    ctx = Context(table, manifest, values, run)
-    report = Report(dry_run=args.dry_run)
     Applier(ctx, report, when).run(actions)
     if not args.dry_run:
         if args.cmd == "remove":
             manifest.data["dirs"] = _rmdirs(manifest.data.get("dirs") or [])
+            if args.harness:
+                asks = manifest.data.get("asks") or {}
+                for sid in [k for k, a in asks.items() if isinstance(a, dict) and a.get("harness") == args.harness]:
+                    del asks[sid]
             if args.all:
                 shutil.rmtree(values.plugins, ignore_errors=True)
                 manifest.data["harnesses"] = {}
@@ -2020,13 +2126,16 @@ def _cmd_write(args, table, manifest, values, run, when, out, err) -> int:
                 for k in ("hookVersion", "tableSha", "linkRoot", "lastSync"):
                     manifest.data.pop(k, None)
         else:
-            _owner_steps(ctx, report, no_asks=getattr(args, "no_asks", False))
+            import relay_owner_steps as ros
+            poster = ros.Poster(client_factory, no_asks=no_asks)
+            _owner_phase(ctx, report, poster, when, harness=args.harness, drift=mode == "sync")
             manifest.data.update({"hookVersion": values.version, "tableSha": _table_sha(values),
                                   "linkRoot": tilde(values.link_root, values.home), "lastSync": _iso(when)})
         manifest.save()
     code = 4 if report.failed else 0
     if args.json:
-        print(json.dumps({"dryRun": report.dry_run, "results": report.results, "exit": code}, indent=2), file=out)
+        print(json.dumps({"dryRun": report.dry_run, "results": report.results, "errors": report.errors,
+                          "exit": code}, indent=2), file=out)
     else:
         _human_report(report, out)
     return code
