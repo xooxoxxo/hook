@@ -75,7 +75,7 @@ public struct StatusBar<Details: View>: View {
                 Button(StatusBarText.setUpPond, action: onQueueSettings)
             }
         } label: {
-            Text(line(profiles.label)).lineLimit(1)
+            Text(line(profiles.shortLabel)).lineLimit(1)
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.visible)

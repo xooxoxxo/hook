@@ -58,4 +58,18 @@ private func config(source: SourceKind? = nil, url: String? = nil, token: String
         let status = PanelStatus.make(StatusInputs(sourceKey: "mailbox:m#p", reachable: true, loadedOnce: true))
         #expect(ProfileMenu.accessibilityText(menu, status: status) == "Profile Personal. Status: Pond, ready")
     }
+
+    @Test func shortLabelCapsALongPondName() {
+        let long = ProfileMenu.make(config: config(source: .mailbox, url: "https://pond.example.com", token: "~/t",
+                                                   context: "atlas-warehouse-migration-and-quarterly-capacity-review"))
+        #expect(long.label == "Atlas Warehouse Migration And Quarterly Capacity Review")
+        #expect(long.shortLabel == "Atlas Warehouse Migrati…")
+        #expect(long.shortLabel.count == ProfileMenu.labelLimit)
+        #expect(long.profiles.last?.name == long.label)
+        let short = ProfileMenu.make(config: config(source: .mailbox, url: "https://pond.example.com", token: "~/t"))
+        #expect(short.shortLabel == "Personal")
+        let trailingSpace = ProfileMenu.make(config: config(source: .mailbox, url: "https://pond.example.com", token: "~/t",
+                                                            context: "atlas-warehouse-migrat-xy-z"))
+        #expect(trailingSpace.shortLabel == "Atlas Warehouse Migrat…")
+    }
 }

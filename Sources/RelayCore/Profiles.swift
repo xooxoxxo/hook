@@ -42,6 +42,18 @@ public struct ProfileMenu: Equatable, Sendable {
     /// The menu's title: the shown profile's name.
     public var label: String { current?.name ?? Self.noQueue }
 
+    /// The longest title the status bar shows before it ends in "…". A stock menu sizes
+    /// to its title, so a long Pond context would push the status word and Settings out
+    /// of the panel; the menu's own items keep the full name.
+    public static let labelLimit = 24
+
+    /// `label`, cut to `labelLimit` characters with "…" when longer.
+    public var shortLabel: String {
+        let full = label
+        guard full.count > Self.labelLimit else { return full }
+        return full.prefix(Self.labelLimit - 1).trimmingCharacters(in: .whitespaces) + "…"
+    }
+
     /// This Mac always; the Pond once its URL and token file are saved, named by its
     /// context in title case ("personal" → "Personal").
     public static func make(config: RelayConfig?, readOnly: Bool = false) -> ProfileMenu {
