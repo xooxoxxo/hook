@@ -35,7 +35,7 @@ public final class FixturePanelModel: PanelViewModel {
     public init(queue: QueueSnapshot, details: [String: DetailSnapshot] = [:], navigation: PanelNavigation = .init(),
                 notice: PanelNotice? = nil, undo: UndoInfo? = nil, status: PanelStatus,
                 reviewPages: [String: ReviewPage] = [:], crashOffer: CrashOffer? = nil,
-                profiles: ProfileMenu = FixturePanelModel.pondProfiles) {
+                profiles: ProfileMenu? = nil) {
         self.queue = queue
         self.details = details
         self.reviewPages = reviewPages
@@ -45,7 +45,7 @@ public final class FixturePanelModel: PanelViewModel {
         undoInfo = undo
         self.status = status
         self.crashOffer = crashOffer
-        self.profiles = profiles
+        self.profiles = profiles ?? Self.pondProfiles
     }
 
     /// This Mac and a Pond named by the default context, the Pond shown.

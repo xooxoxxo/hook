@@ -51,7 +51,7 @@ let queueFlatRules: [AlignmentRule] = [
 /// A fixture model over `queue`, with the second visible row selected (the selected-row look).
 @MainActor func queueModel(_ queue: QueueSnapshot, notice: PanelNotice? = nil, undo: UndoInfo? = nil,
                            status: PanelStatus = readyStatus, crashOffer: CrashOffer? = nil,
-                           profiles: ProfileMenu = FixturePanelModel.pondProfiles) -> FixturePanelModel {
+                           profiles: ProfileMenu? = nil) -> FixturePanelModel {
     let order = QueueLayout.visibleOrder(queue.sections)
     let selected = order.dropFirst().first ?? order.first
     return FixturePanelModel(queue: queue, navigation: PanelNavigation(listSelection: selected),
@@ -63,7 +63,7 @@ let galleryCrashOffer = CrashOffer(summary: GalleryFixtures.crash)
 let galleryHangOffer = CrashOffer(summary: GalleryFixtures.hang)
 
 /// The status bar's states over the plain queue, short enough to show the bottom bars.
-@MainActor func statusScene(_ name: String, _ status: PanelStatus, profiles: ProfileMenu = FixturePanelModel.pondProfiles,
+@MainActor func statusScene(_ name: String, _ status: PanelStatus, profiles: ProfileMenu? = nil,
                             crashOffer: CrashOffer? = nil, undo: UndoInfo? = nil) -> GalleryScene {
     panelScene(name, queueModel(GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false),
                                 undo: undo, status: status, crashOffer: crashOffer, profiles: profiles),

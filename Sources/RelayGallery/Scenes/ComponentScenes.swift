@@ -197,8 +197,8 @@ let longProject = "Quarterly planning for the public launch of the pricing page"
 
 @MainActor func bars() -> SheetSection {
     let soon = Date().addingTimeInterval(8)
-    func status(_ status: PanelStatus, _ profiles: ProfileMenu = FixturePanelModel.pondProfiles) -> some View {
-        StatusBar(status: status, profiles: profiles, onSwitch: { _ in }, onQueueSettings: {}, onSettings: {}) {
+    func status(_ status: PanelStatus, _ profiles: ProfileMenu? = nil) -> some View {
+        StatusBar(status: status, profiles: profiles ?? FixturePanelModel.pondProfiles, onSwitch: { _ in }, onQueueSettings: {}, onSettings: {}) {
             Text("Updated 09:40")
         }
     }
