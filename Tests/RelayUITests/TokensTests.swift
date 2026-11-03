@@ -129,6 +129,7 @@ private enum Contrast {
             DS.Symbol.info, DS.Symbol.empty, DS.Symbol.offline, DS.Symbol.notSetUp, DS.Symbol.notFound,
             DS.Symbol.menuBar, DS.Symbol.link, DS.Symbol.warning, DS.Symbol.sent, DS.Symbol.clearShortcut,
             DS.Symbol.tabGeneral, DS.Symbol.tabPanel, DS.Symbol.tabQueue, DS.Symbol.tabNotifications, DS.Symbol.tabConnect,
+            DS.Symbol.reveal, DS.Symbol.update, DS.Symbol.openApp, DS.Symbol.show,
         ]
         for name in names {
             #expect(NSImage(systemSymbolName: name, accessibilityDescription: nil) != nil, "\(name)")

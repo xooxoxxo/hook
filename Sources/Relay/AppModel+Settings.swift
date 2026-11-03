@@ -66,6 +66,7 @@ extension AppModel: SettingsViewModel {
             documentAppName: documentAppName(),
             install: InstallKind.detect(repoPath: repo, fileExists: { FileManager.default.fileExists(atPath: $0) })
                 .line(home: home.path),
+            privacy: PrivacyLine.make(config: config, ownerKey: ownerKeyState, logSize: HookLog.size),
             now: settings.now)
         guard next != settings else { return }
         next.now = Date()
@@ -101,6 +102,13 @@ extension AppModel: SettingsViewModel {
         switch action {
         case .showConfigInFinder:
             NSWorkspace.shared.activateFileViewerSelecting([configURL])
+        case .showLogInFinder:
+            let log = HookLog.directory.appending(path: "hook.log")
+            if FileManager.default.fileExists(atPath: log.path) {
+                NSWorkspace.shared.activateFileViewerSelecting([log])
+            } else {
+                NSWorkspace.shared.open(HookLog.directory)
+            }
         case .showQueueInFinder:
             let queue = dataDirectory.appending(path: "queue.json")
             if FileManager.default.fileExists(atPath: queue.path) {

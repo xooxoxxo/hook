@@ -83,7 +83,8 @@ public enum SettingsFixtures {
                                 displays: [DisplayOption] = [
                                     DisplayOption(id: nil, title: "Main display", connected: true),
                                     DisplayOption(id: "D1", title: "Studio Display", connected: true),
-                                ]) -> SettingsSnapshot {
+                                ],
+                                ownerKey: OwnerKeyState = .approved, logSize: Int = 86_016) -> SettingsSnapshot {
         let sourceKey: String
         switch config?.resolvedSource() {
         case .mailbox(let settings)?: sourceKey = SourceKey.mailbox(settings)
@@ -102,6 +103,7 @@ public enum SettingsFixtures {
                                               current: config?.terminal ?? RelayConfig.automaticTerminal),
             mailbox: sourceKey.hasPrefix("mailbox:") ? mailbox : nil,
             install: InstallKind.release(home: "/Users/me/.local/share/hook").line(home: "/Users/me"),
+            privacy: PrivacyLine.make(config: config, ownerKey: ownerKey, logSize: logSize),
             now: GalleryFixtures.now)
     }
 }

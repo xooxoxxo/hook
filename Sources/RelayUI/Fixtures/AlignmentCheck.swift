@@ -86,11 +86,17 @@ public enum AlignmentRule: Equatable, Sendable {
     case sameCentre(ProbeRole, tolerance: CGFloat)
     case sameLeading(ProbeRole, tolerance: CGFloat)
     case sameTrailingPerGroup(ProbeRole, tolerance: CGFloat)
+    /// Every probe of the role sits on the line of the `anchor` probe in its group: their
+    /// frames' midY agree. No probe of the role passes (a row without an accessory).
+    case inlineWith(ProbeRole, anchor: ProbeRole, tolerance: CGFloat)
+
+    /// A Settings row's accessory is on its control's line, never under it.
+    public static let settingsAccessoryInline = AlignmentRule.inlineWith(.settingsAccessory, anchor: .settingsControl, tolerance: 1)
 
     var role: ProbeRole {
         switch self {
         case .leading(let r, _, _), .trailing(let r, _, _), .sameCentre(let r, _), .sameLeading(let r, _),
-             .sameTrailingPerGroup(let r, _):
+             .sameTrailingPerGroup(let r, _), .inlineWith(let r, _, _):
             return r
         }
     }
@@ -105,6 +111,7 @@ extension AlignmentRule: CustomStringConvertible {
         case let .sameCentre(r, t): return "sameCentre(\(r.rawValue), tolerance: \(f(t)))"
         case let .sameLeading(r, t): return "sameLeading(\(r.rawValue), tolerance: \(f(t)))"
         case let .sameTrailingPerGroup(r, t): return "sameTrailingPerGroup(\(r.rawValue), tolerance: \(f(t)))"
+        case let .inlineWith(r, a, t): return "inlineWith(\(r.rawValue), anchor: \(a.rawValue), tolerance: \(f(t)))"
         }
     }
 }
@@ -150,6 +157,10 @@ public enum AlignmentCheck {
                             height: CGFloat(bitmap.height) / bitmap.scale)
             .insetBy(dx: -edgeSlack, dy: -edgeSlack)
         for rule in rules {
+            if case let .inlineWith(role, anchor, tolerance) = rule {
+                failures += inline(probes, role: role, anchor: anchor, tolerance: tolerance, rule: rule)
+                continue
+            }
             let ofRole = probes.filter { $0.role == rule.role }
             let mine = ofRole.filter { bounds.contains($0.frame) }
             guard !mine.isEmpty else {
@@ -196,9 +207,24 @@ public enum AlignmentCheck {
                 for group in Set(values.map(\.0.group)).sorted() {
                     spread(values.filter { $0.0.group == group }, tolerance, rule, "ends in \(group)", &failures)
                 }
+            case .inlineWith:
+                break   // checked above, by frame
             }
         }
         return failures
+    }
+
+    /// Each `role` probe against the `anchor` probe of its group, by frame midY.
+    private static func inline(_ probes: [ProbeFrame], role: ProbeRole, anchor: ProbeRole, tolerance: CGFloat,
+                               rule: AlignmentRule) -> [AlignmentFailure] {
+        probes.filter { $0.role == role }.compactMap { probe in
+            guard let line = probes.first(where: { $0.role == anchor && $0.group == probe.group }) else {
+                return AlignmentFailure(rule: rule, detail: "no \(anchor.rawValue) probe in \(probe.group)")
+            }
+            let delta = abs(probe.frame.midY - line.frame.midY)
+            guard delta > tolerance else { return nil }
+            return AlignmentFailure(rule: rule, detail: "\(probe.group): midY \(format(probe.frame.midY)), its line \(format(line.frame.midY))")
+        }
     }
 
     private static func spread(_ values: [(ProbeFrame, CGFloat)]?, _ tolerance: CGFloat, _ rule: AlignmentRule,

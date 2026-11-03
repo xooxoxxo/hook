@@ -45,10 +45,10 @@ public struct NotificationsTab<Model: SettingsViewModel>: View {
             if model.settings.away {
                 Section("Away") {
                     SettingsRow("Away") {
-                        HStack(spacing: DS.Space.inline) {
-                            Text("Paused while you're away").foregroundStyle(DS.Color.secondary)
-                            Button("Presence Settings…") { model.perform(.switchTab(.general)) }
-                        }
+                        Text("Paused while you're away").foregroundStyle(DS.Color.secondary)
+                    } accessory: {
+                        IconButton(DS.Symbol.settings, label: "Presence Settings…",
+                                   help: "Open the Presence settings") { model.perform(.switchTab(.general)) }
                     }
                 }
                 .environment(\.settingsSection, "Away")

@@ -82,13 +82,13 @@ public struct QueueTab<Model: SettingsViewModel>: View {
     private var localSection: some View {
         Section("This Mac") {
             SettingsRow("Stored in") {
-                HStack(spacing: DS.Space.inline) {
-                    Text(model.settings.localQueuePath ?? "")
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .textSelection(.enabled)
-                    Button("Show in Finder") { model.perform(.showQueueInFinder) }
-                }
+                Text(model.settings.localQueuePath ?? "")
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .textSelection(.enabled)
+            } accessory: {
+                IconButton(DS.Symbol.reveal, label: "Show in Finder",
+                           help: "Show queue.json in Finder") { model.perform(.showQueueInFinder) }
             }
             SettingsRow("Keep closed asks for", help: QueueHelp.keep) {
                 Picker("Keep closed asks for", selection: model.configBinding(
@@ -176,16 +176,17 @@ public struct QueueTab<Model: SettingsViewModel>: View {
             if let testResult {
                 SettingsRow("", error: { if case .failed(let reason) = testResult { reason } else { nil } }()) {
                     switch testResult {
-                    case .sent(let id):
-                        HStack(spacing: DS.Space.inline) {
-                            Text("Test ask sent.")
-                            Button("Show") { model.perform(.showAsk(id)) }
-                        }
-                    case .alreadyWaiting(let id):
-                        HStack(spacing: DS.Space.inline) {
-                            Text("A test ask is already waiting.")
-                            Button("Show") { model.perform(.showAsk(id)) }
-                        }
+                    case .sent:
+                        Text("Test ask sent.")
+                    case .alreadyWaiting:
+                        Text("A test ask is already waiting.")
+                    case .failed:
+                        EmptyView()
+                    }
+                } accessory: {
+                    switch testResult {
+                    case .sent(let id), .alreadyWaiting(let id):
+                        IconButton(DS.Symbol.show, label: "Show", help: "Show the test ask") { model.perform(.showAsk(id)) }
                     case .failed:
                         EmptyView()
                     }
@@ -214,12 +215,13 @@ public struct QueueTab<Model: SettingsViewModel>: View {
                 case .failed:
                     EmptyView()
                 }
-                if line.state == .needsUpdate {
-                    Button("Update Pond…") { model.perform(.updateMailbox) }
-                }
-                Button("Check") { model.perform(.checkMailbox) }
-                    .disabled(line.state == .checking)
             }
+        } accessory: {
+            if line.state == .needsUpdate {
+                IconButton(DS.Symbol.update, label: "Update Pond…") { model.perform(.updateMailbox) }
+            }
+            IconButton(DS.Symbol.refresh, label: "Check", help: "Check the Pond's version again") { model.perform(.checkMailbox) }
+                .disabled(line.state == .checking)
         }
     }
 

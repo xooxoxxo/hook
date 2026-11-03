@@ -318,6 +318,12 @@ public enum DS {
         public static let tabQueue = "tray"
         public static let tabNotifications = "bell"
         public static let tabConnect = "link"
+        /// Settings' same-line icon buttons: Show in Finder, Check for Updates…, open an app
+        /// or a System Settings pane, and show an ask.
+        public static let reveal = "folder"
+        public static let update = "arrow.down.circle"
+        public static let openApp = "arrow.up.forward.app"
+        public static let show = "arrow.right.circle"
         /// Setup window rows and the Done page.
         public static let setupSource = "tray.and.arrow.down"
         public static let setupMailbox = "server.rack"

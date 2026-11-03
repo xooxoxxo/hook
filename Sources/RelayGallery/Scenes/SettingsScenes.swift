@@ -5,7 +5,8 @@ import SwiftUI
 
 /// Every control in a section ends on one trailing edge. SettingsRow probes its
 /// control as `.settingsTrailing`; the grouped Form gives every section the same width.
-let settingsRules: [AlignmentRule] = [.sameTrailingPerGroup(.settingsTrailing, tolerance: 1)]
+/// A row's accessory (an icon button) sits on its control's line, never under it.
+let settingsRules: [AlignmentRule] = [.sameTrailingPerGroup(.settingsTrailing, tolerance: 1), .settingsAccessoryInline]
 
 /// A Settings scene: the real toolbar-tab window chrome around `view` on `tab`.
 @MainActor func settingsScene<V: View>(_ name: String, tab: SettingsTabID, rules: [AlignmentRule] = settingsRules,
@@ -33,6 +34,19 @@ let settingsRules: [AlignmentRule] = [.sameTrailingPerGroup(.settingsTrailing, t
             var snapshot = SettingsFixtures.snapshot(config: config)
             snapshot.documentAppName = "Writer"
             return GeneralTab(model: FixtureSettingsModel(settings: snapshot))
+        },
+        // Privacy with My Pond on offer (a Pond and an approved owner key), sending there.
+        settingsScene("settings-privacy", tab: .general) {
+            var config = SettingsFixtures.mailboxConfig
+            config.crashReportTarget = .pond
+            return GeneralTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(config: config)))
+        },
+        // No owner key yet: Send to offers GitHub only, and a saved pond reads as GitHub.
+        settingsScene("settings-privacy-no-pond", tab: .general) {
+            var config = SettingsFixtures.mailboxConfig
+            config.crashReportTarget = .pond
+            return GeneralTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(
+                config: config, ownerKey: .notSetUp, logSize: 2_048)))
         },
         settingsScene("settings-readonly", tab: .general) {
             GeneralTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(readOnly: true)))
@@ -119,3 +133,4 @@ let settingsRules: [AlignmentRule] = [.sameTrailingPerGroup(.settingsTrailing, t
         },
     ]
 }
+

@@ -84,7 +84,7 @@ public struct ConnectTab<Model: SettingsViewModel>: View {
         case .elsewhere(let path)?:
             HStack(spacing: DS.Space.inline) {
                 Text("Something else is at ~/.claude/skills/instructables").foregroundStyle(DS.Color.secondary)
-                Button("Show in Finder") {
+                IconButton(DS.Symbol.reveal, label: "Show in Finder", help: "Show what is at the skill's path in Finder") {
                     NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
                 }
             }

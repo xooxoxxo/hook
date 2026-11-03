@@ -159,3 +159,36 @@ private func probe(_ role: ProbeRole, _ x: CGFloat, _ y: CGFloat, _ w: CGFloat, 
         #expect(failure.description == "leading(gutterText, x: 16.0, tolerance: 1.0): no ink")
     }
 }
+
+@Suite struct AccessoryInlineRuleTests {
+    private let blank = canvas(200, 100)
+
+    @Test func anAccessoryOnTheControlsLinePasses() {
+        let probes = [probe(.settingsControl, 100, 10, 40, 22, group: "Version", measure: .frame),
+                      probe(.settingsAccessory, 144, 7, 28, 28, group: "Version", measure: .frame)]
+        #expect(AlignmentCheck.verify(probes, bitmap: blank, rules: [.settingsAccessoryInline]).isEmpty)
+    }
+
+    @Test func anAccessoryUnderTheControlFails() {
+        let probes = [probe(.settingsControl, 100, 10, 40, 22, group: "Version", measure: .frame),
+                      probe(.settingsAccessory, 100, 36, 28, 28, group: "Version", measure: .frame)]
+        let failures = AlignmentCheck.verify(probes, bitmap: blank, rules: [.settingsAccessoryInline])
+        #expect(failures.count == 1)
+        #expect(failures.first?.detail.contains("Version") == true)
+    }
+
+    @Test func eachAccessoryPairsWithItsOwnRow() {
+        let probes = [probe(.settingsControl, 100, 10, 40, 22, group: "A", measure: .frame),
+                      probe(.settingsControl, 100, 50, 40, 22, group: "B", measure: .frame),
+                      probe(.settingsAccessory, 144, 47, 28, 28, group: "B", measure: .frame)]
+        #expect(AlignmentCheck.verify(probes, bitmap: blank, rules: [.settingsAccessoryInline]).isEmpty)
+        let orphan = [probe(.settingsAccessory, 144, 47, 28, 28, group: "C", measure: .frame)]
+        #expect(AlignmentCheck.verify(orphan, bitmap: blank, rules: [.settingsAccessoryInline]).count == 1)
+    }
+
+    @Test func aSceneWithNoAccessoryPasses() {
+        let probes = [probe(.settingsControl, 100, 10, 40, 22, group: "A", measure: .frame)]
+        #expect(AlignmentCheck.verify(probes, bitmap: blank, rules: [.settingsAccessoryInline]).isEmpty)
+        #expect(AlignmentCheck.verify([], bitmap: blank, rules: [.settingsAccessoryInline]).isEmpty)
+    }
+}

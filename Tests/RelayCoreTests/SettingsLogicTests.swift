@@ -723,3 +723,33 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
         #expect(flow.setUp() == nil)
     }
 }
+
+@Suite struct PrivacyLineTests {
+    private let pond = RelayConfig(source: .mailbox, mailboxURL: "https://pond.example.com", tokenFile: "~/.config/relay/token")
+
+    @Test func myPondIsOfferedOnlyWithAPondAndAnApprovedKey() {
+        #expect(PrivacyLine.make(config: pond, ownerKey: .approved, logSize: 0).pondOffered)
+        #expect(!PrivacyLine.make(config: pond, ownerKey: .notSetUp, logSize: 0).pondOffered)
+        #expect(!PrivacyLine.make(config: pond, ownerKey: .waiting(id: "x", code: "123"), logSize: 0).pondOffered)
+        #expect(!PrivacyLine.make(config: pond, ownerKey: .refused("no"), logSize: 0).pondOffered)
+        #expect(!PrivacyLine.make(config: RelayConfig(source: .local), ownerKey: .approved, logSize: 0).pondOffered)
+        #expect(!PrivacyLine.make(config: nil, ownerKey: .approved, logSize: 0).pondOffered)
+        // A Pond with a broken URL isn't a Pond.
+        var broken = pond
+        broken.mailboxURL = "not a url"
+        #expect(!PrivacyLine.make(config: broken, ownerKey: .approved, logSize: 0).pondOffered)
+    }
+
+    @Test func aSavedPondWithoutAKeyReadsAsGitHub() {
+        var config = pond
+        config.crashReportTarget = .pond
+        #expect(PrivacyLine.make(config: config, ownerKey: .notSetUp, logSize: 0).target == .github)
+        #expect(PrivacyLine.make(config: config, ownerKey: .approved, logSize: 0).target == .pond)
+        #expect(PrivacyLine.make(config: nil, ownerKey: .approved, logSize: 0).reports == .ask)
+    }
+
+    @Test(arguments: [(0, "Empty"), (1, "1 KB"), (1024, "1 KB"), (86_016, "84 KB"), (1_048_576, "1.0 MB"), (1_572_864, "1.5 MB")])
+    func theLogSize(_ bytes: Int, _ text: String) {
+        #expect(PrivacyLine.sizeText(bytes) == text)
+    }
+}

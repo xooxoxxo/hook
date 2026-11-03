@@ -185,6 +185,8 @@ public struct SettingsSnapshot: Equatable {
     public var documentAppName: String?
     /// Settings › General › Updates: how Hook was installed, so what an update does.
     public var install: InstallLine?
+    /// Settings › General › Privacy.
+    public var privacy: PrivacyLine
     public var now: Date
 
     public init(config: RelayConfig? = nil, readOnly: Bool = false, version: String = "",
@@ -197,6 +199,7 @@ public struct SettingsSnapshot: Equatable {
                 repo: RepoState = RepoState(), localQueuePath: String? = nil,
                 terminals: [TerminalChoice] = [], mailbox: MailboxVersionLine? = nil,
                 documentAppName: String? = nil, install: InstallLine? = nil,
+                privacy: PrivacyLine = PrivacyLine(),
                 now: Date = Date(timeIntervalSince1970: 0)) {
         self.config = config
         self.readOnly = readOnly
@@ -217,7 +220,46 @@ public struct SettingsSnapshot: Equatable {
         self.mailbox = mailbox
         self.documentAppName = documentAppName
         self.install = install
+        self.privacy = privacy
         self.now = now
+    }
+}
+
+/// Settings › General › Privacy: the crash settings as they read, and the activity log's size.
+public struct PrivacyLine: Equatable, Sendable {
+    public var reports: CrashReportsSetting
+    /// The saved target as it reads: a saved `pond` without My Pond on offer is GitHub.
+    public var target: CrashTarget
+    /// My Pond is offered: a Pond is the source and this Mac's owner key is approved.
+    public var pondOffered: Bool
+    public var logSize: Int
+
+    public init(reports: CrashReportsSetting = .ask, target: CrashTarget = .github, pondOffered: Bool = false,
+                logSize: Int = 0) {
+        self.reports = reports
+        self.target = target
+        self.pondOffered = pondOffered
+        self.logSize = logSize
+    }
+
+    public static func make(config: RelayConfig?, ownerKey: OwnerKeyState, logSize: Int) -> PrivacyLine {
+        let isPond: Bool = {
+            guard case .mailbox? = config?.resolvedSource() else { return false }
+            return true
+        }()
+        let offered = isPond && ownerKey == .approved
+        return PrivacyLine(reports: config?.crashReports ?? .ask,
+                           target: (config?.crashReportTarget ?? .github).effective(pondOffered: offered),
+                           pondOffered: offered, logSize: logSize)
+    }
+
+    /// "84 KB", "1.5 MB", or "Empty".
+    public var sizeText: String { Self.sizeText(logSize) }
+
+    public static func sizeText(_ bytes: Int) -> String {
+        guard bytes > 0 else { return "Empty" }
+        if bytes < 1024 * 1024 { return "\((bytes + 1023) / 1024) KB" }
+        return String(format: "%.1f MB", Double(bytes) / (1024 * 1024))
     }
 }
 
@@ -236,6 +278,8 @@ public enum SettingsAction: Equatable {
     case chooseDocumentApp
     /// Settings › General › Updates: Check for Updates….
     case checkForUpdates
+    /// Settings › General › Privacy › Activity log: reveal hook.log in Finder.
+    case showLogInFinder
 }
 
 extension ShortcutProblem {

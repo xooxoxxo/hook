@@ -153,11 +153,16 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
     /// Where a file row's Open goes: "hook" (Hook's viewer), "system" (the file's default
     /// app), or an app's bundle id or path. Read through `DocumentTarget`.
     public var openDocumentsIn: String
+    /// Settings › Privacy: after a crash, ask (the default), send automatically, or do nothing.
+    public var crashReports: CrashReportsSetting
+    /// Settings › Privacy › Send to: GitHub (the default) or the owner's own Pond.
+    public var crashReportTarget: CrashTarget
 
     enum CodingKeys: String, CodingKey {
         case source, mailboxURL, tokenFile, context, port, pollSeconds, hotkey, keepDays
         case showCount, sidebarEdge, appearance, notify, presence, awayAfterMinutes, repoPath
         case sidebarDisplay, afterClose, terminal, onboarding, mailboxUpdateCommand, openDocumentsIn
+        case crashReports, crashReportTarget
     }
 
     public init(
@@ -181,7 +186,9 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
         terminal: String = RelayConfig.automaticTerminal,
         onboarding: String? = nil,
         mailboxUpdateCommand: String? = nil,
-        openDocumentsIn: String = DocumentTarget.viewerValue
+        openDocumentsIn: String = DocumentTarget.viewerValue,
+        crashReports: CrashReportsSetting = .ask,
+        crashReportTarget: CrashTarget = .github
     ) {
         self.source = source
         self.mailboxURL = mailboxURL
@@ -204,6 +211,8 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
         self.onboarding = onboarding
         self.mailboxUpdateCommand = mailboxUpdateCommand
         self.openDocumentsIn = openDocumentsIn
+        self.crashReports = crashReports
+        self.crashReportTarget = crashReportTarget
     }
 
     /// A missing, null, wrong-typed or out-of-range key takes its default.
@@ -246,6 +255,8 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .flatMap { $0.isEmpty ? nil : $0 }
         openDocumentsIn = DocumentTarget(config: c.lenient(String.self, .openDocumentsIn)).configValue
+        crashReports = c.lenient(String.self, .crashReports).flatMap(CrashReportsSetting.init(rawValue:)) ?? .ask
+        crashReportTarget = c.lenient(String.self, .crashReportTarget).flatMap(CrashTarget.init(rawValue:)) ?? .github
     }
 
     /// The `onboarding` value install.sh writes into a config it creates.

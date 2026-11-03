@@ -305,3 +305,39 @@ private let mailboxProblem = ResolvedSource.invalid("the Pond (source \"mailbox\
         #expect(!ConfigWatchRule.needsRearm([]))
     }
 }
+
+@Suite struct CrashSettingsConfigTests {
+    @Test func theDefaultsAreAskAndGitHub() throws {
+        let config = try decode("{}")
+        #expect(config.crashReports == .ask)
+        #expect(config.crashReportTarget == .github)
+        #expect(RelayConfig().crashReports == .ask)
+        #expect(RelayConfig().crashReportTarget == .github)
+    }
+
+    @Test(arguments: [
+        (#"{"crashReports":"auto","crashReportTarget":"pond"}"#, CrashReportsSetting.auto, CrashTarget.pond),
+        (#"{"crashReports":"off"}"#, .off, .github),
+        (#"{"crashReports":"never","crashReportTarget":"email"}"#, .ask, .github),
+        (#"{"crashReports":1,"crashReportTarget":true}"#, .ask, .github),
+        (#"{"crashReports":null,"crashReportTarget":null}"#, .ask, .github),
+    ])
+    func wrongTypesFallBackToTheDefaults(_ json: String, _ reports: CrashReportsSetting, _ target: CrashTarget) throws {
+        let config = try decode(json)
+        #expect(config.crashReports == reports)
+        #expect(config.crashReportTarget == target)
+    }
+
+    @Test func theNewKeysRoundTripThroughAMerge() throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let url = root.appending(path: "config.json")
+        try PrivateFile.write(Data(#"{"source":"local","futureKey":true}"#.utf8), to: url)
+        try ConfigStore.merge(set: ["crashReports": "auto", "crashReportTarget": "pond"], into: url)
+        #expect(ConfigStore.load(url) == .loaded(RelayConfig(source: .local, crashReports: .auto, crashReportTarget: .pond)))
+        let object = try #require(try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        #expect(object["crashReports"] as? String == "auto")
+        #expect(object["crashReportTarget"] as? String == "pond")
+        #expect(object["futureKey"] as? Bool == true)
+    }
+}

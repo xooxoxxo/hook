@@ -61,15 +61,15 @@ public struct GeneralTab<Model: SettingsViewModel>: View {
             .environment(\.settingsSection, "Presence")
             .disabled(model.settings.readOnly)
             Section("Startup and menu bar") {
-                SettingsRow("Login", help: GeneralHelp.login, error: model.settings.login.error) {
+                SettingsRow("Login", help: GeneralHelp.login, error: loginError) {
                     Toggle("Start Hook when I log in", isOn: Binding(
                         get: { model.settings.login.on },
                         set: { model.perform(.setLogin($0)) }))
                         .toggleStyle(.checkbox)
-                }
-                if model.settings.login.needsApproval {
-                    SettingsRow("", error: "Approve Hook in System Settings → Login Items.") {
-                        Button("Open Login Items") { model.perform(.openLoginItems) }
+                } accessory: {
+                    if model.settings.login.needsApproval {
+                        IconButton(DS.Symbol.openApp, label: "Open Login Items",
+                                   help: "Open Login Items in System Settings") { model.perform(.openLoginItems) }
                     }
                 }
             }
@@ -99,6 +99,7 @@ public struct GeneralTab<Model: SettingsViewModel>: View {
             }
             .environment(\.settingsSection, "Sessions")
             .disabled(model.settings.readOnly)
+            PrivacySection(model: model)
             Section("Appearance and version") {
                 SettingsRow("Appearance") {
                     Picker("Appearance", selection: model.configBinding(
@@ -111,7 +112,9 @@ public struct GeneralTab<Model: SettingsViewModel>: View {
                 }
                 SettingsRow("Version") {
                     Text(model.settings.version).foregroundStyle(DS.Color.secondary).monospacedDigit()
-                    Button("Show config.json") { model.perform(.showConfigInFinder) }
+                } accessory: {
+                    IconButton(DS.Symbol.reveal, label: "Show config.json",
+                               help: "Show config.json in Finder") { model.perform(.showConfigInFinder) }
                 }
             }
             .environment(\.settingsSection, "Appearance and version")
@@ -120,7 +123,8 @@ public struct GeneralTab<Model: SettingsViewModel>: View {
                 Section("Updates") {
                     SettingsRow("Installed as", help: install.detail) {
                         Text(install.mode).foregroundStyle(DS.Color.secondary)
-                        Button("Check for Updates…") { model.perform(.checkForUpdates) }
+                    } accessory: {
+                        IconButton(DS.Symbol.update, label: "Check for Updates…") { model.perform(.checkForUpdates) }
                     }
                 }
                 .environment(\.settingsSection, "Updates")
@@ -128,6 +132,12 @@ public struct GeneralTab<Model: SettingsViewModel>: View {
         }
         .formStyle(.grouped)
         .controlSize(DS.Control.form)
+    }
+
+    /// The login item's own error, else the approval it waits for.
+    private var loginError: String? {
+        model.settings.login.error
+            ?? (model.settings.login.needsApproval ? "Approve Hook in System Settings → Login Items." : nil)
     }
 
     private var documentOptions: [DocumentChoice] {
@@ -156,8 +166,53 @@ public struct GeneralTab<Model: SettingsViewModel>: View {
     }
 }
 
+/// Settings › General › Privacy: what happens after a crash, where a report goes, and the log.
+struct PrivacySection<Model: SettingsViewModel>: View {
+    @ObservedObject var model: Model
+
+    private var privacy: PrivacyLine { model.settings.privacy }
+
+    var body: some View {
+        Section("Privacy") {
+            SettingsRow("Crash reports", help: GeneralHelp.crashReports) {
+                Picker("Crash reports", selection: model.configBinding(
+                    "crashReports", \.crashReports, fallback: CrashReportsSetting.ask, encode: { $0.rawValue })) {
+                    Text("Ask Each Time").tag(CrashReportsSetting.ask)
+                    Text("Send Automatically").tag(CrashReportsSetting.auto)
+                    Divider()
+                    Text("Off").tag(CrashReportsSetting.off)
+                }
+                .pickerStyle(.menu).labelsHidden().fixedSize()
+            }
+            SettingsRow("Send to", help: GeneralHelp.sendTo) {
+                Picker("Send to", selection: Binding(
+                    get: { privacy.target },
+                    set: { model.save(set: ["crashReportTarget": $0.rawValue], remove: []) })) {
+                    Text("GitHub").tag(CrashTarget.github)
+                    if privacy.pondOffered {
+                        Text("My Pond").tag(CrashTarget.pond)
+                    }
+                }
+                .pickerStyle(.menu).labelsHidden().fixedSize()
+                .disabled(privacy.reports == .off)
+            }
+            SettingsRow("Activity log", help: GeneralHelp.activityLog) {
+                Text(privacy.sizeText).foregroundStyle(DS.Color.secondary).monospacedDigit()
+            } accessory: {
+                IconButton(DS.Symbol.reveal, label: "Show in Finder",
+                           help: "Show the activity log in Finder") { model.perform(.showLogInFinder) }
+            }
+        }
+        .environment(\.settingsSection, "Privacy")
+        .disabled(model.settings.readOnly)
+    }
+}
+
 /// The General tab's "?" texts.
 public enum GeneralHelp {
+    public static let crashReports = "After Hook quits unexpectedly, it offers to send a redacted summary at the next launch: the Hook and macOS versions, the CPU type, the exception and Hook's own frames, and the last 40 lines of the activity log. Ask Each Time shows you exactly what goes out first. Send Automatically sends to your own Pond without asking; GitHub always waits for you to submit the issue yourself. Off sends nothing and shows nothing."
+    public static let sendTo = "GitHub opens a prefilled issue in your browser for you to review and submit; before that, Hook only searches for an existing issue by the crash's signature, a short hash. My Pond files the report as a Hook bug on your Pond, without a Telegram message. It's offered once this Mac's owner key is approved."
+    public static let activityLog = "Hook keeps a small activity log in ~/Library/Logs/Hook: launches and quits with their versions, the screens you open, actions by name (Done, Skip, Reply), the queue source and the Pond's version, and errors with a redacted message. It never records ask ids, titles, steps, replies, notes, file paths inside asks, tokens, the owner key or the Pond's address. It rolls over at 512 KB and stays under 1 MB. It stays on this Mac unless you send a crash report."
     public static let shortcut = "Click the field, then press the new keys. Use at least one of ⌘, ⌃ or ⌥ with a letter, a digit, Space, ` or F1–F12. Esc cancels. ⊗ turns the shortcut off."
     public static let presence = "Hook marks you away when the screen locks, the displays sleep, you're connected over Screen Sharing, or you haven't touched the Mac for this long. While you're away, Hook doesn't slide the panel in or show notifications; asks still reach anything your Pond forwards them to. Hook also creates ~/.local/state/relay/away, so other tools can tell. For example, ssh can skip the 1Password agent."
     public static let login = "Hook adds a LaunchAgent so it starts when you log in."

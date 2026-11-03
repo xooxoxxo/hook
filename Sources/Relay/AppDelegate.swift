@@ -200,6 +200,10 @@ import RelayUI
     private func startCrashMonitor(model: AppModel, notifier: Notifier) {
         let crash = CrashMonitor(dataDirectory: model.dataDirectory, home: UpdateRunner.home)
         crash.onNotify = { [weak notifier] in notifier?.showCrashNotice() }
+        crash.settings = { [weak model] in
+            let privacy = PrivacyLine.make(config: model?.config, ownerKey: model?.ownerKeyState ?? .notSetUp, logSize: 0)
+            return CrashMonitor.Settings(crashReports: privacy.reports, target: privacy.target, pondOffered: privacy.pondOffered)
+        }
         self.crash = crash
         crash.start(version: UpdateChecker.runningVersion)
     }
