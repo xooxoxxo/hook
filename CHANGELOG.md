@@ -3,7 +3,7 @@
 All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
-## [Unreleased]
+## [0.12.0] - 2026-11-03
 
 ### Added
 - Crash reports. Hook marks each run in `run-state.json` and, when the last one ended badly,
