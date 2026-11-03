@@ -12,6 +12,8 @@ and versions follow Semantic Versioning.
   `steps[3].do: "…" is a value to copy: put it in code (or a URL in url)`. Each value goes in its
   own sub-step's `code`, a page in `url`. The rules are `clients/relay_lint.py`; other clients
   test their copies against `clients/lint-vectors.json`.
+<!-- hook:pond=^1.1.0 -->
+<!-- hook:mailbox-protocol=5 -->
 
 ## [0.11.0] - 2026-11-03
 
