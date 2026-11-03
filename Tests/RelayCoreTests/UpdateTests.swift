@@ -133,7 +133,7 @@ private let page = "https://github.com/xooxoxxo/relay/releases/tag/v0.6.5"
 @Suite struct UpdatePlanTests {
     private func plan(_ mode: UpdateGate.Mode, repo: String = "/Users/me/relay") -> UpdatePlan {
         UpdatePlan(repoPath: repo, tag: "v0.6.5", mode: mode, current: "0.6.4",
-                   appPath: "/Users/me/Applications/Hook.app", logPath: "/Users/me/Library/Logs/Relay/update.log",
+                   appPath: "/Users/me/Applications/Hook.app", logPath: "/Users/me/Library/Logs/Hook/update.log",
                    scriptPath: "/tmp/relay-update.sh", plistPath: "/tmp/relay-update.plist", home: "/Users/me")
     }
 
@@ -177,8 +177,8 @@ private let page = "https://github.com/xooxoxxo/relay/releases/tag/v0.6.5"
         #expect(job["RunAtLoad"] as? Bool == true)
         #expect(job["KeepAlive"] as? Bool == false)
         #expect(job["AbandonProcessGroup"] as? Bool == true)
-        #expect(job["StandardOutPath"] as? String == "/Users/me/Library/Logs/Relay/update.log")
-        #expect(job["StandardErrorPath"] as? String == "/Users/me/Library/Logs/Relay/update.log")
+        #expect(job["StandardOutPath"] as? String == "/Users/me/Library/Logs/Hook/update.log")
+        #expect(job["StandardErrorPath"] as? String == "/Users/me/Library/Logs/Hook/update.log")
         #expect(plan(.fastForward).launchCommands(uid: 501) == [
             ["/bin/launchctl", "bootout", "gui/501/io.github.xooxoxxo.relay.update"],
             ["/bin/launchctl", "bootstrap", "gui/501", "/tmp/relay-update.plist"],
@@ -186,11 +186,11 @@ private let page = "https://github.com/xooxoxxo/relay/releases/tag/v0.6.5"
     }
 
     @Test func theUpdatingNoticeNamesTheLogBehindItsHelp() {
-        let notice = PanelNotice.updating(version: "0.6.5", logPath: "~/Library/Logs/Relay/update.log")
+        let notice = PanelNotice.updating(version: "0.6.5", logPath: "~/Library/Logs/Hook/update.log")
         #expect(notice.text == "Updating to 0.6.5. Hook restarts in about 2 minutes.")
         #expect(notice.kind == .info)
         #expect(notice.actionTitle == nil)
-        #expect(notice.help?.hasSuffix("~/Library/Logs/Relay/update.log") == true)
+        #expect(notice.help?.hasSuffix("~/Library/Logs/Hook/update.log") == true)
         #expect(PanelNotice.settingsReloaded.help == nil)
     }
 }

@@ -113,7 +113,7 @@ enum ListenerState: Equatable {
         case .waiting(let error):
             onState(.failed(Self.failureText(error, port: port)))
         case .failed(let error):
-            NSLog("Hook: loopback listener on port %d failed", Int(port))
+            HookLog.error("LoopbackServer", "loopback listener on port \(Int(port)) failed")
             listener.cancel()
             self.listener = nil
             onState(.failed(Self.failureText(error, port: port)))

@@ -8,4 +8,4 @@ Common problems and their fixes.
 - **No notifications.** Turn them on in System Settings › Notifications › Hook.
 - **The shortcut doesn't work.** Another app owns it. Pick a new one in Settings › General.
 - **Pond unreachable.** The menu-bar icon dims and the sidebar footer shows `Pond · offline:` and the reason. Check the Pond URL and Pond token file in Settings › Queue, and that the service answers. `relay list` prints the error too.
-- **An update failed.** Check for Updates logs to `~/Library/Logs/Relay/update.log`. A release whose zip doesn't match its `SHA256SUMS` is refused and nothing changes; the version before stays in `~/.local/share/hook` (see [Update](install.md#update) to go back).
+- **An update failed.** Check for Updates logs to `~/Library/Logs/Hook/update.log`. A release whose zip doesn't match its `SHA256SUMS` is refused and nothing changes; the version before stays in `~/.local/share/hook` (see [Update](install.md#update) to go back).

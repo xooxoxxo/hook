@@ -122,7 +122,7 @@ enum UpdateRunner {
     static var home: String {
         ProcessInfo.processInfo.environment["HOME"] ?? FileManager.default.homeDirectoryForCurrentUser.path
     }
-    static var logPath: String { home + "/Library/Logs/Relay/update.log" }
+    static var logPath: String { HookLog.updateLogPath(home: home) }
     static var appPath: String { home + "/Applications/Hook.app" }
 
     /// The gate: the folder is the Hook repo, its origin is xooxoxxo/hook or xooxoxxo/relay, the tree is

@@ -83,7 +83,7 @@ import Testing
             hookHome: home, tag: "v0.10.1", version: ReleaseVersion("0.10.1")!, current: "0.10.0",
             appPath: "/Users/me/Applications/Hook.app", downloadDir: "/tmp/hook-update-1",
             zipPath: "/tmp/hook-update-1/Hook-0.10.1.zip", sumsPath: "/tmp/hook-update-1/SHA256SUMS",
-            logPath: "/Users/me/Library/Logs/Relay/update.log", scriptPath: "/tmp/relay-update.sh",
+            logPath: "/Users/me/Library/Logs/Hook/update.log", scriptPath: "/tmp/relay-update.sh",
             plistPath: "/tmp/relay-update.plist", home: "/Users/me")
     }
 
@@ -119,7 +119,7 @@ import Testing
         #expect(job["ProgramArguments"] as? [String] == ["/bin/sh", "/tmp/relay-update.sh"])
         #expect(job["WorkingDirectory"] as? String == "/Users/me/.local/share/hook")
         #expect(job["AbandonProcessGroup"] as? Bool == true)
-        #expect(job["StandardOutPath"] as? String == "/Users/me/Library/Logs/Relay/update.log")
+        #expect(job["StandardOutPath"] as? String == "/Users/me/Library/Logs/Hook/update.log")
         #expect(plan().launchCommands(uid: 501).last == ["/bin/launchctl", "bootstrap", "gui/501", "/tmp/relay-update.plist"])
     }
 }

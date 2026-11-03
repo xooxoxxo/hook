@@ -597,7 +597,7 @@ extension Store {
             pendingReviewNotice = .reviewRecordsUnreadable
             return
         } catch {
-            NSLog("Hook: couldn't save the review seal key; reviews stay in memory: %@", error.localizedDescription)
+            HookLog.error("ReviewSeal", "couldn't save the review seal key; reviews stay in memory: " + error.localizedDescription)
             return
         }
         sealKey = key
@@ -620,7 +620,7 @@ extension Store {
         do {
             key = try ReviewSeal.create(reviewFile.secrets, file: reviewFile.url)
         } catch {
-            NSLog("Hook: couldn't reset the review records: %@", error.localizedDescription)
+            HookLog.error("ReviewStore", "couldn't reset the review records: " + error.localizedDescription)
             return false
         }
         sealKey = key
@@ -665,7 +665,7 @@ extension Store {
             try PrivateFile.write(ReviewStore.sealed(records: reviews, sealKey: sealKey), to: reviewFile.url)
             return true
         } catch {
-            NSLog("Hook: couldn't save the review records: %@", error.localizedDescription)
+            HookLog.error("ReviewStore", "couldn't save the review records: " + error.localizedDescription)
             return false
         }
     }

@@ -40,7 +40,7 @@ public struct LocalToken: Sendable {
         do {
             try checkTrusted()
         } catch {
-            NSLog("Hook: %@", error.localizedDescription)
+            HookLog.error("LocalToken", error.localizedDescription)
             return nil
         }
         guard let data = try? Data(contentsOf: file),

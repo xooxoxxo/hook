@@ -76,12 +76,15 @@ import RelayUI
     private var ownerKey: OwnerKeyFlow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        HookLog.start()
         if handOffToRunningRelay() { return }
         startUp()
     }
 
     /// Everything after the single-instance check: the model, panel, menu bar, presence and the first apply.
     private func startUp() {
+        HookLog.record(HookLog.launch(hook: UpdateChecker.runningVersion))
+        HookLog.moveOldUpdateLog(home: UpdateRunner.home)
         let hotKeys = HotKeyManager { [weak self] in self?.togglePanel(from: .shortcut) }
         hotKeys.onLabelChange = { [weak self] in self?.updateShortcutLabel() }
         self.hotKeys = hotKeys
@@ -207,7 +210,7 @@ import RelayUI
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = false
         NSWorkspace.shared.open([show], withApplicationAt: appURL, configuration: configuration) { _, error in
-            if let error { NSLog("Hook: hand-off to running copy failed: %@", error.localizedDescription) }
+            if let error { HookLog.error("SingleInstance", "hand-off to running copy failed: " + error.localizedDescription) }
             Task { @MainActor [weak self] in await self?.leaveUnlessQuit(pid) }
         }
         return true
@@ -223,7 +226,7 @@ import RelayUI
             try? await Task.sleep(for: .milliseconds(100))
         }
         guard gone() else { exit(0) }
-        NSLog("Hook: the running copy quit during the hand-off; starting")
+        HookLog.error("SingleInstance", "the running copy quit during the hand-off; starting")
         startUp()
     }
 
@@ -259,6 +262,7 @@ import RelayUI
     /// until the next launch rewrites or removes it.
     func applicationWillTerminate(_ notification: Notification) {
         presence.stop()
+        HookLog.record(.quit(clean: true))
     }
 
     private func watchTermSignal() {
@@ -502,6 +506,7 @@ import RelayUI
             return
         }
         applied = next
+        if next.key != SourceKey.none { HookLog.record(.source(next.mailbox == nil ? .local : .mailbox, pond: nil)) }
         store.swap(to: make(), identity: next, pollSeconds: pollSeconds)
     }
 
@@ -585,7 +590,7 @@ import RelayUI
 
     private func listenerChanged(_ state: ListenerState) {
         model?.setListenerState(state)
-        if case .failed(let text) = state { NSLog("Hook: %@", text) }
+        if case .failed(let text) = state { HookLog.error("Listener", text) }
         updateListenerProblem()
     }
 
@@ -607,7 +612,7 @@ import RelayUI
     /// A local-queue problem. It reaches the status bar through `setListenerProblem`
     /// (`localProblem`), once; the log keeps it too.
     private func logProblem(_ text: String) {
-        NSLog("Hook: %@", text)
+        HookLog.error("LocalQueue", text)
     }
 
     /// config.json's problem shows in the status bar ("config.json has an error"), once.

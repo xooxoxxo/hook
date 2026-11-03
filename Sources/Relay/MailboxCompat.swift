@@ -16,6 +16,8 @@ import RelayUI
     /// Watches an Update Mailbox… run: its done file, and the version every 30 s for 10 minutes.
     private var watch: Task<Void, Never>?
     private var watchKey: String?
+    /// The Pond version last written to the log, so a check every 30 minutes adds no line.
+    private var loggedPond: (key: String, pond: PondVersion)?
 
     init() {
         checker.onResult = { [weak self] check, manual in self?.handle(check, manual: manual) }
@@ -118,7 +120,13 @@ import RelayUI
         publishLine()
         guard let store, store.sourceKey == check.sourceKey else { return }
         // The review gate reads the Pond's version: a Pond below 1.1.0 can't serve corrections.
-        if let pond = check.pond { store.setPond(pond) }
+        if let pond = check.pond {
+            store.setPond(pond)
+            if loggedPond?.key != check.sourceKey || loggedPond?.pond != pond {
+                loggedPond = (check.sourceKey, pond)
+                HookLog.record(.source(.mailbox, pond: pond.effective.description))
+            }
+        }
         guard let compatibility = check.compatibility, let pond = check.pond else { return }
         switch compatibility {
         case .ok:

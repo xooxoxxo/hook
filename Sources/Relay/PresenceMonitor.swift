@@ -48,7 +48,7 @@ import RelayCore
         let decision = PresenceLogic.evaluate(mode: mode, signals: signals, awayAfterMinutes: awayAfterMinutes)
         status = Status(state: decision.state, reason: decision.reason, since: Date())
         writeFlag()
-        NSLog("Hook: presence %@ (%@)", status.state.rawValue, status.reason)
+        HookLog.record(.presence(status.state, reason: status.reason))
         observe()
         pollTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -73,7 +73,7 @@ import RelayCore
         for (center, token) in observers { center.removeObserver(token) }
         observers = []
         if case .failure(let error) = flag.clear() {
-            NSLog("Hook: couldn't remove the away flag: %@", error.localizedDescription)
+            HookLog.error("AwayFlag", "couldn't remove the away flag: " + error.localizedDescription)
         }
     }
 
@@ -119,7 +119,7 @@ import RelayCore
         guard let holders = Self.assertionHolders() else {
             if !assertionsFailing {
                 assertionsFailing = true
-                NSLog("Hook: couldn't read power assertions; treating Screen Sharing as not connected")
+                HookLog.error("Presence", "couldn't read power assertions; treating Screen Sharing as not connected")
             }
             return false
         }
@@ -175,7 +175,7 @@ import RelayCore
         status = Status(state: decision.state, reason: decision.reason, since: since)
         writeFlag()
         if decision.state != old {
-            NSLog("Hook: presence %@ (%@)", status.state.rawValue, status.reason)
+            HookLog.record(.presence(status.state, reason: status.reason))
         }
         onChange?(status)
     }
@@ -184,11 +184,11 @@ import RelayCore
         switch status.state {
         case .away:
             if case .failure(let error) = flag.set(reason: status.reason, since: status.since) {
-                NSLog("Hook: couldn't write the away flag: %@", error.localizedDescription)
+                HookLog.error("AwayFlag", "couldn't write the away flag: " + error.localizedDescription)
             }
         case .home:
             if case .failure(let error) = flag.clear() {
-                NSLog("Hook: couldn't remove the away flag: %@", error.localizedDescription)
+                HookLog.error("AwayFlag", "couldn't remove the away flag: " + error.localizedDescription)
             }
         }
     }

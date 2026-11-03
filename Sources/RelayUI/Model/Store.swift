@@ -1095,8 +1095,8 @@ public enum LinkCheck: Equatable, Sendable {
                     _ = try await old.resolve(close.id, verdict: close.verdict, note: close.note, stamp: close.stamp)
                     await onCloseSent?(close.id)
                 } catch {
-                    NSLog("Hook: a held-back close couldn't be sent before the queue changed: %@",
-                          error.localizedDescription)
+                    HookLog.error("Store", "a held-back close couldn't be sent before the queue changed: "
+                                  + error.localizedDescription)
                 }
             }
         }

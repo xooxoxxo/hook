@@ -153,7 +153,7 @@ final class ServerRouting: Sendable {
                     try PrivateFile.createDirectoryIfMissing(directory)
                 }
             } catch {
-                NSLog("Hook: can't create %@", directory.path)
+                HookLog.error("AppModel", "can't create " + directory.path)
             }
         }
         let load = Self.checked(ConfigStore.load(configURL))

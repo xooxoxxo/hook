@@ -112,7 +112,7 @@ Hook also keeps a [flag file](configuration.md#the-away-flag) for other tools.
 
 ## Updating
 
-Hook checks GitHub for a new release a minute after launch and then daily. When one exists, the menu starts with "Update Hook to X.Y.Z…". Hook then updates your checkout to that release tag (it must be clean and on main) and runs `scripts/install.sh`, restarting in about 2 minutes. The log is `~/Library/Logs/Relay/update.log`.
+Hook checks GitHub for a new release a minute after launch and then daily. When one exists, the menu starts with "Update Hook to X.Y.Z…". Hook then updates your checkout to that release tag (it must be clean and on main) and runs `scripts/install.sh`, restarting in about 2 minutes. The log is `~/Library/Logs/Hook/update.log`.
 
 ## Settings
 
