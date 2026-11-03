@@ -6,6 +6,7 @@ instructables skill, that `relay integrations` installs into every agent harness
 The built layout (support/integration/ in a release zip, build/integration/ in a clone):
     bundle.json                       {"schema", "version", "files": {relpath: sha256}}
     harnesses.json                    the harness table, when there is one
+    harnesses.schema.json             its schema, so an installed bundle can check it
     instructions/hook.md              the stamp line, then the one instructions text
     instructions/hook.mdc             Cursor rule frontmatter, the stamp, the text
     instructions/hook.instructions.md Copilot frontmatter, the stamp, the text
@@ -195,38 +196,55 @@ def plugin_extras(bundle: Path, plugin_id: str) -> Dict[str, Path]:
     return {_relative(dest): bundle / _relative(source) for dest, source in copy.items()}
 
 
-def render_tree(src: Path, dest: Path, values: Mapping[str, Any], extra: Mapping[str, Path]) -> str:
-    """Render a plugin template folder into dest (replacing it) and return the new tree sha.
-    Templates are filled with values; extra maps a dest relpath to a bundle file or folder
-    that is copied as it is. render.json itself is not copied."""
+def render_files(src: Path, values: Mapping[str, Any], extra: Mapping[str, Path]) -> Dict[str, Tuple[bytes, int]]:
+    """What render_tree would write, in memory: {relpath: (bytes, mode)}. Templates are filled
+    with values; extra maps a dest relpath to a bundle file or folder copied as it is.
+    render.json itself is left out."""
     if not src.is_dir():
         raise RenderError(f"missing source: {src}")
     for rel, source in extra.items():
         if not source.exists():
             raise RenderError(f"missing source for {rel}: {source}")
+    files: Dict[str, Tuple[bytes, int]] = {}
+    for rel, path in _files(src):
+        if rel == "render.json":
+            continue
+        mode = stat.S_IMODE(path.stat().st_mode)
+        if path.suffix in JSON_SUFFIXES + RAW_SUFFIXES:
+            text = render_text(path.read_text("utf-8"), values, json_escape=path.suffix in JSON_SUFFIXES)
+            files[rel] = (text.encode("utf-8"), mode)
+        else:
+            files[rel] = (path.read_bytes(), mode)
+    for rel, source in sorted(extra.items()):
+        rel = _relative(rel)
+        if source.is_dir():
+            for sub, path in _files(source):
+                files[f"{rel}/{sub}"] = (path.read_bytes(), stat.S_IMODE(path.stat().st_mode))
+        else:
+            if source.is_symlink():
+                raise BundleError(f"symlink in the bundle: {source}")
+            files[rel] = (source.read_bytes(), stat.S_IMODE(source.stat().st_mode))
+    return files
+
+
+def files_sha(files: Mapping[str, Tuple[bytes, int]]) -> str:
+    """The tree_sha that a folder holding exactly these files would have."""
+    listing = "".join(f"{rel}\0{sha256_bytes(data)}\n" for rel, (data, _) in sorted(files.items()))
+    return sha256_bytes(listing.encode("utf-8"))
+
+
+def render_tree(src: Path, dest: Path, values: Mapping[str, Any], extra: Mapping[str, Path]) -> str:
+    """Render a plugin template folder into dest (replacing it) and return the new tree sha.
+    Templates are filled with values; extra maps a dest relpath to a bundle file or folder
+    that is copied as it is. render.json itself is not copied."""
+    files = render_files(src, values, extra)
     tmp = _fresh_tmp(dest)
     try:
-        for rel, path in _files(src):
-            if rel == "render.json":
-                continue
+        for rel, (data, mode) in files.items():
             target = tmp / rel
             target.parent.mkdir(parents=True, exist_ok=True)
-            if path.suffix in JSON_SUFFIXES + RAW_SUFFIXES:
-                text = render_text(path.read_text("utf-8"), values, json_escape=path.suffix in JSON_SUFFIXES)
-                target.write_text(text, "utf-8")
-            else:
-                shutil.copyfile(path, target)
-            os.chmod(target, stat.S_IMODE(path.stat().st_mode))
-        for rel, source in sorted(extra.items()):
-            target = tmp / _relative(rel)
-            if source.is_dir():
-                _copy_tree(source, target)
-            else:
-                if source.is_symlink():
-                    raise BundleError(f"symlink in the bundle: {source}")
-                target.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(source, target)
-                os.chmod(target, stat.S_IMODE(source.stat().st_mode))
+            target.write_bytes(data)
+            os.chmod(target, mode)
         sha = tree_sha(tmp)
         _swap_in(tmp, dest)
         return sha
@@ -310,6 +328,9 @@ def build(src: Path, skill: Path, table: Path, out: Path, version: str) -> Dict[
             except ValueError as e:
                 raise BundleError(f"{table}: not JSON ({e})") from None
             shutil.copyfile(table, tmp / "harnesses.json")
+            schema = table.with_name("harnesses.schema.json")
+            if schema.is_file():
+                shutil.copyfile(schema, tmp / "harnesses.schema.json")
         files = {rel: sha256_bytes(path.read_bytes()) for rel, path in _files(tmp)}
         manifest = {"schema": BUNDLE_SCHEMA, "version": version, "files": files}
         (tmp / "bundle.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", "utf-8")
