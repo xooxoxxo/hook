@@ -17,7 +17,8 @@ public enum Redactor {
         return text
     }
 
-    private struct Rule: Sendable {
+    // NSRegularExpression is immutable and thread-safe; older SDKs don't mark it Sendable.
+    private struct Rule: @unchecked Sendable {
         let regex: NSRegularExpression
         let template: String
         func apply(_ s: String) -> String {
