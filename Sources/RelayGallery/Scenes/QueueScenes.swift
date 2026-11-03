@@ -6,7 +6,7 @@ import SwiftUI
 /// The gallery's mailbox source key (generic host, never a real one).
 let galleryMailboxKey = "mailbox:mailbox.example:8790#personal"
 
-/// "Pond · ready", from the same logic the app uses.
+/// "Pond" in green, from the same logic the app uses.
 let readyStatus = PanelStatus.make(StatusInputs(sourceKey: galleryMailboxKey, reachable: true, loadedOnce: true))
 
 /// A 380 pt panel scene rendered through `PanelRoot`, on the fixed gallery clock.
@@ -27,7 +27,7 @@ let readyStatus = PanelStatus.make(StatusInputs(sourceKey: galleryMailboxKey, re
 /// The gallery's offline reason (generic, the transport's own timeout wording).
 let offlineReason = "The Pond didn't answer within 10 seconds."
 
-/// "Pond · offline" (or "· connecting…" before a first list), from the app's own logic.
+/// "Offline" (or "Connecting…" before a first list), from the app's own logic.
 func offlineStatus(loadedOnce: Bool) -> PanelStatus {
     PanelStatus.make(StatusInputs(sourceKey: galleryMailboxKey, reachable: false, loadedOnce: loadedOnce, problem: offlineReason))
 }
@@ -50,11 +50,24 @@ let queueFlatRules: [AlignmentRule] = [
 
 /// A fixture model over `queue`, with the second visible row selected (the selected-row look).
 @MainActor func queueModel(_ queue: QueueSnapshot, notice: PanelNotice? = nil, undo: UndoInfo? = nil,
-                           status: PanelStatus = readyStatus) -> FixturePanelModel {
+                           status: PanelStatus = readyStatus, crashOffer: CrashOffer? = nil,
+                           profiles: ProfileMenu = FixturePanelModel.pondProfiles) -> FixturePanelModel {
     let order = QueueLayout.visibleOrder(queue.sections)
     let selected = order.dropFirst().first ?? order.first
     return FixturePanelModel(queue: queue, navigation: PanelNavigation(listSelection: selected),
-                             notice: notice, undo: undo, status: status)
+                             notice: notice, undo: undo, status: status, crashOffer: crashOffer, profiles: profiles)
+}
+
+/// The crash bar's two offers: a report ready, and a run that left only the log.
+let galleryCrashOffer = CrashOffer(summary: GalleryFixtures.crash)
+let galleryHangOffer = CrashOffer(summary: GalleryFixtures.hang)
+
+/// The status bar's states over the plain queue, short enough to show the bottom bars.
+@MainActor func statusScene(_ name: String, _ status: PanelStatus, profiles: ProfileMenu = FixturePanelModel.pondProfiles,
+                            crashOffer: CrashOffer? = nil, undo: UndoInfo? = nil) -> GalleryScene {
+    panelScene(name, queueModel(GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false),
+                                undo: undo, status: status, crashOffer: crashOffer, profiles: profiles),
+               height: queueHeight, rules: queueEdgeRules)
 }
 
 /// The longest project name in the 12-project fixture (60 characters).
@@ -78,7 +91,8 @@ let queueFlatRules: [AlignmentRule] = [
     queue.hidden = QueueLayout.hiddenCount(items: items, filter: filter)
     queue.projects = QueueLayout.menuProjects(items: items, filter: filter)
     let shown = QueueLayout.visibleOrder(queue.sections).count
-    queue.title = shown == 0 ? "Queue" : "\(shown) waiting"
+    queue.title = "Queue"
+    queue.waiting = shown
     queue.content = .list
     return queue
 }
@@ -126,6 +140,15 @@ let queueClosedHeight: CGFloat = 1120
     panelScene("queue-notice-mailbox-newer", queueModel(GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false),
                notice: .hookOlder(pond: "2.0.0")),
                height: queueHeight, rules: queueEdgeRules),
+    statusScene("queue-status-pond", readyStatus),
+    statusScene("queue-status-offline", offlineStatus(loadedOnce: true)),
+    statusScene("queue-status-local", PanelStatus.make(StatusInputs(sourceKey: SourceKey.local, reachable: true, loadedOnce: true)),
+                profiles: FixturePanelModel.localProfiles),
+    statusScene("queue-status-updating",
+                PanelStatus.make(StatusInputs(sourceKey: galleryMailboxKey, reachable: true, loadedOnce: true, updating: true))),
+    statusScene("queue-crash-bar", readyStatus, crashOffer: galleryCrashOffer),
+    statusScene("queue-crash-bar-undo", readyStatus, crashOffer: galleryHangOffer,
+                undo: UndoInfo(verdict: .done, title: "Rotate the example token", deadline: Date().addingTimeInterval(8), more: 0)),
     panelScene("queue-offline-stale", queueModel(GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false),
                notice: .offlineCached(since: "09:22"), status: offlineStatus(loadedOnce: true)),
                height: queueHeight, rules: queueEdgeRules),

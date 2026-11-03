@@ -4,7 +4,10 @@ import RelayCore
 /// Everything the queue view draws, as values.
 public struct QueueSnapshot: Equatable, Sendable {
     public var content: PanelContent
+    /// Always "Queue": the count lives in the menu-bar tooltip and VoiceOver labels.
     public var title: String
+    /// The open asks shown (after the filter), for the header's VoiceOver label.
+    public var waiting: Int = 0
     public var grouping: QueueGrouping
     public var filter: String?
     public var sections: [QueueSection]
@@ -52,7 +55,7 @@ public struct QueueSnapshot: Equatable, Sendable {
                                            waitedTenSeconds: waitedTenSeconds, filter: filter,
                                            shownOpen: shownCount, shownClosed: closedRows.count)
         return QueueSnapshot(
-            content: content, title: shownCount == 0 ? "Queue" : "\(shownCount) waiting", grouping: grouping, filter: filter,
+            content: content, title: "Queue", waiting: shownCount, grouping: grouping, filter: filter,
             sections: sections, rows: rows, closed: closedRows,
             hidden: QueueLayout.hiddenCount(items: open, filter: filter),
             projects: QueueLayout.menuProjects(items: open, filter: filter),

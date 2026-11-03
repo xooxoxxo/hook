@@ -200,6 +200,8 @@ import RelayUI
     private func startCrashMonitor(model: AppModel, notifier: Notifier) {
         let crash = CrashMonitor(dataDirectory: model.dataDirectory, home: UpdateRunner.home)
         crash.onNotify = { [weak notifier] in notifier?.showCrashNotice() }
+        crash.onOffer = { [weak self] summary in self?.store?.offerCrash(summary) }
+        store?.onCrashHandled = { [weak crash] signature in crash?.markHandled(signature) }
         crash.settings = { [weak model] in
             let privacy = PrivacyLine.make(config: model?.config, ownerKey: model?.ownerKeyState ?? .notSetUp, logSize: 0)
             return CrashMonitor.Settings(crashReports: privacy.reports, target: privacy.target, pondOffered: privacy.pondOffered)
@@ -384,6 +386,8 @@ import RelayUI
             resume: { [weak self] origin in self?.resumeSession(origin) })
         store.shell.updateMailbox = { [weak self] in self?.mailbox.updateMailbox() }
         store.shell.checkForUpdates = { [weak self] in self?.checkForUpdatesNow() }
+        // The profile switch saves `source` the way Settings › Queue does; the reload swaps.
+        store.shell.switchSource = { [weak model] kind in model?.save(set: ["source": kind.rawValue]) }
         let presence: any PresenceCheck = UserPresence()
         store.shell.confirmPresence = { reason in
             NSApp.activate()
@@ -634,7 +638,16 @@ import RelayUI
     /// config.json's problem shows in the status bar ("config.json has an error"), once.
     private func configNoteChanged(_ note: String?) {
         store?.setConfigNote(note)
+        refreshProfiles()
         model?.refreshSettings()
+    }
+
+    /// The status bar's switcher, from the last good config. It can't save while config.json
+    /// has an error (the same read-only rule as Settings).
+    private func refreshProfiles() {
+        guard let model else { return }
+        let readOnly = model.config == nil || model.configNote?.hasPrefix("config.json ") == true
+        store?.setProfiles(ProfileMenu.make(config: model.config, readOnly: readOnly))
     }
 
     // MARK: Menu bar
@@ -766,6 +779,7 @@ import RelayUI
                     try UpdateRunner.launch(repo: checkout.repo, tag: tag, mode: checkout.mode)
                 }
                 let log = TildePath.abbreviate(UpdateRunner.logPath, home: UpdateRunner.home)
+                self.store?.setUpdating(true)
                 self.store?.post(.updating(version: version, logPath: log))
                 self.panel?.present(focus: false, animated: true)
             } catch {
@@ -877,6 +891,7 @@ import RelayUI
     /// registered is the same spec, so `apply` is a no-op then. `appearance` and
     /// `sidebarEdge` are applied at the end of `apply(_:)`.
     private func applyGeneral(_ config: RelayConfig?) {
+        refreshProfiles()
         presence.configure(
             mode: config?.presence ?? .auto,
             awayAfterMinutes: config?.awayAfterMinutes ?? PresenceLogic.defaultAwayAfterMinutes)

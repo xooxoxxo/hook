@@ -12,9 +12,11 @@ public struct StatusInputs: Equatable, Sendable {
     public var away: Bool
     /// Held closes being sent on quit.
     public var sendingCloses: Int
+    /// Hook's own update is installing; it restarts when done.
+    public var updating: Bool
 
     public init(sourceKey: String, reachable: Bool, loadedOnce: Bool, problem: String? = nil, configNote: String? = nil,
-                listenerNote: String? = nil, away: Bool = false, sendingCloses: Int = 0) {
+                listenerNote: String? = nil, away: Bool = false, sendingCloses: Int = 0, updating: Bool = false) {
         self.sourceKey = sourceKey
         self.reachable = reachable
         self.loadedOnce = loadedOnce
@@ -23,6 +25,7 @@ public struct StatusInputs: Equatable, Sendable {
         self.listenerNote = listenerNote
         self.away = away
         self.sendingCloses = sendingCloses
+        self.updating = updating
     }
 }
 
@@ -31,15 +34,25 @@ public enum StatusDetail: Equatable, Sendable {
     case updated, unreachable(reason: String), config(note: String), listener(note: String), notSetUp, none
 }
 
+/// The status word's colour: green when fine, orange for a problem, secondary otherwise.
+public enum StatusTone: Equatable, Sendable { case ok, warn, neutral }
+
+/// The status bar's word, beside the profile name. Quiet when all is fine: the Pond reads
+/// "Pond" in green and This Mac shows nothing; any other state keeps its word in its tone.
 public struct PanelStatus: Equatable, Sendable {
     public var symbol: StatusSymbol
     public var text: String
     public var detail: StatusDetail
+    public var tone: StatusTone
+    /// What VoiceOver reads, never empty: "Pond, ready", "This Mac, ready", "Offline".
+    public var spoken: String
 
-    public init(symbol: StatusSymbol, text: String, detail: StatusDetail) {
+    public init(symbol: StatusSymbol, text: String, detail: StatusDetail, tone: StatusTone = .neutral, spoken: String? = nil) {
         self.symbol = symbol
         self.text = text
         self.detail = detail
+        self.tone = tone
+        self.spoken = spoken ?? text
     }
 
     public static func make(_ inputs: StatusInputs) -> PanelStatus {
@@ -47,26 +60,32 @@ public struct PanelStatus: Equatable, Sendable {
             let n = inputs.sendingCloses
             return PanelStatus(symbol: .connecting, text: "Sending \(n) \(n == 1 ? "close" : "closes")…", detail: .none)
         }
+        if inputs.updating {
+            return PanelStatus(symbol: .connecting, text: "Updating…", detail: .none)
+        }
         let local = inputs.sourceKey == SourceKey.local
-        let name = local ? "This Mac" : "Pond"
         var status: PanelStatus
         if inputs.sourceKey == SourceKey.none {
             status = PanelStatus(symbol: .notSetUp, text: "Not set up", detail: .notSetUp)
         } else if let note = inputs.configNote {
-            status = PanelStatus(symbol: .down, text: "config.json has an error", detail: .config(note: note))
+            status = PanelStatus(symbol: .down, text: "config.json has an error", detail: .config(note: note), tone: .warn)
         } else if !inputs.reachable, let problem = inputs.problem {
-            status = PanelStatus(symbol: .down, text: name + (local ? " · not ready" : " · offline"),
-                                 detail: .unreachable(reason: UserFacingError.text(problem)))
+            status = PanelStatus(symbol: .down, text: local ? "Not ready" : "Offline",
+                                 detail: .unreachable(reason: UserFacingError.text(problem)), tone: .warn)
         } else if let note = inputs.listenerNote {
-            status = PanelStatus(symbol: .down, text: "Links aren't working", detail: .listener(note: note))
+            status = PanelStatus(symbol: .down, text: "Links aren't working", detail: .listener(note: note), tone: .warn)
         } else if !inputs.reachable {
-            status = PanelStatus(symbol: .connecting, text: name + (local ? " · starting…" : " · connecting…"), detail: .updated)
+            status = PanelStatus(symbol: .connecting, text: local ? "Starting…" : "Connecting…", detail: .updated)
         } else {
-            status = PanelStatus(symbol: .ok, text: name + " · ready", detail: .updated)
+            status = PanelStatus(symbol: .ok, text: local ? "" : "Pond", detail: .updated, tone: .ok,
+                                 spoken: (local ? "This Mac" : "Pond") + ", ready")
         }
         if inputs.away {
-            status.text = "Away · " + status.text
+            status.text = status.text.isEmpty ? "Away" : "Away · " + status.text
+            status.spoken = "Away, " + status.spoken
             if status.symbol != .down { status.symbol = .away }
+            // "Away" alone isn't the Pond being fine: it isn't green.
+            if status.text == "Away" { status.tone = .neutral }
         }
         return status
     }

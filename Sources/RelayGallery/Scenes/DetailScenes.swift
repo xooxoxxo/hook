@@ -40,12 +40,13 @@ func detailSnapshot(_ detail: AskDetail, base: DetailSnapshot, ticks: Set<String
 /// A panel scene with `snapshot` open in the detail.
 @MainActor func detailScene(_ name: String, _ snapshot: DetailSnapshot, notice: PanelNotice? = nil,
                             height: CGFloat? = 820, rules: [AlignmentRule] = [],
-                            overrides: PanelGalleryOverrides = PanelGalleryOverrides(now: GalleryFixtures.now)) -> GalleryScene {
+                            overrides: PanelGalleryOverrides = PanelGalleryOverrides(now: GalleryFixtures.now),
+                            crashOffer: CrashOffer? = nil) -> GalleryScene {
     let model = FixturePanelModel(
         queue: GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false),
         details: [snapshot.id: snapshot],
         navigation: PanelNavigation(listSelection: snapshot.id, selectedID: snapshot.id),
-        notice: notice, status: readyStatus)
+        notice: notice, status: readyStatus, crashOffer: crashOffer)
     return panelScene(name, model, height: height, rules: rules, overrides: overrides)
 }
 
@@ -160,6 +161,7 @@ let nonWebLinksJSON = #"""
 """#
 
 @MainActor let detailScenes: [GalleryScene] = [
+    detailScene("detail-crash-bar", GalleryFixtures.detailSteps, height: nil, overrides: fullHeight, crashOffer: galleryCrashOffer),
     detailScene("detail-legacy", detailSnapshot(decodeDetail(legacyJSON), base: GalleryFixtures.detailSteps)),
     detailScene("detail-closed", closedDetail, height: nil, overrides: fullHeight),
     detailScene("detail-session-closed", sessionClosedDetail, notice: .sessionClosed(id: sessionClosedDetail.id)),

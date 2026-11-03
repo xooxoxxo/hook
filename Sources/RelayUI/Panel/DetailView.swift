@@ -2,7 +2,7 @@ import AppKit
 import RelayCore
 import SwiftUI
 
-/// One ask. A ScrollView with the header pinned on top and the Undo and
+/// One ask. A ScrollView with the header pinned on top and the crash, Undo and
 /// action bars pinned below: title, steps, reply and your replies, links and From.
 struct DetailView<Model: PanelViewModel>: View {
     @ObservedObject private var model: Model
@@ -405,6 +405,10 @@ struct DetailView<Model: PanelViewModel>: View {
 
     private func bottomBars(_ snapshot: DetailSnapshot) -> some View {
         VStack(spacing: 0) {
+            if let crash = model.crashOffer {
+                CrashBar(offer: crash, onNotNow: { model.dismissCrash() }, onReview: { model.reviewCrash() })
+                    .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+            }
             if let undo = model.undoInfo {
                 UndoBar(undo: undo, sending: model.sendingCloses > 0, onUndo: { model.undo() })
                     .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
@@ -424,6 +428,7 @@ struct DetailView<Model: PanelViewModel>: View {
             }
         }
         .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: model.undoInfo)
+        .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: model.crashOffer)
         // The bars grow past DS.Metric.actionBar (a wrapped caption, the undo bar), so the
         // visible band is measured, the same way the viewport is.
         .background(GeometryReader { geometry in

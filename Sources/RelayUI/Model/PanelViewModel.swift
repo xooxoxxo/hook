@@ -14,6 +14,9 @@ public struct PanelShellActions: Sendable {
     public var updateMailbox: @MainActor @Sendable () -> Void = {}
     /// Check for Updates (Hook's own release check).
     public var checkForUpdates: @MainActor @Sendable () -> Void = {}
+    /// The status bar's profile switch: saves `source` through the same merge-save as
+    /// Settings › Queue.
+    public var switchSource: @MainActor @Sendable (SourceKind) -> Void = { _ in }
     /// A file row's Open, Open With, Reveal in Finder, and its file checks.
     public var files: FileActions = .none
     /// Touch ID, or the login password (so it works while screen sharing), with the reason
@@ -134,6 +137,15 @@ public enum CopyOutcome: Equatable, Sendable {
     func reportProblem(_ id: String, stepID: String, note: String)
     /// "Trust the Pond's History Again…" (Touch ID): after a Pond restore, re-pin what it serves now.
     func trustHistoryAgain()
+    /// The last run crashed and the bar offers a report; nil once answered.
+    var crashOffer: CrashOffer? { get }
+    /// Review…: opens the send sheet.
+    func reviewCrash()
+    /// Not Now: the bar goes and the signature is marked handled.
+    func dismissCrash()
+    /// The status bar's profile switcher.
+    var profiles: ProfileMenu { get }
+    func switchProfile(_ kind: SourceKind)
 }
 
 /// Show Changes, Not Now and Show Version N+1: the inline review is view state in the model.

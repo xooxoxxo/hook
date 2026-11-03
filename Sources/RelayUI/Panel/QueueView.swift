@@ -15,7 +15,7 @@ extension FocusedValues {
     }
 }
 
-/// The queue: header, Notice, List, Undo bar and status bar. Each ask is a card (CardBackground
+/// The queue: header, Notice, List, then the docked crash bar, the Undo bar and the status bar. Each ask is a card (CardBackground
 /// as its row background, the card content inset by `cardInsetH`/`cardInsetV`), so card text
 /// starts at `cardText` and ends at panelWidth − `cardText`. Section headers and the other
 /// rows keep zero horizontal inset, so their text starts on the gutter and their counts end
@@ -32,6 +32,8 @@ struct QueueView<Model: PanelViewModel>: View, Equatable {
     private let notice: PanelNotice?
     private let undo: UndoInfo?
     private let sending: Bool
+    private let crashOffer: CrashOffer?
+    private let profiles: ProfileMenu
     private let listSelection: String?
     private let selectedID: String?
     @AppStorage("relay.closedToday.expanded") private var storedClosedExpanded = false
@@ -56,6 +58,8 @@ struct QueueView<Model: PanelViewModel>: View, Equatable {
         notice = model.notice.flatMap { $0.showsOnQueue ? $0 : nil }
         undo = model.undoInfo
         sending = model.sendingCloses > 0
+        crashOffer = model.crashOffer
+        profiles = model.profiles
         listSelection = model.listSelection
         selectedID = model.navigation.selectedID
     }
@@ -63,7 +67,8 @@ struct QueueView<Model: PanelViewModel>: View, Equatable {
     nonisolated static func == (a: Self, b: Self) -> Bool {
         MainActor.assumeIsolated {
             a.model === b.model && a.queue == b.queue && a.status == b.status && a.notice == b.notice
-                && a.undo == b.undo && a.sending == b.sending && a.listSelection == b.listSelection
+                && a.undo == b.undo && a.sending == b.sending && a.crashOffer == b.crashOffer && a.profiles == b.profiles
+                && a.listSelection == b.listSelection
                 && a.selectedID == b.selectedID
         }
     }
@@ -116,11 +121,17 @@ struct QueueView<Model: PanelViewModel>: View, Equatable {
                     .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
             }
             listArea(queue)
+            if let crashOffer {
+                CrashBar(offer: crashOffer, onNotNow: { model.dismissCrash() }, onReview: { model.reviewCrash() })
+                    .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+            }
             if let undo {
                 UndoBar(undo: undo, sending: sending, onUndo: { model.undo() })
                     .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
             }
-            StatusBar(symbol: status.symbol, text: status.text, onSettings: { model.shell.openSettings(nil) },
+            StatusBar(status: status, profiles: profiles, onSwitch: { model.switchProfile($0) },
+                      onQueueSettings: { model.shell.openSettings(.queue) },
+                      onSettings: { model.shell.openSettings(nil) },
                       onActivate: StatusDetails.opensSetUp(status) ? { model.shell.setUp() } : nil) {
                 StatusDetails(
                     status: status, updated: queue.updated,
@@ -131,6 +142,7 @@ struct QueueView<Model: PanelViewModel>: View, Equatable {
         }
         .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: notice)
         .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: undo)
+        .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: crashOffer)
     }
 
     /// VO announcement when the project filter changes.
@@ -140,7 +152,7 @@ struct QueueView<Model: PanelViewModel>: View, Equatable {
 
     private func header(_ queue: QueueSnapshot) -> some View {
         ListHeaderBar(
-            title: queue.title, refreshing: queue.manualRefreshing, updated: queue.updated,
+            title: queue.title, waiting: queue.waiting, refreshing: queue.manualRefreshing, updated: queue.updated,
             // The snapshot this render holds, not `model.queue`: the header reads these often.
             grouping: Binding(get: { queue.grouping }, set: { model.setGrouping($0) }),
             filter: Binding(get: { queue.filter }, set: { model.setFilter($0) }),

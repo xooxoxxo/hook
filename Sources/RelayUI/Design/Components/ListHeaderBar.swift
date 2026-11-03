@@ -1,11 +1,12 @@
 import RelayCore
 import SwiftUI
 
-/// Design/ListHeaderBar: the queue's header. The title ("5 waiting" / "Queue")
-/// sits on the gutter; the refresh spinner, QueueMenu, Refresh and Hide sit on the right.
+/// Design/ListHeaderBar: the queue's header. The title ("Queue") sits on the gutter, and
+/// VoiceOver hears the count with it ("Queue, 5 waiting"); the refresh spinner, QueueMenu, Refresh and Hide sit on the right.
 /// While a project filter is on, the FilterRow shows under the bar.
 public struct ListHeaderBar: View {
     let title: String
+    let waiting: Int
     let refreshing: Bool
     let updated: String
     let grouping: Binding<QueueGrouping>
@@ -17,10 +18,11 @@ public struct ListHeaderBar: View {
     let onDock: (SidebarEdge) -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    public init(title: String, refreshing: Bool, updated: String, grouping: Binding<QueueGrouping>, filter: Binding<String?>,
+    public init(title: String, waiting: Int = 0, refreshing: Bool, updated: String, grouping: Binding<QueueGrouping>, filter: Binding<String?>,
                 projects: [MenuProject], hidden: HiddenCount,
                 onRefresh: @escaping () -> Void, onHide: @escaping () -> Void, onDock: @escaping (SidebarEdge) -> Void) {
         self.title = title
+        self.waiting = waiting
         self.refreshing = refreshing
         self.updated = updated
         self.grouping = grouping
@@ -39,6 +41,7 @@ public struct ListHeaderBar: View {
                     .font(DS.Font.listTitle)
                     .monospacedDigit()
                     .accessibilityAddTraits(.isHeader)
+                    .accessibilityLabel(Self.accessibilityTitle(waiting: waiting))
                     .alignmentProbe(.gutterText, measure: .frame)
                 Spacer()
                 HStack(alignment: .center, spacing: DS.Space.inline) {
@@ -57,6 +60,11 @@ public struct ListHeaderBar: View {
             }
         }
         .motion(DS.Motion.reveal, value: filter.wrappedValue)
+    }
+
+    /// "Queue, 5 waiting" / "Queue, nothing waiting".
+    public static func accessibilityTitle(waiting: Int) -> String {
+        "Queue, " + (waiting == 0 ? "nothing waiting" : "\(waiting) waiting")
     }
 
     public static func refreshHelp(updated: String) -> String {

@@ -59,7 +59,8 @@ private let gone = [closed(item("c", created: stamp(minutesAgo: 90))), closed(it
         await store.refresh()
 
         #expect(counter.count > 0)
-        #expect(store.queue.title == "4 waiting")
+        #expect(store.queue.title == "Queue")
+        #expect(store.queue.waiting == 4)
         #expect(store.queue.rows["e"] != nil)
     }
 

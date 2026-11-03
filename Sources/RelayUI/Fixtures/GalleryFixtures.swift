@@ -6,6 +6,28 @@ import RelayCore
 public enum GalleryFixtures {
     public static let now = Timestamp.date("2026-10-16T09:40:00+00:00")!
 
+    /// A crash of the last run with a symbolicated report (generic frames, no real paths).
+    public static let crash = CrashSummary(
+        report: IPSReport(exception: "EXC_BAD_ACCESS", signal: "SIGSEGV", termination: nil, appFrames: [
+            .init(symbol: "SettingsWindow.open(tab:)", offset: 212, imageOffset: 0x41a2c),
+            .init(symbol: "AppDelegate.showSettings(_:)", offset: 48, imageOffset: 0x1b3f0),
+            .init(symbol: "PanelShell.perform(_:)", offset: 96, imageOffset: 0x2c8e4),
+        ]),
+        hookVersion: "0.12.0", macOS: "15.6.0", cpu: "arm64", when: now.addingTimeInterval(-11 * 3600 - 26 * 60))
+
+    /// A last run that ended with no crash report (a hang, a force quit or a kill).
+    public static let hang = CrashSummary(report: nil, hookVersion: "0.12.0", macOS: "15.6.0", cpu: "arm64",
+                                          when: now.addingTimeInterval(-3 * 3600))
+
+    /// The activity log lines a report carries, already redacted as the log writes them.
+    public static let crashLog: [String] = [
+        "2026-10-15T22:13:58Z launch hook=0.12.0 macos=15.6.0 cpu=arm64",
+        "2026-10-15T22:13:59Z source mailbox pond=1.2.0",
+        "2026-10-15T22:14:07Z error type=http status=401 route=asks/{id}/reply message=\"token <redacted> refused\"",
+        "2026-10-15T22:14:09Z action settings",
+        "2026-10-15T22:14:10Z screen settingsQueue",
+    ]
+
     static func ago(_ hours: Double) -> String { Timestamp.string(now.addingTimeInterval(-hours * 3600)) }
 
     static func ask(_ id: String, _ project: String, _ urgency: String, hoursAgo: Double, _ ins: Instructable,

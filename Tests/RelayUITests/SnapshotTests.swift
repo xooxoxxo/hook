@@ -16,7 +16,8 @@ private let three = [item("a", urgency: "now", created: stamp(minutesAgo: 10), s
         await start(store, FakeQueueSource(items: three))
         store.toggleTick("2.1", in: "a")
         var queue = store.queue
-        #expect(queue.title == "3 waiting")
+        #expect(queue.title == "Queue")
+        #expect(queue.waiting == 3)
         #expect(queue.content == .list)
         #expect(queue.sourceName == "This Mac")
         #expect(queue.sections.map(\.header) == [.project("Acme"), .project("Northwind")])
@@ -26,7 +27,8 @@ private let three = [item("a", urgency: "now", created: stamp(minutesAgo: 10), s
 
         store.setFilter("Acme")
         queue = store.queue
-        #expect(queue.title == "2 waiting")
+        #expect(queue.title == "Queue")
+        #expect(queue.waiting == 2)
         #expect(queue.hidden == HiddenCount(total: 1, now: 0))
         #expect(queue.sections.map(\.header) == [nil])
         #expect(queue.projects.map(\.name) == ["Acme", "Northwind"])
@@ -61,9 +63,9 @@ private let three = [item("a", urgency: "now", created: stamp(minutesAgo: 10), s
         defer { defaults.drop() }
         let store = Store(defaults: defaults.defaults)
         await start(store, FakeQueueSource(items: three))
-        #expect(store.status == PanelStatus(symbol: .ok, text: "This Mac · ready", detail: .updated))
+        #expect(store.status == PanelStatus(symbol: .ok, text: "", detail: .updated, tone: .ok, spoken: "This Mac, ready"))
         store.away = true
-        #expect(store.status.text == "Away · This Mac · ready")
+        #expect(store.status.text == "Away")
         store.listSelection = "a"
         let list = store.keyContext(textFieldFocused: false, popoverOpen: false, closedHeaderFocused: false)
         #expect(list.mode == .list && list.selectionOpen == true && list.selectionHasProject)
@@ -124,7 +126,8 @@ private let three = [item("a", urgency: "now", created: stamp(minutesAgo: 10), s
         #expect(limits.model?.nodes.contains { $0.content.code?.count == 4000 } == true)
 
         let queue = GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: true)
-        #expect(queue.title == "6 waiting")
+        #expect(queue.title == "Queue")
+        #expect(queue.waiting == 6)
         #expect(queue.sections.count == 4)
         #expect(queue.rows["acme-1"]?.summary == .steps(done: 2, total: 8))
         #expect(queue.closed.count == 2)
@@ -230,10 +233,12 @@ private let phase3Now = Date(timeIntervalSince1970: 1_792_143_600)
             item("t1", project: "Atlas", created: "2026-10-16T08:30:00+00:00"),
         ])
         defer { env.tearDown() }
-        #expect(env.store.queue.title == "4 waiting")
+        #expect(env.store.queue.title == "Queue")
+        #expect(env.store.queue.waiting == 4)
         env.store.setFilter("Acme")
         let queue = env.store.queue
-        #expect(queue.title == "2 waiting")
+        #expect(queue.title == "Queue")
+        #expect(queue.waiting == 2)
         #expect(queue.filter == "Acme")
         #expect(queue.hidden == HiddenCount(total: 2, now: 1))
         #expect(queue.sections.count == 1)
@@ -259,7 +264,7 @@ private let phase3Now = Date(timeIntervalSince1970: 1_792_143_600)
             Issue.record("expected .offlineCached, got \(String(describing: env.store.notice))")
             return
         }
-        #expect(env.store.status.text == "Pond · offline")
+        #expect(env.store.status.text == "Offline")
         #expect(env.store.notice?.text != env.store.status.text)
         #expect(StatusDetails.message(env.store.status, updated: "09:40") != env.store.status.text)
     }

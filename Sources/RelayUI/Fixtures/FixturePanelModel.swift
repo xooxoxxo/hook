@@ -19,6 +19,8 @@ public final class FixturePanelModel: PanelViewModel {
     @Published public var undoInfo: UndoInfo?
     @Published public var status: PanelStatus
     @Published public var sendingCloses = 0
+    @Published public var crashOffer: CrashOffer?
+    @Published public var profiles: ProfileMenu
     public var shell = PanelShellActions.none
     public var localHost: String?
     public var queueIsLocal = false
@@ -27,7 +29,8 @@ public final class FixturePanelModel: PanelViewModel {
 
     public init(queue: QueueSnapshot, details: [String: DetailSnapshot] = [:], navigation: PanelNavigation = .init(),
                 notice: PanelNotice? = nil, undo: UndoInfo? = nil, status: PanelStatus,
-                reviewPages: [String: ReviewPage] = [:]) {
+                reviewPages: [String: ReviewPage] = [:], crashOffer: CrashOffer? = nil,
+                profiles: ProfileMenu = FixturePanelModel.pondProfiles) {
         self.queue = queue
         self.details = details
         self.reviewPages = reviewPages
@@ -36,7 +39,19 @@ public final class FixturePanelModel: PanelViewModel {
         self.notice = notice
         undoInfo = undo
         self.status = status
+        self.crashOffer = crashOffer
+        self.profiles = profiles
     }
+
+    /// This Mac and a Pond named by the default context, the Pond shown.
+    public static let pondProfiles = ProfileMenu(
+        profiles: [Profile(kind: .local, name: ProfileMenu.thisMac, current: false),
+                   Profile(kind: .mailbox, name: "Personal", current: true)],
+        readOnly: false, pondSaved: true)
+
+    /// This Mac only, with no Pond saved (the menu offers Set Up a Pond…).
+    public static let localProfiles = ProfileMenu(
+        profiles: [Profile(kind: .local, name: ProfileMenu.thisMac, current: true)], readOnly: false, pondSaved: false)
 
     public var listSelection: String? {
         get { navigation.listSelection }
@@ -99,4 +114,7 @@ public final class FixturePanelModel: PanelViewModel {
     public func isAccepting(_ id: String) -> Bool { acceptingIDs.contains(id) }
     public func reportProblem(_ id: String, stepID: String, note: String) {}
     public func trustHistoryAgain() {}
+    public func reviewCrash() {}
+    public func dismissCrash() {}
+    public func switchProfile(_ kind: SourceKind) {}
 }

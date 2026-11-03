@@ -184,10 +184,10 @@ let longProject = "Quarterly planning for the public launch of the pricing page"
                         onBack: {}, onPrevious: {}, onNext: {}, onHide: {}, onDock: { _ in })
     }
     return SheetSection(title: "Headers", samples: [
-        Sample("ListHeaderBar · idle") { list("5 waiting") },
-        Sample("ListHeaderBar · manual refresh running") { list("5 waiting", refreshing: true) },
-        Sample("ListHeaderBar · filtered, 2 hidden") { list("3 waiting", filter: "Acme", hidden: HiddenCount(total: 2, now: 0)) },
-        Sample("ListHeaderBar · filtered, hidden now") { list("1 waiting", filter: "Relay", hidden: HiddenCount(total: 4, now: 1)) },
+        Sample("ListHeaderBar · idle") { list("Queue") },
+        Sample("ListHeaderBar · manual refresh running") { list("Queue", refreshing: true) },
+        Sample("ListHeaderBar · filtered, 2 hidden") { list("Queue", filter: "Acme", hidden: HiddenCount(total: 2, now: 0)) },
+        Sample("ListHeaderBar · filtered, hidden now") { list("Queue", filter: "Relay", hidden: HiddenCount(total: 4, now: 1)) },
         Sample("FilterRow · long name") { FilterRow(project: longProject, hidden: HiddenCount(total: 4, now: 0), onClear: {}) },
         Sample("DetailHeaderBar · middle") { detail(previous: .ask("p"), next: .ask("n")) },
         Sample("DetailHeaderBar · at the end") { detail(previous: .ask("p"), next: .end) },
@@ -197,9 +197,17 @@ let longProject = "Quarterly planning for the public launch of the pricing page"
 
 @MainActor func bars() -> SheetSection {
     let soon = Date().addingTimeInterval(8)
-    func status(_ symbol: StatusSymbol, _ text: String) -> some View {
-        StatusBar(symbol: symbol, text: text, onSettings: {}) { Text("Updated 09:40") }
+    func status(_ status: PanelStatus, _ profiles: ProfileMenu = FixturePanelModel.pondProfiles) -> some View {
+        StatusBar(status: status, profiles: profiles, onSwitch: { _ in }, onQueueSettings: {}, onSettings: {}) {
+            Text("Updated 09:40")
+        }
     }
+    func inputs(_ key: String = galleryMailboxKey, reachable: Bool = true, loadedOnce: Bool = true, problem: String? = nil,
+                away: Bool = false, updating: Bool = false) -> PanelStatus {
+        PanelStatus.make(StatusInputs(sourceKey: key, reachable: reachable, loadedOnce: loadedOnce, problem: problem,
+                                      away: away, updating: updating))
+    }
+    let readOnlyProfiles = ProfileMenu(profiles: FixturePanelModel.pondProfiles.profiles, readOnly: true, pondSaved: true)
     let actionError = "Couldn't send Done for “Send the release notes draft”. The Pond didn't answer within 10 seconds."
     // StatusBar's popover wrapper, so the samples have the popover's padding and width.
     func details(_ status: PanelStatus, updated: String = "") -> some View {
@@ -217,11 +225,20 @@ let longProject = "Quarterly planning for the public launch of the pricing page"
         Sample("UndoBar · sending (quit)") {
             UndoBar(undo: UndoInfo(verdict: .done, title: "Rotate the Pond token", deadline: soon, more: 1), sending: true, onUndo: {})
         },
-        Sample("StatusBar · ready") { status(.ok, "Pond · ready") },
-        Sample("StatusBar · connecting") { status(.connecting, "Pond · connecting…") },
-        Sample("StatusBar · offline") { status(.down, "Pond · offline") },
-        Sample("StatusBar · not set up") { status(.notSetUp, "Not set up") },
-        Sample("StatusBar · away") { status(.away, "Away · Pond · ready") },
+        Sample("StatusBar · Pond ready") { status(readyStatus) },
+        Sample("StatusBar · connecting") { status(inputs(reachable: false, loadedOnce: false)) },
+        Sample("StatusBar · offline") { status(offlineStatus(loadedOnce: true)) },
+        Sample("StatusBar · updating") { status(inputs(updating: true)) },
+        Sample("StatusBar · This Mac ready") { status(inputs(SourceKey.local), FixturePanelModel.localProfiles) },
+        Sample("StatusBar · This Mac not ready") {
+            status(inputs(SourceKey.local, reachable: false, problem: "Port 47823 is in use by another app"),
+                   FixturePanelModel.localProfiles)
+        },
+        Sample("StatusBar · not set up") { status(inputs(SourceKey.none, reachable: false), ProfileMenu.empty) },
+        Sample("StatusBar · away") { status(inputs(away: true)) },
+        Sample("StatusBar · config.json read-only") { status(inputs(), readOnlyProfiles) },
+        Sample("CrashBar · report ready") { CrashBar(offer: galleryCrashOffer, onNotNow: {}, onReview: {}) },
+        Sample("CrashBar · log only") { CrashBar(offer: galleryHangOffer, onNotNow: {}, onReview: {}) },
         Sample("StatusDetails · updated") { details(readyStatus, updated: "10:42") },
         Sample("StatusDetails · offline") { details(offlineStatus(loadedOnce: true), updated: "09:22") },
         Sample("StatusDetails · config error") { details(configError) },

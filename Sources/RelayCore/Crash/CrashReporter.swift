@@ -67,6 +67,16 @@ public enum CrashDecision: Equatable, Sendable {
     }
 }
 
+/// A crash the panel offers to report: the docked bar above the status bar, until it is
+/// answered (Not Now, or sent).
+public struct CrashOffer: Equatable, Sendable {
+    public var summary: CrashSummary
+
+    public init(summary: CrashSummary) {
+        self.summary = summary
+    }
+}
+
 /// Option B: the slot for a crash-reporting SDK (Sentry or TelemetryDeck, not chosen yet).
 /// Any adapter lives in the `HookTelemetry` target, and only ever starts with consent.
 public protocol CrashReporter: Sendable {

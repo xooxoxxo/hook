@@ -146,6 +146,14 @@ public enum LinkCheck: Equatable, Sendable {
     }
     @Published public var away = false
     @Published public var sendingCloses = 0
+    /// Hook's own update is installing (the status reads "Updating…").
+    @Published public internal(set) var updating = false
+    /// The last run crashed: the docked bar, until Not Now or a send (Store+Crash).
+    @Published public internal(set) var crashOffer: CrashOffer?
+    /// Called with the signature once a crash is answered, so it isn't raised again.
+    public var onCrashHandled: (@MainActor (String) -> Void)?
+    /// The status bar's profile switcher; AppDelegate sets it on every config apply.
+    @Published public internal(set) var profiles = ProfileMenu.empty
     /// The Undo bar as it was when the quit-time sends began; `undoInfo` while they run.
     @Published private var sendingUndo: UndoInfo?
     public var shell = PanelShellActions.none
@@ -1480,7 +1488,8 @@ extension Store: PanelViewModel {
     public var status: PanelStatus {
         PanelStatus.make(StatusInputs(
             sourceKey: sourceKey, reachable: reachable, loadedOnce: loadedOnce, problem: listOK ? nil : listProblem,
-            configNote: configNote, listenerNote: listenerProblem, away: away, sendingCloses: sendingCloses))
+            configNote: configNote, listenerNote: listenerProblem, away: away, sendingCloses: sendingCloses,
+            updating: updating))
     }
 
     public func keyContext(textFieldFocused: Bool, popoverOpen: Bool, closedHeaderFocused: Bool) -> KeyContext {

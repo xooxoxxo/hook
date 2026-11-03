@@ -26,10 +26,6 @@ private let deadline = Date(timeIntervalSince1970: 1_000)
         #expect(UndoBar.ticks(until: deadline, now: deadline.addingTimeInterval(5)).isEmpty)
     }
 
-    @Test func statusSentence() {
-        #expect(StatusBarText.accessibilityText("Pond · ready") == "Status: Pond · ready. Shows details")
-    }
-
     @Test func actionBarHelp() {
         #expect(ActionBar.primaryHelp(.done) == "Done (⌘↩)")
         #expect(ActionBar.primaryHelp(.sendAndDone) == "Done: asks first, as something is unsent (⌘↩)")
