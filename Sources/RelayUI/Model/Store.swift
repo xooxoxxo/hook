@@ -156,6 +156,8 @@ public enum LinkCheck: Equatable, Sendable {
     @Published public internal(set) var crashSheet: CrashSheetModel?
     /// The activity log's last lines for a report; the app reads `HookLog`, tests pass their own.
     public var crashLog: @MainActor () -> [String] = { [] }
+    /// GitHub's search for a signature (and the version that crashed); the app sets the real one.
+    public var issueSearch: @Sendable (String, String) async -> IssueMatch = { _, _ in .unavailable }
     /// Settings › Privacy's target and whether My Pond is offered, read when the sheet opens.
     public var crashTargets: @MainActor () -> (target: CrashTarget, pondOffered: Bool) = { (.github, false) }
     /// The status bar's profile switcher; AppDelegate sets it on every config apply.

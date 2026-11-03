@@ -122,5 +122,7 @@ public final class FixturePanelModel: PanelViewModel {
     public func closeCrashSheet() { crashSheet = nil }
     public func copyCrashReport() { crashSheet.map { shell.copy($0.preview) } }
     public func showCrashReportInFinder() {}
+    public func openNewCrashIssue() {}
+    public func checkExistingCrashIssue() {}
     public func switchProfile(_ kind: SourceKind) {}
 }

@@ -25,10 +25,20 @@ import SwiftUI
     withFile.reportFile = URL(fileURLWithPath: "/Users/me/Library/Logs/DiagnosticReports/Hook-2026-10-15-221410.ips")
     var failed = CrashSheetModel(summary: withFile, target: .pond, pondOffered: true, preview: galleryReport(withFile))
     failed.send = .failed("The Pond didn't answer within 10 seconds.")
+    func github(_ match: IssueMatch?) -> CrashSheetModel {
+        CrashSheetModel(summary: withFile, target: .github, pondOffered: false, preview: galleryReport(withFile, pond: nil),
+                        match: match)
+    }
+    let issue = URL(string: "https://github.com/xooxoxxo/hook/issues/42")!
     return [
         crashSheetScene("crash-sheet-pond",
                         CrashSheetModel(summary: withFile, target: .pond, pondOffered: true, preview: galleryReport(withFile))),
         crashSheetScene("crash-sheet-pond-failed", failed),
+        crashSheetScene("crash-sheet-github-checking", github(nil)),
+        crashSheetScene("crash-sheet-github-new", github(IssueMatch.none)),
+        crashSheetScene("crash-sheet-github-open", github(.open(number: 42, title: GalleryFixtures.crash.title, url: issue))),
+        crashSheetScene("crash-sheet-github-fixed", github(.closedFixed(number: 42, version: SemVer(major: 0, minor: 12, patch: 1)))),
+        crashSheetScene("crash-sheet-offline", github(.unavailable)),
         crashSheetScene("crash-sheet-no-report",
                         CrashSheetModel(summary: GalleryFixtures.hang, target: .pond, pondOffered: true,
                                         preview: galleryReport(GalleryFixtures.hang))),

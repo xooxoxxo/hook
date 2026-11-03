@@ -22,6 +22,7 @@ public struct CrashReportSheet<Model: PanelViewModel>: View {
         VStack(alignment: .leading, spacing: DS.Space.sheetSection) {
             header(sheet)
             target(sheet)
+            if let text = sheet.matchText { callout(sheet, text) }
             preview(sheet)
             if case .failed(let reason) = sheet.send {
                 Label(reason, systemImage: DS.Symbol.warning)
@@ -71,6 +72,45 @@ public struct CrashReportSheet<Model: PanelViewModel>: View {
         .font(DS.Font.prose)
     }
 
+    /// What GitHub knows about the signature, and the clipboard note for a trimmed link.
+    private func callout(_ sheet: CrashSheetModel, _ text: String) -> some View {
+        GroupBox {
+            HStack(alignment: .firstTextBaseline, spacing: DS.Space.inline) {
+                if sheet.checking {
+                    ProgressView().controlSize(.mini).accessibilityHidden(true)
+                } else {
+                    Image(systemName: Self.calloutSymbol(sheet.match)).foregroundStyle(DS.Color.accent)
+                        .accessibilityHidden(true)
+                }
+                VStack(alignment: .leading, spacing: DS.Space.rowLine) {
+                    Text(text).fixedSize(horizontal: false, vertical: true)
+                    if let secondary = sheet.secondaryTitle {
+                        // GitHub couldn't be searched: look by hand; Open New Issue is the primary.
+                        Button(secondary) { model.checkExistingCrashIssue() }
+                            .controlSize(DS.Control.inline)
+                    }
+                    if let note = sheet.trimNote {
+                        Text(note)
+                            .font(DS.Font.caption)
+                            .foregroundStyle(DS.Color.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .font(DS.Font.prose)
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    static func calloutSymbol(_ match: IssueMatch?) -> String {
+        switch match {
+        case .closedFixed?: return DS.Symbol.update
+        case .unavailable?: return DS.Symbol.offline
+        default: return DS.Symbol.info
+        }
+    }
+
     private func preview(_ sheet: CrashSheetModel) -> some View {
         VStack(alignment: .leading, spacing: DS.Space.inline) {
             HStack(spacing: DS.Space.inline) {
@@ -106,7 +146,7 @@ public struct CrashReportSheet<Model: PanelViewModel>: View {
             Button(sheet.primaryTitle) { model.sendCrashReport() }
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.defaultAction)
-                .disabled(sheet.sending)
+                .disabled(sheet.sending || sheet.checking)
         }
         .controlSize(DS.Control.form)
     }

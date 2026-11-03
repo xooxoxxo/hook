@@ -151,9 +151,9 @@ public enum UpdateGate {
     /// Clones made before the rename keep the old URL, which GitHub redirects.
     public static let repoNames = ["xooxoxxo/relay", "xooxoxxo/hook"]
 
-    /// The release check stays on the old path: GitHub redirects it after the rename,
-    /// and it is the one installed 0.7.x apps ask too.
-    public static let latestReleaseAPI = "https://api.github.com/repos/xooxoxxo/relay/releases/latest"
+    /// The release check asks the repo by its name since the rename. (The old path still
+    /// redirects, for the 0.7.x to 0.11 apps that ask it.)
+    public static let latestReleaseAPI = "https://api.github.com/repos/xooxoxxo/hook/releases/latest"
 
     /// `git remote get-url origin` names github.com/xooxoxxo/relay or github.com/xooxoxxo/hook,
     /// over https or ssh.

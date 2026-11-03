@@ -24,6 +24,19 @@ extension Store {
         let targets = crashTargets()
         crashSheet = CrashSheetModel(summary: offer.summary, target: targets.target, pondOffered: targets.pondOffered,
                                      preview: crashReportText(offer.summary))
+        searchIssuesIfNeeded()
+    }
+
+    /// GitHub picked and not searched yet: one search for the signature, the only thing that
+    /// leaves the Mac before the owner submits in the browser.
+    private func searchIssuesIfNeeded() {
+        guard let sheet = crashSheet, sheet.target == .github, sheet.match == nil else { return }
+        let summary = sheet.summary, search = issueSearch
+        Task { [weak self] in
+            let match = await search(summary.signature, summary.hookVersion)
+            guard let self, self.crashSheet?.summary == summary, self.crashSheet?.match == nil else { return }
+            self.crashSheet?.match = match
+        }
     }
 
     /// What a report of this crash says: the allowed fields and the last 40 log lines.
@@ -42,6 +55,7 @@ extension Store {
         sheet.target = target
         sheet.send = .idle
         crashSheet = sheet
+        searchIssuesIfNeeded()
     }
 
     /// Cancel: the sheet goes, the bar stays.
@@ -66,8 +80,47 @@ extension Store {
         guard let sheet = crashSheet, !sheet.sending else { return }
         switch sheet.target {
         case .pond: await sendCrashToPond(sheet)
-        case .github: break
+        case .github: sendCrashToGitHub(sheet)
         }
+    }
+
+    /// GitHub's outcomes. Nothing is sent here: the browser opens for the owner to submit.
+    private func sendCrashToGitHub(_ sheet: CrashSheetModel) {
+        switch sheet.match {
+        case nil:
+            return   // still searching: the button waits
+        case .open(_, _, let url)?:
+            shell.openURL(url)
+            shell.copy(GitHubIssues.comment(sheet.preview))
+            closeAndFinish(sheet, message: "Comment copied. Paste it on the issue.")
+        case .closedFixed?:
+            shell.checkForUpdates()
+            closeAndFinish(sheet, message: sheet.matchText ?? "Update Hook.")
+        case .none?, .closedOther?, .unavailable?:
+            openNewCrashIssue()
+        }
+    }
+
+    /// A new prefilled issue; when the link had to drop log lines, the full report is copied too.
+    public func openNewCrashIssue() {
+        guard let sheet = crashSheet, sheet.target == .github else { return }
+        let issue = sheet.newIssue
+        shell.openURL(issue.url)
+        if issue.trimmed { shell.copy(issue.body) }
+        closeAndFinish(sheet, message: "Opened a new issue on GitHub. " + (issue.trimmed
+            ? "The full report is on the clipboard: paste it over the shortened one."
+            : "Review it and submit it there."))
+    }
+
+    /// "Check for an Existing Issue": GitHub's issue list for the signature. The sheet stays.
+    public func checkExistingCrashIssue() {
+        guard let sheet = crashSheet else { return }
+        shell.openURL(GitHubIssues.searchPageURL(signature: sheet.summary.signature))
+    }
+
+    private func closeAndFinish(_ sheet: CrashSheetModel, message: String) {
+        crashSheet = nil
+        finishCrash(sheet.summary, message: message)
     }
 
     public func sendCrashReport() { Task { await sendCrashReport() } }

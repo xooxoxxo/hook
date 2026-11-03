@@ -125,8 +125,8 @@ private let page = "https://github.com/xooxoxxo/relay/releases/tag/v0.6.5"
         #expect(!UpdateGate.isRepoOrigin(""))
     }
 
-    @Test func theReleaseCheckStaysOnTheOldRepoPath() {
-        #expect(UpdateGate.latestReleaseAPI == "https://api.github.com/repos/xooxoxxo/relay/releases/latest")
+    @Test func theReleaseCheckAsksTheHookRepo() {
+        #expect(UpdateGate.latestReleaseAPI == "https://api.github.com/repos/xooxoxxo/hook/releases/latest")
     }
 }
 

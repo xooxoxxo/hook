@@ -205,6 +205,8 @@ import RelayUI
             Task { @MainActor in await self?.store?.sendCrashAutomatically(summary) }
         }
         store?.crashLog = { HookLog.tail(CrashReportText.logLines) }
+        let issues = GitHubIssues(session: .shared)
+        store?.issueSearch = { signature, version in await issues.search(signature: signature, hookVersion: version) }
         store?.crashTargets = { [weak model] in
             let privacy = PrivacyLine.make(config: model?.config, ownerKey: model?.ownerKeyState ?? .notSetUp, logSize: 0)
             return (privacy.target, privacy.pondOffered)

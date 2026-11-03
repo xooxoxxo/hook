@@ -162,3 +162,133 @@ private let log = ["2026-10-15T22:13:58Z launch hook=0.12.0 macos=15.6.0 cpu=arm
         #expect(CrashSheetModel.targetName(.github) == "GitHub")
     }
 }
+
+/// Records what the GitHub path opened and copied.
+@MainActor private final class GitHubShell {
+    var opened: [URL] = []
+    var copied: [String] = []
+    var updates = 0
+    var searched: [String] = []
+}
+
+@MainActor private func gitHubStore(_ defaults: TestDefaults, match: IssueMatch,
+                                    summary: CrashSummary = crashWithReport) async -> (Store, GitHubShell) {
+    let (store, _) = await crashStore(defaults, target: .github, offered: false, summary: summary)
+    let shell = GitHubShell()
+    store.shell.openURL = { shell.opened.append($0) }
+    store.shell.copy = { shell.copied.append($0) }
+    store.shell.checkForUpdates = { shell.updates += 1 }
+    let searched = SentValues<String>()
+    store.issueSearch = { signature, _ in
+        await MainActor.run { searched.items.append(signature) }
+        return match
+    }
+    store.reviewCrash()
+    _ = await eventually { store.crashSheet?.match != nil }
+    shell.searched = searched.items
+    return (store, shell)
+}
+
+@Suite @MainActor struct CrashGitHubTests {
+    private let issue42 = URL(string: "https://github.com/xooxoxxo/hook/issues/42")!
+
+    /// Only the signature goes to the search, and the button waits for its answer.
+    @Test func theSheetSearchesBySignatureOnly() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, shell) = await gitHubStore(defaults, match: .none)
+        #expect(shell.searched == [crashWithReport.signature])
+        #expect(store.crashSheet?.match == IssueMatch.none)
+        #expect(store.crashSheet?.primaryTitle == "Open Issue on GitHub…")
+        #expect(CrashSheetModel(summary: crashWithReport, target: .github, pondOffered: false, preview: "x").checking)
+    }
+
+    @Test func noMatchOpensANewPrefilledIssue() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, shell) = await gitHubStore(defaults, match: .none)
+        let expected = store.crashSheet?.newIssue.url
+        await store.sendCrashReport()
+        #expect(shell.opened == [expected].compactMap { $0 })
+        #expect(shell.copied.isEmpty)
+        #expect(store.crashSheet == nil)
+        #expect(store.crashOffer == nil)
+        #expect(store.notice == .crashReport(message: "Opened a new issue on GitHub. Review it and submit it there."))
+    }
+
+    @Test func anOpenMatchOpensItAndCopiesTheComment() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, shell) = await gitHubStore(defaults, match: .open(number: 42, title: "Hook crash: X", url: issue42))
+        #expect(store.crashSheet?.primaryTitle == "Add to #42…")
+        let preview = store.crashSheet?.preview ?? ""
+        await store.sendCrashReport()
+        #expect(shell.opened == [issue42])
+        #expect(shell.copied == [GitHubIssues.comment(preview)])
+        #expect(store.notice == .crashReport(message: "Comment copied. Paste it on the issue."))
+    }
+
+    @Test func aFixedMatchOffersTheUpdate() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, shell) = await gitHubStore(defaults,
+                                               match: .closedFixed(number: 42, version: SemVer(major: 0, minor: 12, patch: 1)))
+        #expect(store.crashSheet?.primaryTitle == "Update Hook")
+        #expect(store.crashSheet?.matchText == "Fixed in 0.12.1. Update Hook.")
+        await store.sendCrashReport()
+        #expect(shell.updates == 1)
+        #expect(shell.opened.isEmpty)
+        #expect(store.crashOffer == nil)
+    }
+
+    @Test func aClosedOtherMatchSaysPossiblyTheSame() async throws {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, shell) = await gitHubStore(defaults, match: .closedOther(number: 38))
+        await store.sendCrashReport()
+        let url = try #require(shell.opened.first)
+        let body = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "body" }?.value
+        #expect(body?.hasPrefix("Possibly the same as #38\n\n") == true)
+    }
+
+    /// Rate-limited or offline: two buttons, and checking by hand keeps the sheet.
+    @Test func unavailableOffersBothButtons() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, shell) = await gitHubStore(defaults, match: .unavailable)
+        #expect(store.crashSheet?.secondaryTitle == "Check for an Existing Issue")
+        #expect(store.crashSheet?.primaryTitle == "Open New Issue")
+        store.checkExistingCrashIssue()
+        #expect(shell.opened == [GitHubIssues.searchPageURL(signature: crashWithReport.signature)])
+        #expect(store.crashSheet != nil)
+        await store.sendCrashReport()
+        #expect(shell.opened.count == 2)
+        #expect(store.crashSheet == nil)
+    }
+
+    /// A report too long for the link: the full report goes to the clipboard, and the sheet says so.
+    @Test func aTrimmedLinkCopiesTheFullReport() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, shell) = await gitHubStore(defaults, match: .none)
+        store.crashSheet?.preview += "\n" + String(repeating: "2026-10-15T22:00:00Z action open\n", count: 400)
+        #expect(store.crashSheet?.trimNote != nil)
+        let body = store.crashSheet?.newIssue.body
+        await store.sendCrashReport()
+        #expect(shell.copied == [body].compactMap { $0 })
+        #expect(store.notice == .crashReport(
+            message: "Opened a new issue on GitHub. The full report is on the clipboard: paste it over the shortened one."))
+    }
+
+    /// Switching to GitHub in the sheet starts the search.
+    @Test func pickingGitHubSearches() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, _) = await crashStore(defaults)
+        store.issueSearch = { _, _ in .none }
+        store.reviewCrash()
+        #expect(store.crashSheet?.match == nil)
+        store.setCrashTarget(.github)
+        #expect(await eventually { store.crashSheet?.match == IssueMatch.none })
+    }
+}

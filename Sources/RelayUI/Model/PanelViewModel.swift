@@ -150,6 +150,9 @@ public enum CopyOutcome: Equatable, Sendable {
     func closeCrashSheet()
     func copyCrashReport()
     func showCrashReportInFinder()
+    /// GitHub couldn't be searched: open a new issue, or look by hand (the sheet stays).
+    func openNewCrashIssue()
+    func checkExistingCrashIssue()
     /// Not Now: the bar goes and the signature is marked handled.
     func dismissCrash()
     /// The status bar's profile switcher.
