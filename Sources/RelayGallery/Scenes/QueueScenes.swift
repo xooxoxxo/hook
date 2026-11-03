@@ -67,7 +67,7 @@ let galleryHangOffer = CrashOffer(summary: GalleryFixtures.hang)
                             crashOffer: CrashOffer? = nil, undo: UndoInfo? = nil) -> GalleryScene {
     panelScene(name, queueModel(GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false),
                                 undo: undo, status: status, crashOffer: crashOffer, profiles: profiles),
-               height: queueHeight, rules: queueEdgeRules)
+               height: crashOffer == nil && undo == nil ? queueHeight : queueBarHeight, rules: queueEdgeRules)
 }
 
 /// The longest project name in the 12-project fixture (60 characters).
@@ -108,6 +108,9 @@ let galleryHangOffer = CrashOffer(summary: GalleryFixtures.hang)
 /// text size: a card cut off under the status bar would be measured through the bar.
 let queueHeight: CGFloat = 960
 
+/// The same with a bar docked above the status bar (the crash bar, Undo), which grows under --xl.
+let queueBarHeight: CGFloat = 1080
+
 /// The same with Recently closed open.
 let queueClosedHeight: CGFloat = 1120
 
@@ -130,7 +133,7 @@ let queueClosedHeight: CGFloat = 1120
                rules: queueFlatRules),
     panelScene("queue-undo", queueModel(GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false),
                undo: UndoInfo(verdict: .done, title: "Rotate the example token", deadline: Date().addingTimeInterval(8), more: 1)),
-               height: queueHeight, rules: queueEdgeRules),
+               height: queueBarHeight, rules: queueEdgeRules),
     panelScene("queue-notice", queueModel(GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false),
                notice: .actionFailed(verdict: .done, id: "gallery-failed", title: "Send the logo image", reason: offlineReason)),
                height: queueHeight, rules: queueEdgeRules),

@@ -304,7 +304,8 @@ let optionalJSON = #"""
 
 /// optionalJSON with `ticks`: ["1"] leaves the optional question current and unticked;
 /// ["1", "2"] ticks it done without an answer, so the required question is current and the
-/// caption counts only that one. `open`: upcoming rows opened by hand (4 shows its optional sub-step).
+/// caption counts only that one. `open`: upcoming rows opened by hand (4 shows its optional sub-step);
+/// with none open no sub-step is on screen, so only the top-level column is checked.
 @MainActor func optionalScene(_ name: String, ticks: Set<String>, open: Set<String> = []) -> GalleryScene {
     var snapshot = detailSnapshot(decodeDetail(optionalJSON), base: GalleryFixtures.detailSteps, ticks: ticks)
     snapshot.replies = []
@@ -315,5 +316,5 @@ let optionalJSON = #"""
         details: [snapshot.id: snapshot],
         navigation: PanelNavigation(listSelection: snapshot.id, selectedID: snapshot.id), status: readyStatus)
     model.expandedTodo[snapshot.id] = open
-    return panelScene(name, model, height: nil, rules: stepColumnRules, overrides: fullHeight)
+    return panelScene(name, model, height: nil, rules: open.isEmpty ? topColumnRules : stepColumnRules, overrides: fullHeight)
 }
