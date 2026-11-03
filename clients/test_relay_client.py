@@ -535,6 +535,21 @@ class MailboxTests(Base):
         self.assertEqual(rc.item_kind({"id": "x", "kind": "bug"}), "bug")
         self.assertEqual(rc.item_kind({"id": "x", "kind": None}), "ask")
 
+    def test_a_message_is_verified_only_with_the_owner_key(self):
+        def told(**extra):
+            return {"events": [{"seq": 2, "kind": "message", "actor": "owner", "text": "hi",
+                                "at": "2026-10-11T09:02:00+00:00", **extra}]}
+        self.assertEqual(rc.messages(told(auth="owner-key")),
+                         [{"text": "hi", "at": "2026-10-11T09:02:00+00:00", "verified": True}])
+        # The shared Pond token: any session on the Mac could have written it.
+        for extra in ({"auth": "token"}, {}, {"auth": None}, {"auth": "OWNER-KEY"}):
+            self.assertEqual(rc.messages(told(**extra))[0]["verified"], False, extra)
+        # One rule for answers and messages.
+        self.assertEqual(rc.VERIFIED_AUTH, ("owner-key", "telegram"))
+        self.assertTrue(rc.is_verified({"auth": "telegram"}))
+        self.assertFalse(rc.is_verified({"auth": "token"}))
+        self.assertFalse(rc.is_verified("owner-key"))
+
     def test_the_message_wire_body(self):
         self.assertEqual(rc.message_body("Use staging.\nThen prod."),
                          {"text": "Use staging.\nThen prod.", "kind": "message"})

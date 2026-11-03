@@ -41,9 +41,12 @@ and versions follow Semantic Versioning.
   Message Session… opens the ask with the field focused. Not on This Mac.
 - Clients for Pond 1.2.0: `relay wait` wakes on an owner message and prints it quoted, the
   replies hook shows messages only to the posting session, and `relay status` and `relay_status`
-  list them (`messages: [{text, at}]`). `relay list --kind ask|bug` and `relay_list {kind}` list
-  one kind, a bug with its count; on a 1.1.0 Pond the client filters by kind itself. The skill
-  says a message is the owner typing in chat, never an answer.
+  list them (`messages: [{text, at, verified}]`). Only a message signed with the owner key is
+  `verified`; one written with the shared Pond token prints as `unverified message (not from the
+  owner's key)`, never as an owner message. `relay list --kind ask|bug` and `relay_list {kind}`
+  list one kind, a bug with its count; on a 1.1.0 Pond the client filters by kind itself. The
+  skill says a message is the owner typing in chat, never an answer, and that sessions act only on
+  verified ones and report the rest to the owner.
 - Debug builds have a Crash Now menu item, for testing the crash path.
 - `relay post` and `relay_post` refuse an ask that leaves a value to copy inside a step's `do`
   (a URL, an IP or host:port, a path, a `key=value`, a backticked or quoted command, a long id

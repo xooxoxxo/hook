@@ -19,7 +19,7 @@ import json
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from relay_client import (RelayError, Refused, Unreachable, answer_value, event_rev, instructable_of,
+from relay_client import (RelayError, Refused, Unreachable, answer_value, event_rev, instructable_of, message_line,
                           open_questions, parse_answer, questions, revision_hash_of, session_label, session_text)
 
 DEFAULT_TIMEOUT_S = 28800.0       # 8 h
@@ -97,7 +97,7 @@ def format_answer(detail: Dict[str, Any], ask_id: str, answers: List[Dict[str, A
             lines.append(_problem_line(event))
             continue
         if event.get("kind") == "message":
-            lines.append(f"  ↳ owner message, quoted: {session_text(event.get('text') or '', TEXT_CAP)}")
+            lines.append("  ↳ " + message_line(event, session_text(event.get("text") or "", TEXT_CAP)))
             continue
         text = event.get("text") or ""
         head = f"  ↳ owner {event.get('kind')} {session_label(event.get('at') or '', 40)}"

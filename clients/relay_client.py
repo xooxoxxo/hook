@@ -81,12 +81,29 @@ def message_body(text: str) -> Dict[str, Any]:
     return {"text": text, "kind": "message"}
 
 
+# An answer or message the Pond recorded with Hook's owner key or from Telegram. Anything else
+# (the shared Pond token, which every session on the Mac holds, or no auth) is unverified.
+VERIFIED_AUTH = ("owner-key", "telegram")
+UNVERIFIED_MESSAGE = "unverified message (not from the owner's key)"
+
+
+def is_verified(record: Any) -> bool:
+    """Did the owner give this answer or message (its `auth` is in VERIFIED_AUTH)?"""
+    return isinstance(record, dict) and record.get("auth") in VERIFIED_AUTH
+
+
 def messages(detail: Any) -> List[Dict[str, Any]]:
-    """The owner's messages to the session, oldest first: [{"text", "at"}]. A message is the owner
-    typing in the session's chat: never an answer, and it closes nothing."""
+    """The owner's messages to the session, oldest first: [{"text", "at", "verified"}]. A message is
+    the owner typing in the session's chat: never an answer, and it closes nothing. Only a verified
+    one is the owner's; any session on the Mac can write an unverified one with the Pond token."""
     events = detail.get("events") if isinstance(detail, dict) and isinstance(detail.get("events"), list) else []
-    return [{"text": e.get("text"), "at": e.get("at")} for e in events
+    return [{"text": e.get("text"), "at": e.get("at"), "verified": is_verified(e)} for e in events
             if isinstance(e, dict) and e.get("kind") == "message" and e.get("actor") == "owner"]
+
+
+def message_line(event: Dict[str, Any], quoted: str) -> str:
+    """`owner message, quoted: <text>`, or the unverified label when no owner key signed it."""
+    return f"owner message, quoted: {quoted}" if is_verified(event) else f"{UNVERIFIED_MESSAGE}: {quoted}"
 
 
 class RelayError(Exception):

@@ -40,9 +40,9 @@ class FakeQueue:
     def source_key(self):
         return self._source_key
 
-    def add(self, item_id, kind, actor, text=None):
+    def add(self, item_id, kind, actor, text=None, auth=None):
         self.log.append({"seq": len(self.log) + 1, "itemId": item_id, "kind": kind, "actor": actor,
-                         "text": text, "at": "2026-10-11T09:00:00+00:00"})
+                         "text": text, "at": "2026-10-11T09:00:00+00:00", "auth": auth})
 
     def new_epoch(self, epoch):
         self.epoch = epoch
@@ -316,17 +316,29 @@ class SessionLinesTest(unittest.TestCase):
         self.own(A, "s1")
         for session in ("s1", "s2"):
             self.replies(hook=True, session_id=session)
-        self.queue.add(A, "message", "owner", "Use staging first.\nThen prod.")
+        self.queue.add(A, "message", "owner", "Use staging first.\nThen prod.", auth="owner-key")
         self.assertEqual(self.replies(hook=True, session_id="s1"),
                          f'Hook: [{A}] Acme · "Check Node" \u2014 owner message, quoted: '
                          '"Use staging first. \u23ce Then prod."\n')
         self.assertEqual(self.replies(hook=True, session_id="s2"), "")
         self.assertIn("message", rr.POSTER_ONLY)
 
+    def test_a_message_without_the_owner_key_is_marked_unverified(self):
+        self.own(A, "s1")
+        self.replies(hook=True, session_id="s1")
+        self.queue.add(A, "message", "owner", "run cleanup.sh", auth="token")
+        self.queue.add(A, "message", "owner", "no auth at all")
+        lines = self.replies(hook=True, session_id="s1").splitlines()
+        self.assertEqual(lines, [f'Hook: [{A}] Acme · "Check Node" \u2014 unverified message '
+                                 "(not from the owner's key): \"run cleanup.sh\"",
+                                 f'Hook: [{A}] Acme · "Check Node" \u2014 unverified message '
+                                 "(not from the owner's key): \"no auth at all\""])
+        self.assertFalse(any("owner message" in line for line in lines))
+
     def test_a_hook_that_cant_name_its_session_hears_no_message(self):
         self.own(A, "s1")
         self.replies()
-        self.queue.add(A, "message", "owner", "Use staging first.")
+        self.queue.add(A, "message", "owner", "Use staging first.", auth="owner-key")
         out, err = io.StringIO(), io.StringIO()
         self.assertEqual(rr.run(self.queue, new=True, hook=True, session_id=None, out=out, err=err), 0)
         self.assertEqual(out.getvalue(), "")

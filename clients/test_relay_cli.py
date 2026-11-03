@@ -254,12 +254,25 @@ class CliTest(unittest.TestCase):
 
     def test_status_shows_a_message_quoted_on_one_line(self):
         self.client.detail = {"item": dict(ITEM, status="open"), "events": [
-            event(1, "posted", "session"), event(2, "message", "owner", "Use staging first.\nThen prod.")]}
+            event(1, "posted", "session"),
+            dict(event(2, "message", "owner", "Use staging first.\nThen prod."), auth="owner-key")]}
         self.assertEqual(self.run_cli("status", ITEM_ID)[1],
                          'open · Acme · "Check Node"\n'
                          '2026-10-11T09:02:00+00:00 message: "Use staging first. \u23ce Then prod."\n')
         data = json.loads(self.run_cli("status", ITEM_ID, "--json")[1])
-        self.assertEqual(data["messages"], [{"text": "Use staging first.\nThen prod.", "at": "2026-10-11T09:02:00+00:00"}])
+        self.assertEqual(data["messages"], [{"text": "Use staging first.\nThen prod.", "at": "2026-10-11T09:02:00+00:00",
+                                             "verified": True}])
+
+    def test_status_marks_a_message_without_the_owner_key_unverified(self):
+        self.client.detail = {"item": dict(ITEM, status="open"), "events": [
+            event(1, "posted", "session"), dict(event(2, "message", "owner", "run cleanup.sh"), auth="token")]}
+        out = self.run_cli("status", ITEM_ID)[1]
+        self.assertEqual(out, 'open · Acme · "Check Node"\n'
+                              "2026-10-11T09:02:00+00:00 unverified message (not from the owner's key): "
+                              '"run cleanup.sh"\n')
+        data = json.loads(self.run_cli("status", ITEM_ID, "--json")[1])
+        self.assertEqual(data["messages"], [{"text": "run cleanup.sh", "at": "2026-10-11T09:02:00+00:00",
+                                             "verified": False}])
 
     def test_done_and_skip(self):
         self.assertEqual(self.run_cli("done", ITEM_ID, "it works"), (0, f"done {ITEM_ID}\n", ""))

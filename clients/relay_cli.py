@@ -17,9 +17,9 @@ from typing import Any, Callable, Dict, List, Optional
 
 import relay_replies
 import relay_wait
-from relay_client import (LIST_KINDS, OWNER_LABELS, VERSION, Client, EditKeys, PondTooOld, Refused, RelayError,
-                          accepted_rev, answer_state, answer_value, event_rev, instructable_of, item_kind, messages,
-                          open_questions, questions, revision_of, session_label, session_text)
+from relay_client import (LIST_KINDS, OWNER_LABELS, UNVERIFIED_MESSAGE, VERSION, Client, EditKeys, PondTooOld, Refused,
+                          RelayError, accepted_rev, answer_state, answer_value, event_rev, instructable_of, is_verified,
+                          item_kind, messages, open_questions, questions, revision_of, session_label, session_text)
 
 DEFAULT_TIMEOUT = 10.0
 SUBSTEPS_SENTENCE = ("A step that needs more than one action can hold `substeps`: 1 to 10 step objects "
@@ -183,6 +183,9 @@ def format_status(detail: dict) -> list:
         if event.get("kind") == "accepted":
             lines.append(f"{at} accepted version {event_rev(event)}")
             continue
+        if event.get("kind") == "message" and not is_verified(event):
+            lines.append(f"{at} {UNVERIFIED_MESSAGE}: {session_text(event.get('text') or '', OWNER_TEXT_CAP)}")
+            continue
         label = OWNER_LABELS.get(event.get("kind"))
         if label is None:
             continue
@@ -216,7 +219,7 @@ def format_status(detail: dict) -> list:
 
 def _answer_json(answer: Dict[str, Any], *keys: str) -> Dict[str, Any]:
     value = {k: v for k, v in answer.items() if k in ("picked", "text", "at", "rev") + keys}
-    value["verified"] = answer.get("auth") in ("owner-key", "telegram")
+    value["verified"] = is_verified(answer)
     return value
 
 

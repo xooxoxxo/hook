@@ -22,8 +22,8 @@ import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from relay_client import (OWNER_LABELS, EditKeys, NotFound, RelayError, answer_value, check_trusted_dir,
-                          check_trusted_file, config_dir, ensure_private_dir, event_rev, parse_answer, private_write,
-                          session_label, session_text)
+                          check_trusted_file, config_dir, ensure_private_dir, event_rev, message_line, parse_answer,
+                          private_write, session_label, session_text)
 
 CURSOR_FILE = "replies-cursor.json"
 HOOK_BUDGET_S = 2.0
@@ -266,7 +266,7 @@ def _verdict(event: Dict[str, Any], label: str, body: Optional[Dict[str, Any]]) 
     if kind == "accepted":
         return f"accepted version {event_rev(event)}"
     if kind == "message":
-        return f"owner message, quoted: {session_text(event.get('text') or '', TEXT_CAP)}"
+        return message_line(event, session_text(event.get("text") or "", TEXT_CAP))
     text = event.get("text") or ""
     return f"{label}: {session_text(text, TEXT_CAP)}" if text else label
 
