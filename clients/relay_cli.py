@@ -17,9 +17,9 @@ from typing import Any, Callable, Dict, List, Optional
 
 import relay_replies
 import relay_wait
-from relay_client import (OWNER_LABELS, VERSION, Client, EditKeys, PondTooOld, Refused, RelayError, accepted_rev,
-                          answer_state, answer_value, event_rev, instructable_of, open_questions, questions,
-                          revision_of, session_label, session_text)
+from relay_client import (LIST_KINDS, OWNER_LABELS, VERSION, Client, EditKeys, PondTooOld, Refused, RelayError,
+                          accepted_rev, answer_state, answer_value, event_rev, instructable_of, item_kind, messages,
+                          open_questions, questions, revision_of, session_label, session_text)
 
 DEFAULT_TIMEOUT = 10.0
 SUBSTEPS_SENTENCE = ("A step that needs more than one action can hold `substeps`: 1 to 10 step objects "
@@ -92,6 +92,8 @@ def _parser(out: Any, err: Any, prog: str = "relay") -> argparse.ArgumentParser:
     status.add_argument("--json", action="store_true")
     listing = sub.add_parser("list", help="open asks")
     listing.add_argument("--json", action="store_true")
+    listing.add_argument("--kind", choices=LIST_KINDS, default=None,
+                         help="only plain asks, or only the bug reports Hook files (with how often each happened)")
     for name, text in (("done", "mark an ask done"), ("skip", "skip (decline) an ask")):
         cmd = sub.add_parser(name, help=text)
         cmd.add_argument("id")
@@ -258,7 +260,7 @@ def _status_json(detail: dict, editable: bool = False) -> Dict[str, Any]:
             "project": item.get("projectId"), "title": item.get("title"),
             "ownerEvents": [{"kind": e.get("kind"), "text": e.get("text"), "at": e.get("at")}
                             for e in events if isinstance(e, dict) and e.get("actor") == "owner"],
-            **answers_json(detail), **revision_json(detail, editable)}
+            "messages": messages(detail), **answers_json(detail), **revision_json(detail, editable)}
 
 
 def _read_instructable(src: str, stdin: Any) -> Dict[str, Any]:
@@ -315,13 +317,24 @@ def _urgency(item: Dict[str, Any]) -> str:
     return urgency if isinstance(urgency, str) and urgency else "today"
 
 
+def bug_count(item: Dict[str, Any]) -> Optional[int]:
+    """How often a bug report's crash happened (Pond 1.2.0); None for a plain ask."""
+    bug = item.get("bug") if isinstance(item.get("bug"), dict) else {}
+    count = bug.get("count")
+    return count if isinstance(count, int) and not isinstance(count, bool) else None
+
+
 def _cmd_list(args: argparse.Namespace, ctx: _Ctx) -> int:
-    items = ctx.factory(autolaunch=True, timeout=DEFAULT_TIMEOUT).list("open", 36500)
+    client = ctx.factory(autolaunch=True, timeout=DEFAULT_TIMEOUT)
+    items = client.list("open", 36500) if args.kind is None else client.list("open", 36500, kind=args.kind)
     if args.json:
         ctx.say(json.dumps(items, ensure_ascii=False, indent=2))
         return 0
     for item in items:
-        ctx.say(f"{item.get('id')} {_urgency(item)} {item.get('projectId') or '?'} · {item.get('title') or '?'}")
+        count = bug_count(item)
+        head = f"bug ×{count}" if item_kind(item) == "bug" and count is not None else (
+            "bug" if item_kind(item) == "bug" else _urgency(item))
+        ctx.say(f"{item.get('id')} {head} {item.get('projectId') or '?'} · {item.get('title') or '?'}")
     return 0
 
 

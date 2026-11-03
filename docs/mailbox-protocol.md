@@ -11,12 +11,15 @@ Every request carries `Authorization: Bearer <content of tokenFile>` and `X-Hook
 | Request | Sent by | Body or query | Hook expects |
 |---|---|---|---|
 | `POST /asks` | CLI, MCP server, Settings › Queue test ask | `{project, context, instructable}` | 201 or 200 `{item, deduped?, openUrl?}` |
+| `POST /asks` with `kind: "bug"` | app (a crash report sent to My Pond; Pond 1.2.0, owner key required) | `{project, context, instructable, kind: "bug", signature}`: `signature` is 12 lowercase hex digits | 201 `{item, occurrences: 1}` for a new report; 200 `{item, deduped: true, occurrences}` when an open bug has the same signature. Never sent to Telegram |
 | `GET /asks` | app, CLI, MCP server | `status=open`, `days=36500` | 200 `{items}`, newest first |
+| `GET /asks` | `relay list --kind`, `relay_list {kind}` (Pond 1.2.0) | adds `kind=ask` or `kind=bug` | 200 `{items}` of that kind; an older Pond ignores `kind`, so the client filters too |
 | `GET /asks` | app (Closed today) | `status=done` or `status=dismissed`, `days=14` | 200 `{items}`; Hook keeps those whose `completedAt` falls in its window |
 | `GET /asks/{id}` | app, CLI (including `relay wait`), MCP server | none | 200 `{item, events}`, or 404 |
 | `POST /asks/{id}/resolve` | app (Done, Skip), CLI and MCP (`done`, `skip`) | `{verdict, actor, note?}`: `verdict` is `done` or `declined`; `actor` is `owner` from the app and `session` from the CLI and MCP server | 200 `{item}` |
 | `POST /asks/{id}/reopen` | app (Reopen in Closed today) | `{actor}`: always `owner` | 200 `{item}`, or 404 |
 | `POST /asks/{id}/reply` | app (Reply, reply choices) | `{text}` | 200 `{item}` |
+| `POST /asks/{id}/reply` with `kind: "message"` | app (the Messages section; Pond 1.2.0; the owner key when this Mac has one) | `{text, kind: "message"}`: the text as typed, multi-line, at most 1,000 characters | 200 `{item}`; 400 `invalid message` (`text: secret-like value`, `text: too long`) or `missing text`; 409 `ask is closed` or `too many messages` (50 per ask) |
 | `POST /asks/{id}/answers` | app (Send answers) | `{"answers": [...]}`: 1 to 20 of `{"step": "3.2", "picked": ["Staging"]}` or `{"step": "4", "text": "..."}` | 200 `{item}`; 409 when the ask is closed |
 | `GET /events` | `relay replies` | `after=<seq>`, `limit=1000` | 200 `{events, next, epoch?}`: events with `seq > after`, ascending; `next` is the last seq returned, or `after` |
 | `GET /version` | app (on connect, then at most every 30 minutes; Settings › Queue › Check), `relay post` and `relay_post` (before an instructable with a key that needs a newer Pond; cached for 5 minutes), `relay amend` | none | 200 `{"service": "pond", "version": "1.1.0", "protocol": 5}`; a 404 is protocol 1 ([below](#pond-versions)) |
@@ -36,6 +39,7 @@ Every request carries `Authorization: Bearer <content of tokenFile>` and `X-Hook
 |---|---|
 | 1.0.0 | everything up to the old protocol level 4: asks, events, resolve, reply, reopen, step `question` and `POST /asks/{id}/answers`, the `blocking`, `warning` and `optional` step keys, and file links (`file`, a link's `path`) |
 | 1.1.0 | step `id`s, revisions and corrections (`amend`, `accept`), and the owner key (`/owner`, `X-Hook-Owner-Key`) |
+| 1.2.0 | bug reports (`POST /asks` with `kind: "bug"`, `GET /asks?kind=`) and messages to the posting session (the `message` reply kind). This Hook works without them on 1.1.0: a crash report goes out as a plain ask, and the Messages section is hidden |
 
 A Pond 1.x still answers `protocol` (5 for 1.1.0) for Hook 0.9.x, which reads only that. Hook reads `version` first:
 
@@ -122,6 +126,7 @@ Hook reads these item keys and ignores the rest.
 | `created`, `updated` | Timestamps |
 | `completedAt` | When the ask was closed; null while it is open |
 | `payload.instructable` | The instructable as posted (see the [format](instructables.md)) |
+| `kind`, `bug` | Pond 1.2.0, on a bug report only: `kind: "bug"` and `bug: {signature, count, firstSeen, lastSeen}`. A plain ask has neither |
 
 Without `payload.instructable`, an item is shown from `payload.why`, `payload.cmd`, `payload.link` and the text of its `steps` events.
 
@@ -130,6 +135,7 @@ Without `payload.instructable`, an item is shown from `payload.why`, `payload.cm
 An event is `{seq, itemId, kind, actor, text, at}`; `seq` is an integer that only grows.
 
 - An owner's action has actor `owner` and kind `resolved`, `declined`, `reply` or `answer`.
+- `message` (actor `owner`, Pond 1.2.0): a message to the session that posted the ask, its `text` verbatim. It answers and closes nothing. A bug report's repeats add `occurrence` events (actor `hook`).
 - `answer` (actor `owner`): the answer to one step's question. Its `text` is compact JSON with `step` first: `{"step":"3.2","picked":["Staging"]}` for a choice question (picks in the order of the choices), `{"step":"4","text":"Use the EU region"}` for a free-text one. A step path is `"3"` or `"3.2"`, 1-based.
 - An ask closed by an agent has actor `session`.
 - `reopened` (actor `owner`): the ask is open again, and no client shows it closed until a later `resolved` or `declined`.

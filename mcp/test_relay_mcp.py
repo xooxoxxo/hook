@@ -41,6 +41,20 @@ DONE_DETAIL = {
 }
 LISTED = {"id": ITEM_ID, "projectId": "Acme", "title": "Check Node", "status": "open",
           "created": "2025-01-02T03:04:05+00:00", "lane": "work"}
+BUG_ID = "7d2e4c1a-0b3f-4a5e-8c6d-1f2a3b4c5d6e"
+BUG = {"id": BUG_ID, "projectId": "Hook", "title": "Hook crash: EXC_BAD_ACCESS in Panel.open (a3f9c2e17b04)",
+       "status": "open", "created": "2026-11-01T08:00:00+00:00", "lane": "work", "kind": "bug",
+       "bug": {"signature": "a3f9c2e17b04", "count": 3, "firstSeen": "2026-11-01T08:00:00+00:00",
+               "lastSeen": "2026-11-02T09:00:00+00:00"}}
+MESSAGE_DETAIL = {
+    "item": {"id": ITEM_ID, "title": "Check Node", "status": "open"},
+    "events": [
+        {"seq": 1, "itemId": ITEM_ID, "kind": "posted", "actor": "session", "text": None,
+         "at": "2026-10-11T08:00:00+00:00"},
+        {"seq": 2, "itemId": ITEM_ID, "kind": "message", "actor": "owner", "text": "Use staging first.\nThen prod.",
+         "at": "2026-10-11T08:30:00+00:00", "rev": 1, "auth": "token"},
+    ],
+}
 
 
 class StubQueue(BaseHTTPRequestHandler):
@@ -87,12 +101,20 @@ class StubQueue(BaseHTTPRequestHandler):
         parsed = urllib.parse.urlsplit(self.path)
         if parsed.path == "/asks":
             query = dict(urllib.parse.parse_qsl(parsed.query))
-            if query != {"status": "open", "days": "36500"}:
+            kind = query.pop("kind", None)
+            if query != {"status": "open", "days": "36500"} or kind not in (None, "ask", "bug"):
                 return self._send(400, {"error": "invalid query"})
-            return self._send(200, {"items": [LISTED]})
+            items = list(self.items)
+            if kind is not None and self.filters_kind:
+                items = [i for i in items if (i.get("kind") or "ask") == kind]
+            return self._send(200, {"items": items})
         if parsed.path != "/asks/" + ITEM_ID:
             return self._send(404, {"error": "not found"})
-        self._send(200, DONE_DETAIL)
+        self._send(200, self.detail)
+
+    items = [LISTED]
+    detail = DONE_DETAIL
+    filters_kind = True
 
     def health(self):
         self._send(200, {"ok": True})
@@ -258,7 +280,7 @@ class RelayMcpTest(StubServerCase):
             self.assertFalse(listed["isError"], listed)
             self.assertEqual(listed["structuredContent"], {"items": [
                 {"id": ITEM_ID, "project": "Acme", "title": "Check Node", "status": "open",
-                 "created": "2025-01-02T03:04:05+00:00"}]})
+                 "created": "2025-01-02T03:04:05+00:00", "kind": "ask"}]})
         finally:
             s.close()
 
@@ -302,6 +324,82 @@ class RelayMcpTest(StubServerCase):
             self.assertTrue(res["isError"])
             self.assertIn(str(s.config_path), res["content"][0]["text"])
             self.assertEqual(s.request("ping")["result"], {})
+        finally:
+            s.close()
+
+
+class StubPond12(StubQueue):
+    """A Pond 1.2.0: a bug among the asks, `?kind=` filtered, a message on the ask."""
+    items = [LISTED, BUG]
+    detail = MESSAGE_DETAIL
+    filters_kind = True
+
+
+class StubPond11(StubPond12):
+    """A Pond 1.1.0 ignores `?kind=` and answers every ask."""
+    filters_kind = False
+
+
+class KindAndMessagesTest(StubServerCase):
+    handler = StubPond12
+
+    def test_the_kind_schema(self):
+        tools = {t["name"]: t for t in relay_mcp.tool_list()}
+        schema = tools["relay_list"]["inputSchema"]
+        self.assertEqual(schema["properties"]["kind"], {"type": "string", "enum": ["ask", "bug"],
+                                                        "description": schema["properties"]["kind"]["description"]})
+        self.assertFalse(schema["additionalProperties"])
+        self.assertNotIn("required", schema)
+        self.assertIn("bug", tools["relay_list"]["description"])
+        self.assertIn("messages", tools["relay_status"]["description"])
+        for tool in tools.values():
+            for word in FORBIDDEN:
+                self.assertNotIn(word, tool["description"].lower())
+
+    def test_bugs_come_with_their_count(self):
+        s = Session.mailbox(self.tmp.name, self.url)
+        try:
+            bugs = s.call("relay_list", {"kind": "bug"})
+            self.assertFalse(bugs["isError"], bugs)
+            self.assertEqual(bugs["structuredContent"], {"items": [
+                {"id": BUG_ID, "project": "Hook", "title": BUG["title"], "status": "open",
+                 "created": "2026-11-01T08:00:00+00:00", "kind": "bug", "count": 3}]})
+            asks = s.call("relay_list", {"kind": "ask"})["structuredContent"]["items"]
+            self.assertEqual([i["id"] for i in asks], [ITEM_ID])
+            everything = s.call("relay_list", {})["structuredContent"]["items"]
+            self.assertEqual([i["kind"] for i in everything], ["ask", "bug"])
+            bad = s.call("relay_list", {"kind": "note"})
+            self.assertTrue(bad["isError"])
+            self.assertIn("kind must be", bad["content"][0]["text"])
+        finally:
+            s.close()
+
+    def test_status_returns_the_messages(self):
+        s = Session.mailbox(self.tmp.name, self.url)
+        try:
+            status = s.call("relay_status", {"id": ITEM_ID})["structuredContent"]
+            self.assertEqual(status["messages"], [{"text": "Use staging first.\nThen prod.",
+                                                   "at": "2026-10-11T08:30:00+00:00"}])
+            # A message is the owner typing in chat: it answers nothing.
+            self.assertEqual(status["answers"], {})
+            self.assertEqual(status["status"], "open")
+            self.assertIsNone(status["resolvedBy"])
+        finally:
+            s.close()
+
+
+class OlderPondKindTest(StubServerCase):
+    handler = StubPond11
+
+    def test_a_1_1_0_pond_ignores_kind_and_the_client_filters(self):
+        s = Session.mailbox(self.tmp.name, self.url)
+        try:
+            bugs = s.call("relay_list", {"kind": "bug"})["structuredContent"]["items"]
+            self.assertEqual([i["id"] for i in bugs], [BUG_ID])
+            asks = s.call("relay_list", {"kind": "ask"})["structuredContent"]["items"]
+            self.assertEqual([i["id"] for i in asks], [ITEM_ID])
+            self.assertIn(("GET", "/asks?status=open&days=36500&kind=bug", "mcp/" + relay_mcp.relay_client.VERSION),
+                          SEEN)
         finally:
             s.close()
 

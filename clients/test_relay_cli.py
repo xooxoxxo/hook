@@ -56,8 +56,11 @@ class FakeClient:
         self._record("get", ask_id)
         return self.detail
 
-    def list(self, status="open", days=36500):
-        self._record("list", status, days)
+    def list(self, status="open", days=36500, kind=None):
+        if kind is None:
+            self._record("list", status, days)
+        else:
+            self._record("list", status, days, kind)
         return self.items
 
     def resolve(self, ask_id, verdict, note=None):
@@ -226,6 +229,37 @@ class CliTest(unittest.TestCase):
                          (0, f"{ITEM_ID} now Acme · Check Node\n1d0e today Acme · Old ask\n", ""))
         self.assertEqual(self.client.calls, [("list", "open", 36500)])
         self.assertEqual(json.loads(self.run_cli("list", "--json")[1])[0]["id"], ITEM_ID)
+
+    def test_list_bugs_with_their_count(self):
+        bug = {"id": "b1", "projectId": "Hook", "title": "Hook crash: EXC_BAD_ACCESS in Panel.open (a3f9c2e17b04)",
+               "status": "open", "kind": "bug", "bug": {"signature": "a3f9c2e17b04", "count": 3}}
+        self.client.items = [bug]
+        self.assertEqual(self.run_cli("list", "--kind", "bug"),
+                         (0, "b1 bug ×3 Hook · Hook crash: EXC_BAD_ACCESS in Panel.open (a3f9c2e17b04)\n", ""))
+        self.assertEqual(self.client.calls, [("list", "open", 36500, "bug")])
+        self.client.items = [ITEM]
+        self.assertEqual(self.run_cli("list", "--kind", "ask")[1], f"{ITEM_ID} now Acme · Check Node\n")
+
+    def test_list_kind_is_ask_or_bug(self):
+        code, out, err = self.run_cli("list", "--kind", "note")
+        self.assertEqual((code, out), (2, ""))
+        self.assertIn("invalid choice: 'note'", err)
+        self.assertEqual(self.client.calls, [])
+
+    def test_done_resolves_a_bug_with_a_note(self):
+        self.client.detail = {"item": dict(ITEM, kind="bug", bug={"signature": "a3f9c2e17b04", "count": 2}),
+                              "events": [event(1, "posted", "hook")]}
+        self.assertEqual(self.run_cli("done", ITEM_ID, "fixed in 0.12.1"), (0, f"done {ITEM_ID}\n", ""))
+        self.assertEqual(self.client.calls[-1], ("resolve", ITEM_ID, "done", "fixed in 0.12.1"))
+
+    def test_status_shows_a_message_quoted_on_one_line(self):
+        self.client.detail = {"item": dict(ITEM, status="open"), "events": [
+            event(1, "posted", "session"), event(2, "message", "owner", "Use staging first.\nThen prod.")]}
+        self.assertEqual(self.run_cli("status", ITEM_ID)[1],
+                         'open · Acme · "Check Node"\n'
+                         '2026-10-11T09:02:00+00:00 message: "Use staging first. \u23ce Then prod."\n')
+        data = json.loads(self.run_cli("status", ITEM_ID, "--json")[1])
+        self.assertEqual(data["messages"], [{"text": "Use staging first.\nThen prod.", "at": "2026-10-11T09:02:00+00:00"}])
 
     def test_done_and_skip(self):
         self.assertEqual(self.run_cli("done", ITEM_ID, "it works"), (0, f"done {ITEM_ID}\n", ""))

@@ -3,8 +3,9 @@
 Cursor file: replies-cursor.json next to config.json, under an flock on
 replies-cursor.json.lock. With --hook it reads only `session_id` from the hook's stdin,
 never auto-launches Hook, keeps to a 2 s budget and always exits 0 (exit 2 from a
-UserPromptSubmit hook would block the prompt). With --hook, problem reports and accepted
-versions are printed only to the session that posted the ask (its edit-key file says which).
+UserPromptSubmit hook would block the prompt). With --hook, problem reports, accepted
+versions and the owner's messages are printed only to the session that posted the ask (its
+edit-key file says which); a hook that can't name its session hears none of them.
 Everything the owner or an ask says is printed quoted on one line (session_text), so no title,
 note or reply can pass for a line of its own. Standard library only; Python 3.9+.
 """
@@ -31,7 +32,7 @@ HOOK_STDIN_WAIT_S = 0.5
 PAGE = 1000
 TEXT_CAP = 300
 UUID = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
-POSTER_ONLY = ("problem", "accepted")   # in hook mode, only for the session that posted the ask
+POSTER_ONLY = ("problem", "accepted", "message")   # in hook mode, only for the session that posted the ask
 
 
 class CursorStore:
@@ -264,6 +265,8 @@ def _verdict(event: Dict[str, Any], label: str, body: Optional[Dict[str, Any]]) 
                 f"(version {event_rev(event)}), quoted: {session_text(report.get('note'), TEXT_CAP)}")
     if kind == "accepted":
         return f"accepted version {event_rev(event)}"
+    if kind == "message":
+        return f"owner message, quoted: {session_text(event.get('text') or '', TEXT_CAP)}"
     text = event.get("text") or ""
     return f"{label}: {session_text(text, TEXT_CAP)}" if text else label
 
@@ -283,8 +286,8 @@ def _posted_by(client: Any, item_id: str, session_id: Optional[str], cache: Dict
 
 def _collect(client: Any, key: str, new: bool, deadline: Optional[float],
              clock: Callable[[], float], session_id: Optional[str] = None) -> Tuple[List[str], bool]:
-    """The new owner lines. session_id is set in hook mode: problem and accepted lines then go
-    only to the session that posted the ask."""
+    """The new owner lines. session_id is set in hook mode: problem, accepted and message lines
+    then go only to the session that posted the ask."""
     source_key = client.source_key()
     path = config_dir(getattr(client, "env", None)) / CURSOR_FILE
     lock_wait = HOOK_BUDGET_S if deadline is None else max(0.05, deadline - clock())

@@ -65,7 +65,28 @@ _ASK_ID = re.compile(r"[0-9A-Za-z][0-9A-Za-z-]{0,63}")
 
 # Owner event kinds as the CLI and the hook print them.
 OWNER_LABELS = {"resolved": "done", "declined": "skipped", "reply": "reply", "reopened": "reopened",
-                "problem": "problem", "accepted": "accepted"}
+                "problem": "problem", "accepted": "accepted", "message": "message"}
+# `list(kind=)`: plain asks, or the bug reports Hook files on a Pond 1.2.0 or later.
+LIST_KINDS = ("ask", "bug")
+
+
+def item_kind(item: Any) -> str:
+    """"bug" for a Hook bug report (Pond 1.2.0 marks it), else "ask"."""
+    return "bug" if isinstance(item, dict) and item.get("kind") == "bug" else "ask"
+
+
+def message_body(text: str) -> Dict[str, Any]:
+    """The wire body of a message to the posting session (`POST /asks/{id}/reply`, Pond 1.2.0).
+    Only Hook sends messages; clients read them. Kept here so tests and fakes share one shape."""
+    return {"text": text, "kind": "message"}
+
+
+def messages(detail: Any) -> List[Dict[str, Any]]:
+    """The owner's messages to the session, oldest first: [{"text", "at"}]. A message is the owner
+    typing in the session's chat: never an answer, and it closes nothing."""
+    events = detail.get("events") if isinstance(detail, dict) and isinstance(detail.get("events"), list) else []
+    return [{"text": e.get("text"), "at": e.get("at")} for e in events
+            if isinstance(e, dict) and e.get("kind") == "message" and e.get("actor") == "owner"]
 
 
 class RelayError(Exception):
@@ -957,10 +978,17 @@ class Client:
                                       "correct only the asks you posted")
         return resp
 
-    def list(self, status: str = "open", days: int = 36500) -> List[Dict[str, Any]]:
-        query = urllib.parse.urlencode({"status": status, "days": int(days)})
-        items = self._call("GET", "/asks?" + query).get("items")
-        return [i for i in items if isinstance(i, dict)] if isinstance(items, list) else []
+    def list(self, status: str = "open", days: int = 36500, kind: Optional[str] = None) -> List[Dict[str, Any]]:
+        """`kind` "ask" or "bug" keeps only that kind. The Pond filters too (1.2.0); an older Pond
+        ignores the filter, and This Mac has no bugs, so the client filters by each item's kind."""
+        if kind is not None and kind not in LIST_KINDS:
+            raise ValueError("kind must be ask or bug")
+        params: Dict[str, Any] = {"status": status, "days": int(days)}
+        if kind is not None and not self.local:
+            params["kind"] = kind
+        items = self._call("GET", "/asks?" + urllib.parse.urlencode(params)).get("items")
+        found = [i for i in items if isinstance(i, dict)] if isinstance(items, list) else []
+        return found if kind is None else [i for i in found if item_kind(i) == kind]
 
     def get(self, ask_id: str) -> Dict[str, Any]:
         return self._call("GET", "/asks/" + self._quote(ask_id), not_found=f"no ask with id {ask_id}")

@@ -516,6 +516,30 @@ class MailboxTests(Base):
                          {"verdict": "declined", "actor": "session", "note": "not needed"})
         self.assertEqual(client.events(after=7), {"events": [], "next": 7})
 
+    def test_list_by_kind_asks_the_pond_and_filters_locally(self):
+        bug = {"id": "b1", "kind": "bug", "bug": {"signature": "a3f9c2e17b04", "count": 3}}
+        plain = {"id": ITEM_ID}
+        self.http.routes[("GET", "/asks?status=open&days=36500&kind=bug")] = (200, {"items": [bug]})
+        client = self.mailbox(self.http)
+        self.assertEqual(client.list(kind="bug"), [bug])
+        # A 1.1.0 Pond ignores the filter and answers every ask: the client keeps only the kind asked for.
+        self.http.routes[("GET", "/asks?status=open&days=36500&kind=bug")] = (200, {"items": [plain, bug]})
+        self.assertEqual(client.list(kind="bug"), [bug])
+        self.http.routes[("GET", "/asks?status=open&days=36500&kind=ask")] = (200, {"items": [plain, bug]})
+        self.assertEqual(client.list(kind="ask"), [plain])
+        with self.assertRaises(ValueError):
+            client.list(kind="note")
+
+    def test_this_mac_has_no_bugs_and_never_sends_the_kind(self):
+        self.assertEqual(rc.item_kind({"id": "x"}), "ask")
+        self.assertEqual(rc.item_kind({"id": "x", "kind": "bug"}), "bug")
+        self.assertEqual(rc.item_kind({"id": "x", "kind": None}), "ask")
+
+    def test_the_message_wire_body(self):
+        self.assertEqual(rc.message_body("Use staging.\nThen prod."),
+                         {"text": "Use staging.\nThen prod.", "kind": "message"})
+        self.assertEqual(rc.OWNER_LABELS["message"], "message")
+
     def test_401(self):
         self.http.routes[("GET", "/asks?status=open&days=36500")] = (401, {"error": "unauthorized"})
         with self.assertRaises(rc.Refused) as ctx:

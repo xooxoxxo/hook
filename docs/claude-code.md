@@ -7,8 +7,8 @@ Sessions post asks with the MCP server or the `relay` command, and read answers 
 Registered by the installer.
 
 - `relay_post {project, instructable}` returns `{id, deduped, openUrl}`.
-- `relay_status {id}` returns `status`, `resolvedBy` (`owner`, `session` or null) and `ownerEvents`.
-- `relay_list {}` returns every open ask.
+- `relay_status {id}` returns `status`, `resolvedBy` (`owner`, `session` or null), `ownerEvents` and `messages` ([below](#messages-and-bug-reports)).
+- `relay_list {kind?}` returns every open ask, each with its `kind` (`ask` or `bug`); `kind` lists only one of them, and a bug also carries `count`.
 - `relay_amend {id, reason, instructable, baseRev?}` corrects an open ask this Mac posted and returns `{id, rev, hash, changed, added, removed, moved, top, openUrl}` ([below](#correcting-an-ask)).
 
 ## Skill and CLAUDE.md
@@ -26,7 +26,7 @@ Commands start Hook if it isn't running, except `relay replies --hook` and `rela
 |---|---|
 | `relay post <project> --json -` or `--json <file>` | `posted <id>` or `deduped <id>`, then `open <url>`. Refused: `refused: <error>` and one line per field error on stderr |
 | `relay status <id> [--json]` | `<status> (by owner\|by session) · <project> · <title>`, then one line per owner event |
-| `relay list [--json]` | One line per open ask: `<id> <urgency> <project> · <title>` |
+| `relay list [--json] [--kind ask\|bug]` | One line per open ask: `<id> <urgency> <project> · <title>`; a bug report reads `<id> bug ×<count> Hook · <title>` |
 | `relay done <id> [note]`, `relay skip <id> [note]` | `done <id>` / `skipped <id>`, or `already <status> (by <actor>) <id>` |
 | `relay replies [--new] [--hook]` | One line per new owner answer |
 | `relay wait <id> [--timeout SECONDS] [--interval SECONDS] [--after SEQ]` | See [below](#relay-wait) |
@@ -68,6 +68,13 @@ An ask can carry per-step questions that you answer one by one without closing i
 `relay status` adds an `Answers (X of Y):` block with each question's prompt and your latest answer under it, then `Unanswered: <paths>`; `relay status --json` and the MCP `relay_status` gain `answers` and `unanswered`, and `ownerEvents` includes the `answer` events. `relay replies` and the prompt hook show them as `Hook: [<id>] <project> · <title> — answer <path>: <value>`.
 
 With no answer it exits 3 after `--timeout` (default 8 h). Pass `--after <last seq>` to wait for the next answer.
+
+## Messages and bug reports
+
+With a Pond 1.2.0 or newer:
+
+- **Messages.** The owner can message the session that posted an ask from the Messages section in Hook. A message is the owner typing as in chat: it never answers the ask, a step question or a reply prompt, and closes nothing. `relay wait` wakes on one and prints `  ↳ owner message, quoted: "<text>"` on one line. The replies hook shows `Hook: [<id>] <project> · "<title>" — owner message, quoted: "<text>"` only to the session that posted the ask (its edit-key file names it), like problem reports; a hook that can't name its session shows none. `relay status` lists it as `<at> message: "<text>"`, and `relay status --json` and `relay_status` carry `messages: [{text, at}]`.
+- **Bug reports.** Hook files its own crash reports in project `Hook` as asks of kind `bug`, one per crash signature, with how often it happened. `relay list --kind bug` and `relay_list {kind: "bug"}` list the open ones; close one with `relay done <id> "<what changed>"` once it is fixed. A Pond 1.1.0 ignores `kind`, so the client filters by each item's `kind` itself; This Mac has no bug reports.
 
 ## Reopened asks
 

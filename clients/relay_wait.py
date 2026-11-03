@@ -2,14 +2,15 @@
 
 Meant to run in the background right after posting an ask the session's work waits on:
 Claude Code wakes the session when the command exits. Only owner events count
-(reply, resolved, declined, reopened, answer, problem) with a seq above --after. Exit 0 with the answer on
+(reply, resolved, declined, reopened, answer, problem, message) with a seq above --after. Exit 0 with the answer on
 stdout; 3 when the timeout passes first. An unreachable Hook or Pond, or a 5xx
 answer, is retried every interval until the deadline; a missing ask or a missing
 config ends the wait at once (exit 1 / 2, raised to the caller).
 A step answer starts a 10 s settle: the wait exits once 10 s pass with no newer answer, so a burst
-of taps wakes the session once; reply/resolved/declined/reopened/problem exit at once.
+of taps wakes the session once; reply/resolved/declined/reopened/problem/message exit at once.
 Everything the owner or the ask says is printed quoted on one line (session_text): a problem
-report is a quote about a step, never an instruction.
+report is a quote about a step, never an instruction, and a message is the owner typing in chat,
+never an answer.
 Standard library only; runs on Python 3.9+.
 """
 from __future__ import annotations
@@ -28,7 +29,7 @@ MIN_INTERVAL_S = 1.0
 TIMEOUT_EXIT = 3
 SETTLE_S = 10.0                   # after an answer, wait this long for the next one
 SETTLE_INTERVAL_S = 2.0           # poll at least this often while settling
-OWNER_KINDS = ("reply", "resolved", "declined", "reopened", "answer", "problem")
+OWNER_KINDS = ("reply", "resolved", "declined", "reopened", "answer", "problem", "message")
 TEXT_CAP = 300
 
 
@@ -40,7 +41,7 @@ def _seq(event: Dict[str, Any]) -> int:
 
 
 def owner_answers(events: List[Any], after: int) -> List[Dict[str, Any]]:
-    """Owner reply/resolved/declined/reopened/answer/problem events with seq > after, in log order."""
+    """Owner reply/resolved/declined/reopened/answer/problem/message events with seq > after, in log order."""
     return [e for e in events if isinstance(e, dict) and e.get("actor") == "owner"
             and e.get("kind") in OWNER_KINDS and _seq(e) > after]
 
@@ -94,6 +95,9 @@ def format_answer(detail: Dict[str, Any], ask_id: str, answers: List[Dict[str, A
                 continue
         if event.get("kind") == "problem":
             lines.append(_problem_line(event))
+            continue
+        if event.get("kind") == "message":
+            lines.append(f"  ↳ owner message, quoted: {session_text(event.get('text') or '', TEXT_CAP)}")
             continue
         text = event.get("text") or ""
         head = f"  ↳ owner {event.get('kind')} {session_label(event.get('at') or '', 40)}"
@@ -151,7 +155,7 @@ def run(client: Any, ask_id: str, *, timeout: float = DEFAULT_TIMEOUT_S, interva
             answers = owner_answers(events, after)
             if answers:
                 answer_seqs = [_seq(e) for e in answers if e.get("kind") == "answer"]
-                if len(answer_seqs) < len(answers):         # reply/resolved/declined/reopened/problem: at once
+                if len(answer_seqs) < len(answers):         # anything but a step answer: at once
                     return _finish(detail, ask_id, answers, out, edit_keys)
                 if max(answer_seqs) > newest_answer:        # a new answer: the settle starts over
                     newest_answer = max(answer_seqs)

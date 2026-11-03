@@ -312,6 +312,27 @@ class SessionLinesTest(unittest.TestCase):
         self.assertEqual(len(theirs), 1)
         self.assertIn('reply: "for everyone"', theirs[0])
 
+    def test_a_message_reaches_only_the_session_that_posted_the_ask(self):
+        self.own(A, "s1")
+        for session in ("s1", "s2"):
+            self.replies(hook=True, session_id=session)
+        self.queue.add(A, "message", "owner", "Use staging first.\nThen prod.")
+        self.assertEqual(self.replies(hook=True, session_id="s1"),
+                         f'Hook: [{A}] Acme · "Check Node" \u2014 owner message, quoted: '
+                         '"Use staging first. \u23ce Then prod."\n')
+        self.assertEqual(self.replies(hook=True, session_id="s2"), "")
+        self.assertIn("message", rr.POSTER_ONLY)
+
+    def test_a_hook_that_cant_name_its_session_hears_no_message(self):
+        self.own(A, "s1")
+        self.replies()
+        self.queue.add(A, "message", "owner", "Use staging first.")
+        out, err = io.StringIO(), io.StringIO()
+        self.assertEqual(rr.run(self.queue, new=True, hook=True, session_id=None, out=out, err=err), 0)
+        self.assertEqual(out.getvalue(), "")
+        # Outside a hook (the CLI) it shows, like a problem report.
+        self.assertIn('owner message, quoted: "Use staging first."', self.replies())
+
     def test_no_key_file_no_problem_line_in_hook_mode_but_the_cli_shows_it(self):
         self.replies(hook=True, session_id="s1")
         self.replies()
