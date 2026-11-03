@@ -627,3 +627,50 @@ private func sentHeader(_ host: String, _ name: String) -> String? {
         #expect(sentHeader(host, "X-Hook-Owner-Key") == nil)
     }
 }
+
+private let bugSignature = "a3f9c2e17b04"
+
+@Suite struct MailboxClientBugTests {
+    @Test func aBugCarriesKindSignatureAndTheOwnerKey() async throws {
+        let (client, host) = try makeClient(ownerKey: { ownerKeyValue }) { _, _ in
+            (201, #"{"item":\#(itemJSON),"occurrences":1,"editable":false}"#)
+        }
+        let result = try await client.postBug(project: "Hook", instructable: Data(rawInstructable.utf8),
+                                              signature: bugSignature)
+        #expect(result == .filed(id: askID))
+        let sent = try #require(MailboxStubRegistry.shared.last(host))
+        #expect(sent.request.httpMethod == "POST")
+        #expect(sent.request.url?.path() == "/asks")
+        #expect(sentHeader(host, "X-Hook-Owner-Key") == ownerKeyValue)
+        let body = try sentBody(host)
+        guard case .object(let object) = body else {
+            Issue.record("an object body")
+            return
+        }
+        #expect(object["kind"] == .string("bug"))
+        #expect(object["signature"] == .string(bugSignature))
+        #expect(object["project"] == .string("Hook"))
+        #expect(object["context"] == .string("work"))
+        #expect(object["instructable"] == (try JSONValue.parse(Data(rawInstructable.utf8))))
+        #expect(Set(object.keys) == ["kind", "signature", "project", "context", "instructable"])
+    }
+
+    @Test func aRepeatIsAnOccurrence() async throws {
+        let (client, _) = try makeClient(ownerKey: { ownerKeyValue }) { _, _ in
+            (200, #"{"item":\#(itemJSON),"deduped":true,"occurrences":3}"#)
+        }
+        let result = try await client.postBug(project: "Hook", instructable: Data(rawInstructable.utf8),
+                                              signature: bugSignature)
+        #expect(result == .occurrence(id: askID, count: 3))
+    }
+
+    @Test func eitherOwnerKeyRefusalIsTheOwnerKeyNotice() async throws {
+        for error in ["owner key required", "unknown owner key"] {
+            let (client, _) = try makeClient(ownerKey: { ownerKeyValue }) { _, _ in (403, #"{"error":"\#(error)"}"#) }
+            await #expect(throws: QueueError.ownerKeyRefused) {
+                _ = try await client.postBug(project: "Hook", instructable: Data(rawInstructable.utf8),
+                                             signature: bugSignature)
+            }
+        }
+    }
+}

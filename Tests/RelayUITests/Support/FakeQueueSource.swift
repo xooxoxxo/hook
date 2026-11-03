@@ -21,6 +21,12 @@ actor FakeQueueSource: QueueSource {
     private(set) var stamps: [(call: String, stamp: RevisionStamp)] = []
     /// Every problem report sent.
     private(set) var problems: [(id: String, stepID: String, stamp: RevisionStamp, note: String)] = []
+    /// Every post's instructable bytes, and every bug's (signature, instructable bytes).
+    private(set) var posted: [(project: String, instructable: Data)] = []
+    private(set) var bugs: [(project: String, signature: String, instructable: Data)] = []
+    /// What `post` answers (nil: posting isn't faked) and what `postBug` answers.
+    private var postAnswer: PostResult?
+    private var bugAnswer: BugPostResult = .filed(id: "bug-1")
 
     init(items: [WireItem] = [], details: [String: AskDetail] = [:]) {
         self.items = items
@@ -31,6 +37,8 @@ actor FakeQueueSource: QueueSource {
     func setClosed(_ items: [WireItem]) { closedItems = items }
     func setListDelay(_ delay: Duration) { listDelay = delay }
     func setDetail(_ detail: AskDetail) { details[detail.item.id] = detail }
+    func setPostAnswer(_ answer: PostResult?) { postAnswer = answer }
+    func setBugAnswer(_ answer: BugPostResult) { bugAnswer = answer }
 
     /// While held, every `resolve` waits after it is recorded until `releaseResolves()`.
     func holdResolves() { resolvesHeld = true }
@@ -78,7 +86,15 @@ actor FakeQueueSource: QueueSource {
 
     func post(project: String, instructable: Data) async throws -> PostResult {
         try record("post")
-        throw QueueError.unreachable("posting isn't faked")
+        posted.append((project, instructable))
+        guard let postAnswer else { throw QueueError.unreachable("posting isn't faked") }
+        return postAnswer
+    }
+
+    func postBug(project: String, instructable: Data, signature: String) async throws -> BugPostResult {
+        try record("postBug \(signature)")
+        bugs.append((project, signature, instructable))
+        return bugAnswer
     }
 
     func resolve(_ id: String, verdict: Verdict, note: String?) async throws -> WireItem {

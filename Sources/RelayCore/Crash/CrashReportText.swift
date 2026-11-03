@@ -41,5 +41,39 @@ public enum CrashReportText {
         return lines.map { Redactor.redact($0, home: home, user: user) }.joined(separator: "\n")
     }
 
+    /// Drops log lines, oldest first, until `fits` says yes; the "Last N log lines" header
+    /// follows the count. The title, the signature line and the fields above the log always
+    /// stay; if even no log lines don't fit, the text is cut at the end. `trimmed` is true
+    /// when anything was dropped.
+    public static func fit(_ body: String, _ fits: (String) -> Bool) -> (text: String, trimmed: Bool) {
+        guard !fits(body) else { return (body, false) }
+        var lines = body.components(separatedBy: "\n")
+        guard let header = lines.lastIndex(where: { $0.hasPrefix("Last ") && $0.hasSuffix(" log lines") }) else {
+            return (cut(body, fits), true)
+        }
+        var log = Array(lines[(header + 1)...])
+        lines.removeSubrange((header + 1)...)
+        while !log.isEmpty {
+            log.removeFirst()
+            lines[header] = "Last \(log.count) log lines"
+            let text = (lines + log).joined(separator: "\n")
+            if fits(text) { return (text, true) }
+        }
+        return (cut(lines.joined(separator: "\n"), fits), true)
+    }
+
+    /// The longest prefix that fits, on a line boundary when one is left.
+    private static func cut(_ text: String, _ fits: (String) -> Bool) -> String {
+        var lines = text.components(separatedBy: "\n")
+        while lines.count > 1 {
+            lines.removeLast()
+            let shorter = lines.joined(separator: "\n")
+            if fits(shorter) { return shorter }
+        }
+        var single = lines.first ?? ""
+        while !single.isEmpty, !fits(single) { single.removeLast() }
+        return single
+    }
+
     public static var defaultHome: String { ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory() }
 }

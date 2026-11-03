@@ -11,6 +11,11 @@ let crashWithReport = CrashSummary(
 let crashWithoutReport = CrashSummary(report: nil, hookVersion: "0.12.0", macOS: "15.6.0", cpu: "arm64",
                                       when: fixedNow.addingTimeInterval(-3600))
 
+/// What a @Sendable shell action was called with.
+@MainActor final class SentValues<T> {
+    var items: [T] = []
+}
+
 @Suite @MainActor struct CrashBarTests {
     @Test func theOfferAppearsAndClearsOnNotNow() {
         let defaults = TestDefaults()
@@ -53,19 +58,19 @@ let crashWithoutReport = CrashSummary(report: nil, hookVersion: "0.12.0", macOS:
         let defaults = TestDefaults()
         defer { defaults.drop() }
         let store = Store(defaults: defaults.defaults)
-        var saved: [SourceKind] = []
-        store.shell.switchSource = { saved.append($0) }
+        let saved = SentValues<SourceKind>()
+        store.shell.switchSource = { saved.items.append($0) }
         let config = RelayConfig(source: .local, mailboxURL: "https://pond.example.com", tokenFile: "~/t")
         store.setProfiles(ProfileMenu.make(config: config))
         #expect(store.profiles.label == "This Mac")
 
         store.switchProfile(.local)   // already shown: nothing to save
         store.switchProfile(.mailbox)
-        #expect(saved == [.mailbox])
+        #expect(saved.items == [.mailbox])
 
         store.setProfiles(ProfileMenu.make(config: config, readOnly: true))
         store.switchProfile(.mailbox)
-        #expect(saved == [.mailbox])
+        #expect(saved.items == [.mailbox])
     }
 
     @Test func theStatusShowsUpdating() {

@@ -79,6 +79,19 @@ public struct MailboxClient: QueueSource {
         try await resolve(id, verdict: verdict, note: note, stamp: nil)
     }
 
+    /// A crash report (Pond 1.2.0): always with the owner key. Either 403 the owner check
+    /// gives ("owner key required", "unknown owner key") is `.ownerKeyRefused`.
+    public func postBug(project: String, instructable: Data, signature: String) async throws -> BugPostResult {
+        let body = Self.postBody(project: project, context: settings.context, instructable: instructable,
+                                 extra: ["kind": "bug", "signature": signature])
+        do {
+            let response: BugPostResponse = try await send("POST", "asks", body: body, owner: true)
+            return response.result
+        } catch QueueError.rejected(403, "owner key required", _) {
+            throw QueueError.ownerKeyRefused
+        }
+    }
+
     /// Done or Skip bound to the revision the owner saw (`rev`, `hash`). A Pond whose
     /// revision in force differs answers 409 → `.corrected`.
     public func resolve(_ id: String, verdict: Verdict, note: String?, stamp: RevisionStamp?) async throws -> WireItem {
@@ -222,8 +235,8 @@ public struct MailboxClient: QueueSource {
 
     /// `{"context":…,"project":…,"instructable":<raw>}`: the instructable's bytes
     /// are spliced in as given, so the mailbox validates exactly what the caller sent.
-    static func postBody(project: String, context: String, instructable: Data) -> Data {
-        var body = encode(["context": context, "project": project])
+    static func postBody(project: String, context: String, instructable: Data, extra: [String: String] = [:]) -> Data {
+        var body = encode(extra.merging(["context": context, "project": project]) { _, fixed in fixed })
         body.removeLast()   // the closing brace
         body.append(Data(#","instructable":"#.utf8))
         body.append(instructable)

@@ -29,6 +29,9 @@ public enum DS {
         public static let barStackV: CGFloat = 10
         /// Between a docked bar's title and its caption (the crash bar).
         public static let barCaption: CGFloat = 1
+        /// A sheet's edge inset, and the gap between its sections (the crash report sheet).
+        public static let sheet: CGFloat = 20
+        public static let sheetSection: CGFloat = 14
         /// GroupBox content inset (5 pt, measured) + currentStep: the current step's box bleeds out by this
         /// so its marker and text stay on the todo/done column.
         public static let currentBleed: CGFloat = 9
@@ -72,6 +75,8 @@ public enum DS {
 
     public enum Metric {
         public static let panelWidth: CGFloat = 380
+        /// The crash report preview's scroll box.
+        public static let reportPreview: CGFloat = 220
         public static let header: CGFloat = 44
         public static let filterRow: CGFloat = 32
         public static let filterTokenMax: CGFloat = 160
@@ -143,6 +148,8 @@ public enum DS {
         public static var meta: SwiftUI.Font { style(.subheadline, .subheadline) }
         public static var prose: SwiftUI.Font { style(.callout, .callout) }
         public static var code: SwiftUI.Font { style(.callout, .callout).monospaced() }
+        /// A crash report preview: a whole report fits the sheet's scroll box.
+        public static var report: SwiftUI.Font { style(.caption, .caption1).monospaced() }
         public static var caption: SwiftUI.Font { style(.caption, .caption1) }
         public static var welcomeTitle: SwiftUI.Font { style(.title2, .title2).weight(.semibold) }
         public static var badgeDigit: NSFont { .monospacedDigitSystemFont(ofSize: 9, weight: .bold) }
@@ -152,6 +159,8 @@ public enum DS {
         public static var monogram: SwiftUI.Font { .system(size: 8, weight: .bold) }
         /// The symbol on the app icon placeholder, sized to `Metric.appIcon`.
         public static var appSymbol: SwiftUI.Font { .system(size: 34, weight: .semibold) }
+        /// A sheet's leading symbol (the crash report sheet's warning).
+        public static var sheetSymbol: SwiftUI.Font { .system(size: 28) }
         /// The Done page's hero symbol.
         public static var heroSymbol: SwiftUI.Font { .system(size: 52, weight: .regular) }
         /// The owner key's 6-digit enrollment code in Settings › Queue.
@@ -178,6 +187,9 @@ public enum DS {
         public static let errorText = adaptive(light: TextTint.errorLight, dark: TextTint.errorDark)
         /// A tag's capsule: its text colour at this opacity.
         public static let tagFillOpacity: Double = 0.14
+        /// A redaction placeholder in the report preview (<host>, <redacted>, ~).
+        public static let redactedText = SwiftUI.Color.accentColor
+        public static let redactedFill = SwiftUI.Color.accentColor.opacity(0.14)
         enum TextTint {
             static let warnLight = NSColor(srgbRed: 0.60, green: 0.29, blue: 0.0, alpha: 1)
             static let warnDark = NSColor(srgbRed: 1.0, green: 0.72, blue: 0.30, alpha: 1)

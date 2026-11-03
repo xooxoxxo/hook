@@ -141,6 +141,15 @@ public enum CopyOutcome: Equatable, Sendable {
     var crashOffer: CrashOffer? { get }
     /// Review…: opens the send sheet.
     func reviewCrash()
+    /// The send sheet: target, exactly what is sent, the send's state; nil while closed.
+    var crashSheet: CrashSheetModel? { get }
+    /// The sheet's primary button, for its target.
+    func sendCrashReport()
+    func setCrashTarget(_ target: CrashTarget)
+    /// Cancel: the sheet goes, the bar stays.
+    func closeCrashSheet()
+    func copyCrashReport()
+    func showCrashReportInFinder()
     /// Not Now: the bar goes and the signature is marked handled.
     func dismissCrash()
     /// The status bar's profile switcher.

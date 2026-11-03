@@ -16,9 +16,12 @@ public struct CrashSummary: Equatable, Sendable {
     public var when: Date
     /// "Hook crash: EXC_BAD_ACCESS in SettingsWindow.open (a3f9c2e17b04)".
     public var title: String
+    /// The .ips it was read from, for Show in Finder; never sent.
+    public var reportFile: URL?
 
-    public init(report: IPSReport?, hookVersion: String, macOS: String, cpu: String, when: Date) {
+    public init(report: IPSReport?, hookVersion: String, macOS: String, cpu: String, when: Date, reportFile: URL? = nil) {
         self.report = report
+        self.reportFile = reportFile
         self.hookVersion = hookVersion
         self.macOS = macOS
         self.cpu = cpu
@@ -73,12 +76,14 @@ public enum CrashFinder {
     public static func find(previous: RunMarker, reports: URL, macOS: String, cpu: String) -> CrashSummary {
         var report: IPSReport?
         var when = previous.started
-        if let url = IPSReport.newest(in: reports, after: previous.started) {
+        let file = IPSReport.newest(in: reports, after: previous.started)
+        if let url = file {
             report = (try? Data(contentsOf: url)).flatMap { try? IPSReport.parse($0) }
             if let date = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.modificationDate] as? Date {
                 when = date
             }
         }
-        return CrashSummary(report: report, hookVersion: previous.version, macOS: macOS, cpu: cpu, when: when)
+        return CrashSummary(report: report, hookVersion: previous.version, macOS: macOS, cpu: cpu, when: when,
+                            reportFile: file)
     }
 }

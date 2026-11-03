@@ -247,6 +247,11 @@ public enum PondVersion: Equatable, Sendable {
         }
     }
 
+    /// The Pond has the feature: its effective version is at least the feature's first one.
+    public func supports(_ feature: MailboxFeature) -> Bool {
+        effective >= feature.minimumPond
+    }
+
     /// "1.1.0", or "protocol 4" for an old Pond.
     public var display: String {
         switch self {

@@ -43,6 +43,12 @@ public protocol QueueSource: Sendable {
     func enroll(keyHash: String, label: String) async throws -> Enrollment
     func enrollment(_ id: String) async throws -> Enrollment
     func requireOwnerKey(_ on: Bool) async throws -> OwnerKeyRequirement
+
+    // Pond 1.2.0.
+
+    /// A Hook crash report: owner-signed `POST /asks` with `kind: "bug"`, filed once per
+    /// signature and never sent to Telegram. A repeat adds an occurrence.
+    func postBug(project: String, instructable: Data, signature: String) async throws -> BugPostResult
 }
 
 extension QueueSource {
@@ -72,6 +78,39 @@ extension QueueSource {
     public func enrollment(_ id: String) async throws -> Enrollment { throw QueueError.notSupported }
 
     public func requireOwnerKey(_ on: Bool) async throws -> OwnerKeyRequirement { throw QueueError.notSupported }
+
+    public func postBug(project: String, instructable: Data, signature: String) async throws -> BugPostResult {
+        throw QueueError.notSupported
+    }
+}
+
+/// What a crash report sent to the Pond became.
+public enum BugPostResult: Equatable, Sendable {
+    /// A new report.
+    case filed(id: String)
+    /// An open report with the same signature (or, on a Pond before 1.2.0, the same title)
+    /// gained this crash; `count` is how often it happened, when the Pond says.
+    case occurrence(id: String, count: Int?)
+
+    /// "Sent to your Pond." or "Added to the existing report (3 times)."
+    public var text: String {
+        switch self {
+        case .filed: return "Sent to your Pond."
+        case .occurrence(_, let count?): return "Added to the existing report (\(count) times)."
+        case .occurrence: return "Added to the existing report."
+        }
+    }
+}
+
+/// `POST /asks` with `kind: "bug"` → `{item, deduped?, occurrences}`.
+struct BugPostResponse: Decodable {
+    let item: WireItem
+    let deduped: Bool?
+    let occurrences: Int?
+
+    var result: BugPostResult {
+        deduped == true ? .occurrence(id: item.id, count: occurrences) : .filed(id: item.id)
+    }
 }
 
 /// `POST /asks` → `{item, deduped?, openUrl?}`.

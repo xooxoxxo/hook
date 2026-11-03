@@ -65,6 +65,8 @@ public enum PanelNotice: Equatable, Sendable {
     /// The owner accepted a correction here, but the Pond didn't take it yet; Hook sends it
     /// again before Done or answers.
     case acceptFailed(id: String, title: String, reason: String)
+    /// What a crash report send did ("Sent to your Pond.", "Comment copied. Paste it on the issue.").
+    case crashReport(message: String)
 
     /// The open ask this Notice is about, when it belongs to that ask's detail: it goes when
     /// the owner leaves the ask and never shows on the queue.
@@ -79,7 +81,7 @@ public enum PanelNotice: Equatable, Sendable {
     /// after `DS.Motion.noticeHold`, and when the owner opens an ask.
     public var isTransient: Bool {
         switch self {
-        case .noLongerOpen, .settingsReloaded, .mailboxUpToDate: return true
+        case .noLongerOpen, .settingsReloaded, .mailboxUpToDate, .crashReport: return true
         default: return false
         }
     }
@@ -92,7 +94,7 @@ public enum PanelNotice: Equatable, Sendable {
              .mailboxUpdateFailed, .mailboxUpdateCommandInvalid, .ownerKeyRefused, .historyChanged, .acceptFailed,
              .reviewRecordsChanged, .reviewRecordsUnreadable: return .error
         case .settingsReloaded, .sessionClosed, .noLongerOpen, .offlineCached, .updating, .hookOlder,
-             .mailboxUpToDate, .corrected, .doneHeldBack: return .info
+             .mailboxUpToDate, .corrected, .doneHeldBack, .crashReport: return .info
         }
     }
 
@@ -143,6 +145,8 @@ public enum PanelNotice: Equatable, Sendable {
                 + "Allow Hook when macOS asks, or reset the review records."
         case .doneHeldBack(_, let title):
             return "Done was held back: “\(Sanitize.revealLine(title))” was corrected."
+        case .crashReport(let message):
+            return message
         case let .acceptFailed(_, title, reason):
             return "The Pond didn't take your review of “\(Sanitize.revealLine(title))” yet: "
                 + "\(UserFacingError.text(reason)) Hook sends it again before Done or answers."
@@ -163,7 +167,7 @@ public enum PanelNotice: Equatable, Sendable {
         case .reviewRecordsUnreadable: return "Reset Review Records…"
         case .storeFailed, .settingsReloaded, .updating, .resumeFailed, .mailboxUpToDate, .mailboxUpdateFailed,
              .mailboxUpdateCommandInvalid, .ownerKeyRefused, .reviewRecordsChanged,
-             .doneHeldBack, .acceptFailed:
+             .doneHeldBack, .acceptFailed, .crashReport:
             return nil
         }
     }

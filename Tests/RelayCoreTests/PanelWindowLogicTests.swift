@@ -24,6 +24,18 @@ private let sources: [ToggleSource] = [.statusItemClick, .shortcut]
         #expect(PanelToggle.decide(source: .statusItemClick, visible: true, isKey: true, frame: docked, target: docked) == .hide)
     }
 
+    /// The crash report's sheet is up: a toggle brings the panel forward and never hides it.
+    @Test func aPanelWithItsSheetOpenNeverHides() {
+        for source in sources {
+            for isKey in [true, false] {
+                #expect(PanelToggle.decide(source: source, visible: true, isKey: isKey, frame: docked, target: docked,
+                                           sheetOpen: true) == .focus)
+            }
+            #expect(PanelToggle.decide(source: source, visible: false, isKey: false, frame: docked, target: docked,
+                                       sheetOpen: true) == .showAndFocus)
+        }
+    }
+
     @Test func aFocusedDockedPanelHides() {
         // Half a point or less still counts as docked.
         let nudged = docked.offsetBy(dx: 0.5, dy: -0.4)

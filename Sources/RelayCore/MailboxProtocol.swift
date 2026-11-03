@@ -12,6 +12,10 @@ public enum MailboxFeature: String, CaseIterable, Sendable, Comparable {
     case fileLinks
     /// Step ids, corrections (amend, accept), problem reports and owner acts with the owner key (Hook 0.10).
     case corrections
+    /// `POST /asks` with `kind: "bug"`: a crash report filed once per signature, never on Telegram (Hook 0.12).
+    case bugs
+    /// Messages to the posting session as a reply kind (Hook 0.12).
+    case messages
 
     /// The first Pond version that has the feature: everything up to the old protocol level 4
     /// is in 1.0.0.
@@ -19,6 +23,16 @@ public enum MailboxFeature: String, CaseIterable, Sendable, Comparable {
         switch self {
         case .answers, .blocking, .optional, .fileLinks: return SemVer(major: 1, minor: 0, patch: 0)
         case .corrections: return SemVer(major: 1, minor: 1, patch: 0)
+        case .bugs, .messages: return SemVer(major: 1, minor: 2, patch: 0)
+        }
+    }
+
+    /// Past what this Hook needs (`PondCompat.required`): Hook checks each one with
+    /// `PondVersion.supports(_:)` and works without it, so the "older Pond" Notice never names it.
+    public var gated: Bool {
+        switch self {
+        case .bugs, .messages: return true
+        case .answers, .blocking, .optional, .fileLinks, .corrections: return false
         }
     }
 
@@ -30,6 +44,8 @@ public enum MailboxFeature: String, CaseIterable, Sendable, Comparable {
         case .optional: return "optional steps"
         case .fileLinks: return "file links"
         case .corrections: return "step corrections and the owner key"
+        case .bugs: return "crash reports sent to your Pond"
+        case .messages: return "messages to sessions"
         }
     }
 
@@ -51,11 +67,11 @@ public enum MailboxProtocol {
     public static let updateDocsURL = URL(
         string: "https://github.com/xooxoxxo/hook/blob/main/docs/mailbox-protocol.md#updating-the-mailbox")!
 
-    /// The features a Pond lacks, by its effective version, in version order. A protocol-4 Pond
+    /// The needed (not gated) features a Pond lacks, by its effective version, in version order. A protocol-4 Pond
     /// (1.0.0) lacks only `corrections`; one below protocol 4 lacks everything (no Pond runs there).
     public static func missingFeatures(pond: PondVersion) -> [MailboxFeature] {
         let version = pond.effective
-        return MailboxFeature.allCases.filter { version < $0.minimumPond }.sorted()
+        return MailboxFeature.allCases.filter { !$0.gated && version < $0.minimumPond }.sorted()
     }
 
     /// "per-step answers", "per-step answers and blocking steps", …

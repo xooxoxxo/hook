@@ -97,6 +97,8 @@ import RelayUI
     override var canBecomeMain: Bool { false }
 
     override func cancelOperation(_ sender: Any?) {
+        // Esc belongs to an open sheet (its Cancel), never to hiding the panel under it.
+        if attachedSheet != nil { return }
         if let keyRouter {
             if !keyRouter.route(.escape, event: nil, in: self) { hide(animated: true) }
             return
@@ -335,7 +337,8 @@ import RelayUI
     /// instead of hiding it; a status-item click hides it. A panel that is fading out counts as hidden, so a second press brings it back. Every
     /// action but hide goes through `present`, which re-docks and cancels a fade-out.
     func toggle(from source: ToggleSource) {
-        switch PanelToggle.decide(source: source, visible: isShown, isKey: isKeyWindow, frame: frame, target: targetFrame ?? frame) {
+        switch PanelToggle.decide(source: source, visible: isShown, isKey: isKeyWindow, frame: frame,
+                                  target: targetFrame ?? frame, sheetOpen: attachedSheet != nil) {
         case .showAndFocus, .focus, .redockAndFocus:
             present(focus: true, animated: true)
         case .hide:

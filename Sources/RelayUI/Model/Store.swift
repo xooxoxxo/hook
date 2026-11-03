@@ -152,6 +152,12 @@ public enum LinkCheck: Equatable, Sendable {
     @Published public internal(set) var crashOffer: CrashOffer?
     /// Called with the signature once a crash is answered, so it isn't raised again.
     public var onCrashHandled: (@MainActor (String) -> Void)?
+    /// The send sheet (Review…), until it is sent or cancelled.
+    @Published public internal(set) var crashSheet: CrashSheetModel?
+    /// The activity log's last lines for a report; the app reads `HookLog`, tests pass their own.
+    public var crashLog: @MainActor () -> [String] = { [] }
+    /// Settings › Privacy's target and whether My Pond is offered, read when the sheet opens.
+    public var crashTargets: @MainActor () -> (target: CrashTarget, pondOffered: Bool) = { (.github, false) }
     /// The status bar's profile switcher; AppDelegate sets it on every config apply.
     @Published public internal(set) var profiles = ProfileMenu.empty
     /// The Undo bar as it was when the quit-time sends began; `undoInfo` while they run.
@@ -889,7 +895,7 @@ public enum LinkCheck: Equatable, Sendable {
             if !(await resetReviewRecords()), reviewsUnreadable { post(.reviewRecordsUnreadable) }
         case .storeFailed, .settingsReloaded, .updating, .resumeFailed, .mailboxUpToDate, .mailboxUpdateFailed,
              .mailboxUpdateCommandInvalid, .ownerKeyRefused, .reviewRecordsChanged,
-             .doneHeldBack, .acceptFailed:
+             .doneHeldBack, .acceptFailed, .crashReport:
             break
         }
     }

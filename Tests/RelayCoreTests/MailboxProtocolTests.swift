@@ -17,7 +17,9 @@ private func check(pond version: String, level: Int? = 5) -> MailboxCheck {
 
 private func semver(_ text: String) -> PondVersion { .semver(SemVer(strict: text)!) }
 
-private let everyFeature: [MailboxFeature] = [.answers, .blocking, .optional, .fileLinks, .corrections]
+private let everyFeature: [MailboxFeature] = [.answers, .blocking, .optional, .fileLinks, .corrections, .bugs, .messages]
+/// The features the Notice can name: the ones this Hook's range needs.
+private let everyNeededFeature: [MailboxFeature] = [.answers, .blocking, .optional, .fileLinks, .corrections]
 
 @Suite struct MailboxProtocolTests {
     @Test func featuresAndThePondVersionsThatHaveThem() {
@@ -28,18 +30,35 @@ private let everyFeature: [MailboxFeature] = [.answers, .blocking, .optional, .f
         #expect(MailboxFeature.fileLinks.minimumPond == v100)
         #expect(MailboxFeature.corrections.minimumPond == v110)
         #expect(MailboxFeature.corrections.displayName == "step corrections and the owner key")
+        let v120 = SemVer(major: 1, minor: 2, patch: 0)
+        #expect(MailboxFeature.bugs.minimumPond == v120)
+        #expect(MailboxFeature.messages.minimumPond == v120)
+        #expect(MailboxFeature.bugs.displayName == "crash reports sent to your Pond")
+        #expect(MailboxFeature.messages.displayName == "messages to sessions")
         #expect(MailboxFeature.allCases.sorted() == everyFeature)
+    }
+
+    /// Hook still needs only ^1.1.0: the 1.2.0 features are gated one by one.
+    @Test func supportsGatesEachFeatureByThePondVersion() {
+        #expect(semver("1.2.0").supports(.bugs))
+        #expect(semver("1.3.1").supports(.messages))
+        #expect(!semver("1.1.0").supports(.bugs))
+        #expect(!semver("1.2.0-rc.1").supports(.bugs))
+        #expect(semver("1.1.0").supports(.corrections))
+        #expect(!PondVersion.legacy(protocol: 4).supports(.corrections))
+        #expect(PondCompat.required == "^1.1.0")
     }
 
     @Test func missingFeaturesComparesTheEffectiveVersion() {
         #expect(MailboxProtocol.missingFeatures(pond: semver("1.0.0")) == [.corrections])
         #expect(MailboxProtocol.missingFeatures(pond: .legacy(protocol: 4)) == [.corrections])
+        // Crash reports and messages (1.2.0) are gated one by one, never named in the Notice.
         #expect(MailboxProtocol.missingFeatures(pond: semver("1.1.0")) == [])
         #expect(MailboxProtocol.missingFeatures(pond: semver("1.4.2")) == [])
         #expect(MailboxProtocol.missingFeatures(pond: semver("1.1.0-rc.1")) == [.corrections])
         // Below 4 every feature is missing: accepted, as no Pond runs below protocol 4.
-        #expect(MailboxProtocol.missingFeatures(pond: .legacy(protocol: 3)) == everyFeature)
-        #expect(MailboxProtocol.missingFeatures(pond: .legacy(protocol: 1)) == everyFeature)
+        #expect(MailboxProtocol.missingFeatures(pond: .legacy(protocol: 3)) == everyNeededFeature)
+        #expect(MailboxProtocol.missingFeatures(pond: .legacy(protocol: 1)) == everyNeededFeature)
     }
 
     @Test func featureListReadsAsASentence() {
@@ -67,7 +86,7 @@ private let everyFeature: [MailboxFeature] = [.answers, .blocking, .optional, .f
         #expect(dated.pond == .legacy(protocol: 4))
         #expect(MailboxCompatibility.evaluate(pond: dated.pond) == .pondOlder(missing: [.corrections]))
         #expect(MailboxVersion.legacy.pond == .legacy(protocol: 1))
-        #expect(MailboxCompatibility.evaluate(pond: MailboxVersion.legacy.pond) == .pondOlder(missing: everyFeature))
+        #expect(MailboxCompatibility.evaluate(pond: MailboxVersion.legacy.pond) == .pondOlder(missing: everyNeededFeature))
     }
 
     @Test func anotherRangeCanBeAsked() throws {

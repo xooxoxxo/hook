@@ -201,6 +201,14 @@ import RelayUI
         let crash = CrashMonitor(dataDirectory: model.dataDirectory, home: UpdateRunner.home)
         crash.onNotify = { [weak notifier] in notifier?.showCrashNotice() }
         crash.onOffer = { [weak self] summary in self?.store?.offerCrash(summary) }
+        crash.onSendToPond = { [weak self] summary in
+            Task { @MainActor in await self?.store?.sendCrashAutomatically(summary) }
+        }
+        store?.crashLog = { HookLog.tail(CrashReportText.logLines) }
+        store?.crashTargets = { [weak model] in
+            let privacy = PrivacyLine.make(config: model?.config, ownerKey: model?.ownerKeyState ?? .notSetUp, logSize: 0)
+            return (privacy.target, privacy.pondOffered)
+        }
         store?.onCrashHandled = { [weak crash] signature in crash?.markHandled(signature) }
         crash.settings = { [weak model] in
             let privacy = PrivacyLine.make(config: model?.config, ownerKey: model?.ownerKeyState ?? .notSetUp, logSize: 0)

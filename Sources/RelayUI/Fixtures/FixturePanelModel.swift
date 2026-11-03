@@ -20,6 +20,7 @@ public final class FixturePanelModel: PanelViewModel {
     @Published public var status: PanelStatus
     @Published public var sendingCloses = 0
     @Published public var crashOffer: CrashOffer?
+    @Published public var crashSheet: CrashSheetModel?
     @Published public var profiles: ProfileMenu
     public var shell = PanelShellActions.none
     public var localHost: String?
@@ -116,5 +117,10 @@ public final class FixturePanelModel: PanelViewModel {
     public func trustHistoryAgain() {}
     public func reviewCrash() {}
     public func dismissCrash() {}
+    public func sendCrashReport() {}
+    public func setCrashTarget(_ target: CrashTarget) { crashSheet?.target = target }
+    public func closeCrashSheet() { crashSheet = nil }
+    public func copyCrashReport() { crashSheet.map { shell.copy($0.preview) } }
+    public func showCrashReportInFinder() {}
     public func switchProfile(_ kind: SourceKind) {}
 }

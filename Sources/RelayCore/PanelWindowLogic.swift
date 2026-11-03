@@ -25,10 +25,12 @@ public enum PanelToggle {
 
     /// hidden → show with focus; visible but off its docked frame → re-dock and focus
     /// (never hide); docked → hide, except that the shortcut gives a visible unfocused
-    /// panel focus instead.
+    /// panel focus instead. While a sheet is open on the panel (the crash report) it is
+    /// focused, never hidden or moved, so the sheet isn't lost behind a hidden panel.
     public static func decide(source: ToggleSource, visible: Bool, isKey: Bool,
-                              frame: CGRect, target: CGRect) -> ToggleAction {
+                              frame: CGRect, target: CGRect, sheetOpen: Bool = false) -> ToggleAction {
         guard visible else { return .showAndFocus }
+        if sheetOpen { return .focus }
         guard isDocked(frame, at: target) else { return .redockAndFocus }
         switch source {
         case .statusItemClick: return .hide
