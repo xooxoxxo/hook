@@ -148,6 +148,14 @@ public enum CopyOutcome: Equatable, Sendable {
     func endReport(_ id: String)
     /// The composer's Send, or Set Up Owner Key… without an approved key (the note is held).
     func sendReport(_ id: String, note: String)
+    /// The Messages field's text, by ask (memory only).
+    var messageDrafts: [String: String] { get set }
+    /// The ask whose Messages field has focus, or should take it (⌘L, Message Session…).
+    var messageFocus: String? { get set }
+    /// The Messages field's Send (and ⌘Return in it): the text as typed.
+    func sendMessage(_ id: String, text: String)
+    /// The queue row's Message Session…: opens the ask and focuses its Messages field.
+    func messageSession(_ id: String)
     /// "Trust the Pond's History Again…" (Touch ID): after a Pond restore, re-pin what it serves now.
     func trustHistoryAgain()
     /// The last run crashed and the bar offers a report; nil once answered.

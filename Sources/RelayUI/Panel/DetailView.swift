@@ -3,7 +3,7 @@ import RelayCore
 import SwiftUI
 
 /// One ask. A ScrollView with the header pinned on top and the crash, Undo, report composer
-/// and action bars pinned below: title, steps, reply and your replies, links and From.
+/// and action bars pinned below: title, steps, reply and your replies, messages, links and From.
 struct DetailView<Model: PanelViewModel>: View {
     @ObservedObject private var model: Model
     let id: String
@@ -246,6 +246,7 @@ struct DetailView<Model: PanelViewModel>: View {
                 replySection(snapshot, closed: closed)
                     .disabled(snapshot.locked)
                 repliesSection(snapshot)
+                if DetailMessages<Model>.shows(snapshot) { DetailMessages(model: model, snapshot: snapshot) }
                 linksSection(snapshot)
                 fromSection(snapshot)
             }

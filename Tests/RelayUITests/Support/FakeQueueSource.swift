@@ -24,6 +24,8 @@ actor FakeQueueSource: QueueSource {
     /// Every post's instructable bytes, and every bug's (signature, instructable bytes).
     private(set) var posted: [(project: String, instructable: Data)] = []
     private(set) var bugs: [(project: String, signature: String, instructable: Data)] = []
+    /// Every message sent, per ask, verbatim.
+    private(set) var messages: [String: [String]] = [:]
     /// What `post` answers (nil: posting isn't faked) and what `postBug` answers.
     private var postAnswer: PostResult?
     private var bugAnswer: BugPostResult = .filed(id: "bug-1")
@@ -177,6 +179,21 @@ actor FakeQueueSource: QueueSource {
         detail.events.append(Event(seq: detail.events.count + 1, itemId: id, kind: "problem", actor: "owner", text: text,
                                    at: "2026-10-16T09:40:00+00:00", rev: stamp.rev, auth: "owner-key"))
         details[id] = detail
+        return item
+    }
+
+    /// Records the message and appends a `message` event; a closed ask throws 409, as the Pond does.
+    func message(_ id: String, text: String) async throws -> WireItem {
+        try record("message \(id)")
+        guard let item = (items + closedItems).first(where: { $0.id == id }) else { throw QueueError.notFound }
+        guard item.status == "open" else {
+            throw QueueError.rejected(status: 409, error: "ask is closed", details: [])
+        }
+        var detail = details[id] ?? AskDetail(item: item, events: [])
+        detail.events.append(Event(seq: detail.events.count + 1, itemId: id, kind: "message", actor: "owner", text: text,
+                                   at: "2026-10-16T09:40:00+00:00", rev: 1, auth: "token"))
+        details[id] = detail
+        messages[id, default: []].append(text)
         return item
     }
 

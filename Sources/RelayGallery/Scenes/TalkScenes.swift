@@ -40,6 +40,60 @@ let reportStepsJSON = #"""
     detailScene(name, snapshot, height: nil, rules: topColumnRules, overrides: fullHeight)
 }
 
+/// An open ask with no reply prompt, from a Pond with messages; `messages` earlier ones.
+let messageJSON = #"""
+{"item": {"id": "00000000-0000-4000-8000-0000000012b1", "title": "Restart the build runner",
+  "status": "open", "projectId": "Atlas", "created": "2026-10-16T08:10:00+00:00", "updated": "2026-10-16T08:10:00+00:00",
+  "payload": {"instructable": {"v": 1, "title": "Restart the build runner", "urgency": "today",
+    "why": "Builds have queued for an hour; the runner stopped picking them up.",
+    "steps": [{"id": "s1", "do": "Open the runner page", "url": "https://ci.example.com/runners/2"},
+              {"id": "s2", "do": "Restart the runner", "where": "Mac terminal", "code": "ci-runner restart --name runner-2"},
+              {"id": "s3", "do": "Watch one build finish"}]
+    REPLY,
+    "from": {"session": "1b2c3d4e-0000-4000-8000-000000000001", "host": "example-mac", "cwd": "/work/atlas"}}}},
+ "events": [EVENTS]}
+"""#
+
+let messageEvents = #"""
+{"seq": 1, "itemId": "00000000-0000-4000-8000-0000000012b1", "kind": "message", "actor": "owner",
+ "text": "Restarted it, but it says waiting for a lock.", "at": "2026-10-16T09:31:00+00:00", "rev": 1, "auth": "token"},
+{"seq": 2, "itemId": "00000000-0000-4000-8000-0000000012b1", "kind": "message", "actor": "owner",
+ "text": "The lock file is from yesterday.\nSafe to delete?", "at": "2026-10-16T09:33:00+00:00", "rev": 1, "auth": "token"}
+"""#
+
+/// The message fixture: `thread` adds two earlier messages, `reply` a reply prompt.
+@MainActor func messageSnapshot(thread: Bool = false, reply: Bool = false, closed: Bool = false,
+                                state: MessageBoxState = .idle) -> DetailSnapshot {
+    let json = messageJSON
+        .replacingOccurrences(of: "REPLY", with: reply ? #","reply": {"prompt": "Did the runner pick up the queue?", "choices": ["Yes", "No"]}"# : "")
+        .replacingOccurrences(of: "[EVENTS]", with: thread ? "[" + messageEvents + "]" : "[]")
+    var snapshot = detailSnapshot(decodeDetail(json), base: GalleryFixtures.detailSteps, ticks: ["1", "2"])
+    snapshot.replies = []
+    snapshot.messages = MessageText.lines(events: decodeDetail(json).events, locale: galleryGB, timeZone: galleryUTC)
+    snapshot.canMessage = true
+    snapshot.canReport = !closed
+    snapshot.message = state
+    if closed {
+        let at = "2026-10-16T09:40:00+00:00"
+        snapshot.closedText = ClosedText.detail(status: "done", closedBy: "session", closedAt: at,
+                                                locale: galleryGB, timeZone: galleryUTC)
+        snapshot.row.closed = ClosedInfo(status: "done", closedBy: "session", completedAt: at)
+    }
+    return snapshot
+}
+
+@MainActor func messageScene(_ name: String, _ snapshot: DetailSnapshot, draft: String? = nil,
+                             expanded: Bool? = nil) -> GalleryScene {
+    let model = FixturePanelModel(
+        queue: GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false),
+        details: [snapshot.id: snapshot],
+        navigation: PanelNavigation(listSelection: snapshot.id, selectedID: snapshot.id), status: readyStatus)
+    model.messageDrafts[snapshot.id] = draft
+    let overrides = PanelGalleryOverrides(now: GalleryFixtures.now, fromExpanded: false, fullHeight: true,
+                                          locale: galleryGB, timeZone: galleryUTC, messagesExpanded: expanded)
+    return panelScene(name, model, height: nil, rules: [], overrides: overrides)
+}
+
 @MainActor let talkScenes: [GalleryScene] = [
     // Report on the current (open) step only; collapsed rows stay clean.
     reportScene("detail-step-report-open", reportSnapshot()),
@@ -50,4 +104,14 @@ let reportStepsJSON = #"""
     // No approved owner key: Send reads Set Up Owner Key….
     reportScene("detail-step-report-no-key", reportSnapshot(target: "2", keyReady: false)),
     reportScene("detail-step-report-held", reportSnapshot(target: "2", keyReady: false, state: .held)),
+    // Messages: the empty section with its field, a thread, behind the disclosure on an ask
+    // with a reply prompt, a refusal, and a closed ask's read-only thread.
+    messageScene("detail-messages-empty", messageSnapshot()),
+    messageScene("detail-messages-thread", messageSnapshot(thread: true),
+                 draft: "Deleting it now. Tell me if the queue starts moving."),
+    messageScene("detail-messages-with-reply-prompt", messageSnapshot(thread: true, reply: true), expanded: true),
+    messageScene("detail-messages-with-reply-prompt-closed", messageSnapshot(reply: true)),
+    messageScene("detail-messages-refused", messageSnapshot(state: .failed(MessageText.secretRefused)),
+                 draft: "The new key is in the vault under deploy, version 2."),
+    messageScene("detail-messages-closed", messageSnapshot(thread: true, closed: true)),
 ]

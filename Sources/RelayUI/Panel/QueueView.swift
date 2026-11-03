@@ -251,6 +251,7 @@ struct QueueView<Model: PanelViewModel>: View, Equatable {
         case .resume:
             if let origin = row.origin { model.shell.resume(origin) }
         case .reportProblem: model.beginReport(row.id)
+        case .messageSession: model.messageSession(row.id)
         }
     }
 

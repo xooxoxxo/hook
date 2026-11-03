@@ -16,6 +16,8 @@ public final class FixturePanelModel: PanelViewModel {
     @Published public var detailAnchor: [String: String] = [:]
     @Published public var reviewing: [String: RevisionStamp] = [:]
     @Published public var reporting: [String: String] = [:]
+    @Published public var messageDrafts: [String: String] = [:]
+    @Published public var messageFocus: String?
     @Published public var notice: PanelNotice?
     @Published public var undoInfo: UndoInfo?
     @Published public var status: PanelStatus
@@ -26,7 +28,7 @@ public final class FixturePanelModel: PanelViewModel {
     public var shell = PanelShellActions.none
     public var localHost: String?
     public var queueIsLocal = false
-    public var talk = SessionTalk(reports: true)
+    public var talk = SessionTalk(reports: true, messages: true)
     private let details: [String: DetailSnapshot]
     private let reviewPages: [String: ReviewPage]
 
@@ -119,6 +121,8 @@ public final class FixturePanelModel: PanelViewModel {
     public func beginReport(_ id: String, path: String?) { if let path { reporting[id] = path } }
     public func endReport(_ id: String) { reporting[id] = nil }
     public func sendReport(_ id: String, note: String) {}
+    public func sendMessage(_ id: String, text: String) {}
+    public func messageSession(_ id: String) { navigation.open(id); messageFocus = id }
     public func trustHistoryAgain() {}
     public func reviewCrash() {}
     public func dismissCrash() {}

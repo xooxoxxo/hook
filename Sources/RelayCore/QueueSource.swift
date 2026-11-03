@@ -49,6 +49,9 @@ public protocol QueueSource: Sendable {
     /// A Hook crash report: owner-signed `POST /asks` with `kind: "bug"`, filed once per
     /// signature and never sent to Telegram. A repeat adds an occurrence.
     func postBug(project: String, instructable: Data, signature: String) async throws -> BugPostResult
+    /// A message to the posting session: `POST /asks/{id}/reply` with `kind: "message"`,
+    /// owner-signed when enrolled. It answers, closes and changes nothing.
+    func message(_ id: String, text: String) async throws -> WireItem
 }
 
 extension QueueSource {
@@ -82,6 +85,8 @@ extension QueueSource {
     public func postBug(project: String, instructable: Data, signature: String) async throws -> BugPostResult {
         throw QueueError.notSupported
     }
+
+    public func message(_ id: String, text: String) async throws -> WireItem { throw QueueError.notSupported }
 }
 
 /// What a crash report sent to the Pond became.

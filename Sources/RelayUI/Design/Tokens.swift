@@ -119,6 +119,11 @@ public enum DS {
         public static let monogramRadius: CGFloat = 5
         /// The inset grouped steps list's corner.
         public static let groupRadius: CGFloat = 10
+        /// The Messages field: about three lines tall, with the stock text field's corner.
+        public static let messageField: CGFloat = 64
+        public static let messageFieldRadius: CGFloat = 6
+        public static let messageFieldInset: CGFloat = 4
+        public static let messageFieldStroke: CGFloat = 0.5
         /// The report target's outline, inset from the row's edges.
         public static let targetStroke: CGFloat = 1.5
         public static let targetInset: CGFloat = 3
@@ -193,6 +198,9 @@ public enum DS {
         /// A redaction placeholder in the report preview (<host>, <redacted>, ~).
         public static let redactedText = SwiftUI.Color.accentColor
         public static let redactedFill = SwiftUI.Color.accentColor.opacity(0.14)
+        /// A multi-line field drawn like the stock rounded text field.
+        public static let fieldFill = SwiftUI.Color(nsColor: .textBackgroundColor)
+        public static let fieldStroke = SwiftUI.Color.primary.opacity(0.18)
         /// The step the report composer is about: a light accent fill and an accent outline.
         public static let targetFill = SwiftUI.Color.accentColor.opacity(0.07)
         public static let targetStroke = SwiftUI.Color.accentColor.opacity(0.55)

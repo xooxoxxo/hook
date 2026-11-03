@@ -91,6 +91,9 @@ public struct DetailModel: Sendable, Equatable {
     public var links: [LinkRef]
     public var reply: ReplySpec?
     public var ownerReplies: [String]
+    /// The owner's messages to the session (Pond 1.2.0), oldest first. Never replies: a
+    /// message answers nothing.
+    public var ownerMessages: [String] = []
     public var isOpen: Bool
     /// Actor and time of the last resolved/declined event, when not open and not
     /// reopened since.
@@ -212,6 +215,7 @@ public struct DetailModel: Sendable, Equatable {
             links: links,
             reply: reply,
             ownerReplies: events.filter { $0.kind == "reply" && $0.actor == "owner" }.compactMap(\.text),
+            ownerMessages: events.filter { $0.kind == "message" && $0.actor == "owner" }.compactMap(\.text),
             isOpen: isOpen,
             closedBy: closing?.actor,
             closedAt: closing?.at)

@@ -152,6 +152,32 @@ private func typing(_ c: KeyContext) -> KeyContext { var c = c; c.textFieldFocus
         #expect(cmd(.shiftCmdL, detail) == .copyLink)
     }
 
+    @Test func commandLGoesToTheMessageFieldWithoutAReplyPrompt() {
+        var messages = detail
+        messages.canMessage = true
+        #expect(cmd(.cmdL, messages) == .focusMessage)
+        messages.hasReplyPrompt = true
+        #expect(cmd(.cmdL, messages) == .focusReply)
+        var noMessages = detail
+        noMessages.hasReplyPrompt = false
+        #expect(cmd(.cmdL, noMessages) == .focusReply)
+    }
+
+    @Test func commandReturnInTheMessageFieldSendsItAndNeverCloses() {
+        var typing = detail
+        typing.canMessage = true
+        typing.textFieldFocused = true
+        typing.messageFieldFocused = true
+        #expect(cmd(.cmdReturn, typing) == .sendMessage)
+        typing.hasDraftOrPick = true
+        #expect(cmd(.cmdReturn, typing) == .sendMessage)
+        typing.askOpen = false
+        #expect(cmd(.cmdReturn, typing) == nil)
+        var elsewhere = detail
+        elsewhere.canMessage = true
+        #expect(cmd(.cmdReturn, elsewhere) == .done)
+    }
+
     @Test func detailDigitsPickChoices() {
         #expect(cmd(.digit(1), detail) == .pickChoice(0))
         #expect(cmd(.digit(3), detail) == .pickChoice(2))

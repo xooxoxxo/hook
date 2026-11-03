@@ -135,6 +135,19 @@ public enum LinkCheck: Equatable, Sendable {
     /// A note sent before this Mac had an approved owner key, by ask: held in memory only,
     /// sent once the key is approved (`flushHeldReports`), dropped if the ask closes.
     var heldReports: [String: String] = [:]
+    /// The Messages field's text, by ask. Memory only, like `drafts`. Editing a refused draft
+    /// clears the refusal.
+    @Published public var messageDrafts: [String: String] = [:] {
+        didSet {
+            for (id, state) in messageStates where state != .sending && oldValue[id] != messageDrafts[id] {
+                messageStates[id] = nil
+            }
+        }
+    }
+    /// The ask whose Messages field has focus, or is asked to take it (⌘L, Message Session…).
+    @Published public var messageFocus: String?
+    /// The Messages send state, by ask, while it isn't idle.
+    @Published public internal(set) var messageStates: [String: MessageBoxState] = [:]
     /// Tick paths as loaded from TickStore, per ask, with the step source they were loaded
     /// against; dropped when the ask's detail changes, and reloaded when the source differs.
     /// Keyed on the source, not the tree: comparing it is cheap, building the tree hashes every step.
@@ -1498,6 +1511,8 @@ extension Store: PanelViewModel {
             doneWarning: doneWarnings.contains(id), review: review, stamp: stamp,
             history: try? histories[id]?.get(), chips: chips(id, review: review), reported: reported(id),
             addedSinceShown: addedSinceShown(id, review: review))
+        snapshot.canMessage = talk.messages
+        snapshot.message = messageStates[id] ?? .idle
         snapshot.canReport = canReport(id)
         if snapshot.canReport, let target = reporting[id] {
             snapshot.reportTarget = target
@@ -1529,7 +1544,10 @@ extension Store: PanelViewModel {
             choiceCount: opened?.instructable?.reply?.choices?.count ?? 0,
             hasDraftOrPick: opened.map { primaryAction(for: $0.id) == .sendAndDone } ?? false,
             hasUnsentAnswers: opened.map { unsentAnswers(for: $0.id).count > 0 } ?? false,
-            doneWarning: opened.map { doneWarnings.contains($0.id) && primaryAction(for: $0.id) == .sendAndDone } ?? false)
+            doneWarning: opened.map { doneWarnings.contains($0.id) && primaryAction(for: $0.id) == .sendAndDone } ?? false,
+            hasReplyPrompt: opened?.instructable?.reply != nil,
+            canMessage: opened.map { canMessage($0.id) } ?? false,
+            messageFieldFocused: textFieldFocused && opened != nil && messageFocus == opened?.id)
     }
 
     /// The ask a key acts on: the open detail, else the selected row.
@@ -1576,6 +1594,8 @@ extension Store: PanelViewModel {
             }
         case .pickChoice(let index): if let id = target { pendingChoice[id] = index }
         case .sendAnswers: if let id = navigation.selectedID { sendAnswers(id) }
+        case .focusMessage: if let id = navigation.selectedID, canMessage(id) { messageFocus = id }
+        case .sendMessage: if let id = navigation.selectedID { sendMessage(id, text: messageDrafts[id] ?? "") }
         }
     }
 
@@ -1605,6 +1625,7 @@ extension Store: PanelViewModel {
         Task { _ = await reportProblem(id, stepID: stepID, note: note) }
     }
     public func sendReport(_ id: String, note: String) { Task { _ = await sendReport(id, note: note) } }
+    public func sendMessage(_ id: String, text: String) { Task { _ = await sendMessage(id, text: text) } }
 
     public func copyLink(_ id: String) { shell.copy("relay://i/\(id)") }
 

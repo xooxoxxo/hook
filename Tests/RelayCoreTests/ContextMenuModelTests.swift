@@ -137,6 +137,22 @@ import Testing
                                           talk: .make(sourceKey: "local", pond: nil)).contains(report))
     }
 
+    @Test func messageSessionIsOfferedOnAnOpenAskWithMessages() {
+        let message = ContextMenuEntry.item(title: "Message Session…", command: .messageSession, shortcut: nil)
+        let both = QueueContextMenu.entries(for: row(), filter: nil, localHost: nil,
+                                            talk: SessionTalk(reports: true, messages: true))
+        #expect(Array(both[3...5]) == [
+            .separator,
+            .item(title: "Report a Problem…", command: .reportProblem, shortcut: nil),
+            message,
+        ])
+        #expect(!QueueContextMenu.entries(for: row(), filter: nil, localHost: nil,
+                                          talk: SessionTalk(reports: true)).contains(message))
+        let closed = ClosedInfo(status: "done", closedBy: "owner", completedAt: "2026-10-16T09:00:00+00:00")
+        #expect(!QueueContextMenu.entries(for: row(closed: closed), filter: nil, localHost: nil,
+                                          talk: SessionTalk(reports: true, messages: true)).contains(message))
+    }
+
     @Test func sessionTalkFollowsTheSourceAndThePond() {
         let pond = "mailbox:pond.example.com#personal"
         #expect(SessionTalk.make(sourceKey: "local", pond: nil) == .none)

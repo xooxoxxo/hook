@@ -138,6 +138,13 @@ public struct DetailSnapshot: Equatable, Sendable {
     /// This Mac has an approved owner key: the composer's button is Send, else Set Up Owner Key….
     /// Read only while the composer is open.
     public var ownerKeyReady = false
+    /// The owner's messages to the session, oldest first (never replies).
+    public var messages: [ReplyLine] = []
+    /// The Messages send state.
+    public var message: MessageBoxState = .idle
+    /// The Messages section shows: a Pond with messages (1.2.0 or later), never This Mac. On a
+    /// closed ask the earlier messages stay, read-only.
+    public var canMessage = false
     /// While a correction is pending: how many steps it adds to the version shown.
     public var addedSinceShown = 0
     /// The bar that replaces the action bar while the ask is locked and not under review.
@@ -160,6 +167,7 @@ public struct DetailSnapshot: Equatable, Sendable {
         let locked = Set(Flow.lockedPaths(nodes: nodes, ticks: ticks))
         let unsent = isOpen ? AnswerDrafts.unsent(answerDrafts, nodes: nodes, locked: locked) : .none
         let replies = ReplyText.lines(events: events)
+        let messages = MessageText.lines(events: events)
         let answered = model.map { Set(Flow.flattened($0.nodes).compactMap { $0.answer?.step }) }
         let kind = isOpen ? Flow.unsentKind(draft: draft, choice: pendingChoice, sent: latest, unsentAnswers: unsent.count,
                                             sentText: AnswerEditing.latestText(replies)) : nil
@@ -180,6 +188,6 @@ public struct DetailSnapshot: Equatable, Sendable {
             unansweredCaption: isOpen ? AnswerDrafts.unansweredCaption(
                 AnswerDrafts.uncovered(unanswered: model?.unanswered ?? [], unsent: unsent)) : nil,
             unsentKind: kind, doneWarning: doneWarning && kind != nil, review: review, stamp: stamp,
-            changedSteps: chips, reported: reported, addedSinceShown: addedSinceShown)
+            changedSteps: chips, reported: reported, messages: messages, addedSinceShown: addedSinceShown)
     }
 }

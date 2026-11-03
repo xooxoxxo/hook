@@ -132,6 +132,21 @@ private func minimal(from: Origin? = nil) -> Payload {
         #expect(model.ownerReplies == ["On it"])
     }
 
+    @Test func messagesAreNotOwnerReplies() {
+        let detail = AskDetail(
+            item: ask(minimal(), status: "open"),
+            events: [
+                event(1, "posted", "session"),
+                event(2, "message", "owner", "Use the staging key first.\nThen prod."),
+                event(3, "reply", "owner", "On it"),
+            ])
+        let model = DetailModel.make(detail)
+        #expect(model.ownerReplies == ["On it"])
+        #expect(model.ownerMessages == ["Use the staging key first.\nThen prod."])
+        #expect(ReplyText.lines(events: detail.events).map(\.text) == ["On it"])
+        #expect(detail.ownerEvents.map(\.kind) == ["message", "reply"])
+    }
+
     @Test func reopenedAskIsNeverShownAsClosed() {
         let reopened = AskDetail(
             item: ask(minimal(), status: "open"),

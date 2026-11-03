@@ -109,6 +109,15 @@ public struct MailboxClient: QueueSource {
         return response.item
     }
 
+    /// A message to the posting session (Pond 1.2.0): the reply route with `kind: "message"`.
+    /// The text goes as typed. A closed ask or the 50-message cap answers 409, a secret-like
+    /// text 400 (`MessageText.refusal` words both).
+    public func message(_ id: String, text: String) async throws -> WireItem {
+        let response: ItemResponse = try await send("POST", "asks/\(id)/reply",
+                                                    body: Self.encode(["text": text, "kind": "message"]), owner: true)
+        return response.item
+    }
+
     /// `POST /asks/{id}/answers` with `{"answers":[...]}`. 409 (the ask is closed) → `.askClosed`.
     public func answer(_ id: String, answers: [JSONValue]) async throws -> WireItem {
         try await answer(id, answers: answers, stamp: nil)

@@ -21,7 +21,7 @@ struct RowContextMenu: View {
         case .showOnly: KeyboardShortcut("p", modifiers: [.control, .command])
         case .showAll: KeyboardShortcut("a", modifiers: [.control, .command])
         case .copyLink: KeyboardShortcut("l", modifiers: [.shift, .command])
-        case .copyResume, .resume, .reportProblem: nil
+        case .copyResume, .resume, .reportProblem, .messageSession: nil
         }
     }
 

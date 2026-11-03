@@ -41,12 +41,19 @@ public struct KeyContext: Equatable, Sendable {
     /// Detail: Done was pressed with something unsent and the bar is warning about it
     /// (⌘↩ is Send & Done, Esc goes back to editing).
     public var doneWarning: Bool
+    /// Detail: the ask has a reply prompt, so ⌘L stays with the reply field.
+    public var hasReplyPrompt: Bool
+    /// Detail: the Messages section takes a message (a Pond with messages, an open ask).
+    public var canMessage: Bool
+    /// Detail: the Messages field has focus, so ⌘↩ sends the message and never closes the ask.
+    public var messageFieldFocused: Bool
 
     public init(mode: Mode, textFieldFocused: Bool = false, popoverOpen: Bool = false, undoAvailable: Bool = false,
                 filterOn: Bool = false, selectionOpen: Bool? = nil, selectionHasProject: Bool = false, selectionHasUnsent: Bool = false,
                 closedHeaderFocused: Bool = false,
                 askOpen: Bool = true, askHasProject: Bool = false, choiceCount: Int = 0, hasDraftOrPick: Bool = false,
-                hasUnsentAnswers: Bool = false, doneWarning: Bool = false) {
+                hasUnsentAnswers: Bool = false, doneWarning: Bool = false, hasReplyPrompt: Bool = false,
+                canMessage: Bool = false, messageFieldFocused: Bool = false) {
         self.mode = mode
         self.textFieldFocused = textFieldFocused
         self.popoverOpen = popoverOpen
@@ -62,6 +69,9 @@ public struct KeyContext: Equatable, Sendable {
         self.hasDraftOrPick = hasDraftOrPick
         self.hasUnsentAnswers = hasUnsentAnswers
         self.doneWarning = doneWarning
+        self.hasReplyPrompt = hasReplyPrompt
+        self.canMessage = canMessage
+        self.messageFieldFocused = messageFieldFocused
     }
 }
 
@@ -76,6 +86,10 @@ public enum PanelCommand: Equatable, Sendable {
     case previousAsk, nextAsk, tickCurrent, untickLast, copyCurrentCode, openCurrentURL, focusReply, pickChoice(Int)
     /// ⌘S: send the open ask's unsent step answers.
     case sendAnswers
+    /// ⌘L on an ask without a reply prompt: focus the Messages field.
+    case focusMessage
+    /// ⌘↩ in the Messages field: send the message (never Done).
+    case sendMessage
 }
 
 /// The single source for the panel's keys. Inside a focused text field the text-editing
@@ -134,6 +148,7 @@ public enum KeyMap {
         case .cmdDown: return c.textFieldFocused ? nil : .nextAsk
         case .cmdReturn:
             guard c.askOpen else { return nil }
+            if c.messageFieldFocused { return c.canMessage ? .sendMessage : nil }
             if c.doneWarning { return .sendAndDone }
             return c.hasDraftOrPick || c.hasUnsentAnswers ? .warnUnsent : .done
         case .cmdS: return c.askOpen && c.hasUnsentAnswers ? .sendAnswers : nil
@@ -145,7 +160,7 @@ public enum KeyMap {
         case .shiftCmdC: return .copyCurrentCode
         case .shiftCmdO: return .openCurrentURL
         case .ctrlCmdP: return c.askHasProject ? .showOnlyProject : nil
-        case .cmdL: return .focusReply
+        case .cmdL: return c.canMessage && !c.hasReplyPrompt ? .focusMessage : .focusReply
         case .shiftCmdL: return .copyLink
         case .digit(let n):
             guard !c.textFieldFocused, n >= 1, n <= min(6, c.choiceCount) else { return nil }

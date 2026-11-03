@@ -674,3 +674,110 @@ private let bugSignature = "a3f9c2e17b04"
         }
     }
 }
+
+/// Fixtures/message-vectors.json: the Pond 1.2.0 message cases (P6), recorded from a running
+/// Pond. Ids show as `{ask1}` and timestamps as `{time}`; each is filled in before use.
+private struct MessageVectors {
+    let cases: [String: (request: JSONValue, status: Int, response: String)]
+
+    static func load() throws -> MessageVectors {
+        let url = try #require(Bundle.module.url(forResource: "message-vectors", withExtension: "json",
+                                                 subdirectory: "Fixtures"))
+        let root = try JSONValue.parse(try Data(contentsOf: url))
+        guard case .array(let cases)? = root["cases"] else { throw QueueError.notSupported }
+        var out: [String: (JSONValue, Int, String)] = [:]
+        for entry in cases {
+            guard let name = entry["name"]?.stringValue, let request = entry["request"],
+                  case .int(let status)? = entry["response"]?["status"], let body = entry["response"]?["body"]
+            else { continue }
+            let text = String(decoding: body.data(), as: UTF8.self)
+                .replacingOccurrences(of: "{ask1}", with: askID)
+                .replacingOccurrences(of: "{time}", with: "2026-10-16T09:00:00+00:00")
+            out[name] = (request, status, text)
+        }
+        return MessageVectors(cases: out)
+    }
+}
+
+@Suite struct MailboxClientMessageTests {
+    @Test func aMessageIsTheReplyRouteWithKindMessageAndTheOwnerKey() async throws {
+        let vectors = try MessageVectors.load()
+        let send = try #require(vectors.cases["message-send"])
+        let (client, host) = try makeClient(ownerKey: { ownerKeyValue }) { _, _ in (send.status, send.response) }
+        let text = try #require(send.request["body"]?["text"]?.stringValue)
+        let item = try await client.message(askID, text: text)
+        #expect(item.id == askID)
+        #expect(item.status == "open")
+        let sent = try #require(MailboxStubRegistry.shared.last(host))
+        #expect(sent.request.httpMethod == "POST")
+        #expect(sent.request.url?.path() == "/asks/\(askID)/reply")
+        #expect(sentHeader(host, "X-Hook-Owner-Key") == ownerKeyValue)
+        // Exactly the vector's body: the text verbatim (multi-line) and the kind.
+        #expect(try sentBody(host) == send.request["body"])
+    }
+
+    @Test func aMessageWithoutAKeyStillGoes() async throws {
+        let (client, host) = try makeClient { _, _ in (200, #"{"item":\#(itemJSON)}"#) }
+        _ = try await client.message(askID, text: "Use the staging key first.")
+        #expect(sentHeader(host, "X-Hook-Owner-Key") == nil)
+        #expect(try sentBody(host) == .object(["text": .string("Use the staging key first."), "kind": .string("message")]))
+    }
+
+    @Test func refusalsMapToPlainWords() async throws {
+        let vectors = try MessageVectors.load()
+        let expected = [
+            "message-secret": MessageText.secretRefused,
+            "message-too-long": "The Pond refused the message: it is over 1000 characters.",
+            "message-blank": "Type a message first.",
+            "message-closed": MessageText.closed,
+            "message-bad-kind": "This Pond doesn't take messages. Update it to 1.2.0 or later.",
+        ]
+        for (name, text) in expected {
+            let vector = try #require(vectors.cases[name])
+            let (client, _) = try makeClient { _, _ in (vector.status, vector.response) }
+            do {
+                _ = try await client.message(askID, text: "x")
+                Issue.record("\(name) should be refused")
+            } catch {
+                #expect(MessageText.refusal(error) == text, "\(name)")
+                // A refusal never echoes the text it refused.
+                #expect(!MessageText.refusal(error).contains("ghp_"))
+            }
+        }
+        let (capped, _) = try makeClient { _, _ in (409, #"{"error":"too many messages"}"#) }
+        await #expect(throws: QueueError.self) { _ = try await capped.message(askID, text: "x") }
+        do { _ = try await capped.message(askID, text: "x") } catch {
+            #expect(MessageText.refusal(error) == "This ask has had 50 messages already.")
+        }
+    }
+
+    @Test func aPlainReplyIsUnchanged() async throws {
+        let vectors = try MessageVectors.load()
+        let plain = try #require(vectors.cases["message-reply-plain"])
+        let (client, host) = try makeClient { _, _ in (plain.status, plain.response) }
+        _ = try await client.reply(askID, text: "Go ahead")
+        #expect(try sentBody(host) == plain.request["body"])
+    }
+
+    @Test func theMessageReachesTheDetailAsAMessageNotAReply() throws {
+        let vectors = try MessageVectors.load()
+        let detail = try JSONDecoder().decode(AskDetail.self, from: Data(try #require(vectors.cases["message-detail"]).response.utf8))
+        let model = DetailModel.make(detail)
+        #expect(model.ownerMessages == ["Use the staging key first.\nThen prod."])
+        #expect(!model.ownerReplies.contains("Use the staging key first.\nThen prod."))
+        let lines = MessageText.lines(events: detail.events)
+        #expect(lines.map(\.text) == ["Use the staging key first.\nThen prod."])
+        #expect(!ReplyText.lines(events: detail.events).map(\.text).contains("Use the staging key first.\nThen prod."))
+    }
+
+    @Test func theTextRules() {
+        #expect(!MessageText.canSend(""))
+        #expect(!MessageText.canSend(" \n "))
+        #expect(MessageText.canSend("Line one\nline two"))
+        #expect(MessageText.canSend(String(repeating: "m", count: 1000)))
+        #expect(!MessageText.canSend(String(repeating: "m", count: 1001)))
+        #expect(!MessageText.showsCounter(String(repeating: "m", count: 899)))
+        #expect(MessageText.showsCounter(String(repeating: "m", count: 900)))
+        #expect(MessageText.counter("abc") == "3/1000")
+    }
+}

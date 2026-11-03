@@ -297,9 +297,9 @@ public struct Event: Codable, Sendable, Equatable {
     }
 
     /// The kinds an owner's action records: a reply, a step answer, a close, a reopen, a
-    /// problem report or an accepted correction.
+    /// problem report, an accepted correction or a message to the session.
     public static let ownerKinds: Set<String> = ["reply", "answer", "resolved", "declined", "reopened", "problem",
-                                                 "accepted"]
+                                                 "accepted", "message"]
     /// The kinds that change whether an ask is open: a close or a reopen.
     public static let statusKinds: Set<String> = ["resolved", "declined", "reopened"]
 

@@ -5,6 +5,8 @@ public enum ContextCommand: Equatable, Sendable {
     case open, done, skip, reopen, showOnly(String), showAll, copyLink, copyResume, resume
     /// Report a Problem…: opens the ask on its first unticked actionable step with the composer.
     case reportProblem
+    /// Message Session…: opens the ask and focuses its Messages field.
+    case messageSession
 }
 
 public enum ContextMenuEntry: Equatable, Sendable {
@@ -31,8 +33,10 @@ public enum QueueContextMenu {
         if row.isOpen {
             entries.append(.item(title: "Done", command: .done, shortcut: "⌘↩"))
             entries.append(.item(title: "Skip", command: .skip, shortcut: "⌘⌫"))
-            if talk.reports {
-                entries += [.separator, .item(title: ProblemReport.menuTitle, command: .reportProblem, shortcut: nil)]
+            if talk.reports || talk.messages { entries.append(.separator) }
+            if talk.reports { entries.append(.item(title: ProblemReport.menuTitle, command: .reportProblem, shortcut: nil)) }
+            if talk.messages {
+                entries.append(.item(title: MessageText.menuTitle, command: .messageSession, shortcut: nil))
             }
         } else {
             entries.append(.item(title: "Reopen", command: .reopen, shortcut: "⇧⌘R"))
