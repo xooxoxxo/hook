@@ -578,12 +578,33 @@ def _hash_block(lines: List[str], block_id: str) -> Optional[Tuple[int, int]]:
     return _find_block(lines, block_id, _HASH_BEGIN, _HASH_END, 2)
 
 
+_NONL = re.compile(r"\snonl=1(?=\s|$|-->)")
+
+
+def _mark_nonl(block: str) -> str:
+    """block with nonl=1 in its begin marker: the file had no final newline before Hook's
+    block, so removing the block takes the newline Hook added away again."""
+    first, sep, rest = block.partition("\n")
+    end = first.rstrip("\r")
+    cr = first[len(end):]
+    if end.endswith("-->"):
+        end = end[:-3].rstrip() + " nonl=1 -->"
+    else:
+        end += " nonl=1"
+    return end + cr + sep + rest
+
+
+def _has_nonl(line: str) -> bool:
+    return bool(_NONL.search(line.rstrip("\r\n")))
+
+
 def _append_at_end(text: str, block: str, nl: str) -> str:
-    """text, a final newline if it lacked one, one blank line, then block."""
+    """text, a final newline if it lacked one (noted in the marker), one blank line, then block."""
     if not text:
         return block
     if not text.endswith("\n"):
         text += nl
+        block = _mark_nonl(block)
     return text + nl + block
 
 
@@ -591,7 +612,10 @@ def _drop_block(lines: List[str], b: int, e: int, blank_before: bool = True) -> 
     before, after = lines[:b], lines[e + 1:]
     if blank_before and before and not before[-1].strip():
         before = before[:-1]
-    return "".join(before + after)
+    out = "".join(before + after)
+    if _has_nonl(lines[b]) and not after:
+        out = out[:-2] if out.endswith("\r\n") else (out[:-1] if out.endswith("\n") else out)
+    return out
 
 
 # ---------------------------------------------------------------------------------------------
@@ -826,6 +850,8 @@ def toml_set_table(text: str, table: Sequence[str], values: Dict[str, Any], bloc
     body.append("# hook:end")
     block = nl.join(body) + nl
     if found:
+        if _has_nonl(lines[found[0]]):
+            block = _mark_nonl(block)
         prefix, suffix = "".join(lines[:found[0]]), "".join(lines[found[1] + 1:])
         new = prefix + block + suffix
     else:
@@ -1074,7 +1100,8 @@ def yaml_set_child(text: str, parent: str, child: str, value: Dict[str, Any], bl
                 raise EditError(f"Hook's block is not under {parent}")
             _yaml_check(rest, section[0] + 1, section[1], child)
             was = _attrs(m.group(2)).get("was")
-            block = _yaml_block(parent, child, value, block_id, sha, indent, f" was={was}" if was else "", nl)
+            extra = (f" was={was}" if was else "") + (" nonl=1" if _has_nonl(lines[b]) else "")
+            block = _yaml_block(parent, child, value, block_id, sha, indent, extra, nl)
         new = "".join(lines[:b]) + block + "".join(lines[e + 1:])
         base = yaml_remove_child(text, block_id)
     else:
@@ -1106,15 +1133,12 @@ def yaml_set_child(text: str, parent: str, child: str, value: Dict[str, Any], bl
                     last = k
             if not lines[last].endswith("\n"):
                 lines[last] += nl
+                extra += " nonl=1"
             block = _yaml_block(parent, child, value, block_id, sha, indent, extra, nl)
             new = "".join(lines[:last + 1]) + block + "".join(lines[last + 1:])
-    if yaml_get_owned(new, block_id) != value or yaml_remove_child(new, block_id) != _final_nl(base, nl):
+    if yaml_get_owned(new, block_id) != value or yaml_remove_child(new, block_id) != base:
         raise EditError("the YAML block does not read back")
     return new
-
-
-def _final_nl(text: str, nl: str) -> str:
-    return text if not text or text.endswith("\n") else text + nl
 
 
 def yaml_remove_child(text: str, block_id: str) -> str:
@@ -1138,7 +1162,10 @@ def yaml_remove_child(text: str, block_id: str) -> str:
         fm = re.match(r"^([^\s#][^:]*:)(.*)$", rest[p], re.S) if p >= 0 else None
         if fm and not any(_yaml_content(line).strip() for line in rest[p + 1:stop]):
             rest[p] = fm.group(1) + " {}" + fm.group(2)
-    return "".join(rest)
+    out = "".join(rest)
+    if _has_nonl(lines[b]) and e == len(lines) - 1:
+        out = out[:-2] if out.endswith("\r\n") else (out[:-1] if out.endswith("\n") else out)
+    return out
 
 
 # ---------------------------------------------------------------------------------------------
@@ -1175,6 +1202,8 @@ def md_set_block(text: str, block_id: str, body: str, schema: int) -> str:
     lines = text.splitlines(keepends=True)
     found = _md_block(lines, block_id)
     if found:
+        if _has_nonl(lines[found[0]]):
+            block = _mark_nonl(block)
         prefix, suffix = "".join(lines[:found[0]]), "".join(lines[found[1] + 1:])
         new = prefix + block + suffix
     else:

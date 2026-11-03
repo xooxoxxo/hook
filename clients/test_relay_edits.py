@@ -211,8 +211,12 @@ class TOMLTests(unittest.TestCase):
 
     def test_a_file_without_a_final_newline(self):
         new = self.set('model = "o3"')
-        self.assertTrue(new.startswith('model = "o3"\n\n# hook:begin id=mcp '))
+        self.assertTrue(new.startswith('model = "o3"\n\n# hook:begin id=mcp sha=0123456789abcdef nonl=1\n'))
         self.assertEqual(ed.toml_get_owned(new, "mcp"), TOML_VALUES)
+        self.assertEqual(ed.toml_remove_table(new, "mcp"), 'model = "o3"')       # byte for byte
+        again = self.set(new)
+        self.assertIn("nonl=1", again)
+        self.assertEqual(ed.toml_remove_table(again, "mcp"), 'model = "o3"')
 
     def test_an_empty_file(self):
         new = self.set("")
@@ -353,10 +357,19 @@ class YAMLTests(unittest.TestCase):
         for text in ["GOOSE_MODEL: x\n", "GOOSE_MODEL: x", ""]:
             with self.subTest(text):
                 new = self.set(text)
-                self.assertIn("# hook:begin id=mcp sha=0123456789abcdef\nextensions:\n  relay:\n", new)
+                marker = "# hook:begin id=mcp sha=0123456789abcdef" + ("" if text.endswith("\n") or not text else " nonl=1")
+                self.assertIn(marker + "\nextensions:\n  relay:\n", new)
                 self.assertEqual(ed.yaml_get_owned(new, "mcp"), YAML_VALUE)
-                expect = text if text.endswith("\n") or not text else text + "\n"
-                self.assertEqual(ed.yaml_remove_child(new, "mcp"), expect)
+                self.assertEqual(ed.yaml_remove_child(new, "mcp"), text)      # the missing newline too
+
+    def test_no_final_newline_round_trips(self):
+        for text in ["extensions:\n  developer:\n    enabled: true", "a: 1\nextensions:\n  developer: {}"]:
+            with self.subTest(text):
+                new = self.set(text)
+                self.assertIn("nonl=1", new)
+                self.assertEqual(ed.yaml_remove_child(new, "mcp"), text)
+                again = ed.yaml_set_child(new, "extensions", "relay", {"type": "stdio"}, "mcp", "0" * 16)
+                self.assertEqual(ed.yaml_remove_child(again, "mcp"), text)
 
     def test_refusals(self):
         for text in [
@@ -409,6 +422,16 @@ class MarkdownTests(unittest.TestCase):
         self.assertTrue(replaced.startswith(self.USER + "\n"))
         self.assertTrue(replaced.endswith("<!-- hook:end -->\n\nMore of mine.\n"))
         self.assertEqual(ed.md_remove_block(replaced, "instructions"), self.USER + "\nMore of mine.\n")
+
+    def test_a_file_without_a_final_newline(self):
+        for text in ["Be brief.", "Be brief.\r\nNo newline."]:
+            with self.subTest(text):
+                new = ed.md_set_block(text, "x", "A\n", 1)
+                self.assertIn("nonl=1 -->", new)
+                self.assertEqual(ed.md_get_block(new, "x")[0].replace("\r\n", "\n"), "A\n")
+                self.assertEqual(ed.md_remove_block(new, "x"), text)
+                replaced = ed.md_set_block(new, "x", "B\n", 1)
+                self.assertEqual(ed.md_remove_block(replaced, "x"), text)
 
     def test_empty_file_and_absent_block(self):
         new = ed.md_set_block("", "x", "body", 2)
