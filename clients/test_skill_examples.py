@@ -8,10 +8,12 @@ import unittest
 from pathlib import Path
 
 import relay_client as rc
+import relay_lint
 import relay_semver
 
 ROOT = Path(__file__).resolve().parent.parent
 SKILL = (ROOT / "skill" / "instructables" / "SKILL.md").read_text("utf-8")
+DOCS = (ROOT / "docs" / "instructables.md").read_text("utf-8")
 SCHEMA = json.loads((ROOT / "schema" / "instructable.v1.json").read_text("utf-8"))
 FENCE = re.compile(r"^ *```json\n(.*?)^ *```", re.DOTALL | re.MULTILINE)   # list items indent theirs
 FULL_EXAMPLES_BEFORE = 1       # the Slack channel ask; the correction example makes 2
@@ -68,10 +70,10 @@ def check(value, schema, path, errors):
             errors.append(f"{path}: must match exactly one of oneOf")
 
 
-def examples():
-    """(full instructables, wrapped steps) from the skill's ```json blocks."""
+def examples(text=SKILL):
+    """(full instructables, wrapped steps) from the ```json blocks of the skill (or of text)."""
     full, steps = [], []
-    for block in FENCE.findall(SKILL):
+    for block in FENCE.findall(text):
         obj = json.loads(block)
         if "v" in obj:
             full.append(obj)
@@ -110,6 +112,22 @@ class SkillExampleTest(unittest.TestCase):
             for key, needs in rc.keys_needing_pond(instructable).items():
                 with self.subTest(title=instructable["title"], key=key):
                     self.assertTrue(relay_semver.at_least(floor, needs), needs)
+
+    def test_no_example_leaves_a_value_to_copy_in_do(self):
+        for text in (SKILL, DOCS):
+            full, steps = examples(text)
+            self.assertTrue(full + steps)
+            for instructable in full + steps:
+                with self.subTest(instructable["title"]):
+                    self.assertEqual(relay_lint.lint_details(instructable), [])
+
+    def test_the_form_example_is_one_sub_step_per_field(self):
+        for text in (SKILL, DOCS):
+            _, steps = examples(text)
+            form = next(ins["steps"][0] for ins in steps if "Add a reader" in ins["steps"][0]["do"])
+            self.assertTrue(form["url"].startswith("https://"))
+            self.assertEqual([s.get("code") for s in form["substeps"]][:4],
+                             ["Ollama", "studio", "http://192.0.2.7:11434", "qwen2.5:14b-instruct"])
 
     def test_correction_example_keeps_ids_and_adds_one_new_step(self):
         full, _ = examples()

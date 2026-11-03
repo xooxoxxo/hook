@@ -3,6 +3,16 @@
 All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## [Unreleased]
+
+### Added
+- `relay post` and `relay_post` refuse an ask that leaves a value to copy inside a step's `do`
+  (a URL, an IP or host:port, a path, a `key=value`, a backticked or quoted command, a long id
+  like `qwen2.5:14b-instruct`), with the same field-error output as the Pond's validation:
+  `steps[3].do: "…" is a value to copy: put it in code (or a URL in url)`. Each value goes in its
+  own sub-step's `code`, a page in `url`. The rules are `clients/relay_lint.py`; other clients
+  test their copies against `clients/lint-vectors.json`.
+
 ## [0.11.0] - 2026-11-03
 
 ### Added

@@ -41,7 +41,7 @@ A **Step** is a JSON object with these keys:
 
 | Key | Rule |
 |---|---|
-| `do` | Required, ≤ 300, one line: the action |
+| `do` | Required, ≤ 300, one line: the action, never a value to copy ([below](#values-to-copy)) |
 | `where` | ≤ 60, one line: the app or place |
 | `detail` | ≤ 1500, line breaks allowed: longer instructions, shown as wrapped text under `do` |
 | `code` | ≤ 4000: only the exact text to copy; it wraps |
@@ -68,6 +68,24 @@ The owner answers questions one step at a time and can send some answers before 
 
 `project` is required: one line, at most 60 characters.
 
+## Values to copy
+
+Every value the owner types or pastes is its own sub-step with `code`: one per form field, never inside `do`. A page to open goes in `url`.
+
+```json
+{"do": "Add a reader: Settings › Readers › Add reader", "url": "https://app.example.com/app/", "substeps": [
+  {"do": "Kind", "code": "Ollama", "lang": "text"},
+  {"do": "Name", "code": "studio", "lang": "text"},
+  {"do": "URL", "code": "http://192.0.2.7:11434", "lang": "text"},
+  {"do": "Model", "code": "qwen2.5:14b-instruct", "lang": "text"},
+  {"do": "Tap Add, then Check now", "expect": "The studio card shows Ready"}
+]}
+```
+
+Not `{"do": "Tap Add reader. Kind Ollama, Name studio, URL http://192.0.2.7:11434, Model qwen2.5:14b-instruct"}`: nothing in `do` can be copied.
+
+`relay post` and `relay_post` refuse, before posting, a `do` (step, sub-step or `verify`) that holds an http(s) URL, an IPv4 address or host:port, an absolute or `~/` path, an `@`-free `key=value`, a backticked span, a quoted identifier, path or command, or a token of 12+ characters with letters and digits (and `:` `/` `.` `_` `-`). A value already in the `code` or `url` of that step or its sub-steps passes, as do versions (`0.11.0`), times, shortcuts (`⌘C`) and UI paths with › or →. The refusal quotes the values: `steps[3].do: "http://192.0.2.7:11434", "qwen2.5:14b-instruct" are values to copy: put each in a sub-step's code (or a URL in url)`. Rules: [`clients/relay_lint.py`](../clients/relay_lint.py); shared test vectors: [`clients/lint-vectors.json`](../clients/lint-vectors.json).
+
 ## Validation
 
 - URLs must be http(s).
@@ -81,7 +99,7 @@ The owner answers questions one step at a time and can send some answers before 
 - `id` must match `[a-z0-9][a-z0-9.-]{0,23}` and not read as a step number, once per ask, on every step and sub-step or none: `steps[1].id: duplicate`, `steps[0].id: must not look like a step number`.
 - Pond version: `question`, `blocking`, `warning`, `optional`, `file` and a link's `path` need Pond 1.0.0 or newer, and `id` needs 1.1.0 ([Pond versions](mailbox-protocol.md#pond-versions)). `relay post` and `relay_post` ask `GET /version` first (cached for 5 minutes per process) and refuse before posting when the Pond is older: "Your Pond (1.0.0) is older than `id` needs (Pond 1.1.0 or newer). Update the Pond, or leave the key out." In This Mac mode the app is the server, so the refusal is "Hook's This Mac queue (Pond 1.0.0) can't take `id` yet." A Pond without `/version` counts as protocol 1, too old for any of them. One whose answer has neither a semver `version` nor an integer `protocol` is unknown: the instructable is posted and the Pond validates it. An instructable without these keys posts with no extra call.
 - A step's errors come in this order: its text keys (`do`, `where`, `code`, `lang`, `expect`, `detail`), `url`, `file`, `blocking`, `optional`, `warning`, `question`, `substeps`.
-- Errors name field paths only (`steps[2].url: must be http(s)`), never values.
+- The Pond's errors name field paths only (`steps[2].url: must be http(s)`), never values.
 - The JSON Schema is [`schema/instructable.v1.json`](../schema/instructable.v1.json).
 
 ## Secrets are refused

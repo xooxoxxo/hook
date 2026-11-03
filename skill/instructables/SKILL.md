@@ -23,7 +23,7 @@ on you" line in chat alone gets lost.
   The queue dedupes on the title for 24 h, so a different ask needs a different title.
 - **why**: one sentence (at most 300 chars) on what it unblocks.
 - **urgency**: `now` (you're blocked this minute), `today` (the default) or `whenever`.
-- **steps** (1–20): one action per step. `do` says exactly what to click or type, in
+- **steps** (1–20): one action per step. `do` says exactly what to click, in
   order (site → page → menu → button). `where` names the place: "Slack desktop",
   "Mac terminal", "GitHub → Settings".
 - **substeps**: when a step needs more than one action, use `substeps` instead of listing
@@ -36,6 +36,23 @@ on you" line in chat alone gets lost.
     {"do": "Click Create New App, then From scratch", "url": "https://api.slack.com/apps"},
     {"do": "Name it Acme and pick your workspace"},
     {"do": "Under OAuth & Permissions, add the chat:write scope", "code": "chat:write", "lang": "text"}
+  ]}
+  ```
+- **Values to copy**: every value the owner types or pastes is its own sub-step with `code`:
+  one per form field, never inside `do`. A page to open goes in `url`. `relay_post` and
+  `relay post` refuse a `do` that holds a URL, an IP or host:port, a path, a `key=value`, a
+  backticked or quoted command, or a long id like `qwen2.5:14b-instruct`, unless it is already
+  that step's `code` or `url`:
+  `steps[3].do: "http://192.0.2.7:11434" is a value to copy: put it in code (or a URL in url)`.
+  So a form is written like this:
+
+  ```json
+  {"do": "Add a reader: Settings › Readers › Add reader", "url": "https://app.example.com/app/", "substeps": [
+    {"do": "Kind", "code": "Ollama", "lang": "text"},
+    {"do": "Name", "code": "studio", "lang": "text"},
+    {"do": "URL", "code": "http://192.0.2.7:11434", "lang": "text"},
+    {"do": "Model", "code": "qwen2.5:14b-instruct", "lang": "text"},
+    {"do": "Tap Add, then Check now", "expect": "The studio card shows Ready"}
   ]}
   ```
 - **question**: any step or sub-step (not `verify`) can ask the owner something. The owner
