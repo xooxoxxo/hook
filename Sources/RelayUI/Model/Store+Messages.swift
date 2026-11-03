@@ -13,6 +13,7 @@ extension Store {
     /// moves: no reply, answer, tick or close.
     @discardableResult public func sendMessage(_ id: String, text: String) async -> Bool {
         guard canMessage(id), MessageText.canSend(text), messageStates[id] != .sending, let source else { return false }
+        HookLog.action(.message)
         messageStates[id] = .sending
         let gen = generation
         do {

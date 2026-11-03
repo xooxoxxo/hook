@@ -44,6 +44,7 @@ public struct FileRowContext: Sendable {
         if command == .copyPath {
             // From another machine, "~" means that machine's home: the path goes as sent.
             if case .otherMac = state { copy(link.raw) } else { copy(link.path) }
+            HookLog.action(.copy)
             return FileRowResult(outcome: .done)
         }
         let found = await actions.check(link.path)
@@ -56,6 +57,7 @@ public struct FileRowContext: Sendable {
         case (.reveal, .refused(let url)): actions.reveal(url)
         default: return FileRowResult(outcome: .unavailable, check: found)
         }
+        HookLog.action(.open)
         return FileRowResult(outcome: .done, check: found)
     }
 }

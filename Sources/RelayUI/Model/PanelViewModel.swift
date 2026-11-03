@@ -24,6 +24,8 @@ public struct PanelShellActions: Sendable {
     /// Touch ID, or the login password (so it works while screen sharing), with the reason
     /// macOS shows ("accept a changed command, link or file in …"). False when refused or unavailable.
     public var confirmPresence: @MainActor @Sendable (String) async -> Bool = { _ in false }
+    /// Whether the panel is on screen, so only a screen the owner sees is logged.
+    public var isShown: @MainActor @Sendable () -> Bool = { true }
 
     public init(hide: @escaping @MainActor @Sendable () -> Void, setUp: @escaping @MainActor @Sendable () -> Void,
                 quit: @escaping @MainActor @Sendable () -> Void, dock: @escaping @MainActor @Sendable (SidebarEdge) -> Void,

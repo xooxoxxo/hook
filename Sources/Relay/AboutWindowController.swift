@@ -1,4 +1,5 @@
 import AppKit
+import RelayCore
 import RelayUI
 import SwiftUI
 
@@ -25,7 +26,10 @@ import SwiftUI
     }
 
     func show() {
-        if !window.isVisible { window.center() }
+        if !window.isVisible {
+            HookLog.screen(.about)
+            window.center()
+        }
         NSApp.activate()
         window.makeKeyAndOrderFront(nil)
     }

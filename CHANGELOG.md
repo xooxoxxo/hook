@@ -28,6 +28,8 @@ and versions follow Semantic Versioning.
   `crashReports` and `crashReportTarget`. Off shows and sends nothing.
 - The activity log, `~/Library/Logs/Hook/hook.log`: one line per typed event, so ask contents,
   tokens, the owner key and Pond addresses can't reach it, with error messages redacted. It
+  records the screens opened, actions by name, and failed Pond requests with their HTTP status
+  and route template (a repeat of the same failure once, until a request works). It
   rolls to `hook.1.log` at 512 KB and is mirrored to the system log. The new
   [docs/privacy.md](docs/privacy.md) and a SECURITY.md section say what it and a report hold.
 - Report on a step: an open step with code or a tick ends with a Report button, and the step's

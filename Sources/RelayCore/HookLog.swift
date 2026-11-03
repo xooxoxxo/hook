@@ -26,10 +26,36 @@ public enum HookLog {
     public enum Screen: String, Sendable, CaseIterable {
         case queue, detail, settingsGeneral, settingsPanel, settingsQueue, settingsNotifications, settingsConnect
         case welcome, about, crashReport
+
+        public init(_ tab: SettingsTabID) {
+            switch tab {
+            case .general: self = .settingsGeneral
+            case .panel: self = .settingsPanel
+            case .queue: self = .settingsQueue
+            case .notifications: self = .settingsNotifications
+            case .connect: self = .settingsConnect
+            }
+        }
     }
 
     public enum Action: String, Sendable, CaseIterable {
         case done, skip, reply, answer, report, message, copy, open, tick, accept, undo, update, sendCrashReport
+    }
+
+    /// Which screen was logged last, so a screen that is already open isn't logged again
+    /// (a tab re-selected, a refresh of the open ask). `reset()` when the window closes.
+    public struct ScreenTracker: Sendable {
+        private var last: Screen?
+        public init() {}
+
+        /// True when `screen` differs from the last one opened: log it.
+        public mutating func open(_ screen: Screen) -> Bool {
+            guard screen != last else { return false }
+            last = screen
+            return true
+        }
+
+        public mutating func reset() { last = nil }
     }
 
     /// The launch line for this Mac: the macOS version and the CPU type.
@@ -48,6 +74,8 @@ public enum HookLog {
 
     private static let logger = Logger(subsystem: "Hook", category: "log")
     private static let active = OSAllocatedUnfairLock<RollingLog?>(initialState: nil)
+    /// A test's own log: set by `withLog`, seen by the tasks it starts and no other test.
+    @TaskLocal static var scoped: RollingLog?
 
     /// `~/Library/Logs/Hook`.
     public static var directory: URL { directory(home: home) }
@@ -87,6 +115,10 @@ public enum HookLog {
     /// logging never stops Hook.
     public static func record(_ event: Event) {
         let line = event.line(home: home, user: NSUserName())
+        if let scoped {
+            try? scoped.append(line)
+            return
+        }
         logger.log("\(line, privacy: .public)")
         active.withLock { log in try? log?.append(line) }
     }
@@ -96,25 +128,34 @@ public enum HookLog {
         record(.error(type: type, status: status, route: route, message: message))
     }
 
+    /// A screen line: `screen queue`, `screen settingsGeneral`, ….
+    public static func screen(_ screen: Screen) { record(.screen(screen)) }
+
+    /// A Settings tab opened.
+    public static func opened(_ tab: SettingsTabID) { record(.screen(Screen(tab))) }
+
+    /// An action line, by name only: `action done`.
+    public static func action(_ action: Action) { record(.action(action)) }
+
     /// The last `n` lines, oldest first, across both files.
     public static func tail(_ n: Int) -> [String] { current.tail(n) }
 
     /// Both files' size in bytes.
     public static var size: Int { current.size }
 
-    /// Runs `body` with `log` as the active log, then puts the old one back. For tests.
+    /// Runs `body` with `log` as the log for this task and the tasks it starts: lines go to
+    /// `log` only, not to the system log, and parallel tests never see each other's. For tests.
     static func withLog(_ log: RollingLog, _ body: () throws -> Void) rethrows {
-        let previous = active.withLock { state -> RollingLog? in
-            let old = state
-            state = log
-            return old
-        }
-        defer { active.withLock { $0 = previous } }
-        try body()
+        try $scoped.withValue(log) { try body() }
+    }
+
+    static func withLog(_ log: RollingLog, isolation: isolated (any Actor)? = #isolation,
+                        _ body: () async throws -> Void) async rethrows {
+        try await $scoped.withValue(log, operation: body)
     }
 
     private static var current: RollingLog {
-        active.withLock { $0 } ?? RollingLog(directory: directory, now: { Date() })
+        scoped ?? active.withLock { $0 } ?? RollingLog(directory: directory, now: { Date() })
     }
 
     private static var home: String {

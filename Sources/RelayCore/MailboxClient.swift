@@ -1,4 +1,21 @@
 import Foundation
+import os
+
+/// The last failure one client logged; cleared by a call that works.
+final class FailureLog: Sendable {
+    private let last = OSAllocatedUnfairLock<String?>(initialState: nil)
+
+    /// True, and remembered, when `key` isn't the failure logged last.
+    func isNew(_ key: String) -> Bool {
+        last.withLock { last in
+            guard last != key else { return false }
+            last = key
+            return true
+        }
+    }
+
+    func clear() { last.withLock { $0 = nil } }
+}
 
 struct ListResponse: Decodable {
     let items: [WireItem]
@@ -42,6 +59,8 @@ public struct MailboxClient: QueueSource {
 
     public let settings: MailboxSettings
     private let session: URLSession
+    /// This client's last logged failure, so a Pond that stays down is logged once, not on every poll.
+    private let failures = FailureLog()
     /// Read on each owner act, never stored: it returns this Mac's key only while the Pond
     /// has approved it (`OwnerKeyVault.approvedKey`).
     private let ownerKey: (@Sendable () -> String?)?
@@ -231,7 +250,7 @@ public struct MailboxClient: QueueSource {
     /// counts as protocol 1.
     public func version() async throws -> MailboxVersion {
         do {
-            return try await send("GET", "version")
+            return try await send("GET", "version", expected: [404])
         } catch QueueError.notFound {
             return .legacy
         }
@@ -258,12 +277,68 @@ public struct MailboxClient: QueueSource {
             ?? Data("{}".utf8)
     }
 
+    /// `perform`, with a failure written to Hook's log as `error type=Pond status=… route=…`:
+    /// the route is `path` cut to its template, and the message is a fixed phrase, a Pond
+    /// error phrase or a URLError code, never an id, a title, the host or the token. A status
+    /// in `expected` is an answer the caller handles, not a failure.
     private func send<T: Decodable>(
         _ method: String,
         _ path: String,
         query: [URLQueryItem] = [],
         body: Data? = nil,
-        owner: Bool = false
+        owner: Bool = false,
+        expected: Set<Int> = []
+    ) async throws -> T {
+        do {
+            let value: T = try await perform(method, path, query: query, body: body, owner: owner)
+            failures.clear()
+            return value
+        } catch let failure as Transport {
+            if let text = failure.logText { log(status: nil, path: path, message: text) }
+            throw failure.error
+        } catch let error as QueueError {
+            let (status, message) = Self.logged(error)
+            if let status, expected.contains(status) { throw error }
+            log(status: status, path: path, message: message)
+            throw error
+        }
+    }
+
+    private func log(status: Int?, path: String, message: String) {
+        let route = RouteTemplate.template(path)
+        guard failures.isNew("\(status.map(String.init) ?? "-") \(route) \(message)") else { return }
+        HookLog.error("Pond", message, status: status, route: route)
+    }
+
+    /// The status and the log text for a failure. A Pond's own error is kept only when it is a
+    /// short lowercase phrase like the spec's ("ask is closed"); anything else is `HTTP <status>`.
+    static func logged(_ error: QueueError) -> (status: Int?, message: String) {
+        switch error {
+        case .unreachable(let reason): return (nil, reason)
+        case .unauthorized: return (401, "unauthorized")
+        case .notFound: return (404, "not found")
+        case .corrected: return (409, "ask was corrected")
+        case .ownerKeyRefused: return (403, "unknown owner key")
+        case .askClosed: return (409, "ask is closed")
+        case .storeFailed: return (nil, "store failed")
+        case .rejected(let status, let text, _):
+            let phrase = text.range(of: "^[a-z][a-z ]{0,59}$", options: .regularExpression) != nil
+            return (status, phrase ? text : "HTTP \(status)")
+        }
+    }
+
+    /// A failure before any HTTP answer: `error` is thrown, `logText` (if any) is logged.
+    private struct Transport: Error {
+        let error: QueueError
+        let logText: String?
+    }
+
+    private func perform<T: Decodable>(
+        _ method: String,
+        _ path: String,
+        query: [URLQueryItem],
+        body: Data?,
+        owner: Bool
     ) async throws -> T {
         var components = URLComponents(
             url: settings.url.appending(path: path), resolvingAgainstBaseURL: false)
@@ -274,7 +349,8 @@ public struct MailboxClient: QueueSource {
         do {
             token = try settings.readToken()
         } catch {
-            throw QueueError.unreachable(error.localizedDescription)   // names the file's path, never its content
+            // The error names the file's path, never its content; the log gets neither.
+            throw Transport(error: .unreachable(error.localizedDescription), logText: "couldn't read the token file")
         }
 
         var request = URLRequest(url: url)
@@ -295,7 +371,10 @@ public struct MailboxClient: QueueSource {
         do {
             result = try await session.data(for: request, delegate: NoRedirectDelegate.shared)
         } catch let error as URLError {
-            throw QueueError.unreachable(error.localizedDescription)
+            // A TLS error's text names the host: the log gets the code only. A request
+            // cancelled by a source swap is no failure.
+            throw Transport(error: .unreachable(error.localizedDescription),
+                            logText: error.code == .cancelled ? nil : "request failed (URLError \(error.code.rawValue))")
         } catch {
             throw QueueError.unreachable("the request failed")
         }

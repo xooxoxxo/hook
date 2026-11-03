@@ -176,3 +176,41 @@ private let fixedNow: @Sendable () -> Date = { Date(timeIntervalSince1970: 1_793
         #expect(!FileManager.default.fileExists(atPath: home.path))
     }
 }
+
+@Suite struct HookLogScreenTests {
+    @Test func aSettingsTabOpenWritesOneScreenLine() throws {
+        let dir = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let log = RollingLog(directory: dir, now: fixedNow)
+        HookLog.withLog(log) {
+            HookLog.opened(.general)
+        }
+        #expect(log.tail(50) == ["2026-11-03T10:00:00Z screen settingsGeneral"])
+    }
+
+    @Test func everySettingsTabHasItsScreen() {
+        #expect(SettingsTabID.allCases.map { HookLog.Screen($0) }
+            == [.settingsGeneral, .settingsPanel, .settingsQueue, .settingsNotifications, .settingsConnect])
+    }
+
+    @Test func theTrackerLogsAScreenOnceUntilAnotherOpensOrItResets() {
+        var tracker = HookLog.ScreenTracker()
+        var opened: [Bool] = []
+        opened.append(tracker.open(.settingsGeneral))
+        opened.append(tracker.open(.settingsGeneral))
+        opened.append(tracker.open(.settingsQueue))
+        tracker.reset()
+        opened.append(tracker.open(.settingsQueue))
+        #expect(opened == [true, false, true, true])
+    }
+
+    @Test func aScopedLogIsSeenByChildTasksOnly() async throws {
+        let dir = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let log = RollingLog(directory: dir, now: fixedNow)
+        await HookLog.withLog(log) {
+            await Task { HookLog.action(.copy) }.value
+        }
+        #expect(log.tail(50) == ["2026-11-03T10:00:00Z action copy"])
+    }
+}

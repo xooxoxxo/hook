@@ -24,6 +24,7 @@ extension Store {
         let targets = crashTargets()
         crashSheet = CrashSheetModel(summary: offer.summary, target: targets.target, pondOffered: targets.pondOffered,
                                      preview: crashReportText(offer.summary))
+        HookLog.screen(.crashReport)
         searchIssuesIfNeeded()
     }
 
@@ -66,6 +67,7 @@ extension Store {
     /// Copy: exactly the preview.
     public func copyCrashReport() {
         guard let sheet = crashSheet else { return }
+        HookLog.action(.copy)
         shell.copy(sheet.preview)
     }
 
@@ -78,6 +80,7 @@ extension Store {
     /// The sheet's primary button, for its target.
     public func sendCrashReport() async {
         guard let sheet = crashSheet, !sheet.sending else { return }
+        HookLog.action(.sendCrashReport)
         switch sheet.target {
         case .pond: await sendCrashToPond(sheet)
         case .github: sendCrashToGitHub(sheet)

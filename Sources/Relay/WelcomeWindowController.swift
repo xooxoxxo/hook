@@ -29,7 +29,10 @@ import SwiftUI
     var isVisible: Bool { window.isVisible }
 
     func show() {
-        if !window.isVisible { window.center() }
+        if !window.isVisible {
+            HookLog.screen(.welcome)
+            window.center()
+        }
         NSApp.activate()
         window.makeKeyAndOrderFront(nil)
     }

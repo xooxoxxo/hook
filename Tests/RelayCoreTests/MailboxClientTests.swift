@@ -1,4 +1,5 @@
 import CryptoKit
+import os
 import Foundation
 import Testing
 @testable import RelayCore
@@ -779,5 +780,63 @@ private struct MessageVectors {
         #expect(!MessageText.showsCounter(String(repeating: "m", count: 899)))
         #expect(MessageText.showsCounter(String(repeating: "m", count: 900)))
         #expect(MessageText.counter("abc") == "3/1000")
+    }
+}
+
+/// A failed Pond call writes one error line: the status, the route template and a fixed
+/// message, never an id, a title, the host or the token.
+@Suite struct MailboxFailureLogTests {
+    private func logged(_ body: () async throws -> Void) async throws -> [String] {
+        let dir = FileManager.default.temporaryDirectory.appending(path: "hook-log-pond-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let log = RollingLog(directory: dir, now: { Date(timeIntervalSince1970: 1_793_700_000) })
+        await HookLog.withLog(log) { try? await body() }
+        return log.tail(50).map { String($0.drop(while: { $0 != " " }).dropFirst()) }
+    }
+
+    @Test func aRefusedReplyWritesOneLineWithStatusAndRoute() async throws {
+        let (client, host) = try makeClient { _, _ in (409, #"{"error":"ask is closed"}"#) }
+        let lines = try await logged { _ = try await client.reply(askID, text: "Rotate the key now") }
+        #expect(lines == [#"error type=Pond status=409 route=asks/{id}/reply message="ask is closed""#])
+        for line in lines {
+            #expect(!line.contains(askID) && !line.contains(host) && !line.contains("Rotate") && !line.contains("tok-example"))
+        }
+    }
+
+    @Test func anUnreachablePondWritesTheURLErrorCodeNotItsText() async throws {
+        let host = "mbx-" + UUID().uuidString.lowercased() + ".test"   // no handler: the stub fails the load
+        let (client, _) = try makeClient(host: host) { _, _ in throw URLError(.cannotFindHost) }
+        let lines = try await logged { _ = try await client.list() }
+        #expect(lines == [#"error type=Pond route=asks message="request failed (URLError -1003)""#])
+        #expect(!lines.joined().contains(host))
+    }
+
+    @Test func aRepeatedFailureIsWrittenOnceUntilACallSucceeds() async throws {
+        let fail = OSAllocatedUnfairLock(initialState: true)
+        let (client, _) = try makeClient { _, _ in
+            fail.withLock { $0 } ? (500, #"{"error":"internal error"}"#) : (200, #"{"items":[]}"#)
+        }
+        let lines = try await logged {
+            _ = try? await client.list()
+            _ = try? await client.list()
+            fail.withLock { $0 = false }
+            _ = try? await client.list()
+            fail.withLock { $0 = true }
+            _ = try? await client.list()
+        }
+        let line = #"error type=Pond status=500 route=asks message="internal error""#
+        #expect(lines == [line, line])
+    }
+
+    @Test func aPondWithoutVersionIsNotAnError() async throws {
+        let (client, _) = try makeClient { _, _ in (404, #"{"error":"not found"}"#) }
+        let lines = try await logged { _ = try await client.version() }
+        #expect(lines.isEmpty)
+    }
+
+    @Test func anErrorTextThatIsNotASpecPhraseIsReplacedByTheStatus() async throws {
+        let (client, _) = try makeClient { _, _ in (502, #"{"error":"Bad Gateway from pond.example.lan"}"#) }
+        let lines = try await logged { _ = try await client.list() }
+        #expect(lines == [#"error type=Pond status=502 route=asks message="HTTP 502""#])
     }
 }

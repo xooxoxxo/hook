@@ -14,6 +14,8 @@ import SwiftUI
     private let tabs = SettingsTabViewController()
     private let window: SettingsWindow
     private var built = false
+    /// The tab logged last; reset when the window closes, so reopening logs it again.
+    private var screens = HookLog.ScreenTracker()
 
     init(model: AppModel) {
         self.model = model
@@ -34,6 +36,7 @@ import SwiftUI
         buildIfNeeded()
         let shown = tab ?? SettingsTabID.restore(.standard)
         select(shown)
+        logOpened(shown)
         // The permission is re-read every time the Notifications tab opens.
         if shown == .notifications { Task { await model.refreshPermission() } }
         // Closing the window stops last-call polling, and re-selecting the already
@@ -63,7 +66,13 @@ import SwiftUI
     }
 
     func windowWillClose(_ notification: Notification) {
+        screens.reset()
         model.settingsWindowClosed()
+    }
+
+    /// `screen settingsGeneral` …, once per tab change while the window is open.
+    private func logOpened(_ tab: SettingsTabID) {
+        if screens.open(HookLog.Screen(tab)) { HookLog.opened(tab) }
     }
 
     private func buildIfNeeded() {
@@ -76,6 +85,7 @@ import SwiftUI
         tabs.isRebuilding = false
         tabs.onSelect = { [weak self] tab in
             tab.save(.standard)
+            self?.logOpened(tab)
             self?.model.setLastSeenPolling(tab == .connect)
             if tab == .notifications, let model = self?.model { Task { await model.refreshPermission() } }
         }

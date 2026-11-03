@@ -7,12 +7,12 @@ What Hook records about itself, what a crash report holds, and where it can go. 
 - **Where:** `~/Library/Logs/Hook/hook.log`. Settings › General › Privacy › Activity log shows its size, with a Finder button. Each line is also mirrored to the system log (subsystem `Hook`).
 - **What it records:** one line per typed event, so free text can't slip in:
   - launch and quit, with the Hook and macOS versions and the CPU type, and whether the quit was clean;
-  - screens you open, such as the queue, an ask, a Settings tab or the crash sheet;
-  - actions by name only (Done, Skip, Reply, Report, Message, Copy, Accept, …);
+  - screens you open: the queue, an ask (never which one), each Settings tab, Welcome, About and the crash sheet;
+  - actions by name only: Done, Skip, Reply, Answer, Report, Message, Copy, Open, Tick, Accept, Undo, Update and Send crash report;
   - the queue source (This Mac or Pond) and the Pond's version;
   - away mode changes, with the reason ("screen locked");
   - a crash found at launch, by its signature;
-  - errors: their type, the HTTP status, the route as a template (`asks/{id}/reply`) and a redacted message of at most 200 characters.
+  - errors: their type and a redacted message of at most 200 characters. A failed Pond request also has its HTTP status and its route as a template (`asks/{id}/reply`), and its message is a fixed phrase: the Pond's own error ("ask is closed"), a URLError code or one of Hook's. A Pond that keeps failing the same way is logged once, until a request works again.
 - **What it never records:** ask ids, titles, step text, replies, answers, notes, messages, file paths inside asks, tokens, the owner key and the Pond's address.
 - **Redaction.** An error's message is redacted before it is written: your home folder becomes `~`, your user name `<user>`, URLs, hosts and IP addresses `<host>`, ids `<id>`, and anything token-like (bearer tokens, `key=…`, GitHub, OpenAI and Slack tokens, email addresses, long hex or mixed runs) `<redacted>`.
 - **Size:** at 512 KB it rolls to `hook.1.log`, so the two files stay under 1 MB. Each line is written at once, so the last lines survive a crash.

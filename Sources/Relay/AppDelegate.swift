@@ -398,6 +398,7 @@ import RelayUI
             openURL: { url in NSWorkspace.shared.open(url) },
             resume: { [weak self] origin in self?.resumeSession(origin) })
         store.shell.updateMailbox = { [weak self] in self?.mailbox.updateMailbox() }
+        store.shell.isShown = { [weak self] in self?.panel?.isShown ?? false }
         store.shell.checkForUpdates = { [weak self] in self?.checkForUpdatesNow() }
         // Report a Problem's Set Up Owner Key…: Settings › Queue, and the setup starts there.
         store.shell.setUpOwnerKey = { [weak self] in
@@ -783,6 +784,7 @@ import RelayUI
     private func startUpdate() {
         guard !updateStarted, case .available(let version, let tag, _) = updates.state else { return }
         updateStarted = true
+        HookLog.action(.update)
         let repoPath = model?.config?.repoPath
         let kind = InstallKind.detect(repoPath: repoPath, fileExists: { FileManager.default.fileExists(atPath: $0) })
         Task { @MainActor [weak self] in
@@ -980,6 +982,7 @@ import RelayUI
     /// Any show of the panel marks every open ask seen.
     private func panelShown() {
         updateUnseen { $0.panelShown() }
+        store?.panelShown()
     }
 
     /// Applies a change, saving it and redrawing the badge only when the set moved.

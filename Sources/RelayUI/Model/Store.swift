@@ -32,9 +32,12 @@ public enum LinkCheck: Equatable, Sendable {
             queueInputChanged()
         }
     }
+    /// The panel screen logged last (`HookLog`), so a refresh doesn't log it again.
+    var screens = HookLog.ScreenTracker()
     /// The highlighted row and the open detail. Leaving an ask also ends its Done warning.
     @Published public var navigation = PanelNavigation() {
         didSet {
+            if navigation.selectedID != oldValue.selectedID, shell.isShown() { logScreen() }
             dropNoticeOfLeftAsk()
             if !doneWarnings.isEmpty, !doneWarnings.allSatisfy({ $0 == navigation.selectedID }) {
                 doneWarnings = doneWarnings.filter { $0 == navigation.selectedID }
@@ -612,6 +615,18 @@ public enum LinkCheck: Equatable, Sendable {
         notFoundID = nil
     }
 
+    /// The panel came on screen: logs the screen it shows, the queue or an ask.
+    public func panelShown() {
+        screens.reset()
+        logScreen()
+    }
+
+    /// `screen queue` or `screen detail`, once per change; never which ask.
+    private func logScreen() {
+        let screen: HookLog.Screen = navigation.selectedID == nil ? .queue : .detail
+        if screens.open(screen) { HookLog.screen(screen) }
+    }
+
     func loadIfMissing(_ id: String) {
         guard details[id] == nil, let source else { return }
         let gen = generation
@@ -760,6 +775,7 @@ public enum LinkCheck: Equatable, Sendable {
         let before = ticks(for: id)
         let after = Flow.toggle(node, ticks: before, locked: Set(Flow.lockedPaths(nodes: nodes, ticks: before)))
         guard after != before else { return }
+        HookLog.action(.tick)
         let added = Flow.items(of: nodes).map(\.path).filter { after.contains($0) && !before.contains($0) }
         tickHistory[id, default: []].append(contentsOf: added)
         setTicks(after, for: id, nodes: nodes)
@@ -771,6 +787,7 @@ public enum LinkCheck: Equatable, Sendable {
         guard !isContentLocked(id), let nodes = nodes(for: id) else { return nil }
         let result = Flow.tickCurrent(ticks: ticks(for: id), nodes: nodes)
         guard let path = result.path else { return nil }
+        HookLog.action(.tick)
         tickHistory[id, default: []].append(path)
         setTicks(result.ticks, for: id, nodes: nodes)
         return path
@@ -783,6 +800,7 @@ public enum LinkCheck: Equatable, Sendable {
         let result = Flow.untickLast(ticks: ticks, history: tickHistory[id] ?? [], nodes: nodes,
                                      locked: Set(Flow.lockedPaths(nodes: nodes, ticks: ticks)))
         guard let path = result.path else { return nil }
+        HookLog.action(.tick)
         tickHistory[id]?.removeAll { $0 == path }
         setTicks(result.ticks, for: id, nodes: nodes)
         return path
@@ -820,6 +838,7 @@ public enum LinkCheck: Equatable, Sendable {
     public func close(_ id: String, _ verdict: Verdict) {
         guard source != nil else { return }
         if verdict == .done, isContentLocked(id) { return }
+        HookLog.action(verdict == .done ? .done : .skip)
         reviewing[id] = nil
         let order = visibleOrder
         let inDetail = navigation.selectedID == id
@@ -840,6 +859,7 @@ public enum LinkCheck: Equatable, Sendable {
     /// Restores the latest held close; called again, the one before.
     public func undo() {
         guard let restored = pending.undoLatest() else { return }
+        HookLog.action(.undo)
         updateItems()
         publishState()
         navigation.undoRestored(restored.id, visibleOrder: visibleOrder)
@@ -1251,6 +1271,7 @@ public enum LinkCheck: Equatable, Sendable {
     public func sendAnswers(_ id: String, only: Set<String>? = nil) async -> Bool {
         let unsent = unsentAnswers(for: id, only: only)
         guard unsent.count > 0, answerStates[id] != .sending, !isContentLocked(id) else { return false }
+        HookLog.action(.answer)
         guard let source else {
             answerStates[id] = .failed(reason: AnswerDrafts.failureText(QueueError.unreachable(Self.noSourceProblem)))
             return false
@@ -1301,6 +1322,7 @@ public enum LinkCheck: Equatable, Sendable {
     }
 
     private func send(_ text: String, for id: String, onSuccess: () -> Void) async -> Bool {
+        HookLog.action(.reply)
         sentResets.removeValue(forKey: id)?.task.cancel()
         replyStates[id] = .sending
         let gen = generation
@@ -1627,7 +1649,10 @@ extension Store: PanelViewModel {
     public func sendReport(_ id: String, note: String) { Task { _ = await sendReport(id, note: note) } }
     public func sendMessage(_ id: String, text: String) { Task { _ = await sendMessage(id, text: text) } }
 
-    public func copyLink(_ id: String) { shell.copy("relay://i/\(id)") }
+    public func copyLink(_ id: String) {
+        HookLog.action(.copy)
+        shell.copy("relay://i/\(id)")
+    }
 
     public func retryDetail(_ id: String) {
         detailFailed.remove(id)

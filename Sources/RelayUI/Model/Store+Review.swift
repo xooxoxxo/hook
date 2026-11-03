@@ -79,6 +79,7 @@ extension Store {
         guard actsOnShown(id, stamp: stamp),
               (nodes(for: id).map(Flow.flattened) ?? []).contains(where: { $0.code.map(Sanitize.copyText) == text })
         else { return .refused }
+        HookLog.action(.copy)
         shell.copy(text)
         return .copied
     }
@@ -86,12 +87,14 @@ extension Store {
     /// Opens only under `copyCode`'s rule, and only a web URL the rendered revision shows.
     public func openStepURL(_ id: String, stamp: RevisionStamp?, url: URL) {
         guard actsOnShown(id, stamp: stamp), shows(id, url: url) else { return }
+        HookLog.action(.open)
         shell.openURL(url)
     }
 
     /// Copy Link Address: copies only under `copyCode`'s rule, and only a web URL the rendered revision shows.
     @discardableResult public func copyLinkAddress(_ id: String, stamp: RevisionStamp?, url: URL) -> CopyOutcome {
         guard actsOnShown(id, stamp: stamp), shows(id, url: url) else { return .refused }
+        HookLog.action(.copy)
         shell.copy(url.absoluteString)
         return .copied
     }
@@ -153,6 +156,7 @@ extension Store {
     @discardableResult public func acceptRevision(_ id: String, stamp: RevisionStamp) async -> Bool {
         // One at a time: a second press while Touch ID or the Pond call is up accepts nothing.
         guard !accepting.contains(id) else { return false }
+        HookLog.action(.accept)
         accepting.insert(id)
         defer { accepting.remove(id) }
         if reviewsUnreadable { retryReviewKey() }
@@ -582,6 +586,7 @@ extension Store {
         guard ProblemReport.canSend(note) else {
             return .refused("The note must be 1 to \(ProblemReport.limit) characters.")
         }
+        HookLog.action(.report)
         guard ownerKeyApproved(sourceKey, identity.mailbox?.url) else {
             holdReport(id, note: note)
             return .notEnrolled
