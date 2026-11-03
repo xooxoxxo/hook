@@ -9,6 +9,11 @@ public enum ReportResult: Equatable, Sendable {
     case refused(String)
 }
 
+/// The docked composer's send: idle, sending, held until the owner key is approved, or refused.
+public enum ReportBoxState: Equatable, Sendable {
+    case idle, sending, held, failed(String)
+}
+
 /// Report a Problem (Pond 1.1.0): a one-line note about one step, sent to the posting session
 /// as a quoted report, never as an instruction. Only from Hook.
 public enum ProblemReport {
@@ -19,8 +24,44 @@ public enum ProblemReport {
     public static let help = "The session gets this as a quoted report about its step. "
         + "Don't paste secrets; the Pond refuses them."
     public static let notEnrolled = "Set up the owner key in Settings › Queue first."
-    public static let reportedCaption = "Reported · waiting for a correction"
     public static let secretRefused = "The Pond refused the note: it looks like a secret."
+
+    /// The open row's trailing button.
+    public static let buttonTitle = "Report"
+    public static let buttonHelp = "Report a problem with this step to the session"
+    /// A reported step shows only the icon: this is its tooltip, and the label is VoiceOver's.
+    public static let reportedHelp = "Reported. Waiting for a correction."
+    public static let reportedLabel = "Problem reported, waiting for a correction"
+    /// The composer's field.
+    public static let placeholder = "What went wrong?"
+    /// Send without an approved owner key: it opens Settings › Queue and starts the setup.
+    public static let setUpKeyTitle = "Set Up Owner Key…"
+    public static let heldCaption = "Sends once the owner key is approved."
+    /// The counter shows from this many characters.
+    public static let counterFrom = 250
+
+    /// "Problem with step 2", "Problem with step 3b", "Problem with Verify".
+    public static func composerTitle(label: String) -> String {
+        label == "Verify" ? "Problem with Verify" : "Problem with step " + label
+    }
+
+    /// The counter shows once the cleaned note reaches `counterFrom` characters.
+    public static func showsCounter(_ note: String) -> Bool {
+        clean(note).unicodeScalars.count >= counterFrom
+    }
+
+    /// A step a report can be about: it has an id, and code or a tick (a step that asks a
+    /// required question has no tick; only its answer completes it).
+    public static func actionable(_ node: DetailModel.Node) -> Bool {
+        node.stepID != nil && (node.code != nil || !node.asks || node.isOptional)
+    }
+
+    /// The queue row's Report a Problem…: the first unticked actionable leaf, else the first
+    /// actionable one; nil when the ask has none.
+    public static func firstTarget(nodes: [DetailModel.Node], ticks: Set<String>) -> String? {
+        let leaves = Flow.flattened(nodes).filter { $0.children.isEmpty && actionable($0) }
+        return (leaves.first { !ticks.contains($0.path) } ?? leaves.first)?.path
+    }
 
     /// Line breaks become spaces (the note is one line), then the ends are trimmed.
     public static func clean(_ note: String) -> String {

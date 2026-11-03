@@ -2,8 +2,8 @@ import AppKit
 import RelayCore
 import SwiftUI
 
-/// One ask. A ScrollView with the header pinned on top and the crash, Undo and
-/// action bars pinned below: title, steps, reply and your replies, links and From.
+/// One ask. A ScrollView with the header pinned on top and the crash, Undo, report composer
+/// and action bars pinned below: title, steps, reply and your replies, links and From.
 struct DetailView<Model: PanelViewModel>: View {
     @ObservedObject private var model: Model
     let id: String
@@ -413,6 +413,12 @@ struct DetailView<Model: PanelViewModel>: View {
                 UndoBar(undo: undo, sending: model.sendingCloses > 0, onUndo: { model.undo() })
                     .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
             }
+            if Self.bar(snapshot, reviewing: model.isReviewing(id)) != .review, let title = Self.reportTitle(snapshot) {
+                ReportComposer(title: title, state: snapshot.report, keyReady: snapshot.ownerKeyReady,
+                               onSend: { model.sendReport(id, note: $0) }, onCancel: { model.endReport(id) })
+                    .id("report-\(id)-\(snapshot.reportTarget ?? "")")
+                    .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+            }
             switch Self.bar(snapshot, reviewing: model.isReviewing(id)) {
             case .review:
                 DetailReviewBar(model: model, id: id, page: model.reviewPage(id))
@@ -429,6 +435,7 @@ struct DetailView<Model: PanelViewModel>: View {
         }
         .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: model.undoInfo)
         .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: model.crashOffer)
+        .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: snapshot.reportTarget)
         // The bars grow past DS.Metric.actionBar (a wrapped caption, the undo bar), so the
         // visible band is measured, the same way the viewport is.
         .background(GeometryReader { geometry in
@@ -436,6 +443,14 @@ struct DetailView<Model: PanelViewModel>: View {
                 .onAppear { barHeight = geometry.size.height }
                 .onChange(of: geometry.size.height) { _, height in barHeight = height }
         })
+    }
+
+    /// "Problem with step 2" while the composer is open on a step of the rendered tree; nil otherwise
+    /// (closed, This Mac, or the inline review is up).
+    static func reportTitle(_ snapshot: DetailSnapshot) -> String? {
+        guard snapshot.canReport, let path = snapshot.reportTarget,
+              let node = Flow.flattened(snapshot.model?.nodes ?? []).first(where: { $0.path == path }) else { return nil }
+        return ProblemReport.composerTitle(label: node.label)
     }
 
     private func primary(_ snapshot: DetailSnapshot) {

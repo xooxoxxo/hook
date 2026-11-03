@@ -541,7 +541,90 @@ extension Store {
         }
     }
 
-    /// The paths with a report the step hasn't been corrected since ("Reported · waiting for a correction").
+    /// What this source lets Hook say to the posting session (reports, messages).
+    public var talk: SessionTalk { SessionTalk.make(sourceKey: sourceKey, pond: pond) }
+
+    /// Report is offered on an open ask in the queue, from a Pond; never on This Mac or a closed ask.
+    func canReport(_ id: String) -> Bool {
+        talk.reports && items.contains { $0.id == id } && item(for: id)?.status == "open"
+    }
+
+    /// Opens the docked composer on `path`; nil (the queue row's Report a Problem…) picks the
+    /// first unticked actionable step. The ask's detail opens too. Nothing for a step a report
+    /// can't be about.
+    public func beginReport(_ id: String, path: String?) {
+        guard canReport(id), let nodes = nodes(for: id),
+              let target = path ?? ProblemReport.firstTarget(nodes: nodes, ticks: ticks(for: id)),
+              Flow.flattened(nodes).contains(where: { $0.path == target && ProblemReport.actionable($0) })
+        else { return }
+        if navigation.selectedID != id { open(id) }
+        guard reporting[id] != target else { return }
+        heldReports[id] = nil
+        reportStates[id] = nil
+        reporting[id] = target
+    }
+
+    /// Esc or Cancel: the composer goes, and a held note with it.
+    public func endReport(_ id: String) {
+        reporting[id] = nil
+        reportStates[id] = nil
+        heldReports[id] = nil
+    }
+
+    /// The composer's Send. Without an approved owner key it is Set Up Owner Key…: the note is
+    /// held in memory, Settings › Queue opens and the setup starts; the note goes once the key
+    /// is approved. Sent, the composer closes and the step shows the reported icon.
+    @discardableResult public func sendReport(_ id: String, note: String) async -> ReportResult {
+        guard let path = reporting[id], reportStates[id] != .sending else { return .refused(Self.noReportOpen) }
+        guard let stepID = nodes(for: id).flatMap({ Flow.flattened($0).first { $0.path == path }?.stepID }) else {
+            return .refused(Self.noReportOpen)
+        }
+        guard ProblemReport.canSend(note) else {
+            return .refused("The note must be 1 to \(ProblemReport.limit) characters.")
+        }
+        guard ownerKeyApproved(sourceKey, identity.mailbox?.url) else {
+            holdReport(id, note: note)
+            return .notEnrolled
+        }
+        reportStates[id] = .sending
+        let result = await reportProblem(id, stepID: stepID, note: note)
+        guard reporting[id] == path else { return result }   // closed or moved meanwhile
+        switch result {
+        case .sent: endReport(id)
+        case .notEnrolled: holdReport(id, note: note)
+        case .refused(let text): reportStates[id] = .failed(text)
+        }
+        return result
+    }
+
+    static let noReportOpen = "No report is open on this ask."
+
+    private func holdReport(_ id: String, note: String) {
+        heldReports[id] = note
+        reportStates[id] = .held
+        shell.setUpOwnerKey()
+    }
+
+    /// Sends each held note once the owner key is approved; a note whose ask closed goes unsent.
+    public func flushHeldReports() async {
+        for (id, note) in heldReports {
+            guard canReport(id), reporting[id] != nil else {
+                endReport(id)
+                continue
+            }
+            guard ownerKeyApproved(sourceKey, identity.mailbox?.url) else { continue }
+            heldReports[id] = nil
+            _ = await sendReport(id, note: note)
+        }
+    }
+
+    /// The owner key's state changed (the app calls this): held notes go if it is approved now.
+    public func ownerKeyChanged() {
+        guard !heldReports.isEmpty else { return }
+        Task { await flushHeldReports() }
+    }
+
+    /// The paths with a report the step hasn't been corrected since (the reported icon).
     func reported(_ id: String) -> Set<String> {
         guard let events = details[id]?.events, events.contains(where: { $0.kind == "problem" }) else { return [] }
         return ProblemReport.reported(events: events, history: try? histories[id]?.get(),

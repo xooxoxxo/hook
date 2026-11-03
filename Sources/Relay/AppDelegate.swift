@@ -102,7 +102,10 @@ import RelayUI
         let seal: @Sendable () throws -> SymmetricKey? = { try ReviewSeal.load(secrets, file: reviews) }
         self.seal = seal
         let ownerKey = OwnerKeyFlow(secrets: secrets, seal: seal, label: HostName.current ?? "Mac")
-        ownerKey.onChange = { [weak model] in model?.objectWillChange.send() }
+        ownerKey.onChange = { [weak model, weak store] in
+            model?.objectWillChange.send()
+            store?.ownerKeyChanged()   // a report note held for the key goes once it is approved
+        }
         store.onOwnerKeyRefused = { [weak ownerKey] in ownerKey?.keyRefused() }
         store.onReviewRecordsReset = { [weak ownerKey] in ownerKey?.reread() }
         store.ownerKeyApproved = { key, url in
@@ -396,6 +399,11 @@ import RelayUI
             resume: { [weak self] origin in self?.resumeSession(origin) })
         store.shell.updateMailbox = { [weak self] in self?.mailbox.updateMailbox() }
         store.shell.checkForUpdates = { [weak self] in self?.checkForUpdatesNow() }
+        // Report a Problem's Set Up Owner Key…: Settings › Queue, and the setup starts there.
+        store.shell.setUpOwnerKey = { [weak self] in
+            self?.showSettings(tab: .queue)
+            self?.ownerKey?.setUp()
+        }
         // The profile switch saves `source` the way Settings › Queue does; the reload swaps.
         store.shell.switchSource = { [weak model] kind in model?.save(set: ["source": kind.rawValue]) }
         let presence: any PresenceCheck = UserPresence()

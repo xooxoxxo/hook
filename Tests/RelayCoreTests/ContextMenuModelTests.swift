@@ -115,4 +115,36 @@ import Testing
         #expect(QueueContextMenu.link(for: "6f1c2b0e-8a1d-4c55-9a77-0d2f3c4b5a61")
                 == "relay://i/6f1c2b0e-8a1d-4c55-9a77-0d2f3c4b5a61")
     }
+
+    @Test func reportAProblemIsOfferedOnAnOpenPondAsk() {
+        let entries = QueueContextMenu.entries(for: row(), filter: nil, localHost: nil, talk: SessionTalk(reports: true))
+        #expect(Array(entries.prefix(5)) == [
+            .item(title: "Open", command: .open, shortcut: "↩"),
+            .item(title: "Done", command: .done, shortcut: "⌘↩"),
+            .item(title: "Skip", command: .skip, shortcut: "⌘⌫"),
+            .separator,
+            .item(title: "Report a Problem…", command: .reportProblem, shortcut: nil),
+        ])
+    }
+
+    @Test func reportAProblemIsAbsentWhenClosedOrLocal() {
+        let report = ContextMenuEntry.item(title: "Report a Problem…", command: .reportProblem, shortcut: nil)
+        let closed = ClosedInfo(status: "done", closedBy: "owner", completedAt: "2026-10-16T09:00:00+00:00")
+        #expect(!QueueContextMenu.entries(for: row(closed: closed), filter: nil, localHost: nil,
+                                          talk: SessionTalk(reports: true)).contains(report))
+        #expect(!QueueContextMenu.entries(for: row(), filter: nil, localHost: nil).contains(report))
+        #expect(!QueueContextMenu.entries(for: row(), filter: nil, localHost: nil,
+                                          talk: .make(sourceKey: "local", pond: nil)).contains(report))
+    }
+
+    @Test func sessionTalkFollowsTheSourceAndThePond() {
+        let pond = "mailbox:pond.example.com#personal"
+        #expect(SessionTalk.make(sourceKey: "local", pond: nil) == .none)
+        #expect(SessionTalk.make(sourceKey: pond, pond: nil) == SessionTalk(reports: true, messages: false))
+        #expect(SessionTalk.make(sourceKey: pond, pond: .semver(SemVer(major: 1, minor: 1, patch: 0)))
+            == SessionTalk(reports: true, messages: false))
+        #expect(SessionTalk.make(sourceKey: pond, pond: .semver(SemVer(major: 1, minor: 2, patch: 0)))
+            == SessionTalk(reports: true, messages: true))
+        #expect(SessionTalk.make(sourceKey: pond, pond: .legacy(protocol: 4)) == .none)
+    }
 }

@@ -3,6 +3,8 @@ import Foundation
 /// What a row's context menu item does.
 public enum ContextCommand: Equatable, Sendable {
     case open, done, skip, reopen, showOnly(String), showAll, copyLink, copyResume, resume
+    /// Report a Problem…: opens the ask on its first unticked actionable step with the composer.
+    case reportProblem
 }
 
 public enum ContextMenuEntry: Equatable, Sendable {
@@ -22,11 +24,16 @@ public enum QueueContextMenu {
 
     /// `localHost` is this Mac's host name, read once by the app (`HostName.current`) and
     /// passed in, never looked up per row; Resume Session is enabled only for a session on it.
-    public static func entries(for row: AskRowModel, filter: String?, localHost: String?) -> [ContextMenuEntry] {
+    /// `talk`: what the source lets Hook say to the posting session; only an open ask offers it.
+    public static func entries(for row: AskRowModel, filter: String?, localHost: String?,
+                               talk: SessionTalk = .none) -> [ContextMenuEntry] {
         var entries: [ContextMenuEntry] = [.item(title: "Open", command: .open, shortcut: "↩")]
         if row.isOpen {
             entries.append(.item(title: "Done", command: .done, shortcut: "⌘↩"))
             entries.append(.item(title: "Skip", command: .skip, shortcut: "⌘⌫"))
+            if talk.reports {
+                entries += [.separator, .item(title: ProblemReport.menuTitle, command: .reportProblem, shortcut: nil)]
+            }
         } else {
             entries.append(.item(title: "Reopen", command: .reopen, shortcut: "⇧⌘R"))
         }

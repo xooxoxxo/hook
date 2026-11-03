@@ -14,6 +14,8 @@ public struct PanelShellActions: Sendable {
     public var updateMailbox: @MainActor @Sendable () -> Void = {}
     /// Check for Updates (Hook's own release check).
     public var checkForUpdates: @MainActor @Sendable () -> Void = {}
+    /// Report a Problem's Set Up Owner Key…: opens Settings › Queue and starts the owner key setup.
+    public var setUpOwnerKey: @MainActor @Sendable () -> Void = {}
     /// The status bar's profile switch: saves `source` through the same merge-save as
     /// Settings › Queue.
     public var switchSource: @MainActor @Sendable (SourceKind) -> Void = { _ in }
@@ -135,6 +137,17 @@ public enum CopyOutcome: Equatable, Sendable {
     func isAccepting(_ id: String) -> Bool
     /// Report a Problem…'s Send: one step's note to the posting session, quoted.
     func reportProblem(_ id: String, stepID: String, note: String)
+    /// What this source lets Hook say to the posting session; nothing on This Mac.
+    var talk: SessionTalk { get }
+    /// The docked report composer, by ask: the step path it reports on (memory only).
+    var reporting: [String: String] { get set }
+    /// Opens the composer on `path` and the ask's detail; nil (the queue row's Report a
+    /// Problem…) picks the first unticked actionable step.
+    func beginReport(_ id: String, path: String?)
+    /// Esc or Cancel: the composer goes, and a held note with it.
+    func endReport(_ id: String)
+    /// The composer's Send, or Set Up Owner Key… without an approved key (the note is held).
+    func sendReport(_ id: String, note: String)
     /// "Trust the Pond's History Again…" (Touch ID): after a Pond restore, re-pin what it serves now.
     func trustHistoryAgain()
     /// The last run crashed and the bar offers a report; nil once answered.
@@ -178,6 +191,11 @@ extension PanelViewModel {
         guard reviewing[id] != nil, case .pending = reviewState(id) else { return false }
         return true
     }
+}
+
+extension PanelViewModel {
+    /// The queue row's Report a Problem…: the first unticked actionable step.
+    public func beginReport(_ id: String) { beginReport(id, path: nil) }
 }
 
 /// Change and Cancel on an answered reply or step question. Edit state lives in the model,

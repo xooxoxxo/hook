@@ -119,6 +119,9 @@ public enum DS {
         public static let monogramRadius: CGFloat = 5
         /// The inset grouped steps list's corner.
         public static let groupRadius: CGFloat = 10
+        /// The report target's outline, inset from the row's edges.
+        public static let targetStroke: CGFloat = 1.5
+        public static let targetInset: CGFloat = 3
         /// An option list's corner.
         public static let optionRadius: CGFloat = 8
         /// An option row's minimum height: roomier than a stock radio row.
@@ -190,6 +193,9 @@ public enum DS {
         /// A redaction placeholder in the report preview (<host>, <redacted>, ~).
         public static let redactedText = SwiftUI.Color.accentColor
         public static let redactedFill = SwiftUI.Color.accentColor.opacity(0.14)
+        /// The step the report composer is about: a light accent fill and an accent outline.
+        public static let targetFill = SwiftUI.Color.accentColor.opacity(0.07)
+        public static let targetStroke = SwiftUI.Color.accentColor.opacity(0.55)
         enum TextTint {
             static let warnLight = NSColor(srgbRed: 0.60, green: 0.29, blue: 0.0, alpha: 1)
             static let warnDark = NSColor(srgbRed: 1.0, green: 0.72, blue: 0.30, alpha: 1)
@@ -366,6 +372,9 @@ public enum DS {
         public static let stepAdded = "plus.circle"
         /// This Mac's owner key.
         public static let ownerKey = "person.badge.key.fill"
+        /// Report a Problem on a step, and a step with a report waiting for a correction.
+        public static let report = "exclamationmark.bubble"
+        public static let reported = "exclamationmark.bubble.fill"
     }
 
     public enum Control {

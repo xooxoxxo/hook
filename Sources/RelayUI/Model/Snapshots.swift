@@ -129,6 +129,15 @@ public struct DetailSnapshot: Equatable, Sendable {
     public var changedSteps: [String: StepChip] = [:]
     /// Paths with a problem report the step hasn't been corrected since.
     public var reported: Set<String> = []
+    /// Report a Problem is offered: an open ask from a Pond (never This Mac).
+    public var canReport = false
+    /// The step path the docked composer reports on, while it is open.
+    public var reportTarget: String?
+    /// The composer's send state.
+    public var report: ReportBoxState = .idle
+    /// This Mac has an approved owner key: the composer's button is Send, else Set Up Owner Key….
+    /// Read only while the composer is open.
+    public var ownerKeyReady = false
     /// While a correction is pending: how many steps it adds to the version shown.
     public var addedSinceShown = 0
     /// The bar that replaces the action bar while the ask is locked and not under review.

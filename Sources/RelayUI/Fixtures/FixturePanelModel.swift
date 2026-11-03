@@ -15,6 +15,7 @@ public final class FixturePanelModel: PanelViewModel {
     @Published public var expandedTodo: [String: Set<String>] = [:]
     @Published public var detailAnchor: [String: String] = [:]
     @Published public var reviewing: [String: RevisionStamp] = [:]
+    @Published public var reporting: [String: String] = [:]
     @Published public var notice: PanelNotice?
     @Published public var undoInfo: UndoInfo?
     @Published public var status: PanelStatus
@@ -25,6 +26,7 @@ public final class FixturePanelModel: PanelViewModel {
     public var shell = PanelShellActions.none
     public var localHost: String?
     public var queueIsLocal = false
+    public var talk = SessionTalk(reports: true)
     private let details: [String: DetailSnapshot]
     private let reviewPages: [String: ReviewPage]
 
@@ -114,6 +116,9 @@ public final class FixturePanelModel: PanelViewModel {
     public var acceptingIDs: Set<String> = []
     public func isAccepting(_ id: String) -> Bool { acceptingIDs.contains(id) }
     public func reportProblem(_ id: String, stepID: String, note: String) {}
+    public func beginReport(_ id: String, path: String?) { if let path { reporting[id] = path } }
+    public func endReport(_ id: String) { reporting[id] = nil }
+    public func sendReport(_ id: String, note: String) {}
     public func trustHistoryAgain() {}
     public func reviewCrash() {}
     public func dismissCrash() {}

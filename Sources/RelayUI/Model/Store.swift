@@ -128,6 +128,13 @@ public enum LinkCheck: Equatable, Sendable {
     @Published public var reviewing: [String: RevisionStamp] = [:]
     /// Asks whose Use Version N is in flight (Touch ID, then the Pond call).
     @Published public internal(set) var accepting: Set<String> = []
+    /// Report a Problem's docked composer, by ask: the step path it reports on. Memory only.
+    @Published public var reporting: [String: String] = [:]
+    /// The composer's send state, by ask, while it isn't idle.
+    @Published public internal(set) var reportStates: [String: ReportBoxState] = [:]
+    /// A note sent before this Mac had an approved owner key, by ask: held in memory only,
+    /// sent once the key is approved (`flushHeldReports`), dropped if the ask closes.
+    var heldReports: [String: String] = [:]
     /// Tick paths as loaded from TickStore, per ask, with the step source they were loaded
     /// against; dropped when the ask's detail changes, and reloaded when the source differs.
     /// Keyed on the source, not the tree: comparing it is cheap, building the tree hashes every step.
@@ -1484,13 +1491,21 @@ extension Store: PanelViewModel {
         let review = reviewState(id)
         let stamp = ReviewGate.renderedStamp(review, history: try? histories[id]?.get())
         if case .current(let current) = review, details[id] != nil, stamp == current { markSeen(id, current) }
-        return DetailSnapshot.build(
+        var snapshot = DetailSnapshot.build(
             item: item, detail: details[id], ticks: ticks(for: id), load: load, reply: replyStates[id] ?? .idle,
             draft: drafts[id], pendingChoice: pendingChoice[id], busy: replyStates[id] == .sending, previous: previous, next: next,
             closedBy: closedBy(item), answerDrafts: answerDrafts[id] ?? [:], answerState: answerStates[id],
             doneWarning: doneWarnings.contains(id), review: review, stamp: stamp,
             history: try? histories[id]?.get(), chips: chips(id, review: review), reported: reported(id),
             addedSinceShown: addedSinceShown(id, review: review))
+        snapshot.canReport = canReport(id)
+        if snapshot.canReport, let target = reporting[id] {
+            snapshot.reportTarget = target
+            snapshot.report = reportStates[id] ?? .idle
+            // Read only while the composer is open: the check reads the Keychain.
+            snapshot.ownerKeyReady = ownerKeyApproved(sourceKey, identity.mailbox?.url)
+        }
+        return snapshot
     }
 
     public var status: PanelStatus {
@@ -1589,6 +1604,7 @@ extension Store: PanelViewModel {
     public func reportProblem(_ id: String, stepID: String, note: String) {
         Task { _ = await reportProblem(id, stepID: stepID, note: note) }
     }
+    public func sendReport(_ id: String, note: String) { Task { _ = await sendReport(id, note: note) } }
 
     public func copyLink(_ id: String) { shell.copy("relay://i/\(id)") }
 

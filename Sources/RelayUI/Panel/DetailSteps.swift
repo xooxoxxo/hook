@@ -64,6 +64,15 @@ struct DetailSteps<Model: PanelViewModel>: View {
     }
 
     private var locked: Set<String> { Set(Flow.lockedPaths(nodes: nodes, ticks: snapshot.ticks)) }
+
+    /// Report a Problem on the rows: which steps take one, which are reported, the composer's target.
+    private var reports: StepReports {
+        let id = snapshot.id
+        return StepReports(allowed: snapshot.canReport,
+                           actionable: Set(Flow.flattened(nodes).filter(ProblemReport.actionable).map(\.path)),
+                           reported: snapshot.reported, target: snapshot.reportTarget,
+                           onReport: { [model] path in model.beginReport(id, path: path) })
+    }
     private var lockText: String? { Flow.lockText(nodes: nodes, ticks: snapshot.ticks) }
 
     /// "Step 3 of 5": top-level steps plus verify.
@@ -88,6 +97,7 @@ struct DetailSteps<Model: PanelViewModel>: View {
                     if index > 0 { GroupDivider() }
                     nodeView(node, locked: locked, lockText: lockText)
                         .environment(\.stepTag, snapshot.changedSteps[node.path])
+                        .environment(\.stepReport, reports.slot(node.path))
                         .opacity(Self.dims(node, snapshot: snapshot) ? DS.Color.lockedOpacity : 1)
                         .id(node.path)
                         .background(GeometryReader { geometry in
@@ -101,6 +111,7 @@ struct DetailSteps<Model: PanelViewModel>: View {
                 }
             }
             .environment(\.stepTags, snapshot.changedSteps)
+            .environment(\.stepReports, reports)
         }
         .animation(DS.motion(DS.Motion.step, reduce: reduceMotion), value: snapshot.current)
         .animation(DS.motion(DS.Motion.step, reduce: reduceMotion), value: snapshot.ticks)

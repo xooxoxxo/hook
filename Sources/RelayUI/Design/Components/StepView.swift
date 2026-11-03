@@ -11,6 +11,9 @@ import SwiftUI
 /// A step that asks a question has a plain marker instead of a tick (only an answer completes it),
 /// unless it is optional: then it keeps the tick, and a tick marks it done unanswered.
 /// An optional step shows an "Optional" caption at the end of its title row.
+/// Report a Problem (`stepReport`): an open, actionable row ends with Report; a row that can't
+/// expand offers it from its context menu; a reported step shows only the report icon; the
+/// composer's target is outlined.
 public struct StepView: View {
     let content: StepContent
     let level: StepLevel
@@ -29,6 +32,7 @@ public struct StepView: View {
     /// The review lock, apart from the blocking-step `locked`.
     @Environment(\.askContentLocked) private var contentLocked
     @Environment(\.stepTag) private var tag
+    @Environment(\.stepReport) private var report
 
     public init(content: StepContent, level: StepLevel, state: StepState, total: Int, readOnly: Bool,
                 expanded: Binding<Bool>, question: StepQuestion? = nil, lockText: String? = nil,
@@ -47,6 +51,15 @@ public struct StepView: View {
 
     private var locked: Bool { lockText != nil }
     private var isOpen: Bool { StepRow.isOpen(state: state, locked: locked, expanded: expanded.wrappedValue) }
+    private var showsReport: Bool {
+        guard let report else { return false }
+        return StepRow.reportable(allowed: report.allowed, actionable: report.actionable, open: isOpen, locked: locked)
+    }
+    private var reportsFromMenu: Bool {
+        guard let report else { return false }
+        return StepRow.reportsFromMenu(allowed: report.allowed, actionable: report.actionable, expandable: expandable,
+                                       locked: locked)
+    }
     /// Only a row with something to reveal gets a disclosure.
     private var expandable: Bool {
         StepRow.isExpandable(state: state, locked: locked)
@@ -62,6 +75,8 @@ public struct StepView: View {
             HStack(alignment: .firstTextBaseline, spacing: DS.Space.marker) {
                 marker
                 titleArea
+                // Outside the disclosure button, so its click is its own.
+                if showsReport, let report { ReportButton(action: report.onReport) }
             }
             if let warning = StepRow.warning(content, state: state, locked: locked) {
                 WarningBox(warning).padding(.leading, DS.Space.subIndent)
@@ -80,6 +95,7 @@ public struct StepView: View {
         .padding(.horizontal, level.isSub ? 0 : DS.Space.groupRowH)
         .padding(.vertical, level.isSub ? DS.Space.subRowV : DS.Space.groupRowV)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .background { if report?.targeted == true { ReportTargetHighlight() } }
     }
 
     private var placeText: String? { StepAccessibility.placeText(level: level, place: content.place) }
@@ -119,6 +135,7 @@ public struct StepView: View {
             }
             Spacer(minLength: DS.Space.inline)
             if let tag { StepTag(tag) }
+            if report?.reported == true { ReportedMark() }
             if content.optional && !content.optionalByParent { StepRow.optionalCaption }
             if expandable { StepRow.chevron(open: expanded.wrappedValue) }
         }
@@ -189,10 +206,13 @@ public struct StepView: View {
             }
             if offered.contains(StepRow.openAction), let url = webURL { Button(StepRow.openAction) { openURL(url) } }
         }
-        if !tickable {
+        if !tickable && !reportsFromMenu {
             withActions
         } else {
-            withActions.contextMenu { Button(StepAccessibility.contextTitle(state)) { toggle() } }
+            withActions.contextMenu {
+                if tickable { Button(StepAccessibility.contextTitle(state)) { toggle() } }
+                if reportsFromMenu, let report { Button(ProblemReport.menuTitle) { report.onReport() } }
+            }
         }
     }
 }
@@ -210,6 +230,17 @@ public enum StepRow {
         if content.code != nil { names.append(copyAction) }
         if let raw = content.url, LinkDisplay.isWeb(raw), URL(string: raw) != nil { names.append(openAction) }
         return names
+    }
+
+    /// Report shows at the end of an open, actionable row (code or a tick) on an ask that takes
+    /// reports; never on hover, a collapsed row, a locked one, a closed ask or This Mac.
+    public static func reportable(allowed: Bool, actionable: Bool, open: Bool, locked: Bool) -> Bool {
+        allowed && actionable && open && !locked
+    }
+
+    /// A row that can't expand gets Report a Problem… from its context menu.
+    public static func reportsFromMenu(allowed: Bool, actionable: Bool, expandable: Bool, locked: Bool) -> Bool {
+        allowed && actionable && !expandable && !locked
     }
 
     /// The current step is always open; a locked one never; done and upcoming ones when opened by hand.

@@ -200,7 +200,8 @@ struct QueueView<Model: PanelViewModel>: View, Equatable {
                 .contextMenu(forSelectionType: String.self) { ids in
                     if let id = ids.first, let row = Self.rowModel(id, in: queue) {
                         RowContextMenu(entries: QueueContextMenu.entries(for: row, filter: queue.filter,
-                                                                              localHost: model.localHost)) { command in
+                                                                              localHost: model.localHost,
+                                                                              talk: model.talk)) { command in
                             perform(command, on: row)
                         }
                     }
@@ -249,6 +250,7 @@ struct QueueView<Model: PanelViewModel>: View, Equatable {
             if let resume = row.resumeCommand { model.shell.copy(resume) }
         case .resume:
             if let origin = row.origin { model.shell.resume(origin) }
+        case .reportProblem: model.beginReport(row.id)
         }
     }
 

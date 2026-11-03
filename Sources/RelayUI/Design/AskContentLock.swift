@@ -18,7 +18,65 @@ private struct StepTagKey: EnvironmentKey {
     static let defaultValue: StepChip? = nil
 }
 
+/// Report a Problem on a step (0.12, pick 3 B): what DetailSteps hands the step rows. Each
+/// row reads its own slot (`stepReport`); a parent hands its sub-steps theirs from the map.
+public struct StepReports: Sendable {
+    /// The ask takes reports: open, from a Pond, never This Mac.
+    public var allowed: Bool
+    /// The paths of steps a report can be about (`ProblemReport.actionable`).
+    public var actionable: Set<String>
+    /// The paths with a report waiting for a correction.
+    public var reported: Set<String>
+    /// The step the docked composer is open on.
+    public var target: String?
+    public var onReport: @MainActor @Sendable (String) -> Void
+
+    public init(allowed: Bool, actionable: Set<String>, reported: Set<String>, target: String?,
+                onReport: @escaping @MainActor @Sendable (String) -> Void) {
+        self.allowed = allowed
+        self.actionable = actionable
+        self.reported = reported
+        self.target = target
+        self.onReport = onReport
+    }
+
+    public static let none = StepReports(allowed: false, actionable: [], reported: [], target: nil, onReport: { _ in })
+
+    public func slot(_ path: String) -> StepReportSlot {
+        let onReport = onReport
+        return StepReportSlot(allowed: allowed, actionable: actionable.contains(path), reported: reported.contains(path),
+                              targeted: target == path, onReport: { onReport(path) })
+    }
+}
+
+/// One row's part of `StepReports`.
+public struct StepReportSlot: Sendable {
+    public var allowed: Bool
+    public var actionable: Bool
+    public var reported: Bool
+    public var targeted: Bool
+    public var onReport: @MainActor @Sendable () -> Void
+}
+
+private struct StepReportsKey: EnvironmentKey {
+    static let defaultValue = StepReports.none
+}
+
+private struct StepReportKey: EnvironmentKey {
+    static let defaultValue: StepReportSlot? = nil
+}
+
 extension EnvironmentValues {
+    public var stepReports: StepReports {
+        get { self[StepReportsKey.self] }
+        set { self[StepReportsKey.self] = newValue }
+    }
+
+    public var stepReport: StepReportSlot? {
+        get { self[StepReportKey.self] }
+        set { self[StepReportKey.self] = newValue }
+    }
+
     public var askContentLocked: Bool {
         get { self[AskContentLockedKey.self] }
         set { self[AskContentLockedKey.self] = newValue }

@@ -15,6 +15,29 @@ import Testing
         #expect(StepRow.isExpandable(state: .done, locked: false) && StepRow.isExpandable(state: .todo, locked: false))
     }
 
+    @Test func reportShowsOnlyOnAnOpenActionableRow() {
+        #expect(StepRow.reportable(allowed: true, actionable: true, open: true, locked: false))
+        #expect(!StepRow.reportable(allowed: true, actionable: true, open: false, locked: false))    // collapsed
+        #expect(!StepRow.reportable(allowed: true, actionable: false, open: true, locked: false))    // a required question
+        #expect(!StepRow.reportable(allowed: true, actionable: true, open: true, locked: true))
+        #expect(!StepRow.reportable(allowed: false, actionable: true, open: true, locked: false))    // closed ask or This Mac
+        // A row that can't expand offers it from its context menu instead.
+        #expect(StepRow.reportsFromMenu(allowed: true, actionable: true, expandable: false, locked: false))
+        #expect(!StepRow.reportsFromMenu(allowed: true, actionable: true, expandable: true, locked: false))
+        #expect(!StepRow.reportsFromMenu(allowed: false, actionable: true, expandable: false, locked: false))
+        #expect(!StepRow.reportsFromMenu(allowed: true, actionable: true, expandable: false, locked: true))
+    }
+
+    @Test func theReportSlotsFollowThePaths() {
+        let reports = StepReports(allowed: true, actionable: ["1", "2"], reported: ["1"], target: "2", onReport: { _ in })
+        #expect(reports.slot("1").reported == true)
+        #expect(reports.slot("1").targeted == false)
+        #expect(reports.slot("2").targeted == true)
+        #expect(reports.slot("2").actionable == true)
+        #expect(reports.slot("3").actionable == false)
+        #expect(StepReports.none.slot("1").allowed == false)
+    }
+
     @Test func theWarningShowsUntilTheStepIsDone() {
         let blocking = StepContent(action: "Point the domain", blocking: true)
         #expect(StepRow.warning(blocking, state: .todo, locked: false) == Flow.blockingWarning)

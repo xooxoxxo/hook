@@ -89,6 +89,17 @@ public struct ParentStepView: View {
     @Environment(\.askContentLocked) private var contentLocked
     @Environment(\.stepTag) private var tag
     @Environment(\.stepTags) private var tags
+    @Environment(\.stepReport) private var report
+    @Environment(\.stepReports) private var reports
+    private var showsReport: Bool {
+        guard let report else { return false }
+        return StepRow.reportable(allowed: report.allowed, actionable: report.actionable, open: isOpen, locked: locked)
+    }
+    private var reportsFromMenu: Bool {
+        guard let report else { return false }
+        return StepRow.reportsFromMenu(allowed: report.allowed, actionable: report.actionable, expandable: expandable,
+                                       locked: locked)
+    }
 
     public static func rowState(allDone: Bool, holdsCurrent: Bool) -> StepState {
         allDone ? .done : (holdsCurrent ? .current : .todo)
@@ -114,6 +125,7 @@ public struct ParentStepView: View {
         .padding(.horizontal, DS.Space.groupRowH)
         .padding(.vertical, DS.Space.groupRowV)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .background { if report?.targeted == true { ReportTargetHighlight() } }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityActions {
@@ -132,6 +144,7 @@ public struct ParentStepView: View {
                          lockText: lockText ?? (childLockTexts.indices.contains(i) ? childLockTexts[i] : nil),
                          onToggle: { onToggleChild(i) }, onCopy: onCopy)
                     .environment(\.stepTag, tags[childPaths[i]])
+                    .environment(\.stepReport, reports.slot(childPaths[i]))
                     .id(childPaths[i])
                     .background(GeometryReader { geometry in
                         Color.clear.preference(key: NodeFramesKey.self,
@@ -184,6 +197,7 @@ public struct ParentStepView: View {
             } else {
                 titleRow
             }
+            if showsReport, let report { ReportButton(action: report.onReport) }
         }
     }
 
@@ -204,6 +218,7 @@ public struct ParentStepView: View {
             }
             Spacer(minLength: DS.Space.inline)
             if let tag { StepTag(tag) }
+            if report?.reported == true { ReportedMark() }
             if content.optional { StepRow.optionalCaption }
             if !locked {
                 Text(verbatim: "\(ticked) of \(itemTotal)")
@@ -219,11 +234,14 @@ public struct ParentStepView: View {
 
     /// The parent's own row gets "Mark All as Done" / "Mark All as Not Done"; sub-steps keep their own menu.
     @ViewBuilder private func rowMenu(_ row: some View) -> some View {
-        if !tickable {
+        if !tickable && !reportsFromMenu {
             row
         } else {
             row.contextMenu {
-                Button(StepAccessibility.parentContextTitle(done: ticked, total: itemTotal)) { toggleParent() }
+                if tickable {
+                    Button(StepAccessibility.parentContextTitle(done: ticked, total: itemTotal)) { toggleParent() }
+                }
+                if reportsFromMenu, let report { Button(ProblemReport.menuTitle) { report.onReport() } }
             }
         }
     }
