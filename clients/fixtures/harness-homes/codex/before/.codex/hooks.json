@@ -1,0 +1,7 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {"hooks": [{"type": "command", "command": "~/.claude/my-tools/ask.py status"}]}
+    ]
+  }
+}

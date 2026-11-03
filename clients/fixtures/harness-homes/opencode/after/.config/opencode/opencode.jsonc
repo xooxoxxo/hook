@@ -1,0 +1,25 @@
+{
+  // OpenCode settings
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "other": {
+      "type": "local",
+      "command": ["npx", "-y", "other-mcp"],
+      "environment": {"OTHER_KEY": "sk-test-not-a-secret"},
+      "enabled": true, // keep it on
+    },
+    "relay": {
+      "type": "local",
+      "command": [
+        "python3",
+        "/HOME/.local/share/hook/current/mcp/relay_mcp.py"
+      ],
+      "enabled": true
+    },
+  },
+  /* shared notes */
+  "instructions": [
+    "~/notes/style.md",
+    "/HOME/.local/share/hook/current/integration/instructions/hook.md",
+  ],
+}

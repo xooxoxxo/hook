@@ -1,0 +1,5 @@
+{
+  "mcpServers": {
+    "other": {"type": "stdio", "command": "npx", "args": ["-y", "other-mcp"], "env": {"OTHER_KEY": "sk-test-not-a-secret"}}
+  }
+}

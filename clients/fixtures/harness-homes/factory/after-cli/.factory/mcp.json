@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "other": {
+      "command": "npx",
+      "args": ["-y", "other-mcp"],
+      "type": "stdio",
+      "env": {"OTHER_KEY": "sk-test-not-a-secret"}
+    },
+    "relay": {
+      "fake": "droid",
+      "args": [
+        "relay",
+        "python3 /HOME/.local/share/hook/current/mcp/relay_mcp.py",
+        "--type",
+        "stdio"
+      ]
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "theme": "GitHub",
+  "mcpServers": {
+    "other": {"command": "npx", "args": ["-y", "other-mcp"], "env": {"OTHER_KEY": "sk-test-not-a-secret"}}
+  },
+  "hooks": {
+    "BeforeTool": [
+      {"matcher": "run_shell_command", "hooks": [{"type": "command", "command": "~/.claude/my-tools/check.sh", "timeout": 5000}]}
+    ]
+  }
+}

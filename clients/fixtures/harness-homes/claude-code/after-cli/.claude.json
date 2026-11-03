@@ -1,0 +1,25 @@
+{
+  "numStartups": 12,
+  "theme": "dark",
+  "mcpServers": {
+    "github": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {"GITHUB_TOKEN": "sk-test-not-a-secret"}
+    },
+    "files": {"command": "uvx", "args": ["mcp-files"]},
+    "relay": {
+      "fake": "claude",
+      "args": [
+        "--scope",
+        "user",
+        "relay",
+        "{\"type\": \"stdio\", \"command\": \"python3\", \"args\": [\"/HOME/.local/share/hook/current/mcp/relay_mcp.py\"]}"
+      ]
+    }
+  },
+  "projects": {
+    "/Users/me/work/app": {"allowedTools": [], "hasTrustDialogAccepted": true}
+  }
+}

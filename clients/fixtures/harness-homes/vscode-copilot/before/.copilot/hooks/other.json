@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [{"type": "command", "bash": "~/.claude/my-tools/ask.py status", "timeoutSec": 10}]
+  }
+}

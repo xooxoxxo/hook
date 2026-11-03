@@ -1,0 +1,16 @@
+{
+  // OpenCode settings
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "other": {
+      "type": "local",
+      "command": ["npx", "-y", "other-mcp"],
+      "environment": {"OTHER_KEY": "sk-test-not-a-secret"},
+      "enabled": true, // keep it on
+    },
+  },
+  /* shared notes */
+  "instructions": [
+    "~/notes/style.md",
+  ],
+}

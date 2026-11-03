@@ -1,0 +1,8 @@
+{
+  "read_config_from": {"claude": true},
+  "hooks": {
+    "PreToolUse": [
+      {"matcher": "exec", "hooks": [{"type": "command", "command": "~/.claude/my-tools/check.sh"}]}
+    ]
+  }
+}

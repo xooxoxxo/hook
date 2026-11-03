@@ -1,0 +1,19 @@
+# Codex settings
+model = "gpt-5"
+approval_policy = "on-request"  # ask before running
+
+# Another server
+[mcp_servers.other]
+command = "npx"
+args = ["-y", "other-mcp"]
+env = { OTHER_KEY = "sk-test-not-a-secret" }
+
+[[profiles]]
+name = "fast"
+model = "gpt-5-mini"
+
+# hook:begin id=fake sha=<sha16> nonl=1
+[mcp_servers.relay]
+fake = "codex"
+args = ["relay", "--", "python3", "/HOME/.local/share/hook/current/mcp/relay_mcp.py"]
+# hook:end

@@ -1,0 +1,36 @@
+# Goose configuration
+GOOSE_PROVIDER: anthropic
+GOOSE_MODEL: claude-sonnet
+extensions:
+  # the built-in tools
+  developer:
+    bundled: true
+    display_name: Developer
+    enabled: true
+    name: developer
+    timeout: 300
+    type: builtin
+  other:
+    args:
+    - -y
+    - other-mcp
+    cmd: npx
+    enabled: true
+    envs:
+      OTHER_KEY: sk-test-not-a-secret
+    name: other
+    timeout: 300
+    type: stdio
+  # hook:begin id=mcp sha=<sha16>
+  relay:
+    type: "stdio"
+    name: "relay"
+    cmd: "python3"
+    args:
+      - "/HOME/.local/share/hook/current/mcp/relay_mcp.py"
+    envs: {}
+    enabled: true
+    timeout: 300
+  # hook:end
+# how Goose asks
+GOOSE_MODE: smart_approve

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "other": {
+      "type": "local",
+      "command": "npx",
+      "args": ["-y", "other-mcp"],
+      "env": {"OTHER_KEY": "sk-test-not-a-secret"},
+      "tools": ["*"]
+    }
+  }
+}

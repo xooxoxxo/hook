@@ -1,0 +1,16 @@
+{
+  "numStartups": 12,
+  "theme": "dark",
+  "mcpServers": {
+    "github": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {"GITHUB_TOKEN": "sk-test-not-a-secret"}
+    },
+    "files": {"command": "uvx", "args": ["mcp-files"]}
+  },
+  "projects": {
+    "/Users/me/work/app": {"allowedTools": [], "hasTrustDialogAccepted": true}
+  }
+}

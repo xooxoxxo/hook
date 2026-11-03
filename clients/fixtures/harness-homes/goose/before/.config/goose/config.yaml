@@ -1,0 +1,25 @@
+# Goose configuration
+GOOSE_PROVIDER: anthropic
+GOOSE_MODEL: claude-sonnet
+extensions:
+  # the built-in tools
+  developer:
+    bundled: true
+    display_name: Developer
+    enabled: true
+    name: developer
+    timeout: 300
+    type: builtin
+  other:
+    args:
+    - -y
+    - other-mcp
+    cmd: npx
+    enabled: true
+    envs:
+      OTHER_KEY: sk-test-not-a-secret
+    name: other
+    timeout: 300
+    type: stdio
+# how Goose asks
+GOOSE_MODE: smart_approve

@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "other": {
+      "command": "npx",
+      "args": ["-y", "other-mcp"],
+      "env": {"OTHER_KEY": "sk-test-not-a-secret"},
+      "disabled": false,
+      "autoApprove": []
+    },
+    "relay": {
+      "fake": "cline",
+      "args": [
+        "relay",
+        "--yes",
+        "--",
+        "python3",
+        "/HOME/.local/share/hook/current/mcp/relay_mcp.py"
+      ]
+    }
+  }
+}

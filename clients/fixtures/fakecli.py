@@ -15,8 +15,8 @@ A rule is {"prog", "prefix": [args], "action", "writes"?, "text"?}; the first ru
 matches and whose prefix starts argv[1:] runs. Actions:
     set      write {"fake": prog, "args": rest} at writes.key (json, jsonc or toml)
     delete   remove what `set` wrote, byte for byte
-    touch    create writes.path (a folder)
-    rm       remove writes.path
+    touch    create writes.path (a folder), remembering the parent folders it made
+    rm       remove writes.path and those parent folders
     print    print text
 Without a matching rule the fake exits 0 and prints nothing. A prog in "fail" exits 1 with one
 stderr line; "sleep" waits first (to test timeouts and the lock).
@@ -83,13 +83,26 @@ def _act(rule, prog, rest) -> int:
         sys.stdout.write(rule.get("text", ""))
         return 0
     if action == "touch":
+        made = []
+        parent = path.parent
+        while not parent.exists():
+            made.append(str(parent))
+            parent = parent.parent
         path.mkdir(parents=True, exist_ok=True)
+        state.setdefault(sid, {})["dirs"] = made
+        _save(state_path, state)
         return 0
     if action == "rm":
         if path.is_symlink() or path.is_file():
             path.unlink()
         elif path.is_dir():
             shutil.rmtree(path)
+        for d in (state.pop(sid, {}) or {}).get("dirs") or []:
+            try:
+                os.rmdir(d)
+            except OSError:
+                pass
+        _save(state_path, state)
         return 0
     fmt, key = writes["format"], writes["key"]
     text = path.read_text("utf-8") if path.exists() else ""

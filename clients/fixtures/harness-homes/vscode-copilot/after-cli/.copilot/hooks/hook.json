@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [{"type": "command", "bash": "'/HOME/.local/share/hook/current/bin/relay' hook replies --format copilot", "timeoutSec": 10}]
+  }
+}
