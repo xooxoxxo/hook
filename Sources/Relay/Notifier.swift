@@ -97,6 +97,21 @@ import UserNotifications
         post(note, identifier: "relay.away.\(UUID().uuidString)")
     }
 
+    /// One notification after a crash, pointing to the bar in the panel. Only when
+    /// notifications are already allowed: a crash never asks for permission.
+    func showCrashNotice() {
+        guard available, !quiet else { return }
+        Task { @MainActor in
+            guard await permission() == .authorized else { return }
+            let note = UNMutableNotificationContent()
+            note.title = "Hook quit unexpectedly"
+            note.body = "Open Hook to review the crash report. Nothing has been sent."
+            note.threadIdentifier = "relay"
+            try? await UNUserNotificationCenter.current().add(
+                UNNotificationRequest(identifier: "relay.crash", content: note, trigger: nil))
+        }
+    }
+
     private func perform(_ action: NotifyAction) {
         switch action {
         case .none:

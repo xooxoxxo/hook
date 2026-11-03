@@ -1,0 +1,128 @@
+{"app_name":"Hook","timestamp":"2026-11-02 22:14:09.00 +0000","app_version":"0.11.0","slice_uuid":"00000000-0000-4000-8000-0000000000a1","build_version":"0.11.0","platform":1,"bundleID":"com.example.hook","share_with_app_devs":0,"is_first_party":0,"bug_type":"309","os_version":"macOS 15.6 (24G84)","roots_installed":0,"name":"Hook","incident_id":"00000000-0000-4000-8000-0000000000b1"}
+{
+  "uptime": 86000,
+  "procRole": "Background",
+  "version": 2,
+  "userID": 501,
+  "deployVersion": 210,
+  "modelCode": "Mac14,2",
+  "coalitionID": 1234,
+  "osVersion": {
+    "train": "macOS 15.6",
+    "build": "24G84",
+    "releaseType": "User"
+  },
+  "captureTime": "2026-11-02 22:14:09.0000 +0000",
+  "incident": "00000000-0000-4000-8000-0000000000b1",
+  "pid": 4242,
+  "cpuType": "ARM-64",
+  "procName": "Hook",
+  "procPath": "/Users/me/Applications/Hook.app/Contents/MacOS/Hook",
+  "bundleInfo": {
+    "CFBundleShortVersionString": "0.11.0",
+    "CFBundleVersion": "0.11.0",
+    "CFBundleIdentifier": "com.example.hook"
+  },
+  "parentProc": "launchd",
+  "parentPid": 1,
+  "responsibleProc": "Hook",
+  "responsiblePid": 4242,
+  "exception": {
+    "codes": "0x0000000000000001, 0x0000000100045678",
+    "rawCodes": [
+      1,
+      4295251576
+    ],
+    "type": "EXC_BREAKPOINT",
+    "signal": "SIGTRAP"
+  },
+  "termination": {
+    "flags": 0,
+    "code": 5,
+    "namespace": "SIGNAL",
+    "indicator": "Trace/BPT trap: 5",
+    "byProc": "exc handler",
+    "byPid": 4242
+  },
+  "faultingThread": 0,
+  "threads": [
+    {
+      "triggered": true,
+      "id": 1001,
+      "queue": "com.apple.main-thread",
+      "frames": [
+        {
+          "imageOffset": 284280,
+          "imageIndex": 0
+        },
+        {
+          "imageOffset": 151000,
+          "imageIndex": 0
+        },
+        {
+          "imageOffset": 9000,
+          "symbol": "-[NSApplication sendEvent:]",
+          "symbolLocation": 12,
+          "imageIndex": 2
+        },
+        {
+          "imageOffset": 120000,
+          "imageIndex": 0
+        },
+        {
+          "imageOffset": 100000,
+          "imageIndex": 0
+        }
+      ]
+    },
+    {
+      "id": 1002,
+      "frames": [
+        {
+          "imageOffset": 4096,
+          "symbol": "Store.poll()",
+          "symbolLocation": 8,
+          "imageIndex": 0
+        }
+      ]
+    }
+  ],
+  "usedImages": [
+    {
+      "source": "P",
+      "arch": "arm64",
+      "base": 4294967296,
+      "size": 2097152,
+      "uuid": "00000000-0000-4000-8000-0000000000a1",
+      "path": "/Users/me/Applications/Hook.app/Contents/MacOS/Hook",
+      "name": "Hook",
+      "CFBundleShortVersionString": "0.11.0",
+      "CFBundleIdentifier": "com.example.hook"
+    },
+    {
+      "source": "P",
+      "arch": "arm64e",
+      "base": 6442450944,
+      "size": 262144,
+      "uuid": "00000000-0000-4000-8000-0000000000a2",
+      "path": "/usr/lib/libobjc.A.dylib",
+      "name": "libobjc.A.dylib"
+    },
+    {
+      "source": "P",
+      "arch": "arm64e",
+      "base": 7516192768,
+      "size": 20971520,
+      "uuid": "00000000-0000-4000-8000-0000000000a3",
+      "path": "/System/Library/Frameworks/AppKit.framework/Versions/C/AppKit",
+      "name": "AppKit",
+      "CFBundleIdentifier": "com.apple.AppKit"
+    }
+  ],
+  "sharedCache": {
+    "base": 6442450944,
+    "size": 4294967296,
+    "uuid": "00000000-0000-4000-8000-0000000000c1"
+  },
+  "vmSummary": "ReadOnly portion of Libraries: Total=1.0G"
+}

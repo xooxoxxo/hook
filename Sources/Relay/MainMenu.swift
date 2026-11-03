@@ -12,6 +12,11 @@ enum MainMenu {
         app.addItem(entry("Settings…", settings, ",", target: target))
         app.addItem(.separator())
         app.addItem(entry("Quit Hook", #selector(NSApplication.terminate(_:)), "q", target: NSApp))
+        #if DEBUG
+        // Debug builds only: crash on purpose, to try the next launch's crash bar and report.
+        app.addItem(.separator())
+        app.addItem(entry("Crash Now", #selector(DebugCrash.crashNow(_:)), "", target: DebugCrash.shared))
+        #endif
         main.addItem(holder(app))
 
         let edit = NSMenu(title: "Edit")
@@ -43,3 +48,14 @@ enum MainMenu {
         return holder
     }
 }
+
+#if DEBUG
+/// The target of the Debug-only "Crash Now" item.
+@MainActor final class DebugCrash: NSObject {
+    static let shared = DebugCrash()
+
+    @objc func crashNow(_ sender: Any?) {
+        fatalError("Crash Now (Debug build)")
+    }
+}
+#endif

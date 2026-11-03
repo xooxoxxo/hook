@@ -6,6 +6,8 @@ let package = Package(
     platforms: [.macOS(.v14)],
     targets: [
         .target(name: "RelayCore"),
+        // Option B: an empty slot for a crash-reporting SDK adapter; no dependency yet.
+        .target(name: "HookTelemetry"),
         .target(
             name: "RelayUI",
             dependencies: ["RelayCore"],

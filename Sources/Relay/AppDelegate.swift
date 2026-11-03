@@ -74,6 +74,8 @@ import RelayUI
     private var seal: (@Sendable () throws -> SymmetricKey?)?
     /// This Mac's owner key for the connected Pond.
     private var ownerKey: OwnerKeyFlow?
+    /// The run marker and the launch check for a crash of the last run.
+    private var crash: CrashMonitor?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         HookLog.start()
@@ -176,6 +178,7 @@ import RelayUI
         presenceChanged(to: presence.status)
         watchTermSignal()
         updates.start()
+        startCrashMonitor(model: model, notifier: notifier)
         applyGeneral(model.config)
         scheduleApply(model.config)
 
@@ -191,6 +194,14 @@ import RelayUI
             pendingShow = false
             panel?.present(focus: true, animated: true)
         }
+    }
+
+    /// This run's marker, and the check for a crash of the last one.
+    private func startCrashMonitor(model: AppModel, notifier: Notifier) {
+        let crash = CrashMonitor(dataDirectory: model.dataDirectory, home: UpdateRunner.home)
+        crash.onNotify = { [weak notifier] in notifier?.showCrashNotice() }
+        self.crash = crash
+        crash.start(version: UpdateChecker.runningVersion)
     }
 
     /// A second copy (another path, or a manual `open -n`) hands `relay://show` to the
@@ -262,6 +273,7 @@ import RelayUI
     /// until the next launch rewrites or removes it.
     func applicationWillTerminate(_ notification: Notification) {
         presence.stop()
+        crash?.markClean()
         HookLog.record(.quit(clean: true))
     }
 
