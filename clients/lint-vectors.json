@@ -990,6 +990,37 @@
    "expect": []
   },
   {
+   "name": "loopback-bare",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Ollama listens on 127.0.0.1 under a LaunchAgent"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "loopback-with-port",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Point the client at 127.0.0.1:11434"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"127.0.0.1:11434\" is a value to copy: put it in code (or a URL in url)"
+    ]
+   ]
+  },
+  {
    "name": "no-steps",
    "instructable": {
     "v": 1,

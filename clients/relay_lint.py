@@ -94,6 +94,8 @@ def _candidates(text: str) -> List[Tuple[int, int, str]]:
     for m in _URL.finditer(text):
         found.append(_trim_url(m.start(), m.group(0)))
     for m in _IPV4.finditer(text):
+        if m.group(1).startswith("127.") and m.group(2) is None:
+            continue                                   # a bare loopback address describes, it isn't typed
         if all(int(octet) <= 255 for octet in m.group(1).split(".")):
             found.append((m.start(), m.end(), m.group(0)))
     for m in _HOST_PORT.finditer(text):
