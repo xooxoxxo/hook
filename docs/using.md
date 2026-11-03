@@ -26,7 +26,9 @@ A "now" ask slides the hidden panel in on that ask without taking focus from the
 - **Group by** Project (the default) or Urgency, from the filter button in the header or with ⌃⌘G. In Project grouping, each project is a section with its open count; projects with a "now" ask come first.
 - **Filter** to one project from the same button, from a card's context menu (Show Only …) or with ⌃⌘P. The project shows under the header with a ✕ to show all projects again (⌃⌘A), and "2 more in other projects" when others wait. Grouping and filter are remembered on this Mac.
 - **Recently closed** lists asks closed in the last 24 hours, each with **Reopen**. It follows the filter.
-- The status bar at the bottom says whether the queue is reachable; click it for details.
+- The header reads **Queue**. The count of waiting asks is on the menu-bar icon's tooltip, and VoiceOver reads it with the header.
+- **The status bar** at the bottom starts with the profile: the queue you're looking at, **This Mac** or your Pond, named by its `context` ("Personal"). Click it to switch. The menu lists This Mac and, once a Pond URL and token file are saved, the Pond, with the one shown checked; then **Queue Settings…**, and **Set Up a Pond…** while there is none. Switching saves `source` to the config, so it's off while `config.json` can't be saved.
+- Next to the profile is one quiet word: **Pond** in green when the Pond is fine, nothing on This Mac when all is fine, and otherwise the state in its colour (**Offline**, **Not ready**, **Connecting…**, **Updating…**, or a config problem). Click it for details.
 
 ## An ask
 
@@ -42,6 +44,25 @@ A "now" ask slides the hidden panel in on that ask without taking focus from the
 - **From** shows the folder, Mac and short session id of the session that asked, with a command that resumes it in Claude Code.
 - **Resume Session**, in a card's context menu or the ⋯ menu at the top of an ask, opens a new terminal window in the session's folder and runs `claude --resume` with its session. Pick the terminal in Settings › General (Automatic picks the first installed of Ghostty, iTerm2, WezTerm, kitty, Warp and Alacritty, else Terminal; the picker shows which, as in "Automatic (Ghostty)"). It works only for a session on this Mac; for one on another Mac the item is dimmed and says which Mac. If the terminal doesn't open, Hook copies the resume command and says why.
 - Drafts, ticks and where you scrolled survive going back, switching asks and hiding the panel. Ticks also survive a relaunch.
+
+## Talking to the session
+
+On a Pond, you can tell the session that posted an ask something without opening its terminal. Neither works on This Mac.
+
+- **Report a Problem.** An open step you can act on (one with code or a tick) ends with a **Report** button. Collapsed steps don't show it; for a step that can't open, use **Report a Problem…** in the step's context menu, and a card's context menu has **Report a Problem…** too, which opens the ask on the first unticked step. The note box docks above the bar at the bottom and outlines its step: type what went wrong in one line, Return sends, Esc cancels, and a counter shows from 250 of the 300 characters. The session gets it as a quoted report about that step, never as an instruction. A reported step shows a filled report icon (hover it for "Reported. Waiting for a correction.") until the session corrects that step. A report needs this Mac's [owner key](#the-owner-key): without one, Send reads **Set Up Owner Key…**, which opens the setup, and the note is sent once the key is approved (or dropped if the ask closes first). Reports aren't offered on closed asks.
+- **Messages.** With a Pond 1.2.0 or newer, an open ask has a **Messages** section after the replies: a side note to the session, like typing in its chat. A message answers, closes and changes nothing, and can't be changed once sent. Return adds a line, ⌘↩ sends (it never presses Done), and a counter shows from 900 of the 1,000 characters. On an ask that asks for a reply, the field sits behind **Message the session** under the reply box. Earlier messages stay listed with their times, read-only once the ask closes. ⌘L focuses the field on an ask without a reply prompt, and **Message Session…** in a card's context menu opens the ask with it focused. Only the session that posted the ask sees a message.
+- The Pond refuses a report or a message that looks like a secret. Neither is written to Hook's activity log.
+
+## Crash reports
+
+If Hook quit unexpectedly, the next launch docks a bar above the status bar: **Hook quit unexpectedly**, with what is ready ("report ready, nothing sent"). If notifications are allowed, one notification points to it.
+
+- **Not Now** drops it; Hook won't ask about that crash again.
+- **Review…** opens **Send a Crash Report**: when Hook quit, **Send to** (GitHub, or My Pond once your Pond and this Mac's owner key are set up), and **What's sent**, exactly the text a send delivers, with each redacted value tinted. Copy it, or show the macOS crash file in Finder (it is never sent). Cancel keeps the bar.
+- **GitHub** opens a prefilled issue in your browser for you to submit, or the existing issue for the same crash with a comment on the clipboard. If a newer release fixed it, the sheet says "Fixed in 0.x. Update Hook." instead.
+- **Send to Pond** files it on your own Pond as a Hook bug, without a Telegram message. A Notice says "Sent to your Pond." or how often the same crash was reported.
+
+Settings › General › Privacy sets whether Hook asks each time, sends to your Pond automatically, or does nothing. What the log and a report hold, and what each path sends, is in [Privacy](privacy.md).
 
 ## Corrected asks
 
@@ -97,16 +118,18 @@ The key goes only over https (or plain http to this Mac itself), and only to the
 | Ask | ⌘⌫ | Skip |
 | Ask | ⌘T / ⇧⌘T | Tick the current step or sub-step / untick the last |
 | Ask | ⇧⌘C / ⇧⌘O | Copy the current step's code / open its link |
-| Ask | ⌘L | Focus the reply field (Change on a sent reply) |
+| Ask | ⌘L | Focus the reply field (Change on a sent reply); on an ask without a reply prompt, the Messages field |
 | Ask | 1–6 | Pick a choice |
 | Reply field | Return / ⌥Return | Send / new line |
+| Report box | Return / Esc | Send / cancel |
+| Messages field | ⌘↩ / Return | Send / new line |
 | Settings | ⌘1 … ⌘5 | General, Panel, Queue, Notifications, Connect |
 
 ## Away mode
 
 Hook marks you away when the screen is locked, the displays sleep, you switched users, you're connected over Screen Sharing, or you haven't touched the Mac for the time set in Settings › General (10 minutes by default). Or pick Home or Away yourself from Presence in the menu.
 
-While you're away, "now" asks don't slide the panel in and no notifications show. Asks still reach anything your Pond forwards them to. The icon fades, the status bar starts with "Away", and the menu shows why and since when. When you're back, one notification counts the asks that arrived for the urgencies switched on in Notifications; click it to open the list on the first of them.
+While you're away, "now" asks don't slide the panel in and no notifications show. Asks still reach anything your Pond forwards them to. The icon fades, the status bar's word starts with "Away", and the menu shows why and since when. When you're back, one notification counts the asks that arrived for the urgencies switched on in Notifications; click it to open the list on the first of them.
 
 Hook also keeps a [flag file](configuration.md#the-away-flag) for other tools.
 
@@ -116,10 +139,10 @@ Hook checks GitHub for a new release a minute after launch and then daily. When 
 
 ## Settings
 
-- **General:** shortcut, presence and away time, Start Hook when I log in, badge count, where documents open, the terminal for Resume Session, appearance, version.
+- **General:** shortcut, presence and away time, Start Hook when I log in, badge count, where documents open, the terminal for Resume Session, Privacy (crash reports, where they go, and the activity log's size), appearance, version.
 - **Panel:** edge, display, Re-dock Now, whether "now" asks slide the panel in, what happens after Done or Skip.
 - **Queue:** This Mac only or Pond, how long closed asks stay, the Pond URL, Pond token file, context and check interval (saved with Connect), connection status and the Pond's version against the range this Hook needs, Send a Test Ask, and the [owner key](#the-owner-key).
 - **Notifications:** which urgencies notify, sound, permission, a test notification.
 - **Connect:** the MCP command, the relay command, the CLAUDE.md section, the skill and the replies hook.
 
-Settings writes the [config file](configuration.md). Every "?" button explains its row.
+Settings writes the [config file](configuration.md). Every "?" button explains its row. A row's secondary action, such as Show in Finder or Check for Updates…, is a small icon button on the same line, after the value; hover it for its name.

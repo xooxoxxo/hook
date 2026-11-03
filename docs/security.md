@@ -44,6 +44,6 @@ Another user can't bind the port while Hook holds it, and clients check the [ser
 
 ## Logs and display
 
-- Logs carry ids and error categories only, never tokens, ask contents or hook prompts.
+- Hook's [activity log](privacy.md#the-activity-log) records typed events only, never ask ids, ask contents, tokens or hook prompts, and error messages are redacted. A crash report redacts again before it is shown or sent.
 - Ask text shows hidden characters as `⟨U+XXXX⟩`. Links show their real host, with a warning for non-ASCII hosts.
 - The validator [refuses secrets](instructables.md#secrets-are-refused) and hidden characters that could disguise them.

@@ -41,6 +41,7 @@ Use this command rather than downloading the zip in a browser: macOS blocks a br
 | Connect Claude Code (MCP, CLI, hook) | [claude-code.md](docs/claude-code.md) |
 | Write an ask | [instructables.md](docs/instructables.md) |
 | Fix a problem | [troubleshooting.md](docs/troubleshooting.md) |
+| See what Hook records and sends | [privacy.md](docs/privacy.md) |
 | Contribute | [CONTRIBUTING.md](CONTRIBUTING.md) |
 
 Everything else: [docs/](docs/README.md).

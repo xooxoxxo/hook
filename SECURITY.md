@@ -17,6 +17,7 @@ Include what you found, how to reproduce it, and the Hook version (`relay --vers
 - The installer, `scripts/install.sh`.
 - The review of corrected asks: revision hashes, pins, the lock and the sealed review records.
 - The owner key: enrollment, where the key is sent, and the Keychain items.
+- Crash reports: the activity log's redaction, what a report contains, and both send paths.
 
 The design is described in [docs/security.md](docs/security.md).
 
@@ -98,6 +99,30 @@ access group. Until releases are signed with a Developer ID:
 
 Developer ID releases will move both secrets to the data protection Keychain.
 
+## Crash reports and the activity log
+
+Hook's activity log is built from typed events (launch and quit, screens, actions by name,
+the source and Pond version, errors), so ask ids, titles, steps, replies, notes, tokens, the
+owner key and the Pond's address can't reach it. An error's message is redacted before it is
+written, and a crash report runs the redactor a second time before it is shown or sent.
+
+A report holds only allowed fields: the Hook and macOS versions, the CPU type, the exception,
+signal and termination reason, Hook's own frames by symbol, the source and Pond version, and
+the last 40 log lines. The macOS crash file (`.ips`) is never attached. The sheet shows exactly
+what a send delivers, and nothing leaves the Mac without your action, apart from Send
+Automatically to your own Pond:
+
+- **GitHub.** Before you submit, GitHub sees only one unauthenticated search for the crash's
+  signature, a 12-character hash, from your IP address. The issue itself is a prefilled page in
+  your browser, and public once you submit it.
+- **My Pond.** The report goes to your own Pond, signed with your owner key, and from there to no
+  one else.
+
+No crash-reporting SDK is linked, and Hook has no package dependencies: the slot for one does
+nothing. An SDK added later comes under a 5-day release-age gate (no version published less than
+5 days before it is added or updated), starts only with your consent and never while Crash
+reports is Off, and gets its own note here, saying what it sends and where, before it ships. The details are in [docs/privacy.md](docs/privacy.md).
+
 ## Residual risks
 
 - **Edit keys sit in files.** A session's edit key is in a `0600` file in
@@ -118,6 +143,9 @@ Developer ID releases will move both secrets to the data protection Keychain.
   the Pond is only on a private, encrypted network; the owner key is never sent over plain http
   to another machine.
 - **The file-open window** described under "Opening files from asks".
+- **Redaction is pattern-based.** It catches your home folder, user name, hosts, addresses and
+  common token shapes, not every secret. An error message from another library could still carry
+  something it misses. Read the report in the sheet before you submit it to GitHub.
 
 ## Supported versions
 

@@ -158,7 +158,7 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
     /// Settings › Privacy › Send to: GitHub (the default) or the owner's own Pond.
     public var crashReportTarget: CrashTarget
 
-    enum CodingKeys: String, CodingKey {
+    enum CodingKeys: String, CodingKey, CaseIterable {
         case source, mailboxURL, tokenFile, context, port, pollSeconds, hotkey, keepDays
         case showCount, sidebarEdge, appearance, notify, presence, awayAfterMinutes, repoPath
         case sidebarDisplay, afterClose, terminal, onboarding, mailboxUpdateCommand, openDocumentsIn

@@ -5,14 +5,15 @@ Hook (formerly Relay) is a macOS menu-bar inbox for Claude Code asks. Start with
 ## Get started
 
 - [Install](install.md): install, update, uninstall
-- [Using Hook](using.md): sidebar, keys, Settings, corrected asks, the owner key
+- [Using Hook](using.md): sidebar, keys, Settings, talking to the session, crash reports, corrected asks, the owner key
 - [Claude Code](claude-code.md): MCP, `relay` command, hook, correcting an ask
 
 ## Reference
 
 - [Instructable format](instructables.md): what an ask contains
 - [Configuration](configuration.md): every config key
-- [Troubleshooting](troubleshooting.md): not answering, port in use, `relay_post` missing
+- [Troubleshooting](troubleshooting.md): not answering, port in use, `relay_post` missing, logs and crashes
+- [Privacy](privacy.md): the activity log, crash reports and where they go
 - [CLAUDE.md section](claude-md-section.md): copied by Settings › Connect
 
 ## Internals

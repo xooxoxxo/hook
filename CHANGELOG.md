@@ -6,12 +6,66 @@ and versions follow Semantic Versioning.
 ## [Unreleased]
 
 ### Added
+- Crash reports. Hook marks each run in `run-state.json` and, when the last one ended badly,
+  docks a bar above the status bar: "Hook quit unexpectedly", with Not Now and Review…. Review…
+  opens Send a Crash Report, a sheet with exactly what a send delivers: the Hook and macOS
+  versions, the CPU type, the exception and Hook's own frames from the macOS crash file, the
+  source and Pond version, and the last 40 lines of the activity log, redacted again, with each
+  redacted value tinted. The crash file itself is never attached. Each crash is raised once, by a
+  12-character signature, and one notification points to the bar when notifications are allowed.
+- Send to GitHub (the default): one unauthenticated search for the signature, then a prefilled
+  issue in your browser for you to submit (template `crash.md`, label `crash`), the open issue
+  with a comment on the clipboard, or "Fixed in 0.x. Update Hook." when a newer release closed
+  it. A long report is trimmed to fit the link and also copied in full.
+- Send to My Pond, once your Pond and this Mac's owner key are set up: the report goes to your
+  own Pond, owner-signed. On Pond 1.2.0 it is a Hook bug, with no Telegram message, and a repeat
+  of the same crash adds an occurrence; an older Pond gets a plain ask.
+- Settings › General › Privacy: Crash reports (Ask Each Time, Send Automatically, Off), Send to
+  (GitHub, My Pond) and the activity log's size with a Finder button. `config.json` gains
+  `crashReports` and `crashReportTarget`. Off shows and sends nothing.
+- The activity log, `~/Library/Logs/Hook/hook.log`: one line per typed event, so ask contents,
+  tokens, the owner key and Pond addresses can't reach it, with error messages redacted. It
+  rolls to `hook.1.log` at 512 KB and is mirrored to the system log. The new
+  [docs/privacy.md](docs/privacy.md) and a SECURITY.md section say what it and a report hold.
+- Report on a step: an open step with code or a tick ends with a Report button, and the step's
+  and the card's context menus have Report a Problem…. The note box docks above the bottom bar;
+  Return sends, Esc cancels. A reported step shows only a filled icon, with a tooltip, until the
+  session corrects it. Without an approved owner key, Send reads Set Up Owner Key… and the note
+  waits for the key. Not on closed asks or This Mac.
+- Messages (Pond 1.2.0): an open ask has a Messages section after the replies, for a side note
+  to the session that posted it, like typing in its chat. It answers and closes nothing, and only
+  that session sees it. ⌘↩ sends; ⌘L focuses it on an ask without a reply prompt; a card's
+  Message Session… opens the ask with the field focused. Not on This Mac.
+- Clients for Pond 1.2.0: `relay wait` wakes on an owner message and prints it quoted, the
+  replies hook shows messages only to the posting session, and `relay status` and `relay_status`
+  list them (`messages: [{text, at}]`). `relay list --kind ask|bug` and `relay_list {kind}` list
+  one kind, a bug with its count; on a 1.1.0 Pond the client filters by kind itself. The skill
+  says a message is the owner typing in chat, never an answer.
+- Debug builds have a Crash Now menu item, for testing the crash path.
 - `relay post` and `relay_post` refuse an ask that leaves a value to copy inside a step's `do`
   (a URL, an IP or host:port, a path, a `key=value`, a backticked or quoted command, a long id
   like `qwen2.5:14b-instruct`), with the same field-error output as the Pond's validation:
   `steps[3].do: "…" is a value to copy: put it in code (or a URL in url)`. Each value goes in its
   own sub-step's `code`, a page in `url`. The rules are `clients/relay_lint.py`; other clients
   test their copies against `clients/lint-vectors.json`.
+
+### Changed
+- The status bar starts with the profile, This Mac or your Pond by its context ("Personal"), and
+  a menu to switch between them. Beside it is one quiet word: "Pond" in green when the Pond is
+  fine, nothing on This Mac when all is fine, and otherwise the state (Offline, Not ready,
+  Connecting…, Updating…) in its colour.
+- The queue header reads "Queue". The waiting count stays in the menu-bar tooltip and VoiceOver.
+- Settings: a row's secondary action (Show config.json, Check for Updates…, Show in Finder, Open
+  Login Items, Update Pond…, Check, Presence Settings…) is a small icon button on the value's
+  line, with a tooltip, instead of a button under the value.
+- The update check asks `api.github.com/repos/xooxoxxo/hook`, the repo's name since the rename.
+- The updater's log moved to `~/Library/Logs/Hook/update.log`, next to the activity log; Hook
+  moves the old `~/Library/Logs/Relay/update.log` once.
+- Hook still needs Pond `^1.1.0`. Crash reports filed as bugs and Messages need Pond 1.2.0;
+  below it, a report goes as a plain ask and Messages stay hidden.
+
+### Correction to 0.11.0
+- Report a Problem shipped without a way to reach it in the UI; 0.12 adds it.
 <!-- hook:pond=^1.1.0 -->
 <!-- hook:mailbox-protocol=5 -->
 
@@ -36,7 +90,8 @@ and versions follow Semantic Versioning.
 - Steps keep their ticks and answers across a correction by their stable ids; changed steps lose
   their tick and show Changed or New until ticked.
 - Report a Problem: a one-line note about one step goes to the posting session as a quoted
-  report. It needs this Mac's owner key.
+  report. It needs this Mac's owner key. (Correction: it shipped without a way to reach it in
+  the UI; 0.12 adds it.)
 - The owner key: Settings › Queue › Owner Key › Set Up This Mac… makes a key for this Mac in the
   Keychain ("Hook owner key") and shows a six-digit code; approve the Pond's Telegram request
   only when it shows the same code. The Pond stores only the key's hash. Hook sends it on owner

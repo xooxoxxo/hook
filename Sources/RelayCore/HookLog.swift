@@ -186,7 +186,10 @@ public struct RollingLog: Sendable {
     public let limit: Int
     private let now: @Sendable () -> Date
 
-    public init(directory: URL, name: String = "hook.log", limit: Int = 512 * 1024,
+    /// 512 KB per file, so the two files stay under 1 MB.
+    public static let defaultLimit = 512 * 1024
+
+    public init(directory: URL, name: String = "hook.log", limit: Int = RollingLog.defaultLimit,
                 now: @escaping @Sendable () -> Date) {
         self.directory = directory
         self.name = name
