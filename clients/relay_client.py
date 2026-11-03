@@ -29,6 +29,7 @@ import urllib.request
 from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 
 import relay_semver
+from relay_lint import lint_details, lint_instructable  # noqa: F401  (re-exported)
 
 VERSION = "0.11.0"
 DEFAULT_CONFIG = "~/.config/relay/config.json"
@@ -882,7 +883,12 @@ class Client:
     def post(self, project: str, instructable: Dict[str, Any], *,
              edit_keys: Optional[EditKeys] = None) -> Dict[str, Any]:
         """POST /asks. On a Pond that takes corrections, an edit key is made first and only its
-        hash is sent; the key is kept when the Pond says the ask is `editable`."""
+        hash is sent; the key is kept when the Pond says the ask is `editable`.
+        A value to copy left inside a step's `do` is refused here, before anything is sent,
+        exactly as the Pond refuses an invalid field (relay_lint)."""
+        problems = lint_details(instructable)
+        if problems:
+            raise Refused(400, "invalid instructable", problems)
         self.check_pond(instructable)
         body: Dict[str, Any] = {"project": project, "instructable": fill_from(instructable, self.env)}
         keys: Optional[EditKeys] = None

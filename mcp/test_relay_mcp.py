@@ -222,6 +222,35 @@ class RelayMcpTest(StubServerCase):
         finally:
             s.close()
 
+    def test_a_value_left_in_do_is_refused_like_a_field_error(self):
+        crammed = {"v": 1, "title": "Set up the email reader", "steps": [
+            {"do": "Go to Settings"}, {"do": "Sign in"}, {"do": "Open Readers"},
+            {"do": "Tap Add reader. Kind Ollama, Name studio, URL http://100.64.0.7:11434, "
+                   "Model qwen2.5:14b-instruct; leave the rest. Tap Add, then Check now"}]}
+        rewritten = {"v": 1, "title": "Set up the email reader", "steps": [
+            {"do": "Add a reader: Settings \u203a Readers \u203a Add reader", "url": "https://app.example.com/app/",
+             "substeps": [{"do": "Kind", "code": "Ollama", "lang": "text"},
+                          {"do": "Name", "code": "studio", "lang": "text"},
+                          {"do": "URL", "code": "http://100.64.0.7:11434", "lang": "text"},
+                          {"do": "Model", "code": "qwen2.5:14b-instruct", "lang": "text"},
+                          {"do": "Tap Add, then Check now", "expect": "The studio card shows Ready"}]}]}
+        s = Session.mailbox(self.tmp.name, self.url)
+        try:
+            bad = s.call("relay_post", {"project": "Acme", "instructable": crammed})
+            text = ('invalid instructable:\n- steps[3].do: "http://100.64.0.7:11434", "qwen2.5:14b-instruct" '
+                    "are values to copy: put each in a sub-step's code (or a URL in url)")
+            self.assertEqual(bad, {"content": [{"type": "text", "text": text}],
+                                   "structuredContent": {"error": text}, "isError": True})
+            self.assertEqual(POSTED, [])
+            invalid = s.call("relay_post", {"project": "Acme", "instructable": {"v": 1, "title": "bad"}})
+            self.assertEqual(set(invalid), set(bad))      # the Pond's own field errors: the same shape
+            self.assertEqual(invalid["structuredContent"], {"error": "invalid instructable:\n- steps: required"})
+            good = s.call("relay_post", {"project": "Acme", "instructable": rewritten})
+            self.assertFalse(good["isError"])
+            self.assertEqual(POSTED[-1]["instructable"]["steps"][0]["substeps"][2]["code"], "http://100.64.0.7:11434")
+        finally:
+            s.close()
+
     def test_list_returns_every_open_ask(self):
         s = Session.mailbox(self.tmp.name, self.url)
         try:
