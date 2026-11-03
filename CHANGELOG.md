@@ -16,7 +16,10 @@ and versions follow Semantic Versioning.
 - Send to GitHub (the default): one unauthenticated search for the signature, then a prefilled
   issue in your browser for you to submit (template `crash.md`, label `crash`), the open issue
   with a comment on the clipboard, or "Fixed in 0.x. Update Hook." when a newer release closed
-  it. A long report is trimmed to fit the link and also copied in full.
+  it. A long report is trimmed to fit the link and also copied in full. Only an issue filed by
+  the repo's owner, a member or a collaborator, or one labeled `crash-confirmed` by a triager,
+  counts as an existing issue, so an issue someone else opens with a copied signature can't
+  capture the report; only links to the Hook repo's issue pages are opened.
 - Send to My Pond, once your Pond and this Mac's owner key are set up: the report goes to your
   own Pond, owner-signed. On Pond 1.2.0 it is a Hook bug, with no Telegram message, and a repeat
   of the same crash adds an occurrence; an older Pond gets a plain ask.

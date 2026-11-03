@@ -38,8 +38,8 @@ public struct GitHubIssues: Sendable {
     }
 
     /// `GET /search/issues?q=repo:<repo> "hook-crash-<sig>" in:body is:issue`, open and closed.
-    /// An open issue wins; else the first closed one, which counts as fixed when its milestone
-    /// is a release newer than `hookVersion`.
+    /// Anyone can file an issue that quotes a signature, so only a trusted one counts: see
+    /// `match`.
     public func search(signature: String, hookVersion: String) async -> IssueMatch {
         guard Self.isSignature(signature),
               var components = URLComponents(url: api.appending(path: "search/issues"), resolvingAgainstBaseURL: false)
@@ -55,19 +55,41 @@ public struct GitHubIssues: Sendable {
         guard let (data, response) = try? await session.data(for: request),
               (response as? HTTPURLResponse)?.statusCode == 200,
               let reply = try? JSONDecoder().decode(SearchReply.self, from: data) else { return .unavailable }
-        return Self.match(reply.items, hookVersion: hookVersion)
+        return Self.match(reply.items, hookVersion: hookVersion, repo: repo)
     }
 
-    static func match(_ items: [SearchReply.Issue], hookVersion: String) -> IssueMatch {
-        if let open = items.first(where: { $0.state == "open" }), let url = URL(string: open.html_url) {
+    /// The label a triager adds to vouch for an issue filed by someone without a role in the
+    /// repo. It must never be in `.github/ISSUE_TEMPLATE/crash.md`: template labels go on
+    /// anyone's issue.
+    public static let confirmedLabel = "crash-confirmed"
+    /// Repo roles whose issues count without the label.
+    static let trustedAssociations: Set<String> = ["OWNER", "MEMBER", "COLLABORATOR"]
+
+    /// The first trusted open issue wins. Else a closed one under a milestone that is a release
+    /// newer than `hookVersion` is a fix (milestones are maintainer-only, so any author counts);
+    /// else the first trusted closed one is "possibly the same". Items whose link isn't
+    /// `https://github.com/<repo>/issues/<number>` are skipped.
+    static func match(_ items: [SearchReply.Issue], hookVersion: String, repo: String = defaultRepo) -> IssueMatch {
+        let items = items.filter { $0.html_url == "\(web)/\(repo)/issues/\($0.number)" }
+        if let open = items.first(where: { $0.state == "open" && isTrusted($0) }), let url = URL(string: open.html_url) {
             return .open(number: open.number, title: open.title, url: url)
         }
-        guard let closed = items.first(where: { $0.state == "closed" }) else { return .none }
-        if let title = closed.milestone?.title, let fixed = SemVer(strict: title.hasPrefix("v") ? String(title.dropFirst()) : title),
-           let crashed = SemVer(strict: hookVersion), fixed > crashed {
-            return .closedFixed(number: closed.number, version: fixed)
+        let closed = items.filter { $0.state == "closed" }
+        let crashed = SemVer(strict: hookVersion)
+        for issue in closed {
+            if let title = issue.milestone?.title, let crashed,
+               let fixed = SemVer(strict: title.hasPrefix("v") ? String(title.dropFirst()) : title), fixed > crashed {
+                return .closedFixed(number: issue.number, version: fixed)
+            }
         }
-        return .closedOther(number: closed.number)
+        if let other = closed.first(where: isTrusted) { return .closedOther(number: other.number) }
+        return .none
+    }
+
+    /// Filed by the owner, a member or a collaborator, or labeled `confirmedLabel`.
+    static func isTrusted(_ issue: SearchReply.Issue) -> Bool {
+        trustedAssociations.contains(issue.author_association ?? "")
+            || (issue.labels ?? []).contains { $0.name == confirmedLabel }
     }
 
     /// 12 lowercase hex, so nothing else can ride along in the query.
@@ -125,11 +147,15 @@ public struct GitHubIssues: Sendable {
     struct SearchReply: Decodable {
         struct Issue: Decodable {
             struct Milestone: Decodable { let title: String? }
+            struct Label: Decodable { let name: String? }
             let number: Int
             let title: String
             let state: String
             let html_url: String
             let milestone: Milestone?
+            /// Missing in a reply: trusts nothing.
+            let author_association: String?
+            let labels: [Label]?
         }
         let items: [Issue]
     }

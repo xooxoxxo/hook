@@ -1,5 +1,6 @@
 {"total_count": 1, "incomplete_results": false, "items": [
   {"number": 42, "title": "Hook crash: EXC_BAD_ACCESS in SettingsWindow.open (a3f9c2e17b04)", "state": "closed",
-   "state_reason": "completed", "html_url": "https://github.com/xooxoxxo/hook/issues/42",
+   "state_reason": "completed", "author_association": "MEMBER", "labels": [{"name": "crash"}],
+   "html_url": "https://github.com/xooxoxxo/hook/issues/42",
    "milestone": {"title": "0.12.1"}}
 ]}

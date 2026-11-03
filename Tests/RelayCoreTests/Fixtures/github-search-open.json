@@ -1,6 +1,8 @@
 {"total_count": 2, "incomplete_results": false, "items": [
   {"number": 40, "title": "Hook crash: EXC_BAD_ACCESS in SettingsWindow.open (a3f9c2e17b04)", "state": "closed",
-   "state_reason": "not_planned", "html_url": "https://github.com/xooxoxxo/hook/issues/40", "milestone": null},
+   "state_reason": "not_planned", "author_association": "MEMBER", "labels": [{"name": "crash"}],
+   "html_url": "https://github.com/xooxoxxo/hook/issues/40", "milestone": null},
   {"number": 42, "title": "Hook crash: EXC_BAD_ACCESS in SettingsWindow.open (a3f9c2e17b04)", "state": "open",
-   "state_reason": null, "html_url": "https://github.com/xooxoxxo/hook/issues/42", "milestone": null}
+   "state_reason": null, "author_association": "MEMBER", "labels": [{"name": "crash"}],
+   "html_url": "https://github.com/xooxoxxo/hook/issues/42", "milestone": null}
 ]}

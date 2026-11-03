@@ -51,6 +51,8 @@ Nothing is sent to GitHub until you submit the issue yourself in your browser.
    - **Closed in a newer release:** "Fixed in 0.x. Update Hook." with Update Hook.
    - **Closed otherwise:** a new issue that starts "Possibly the same as #N".
    - **No answer** (rate-limited, offline): Check for an Existing Issue opens the search page, and Open New Issue opens a prefilled issue.
+
+   Anyone can open an issue that quotes a signature, so only a trusted issue counts as open or "possibly the same": one filed by the repo's owner, a member or a collaborator, or one a maintainer labeled `crash-confirmed`. Any other match is ignored and you get a new issue. Hook only opens links to an issue page in the Hook repo.
 3. A prefilled link stays under 6,000 characters by dropping the oldest log lines. When anything was dropped, the sheet says so first, and the full report also goes to the clipboard.
 
 ### My Pond

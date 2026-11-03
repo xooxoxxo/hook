@@ -20,6 +20,19 @@ private func issues(_ handler: @escaping MailboxStubRegistry.Handler) throws -> 
     return (GitHubIssues(session: URLSession(configuration: configuration), api: api), host)
 }
 
+/// One search item as GitHub returns it, for the trust tests.
+private func item(_ number: Int, state: String = "open", association: String = "NONE", labels: [String] = ["crash"],
+                  url: String? = nil, milestone: String? = nil) -> String {
+    let names = labels.map { #"{"name": "\#($0)"}"# }.joined(separator: ", ")
+    let link = url ?? "https://github.com/xooxoxxo/hook/issues/\(number)"
+    let stone = milestone.map { #"{"title": "\#($0)"}"# } ?? "null"
+    return #"{"number": \#(number), "title": "Hook crash: X (a3f9c2e17b04)", "state": "\#(state)", "#
+        + #""author_association": "\#(association)", "labels": [\#(names)], "html_url": "\#(link)", "#
+        + #""milestone": \#(stone)}"#
+}
+
+private func reply(_ items: String...) -> String { #"{"total_count": \#(items.count), "items": [\#(items.joined(separator: ", "))]}"# }
+
 @Suite struct GitHubIssuesTests {
     @Test(arguments: [
         ("none", IssueMatch.none),
@@ -39,6 +52,81 @@ private func issues(_ handler: @escaping MailboxStubRegistry.Handler) throws -> 
         let body = try searchFixture("closed-fixed")
         let (gh, _) = try issues { _, _ in (200, body) }
         #expect(await gh.search(signature: signature, hookVersion: "0.12.1") == .closedOther(number: 42))
+    }
+
+    // MARK: Signature squatting: anyone can open an issue that quotes a signature.
+
+    private func search(_ body: String) async throws -> IssueMatch {
+        let (gh, _) = try issues { _, _ in (200, body) }
+        return await gh.search(signature: signature, hookVersion: "0.12.0")
+    }
+
+    /// An open issue by someone without a role in the repo, and no crash-confirmed label, is
+    /// not "an issue like this": Hook offers a new issue instead.
+    @Test(arguments: ["NONE", "CONTRIBUTOR", "FIRST_TIMER", "FIRST_TIME_CONTRIBUTOR", "MANNEQUIN", ""])
+    func anUntrustedOpenIssueIsNone(_ association: String) async throws {
+        #expect(try await search(reply(item(42, association: association))) == IssueMatch.none)
+    }
+
+    @Test(arguments: ["OWNER", "MEMBER", "COLLABORATOR"])
+    func aMaintainersOpenIssueIsOpen(_ association: String) async throws {
+        #expect(try await search(reply(item(42, association: association)))
+            == .open(number: 42, title: "Hook crash: X (a3f9c2e17b04)",
+                     url: URL(string: "https://github.com/xooxoxxo/hook/issues/42")!))
+    }
+
+    /// A triager vouches for anyone's issue with the crash-confirmed label.
+    @Test func aConfirmedIssueByAnyoneIsOpen() async throws {
+        #expect(try await search(reply(item(42, labels: ["crash", "crash-confirmed"])))
+            == .open(number: 42, title: "Hook crash: X (a3f9c2e17b04)",
+                     url: URL(string: "https://github.com/xooxoxxo/hook/issues/42")!))
+    }
+
+    /// A squatter's issue listed first doesn't hide the real one behind it.
+    @Test func anUntrustedIssueIsSkippedForATrustedOne() async throws {
+        #expect(try await search(reply(item(50), item(42, association: "MEMBER")))
+            == .open(number: 42, title: "Hook crash: X (a3f9c2e17b04)",
+                     url: URL(string: "https://github.com/xooxoxxo/hook/issues/42")!))
+    }
+
+    /// Only an issue page in the Hook repo is ever opened.
+    @Test(arguments: ["https://evil.example/xooxoxxo/hook/issues/42",
+                      "https://github.com.evil.example/xooxoxxo/hook/issues/42",
+                      "http://github.com/xooxoxxo/hook/issues/42",
+                      "https://github.com/xooxoxxo/hook-fix/issues/42",
+                      "https://github.com/someone/hook/issues/42",
+                      "https://github.com/xooxoxxo/hook/pull/42",
+                      "https://github.com/xooxoxxo/hook/issues/42/../../../someone/hook/issues/1",
+                      "https://github.com/xooxoxxo/hook/issues/41",
+                      "not a url"])
+    func anIssueURLOutsideTheRepoIsSkipped(_ url: String) async throws {
+        #expect(try await search(reply(item(42, association: "MEMBER", url: url))) == IssueMatch.none)
+        #expect(try await search(reply(item(42, association: "MEMBER", labels: ["crash-confirmed"], url: url),
+                                       item(43, association: "OWNER")))
+            == .open(number: 43, title: "Hook crash: X (a3f9c2e17b04)",
+                     url: URL(string: "https://github.com/xooxoxxo/hook/issues/43")!))
+    }
+
+    /// A closed issue anyone can file and close isn't "possibly the same" without the same trust.
+    @Test func anUntrustedClosedIssueIsNone() async throws {
+        #expect(try await search(reply(item(38, state: "closed", milestone: nil))) == IssueMatch.none)
+        #expect(try await search(reply(item(38, state: "closed", labels: ["crash-confirmed"])))
+            == .closedOther(number: 38))
+        #expect(try await search(reply(item(37, state: "closed"), item(38, state: "closed", association: "COLLABORATOR")))
+            == .closedOther(number: 38))
+    }
+
+    /// Milestones are maintainer-only, so a release milestone counts whoever filed the issue.
+    @Test func aReleaseMilestoneCountsForAnyAuthor() async throws {
+        #expect(try await search(reply(item(42, state: "closed", milestone: "0.12.1")))
+            == .closedFixed(number: 42, version: SemVer(major: 0, minor: 12, patch: 1)))
+    }
+
+    /// A reply without the trust fields (an older API, a proxy) trusts nothing.
+    @Test func anItemWithoutTrustFieldsIsSkipped() async throws {
+        let bare = #"{"items": [{"number": 42, "title": "T", "state": "open", "#
+            + #""html_url": "https://github.com/xooxoxxo/hook/issues/42", "milestone": null}]}"#
+        #expect(try await search(bare) == IssueMatch.none)
     }
 
     @Test(arguments: [403, 429, 500])
@@ -136,5 +224,7 @@ private func issues(_ handler: @escaping MailboxStubRegistry.Handler) throws -> 
         #expect(fields["labels"] == "crash")
         #expect(fields["name"] == "Crash report")
         #expect(fields["about"]?.isEmpty == false)
+        // Template labels go on anyone's issue, so the trust label must never be one of them.
+        #expect(!text.contains(GitHubIssues.confirmedLabel))
     }
 }
