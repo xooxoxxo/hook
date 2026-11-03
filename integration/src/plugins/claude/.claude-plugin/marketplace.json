@@ -1,0 +1,5 @@
+{
+  "name": "hook",
+  "owner": {"name": "Hook"},
+  "plugins": [{"name": "hook", "source": "./"}]
+}

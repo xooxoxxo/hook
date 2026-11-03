@@ -1,0 +1,8 @@
+{
+  "name": "hook",
+  "version": "{{version}}",
+  "contextFileName": "hook.md",
+  "mcpServers": {
+    "relay": {"command": "{{python}}", "args": ["{{mcp_server}}"]}
+  }
+}

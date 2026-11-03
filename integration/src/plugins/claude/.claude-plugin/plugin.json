@@ -1,0 +1,6 @@
+{
+  "name": "hook",
+  "version": "{{version}}",
+  "description": "Hook owner asks",
+  "hooks": "./hooks/claude-hooks.json"
+}

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Packs a release from a built Hook.app:
 #   <out>/Hook-<version>.zip  Hook.app, and support/ (the CLI, clients, MCP server, skill,
-#                             schema and installer that ~/.local/share/hook/<version> holds)
+#                             schema, integration bundle and installer that
+#                             ~/.local/share/hook/<version> holds)
 #   <out>/SHA256SUMS          the zip's SHA-256, as `shasum -a 256` prints it
 #   scripts/package-release.sh [--app <Hook.app>] [--out <dir>]
 # --app defaults to ./build/Hook.app (build it with BUILD_ONLY=1 scripts/build.sh), --out to ./dist.
@@ -55,6 +56,10 @@ done
 cp "$ROOT/mcp/relay_mcp.py" "$S/mcp/"
 cp "$ROOT"/schema/*.json "$S/schema/"
 ditto --norsrc "$ROOT/skill/instructables" "$S/skill/instructables"
+# The integration bundle (instructions, the versioned skill, plugin and file templates and
+# the harness table) that `relay integrations` installs into every agent harness.
+python3 "$ROOT/clients/relay_bundle.py" build --version "$version" --out "$S/integration" >/dev/null \
+  || die "the integration bundle did not build"
 cp "$ROOT/scripts/install.sh" "$ROOT/scripts/get.sh" "$S/scripts/"
 cp "$ROOT/docs/claude-md-section.md" "$S/docs/"
 cp "$ROOT/LICENSE" "$ROOT/THIRD_PARTY_NOTICES.md" "$S/"

@@ -56,6 +56,27 @@ fi
 [ -x "$T/x/Hook.app/Contents/MacOS/Hook" ] || fail "the app lost its executable"
 ok "zip layout and SHA256SUMS"
 
+# 1a. The integration bundle: built for this version, its files match bundle.json.
+I="$S/integration"
+for f in bundle.json instructions/hook.md skills/instructables/SKILL.md \
+         plugins/claude/.claude-plugin/plugin.json; do
+  [ -f "$I/$f" ] || fail "support/integration/$f is missing"
+done
+[ "$(head -n 1 "$I/instructions/hook.md")" = "<!-- hook:instructions v=1 app=$VERSION -->" ] \
+  || fail "instructions/hook.md starts with $(head -n 1 "$I/instructions/hook.md")"
+grep -qx "  version: \"$VERSION\"" "$I/skills/instructables/SKILL.md" || fail "the skill has no metadata.version $VERSION"
+for f in instructions/hook.md skills/instructables/SKILL.md plugins/claude/.claude-plugin/plugin.json; do
+  want="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["files"][sys.argv[2]])' "$I/bundle.json" "$f")" \
+    || fail "bundle.json does not list $f"
+  [ "$(shasum -a 256 "$I/$f" | cut -d' ' -f1)" = "$want" ] || fail "$f does not match its sha in bundle.json"
+done
+[ "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' "$I/bundle.json")" = "$VERSION" ] \
+  || fail "bundle.json names another version"
+if find "$I" -type l | grep -q .; then fail "symlinks in the bundle: $(find "$I" -type l | head -3)"; fi
+if ls "$S/clients" | grep -q '^test_.*\.py$'; then fail "tests in support/clients: $(ls "$S/clients" | grep '^test_' | head -3)"; fi
+[ -f "$S/clients/relay_bundle.py" ] || fail "support/clients/relay_bundle.py is missing"
+ok "integration bundle"
+
 # 1b. Relative --app and --out (as the release workflow passes --out dist) resolve
 #     against the folder it runs in.
 mkdir -p "$T/cwd"

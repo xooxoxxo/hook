@@ -1,0 +1,7 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {"hooks": [{"type": "command", "command": "{{replies:claude}}", "timeout": 5}]}
+    ]
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "hook",
+  "version": "{{version}}",
+  "description": "Hook owner asks",
+  "mcpServers": {
+    "relay": {"command": "{{python}}", "args": ["{{mcp_server}}"]}
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "hooks": {
+    "BeforeAgent": [
+      {"hooks": [{"type": "command", "command": "{{replies:gemini}}", "timeout": 5000}]}
+    ]
+  }
+}
