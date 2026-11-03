@@ -21,7 +21,7 @@ private func redact(_ s: String) -> String { Redactor.redact(s, home: "/Users/me
     @Test func urlsAndHostsBecomeHost() {
         #expect(redact("GET https://pond.example.com/asks?x=1 failed") == "GET <host> failed")
         #expect(redact("can't reach pond.example.com") == "can't reach <host>")
-        #expect(redact("docker-apps.lan refused") == "<host> refused")
+        #expect(redact("example-mac.lan refused") == "<host> refused")
         #expect(redact("listener on localhost:47823") == "listener on <host>")
         #expect(redact("example-mac:8443 is down") == "<host> is down")
     }
