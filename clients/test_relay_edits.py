@@ -97,6 +97,47 @@ class JSONCTests(unittest.TestCase):
                 new = ed.json_set(old, PATH, SERVER)
                 self.assertEqual(ed.json_delete(new, PATH, prune=made), old)
 
+    def test_whitespace_only_shapes_round_trip_with_restore(self):
+        shapes = ["{ }", "{\n}\n", "{\n}", "{  }\n", "{\r\n}\r\n", "{ /* c */ }", "{\n  // only a comment\n}\n",
+                  "\n", "\n\n", "  \n", "\r\n", "﻿\n", "// top\n{ }\n"]
+        for old in shapes:
+            for path in (PATH, ["instructions"]):
+                with self.subTest(old=old, path=path):
+                    self.assertTrue(ed.json_empty_shape(old))
+                    made = ed.json_missing_containers(old, path)
+                    new = ed.json_set(old, path, SERVER)
+                    self.assertEqual(ed.json_delete(new, path, prune=made, restore=old), old)
+            with self.subTest(old=old, op="append"):
+                made = ed.json_missing_containers(old, ["instructions"], append=True)
+                new = ed.json_append(old, ["instructions"], "x", lambda e: e == "x")
+                self.assertEqual(ed.json_remove_matching(new, ["instructions"], lambda e: e == "x", prune=made,
+                                                         restore=old), old)
+
+    def test_without_restore_whitespace_only_shapes_normalise(self):
+        # Documented: without the text from before, an emptied object is written `{}` and a file
+        # that held only whitespace becomes empty; what it reads as is the same. A nested
+        # whitespace-only object is always normalised, since restore covers the whole file only.
+        nested = '{\n  "mcpServers": { }\n}\n'
+        for old, back in (("{ }", "{}"), ("{\n}\n", "{}\n"), ("\n", ""), ("  \n", ""),
+                          (nested, '{\n  "mcpServers": {}\n}\n')):
+            with self.subTest(old=old):
+                made = ed.json_missing_containers(old, PATH)
+                new = ed.json_set(old, PATH, SERVER)
+                self.assertEqual(ed.json_delete(new, PATH, prune=made), back)
+                self.assertEqual(ed.loads_jsonc(back or "{}"), ed.loads_jsonc(old if old.strip() else "{}"))
+        self.assertFalse(ed.json_empty_shape(nested))
+
+    def test_restore_is_used_only_when_nothing_is_left(self):
+        made = ed.json_missing_containers("{ }", PATH)
+        new = ed.json_set("{ }", PATH, SERVER)
+        added = ed.json_set(new, ["theme"], "dark")              # the user added a key since
+        self.assertEqual(ed.loads_jsonc(ed.json_delete(added, PATH, prune=made, restore="{ }")), {"theme": "dark"})
+        self.assertFalse(ed.json_empty_shape('{"a": 1}'))
+        self.assertFalse(ed.json_empty_shape("[]"))
+        self.assertFalse(ed.json_empty_shape("{"))
+        # A restore that isn't empty-shaped is never written.
+        self.assertEqual(ed.json_delete(new, PATH, prune=made, restore='{"a": 1}'), "{}")
+
     def test_missing_containers(self):
         self.assertEqual(ed.json_missing_containers("", PATH), 2)
         self.assertEqual(ed.json_missing_containers("{}", PATH), 1)
@@ -266,6 +307,39 @@ class TOMLTests(unittest.TestCase):
                 with self.assertRaises(ed.EditError):
                     self.set(text)
 
+    def test_an_array_of_tables_named_like_the_parent_is_refused(self):
+        for text in ['[[mcp_servers]]\nname = "x"\n', '[[ "mcp_servers" ]]\nname = "x"\n']:
+            for tomllib in (ed._tomllib, None):
+                with self.subTest(text=text, tomllib=tomllib), mock.patch.object(ed, "_tomllib", tomllib):
+                    with self.assertRaises(ed.EditError):
+                        self.set(text)
+
+    def test_obviously_broken_files_are_refused_without_tomllib(self):
+        broken = ['a = = 1\n', '[unclosed\nx = 1\n', '[x]]\n', 'just words\n', 'a = "open\n', "a = 'open\n",
+                  'a = [1,\n2\n', 'a = {b = 1\n', '[x]\na = 1\n[x]\nb = 2\n', 'a =\n', 'a = # none\n',
+                  'notes = """\nopen\n', 'a = 1]\n', '= 1\n']
+        for text in broken:
+            for tomllib in (None, ed._tomllib):
+                with self.subTest(text=text, tomllib=tomllib), mock.patch.object(ed, "_tomllib", tomllib):
+                    with self.assertRaises((ed.ParseError, ed.EditError)):
+                        self.set(text)
+
+    def test_valid_files_pass_the_check_without_tomllib(self):
+        good = [CODEX, "", "\n# only a comment\n",
+                'a = [\n  "x", # one\n  "y",\n]\nb = { c = "d", e = [1, 2] }\n',
+                'notes = """\n[not a header]\nx = """\n' + "lit = '''\n[nor this]\n'''\n",
+                "'quoted key' = 1\n\"dotted.key\" = 'v'\na . b = true\nt = 1979-05-27T07:32:00Z\nn = -inf\n",
+                '[[mcp_servers.other]]\nname = "x"\n[[mcp_servers.other]]\nname = "y"\n',
+                '[ profiles . "a b" ]\nx = "#not a comment"  # a comment\n',
+                's = "a \\" quote"\n']
+        for text in good:
+            with self.subTest(text=text), mock.patch.object(ed, "_tomllib", None):
+                new = self.set(text)
+                self.assertEqual(ed.toml_get_owned(new, "mcp"), TOML_VALUES)
+                self.assertEqual(ed.toml_remove_table(new, "mcp"), text)
+            if ed._tomllib is not None:
+                ed._tomllib.loads(text)                          # the samples are valid TOML
+
     def test_other_servers_are_fine(self):
         text = '[mcp_servers.other]\ncommand = "x"\n# [mcp_servers.relay] in a comment\n'
         self.assertEqual(ed.toml_get_owned(self.set(text), "mcp"), TOML_VALUES)
@@ -297,11 +371,12 @@ class TOMLTests(unittest.TestCase):
 
     def test_tomllib_cross_check_is_skipped_below_3_11(self):
         self.assertEqual(ed._tomllib is None, sys.version_info < (3, 11))
+        subtle = 'a = 1\na = 2\n'                       # a duplicate key: only tomllib sees it
         with mock.patch.object(ed, "_tomllib", None):
-            self.assertEqual(ed.toml_get_owned(self.set('a = = 1\n'), "mcp"), TOML_VALUES)
+            self.assertEqual(ed.toml_get_owned(self.set(subtle), "mcp"), TOML_VALUES)
         if ed._tomllib is not None:
             with self.assertRaises(ed.ParseError):
-                self.set('a = = 1\n')
+                self.set(subtle)
 
     def test_duplicate_or_open_markers_are_refused(self):
         once = self.set(CODEX)
@@ -412,6 +487,24 @@ class YAMLTests(unittest.TestCase):
             "extensions: [a]\n",
             "extensions:\n  a: 1\nextensions:\n  b: 1\n",
         ]:
+            with self.subTest(text):
+                with self.assertRaises(ed.EditError):
+                    self.set(text)
+
+    def test_a_quoted_parent_key(self):
+        for text in ['"extensions":\n  developer:\n    enabled: true\n',
+                     "'extensions':\n  developer: {}\nother: 1\n",
+                     'a: 1\n"extensions": {}  # none yet\nb: 2\n',
+                     "'extensions' :\n  developer:\n    enabled: true\n"]:
+            with self.subTest(text):
+                new = self.assertRoundTrip(text)
+                self.assertEqual(new.count("extensions"), 1)    # under the user's key, not a second one
+
+    def test_a_key_hook_cant_read_is_refused(self):
+        for text in ['"extensions":\n  a: 1\nextensions:\n  b: 1\n',
+                     "? extensions\n: {}\n",
+                     '"exten\\u0073ions":\n  a: 1\n',
+                     '"extensions":\n  "relay":\n    cmd: x\n']:
             with self.subTest(text):
                 with self.assertRaises(ed.EditError):
                     self.set(text)

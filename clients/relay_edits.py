@@ -14,9 +14,9 @@ commas). Edits splice text into the file and never re-dump it:
     loads_jsonc(text) -> value
     json_get(text, path) -> (found, value)
     json_set(text, path, value) -> text
-    json_delete(text, path, *, prune=0) -> text
+    json_delete(text, path, *, prune=0, restore=None) -> text
     json_append(text, path, element, match) -> text           # unchanged if an element matches
-    json_remove_matching(text, path, match, *, prune=0) -> text
+    json_remove_matching(text, path, match, *, prune=0, restore=None) -> text
     json_remove_nested(text, path, inner, match) -> text      # path[*].inner items
     json_missing_containers(text, path, *, append=False) -> int
 
@@ -25,6 +25,17 @@ Hook's. `prune` says how many containers, from the innermost outward (the object
 deleted key, or the array itself), Hook created and should remove again once they are empty;
 the root counts, and removing it leaves an empty file. `json_missing_containers` tells the
 caller that number before it sets or appends, so set-then-delete gives the original bytes.
+
+An insert into an object that holds only whitespace (`{ }`, `{\n}`) or into a file that holds
+only whitespace re-indents it, and the delete writes the emptied object as `{}` (or an empty
+file). To get those bytes back, the caller keeps the text from before its first edit when
+`json_empty_shape(text)` says it is one of these, and passes it as `restore`: a delete that leaves
+nothing (no member, only whitespace and comments) returns `restore` instead. A whitespace-only
+object below the root (`"mcpServers": { }`) is always written back as `{}`.
+
+TOML on Python 3.9 has no tomllib: a structural check refuses what is obviously broken
+(and, everywhere, an array of tables named like Hook's parent table); from 3.11 tomllib also
+reads the whole file before and after the edit.
 
 TOML (one Hook-owned table), YAML (one Hook-owned child of a top-level mapping) and Markdown
 (one marked block) live between Hook's markers:
@@ -466,7 +477,27 @@ def _prune(body: str, container: Sequence[str], prune: int) -> str:
     return _delete_body(body, container, prune - 1)
 
 
-def json_delete(text: str, path: Sequence[str], *, prune: int = 0) -> str:
+def json_empty_shape(text: str) -> bool:
+    """Does the file hold nothing: only whitespace, or an object with no member (whitespace and
+    comments allowed)? Such a file is what `restore` gives back byte for byte."""
+    _, body = _split_bom(text)
+    if not body.strip():
+        return True
+    try:
+        root = _parse(body)
+    except ParseError:
+        return False
+    return root.kind == "object" and not root.items
+
+
+def _restored(result: str, restore: Optional[str]) -> str:
+    """`restore` when the edit left nothing and restore is itself an empty shape, else result."""
+    if restore is not None and json_empty_shape(result) and json_empty_shape(restore):
+        return restore
+    return result
+
+
+def json_delete(text: str, path: Sequence[str], *, prune: int = 0, restore: Optional[str] = None) -> str:
     if not path:
         raise EditError("an empty path")
     bom, body = _split_bom(text)
@@ -476,7 +507,7 @@ def json_delete(text: str, path: Sequence[str], *, prune: int = 0) -> str:
     if new == body:
         return text
     _verify(body, new, path, (False, None))
-    return (bom + new) if new else ""
+    return _restored((bom + new) if new else "", restore)
 
 
 def _array(body: str, path: Sequence[str]) -> Optional[_Node]:
@@ -505,7 +536,7 @@ def json_append(text: str, path: Sequence[str], element: Any, match: Callable[[A
 
 
 def json_remove_matching(text: str, path: Sequence[str], match: Callable[[Any], bool], *,
-                         prune: int = 0) -> str:
+                         prune: int = 0, restore: Optional[str] = None) -> str:
     if not path:
         raise EditError("an empty path")
     bom, body = _split_bom(text)
@@ -530,7 +561,7 @@ def json_remove_matching(text: str, path: Sequence[str], match: Callable[[Any], 
         _verify(body, new, path, (None, None))
     else:
         _verify(body, new, path, (True, kept))
-    return (bom + new) if new else ""
+    return _restored((bom + new) if new else "", restore)
 
 
 def _nested_hits(node: _Node, inner: str, match: Callable[[Any], bool]) -> Tuple[Optional[_Item], List[int]]:
@@ -727,6 +758,7 @@ def _toml_refuse(lines: List[str], table: Sequence[str]) -> None:
         raise ValueError("the TOML table is two names, like mcp_servers.relay")
     t0, t1 = _toml_part(table[0]), _toml_part(table[1])
     header = re.compile(rf"^\s*\[\[?\s*{t0}\s*\.\s*{t1}\s*[\].]")
+    array = re.compile(rf"^\s*\[\[\s*{t0}\s*\]\]")
     top_key = re.compile(rf"^\s*{t0}\s*(?:=|\.\s*{t1}\s*[.=])")
     parent = re.compile(rf"^\s*\[\s*{t0}\s*\]")
     child = re.compile(rf"^\s*{t1}\s*[.=]")
@@ -741,6 +773,8 @@ def _toml_refuse(lines: List[str], table: Sequence[str]) -> None:
             triple[q] += line.count(q)
         if header.match(line):
             raise EditError(f"{'.'.join(table)} is already defined outside Hook's block")
+        if array.match(line):
+            raise EditError(f"{table[0]} is an array of tables, so Hook can't add {table[1]} to it")
         if any_header.match(line):
             section = "parent" if parent.match(line) else ""
         elif section is None and top_key.match(line):
@@ -749,6 +783,102 @@ def _toml_refuse(lines: List[str], table: Sequence[str]) -> None:
             raise EditError(f"[{table[0]}] already holds {table[1]}")
     if any(n % 2 for n in triple.values()):
         raise EditError("a multi-line string Hook can't see past")
+
+
+_TOML_KEY_PART = r"""(?:[A-Za-z0-9_-]+|"(?:[^"\\\n]|\\.)*"|'[^'\n]*')"""
+_TOML_KEY = re.compile(rf"^\s*{_TOML_KEY_PART}(?:\s*\.\s*{_TOML_KEY_PART})*\s*=")
+_TOML_HEADER = re.compile(rf"^\s*(\[\[?)\s*({_TOML_KEY_PART}(?:\s*\.\s*{_TOML_KEY_PART})*)\s*(\]\]?)\s*(?:#.*)?$")
+_TOML_VALUE_START = re.compile(r"""["'\[{]|[+-]?(?:\d|inf\b|nan\b)|true\b|false\b""")
+_TRIPLES = ('"' * 3, "'" * 3)
+
+
+def _escaped(s: str, k: int) -> bool:
+    """Is s[k] escaped by an odd run of backslashes before it?"""
+    back = 0
+    while k - back - 1 >= 0 and s[k - back - 1] == "\\":
+        back += 1
+    return back % 2 == 1
+
+
+def _toml_scan(s: str, i: int, n: int, state: Dict[str, Any]) -> None:
+    """Strings, comments and brackets in s[i:]; `state` carries an open multi-line string and the
+    bracket depth from line to line."""
+    while i < len(s):
+        ml = state["ml"]
+        if ml is not None:
+            k = s.find(ml, i)
+            while ml == _TRIPLES[0] and k > 0 and _escaped(s, k):
+                k = s.find(ml, k + 1)
+            if k < 0:
+                return
+            i = k + 3
+            while i < len(s) and s[i] == ml[0]:           # a closing run may hold up to two quotes more
+                i += 1
+            state["ml"] = None
+            continue
+        ch = s[i]
+        if ch == "#":
+            return
+        if s.startswith(_TRIPLES, i):
+            state["ml"] = s[i:i + 3]
+            i += 3
+            continue
+        if ch == '"':
+            k = i + 1
+            while k < len(s) and (s[k] != '"' or _escaped(s, k)):
+                k += 1
+            if k >= len(s):
+                raise ParseError(f"line {n}: an unterminated string")
+            i = k + 1
+            continue
+        if ch == "'":
+            k = s.find("'", i + 1)
+            if k < 0:
+                raise ParseError(f"line {n}: an unterminated string")
+            i = k + 1
+            continue
+        if ch in "[{":
+            state["depth"] += 1
+        elif ch in "]}":
+            state["depth"] -= 1
+            if state["depth"] < 0:
+                raise ParseError(f"line {n}: a closing {ch} with nothing open")
+        i += 1
+
+
+def _toml_check(text: str) -> None:
+    """Refuse a file that is obviously not TOML, on every Python (from 3.11 tomllib checks the
+    rest): a line that is neither a table header nor `key = value`, a key without a value, an
+    unclosed string, array or inline table, a stray closing bracket, a table defined twice."""
+    state: Dict[str, Any] = {"ml": None, "depth": 0}
+    tables = set()
+    for n, line in enumerate(text.splitlines(), 1):
+        if state["ml"] is not None or state["depth"] > 0:
+            _toml_scan(line, 0, n, state)
+            continue
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if stripped.startswith("["):
+            m = _TOML_HEADER.match(line)
+            if not m or len(m.group(1)) != len(m.group(3)):
+                raise ParseError(f"line {n}: a broken table header")
+            if m.group(1) == "[":
+                name = re.sub(r"\s*\.\s*", ".", m.group(2))
+                if name in tables:
+                    raise ParseError(f"line {n}: a table defined twice")
+                tables.add(name)
+            continue
+        m = _TOML_KEY.match(line)
+        if not m:
+            raise ParseError(f"line {n}: neither a table header nor key = value")
+        if not _TOML_VALUE_START.match(line[m.end():].lstrip(" \t")):
+            raise ParseError(f"line {n}: a key without a value")
+        _toml_scan(line, m.end(), n, state)
+    if state["ml"] is not None:
+        raise ParseError("a multi-line string that never ends")
+    if state["depth"]:
+        raise ParseError("an array or inline table that never closes")
 
 
 class _TomlReader:
@@ -898,6 +1028,7 @@ def toml_set_table(text: str, table: Sequence[str], values: Dict[str, Any], bloc
     found = _hash_block(lines, block_id)
     outside = lines[:found[0]] + lines[found[1] + 1:] if found else lines
     _toml_refuse(outside, table)
+    _toml_check(text)
     if _tomllib is not None:
         try:
             _tomllib.loads(text)
@@ -990,9 +1121,21 @@ def _yaml_flow(content: str) -> Optional[str]:
     return value if value[:1] in ("{", "[") else None
 
 
+def _yaml_parent(parent: str) -> str:
+    """The top-level key as a pattern: bare, "double-quoted" or 'single-quoted'."""
+    e = re.escape(parent)
+    return rf"(?:{e}|\"{e}\"|'{e}')"
+
+
 def _yaml_section(lines: List[str], parent: str) -> Optional[Tuple[int, int]]:
-    """(parent line, first line after its section), or None. Two parent lines raise."""
-    pat = re.compile(rf"^{re.escape(parent)}\s*:(?:\s|$)")
+    """(parent line, first line after its section), or None. Two parent lines raise, and so
+    does a top-level key Hook can't read for sure (an explicit `? key`, an escaped quoted key)."""
+    for line in lines:
+        if re.match(r"^\?(?:\s|$)", line):
+            raise EditError("an explicit `? key` Hook can't read")
+        if re.match(r"^\"(?:[^\"\\]|\\.)*\\", line):
+            raise EditError("a quoted top-level key with escapes Hook can't read")
+    pat = re.compile(rf"^{_yaml_parent(parent)}\s*:(?:\s|$)")
     hits = [k for k, line in enumerate(lines) if pat.match(line)]
     if len(hits) > 1:
         raise EditError(f"{parent} appears twice")
@@ -1171,14 +1314,14 @@ def yaml_set_child(text: str, parent: str, child: str, value: Dict[str, Any], bl
         else:
             p, stop = section
             head = lines[p]
-            content = _yaml_content(head)[len(parent):].lstrip()
+            km = re.match(rf"^{_yaml_parent(parent)}\s*:", head)
+            assert km is not None
+            content = _yaml_content(head)[km.end():].strip()
             extra = ""
-            if content.startswith(":"):
-                content = content[1:].strip()
             if content == "{}":
                 if any(_yaml_content(line).strip() for line in lines[p + 1:stop]):
                     raise EditError(f"{parent}: {{}} with lines under it")
-                fm = re.match(rf"^({re.escape(parent)}\s*:)\s*\{{\}}(.*)$", head, re.S)
+                fm = re.match(rf"^({_yaml_parent(parent)}\s*:)\s*\{{\}}(.*)$", head, re.S)
                 assert fm is not None
                 lines[p] = fm.group(1) + fm.group(2)
                 extra = " was={}"
