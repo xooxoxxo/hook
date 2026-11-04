@@ -34,9 +34,12 @@ import UserNotifications
 
     func permission() async -> NotificationPermission {
         guard available else { return .notDetermined }
-        let raw = await withCheckedContinuation { continuation in
-            UNUserNotificationCenter.current().getNotificationSettings { current in
-                continuation.resume(returning: current.authorizationStatus.rawValue)
+        // macOS 27 calls this handler on a libdispatch worker. Written plainly here it was
+        // inferred main-actor isolated, and Swift's isolation check trapped (0.12, every
+        // Settings open and every crash offer). `@Sendable` makes it nonisolated (CallbackHop).
+        let raw: Int = await CallbackHop.value { done in
+            UNUserNotificationCenter.current().getNotificationSettings { @Sendable current in
+                done(current.authorizationStatus.rawValue)
             }
         }
         return NotificationPermission(raw)

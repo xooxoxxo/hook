@@ -94,7 +94,7 @@ private final class Run: @unchecked Sendable {
         lock.lock()
         reader = handle
         lock.unlock()
-        handle.readabilityHandler = { [self] handle in
+        handle.readabilityHandler = { @Sendable [self] handle in
             let chunk = handle.availableData
             lock.lock()
             if chunk.isEmpty { atEOF = true } else { data.append(chunk) }
