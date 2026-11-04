@@ -71,7 +71,8 @@ public struct StepReports: Sendable {
     public func slot(_ path: String) -> StepReportSlot {
         let onReport = onReport, targeted = target == path
         return StepReportSlot(allowed: allowed, actionable: actionable.contains(path), reported: reported.contains(path),
-                              targeted: targeted, state: targeted ? state : .idle, keyReady: keyReady, limits: limits,
+                              targeted: targeted, fieldOpen: target != nil, state: targeted ? state : .idle,
+                              keyReady: keyReady, limits: limits,
                               draft: targeted ? draft : "", onReport: { onReport(path) }, onSend: onSend,
                               onCancel: onCancel, onEdit: onEdit, onFocus: onFocus)
     }
@@ -84,6 +85,8 @@ public struct StepReportSlot: Sendable {
     public var reported: Bool
     /// The inline field is open on this row.
     public var targeted: Bool
+    /// A field is open somewhere in the ask (this row or another): no row offers Report then.
+    public var fieldOpen: Bool
     public var state: ReportBoxState
     public var keyReady: Bool
     public var limits: TalkLimits
@@ -94,8 +97,8 @@ public struct StepReportSlot: Sendable {
     public var onEdit: @MainActor @Sendable (String) -> Void
     public var onFocus: @MainActor @Sendable (Bool) -> Void
 
-    public init(allowed: Bool, actionable: Bool, reported: Bool, targeted: Bool, state: ReportBoxState,
-                keyReady: Bool, limits: TalkLimits, draft: String = "",
+    public init(allowed: Bool, actionable: Bool, reported: Bool, targeted: Bool, fieldOpen: Bool = false,
+                state: ReportBoxState, keyReady: Bool, limits: TalkLimits, draft: String = "",
                 onReport: @escaping @MainActor @Sendable () -> Void = {},
                 onSend: @escaping @MainActor @Sendable (String) -> Void = { _ in },
                 onCancel: @escaping @MainActor @Sendable () -> Void = {},
@@ -105,6 +108,7 @@ public struct StepReportSlot: Sendable {
         self.actionable = actionable
         self.reported = reported
         self.targeted = targeted
+        self.fieldOpen = fieldOpen || targeted
         self.state = state
         self.keyReady = keyReady
         self.limits = limits

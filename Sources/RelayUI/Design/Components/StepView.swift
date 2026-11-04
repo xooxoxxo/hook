@@ -253,10 +253,11 @@ public enum StepRow {
     }
 
     /// Report shows at the bottom right of an open, actionable row (code or a tick) on an ask
-    /// that takes reports, until it is reported or its field is open; never on hover, a
-    /// collapsed row, a locked one, a closed ask or This Mac.
+    /// that takes reports, until it is reported; never while a report field is open anywhere in
+    /// the ask (a second link would drop the note being typed), on hover, a collapsed row, a
+    /// locked one, a closed ask or This Mac.
     public static func showsReportLink(_ slot: StepReportSlot, open: Bool, locked: Bool) -> Bool {
-        slot.allowed && slot.actionable && open && !locked && !slot.reported && !slot.targeted
+        slot.allowed && slot.actionable && open && !locked && !slot.reported && !slot.targeted && !slot.fieldOpen
     }
 
     /// The inline field shows while its row is the report's target, even on a collapsed row (the

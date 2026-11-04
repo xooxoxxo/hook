@@ -154,9 +154,11 @@ func pastedLog(_ count: Int) -> String {
                 draft: "The new key is in the vault under deploy, version 2."),
     // Step 1 reported: only the icon, no caption; step 2 still offers Report.
     reportScene("report-reported", reportSnapshot(reported: ["1"])),
-    // A sub-step's field, inside its parent.
+    // A sub-step's field, inside its parent: no other Report while it is open.
     reportScene("report-sub-step", reportSnapshot(target: "2.1", json: reportSubStepsJSON),
                 draft: "The disk is called Cache 2, with a space."),
+    // A parent step's own Report: the last row of its card, after its sub-steps.
+    reportScene("report-parent", reportSnapshot(json: reportSubStepsJSON)),
     // Messages: the empty section with its field, a thread, behind the disclosure on an ask
     // with a reply prompt, a refusal, and a closed ask's read-only thread.
     messageScene("detail-messages-empty", messageSnapshot()),

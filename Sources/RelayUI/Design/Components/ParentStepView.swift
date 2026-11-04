@@ -118,6 +118,15 @@ public struct ParentStepView: View {
                           bottom: below ? DS.Space.stepPart / 2 : DS.Space.groupRowV, trailing: DS.Space.groupRowH)
     }
 
+    /// The parts of an open parent card, top to bottom.
+    public enum OpenPart: Hashable, Sendable { case body, question, subSteps, report }
+
+    /// Its body, its own question, its sub-steps, then its own Report (or field) as the card's
+    /// last row (owner pick 1: bottom right), so the top stays the title and its count.
+    public static func openParts(question: Bool) -> [OpenPart] {
+        question ? [.body, .question, .subSteps, .report] : [.body, .subSteps, .report]
+    }
+
     public static func rowState(allDone: Bool, holdsCurrent: Bool) -> StepState {
         allDone ? .done : (holdsCurrent ? .current : .todo)
     }
@@ -131,10 +140,14 @@ public struct ParentStepView: View {
             }
             if isOpen {
                 VStack(alignment: .leading, spacing: DS.Space.stepPart) {
-                    StepBody(content: content, level: .top(number), onCopy: onCopy)
-                    if let question { QuestionBlock(question).padding(.top, DS.Space.stepPart) }
-                    reportArea
-                    subSteps
+                    ForEach(Self.openParts(question: question != nil), id: \.self) { part in
+                        switch part {
+                        case .body: StepBody(content: content, level: .top(number), onCopy: onCopy)
+                        case .question: if let question { QuestionBlock(question).padding(.top, DS.Space.stepPart) }
+                        case .subSteps: subSteps
+                        case .report: reportArea
+                        }
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.leading, DS.Space.subIndent)
@@ -225,8 +238,8 @@ public struct ParentStepView: View {
         }
     }
 
-    /// The parent's own report, after its body and before its sub-steps: the open field, else
-    /// Report on an expanded row. The field shows on a collapsed row too, under the header.
+    /// The parent's own report, the last row of its card (after its sub-steps): the open field,
+    /// else Report on an expanded row. The field shows on a collapsed row too, under the header.
     @ViewBuilder private var reportArea: some View {
         if let report, StepRow.showsReportField(report) {
             InlineReportField(title: ProblemReport.composerTitle(label: StepLevel.top(number).label), slot: report)

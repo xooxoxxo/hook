@@ -60,6 +60,27 @@ import Testing
         #expect(StepReports.none.slot("1").allowed == false)
     }
 
+    /// While any report field in the ask is open, no row offers Report: a second link would
+    /// open another field and drop the note being typed (a parent's link beside its sub-step's field).
+    @Test func noReportLinkWhileAFieldIsOpen() {
+        let open = StepReports(allowed: true, actionable: ["2", "2.1", "3"], reported: [], target: "2.1",
+                               onReport: { _ in })
+        #expect(open.slot("2").fieldOpen && open.slot("3").fieldOpen && open.slot("2.1").fieldOpen)
+        #expect(!StepRow.showsReportLink(open.slot("2"), open: true, locked: false))
+        #expect(!StepRow.showsReportLink(open.slot("3"), open: true, locked: false))
+        #expect(StepRow.showsReportField(open.slot("2.1")))
+        let idle = StepReports(allowed: true, actionable: ["2"], reported: [], target: nil, onReport: { _ in })
+        #expect(!idle.slot("2").fieldOpen)
+        #expect(StepRow.showsReportLink(idle.slot("2"), open: true, locked: false))
+    }
+
+    /// A parent's own Report is the last row of its card, after its sub-steps (owner pick 1:
+    /// bottom right), never between its header and its sub-steps.
+    @Test func aParentsReportComesAfterItsSubSteps() {
+        #expect(ParentStepView.openParts(question: false) == [.body, .subSteps, .report])
+        #expect(ParentStepView.openParts(question: true) == [.body, .question, .subSteps, .report])
+    }
+
     @Test func theWarningShowsUntilTheStepIsDone() {
         let blocking = StepContent(action: "Point the domain", blocking: true)
         #expect(StepRow.warning(blocking, state: .todo, locked: false) == Flow.blockingWarning)
