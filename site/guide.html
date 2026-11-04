@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Hook Product Guide</title>
 <meta name="description" content="The Hook product guide: the whole macOS menu-bar app for coding-agent asks, in 14 printable pages.">
+<link rel="icon" href="img/brand/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="img/brand/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="img/brand/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
@@ -265,11 +268,14 @@ kbd { font: 500 12px/1 var(--mono); border: 1px solid var(--line); border-bottom
   .shot-print-m { max-height: 112mm; width: auto; max-width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
-/* Site bar: back to the homepage and the PDF. Screen only. */
-.sitebar { max-width: 820px; margin: 0 auto 16px; display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: baseline; font: 500 12.5px/1.4 var(--mono); }
+/* Site bar: back to the homepage and the PDF. Screen only. It wears the homepage's brand:
+   the app-icon tile and the logo's deep purple. */
+.sitebar { --brand: #7412BE; max-width: 820px; margin: 0 auto 16px; display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; font: 500 12.5px/1.4 var(--mono); }
 .sitebar a { color: var(--ink-2); text-decoration: none; }
-.sitebar a:hover { color: var(--accent); }
-.sitebar .home { font: 800 20px/1 var(--display); letter-spacing: -0.04em; color: var(--ink); margin-right: auto; }
+.sitebar a:hover { color: var(--brand); }
+.sitebar a:focus-visible { outline-color: var(--brand); }
+.sitebar .home { display: inline-flex; align-items: center; gap: 8px; font: 800 20px/1 var(--display); letter-spacing: -0.04em; color: var(--ink); margin-right: auto; }
+.sitebar .home img { width: 26px; height: 26px; filter: drop-shadow(0 1px 2px rgba(30, 21, 39, .25)); }
 .colophon a { color: inherit; }
 @media print { .sitebar { display: none; } }
 </style>
@@ -277,7 +283,7 @@ kbd { font: 500 12px/1 var(--mono); border: 1px solid var(--line); border-bottom
 <body>
 
 <nav class="sitebar" aria-label="Site">
-  <a class="home" href="./">Hook</a>
+  <a class="home" href="./"><img src="img/brand/hook-tile-128.png" width="26" height="26" alt="">Hook</a>
   <a href="guide.pdf">Download PDF</a>
   <a href="https://github.com/xooxoxxo/hook">GitHub</a>
 </nav>
