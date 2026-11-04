@@ -409,17 +409,51 @@ def _at(value: Any) -> Optional[datetime.datetime]:
     return at if at.tzinfo is not None else at.replace(tzinfo=datetime.timezone.utc)
 
 
+def _first_at(client: Any, after: int, deadline: Optional[float],
+              clock: Callable[[], float]) -> Tuple[bool, Optional[datetime.datetime]]:
+    """The first event after seq `after` → (there is one, its time or None)."""
+    _arm(client, deadline, clock)
+    page = client.events(after=after, limit=1)
+    batch = page.get("events") if isinstance(page.get("events"), list) else []
+    first = batch[0] if batch and isinstance(batch[0], dict) else None
+    return first is not None, _at(first.get("at")) if first is not None else None
+
+
+def _day_start(client: Any, cutoff: datetime.datetime, deadline: Optional[float],
+               clock: Callable[[], float]) -> int:
+    """A seq to read from so that every event from `cutoff` on comes after it, within a page:
+    the events API pages by seq only, so this gallops forward and then halves, one event per
+    probe. Seq order follows time; an event without a time counts as recent, so nothing recent
+    is skipped. Raises OutOfTime."""
+    lo, step = 0, PAGE
+    while True:
+        exists, at = _first_at(client, lo + step, deadline, clock)
+        if not exists or at is None or at >= cutoff:
+            hi = lo + step
+            break
+        lo, step = lo + step, step * 2
+    while hi - lo > PAGE:
+        mid = (lo + hi) // 2
+        exists, at = _first_at(client, mid, deadline, clock)
+        if not exists or at is None or at >= cutoff:
+            hi = mid
+        else:
+            lo = mid
+    return lo
+
+
 def recent(client: Any, *, now: Optional[datetime.datetime] = None, hours: int = RECENT_HOURS,
            limit: int = RECENT_LIMIT, budget_s: float = HOOK_BUDGET_S,
            monotonic: Optional[Callable[[], float]] = None) -> Tuple[List[str], bool]:
     """Session-start mode: the owner's events from the last `hours`, the newest `limit`, as the
-    same quoted lines, oldest first → (lines, partial). Poster-only kinds are left out (no session
+    same quoted lines, oldest first → (lines, partial). Only about the last `hours` of the log is
+    read (`_day_start`), never the whole log from seq 0. Poster-only kinds are left out (no session
     is named at session start), and no cursor is read or written. Raises OutOfTime."""
     clock = monotonic or time.monotonic
     deadline = clock() + budget_s
     when = now or datetime.datetime.now(datetime.timezone.utc)
     cutoff = when - datetime.timedelta(hours=hours)
-    events, _, partial = _page(client, 0, deadline, clock)
+    events, _, partial = _page(client, _day_start(client, cutoff, deadline, clock), deadline, clock)
     picked: List[Tuple[Dict[str, Any], str, Optional[Dict[str, Any]]]] = []
     for event in events:
         seq = event.get("seq")

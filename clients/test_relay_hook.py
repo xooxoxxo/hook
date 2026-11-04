@@ -170,6 +170,26 @@ class ModeTest(Base):
         lines = self.hook("--format", "plain", "--when", "session-start")[0].splitlines()
         self.assertEqual([line.rsplit('"', 2)[1] for line in lines], [f"r{k}" for k in range(4, 14)])
 
+    def test_session_start_reads_only_the_last_day_of_a_long_log(self):
+        """A log of many thousand old events: session start reads about a page of them, not the whole log."""
+        for k in range(12000):
+            self.queue.log.append({"seq": k + 1, "itemId": B, "kind": "reply", "actor": "owner", "text": f"o{k}",
+                                   "at": "2026-09-01T09:00:00+00:00"})
+        for k in range(3):
+            self.add(A, "reply", f"new{k}", at=f"2026-10-11T09:0{k}:00+00:00")
+        read = []
+        events = self.queue.events
+
+        def counted(after=0, limit=1000):
+            page = events(after=after, limit=limit)
+            read.append(len(page["events"]))
+            return page
+        self.queue.events = counted
+        lines = self.hook("--format", "plain", "--when", "session-start")[0].splitlines()
+        self.assertEqual([line.rsplit('"', 2)[1] for line in lines], ["new0", "new1", "new2"])
+        self.assertLess(sum(read), 2 * rr.PAGE, read)
+        self.assertLess(len(read), 40, read)
+
     def test_the_ppid_fallback(self):
         self.own(A, "s1")
         self.hook("--format", "plain")                               # no stdin: key session:ppid-4242
