@@ -24,13 +24,13 @@ import Testing
             hookLog: (0..<400).map { "2026-11-04T10:00:00Z line \($0)" },
             updateLog: ["update: 2026-11-03 Hook 0.13.0 -> v0.14.0 in /Users/me/src/hook"],
             crashFiles: ["Hook-2026-11-04-100000.ips  2026-11-04 10:00  48 KB"],
-            systemLog: ["2026-11-04 10:00:01 loginwindow: appDeath Hook pid 812 on Oytuns-MacBook-Pro.local",
-                        "2026-11-04 10:00:01 runningboardd: [app<application.io.github.xooxoxxo.relay>:812] Oytuns-MacBook-Pro termination"])
+            systemLog: ["2026-11-04 10:00:01 loginwindow: appDeath Hook pid 812 on Sams-MacBook-Pro.local",
+                        "2026-11-04 10:00:01 runningboardd: [app<application.io.github.xooxoxxo.relay>:812] Sams-MacBook-Pro termination"])
     }
 
     @Test func theFileHoldsEachPartRedacted() {
         let text = DiagnosticsReport.text(parts(), now: Date(timeIntervalSince1970: 1_793_700_000), home: "/Users/me",
-                                          user: "me", hosts: ["Oytuns-MacBook-Pro", "Oytun's MacBook Pro"])
+                                          user: "me", hosts: ["Sams-MacBook-Pro", "Sam's MacBook Pro"])
         #expect(text.hasPrefix("Hook diagnostics\nSaved     2026-11-03T10:00:00Z\nHook      0.14.0 (arm64) · macOS 27.0.1\n"))
         #expect(text.contains("== Copies of Hook (LaunchServices and Spotlight)\n~/Applications/Hook.app\n~/src/hook/build/Hook.app\n"))
         #expect(text.contains("== LaunchAgent (launchctl print: state, last exit code, runs)\nstate = not running\nruns = 3\nlast exit code = 0\n"))
@@ -41,7 +41,7 @@ import Testing
         #expect(text.contains("update: 2026-11-03 Hook 0.13.0 -> v0.14.0 in ~/src/hook"))
         #expect(text.contains("appDeath Hook pid 812 on <host>"))
         #expect(text.contains("<host> termination"))
-        #expect(!text.contains("Oytuns"))
+        #expect(!text.contains("Sams"))
         #expect(!text.contains("/Users/me"))
     }
 
@@ -62,8 +62,8 @@ import Testing
     @Test func theHostNameGoesInEitherForm() {
         #expect(DiagnosticsReport.redact("a Mac-Mini.local b mac-mini c", home: "/Users/me", user: "me",
                                          hosts: ["Mac-Mini.local"]) == "a <host> b <host> c")
-        #expect(DiagnosticsReport.redact("on Oytun's MacBook Pro now", home: "/Users/me", user: "me",
-                                         hosts: ["Oytuns-MacBook-Pro", "Oytun's MacBook Pro"]) == "on <host> now")
+        #expect(DiagnosticsReport.redact("on Sam's MacBook Pro now", home: "/Users/me", user: "me",
+                                         hosts: ["Sams-MacBook-Pro", "Sam's MacBook Pro"]) == "on <host> now")
         #expect(DiagnosticsReport.redact("x", home: "/Users/me", user: "me", hosts: [""]) == "x")
     }
 

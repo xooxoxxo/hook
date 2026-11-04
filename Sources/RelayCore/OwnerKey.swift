@@ -189,6 +189,10 @@ public enum OwnerKeyState: Equatable, Sendable {
     /// Why the last requirement change failed, as one line.
     public private(set) var requireProblem: String? { didSet { if requireProblem != oldValue { onChange?() } } }
     public var onChange: (@MainActor () -> Void)?
+    /// A setup asked for while the record was read (`setUpAfterRead`), now that it reads as
+    /// not approved: the app opens Settings › Queue and sets up.
+    public var onSetUpAfterRead: (@MainActor () -> Void)?
+    private var setUpWanted = false
 
     private let secrets: any SecretStore
     /// The review seal that marks this Mac's records (`OwnerKeyVault`); nil before Hook made one.
@@ -251,6 +255,16 @@ public enum OwnerKeyState: Equatable, Sendable {
         state == .approved && self.sourceKey == sourceKey && self.url == url
     }
 
+    /// While the record is being read: remember that a setup is wanted (a report's Send held
+    /// for the key) and return true; `onSetUpAfterRead` runs once the read ends, unless the key
+    /// reads as approved (the held note then goes on its own). False when not reading: the
+    /// caller sets up now.
+    public func setUpAfterRead() -> Bool {
+        guard state == .reading else { return false }
+        setUpWanted = true
+        return true
+    }
+
     /// Require is offered only once two Macs are approved, this one among them, so turning it
     /// on never locks the owner out of answering from the other Mac.
     public var canRequireOwnerKey: Bool {
@@ -300,10 +314,12 @@ public enum OwnerKeyState: Equatable, Sendable {
             guard current(sourceKey) else { return }
             state = .unavailable(Self.readFailed)
             task = nil
+            askForSetUpIfWanted()
             return
         }
         guard current(sourceKey) else { return }
         lastRecord = record
+        defer { askForSetUpIfWanted() }
         switch record?.status {
         case nil: state = .notSetUp
         case .approved?:
@@ -475,6 +491,17 @@ public enum OwnerKeyState: Equatable, Sendable {
     }
 
     // MARK: -
+
+    /// The read ended: a setup asked for meanwhile starts now, unless the key is approved or
+    /// a request is already waiting.
+    private func askForSetUpIfWanted() {
+        guard setUpWanted else { return }
+        setUpWanted = false
+        switch state {
+        case .approved, .waiting, .reading: return
+        case .notSetUp, .notUsedHere, .refused, .unavailable: onSetUpAfterRead?()
+        }
+    }
 
     /// The same Pond is still attached and this task wasn't stopped.
     private func current(_ sourceKey: String) -> Bool {

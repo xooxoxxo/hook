@@ -48,11 +48,22 @@ public enum FrontMatter: Equatable, Sendable {
             let mark = fence(line)
             if mark == "---" || mark == "..." {
                 let block = inner.joined(separator: "\n")
-                return (parse(inner).map(FrontMatter.fields) ?? .malformed(block), String(rest))
+                if let fields = parse(inner) { return (.fields(fields), String(rest)) }
+                // No `key:` line at all: a leading horizontal rule, not front matter.
+                guard inner.contains(where: looksLikeKey) else { return (.absent, text) }
+                return (.malformed(block), String(rest))
             }
             inner.append(String(line.hasSuffix("\r") ? line.dropLast() : line))
         }
         return (.absent, text)
+    }
+
+    /// `key:` or `key: value` at the start of a line, as a YAML mapping opens.
+    private static func looksLikeKey(_ line: String) -> Bool {
+        guard let colon = line.firstIndex(of: ":") else { return false }
+        let key = line[..<colon]
+        return !key.isEmpty && !key.hasPrefix(" ") && !key.contains(" ")
+            && (line.index(after: colon) == line.endIndex || line[line.index(after: colon)] == " ")
     }
 
     /// Takes the next line off `rest` (without its "\n" or "\r\n"); nil at the end.

@@ -60,7 +60,7 @@ private func recordSignalSender(_ signo: Int32, _ info: UnsafeMutablePointer<__s
             sigemptyset(&action.sa_mask)
             if sigaction(signo, &action, nil) != 0 { signal(signo, SIG_IGN) }
             let source = DispatchSource.makeSignalSource(signal: signo, queue: .main)
-            source.setEventHandler { [weak self] in
+            source.setEventHandler { @Sendable [weak self] in
                 MainActor.assumeIsolated {
                     guard let self else { return }
                     let slot = signo == SIGHUP ? 1 : 0
@@ -78,7 +78,7 @@ private func recordSignalSender(_ signo: Int32, _ info: UnsafeMutablePointer<__s
             sources.append(source)
         }
         powerObserver = NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.willPowerOffNotification, object: nil, queue: .main) { [weak self] _ in
+            forName: NSWorkspace.willPowerOffNotification, object: nil, queue: .main) { @Sendable [weak self] _ in
             MainActor.assumeIsolated { self?.poweringOff = true }
         }
     }

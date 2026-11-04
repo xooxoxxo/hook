@@ -828,6 +828,30 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
         #expect(await OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: pondURL, seal: { ownerSeal })() == key)
     }
 
+    /// A report's Send while the key is still being read asks for the setup once the read ends,
+    /// and only when the key read isn't approved.
+    @Test func aSetupAskedForDuringTheReadStartsOnceItEnds() async throws {
+        for approved in [false, true] {
+            let secrets = MemorySecretStore(), pond = OwnerPond()
+            if approved {
+                try OwnerKeyVault.save(OwnerKeyRecord(key: OwnerKey.generate(), enrollID: "e1", status: .approved, scheme: "https"),
+                                       secrets, sourceKey: pondKey, seal: ownerSeal)
+            }
+            secrets.holdReads()
+            let flow = OwnerKeyFlow(secrets: secrets, seal: { ownerSeal }, label: "Studio", sleep: { _ in await Task.yield() },
+                                    keychain: KeychainQueue(label: "test.held"))
+            var asked = 0
+            flow.onSetUpAfterRead = { asked += 1 }
+            let read = try #require(flow.attach(sourceKey: pondKey, url: pondURL, source: pond))
+            #expect(flow.setUpAfterRead())
+            #expect(asked == 0)
+            secrets.releaseReads()
+            await read.value
+            #expect(asked == (approved ? 0 : 1), "approved: \(approved)")
+            #expect(!flow.setUpAfterRead())     // not reading any more: the caller sets up itself
+        }
+    }
+
     /// `GET /owner` answered while the read waited: a revoked key is still refused once it reads.
     @Test func aRevocationThatArrivesDuringTheReadStillRefusesTheKey() async throws {
         let secrets = MemorySecretStore(), pond = OwnerPond()

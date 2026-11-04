@@ -119,7 +119,7 @@ public struct OptionRows: View {
     private func field(_ i: Int, _ words: Binding<String>) -> some View {
         let count = words.wrappedValue.unicodeScalars.count
         return VStack(alignment: .leading, spacing: DS.Space.rowLine) {
-            MultilineField(placeholders[i] ?? "", text: words, lines: DS.Metric.choiceFieldLines,
+            MultilineField(line(placeholders[i] ?? ""), text: words, lines: DS.Metric.choiceFieldLines,
                            isFocused: $wordsFocused)
                 .accessibilityLabel(line(options[i]) + ": " + line(placeholders[i] ?? ""))
             HStack(alignment: .firstTextBaseline, spacing: DS.Space.inline) {

@@ -427,9 +427,14 @@ import RelayUI
         // ⌘↩ while Done is off (an ask's requirements aren't met).
         store.shell.beep = { NSSound.beep() }
         // Report a Problem's Set Up Owner Key…: Settings › Queue, and the setup starts there.
-        // While the key is still being read the note waits for it, without Settings opening.
+        // While the key is still being read the note waits for the read; the setup starts after
+        // it only if the key isn't approved.
         store.shell.setUpOwnerKey = { [weak self] in
-            guard self?.ownerKey?.state != .reading else { return }
+            if self?.ownerKey?.setUpAfterRead() == true { return }
+            self?.showSettings(tab: .queue)
+            self?.ownerKey?.setUp()
+        }
+        ownerKey?.onSetUpAfterRead = { [weak self] in
             self?.showSettings(tab: .queue)
             self?.ownerKey?.setUp()
         }

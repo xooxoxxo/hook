@@ -40,6 +40,15 @@ import Testing
         #expect(split.body == "body")
     }
 
+    /// A document that opens with a `---` rule and has another later is not front matter:
+    /// with no `key:` line between them, the body stays whole.
+    @Test func aLeadingHorizontalRuleIsNotFrontMatter() {
+        let text = "---\nSome intro text, no keys here.\n\n---\n# Title\n"
+        let split = FrontMatter.split(text)
+        #expect(split.front == .absent)
+        #expect(split.body == text)
+    }
+
     @Test func malformedFrontMatterStaysRawAndOutOfTheBody() {
         let text = "---\ntags: [a, b\nthis line is not yaml\n---\n# Title\n"
         let split = FrontMatter.split(text)
