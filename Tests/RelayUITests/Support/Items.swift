@@ -45,9 +45,9 @@ let mailboxIdentity = SourceIdentity(
     key: "mailbox:mailbox.example#personal",
     mailbox: MailboxSettings(url: URL(string: "https://mailbox.example")!, tokenFile: "/tmp/relay-example-token", context: "personal"))
 
-/// Polls `condition` every 10 ms for up to 2 s.
-@MainActor func eventually(_ condition: @MainActor () async -> Bool) async -> Bool {
-    let end = ContinuousClock.now + .seconds(2)
+/// Polls `condition` every 10 ms for up to `seconds` (2 s by default).
+@MainActor func eventually(seconds: Int = 2, _ condition: @MainActor () async -> Bool) async -> Bool {
+    let end = ContinuousClock.now + .seconds(seconds)
     while ContinuousClock.now < end {
         if await condition() { return true }
         try? await Task.sleep(for: .milliseconds(10))

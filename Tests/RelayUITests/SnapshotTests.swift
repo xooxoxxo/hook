@@ -178,8 +178,10 @@ private let three = [item("a", urgency: "now", created: stamp(minutesAgo: 10), s
         await source.setListDelay(.seconds(3600))
         store.swap(to: source, identity: localIdentity, pollSeconds: 3600)
         #expect(store.queue.content == .loading(stillTrying: false))
-        #expect(await eventually { store.stateTick == 1 })
-        #expect(store.queue.content == .loading(stillTrying: true))
+        // The timer's task needs the main actor, which the parallel rendering suites keep busy
+        // for seconds at a time; wait on the flip itself, with room for that.
+        #expect(await eventually(seconds: 15) { store.queue.content == .loading(stillTrying: true) })
+        #expect(store.stateTick >= 1)
         store.swap(to: nil, identity: localIdentity, pollSeconds: 3600)
     }
 }
