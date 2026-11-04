@@ -31,6 +31,7 @@ private func legacy(cmd: String? = nil, link: String? = nil) -> WireItem {
     @Test func defaultsShowNothing() {
         let state = MenuBarState()
         #expect(state.badge == .none)
+        #expect(state.glyph == .idle)
         #expect(!state.dimmed)
         #expect(state.accessibilityLabel == "Hook, 0 waiting")
         #expect(state.tooltip == "Hook · nothing waiting")
@@ -96,6 +97,35 @@ private func legacy(cmd: String? = nil, link: String? = nil) -> WireItem {
         let state = MenuBarState.from(items: items, reachable: true, unseen: true, offlineReason: nil)
         #expect(state == MenuBarState(count: 3, nowCount: 1, reachable: true, unseen: true, offlineReason: nil))
         #expect(state.badge == .dot)
+        #expect(state.glyph == .new)
+    }
+
+    /// The fish on the hook replaces the red dot: it shows exactly when the dot would.
+    @Test(arguments: [
+        (0, false, MenuBarGlyph.idle),
+        (0, true, .idle),
+        (1, false, .idle),
+        (12, false, .idle),
+        (1, true, .new),
+        (12, true, .new),
+    ])
+    func glyph(count: Int, unseen: Bool, expected: MenuBarGlyph) {
+        let state = MenuBarState(count: count, unseen: unseen)
+        #expect(state.glyph == expected)
+        #expect((state.glyph == .new) == (state.badge == .dot))
+    }
+
+    /// Offline and away dim the glyph but never change which one shows.
+    @Test func glyphIgnoresOfflineAndAway() {
+        #expect(MenuBarState(count: 3, reachable: false, unseen: true).glyph == .new)
+        #expect(MenuBarState(count: 3, unseen: true, away: true).glyph == .new)
+        #expect(MenuBarState(count: 3, reachable: false, away: true).glyph == .idle)
+    }
+
+    @Test func glyphAccessibilityDescriptions() {
+        #expect(MenuBarGlyph.idle.accessibilityDescription == "Hook")
+        #expect(MenuBarGlyph.new.accessibilityDescription == "Hook, new ask")
+        #expect(MenuBarGlyph.allCases == [.idle, .new])
     }
 }
 

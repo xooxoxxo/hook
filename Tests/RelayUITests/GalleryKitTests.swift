@@ -34,14 +34,14 @@ import Testing
     @Test func indexListsEveryFileUnderItsScene() {
         let html = GalleryIndex.html([
             GalleryEntry(scene: "queue", files: ["queue-light.png", "queue-dark.png"], standIn: true),
-            GalleryEntry(scene: "menubar-badges", files: ["menubar-badges-light.png"], standIn: false),
+            GalleryEntry(scene: "menubar-glyphs", files: ["menubar-glyphs-light.png"], standIn: false),
         ])
         #expect(html.hasPrefix("<!doctype html>"))
         #expect(html.contains(#"<img src="queue-light.png""#))
         #expect(html.contains(#"<img src="queue-dark.png""#))
         #expect(html.contains("<figcaption>queue · light · panel material: stand-in</figcaption>"))
-        #expect(html.contains("<figcaption>menubar-badges · light</figcaption>"))
-        #expect(!html.contains("menubar-badges · light · panel material"))
+        #expect(html.contains("<figcaption>menubar-glyphs · light</figcaption>"))
+        #expect(!html.contains("menubar-glyphs · light · panel material"))
     }
 
     @Test func indexEscapesNames() {

@@ -6,6 +6,12 @@ and versions follow Semantic Versioning.
 ## [Unreleased]
 
 ### Added
+- Hook has its own app icon: the chrome hook and the lime worm on a purple sunburst. At 16 and
+  32 px, where the full art blurs, a flat version with only the hook and the worm takes its
+  place. It shows in Finder, Spotlight, notifications, About and the setup window.
+- The menu bar shows Hook's own glyph: an outline hook while nothing new is waiting, and a filled
+  fish on the hook while an ask you haven't seen is waiting. The fish replaces the red dot. Both
+  are template images, so macOS tints them for a light or dark bar, and the item keeps one width.
 - A choice that needs words (an instructable choice `{"label": "Mix", "text": "What should change?"}`)
   gets its own text box right under the selected row. Send delivers the choice and the words
   together, as `choice: Mix · <words>`. Needs Pond 1.4.0; plain string choices are unchanged.

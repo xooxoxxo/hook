@@ -11,8 +11,9 @@ let package = Package(
         .target(
             name: "RelayUI",
             dependencies: ["RelayCore"],
-            // The document viewer's vendored marked and DOMPurify, and its renderer.
-            resources: [.copy("Resources/Viewer")]
+            // The document viewer's vendored marked and DOMPurify, and its renderer; the
+            // menu-bar glyphs.
+            resources: [.copy("Resources/Viewer"), .copy("Resources/MenuBar")]
         ),
         .executableTarget(name: "Relay", dependencies: ["RelayCore", "RelayUI"]),
         .executableTarget(name: "RelayGallery", dependencies: ["RelayCore", "RelayUI"]),

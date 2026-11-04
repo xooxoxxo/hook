@@ -81,18 +81,19 @@ public struct SetupFooter: View {
     }
 }
 
-/// The app icon, or a symbol placeholder while the bundle has none. It bounces once on
-/// appear, unless Reduce Motion is on.
+/// The app icon, or the hook glyph on a gradient tile while the bundle has none (a build run
+/// with `swift run`). The placeholder bounces once on appear, unless Reduce Motion is on.
 public struct SetupAppIcon: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.appIconImage) private var iconOverride
     @State private var bounce = 0
 
     public init() {}
 
     public var body: some View {
         Group {
-            if Self.bundleHasIcon {
-                Image(nsImage: NSApp.applicationIconImage)
+            if let icon = iconOverride ?? (Self.bundleHasIcon ? NSApp.applicationIconImage : nil) {
+                Image(nsImage: icon)
                     .resizable()
                     .frame(width: DS.Metric.appIcon, height: DS.Metric.appIcon)
             } else {
@@ -100,21 +101,53 @@ public struct SetupAppIcon: View {
                     .fill(LinearGradient(colors: [DS.Color.appIconTop, DS.Color.appIconBottom],
                                          startPoint: .top, endPoint: .bottom))
                     .frame(width: DS.Metric.appIcon, height: DS.Metric.appIcon)
-                    .overlay {
-                        Image(systemName: DS.Symbol.menuBar)
-                            .font(DS.Font.appSymbol)
-                            .foregroundStyle(DS.Color.appIconSymbol)
-                            .symbolEffect(.bounce, value: bounce)
-                    }
+                    .overlay { placeholderGlyph }
             }
         }
         .accessibilityHidden(true)
         .onAppear { if !reduceMotion { bounce += 1 } }
     }
 
+    /// The menu bar's idle hook, white; the checklist symbol if the glyph files are missing.
+    @ViewBuilder private var placeholderGlyph: some View {
+        if let glyph = MenuBarGlyphImage.image(.idle) {
+            Image(nsImage: glyph)
+                .renderingMode(.template)
+                .resizable()
+                .interpolation(.high)
+                .scaledToFit()
+                .frame(height: DS.Glyph.appIconPlaceholderHeight)
+                .foregroundStyle(DS.Color.appIconSymbol)
+                .keyframeAnimator(initialValue: CGFloat(1), trigger: bounce) { content, scale in
+                    content.scaleEffect(scale)
+                } keyframes: { _ in
+                    SpringKeyframe(DS.Motion.bounceScale, duration: DS.Motion.bounceUp)
+                    SpringKeyframe(CGFloat(1), duration: DS.Motion.bounceSettle)
+                }
+        } else {
+            Image(systemName: DS.Symbol.menuBarFallback)
+                .font(DS.Font.appSymbol)
+                .foregroundStyle(DS.Color.appIconSymbol)
+                .symbolEffect(.bounce, value: bounce)
+        }
+    }
+
     static var bundleHasIcon: Bool {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleIconFile") != nil
             || Bundle.main.object(forInfoDictionaryKey: "CFBundleIconName") != nil
+    }
+}
+
+private struct AppIconImageKey: EnvironmentKey {
+    static var defaultValue: NSImage? { nil }
+}
+
+extension EnvironmentValues {
+    /// An icon `SetupAppIcon` shows instead of the bundle's: the gallery, which runs outside
+    /// Hook.app, passes Resources/AppIcon.icns.
+    public var appIconImage: NSImage? {
+        get { self[AppIconImageKey.self] }
+        set { self[AppIconImageKey.self] = newValue }
     }
 }
 

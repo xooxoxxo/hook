@@ -3,10 +3,10 @@ import RelayCore
 import RelayUI
 import SwiftUI
 
-/// Five menu-bar cells, 48 × 24 pt each, on the window background: nothing waiting,
-/// asks all seen (no dot), an unseen ask (dot), offline (disabled symbol, dot 0.5),
-/// away (disabled symbol, full dot).
-final class BadgeStrip: NSView {
+/// Five menu-bar cells, 48 × 24 pt each, on the window background, with the status item's
+/// template glyph tinted as the bar tints it: nothing waiting (hook), asks all seen (hook),
+/// an unseen ask (the fish), offline and away (the fish, disabled).
+final class MenuBarStrip: NSView {
     static let cell = NSSize(width: 48, height: 24)
     static let states: [(MenuBarState)] = [
         MenuBarState(count: 0), MenuBarState(count: 3), MenuBarState(count: 3, unseen: true),
@@ -18,26 +18,20 @@ final class BadgeStrip: NSView {
         for (index, state) in Self.states.enumerated() {
             let cell = NSView(frame: NSRect(x: CGFloat(index) * Self.cell.width, y: 0,
                                             width: Self.cell.width, height: Self.cell.height))
-            let symbol = NSImage(systemSymbolName: DS.Symbol.menuBar, accessibilityDescription: "Hook")
-            symbol?.isTemplate = true
-            let imageView = NSImageView(image: symbol ?? NSImage())
+            let glyph = MenuBarGlyphImage.image(for: state)
+            let imageView = NSImageView(image: glyph ?? NSImage())
             imageView.contentTintColor = .labelColor
-            let size = symbol?.size ?? NSSize(width: 16, height: 16)
+            let size = DS.Glyph.menuBarSize
             imageView.frame = NSRect(x: (Self.cell.width - size.width) / 2, y: (Self.cell.height - size.height) / 2,
                                      width: size.width, height: size.height)
             imageView.alphaValue = state.symbolDimmed ? 0.5 : 1
             cell.addSubview(imageView)
-            let badge = BadgeView(frame: .zero)
-            badge.badge = state.badge
-            badge.dimmed = state.dimmed
-            badge.frame = BadgeGeometry.frame(for: state.badge, in: cell.bounds, imageRect: imageView.frame, flipped: false)
-            cell.addSubview(badge)
             addSubview(cell)
         }
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError("BadgeStrip is created in code") }
+    required init?(coder: NSCoder) { fatalError("MenuBarStrip is created in code") }
 
     override func draw(_ dirtyRect: NSRect) {
         NSColor.windowBackgroundColor.setFill()
@@ -47,11 +41,11 @@ final class BadgeStrip: NSView {
 
 @MainActor let otherScenes: [GalleryScene] = [
     GalleryScene(
-        name: "menubar-badges",
-        size: .appKit(NSSize(width: BadgeStrip.cell.width * CGFloat(BadgeStrip.states.count), height: BadgeStrip.cell.height)),
+        name: "menubar-glyphs",
+        size: .appKit(NSSize(width: MenuBarStrip.cell.width * CGFloat(MenuBarStrip.states.count), height: MenuBarStrip.cell.height)),
         standIn: false,
         view: { AnyView(EmptyView()) },
-        appKit: { BadgeStrip(frame: .zero) }),
+        appKit: { MenuBarStrip(frame: .zero) }),
     setupScene("setup-1-welcome", page: .welcome),
     setupScene("setup-2-source", page: .source,
                settings: SettingsFixtures.snapshot(config: nil)),
@@ -88,9 +82,17 @@ final class BadgeStrip: NSView {
 ]
 
 /// The window background the real Welcome window paints behind its title and buttons;
-/// offscreen, only the grouped Form paints its own.
+/// offscreen, only the grouped Form paints its own. The gallery runs outside Hook.app, so
+/// it hands the views the app icon from Resources/AppIcon.icns.
 @MainActor private func welcomeWindow(_ view: some View) -> AnyView {
-    AnyView(view.background(DS.Color.panelStandInOpaque))
+    AnyView(view.background(DS.Color.panelStandInOpaque).environment(\.appIconImage, appIcon()))
+}
+
+/// Resources/AppIcon.icns, found from this file's place in the repo.
+@MainActor private func appIcon() -> NSImage? {
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .deletingLastPathComponent().deletingLastPathComponent()
+    return NSImage(contentsOf: root.appending(path: "Resources/AppIcon.icns"))
 }
 
 /// One setup page, as the window shows it.
