@@ -3,7 +3,7 @@ import RelayCore
 import Testing
 @testable import RelayUI
 
-@Suite struct HarnessMarkTests {
+@MainActor @Suite struct HarnessMarkTests {
     /// The 18 entries of integration/harnesses.json.
     static let ids = ["claude-code", "codex", "gemini-cli", "antigravity", "copilot-cli", "vscode-copilot", "cursor",
                       "opencode", "zed", "pi", "devin", "factory", "kiro", "amp", "cline", "goose", "junie", "warp"]
