@@ -93,6 +93,7 @@ public struct MenuBarState: Sendable, Equatable {
     public var accessibilityLabel: String {
         var label = "Hook, \(count) waiting"
         if nowCount > 0 { label += ", \(nowCount) now" }
+        if glyph == .new { label += ", new ask" }
         if !reachable { label += ", offline" }
         if away { label += ", away" }
         return label

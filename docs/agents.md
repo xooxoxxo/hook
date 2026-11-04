@@ -125,7 +125,7 @@ Commands start Hook if it isn't running, except `relay replies --hook`, `relay h
 | `relay replies [--new] [--hook]` | One line per new owner answer |
 | `relay wait <id> [--timeout SECONDS] [--interval SECONDS] [--after SEQ]` | See [below](#relay-wait) |
 | `relay amend <id> --reason TEXT [--base REV] [--json FILE\|-]` | `corrected <id> → version N (changed: step 2; added: step 4). The owner must review it in Hook before acting.` See [below](#correcting-an-ask) |
-| `relay --version` | `relay 0.14.0` (`hook --version` prints `hook 0.14.0`) |
+| `relay --version` | `relay 0.15.0` (`hook --version` prints `hook 0.15.0`) |
 
 `relay post` and `relay_post` check the Pond's version (`GET /version`, cached for 5 minutes) before posting an instructable that uses `question`, `blocking`, `warning`, `optional`, `file` or a link's `path` (Pond 1.0.0 or newer) or step `id`s (1.1.0 or newer), or `required` or `done` (1.3.0 or newer). `relay amend` checks the corrected instructable the same way, after the lint. Pond versions follow semver, so a newer minor or patch Pond never stops a key working ([Pond versions](mailbox-protocol.md#pond-versions)). A Pond too old for a key makes them refuse with ``Your Pond (V) is older than `<key>` needs (Pond N or newer). Update the Pond, or leave the key out.`` and exit 1; nothing is posted. In This Mac mode the refusal is ``Hook's This Mac queue (Pond V) can't take `<key>` yet.`` A Pond without `/version` counts as protocol 1, too old for any of these keys; one whose answer can't be read is unknown, and the instructable is posted for the Pond to validate. See [Instructable format](instructables.md#validation).
 

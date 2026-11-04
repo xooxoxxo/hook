@@ -62,6 +62,7 @@ private func legacy(cmd: String? = nil, link: String? = nil) -> WireItem {
                         #expect(state.dimmed == !reachable)
                         var label = "Hook, \(count) waiting"
                         if nowCount > 0 { label += ", 1 now" }
+                        if badge == .dot { label += ", new ask" }
                         if !reachable { label += ", offline" }
                         #expect(state.accessibilityLabel == label)
                         let waiting = count == 0 ? "nothing waiting" : "3 waiting" + (nowCount > 0 ? ", 1 now" : "")
@@ -76,7 +77,7 @@ private func legacy(cmd: String? = nil, link: String? = nil) -> WireItem {
         let state = MenuBarState(count: 3, nowCount: 1, reachable: false, unseen: true, offlineReason: "timed out")
         #expect(state.badge == .dot)
         #expect(state.dimmed)
-        #expect(state.accessibilityLabel == "Hook, 3 waiting, 1 now, offline")
+        #expect(state.accessibilityLabel == "Hook, 3 waiting, 1 now, new ask, offline")
         #expect(state.tooltip == "Hook · offline: timed out")
     }
 

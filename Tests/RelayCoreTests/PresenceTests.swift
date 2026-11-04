@@ -275,7 +275,7 @@ private func decode(_ json: String) throws -> RelayConfig {
         #expect(state.symbolDimmed)
         #expect(!state.dimmed)
         #expect(state.badge == .dot)
-        #expect(state.accessibilityLabel == "Hook, 2 waiting, away")
+        #expect(state.accessibilityLabel == "Hook, 2 waiting, new ask, away")
         #expect(state.tooltip == "Hook · away · 2 waiting")
     }
 
