@@ -213,11 +213,20 @@ struct DetailSteps<Model: PanelViewModel>: View {
                 drafts[path] = value
                 model.answerDrafts[id] = drafts.isEmpty ? nil : drafts
             })
+        let sentWords = AnswerDrafts.sentWords(node.answer)
+        let words: Binding<String>? = question.hasWords
+            ? Binding(get: { model.choiceWords[id]?[path] ?? sentWords ?? "" },
+                      set: { model.setChoiceWords(id, key: path, text: $0) })
+            : nil
         return StepQuestion(question: question, answer: node.answer, draft: draft, readOnly: readOnly || snapshot.locked,
                             sending: snapshot.answerState == .sending,
                             editing: model.editingAnswers[id]?.contains(path) ?? false,
                             time: node.answer.map { ClockText.time($0.at, locale: gallery.locale ?? .current,
                                                                    timeZone: gallery.timeZone ?? .current) } ?? "",
+                            typedWords: model.choiceWords[id]?[path], words: words,
+                            onWordsFocus: { focused in
+                                if focused { model.choiceFocus = path } else if model.choiceFocus == path { model.choiceFocus = nil }
+                            },
                             onSend: { model.sendAnswer(id, path: path) },
                             onChange: { model.changeAnswer(id, path: path) },
                             onCancel: { model.cancelAnswerChange(id, path: path) })

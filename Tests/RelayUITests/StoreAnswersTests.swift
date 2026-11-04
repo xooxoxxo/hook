@@ -6,6 +6,15 @@ import Testing
 private let environment = Question(prompt: "Which environment?", choices: ["Staging", "Prod"])
 private let region = Question(prompt: "Which region?")
 private let ship = Question(prompt: "Ship today?", choices: ["Yes", "No"])
+private let mix = Question(prompt: "How?", choices: [Choice("Mix", text: "What should change?"), "Keep"])
+
+/// "m": 1 asks with a word choice.
+private func wordItem() -> WireItem {
+    let ins = Instructable(v: 1, title: "Ask m", urgency: "today", steps: [Step(action: "Pick the mix", question: mix)])
+    let created = stamp(minutesAgo: 4)
+    return WireItem(id: "m", title: "Ask m", status: "open", projectId: "Acme", created: created, updated: created,
+                    payload: Payload(why: nil, cmd: nil, link: nil, instructable: ins))
+}
 
 /// "q": 1 asks (pick), 2 plain, 3 asks (text); a free-text reply.
 private func questionItem(_ id: String = "q", reply: ReplySpec? = ReplySpec(prompt: "Anything else?")) -> WireItem {
@@ -41,6 +50,56 @@ private func answerEvent(_ id: String, seq: Int, _ entry: JSONValue) -> Event {
 }
 
 @Suite @MainActor struct StoreAnswersTests {
+    /// Pond 1.4.0: a pick of a word choice carries the words typed under it.
+    @Test func answerWithWordsSendsText() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let store = Store(defaults: defaults.defaults)
+        let fake = FakeQueueSource(items: [wordItem()])
+        await start(store, fake)
+        store.open("m")
+        store.answerDrafts["m"] = ["1": .picked(["Mix"])]
+        store.setChoiceWords("m", key: "1", text: " Staff Monday ")
+        #expect(store.detail("m")?.choiceWords["1"] == " Staff Monday ")
+        #expect(await store.sendAnswers("m"))
+        #expect(await fake.answers["m"] == [[Answers.entry(step: "1", picked: ["Mix"], words: "Staff Monday")]])
+        #expect(store.choiceWords["m"] == nil)
+        #expect(store.answerDrafts["m"] == nil)
+        #expect(store.unsentAnswers(for: "m") == .none)
+
+        // New words alone, on the sent pick, are unsent.
+        store.setChoiceWords("m", key: "1", text: "Staff Tuesday")
+        #expect(store.unsentAnswers(for: "m").count == 1)
+        #expect(store.primaryAction(for: "m") == .sendAndDone)
+    }
+
+    @Test func wordsIgnoredForPlainPick() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let store = Store(defaults: defaults.defaults)
+        let fake = FakeQueueSource(items: [wordItem()])
+        await start(store, fake)
+        store.open("m")
+        store.setChoiceWords("m", key: "1", text: "Staff")
+        store.answerDrafts["m"] = ["1": .picked(["Keep"])]
+        #expect(await store.sendAnswers("m"))
+        #expect(await fake.answers["m"] == [[Answers.entry(step: "1", picked: ["Keep"])]])
+    }
+
+    @Test func answerWordsOverTheLimitAreRefused() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let store = Store(defaults: defaults.defaults)
+        let fake = FakeQueueSource(items: [wordItem()])
+        await start(store, fake)
+        store.open("m")
+        store.answerDrafts["m"] = ["1": .picked(["Mix"])]
+        store.setChoiceWords("m", key: "1", text: String(repeating: "a", count: 1002))
+        #expect(!(await store.sendAnswers("m")))
+        #expect(await fake.answers["m"] == nil)
+        #expect(store.answerStates["m"] == .failed(reason: "Trim 2 characters to send."))
+    }
+
     @Test func draftsCountAndSendAsOneBatch() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }

@@ -4,6 +4,8 @@ import Foundation
 /// Pond 1.4.0 adds the owner's words on a choice that takes them: "choice: X · words".
 public enum ReplyText {
     public static let prefix = "choice: "
+    /// The key of the reply's words among an ask's choice words (step paths are the others).
+    public static let wordsKey = "reply"
     /// Between a choice and the owner's words: U+00B7 with a space on each side.
     public static let separator = " \u{00B7} "
 
@@ -38,6 +40,31 @@ public enum ReplyText {
             }
         }
         return nil
+    }
+
+    /// The words sent with the latest choice reply; nil when it had none, or there is none.
+    public static func latestSentWords(events: [Event], choices: [String]) -> String? {
+        ownerReplies(events).compactMap { event in event.text.flatMap { parse($0, choices: choices) } }.last?.words
+    }
+
+    /// The words a choice reply carries now: those typed, else (untouched, nil) those sent last,
+    /// trimmed; nil when blank or when the choice at `choice` takes no words.
+    public static func words(typed: String?, choice: Int?, sentWords: String?, spec: ReplySpec?) -> String? {
+        guard let choice, spec?.placeholder(at: choice) != nil else { return nil }
+        return trimmed(typed ?? sentWords)
+    }
+
+    /// The words on the sent choice differ from those sent with it (no other pick pending: a
+    /// different pick is unsent anyway, and carries the words with it).
+    public static func hasNewWords(typed: String?, choice: Int?, sent: Int?, sentWords: String?,
+                                   spec: ReplySpec?) -> Bool {
+        guard let sent, choice == nil || choice == sent else { return false }
+        return words(typed: typed, choice: sent, sentWords: sentWords, spec: spec) != trimmed(sentWords)
+    }
+
+    private static func trimmed(_ text: String?) -> String? {
+        let value = text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return value.isEmpty ? nil : value
     }
 
     public static func choice(from text: String) -> String? {

@@ -4,6 +4,8 @@ import Testing
 @testable import RelayUI
 
 private let choiceAsk = item("q", created: stamp(minutesAgo: 5), reply: ReplySpec(prompt: "Where?", choices: ["A", "B"]))
+private let wordAsk = item("w", created: stamp(minutesAgo: 4),
+                           reply: ReplySpec(prompt: "Ship?", choices: [Choice("Mix", text: "What should change?"), "No"]))
 private let plain = [item("a", created: stamp(minutesAgo: 10)), item("b", created: stamp(minutesAgo: 20))]
 
 @Suite @MainActor struct StoreReplyTests {
@@ -110,6 +112,61 @@ private let plain = [item("a", created: stamp(minutesAgo: 10)), item("b", create
         #expect(store.pendingChoice["q"] == nil)
         #expect(store.latestSentChoice(for: "q") == 0)
         #expect(store.replyLines(for: "q").map(\.text) == ["You chose: B", "You chose: A"])
+    }
+
+    /// Pond 1.4.0: the words typed under a word choice go with it, "choice: Mix · words".
+    @Test func replyWithWordsSendsWire() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let store = Store(defaults: defaults.defaults)
+        let fake = FakeQueueSource(items: [wordAsk])
+        await start(store, fake)
+        store.open("w")
+        store.pendingChoice["w"] = 0
+        store.setChoiceWords("w", key: Store.replyWordsKey, text: " Staff Monday ")
+        #expect(store.primaryAction(for: "w") == .sendAndDone)
+        #expect(await store.sendChoice("w"))
+        #expect(await fake.replies["w"] == ["choice: Mix \u{00B7} Staff Monday"])
+        #expect(store.choiceWords["w"] == nil)
+        #expect(store.replyLines(for: "w").last?.text == "You chose: Mix \u{00B7} Staff Monday")
+        #expect(store.primaryAction(for: "w") == .done)
+
+        // New words on the sent choice are unsent, and go without a new pick.
+        store.setChoiceWords("w", key: Store.replyWordsKey, text: "Staff Tuesday")
+        #expect(store.primaryAction(for: "w") == .sendAndDone)
+        #expect(await store.sendChoice("w"))
+        #expect(await fake.replies["w"]?.last == "choice: Mix \u{00B7} Staff Tuesday")
+    }
+
+    @Test func replyWordChoiceWithoutWordsSendsPlain() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let store = Store(defaults: defaults.defaults)
+        let fake = FakeQueueSource(items: [wordAsk])
+        await start(store, fake)
+        store.pendingChoice["w"] = 0
+        store.setChoiceWords("w", key: Store.replyWordsKey, text: "   ")
+        #expect(await store.sendChoice("w"))
+        // Words typed under Mix, then No picked: No goes alone.
+        store.setChoiceWords("w", key: Store.replyWordsKey, text: "Staff")
+        store.pendingChoice["w"] = 1
+        #expect(await store.sendChoice("w"))
+        #expect(await fake.replies["w"] == ["choice: Mix", "choice: No"])
+    }
+
+    @Test func replyWordsOverTheLimitAreRefusedAndKept() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let store = Store(defaults: defaults.defaults)
+        let fake = FakeQueueSource(items: [wordAsk])
+        await start(store, fake)
+        store.pendingChoice["w"] = 0
+        let long = String(repeating: "a", count: 1001)
+        store.setChoiceWords("w", key: Store.replyWordsKey, text: long)
+        #expect(!(await store.sendChoice("w")))
+        #expect(await fake.replies["w"] == nil)
+        #expect(store.choiceWords["w"]?[Store.replyWordsKey] == long)
+        #expect(store.replyStates["w"] == .failed(reason: "Trim 1 character to send."))
     }
 
     @Test func draftsAndChoicesAreNeverWritten() async {

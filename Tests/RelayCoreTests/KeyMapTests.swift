@@ -178,6 +178,18 @@ private func typing(_ c: KeyContext) -> KeyContext { var c = c; c.textFieldFocus
         #expect(cmd(.cmdReturn, elsewhere) == .done)
     }
 
+    /// ⌘↩ in a choice's words field sends that choice with its words (the reply, or one step's
+    /// answer), never Done.
+    @Test func commandReturnInAChoiceWordsFieldSendsIt() {
+        var typing = detail
+        typing.textFieldFocused = true
+        typing.choiceWordsFocused = true
+        typing.hasDraftOrPick = true
+        #expect(cmd(.cmdReturn, typing) == .sendChoiceWords)
+        typing.askOpen = false
+        #expect(cmd(.cmdReturn, typing) == nil)
+    }
+
     @Test func detailDigitsPickChoices() {
         #expect(cmd(.digit(1), detail) == .pickChoice(0))
         #expect(cmd(.digit(3), detail) == .pickChoice(2))

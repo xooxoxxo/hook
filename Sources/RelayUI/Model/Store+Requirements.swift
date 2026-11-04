@@ -32,7 +32,7 @@ extension Store {
     /// The reply field holds text or a pick that isn't sent.
     private func replyUnsent(_ id: String) -> Bool {
         Flow.unsentKind(draft: drafts[id], choice: pendingChoice[id], sent: latestSentChoice(for: id),
-                        sentText: AnswerEditing.latestText(replyLines(for: id))) == .reply
+                        sentText: AnswerEditing.latestText(replyLines(for: id)), newWords: replyHasNewWords(id)) == .reply
     }
 
     /// The Pond refused the Done with 409 requirements_unmet (RD 28): a Notice that names no

@@ -3,7 +3,8 @@ import SwiftUI
 
 /// Design/ChoiceGroup: the ask's choices as option rows (OptionRows, single pick),
 /// numbered for the 1–6 keys, with "Sent" on each choice already sent, and the reply's own
-/// Send (a spinner while sending).
+/// Send (a spinner while sending). A choice that takes words opens its own field under it
+/// when picked; its words go with the choice ("choice: Mix · words").
 public struct ChoiceGroup: View {
     let prompt: String
     let choices: [String]
@@ -14,10 +15,18 @@ public struct ChoiceGroup: View {
     let showHeading: Bool
     /// While changing a sent reply: Cancel, left of Send.
     let onCancel: (() -> Void)?
+    /// Each choice's words placeholder; nil for a plain choice.
+    let placeholders: [String?]
+    let words: Binding<String>?
+    /// The words under the sent choice differ from those sent with it.
+    let newWords: Bool
+    let onWordsFocus: (Bool) -> Void
     let onSend: () -> Void
 
     public init(prompt: String, choices: [String], picked: Binding<Int?>, sent: Set<Int>, latestSent: Int?,
-                sending: Bool, showHeading: Bool = true, onCancel: (() -> Void)? = nil, onSend: @escaping () -> Void) {
+                sending: Bool, showHeading: Bool = true, onCancel: (() -> Void)? = nil,
+                placeholders: [String?] = [], words: Binding<String>? = nil, newWords: Bool = false,
+                onWordsFocus: @escaping (Bool) -> Void = { _ in }, onSend: @escaping () -> Void) {
         self.prompt = prompt
         self.choices = choices
         self.picked = picked
@@ -26,6 +35,10 @@ public struct ChoiceGroup: View {
         self.sending = sending
         self.showHeading = showHeading
         self.onCancel = onCancel
+        self.placeholders = placeholders
+        self.words = words
+        self.newWords = newWords
+        self.onWordsFocus = onWordsFocus
         self.onSend = onSend
     }
 
@@ -42,8 +55,12 @@ public struct ChoiceGroup: View {
                 .font(DS.Font.body)
                 .foregroundStyle(DS.Color.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            OptionRows(prompt: prompt, options: choices, selected: picked.wrappedValue.map { [$0] } ?? [],
-                       sent: sent, disabled: sending, filled: true, numbered: true, onPick: { picked.wrappedValue = $0 })
+            // With only new words typed, the sent choice stays the one shown picked.
+            OptionRows(prompt: prompt, options: choices,
+                       selected: (picked.wrappedValue ?? (words != nil ? latestSent : nil)).map { [$0] } ?? [],
+                       sent: sent, disabled: sending, filled: true, numbered: true,
+                       placeholders: placeholders, words: words, onWordsFocus: onWordsFocus,
+                       onPick: { picked.wrappedValue = $0 })
                 .accessibilityHint(Self.hint(count: choices.count))
             HStack(alignment: .firstTextBaseline, spacing: DS.Space.inline) {
                 Text(Self.hint(count: choices.count))
@@ -55,16 +72,24 @@ public struct ChoiceGroup: View {
                 } else {
                     if let onCancel { Button("Cancel", action: onCancel).help("Keep the reply you sent") }
                     Button("Send", action: onSend)
-                        .disabled(!Self.canSend(picked: picked.wrappedValue, latestSent: latestSent, sending: sending))
+                        .disabled(!Self.canSend(picked: picked.wrappedValue, latestSent: latestSent, sending: sending,
+                                                newWords: newWords) || wordsOver)
                 }
             }
         }
     }
 
-    /// A pick, no send in flight, and not the choice sent last.
-    public static func canSend(picked: Int?, latestSent: Int?, sending: Bool) -> Bool {
-        guard let picked, !sending else { return false }
-        return picked != latestSent
+    /// The words under the picked word choice run past the cap: Send stays off.
+    private var wordsOver: Bool {
+        guard let words, let index = picked.wrappedValue ?? latestSent, placeholders.indices.contains(index),
+              placeholders[index] != nil else { return false }
+        return AnswerDrafts.wordsOver(words.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines)) != nil
+    }
+
+    /// No send in flight, and a pick other than the choice sent last, or new words on it.
+    public static func canSend(picked: Int?, latestSent: Int?, sending: Bool, newWords: Bool = false) -> Bool {
+        guard !sending, let choice = picked ?? (newWords ? latestSent : nil) else { return false }
+        return choice != latestSent || newWords
     }
 
     public static func label(index: Int, choice: String) -> String { "\(index + 1)  " + line(choice) }

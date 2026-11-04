@@ -109,6 +109,12 @@ public struct DetailSnapshot: Equatable, Sendable {
     public var closedText: String?
     /// The step answers drafted here, by path (memory only, in the model).
     public var answerDrafts: [String: AnswerDraft] = [:]
+    /// The owner's words under word choices, by step path or `ReplyText.wordsKey` (memory only).
+    public var choiceWords: [String: String] = [:]
+    /// The words under the reply's sent choice differ from those sent with it: its Send is on.
+    public var replyNewWords = false
+    /// The words sent with the latest choice reply: the reply's words field starts from them.
+    public var replySentWords: String?
     /// What ⌘S would send now (locked steps left out); none while the ask is closed.
     public var unsent: UnsentAnswers = .none
     /// The answers send in flight, or its failure.
@@ -168,7 +174,8 @@ public struct DetailSnapshot: Equatable, Sendable {
     public static func build(item: WireItem, detail: AskDetail?, ticks: Set<String>, load: DetailLoadState,
                              reply: ReplyBoxState, draft: String?, pendingChoice: Int?, busy: Bool,
                              previous: Neighbour, next: Neighbour, closedBy: String?,
-                             answerDrafts: [String: AnswerDraft] = [:], answerState: AnswerSendState? = nil,
+                             answerDrafts: [String: AnswerDraft] = [:], choiceWords: [String: String] = [:],
+                             answerState: AnswerSendState? = nil,
                              doneWarning: Bool = false, review: ReviewState = .legacy,
                              stamp: RevisionStamp? = nil, history: VerifiedHistory? = nil,
                              chips: [String: StepChip] = [:], reported: Set<String> = [],
@@ -180,17 +187,21 @@ public struct DetailSnapshot: Equatable, Sendable {
         let latest = ReplyText.latestSentChoice(events: events, choices: choices)
         let isOpen = item.status == "open"
         let locked = Set(Flow.lockedPaths(nodes: nodes, ticks: ticks))
-        let unsent = isOpen ? AnswerDrafts.unsent(answerDrafts, nodes: nodes, locked: locked) : .none
+        let stepWords = choiceWords.filter { $0.key != ReplyText.wordsKey }
+        let unsent = isOpen ? AnswerDrafts.unsent(answerDrafts, nodes: nodes, locked: locked, words: stepWords) : .none
+        let replySentWords = ReplyText.latestSentWords(events: events, choices: choices)
+        let newWords = ReplyText.hasNewWords(typed: choiceWords[ReplyText.wordsKey], choice: pendingChoice, sent: latest,
+                                             sentWords: replySentWords, spec: item.instructable?.reply)
         let replies = ReplyText.lines(events: events)
         let messages = MessageText.lines(events: events)
         let answered = model.map { Set(Flow.flattened($0.nodes).compactMap { $0.answer?.step }) }
         let kind = isOpen ? Flow.unsentKind(draft: draft, choice: pendingChoice, sent: latest, unsentAnswers: unsent.count,
-                                            sentText: AnswerEditing.latestText(replies)) : nil
+                                            sentText: AnswerEditing.latestText(replies), newWords: newWords) : nil
         // Requirements (Pond 1.3.0): without a detail, an ask that declares them keeps Done off.
         let declared = isOpen && Requirements.declared(item.instructable)
         let requirements = declared ? model.map { Requirements.state($0, ticks: ticks) } ?? .none : .none
         let replyUnsent = Flow.unsentKind(draft: draft, choice: pendingChoice, sent: latest,
-                                          sentText: AnswerEditing.latestText(replies)) == .reply
+                                          sentText: AnswerEditing.latestText(replies), newWords: newWords) == .reply
         var snapshot = DetailSnapshot(
             id: item.id,
             row: QueueSnapshot.row(item, ticked: ticks, answered: answered, hasDraft: QueueSnapshot.hasText(draft),
@@ -210,6 +221,9 @@ public struct DetailSnapshot: Equatable, Sendable {
             unsentKind: kind, doneWarning: doneWarning && kind != nil, review: review, stamp: stamp,
             changedSteps: chips, reported: reported, messages: messages, addedSinceShown: addedSinceShown)
         snapshot.requirements = requirements
+        snapshot.choiceWords = choiceWords
+        snapshot.replyNewWords = isOpen && newWords
+        snapshot.replySentWords = replySentWords
         snapshot.doneEnabled = !declared
             || (model != nil && Requirements.doneAvailable(requirements, unsent: unsent, replyUnsent: replyUnsent))
         snapshot.discardEnabled = !declared || (model != nil && requirements.ready)

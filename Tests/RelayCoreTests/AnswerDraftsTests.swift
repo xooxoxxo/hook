@@ -137,3 +137,50 @@ private func tree(_ answers: [String: Answer] = [:]) -> [DetailModel.Node] {
         #expect(AnswerDrafts.pick(0, in: Question(prompt: "Name?"), picks: []) == nil)
     }
 }
+
+private let mix = Question(prompt: "How?", choices: [Choice("Mix", text: "What should change?"), "Keep"])
+
+/// Pond 1.4.0: words on a single pick of a choice that takes them.
+@Suite struct AnswerDraftsWordsTests {
+    private func node(_ answer: Answer? = nil) -> [DetailModel.Node] {
+        DetailModel.nodes(steps: [Step(action: "Pick", question: mix)], verify: nil,
+                          answers: answer.map { ["1": $0] } ?? [:])
+    }
+
+    @Test func wordsGoOnlyWithAWordChoice() {
+        #expect(AnswerDrafts.words(" Staff Monday ", for: .picked(["Mix"]), question: mix) == "Staff Monday")
+        #expect(AnswerDrafts.words("Staff Monday", for: .picked(["Keep"]), question: mix) == nil)
+        #expect(AnswerDrafts.words("  ", for: .picked(["Mix"]), question: mix) == nil)
+        #expect(AnswerDrafts.words(nil, for: .picked(["Mix"]), question: mix) == nil)
+    }
+
+    @Test func unsentCarriesTheWords() {
+        let unsent = AnswerDrafts.unsent(["1": .picked(["Mix"])], nodes: node(), words: ["1": " Staff "])
+        #expect(unsent.batch == [Answers.entry(step: "1", picked: ["Mix"], words: "Staff")])
+        let plain = AnswerDrafts.unsent(["1": .picked(["Keep"])], nodes: node(), words: ["1": "Staff"])
+        #expect(plain.batch == [Answers.entry(step: "1", picked: ["Keep"])])
+    }
+
+    /// After a sent "Mix · Staff", new words alone are unsent; the same words, or none typed, aren't.
+    @Test func newWordsOnTheSentPickAreUnsent() {
+        let answer = sent("1", picked: ["Mix"], text: "Staff")
+        #expect(!AnswerDrafts.isUnsent(nil, question: mix, answer: answer, words: nil))
+        #expect(!AnswerDrafts.isUnsent(nil, question: mix, answer: answer, words: "Staff"))
+        #expect(AnswerDrafts.isUnsent(nil, question: mix, answer: answer, words: "Staff on Monday"))
+        let unsent = AnswerDrafts.unsent([:], nodes: node(answer), words: ["1": "Staff on Monday"])
+        #expect(unsent.batch == [Answers.entry(step: "1", picked: ["Mix"], words: "Staff on Monday")])
+        #expect(AnswerDrafts.answeredText(answer) == "You chose: Mix \u{00B7} Staff")
+    }
+
+    @Test func aWordQuestionNeverUsesSegments() {
+        #expect(!AnswerDrafts.usesSegments(mix))
+        #expect(AnswerDrafts.usesSegments(Question(prompt: "How?", choices: ["Mix", "Keep"])))
+    }
+
+    @Test func wordsOverTheLimit() {
+        #expect(AnswerDrafts.wordsLimit == 1000)
+        #expect(AnswerDrafts.wordsOver(String(repeating: "a", count: 1000)) == nil)
+        #expect(AnswerDrafts.wordsOver(String(repeating: "a", count: 1001)) == "Trim 1 character to send.")
+    }
+}
+

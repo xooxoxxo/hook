@@ -9,6 +9,8 @@ public final class FixturePanelModel: PanelViewModel {
     @Published public var drafts: [String: String] = [:]
     @Published public var pendingChoice: [String: Int] = [:]
     @Published public var answerDrafts: [String: [String: AnswerDraft]] = [:]
+    @Published public var choiceWords: [String: [String: String]] = [:]
+    @Published public var choiceFocus: String?
     @Published public var expandedDone: [String: Set<String>] = [:]
     @Published public var editingReply: Set<String> = []
     @Published public var editingAnswers: [String: Set<String>] = [:]

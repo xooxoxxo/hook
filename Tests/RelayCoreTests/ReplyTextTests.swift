@@ -78,4 +78,26 @@ private func reply(_ seq: Int, _ text: String?, actor: String = "owner", kind: S
         #expect(ReplyText.latestSentChoice(events: [events[0]], choices: choices) == 1)
         #expect(ReplyText.display("choice: Yes · Tell the night shift first") == "You chose: Yes · Tell the night shift first")
     }
+
+    @Test func latestSentWords() {
+        let choices = ["No", "Yes"]
+        let events = [reply(1, "choice: Yes · Tell the night shift first")]
+        #expect(ReplyText.latestSentWords(events: events, choices: choices) == "Tell the night shift first")
+        #expect(ReplyText.latestSentWords(events: events + [reply(2, "choice: No")], choices: choices) == nil)
+        #expect(ReplyText.latestSentWords(events: [], choices: choices) == nil)
+    }
+
+    /// The words a choice reply carries: typed, else (untouched) those sent; only on a word choice.
+    @Test func replyWords() {
+        let spec = ReplySpec(prompt: "Ship?", choices: [Choice("Yes", text: "Anything to add?"), "No"])
+        #expect(ReplyText.words(typed: " Monday ", choice: 0, sentWords: nil, spec: spec) == "Monday")
+        #expect(ReplyText.words(typed: nil, choice: 0, sentWords: "Friday", spec: spec) == "Friday")
+        #expect(ReplyText.words(typed: "", choice: 0, sentWords: "Friday", spec: spec) == nil)
+        #expect(ReplyText.words(typed: "Monday", choice: 1, sentWords: nil, spec: spec) == nil)
+        #expect(ReplyText.hasNewWords(typed: "Monday", choice: nil, sent: 0, sentWords: "Friday", spec: spec))
+        #expect(!ReplyText.hasNewWords(typed: " Friday", choice: nil, sent: 0, sentWords: "Friday", spec: spec))
+        #expect(!ReplyText.hasNewWords(typed: nil, choice: 0, sent: 0, sentWords: "Friday", spec: spec))
+        #expect(!ReplyText.hasNewWords(typed: "Monday", choice: nil, sent: nil, sentWords: nil, spec: spec))
+        #expect(!ReplyText.hasNewWords(typed: "Monday", choice: nil, sent: 1, sentWords: nil, spec: spec))
+    }
 }

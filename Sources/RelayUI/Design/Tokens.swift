@@ -135,6 +135,8 @@ public enum DS {
         public static let groupRadius: CGFloat = 10
         /// A long text's field (a message, a report): from 3 lines, growing to 8, then scrolling.
         public static let fieldLines: ClosedRange<Int> = 3...8
+        /// A choice's own words field (owner pick 5 A): two lines to start, then up to 8.
+        public static let choiceFieldLines: ClosedRange<Int> = 2...8
         public static let messageFieldRadius: CGFloat = 6
         public static let messageFieldInset: CGFloat = 4
         public static let messageFieldStroke: CGFloat = 0.5

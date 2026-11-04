@@ -53,6 +53,16 @@ struct DetailReply<Model: PanelViewModel>: View {
         return Binding(get: { model.pendingChoice[id] }, set: { model.pendingChoice[id] = $0 })
     }
 
+    /// The words under the reply's word choice: typed, else the words sent with it. None
+    /// when no choice takes words.
+    private var words: Binding<String>? {
+        guard spec.hasWords else { return nil }
+        let id = snapshot.id, key = Model.replyWordsKey
+        let sent = snapshot.replySentWords
+        return Binding(get: { model.choiceWords[id]?[key] ?? sent ?? "" },
+                       set: { model.setChoiceWords(id, key: key, text: $0) })
+    }
+
     private var editing: Bool { model.editingReply.contains(snapshot.id) }
 
     private var showsAnswer: Bool {
@@ -174,6 +184,12 @@ struct DetailReply<Model: PanelViewModel>: View {
             ChoiceGroup(prompt: spec.prompt, choices: spec.options, picked: picked,
                         sent: snapshot.sentChoices, latestSent: snapshot.latestSentChoice,
                         sending: snapshot.reply == .sending, showHeading: showHeading, onCancel: cancel,
+                        placeholders: (spec.choices ?? []).map(\.text), words: words,
+                        newWords: snapshot.replyNewWords,
+                        onWordsFocus: { focused in
+                            let key = Model.replyWordsKey
+                            if focused { model.choiceFocus = key } else if model.choiceFocus == key { model.choiceFocus = nil }
+                        },
                         onSend: { model.sendChoice(snapshot.id) })
         } else {
             ReplyBox(prompt: spec.prompt, text: draft, state: snapshot.reply, showHeading: showHeading,

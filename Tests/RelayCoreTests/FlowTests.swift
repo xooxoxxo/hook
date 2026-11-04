@@ -106,6 +106,14 @@ private let nodes = DetailModel.nodes(
         #expect(Flow.unsentKind(draft: "C07", choice: nil, sent: nil, unsentAnswers: 2) == .answer)
         #expect(Flow.unsentKind(draft: "Kestrel 2.4", choice: nil, sent: nil, sentText: "Kestrel 2.4") == nil)
     }
+
+    /// Words typed on the reply's word choice, new against those sent with it, are unsent.
+    @Test func typedWordsAreUnsent() {
+        #expect(Flow.unsentKind(draft: nil, choice: nil, sent: 0, newWords: true) == .reply)
+        #expect(Flow.unsentKind(draft: nil, choice: 0, sent: 0, newWords: true) == .reply)
+        #expect(Flow.unsentKind(draft: nil, choice: 0, sent: 0, newWords: false) == nil)
+        #expect(Flow.primaryAction(draft: nil, choice: nil, sent: 0, newWords: true) == .sendAndDone)
+    }
 }
 
 @Suite struct PrimaryActionTests {

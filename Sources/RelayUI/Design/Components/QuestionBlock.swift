@@ -18,9 +18,18 @@ public struct StepQuestion {
     public var time: String
     public var onChange: () -> Void
     public var onCancel: () -> Void
+    /// The words typed under the question's word choice (Pond 1.4.0); nil = untouched, so the
+    /// words sent with the answer stand.
+    public var typedWords: String?
+    /// The words field's text (typed, else the sent words); nil when no choice takes words.
+    public var words: Binding<String>?
+    /// The words field has the keys (⌘Return sends this answer).
+    public var onWordsFocus: (Bool) -> Void
 
     public init(question: Question, answer: Answer?, draft: Binding<AnswerDraft?>, readOnly: Bool,
                 sending: Bool = false, editing: Bool = false, time: String = "",
+                typedWords: String? = nil, words: Binding<String>? = nil,
+                onWordsFocus: @escaping (Bool) -> Void = { _ in },
                 onSend: @escaping () -> Void = {}, onChange: @escaping () -> Void = {},
                 onCancel: @escaping () -> Void = {}) {
         self.question = question
@@ -33,6 +42,9 @@ public struct StepQuestion {
         self.onSend = onSend
         self.onChange = onChange
         self.onCancel = onCancel
+        self.typedWords = typedWords
+        self.words = words
+        self.onWordsFocus = onWordsFocus
     }
 
     /// Only the answered row and Change: sent, nothing unsent, not being changed.
@@ -49,10 +61,17 @@ public struct StepQuestion {
         return []
     }
 
-    var isUnsent: Bool { AnswerDrafts.isUnsent(draft.wrappedValue, question: question, answer: answer) }
+    var isUnsent: Bool {
+        AnswerDrafts.isUnsent(draft.wrappedValue, question: question, answer: answer, words: typedWords)
+    }
 
-    /// Send is on while the draft would send something new and no send is out.
-    var canSend: Bool { !readOnly && !sending && isUnsent }
+    /// The words under the picked word choice run past the cap: Send stays off.
+    var wordsOver: Bool {
+        AnswerDrafts.words(words?.wrappedValue, for: current, question: question).flatMap(AnswerDrafts.wordsOver) != nil
+    }
+
+    /// Send is on while the draft would send something new, within the cap, and no send is out.
+    var canSend: Bool { !readOnly && !sending && isUnsent && !wordsOver }
 }
 
 /// Design/QuestionBlock: a step's question under its text and above its sub-steps.
@@ -114,7 +133,8 @@ public struct QuestionBlock: View {
         } else {
             OptionRows(prompt: question.prompt, options: question.options, multi: question.allowsMany,
                        selected: Set(question.options.indices.filter { model.picks.contains(question.options[$0]) }),
-                       onPick: pick)
+                       placeholders: (question.choices ?? []).map(\.text), words: model.words,
+                       onWordsFocus: model.onWordsFocus, onPick: pick)
         }
     }
 

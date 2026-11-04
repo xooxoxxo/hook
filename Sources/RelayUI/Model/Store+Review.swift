@@ -217,6 +217,15 @@ extension Store {
             }
             answerDrafts[id] = kept.isEmpty ? nil : kept
         }
+        if let words = choiceWords[id] {
+            var kept: [String: String] = [:]
+            for (key, text) in words {
+                if key == Self.replyWordsKey { kept[key] = text; continue }
+                guard let stepID = oldIDs[key], !dropped.contains(stepID), let moved = newPaths[stepID] else { continue }
+                kept[moved] = text
+            }
+            choiceWords[id] = kept.isEmpty ? nil : kept
+        }
         if let first = diff.steps.first(where: { $0.kind == .changed || $0.kind == .added })?.newPath {
             detailAnchor[id] = first
         } else {
