@@ -62,6 +62,44 @@ let traceback: String = {
         #expect(store.detail("a")?.reportTarget == nil)
     }
 
+    @Test func reportOnAnotherStepKeepsEachStepsDraft() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, _, _) = await started(defaults)
+        store.beginReport("a", path: "2")
+        store.reportDrafts["a"] = "step two's flag is wrong"
+        store.beginReport("a", path: "3")
+        #expect(store.reporting["a"] == "3")
+        #expect(store.reportDrafts["a"] == nil)
+        store.reportDrafts["a"] = "step three times out"
+        store.beginReport("a", path: "2")
+        #expect(store.reportDrafts["a"] == "step two's flag is wrong")
+        store.beginReport("a", path: "3")
+        #expect(store.reportDrafts["a"] == "step three times out")
+        // Cancel drops the open step's text only.
+        store.endReport("a")
+        store.beginReport("a", path: "3")
+        #expect(store.reportDrafts["a"] == nil)
+        store.beginReport("a", path: "2")
+        #expect(store.reportDrafts["a"] == "step two's flag is wrong")
+    }
+
+    @Test func aHeldNoteMovedOffItsStepComesBackAsItsDraft() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, fake, _) = await started(defaults, approved: false)
+        store.shell.setUpOwnerKey = {}
+        store.beginReport("a", path: "2")
+        #expect(await store.sendReport("a", note: "the flag is wrong") == .notEnrolled)
+        store.beginReport("a", path: "3")
+        #expect(store.detail("a")?.report != .held)
+        store.ownerKeyApproved = { _, _ in true }
+        await store.flushHeldReports()
+        #expect(await fake.count("problem") == 0)
+        store.beginReport("a", path: "2")
+        #expect(store.reportDrafts["a"] == "the flag is wrong")
+    }
+
     @Test func theRowMenuTargetsTheFirstUntickedActionableStep() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }

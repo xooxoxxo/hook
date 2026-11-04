@@ -566,7 +566,8 @@ extension Store {
 
     /// Opens the inline report field on `path`; nil (the queue row's Report a Problem…) picks the
     /// first unticked actionable step. The ask's detail opens too. Nothing for a step a report
-    /// can't be about.
+    /// can't be about. Moving the field to another step keeps the text typed for the step it
+    /// leaves (a held note too, unsent), and brings back what was typed for the new one.
     public func beginReport(_ id: String, path: String?) {
         guard canReport(id), let nodes = nodes(for: id),
               let target = path ?? ProblemReport.firstTarget(nodes: nodes, ticks: ticks(for: id)),
@@ -574,13 +575,17 @@ extension Store {
         else { return }
         if navigation.selectedID != id { open(id) }
         guard reporting[id] != target else { return }
+        if let old = reporting[id], let text = heldReports[id] ?? reportDrafts[id], !text.isEmpty {
+            reportStepDrafts[id, default: [:]][old] = text
+        }
         heldReports[id] = nil
         reportStates[id] = nil
-        reportDrafts[id] = nil
+        reportDrafts[id] = reportStepDrafts[id]?.removeValue(forKey: target)
         reporting[id] = target
     }
 
-    /// Esc or Cancel: the field goes, with its text and a held note.
+    /// Esc or Cancel: the field goes, with its text and a held note. Text kept for the ask's
+    /// other steps stays.
     public func endReport(_ id: String) {
         reporting[id] = nil
         reportStates[id] = nil

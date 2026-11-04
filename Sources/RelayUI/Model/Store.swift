@@ -150,6 +150,9 @@ public enum LinkCheck: Equatable, Sendable {
             }
         }
     }
+    /// Report text typed for a step the field has moved off, by ask, then by step path; it
+    /// comes back when Report opens on that step again. Memory only.
+    var reportStepDrafts: [String: [String: String]] = [:]
     /// The ask whose inline report field has the keys: ⌘Return sends the report, never Done.
     @Published public var reportFocus: String?
     /// A note sent before this Mac had an approved owner key, by ask: held in memory only,
