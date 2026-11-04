@@ -22,11 +22,19 @@ extension Store {
     }
 
     /// nil: the ask declares no requirements. `.some(nil)`: it does, but no detail is cached.
+    /// The state is cached by `RequirementInputs`: a queue rebuild with the ask's detail,
+    /// history and ticks unchanged builds no model.
     private func requirementState(_ id: String) -> RequirementState?? {
         guard let item = item(for: id), Requirements.declared(item.instructable) else { return nil }
         guard let detail = details[id] else { return .some(nil) }
+        let ticks = ticks(for: id)
+        let inputs = RequirementInputs(detail: detailVersions[id] ?? 0, history: historyVersions[id] ?? 0, ticks: ticks)
+        if let cached = requirementCache[id], cached.inputs == inputs { return .some(cached.state) }
         let model = DetailModel.make(item: detail.item, events: detail.events, history: try? histories[id]?.get())
-        return .some(Requirements.state(model, ticks: ticks(for: id)))
+        requirementModelBuilds += 1
+        let state = Requirements.state(model, ticks: ticks)
+        requirementCache[id] = (inputs, state)
+        return .some(state)
     }
 
     /// The reply field holds text or a pick that isn't sent.
@@ -44,6 +52,45 @@ extension Store {
         guard gen == generation else { return }
         let behind = Requirements.behind(left, nodes: nodes(for: close.id) ?? [], ticks: ticks(for: close.id))
         queueProgress(close.id, tick: behind, untick: [])
+    }
+
+    // MARK: The version wait
+
+    /// Returns once the Pond's version is known (`pond` is set), or after `timeout`, or at a
+    /// source swap; at once when it is already known. Done's send waits here right after launch.
+    func waitForPond(timeout: Duration) async {
+        guard pond == nil else { return }
+        let token = UUID(), sleep = timeoutSleep
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            let timer = Task { [weak self] in
+                await sleep(timeout)
+                self?.resumePondWaiter(token)
+            }
+            pondWaiters[token] = (continuation, timer)
+        }
+    }
+
+    private func resumePondWaiter(_ token: UUID) {
+        guard let waiter = pondWaiters.removeValue(forKey: token) else { return }
+        waiter.continuation.resume()
+    }
+
+    /// The version check answered, or the source swapped: every Done waiting goes on.
+    func resumePondWaiters() {
+        let all = pondWaiters
+        pondWaiters = [:]
+        for waiter in all.values {
+            waiter.timeout.cancel()
+            waiter.continuation.resume()
+        }
+    }
+
+    /// Bumps `versions[id]` for each id whose value differs between `old` and `new`.
+    static func bumpChanged<Value: Equatable>(_ versions: inout [String: Int], old: [String: Value],
+                                              new: [String: Value]) {
+        for id in Set(old.keys).union(new.keys) where old[id] != new[id] {
+            versions[id, default: 0] += 1
+        }
     }
 
     // MARK: Progress
@@ -138,4 +185,12 @@ extension Store {
         progressTimers = [:]
         progressOutbox = [:]
     }
+}
+
+/// What an ask's requirement state is built from: change counters for its cached detail and
+/// verified history, and its ticks. Equal inputs give the same state.
+struct RequirementInputs: Equatable {
+    var detail: Int
+    var history: Int
+    var ticks: Set<String>
 }

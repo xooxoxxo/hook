@@ -5,6 +5,7 @@ import Testing
 
 private let pond13 = PondVersion.semver(SemVer(major: 1, minor: 3, patch: 0))
 private let pond12 = PondVersion.semver(SemVer(major: 1, minor: 2, patch: 0))
+private let pond14 = PondVersion.semver(SemVer(major: 1, minor: 4, patch: 0))
 private let question = Question(prompt: "Which environment?")
 
 /// An open ask "Ask <id>" with these steps (ids s1, s2, …, given by the caller) and requirements.
@@ -37,16 +38,18 @@ private actor SleepGate {
 }
 
 @Suite @MainActor struct StoreRequirementsTests {
+    /// `timeouts` holds the Store's timeout waits (the version wait among them) until released.
     private func started(_ defaults: TestDefaults, items: [WireItem], identity: SourceIdentity = mailboxIdentity,
                          pond: PondVersion? = pond13, clock: TestClock = TestClock(),
-                         gate: SleepGate? = nil) async -> (Store, FakeQueueSource) {
+                         gate: SleepGate? = nil, timeouts: SleepGate? = nil) async -> (Store, FakeQueueSource) {
         let sleep: @Sendable (Duration) async throws -> Void
         if let gate {
             sleep = { @Sendable _ in await gate.wait() }
         } else {
             sleep = { @Sendable _ in }
         }
-        let store = Store(defaults: defaults.defaults, now: { clock.now }, sleep: sleep)
+        let timeoutSleep: (@Sendable (Duration) async -> Void)? = timeouts.map { gate in { @Sendable _ in await gate.wait() } }
+        let store = Store(defaults: defaults.defaults, now: { clock.now }, sleep: sleep, timeoutSleep: timeoutSleep)
         let fake = FakeQueueSource(items: items)
         await start(store, fake, identity: identity)
         store.setPond(pond)
@@ -247,6 +250,84 @@ private actor SleepGate {
         try? await Task.sleep(for: .milliseconds(30))
         #expect(await fake.count("resolve") == 1)
         #expect(store.notice?.actionTitle == "Show")
+    }
+
+    // MARK: Done in the first seconds after launch (0.13 low finding)
+
+    @Test func doneRightAfterLaunchWaitsForVersionThenSendsTicks() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let clock = TestClock()
+        let timeouts = SleepGate()
+        let (store, fake) = await started(defaults, items: [twoSteps()], pond: nil, clock: clock, timeouts: timeouts)
+        store.toggleTick("2", in: "a")
+        store.close("a", .done)
+        clock.advance(11)
+        store.sendDue()
+        try? await Task.sleep(for: .milliseconds(80))
+        // The version check hasn't answered: no resolve yet, so the Pond can't refuse it for ticks it lacks.
+        #expect(await fake.count("resolve") == 0)
+        #expect(await fake.count("progress") == 0)
+        store.setPond(pond14)
+        #expect(await eventually { await fake.count("resolve") == 1 })
+        let calls = await fake.calls.filter { $0.hasPrefix("progress") || $0.hasPrefix("resolve") }
+        #expect(calls == ["progress a", "resolve a done"])
+        await timeouts.releaseAll()
+    }
+
+    @Test func doneAfterVersionTimeoutStillSends() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let clock = TestClock()
+        let timeouts = SleepGate()
+        let (store, fake) = await started(defaults, items: [twoSteps()], pond: nil, clock: clock, timeouts: timeouts)
+        store.toggleTick("2", in: "a")
+        store.close("a", .done)
+        clock.advance(11)
+        store.sendDue()
+        try? await Task.sleep(for: .milliseconds(80))
+        #expect(await fake.count("resolve") == 0)
+        // The wait runs out (DS.Timing.pondWait) with no answer: the Done goes anyway, without progress.
+        let sent = await eventually {
+            await timeouts.releaseAll()
+            return await fake.count("resolve") == 1
+        }
+        #expect(sent)
+        #expect(await fake.count("progress") == 0)
+    }
+
+    @Test func doneOnAKnownPondDoesNotWait() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let clock = TestClock()
+        let timeouts = SleepGate()
+        let (store, fake) = await started(defaults, items: [twoSteps()], clock: clock, timeouts: timeouts)
+        store.toggleTick("2", in: "a")
+        store.close("a", .done)
+        clock.advance(11)
+        store.sendDue()
+        #expect(await eventually { await fake.count("resolve") == 1 })
+        await timeouts.releaseAll()
+    }
+
+    // MARK: The queue's requirement models (0.13 low finding)
+
+    @Test func queueRebuildBuildsEachModelOnce() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, _) = await started(defaults, items: [twoSteps("a"), twoSteps("b")])
+        store.queueInputChanged()
+        let base = store.requirementModelBuilds
+        #expect(base >= 2)
+        // Ten queue rebuilds with nothing changed build no model.
+        for _ in 0..<10 { store.queueInputChanged() }
+        #expect(store.requirementModelBuilds == base)
+        // A tick on one ask builds its model once, and only its own.
+        store.toggleTick("2", in: "a")
+        store.queueInputChanged()
+        #expect(store.requirementModelBuilds == base + 1)
+        #expect(store.doneAllowed("a") && !store.doneAllowed("b"))
+        #expect(store.requirementModelBuilds == base + 1)
     }
 
     // MARK: Send & Done (RD 22)

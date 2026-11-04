@@ -27,6 +27,7 @@ public enum LinkCheck: Equatable, Sendable {
     /// A new detail also settles the answer drafts: one its events show as sent goes.
     @Published public internal(set) var details: [String: AskDetail] = [:] {
         didSet {
+            Self.bumpChanged(&detailVersions, old: oldValue, new: details)
             settleAnswerDrafts()
             settleDoneWarnings()
             queueInputChanged()
@@ -182,6 +183,16 @@ public enum LinkCheck: Equatable, Sendable {
     var progressTimers: [String: Task<Void, Never>] = [:]
     /// The progress send in flight per ask, so Done's flush waits for it.
     var progressSends: [String: (token: UUID, task: Task<Void, Never>)] = [:]
+    /// Each ask's requirement state with the inputs it was built from (`requirementState`), so a
+    /// queue rebuild with nothing changed builds no model. Cleared on a source swap.
+    var requirementCache: [String: (inputs: RequirementInputs, state: RequirementState)] = [:]
+    /// The models `requirementState` built (`DetailModel.make`): for tests.
+    var requirementModelBuilds = 0
+    /// Bumped per ask each time its cached detail or verified history changes.
+    var detailVersions: [String: Int] = [:]
+    var historyVersions: [String: Int] = [:]
+    /// Done's sends waiting for the Pond's version (`waitForPond`), by token.
+    var pondWaiters: [UUID: (continuation: CheckedContinuation<Void, Never>, timeout: Task<Void, Never>)] = [:]
     /// Set by AppDelegate: the config note, presence and quit-time sends, for the status bar.
     @Published public var configNote: String?
     /// config.json's problem, from AppModel; the status bar shows it ("config.json has an error").
@@ -308,7 +319,9 @@ public enum LinkCheck: Equatable, Sendable {
     /// the review code reads it: `listed`, `details` and `recentlyClosed` hold rendered copies.
     var served: [String: WireItem] = [:]
     /// Each revised ask's history: the fetched detail's, brought up to date by the list.
-    public internal(set) var histories: [String: Result<VerifiedHistory, HistoryProblem>] = [:]
+    public internal(set) var histories: [String: Result<VerifiedHistory, HistoryProblem>] = [:] {
+        didSet { Self.bumpChanged(&historyVersions, old: oldValue, new: histories) }
+    }
     var fetchedHistories: [String: Result<VerifiedHistory, HistoryProblem>] = [:]
     var listedHistories: [String: Result<VerifiedHistory, HistoryProblem>] = [:]
     /// The last body rendered from a verified revision, for a locked ask whose shown body
@@ -324,7 +337,9 @@ public enum LinkCheck: Equatable, Sendable {
     /// A load problem to post once the first swap has cleared the Notice slot.
     var pendingReviewNotice: PanelNotice?
     /// The connected Pond's version (MailboxCheck.pond); nil until checked, and in This Mac mode.
-    public internal(set) var pond: PondVersion?
+    public internal(set) var pond: PondVersion? {
+        didSet { if pond != nil { resumePondWaiters() } }
+    }
     /// The review state each open ask's Notice was last posted for, so a poll doesn't repost it.
     var reviewNoticed: [String: ReviewState] = [:]
 
@@ -383,6 +398,8 @@ public enum LinkCheck: Equatable, Sendable {
         navigation = PanelNavigation(listSelection: PanelPrefs.selection(defaults, sourceKey: identity.key), selectedID: openID)
         reloadCheckID = openID
         failedCloses = [:]
+        requirementCache = [:]
+        resumePondWaiters()
         notice = nil
         if let pending = pendingReviewNotice {
             pendingReviewNotice = nil
@@ -868,6 +885,8 @@ public enum LinkCheck: Equatable, Sendable {
         if verdict == .done, isContentLocked(id) || !requirementsMet(id) { return }
         HookLog.action(verdict == .done ? .done : .skip)
         reviewing[id] = nil
+        // A new close replaces one whose send failed: the Notice's Retry must not send that too.
+        failedCloses[id] = nil
         let order = visibleOrder
         let inDetail = navigation.selectedID == id
         doneWarnings.remove(id)
@@ -1143,6 +1162,12 @@ public enum LinkCheck: Equatable, Sendable {
             // Ticks the Pond hasn't heard of go first (Pond 1.3.0), then a local acceptance the
             // Pond hasn't heard of, or the Done would be refused.
             if close.verdict == .done {
+                // Right after launch the version check may not have answered: ticks wait for it
+                // (a while), or the Pond would refuse the Done for ticks it never got.
+                if progressSupport == nil, progressOutbox[close.id] != nil {
+                    await waitForPond(timeout: .seconds(DS.Timing.pondWait))
+                    guard gen == generation else { return }
+                }
                 await flushProgress(close.id)
                 guard gen == generation else { return }
                 try await sendPendingAccept(close.id, via: source)
@@ -1163,12 +1188,14 @@ public enum LinkCheck: Equatable, Sendable {
             sending.remove(close.id)
             updateItems()
             publishState()
-            failedCloses[close.id] = close
+            // Kept only for the Retry of an `.actionFailed` Notice: a refusal has no Retry.
+            failedCloses[close.id] = nil
             if ownerKeyRefused(error) { return }
             if case QueueError.requirementsUnmet(let left)? = error as? QueueError {
                 await doneRefused(close, left: left, via: source, generation: gen)
                 return
             }
+            failedCloses[close.id] = close
             post(.actionFailed(verdict: close.verdict, id: close.id, title: close.title, reason: Self.failureReason(error)))
         }
     }

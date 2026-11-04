@@ -165,6 +165,9 @@ public enum DS {
         public static let barButtonMinWidth: CGFloat = 84
         /// The dot on a required step's marker, and beside a required section's "?".
         public static let requiredBadge: CGFloat = 7
+        /// The ring round that dot, in the row's surface colour (`DS.Color.requiredBadgeRing`), so
+        /// the dot stays apart from an accent marker it meets (at larger text sizes they touch).
+        public static let requiredBadgeRing: CGFloat = 1.5
         /// The fade at the bottom of a Welcome form page that scrolls under the footer.
         public static let setupFade: CGFloat = 24
     }
@@ -323,7 +326,26 @@ public enum DS {
             monogramPalette[Monogram.colorIndex(project) % monogramPalette.count]
         }
         /// The inset grouped steps list: near-white over the light panel, a faint lift over the dark one.
-        public static let groupFill = adaptive(light: .white.withAlphaComponent(0.8), dark: .white.withAlphaComponent(0.06))
+        public static let groupFill = adaptive(light: .white.withAlphaComponent(GroupLift.light),
+                                               dark: .white.withAlphaComponent(GroupLift.dark))
+        /// The white over the panel that `groupFill` lays down, by appearance.
+        enum GroupLift {
+            static let light: CGFloat = 0.8
+            static let dark: CGFloat = 0.06
+        }
+        /// The required badge's ring: the required row's surface made opaque (the window
+        /// background, the steps list's lift, then the required hue), so over the row the ring
+        /// disappears and over an accent marker it draws a gap.
+        public static let requiredBadgeRing = SwiftUI.Color(nsColor: NSColor(name: nil) { appearance in
+            let dark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            var base = NSColor.white, accent = NSColor.systemBlue
+            appearance.performAsCurrentDrawingAppearance {
+                base = NSColor.windowBackgroundColor.usingColorSpace(.sRGB) ?? base
+                accent = NSColor.controlAccentColor.usingColorSpace(.sRGB) ?? accent
+            }
+            let lifted = base.blended(withFraction: dark ? GroupLift.dark : GroupLift.light, of: .white) ?? base
+            return lifted.blended(withFraction: dark ? RequiredHue.dark : RequiredHue.light, of: accent) ?? lifted
+        })
         public static let groupStroke = SwiftUI.Color.primary.opacity(0.07)
         /// An option list's hairline, and the picked option's tint.
         public static let optionStroke = SwiftUI.Color.primary.opacity(0.14)
@@ -531,6 +553,9 @@ public enum DS {
         /// How long tick changes on an ask with requirements wait before they go to the Pond, so
         /// a run of ticks goes as one progress call.
         public static let progressDebounce: TimeInterval = 0.5
+        /// How long a Done right after launch waits for the Pond's version check before it goes
+        /// without its ticks (the Pond may then refuse it, and say so).
+        public static let pondWait: TimeInterval = 5
     }
 
     /// The animation to use: `animation`, or `Motion.reduced` under Reduce Motion.

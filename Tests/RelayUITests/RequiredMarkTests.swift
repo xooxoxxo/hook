@@ -63,6 +63,85 @@ private let leftJSON = RequiredFixtures.json(done: #"["reply", "message"]"#, rep
         #expect(!sub.header && sub.children == [true, false])
     }
 
+    // MARK: The badge's ring (0.13 low finding: dark-mode contrast on the current step)
+
+    /// The current step's tick marker with its badge, on the required row's surface, rendered in
+    /// `scheme` at `textSize`; returns the run of non-accent points between the dot and the
+    /// marker along the line from the badge's centre to the marker's, or nil when that line never
+    /// reaches the marker. At the gallery's --xl sizes the marker grows into the badge.
+    private func ringGap(_ scheme: ColorScheme, textSize: CGFloat) throws -> CGFloat? {
+        let size = NSSize(width: 240, height: 80), inset: CGFloat = 16
+        let sink = AlignmentProbeSink()
+        let row = ZStack(alignment: .topLeading) {
+            DS.Color.panelStandInOpaque
+            DS.Color.groupFill
+            DS.Color.requiredRow
+            // As StepView lays out a step's first line.
+            HStack(alignment: .firstTextBaseline, spacing: DS.Space.marker) {
+                TickButton(level: .top(2), state: .current, label: "2", hint: "", value: "", help: "", readOnly: false,
+                           action: {})
+                    .requiredBadge(true)
+                Text(verbatim: "Mac terminal")
+            }
+            .font(.system(size: textSize))
+            .padding(.leading, inset)
+            .padding(.top, inset)
+        }
+        .frame(width: size.width, height: size.height)
+        .environment(\.colorScheme, scheme)
+        .environment(\.alignmentProbesEnabled, true)
+        .environment(\.alignmentProbeSink, sink)
+        let host = NSHostingView(rootView: row)
+        host.frame = NSRect(origin: .zero, size: size)
+        let window = NSWindow(contentRect: host.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+        window.appearance = NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)
+        window.contentView = host
+        host.layoutSubtreeIfNeeded()
+        let deadline = Date().addingTimeInterval(2)
+        repeat {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+            host.layoutSubtreeIfNeeded()
+        } while (shown(sink.frames, .requiredBadge).isEmpty || shown(sink.frames, .topMarker).isEmpty) && Date() < deadline
+        let rep = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: rep)
+        window.contentView = nil
+        let bitmap = try #require(InkBitmap(rep))
+        let badgeFrame = try #require(shown(sink.frames, .requiredBadge).last)
+        let markerFrame = try #require(shown(sink.frames, .topMarker).last)
+        let badge = CGPoint(x: badgeFrame.midX, y: badgeFrame.midY)
+        let marker = CGPoint(x: markerFrame.midX, y: markerFrame.midY)
+        func pixel(_ p: CGPoint) -> UInt32 {
+            let x = min(bitmap.width - 1, max(0, Int(p.x * bitmap.scale)))
+            let y = min(bitmap.height - 1, max(0, Int(p.y * bitmap.scale)))
+            return bitmap.pixels[y * bitmap.width + x]
+        }
+        let accent = pixel(badge)
+        let length = hypot(marker.x - badge.x, marker.y - badge.y)
+        let step = 1 / bitmap.scale
+        var t: CGFloat = 0, gap: CGFloat = 0, leftDot = false
+        while t <= length {
+            let p = CGPoint(x: badge.x + (marker.x - badge.x) * t / length, y: badge.y + (marker.y - badge.y) * t / length)
+            if !bitmap.differs(pixel(p), accent, threshold: 40) {
+                if leftDot { return gap }
+            } else {
+                leftDot = true
+                gap += step
+            }
+            t += step
+        }
+        return nil
+    }
+
+    @Test func badgeRingSeparatesFromCurrentMarkerDark() throws {
+        for scheme in [ColorScheme.dark, .light] {
+            for textSize: CGFloat in [13, 17.5] {          // the panel's size, and the gallery's --xl
+                let gap = try ringGap(scheme, textSize: textSize)
+                #expect(gap != nil, "\(scheme) \(textSize): the line from the badge never reached the marker")
+                #expect((gap ?? 0) >= 1, "\(scheme) \(textSize): \(gap ?? 0) pt between the dot and the marker")
+            }
+        }
+    }
+
     // MARK: Messages and the reply
 
     @Test func messagesAndTheReplyAreMarkedOnlyWhileLeft() {

@@ -21,7 +21,9 @@ public enum RequiredMark {
 }
 
 /// Design/RequiredBadge: a small accent dot. On a step it sits on the marker's top-trailing
-/// edge, inside the marker's own column, so it never moves the text.
+/// edge, inside the marker's own column, so it never moves the text. A ring in the row's
+/// surface colour keeps it apart from an accent marker it meets (the current step, in dark
+/// mode and at larger text sizes); the ring lies outside the dot's frame, so nothing moves.
 public struct RequiredBadge: View {
     public init() {}
 
@@ -30,6 +32,11 @@ public struct RequiredBadge: View {
             .resizable()
             .frame(width: DS.Metric.requiredBadge, height: DS.Metric.requiredBadge)
             .foregroundStyle(DS.Color.required)
+            .background {
+                Circle()
+                    .fill(DS.Color.requiredBadgeRing)
+                    .padding(-DS.Metric.requiredBadgeRing)
+            }
             .accessibilityHidden(true)
             .alignmentProbe(.requiredBadge, measure: .frame)
     }
