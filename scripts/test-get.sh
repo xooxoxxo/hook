@@ -3,7 +3,9 @@
 # downloads are fixtures in a temp folder, read over file:// (HOOK_RELEASES_URL) or from
 # a local http.server on 127.0.0.1, so nothing reaches the network. Each fixture
 # release's install.sh only prints its version, folder and arguments. git, swift and
-# xcode-select are stand-ins that log their calls.
+# xcode-select are stand-ins that log their calls. PATH holds only those stand-ins and the
+# system folders, and HOOK_BIN_DIRS and HOOK_APP_DIRS are empty, so the rollback sync of the
+# agent integrations (13) finds only a fake claude, never a real harness on this Mac.
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd -P)"
 GET="$REPO/scripts/get.sh"
@@ -69,7 +71,8 @@ PLIST
 }
 
 run() {   # run get.sh piped into bash, as the README's one-liner does
-  env HOME="$H" HOOK_RELEASES_URL="file://$REL" PATH="$FAKE:$PATH" "$@" >"$OUT" 2>&1
+  env HOME="$H" HOOK_RELEASES_URL="file://$REL" PATH="$FAKE:/usr/bin:/bin:/usr/sbin:/sbin" \
+    HOOK_BIN_DIRS= HOOK_APP_DIRS= "$@" >"$OUT" 2>&1
 }
 current() { readlink "$HH/current" 2>/dev/null || echo none; }
 versions() { find "$HH" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort | tr '\n' ' '; }
@@ -251,5 +254,55 @@ release 1.0.2
 run bash < "$GET" || { cat "$OUT"; fail "the fixed 1.0.2 exited non-zero"; }
 [ "$(current)" = "1.0.2" ] && [ "$(versions)" = "1.0.1 1.0.2 " ] || fail "after the fixed 1.0.2: current $(current), versions $(versions)"
 ok "a failed install rolls back; retries and reruns keep the version before"
+
+# full_release <version> [status]: a fixture release whose support payload is the real one
+# (the CLI, clients, MCP server, skill and support/integration, stamped <version>), with the
+# stub install.sh that exits <status>.
+full_release() {
+  local v="$1" code="${2:-0}" s="$T/stage-$1"
+  release "$v" io.github.xooxoxxo.relay "$code"
+  mkdir -p "$s/support/clients" "$s/support/mcp" "$s/support/skill"
+  for f in "$REPO"/clients/*.py; do
+    case "${f##*/}" in test_*|answers_fixture.py) continue ;; esac
+    cp "$f" "$s/support/clients/"
+  done
+  cp "$REPO/bin/relay" "$s/support/bin/relay"
+  cp "$REPO/mcp/relay_mcp.py" "$s/support/mcp/"
+  cp -R "$REPO/skill/instructables" "$s/support/skill/"
+  python3 "$REPO/clients/relay_bundle.py" build --version "$v" --out "$s/support/integration" >/dev/null \
+    || fail "the fixture bundle for $v did not build"
+  rm -f "$REL/download/v$v/Hook-$v.zip"
+  (cd "$s" && ditto -c -k . "$REL/download/v$v/Hook-$v.zip")
+  (cd "$REL/download/v$v" && shasum -a 256 "Hook-$v.zip" > SHA256SUMS)
+  rm -f "$REL/latest/download/"*
+  cp "$REL/download/v$v/"* "$REL/latest/download/"
+}
+
+# 13. A failed install of a release with agent integrations: once current links to the version
+#     before again, that version's relay_integrations.py syncs (--no-asks, link root current),
+#     so the rendered plugins match the version that runs. The version cleanup after a
+#     successful install keeps the plugins/ folder, which isn't a version.
+rm -rf "$HH"
+printf '#!/bin/sh\necho "claude $*" >> "%s/claude.log"\nexit 0\n' "$T" > "$FAKE/claude"
+chmod +x "$FAKE/claude"
+mkdir -p "$H/.claude"
+full_release 2.0.0
+run bash < "$GET" || { cat "$OUT"; fail "2.0.0 exited non-zero"; }
+[ ! -e "$HH/plugins" ] || fail "test setup: the stub install.sh rendered plugins"
+full_release 2.0.1 1
+status=0; run bash < "$GET" || status=$?
+[ "$status" = "1" ] && [ "$(current)" = "2.0.0" ] || { cat "$OUT"; fail "the failing 2.0.1: status $status, current $(current)"; }
+grep -qx 'get: syncing the agent integrations with Hook 2.0.0' "$OUT" || { cat "$OUT"; fail "the rollback sync was not reported"; }
+[ -f "$HH/plugins/claude/.claude-plugin/plugin.json" ] || { cat "$OUT"; fail "the rollback sync rendered no plugins/"; }
+python3 -c 'import json,sys; m=json.load(open(sys.argv[1])); sys.exit(0 if m["hookVersion"]=="2.0.0" and m["linkRoot"]=="~/.local/share/hook/current" else 1)' \
+  "$H/.config/relay/integrations.json" || fail "the rollback sync did not run as 2.0.0 through current: $(cat "$H/.config/relay/integrations.json")"
+grep -q "claude plugin marketplace add $HH/plugins/claude" "$T/claude.log" || fail "the rollback sync did not set up the fake claude"
+full_release 2.0.3
+run bash < "$GET" || { cat "$OUT"; fail "2.0.3 exited non-zero"; }
+[ "$(current)" = "2.0.3" ] || fail "current is $(current), not 2.0.3"
+[ -d "$HH/plugins/claude" ] || fail "the version cleanup removed plugins/"
+[ "$(versions)" = "2.0.0 2.0.3 plugins " ] || fail "after 2.0.3: versions $(versions)"
+if grep -q 'syncing the agent integrations' "$OUT"; then fail "a successful install ran the rollback sync"; fi
+ok "a failed install's rollback syncs the integrations; the cleanup keeps plugins/"
 
 echo "GET TESTS OK"

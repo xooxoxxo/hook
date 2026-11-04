@@ -8,9 +8,11 @@
 # Where things go: the release's support payload (CLI, clients, MCP server, skill and
 # installer) and its Hook.app to ~/.local/share/hook/<version>, with
 # ~/.local/share/hook/current linking to it. Then current/scripts/install.sh --prebuilt
-# copies Hook.app to ~/Applications and does the rest. Once that succeeds, the version
-# before is kept, for going back, and older ones are removed. When it fails, current
-# links to the version before again and nothing is removed.
+# copies Hook.app to ~/Applications and does the rest, ending with the agent integrations
+# (relay_integrations.py sync), which render plugins into ~/.local/share/hook/plugins. Once
+# that succeeds, the version before is kept, for going back, and older ones are removed.
+# When it fails, current links to the version before again, nothing is removed, and that
+# version's integrations sync runs (without asks), so the agents use the version that runs.
 #
 # Never touched: a developer's clone (one with changes, a local branch other than main,
 # HOOK_DEV=1, or one the config records as a developer's, "updateMode": "developer"; HOOK_DEV=0
@@ -201,6 +203,14 @@ main() {
       ln -sfn "$previous" "$hook_home/current"
       echo "get: installing Hook $version failed; $(tilde "$hook_home/current") links to $previous again (the CLI, MCP server and skill use it)" >&2
       echo "get: to put Hook $previous's app back too, run: '$hook_home/current/scripts/install.sh' --prebuilt" >&2
+      # The failed install may have rendered this version's plugins already; the version
+      # that runs again renders its own (a version before 0.13 has no integrations).
+      local sync="$hook_home/current/clients/relay_integrations.py" sync_status=0
+      if [ -f "$sync" ] && command -v python3 >/dev/null 2>&1; then
+        echo "get: syncing the agent integrations with Hook $previous"
+        python3 "$sync" sync --no-asks --link-root "$hook_home/current" || sync_status=$?
+        [ "$sync_status" -eq 0 ] || echo "get: the integrations sync exited $sync_status; later run: relay integrations sync" >&2
+      fi
     else
       echo "get: installing Hook $version failed, and there is no earlier version here to go back to" >&2
     fi
@@ -208,7 +218,8 @@ main() {
   fi
 
   # Only now that it installed: keep this version and the one before; remove older ones.
-  # Anything else stays.
+  # Anything else stays, plugins/ included (the rendered agent plugins, which every
+  # harness config names in place of a version folder).
   for entry in "$hook_home"/*; do
     name="${entry##*/}"
     if [ ! -d "$entry" ] || [ -L "$entry" ] || ! is_version "$name"; then continue; fi

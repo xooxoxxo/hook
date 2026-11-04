@@ -12,7 +12,8 @@ Environment:
     FAKECLI_CLIENTS   the clients folder, so the fake can edit files with relay_edits
 
 A rule is {"prog", "prefix": [args], "action", "writes"?, "text"?}; the first rule whose prog
-matches and whose prefix starts argv[1:] runs. Actions:
+matches and whose prefix starts argv[1:] runs. A writes.path may start with ~ (the fake's HOME),
+so one config serves several fixture HOMEs (scripts/test-install.sh). Actions:
     set      write {"fake": prog, "args": rest} at writes.key (json, jsonc or toml)
     delete   remove what `set` wrote, byte for byte
     touch    create writes.path (a folder), remembering the parent folders it made
@@ -75,7 +76,8 @@ def _act(rule, prog, rest) -> int:
 
     action = rule["action"]
     writes = rule.get("writes") or {}
-    path = Path(writes["path"]) if writes.get("path") else None
+    # A leading ~ is the HOME the fake runs with (the installer passes the fixture HOME).
+    path = Path(os.path.expanduser(writes["path"])) if writes.get("path") else None
     state_path = os.environ.get("FAKECLI_STATE", "")
     state = _load(state_path, {}) if state_path else {}
     sid = f"{prog}:{writes.get('path')}:{'.'.join(writes.get('key') or [])}"

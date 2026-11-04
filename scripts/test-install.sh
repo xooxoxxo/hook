@@ -3,7 +3,9 @@
 # switches are on, so nothing is built, launched or registered, and the real
 # ~/.config, ~/Applications, LaunchAgents, Claude config and running app are untouched.
 # The quit and start tests run fake app processes inside the temp folder, fenced to it
-# with RELAY_APP_SCOPE.
+# with RELAY_APP_SCOPE. Runs that set up agent integrations see only fake harness CLIs
+# (clients/fixtures/fakecli.py as claude and codex) and the system folders on PATH, with
+# HOOK_BIN_DIRS and HOOK_APP_DIRS empty, so no real harness CLI or app is ever found.
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd -P)"
 INSTALL="$REPO/scripts/install.sh"
@@ -32,13 +34,16 @@ bash -n "$INSTALL" || fail "install.sh has a syntax error"
 
 H="$T/home"
 mkdir -p "$H"
+# Runs from this checkout skip the integrations, so they never build a bundle into it.
+REPO_BUNDLE_BEFORE=0
+[ ! -e "$REPO/build/integration" ] || REPO_BUNDLE_BEFORE=1
 CONFIG="$H/.config/relay/config.json"
 PLIST="$H/Library/LaunchAgents/io.github.xooxoxxo.relay.plist"
 OLD_PLIST="$H/Library/LaunchAgents/dev.instructables.relay.plist"
 OUT="$T/out.txt"
 
 run() {   # run install.sh in the sandbox; output goes to $OUT; returns its exit status
-  env HOME="$H" RELAY_SKIP_BUILD=1 RELAY_SKIP_LAUNCH=1 RELAY_SKIP_MCP=1 \
+  env HOME="$H" RELAY_SKIP_BUILD=1 RELAY_SKIP_LAUNCH=1 RELAY_SKIP_MCP=1 HOOK_BIN_DIRS= HOOK_APP_DIRS= \
     "$INSTALL" "$@" >"$OUT" 2>&1
 }
 mode_of() { stat -f '%Lp' "$1"; }
@@ -78,7 +83,10 @@ plutil -lint "$PLIST" >/dev/null || fail "LaunchAgent plist does not lint"
 [ "$(plutil -extract KeepAlive raw "$PLIST")" = "false" ] || fail "LaunchAgent KeepAlive"
 [ "$(readlink "$H/.local/bin/relay")" = "$REPO/bin/relay" ] || fail "CLI link is wrong"
 [ "$(readlink "$H/.local/bin/hook")" = "$REPO/bin/relay" ] || fail "hook CLI alias is wrong"
-[ "$(readlink "$H/.claude/skills/instructables")" = "$REPO/skill/instructables" ] || fail "skill link is wrong"
+[ ! -e "$H/.claude/skills/instructables" ] && [ ! -L "$H/.claude/skills/instructables" ] \
+  || fail "install linked a skill into ~/.claude/skills (the Claude Code plugin carries it now)"
+grep -qx 'integrations: skipped (RELAY_SKIP_INTEGRATIONS=1)' "$OUT" || { cat "$OUT"; fail "RELAY_SKIP_MCP=1 did not skip the integrations"; }
+[ ! -e "$REPO/build/integration" ] || [ "$REPO_BUNDLE_BEFORE" = "1" ] || fail "a skipped integrations run built a bundle in the repo"
 grep -q 'export PATH="$HOME/.local/bin:$PATH"' "$OUT" || fail "no PATH hint although ~/.local/bin is not on PATH"
 ok "fresh install"
 # RELAY_SKIP_BUILD installs no app; stand one in, so the reruns below aren't first installs.
@@ -144,12 +152,12 @@ config_eq '{"source": "local", "repoPath": "@REPO@", "onboarding": "pending", "u
 grep -q 'did not parse; moved it to' "$OUT" || fail "the move was not reported"
 ok "unparseable config moved aside"
 
-# 8. A skill link that points elsewhere is left alone, by install and uninstall.
-rm "$H/.claude/skills/instructables"
+# 8. A skill link that points elsewhere is left alone, by install and uninstall. (With the
+#    integrations on, sync reports it as foreign: see 33.)
+mkdir -p "$H/.claude/skills"
 ln -s "$T" "$H/.claude/skills/instructables"
 run || { cat "$OUT"; fail "install with a foreign skill link exited non-zero"; }
 [ "$(readlink "$H/.claude/skills/instructables")" = "$T" ] || fail "a foreign skill link was replaced"
-grep -q 'points elsewhere; left alone' "$OUT" || fail "the foreign skill link was not reported"
 ok "foreign skill link left alone"
 
 # 9. --uninstall keeps the config and removes the CLI links, both apps and LaunchAgent.
@@ -167,12 +175,16 @@ grep -q "config: $CONFIG" "$OUT" || fail "--uninstall did not print the kept con
   || fail "--uninstall did not end with the defaults hint"
 ok "--uninstall"
 
-# 10. --uninstall removes this repo's own skill link.
+# 10. Without an integrations manifest, --uninstall still removes the skill link an older
+#     install made into this repo (the legacy cleanup).
 rm "$H/.claude/skills/instructables"
 run || { cat "$OUT"; fail "reinstall exited non-zero"; }
+ln -s "$REPO/skill/instructables" "$H/.claude/skills/instructables"
+[ ! -e "$H/.config/relay/integrations.json" ] || fail "test setup: a skipped install wrote a manifest"
 run --uninstall || { cat "$OUT"; fail "second --uninstall exited non-zero"; }
 [ ! -L "$H/.claude/skills/instructables" ] || fail "--uninstall kept this repo's skill link"
-ok "--uninstall removes this repo's skill link"
+grep -qx 'integrations: skipped (RELAY_SKIP_INTEGRATIONS=1)' "$OUT" || { cat "$OUT"; fail "a skipped --uninstall ran the integrations"; }
+ok "--uninstall removes an older install's skill link when there is no manifest"
 
 # 11. A config without an app (a first install that failed at the build) is still a
 #     first install, so the LaunchAgent is written; with the app it isn't, and the
@@ -212,21 +224,10 @@ run --uninstall || { cat "$OUT"; fail "--uninstall with a foreign CLI link exite
 rm "$H/.local/bin/relay"
 ok "foreign CLI link left alone"
 
-# 14. A failing `claude mcp add` warns and the install still finishes. Only here is the
-#     MCP step on (RELAY_SKIP_MCP unset), with a fake `claude` first on PATH.
+# 14. (A failing integrations sync: see 34.)
 FAKE="$T/fakebin"
 mkdir -p "$FAKE"
-printf '#!/bin/sh\necho "$*" >> "%s/claude.log"\nexit 1\n' "$T" > "$FAKE/claude"
-chmod +x "$FAKE/claude"
 fake_app "$H/Applications/Hook.app"
-env -u RELAY_SKIP_MCP HOME="$H" PATH="$FAKE:$PATH" RELAY_SKIP_BUILD=1 RELAY_SKIP_LAUNCH=1 \
-  "$INSTALL" >"$OUT" 2>&1 || { cat "$OUT"; fail "a failing claude mcp add aborted the install"; }
-grep -q '^mcp add --scope user relay' "$T/claude.log" || fail "the fake claude was not called"
-grep -q "mcp: registration failed; later run: claude mcp add --scope user relay" "$OUT" || fail "no MCP warning with the command"
-grep -q '^skill: ' "$OUT" || fail "the skill step did not run after the MCP failure"
-grep -q '^launchagent: ' "$OUT" || fail "the LaunchAgent step did not run after the MCP failure"
-grep -q '^start: skipped' "$OUT" || fail "the start step was not reached after the MCP failure"
-ok "failing claude mcp add is not fatal"
 
 # 15. A LaunchAgent under the old bundle id is removed and replaced by the new one,
 #     even on a rerun (launch at login stays on); --uninstall removes an old one too.
@@ -341,15 +342,65 @@ chmod +x "$T/fixture-app/Hook.app/Contents/MacOS/Hook"
 "$REPO/scripts/package-release.sh" --app "$T/fixture-app/Hook.app" --out "$REL/download/v$VERSION" >/dev/null
 cp "$REL/download/v$VERSION/"* "$REL/latest/download/"
 
+# Fake harness CLIs: clients/fixtures/fakecli.py as claude and codex. Their MCP commands
+# write and remove the key a real CLI would (~ is the HOME they run with); every call is a
+# JSON line in $FAKE_LOG. PATH holds only them and the system folders, and HOOK_BIN_DIRS and
+# HOOK_APP_DIRS are empty, so the integrations find no real harness on this Mac.
 PFAKE="$T/prebuilt-fakebin"
 mkdir -p "$PFAKE"
-printf '#!/bin/sh\necho "$*" >> "%s/claude-prebuilt.log"\nexit 0\n' "$T" > "$PFAKE/claude"
+PY="$(python3 -c 'import sys; print(sys.executable)')"   # the interpreter itself, not a shim script
+for prog in claude codex; do
+  { echo "#!$PY"; cat "$REPO/clients/fixtures/fakecli.py"; } > "$PFAKE/$prog"
+done
 printf '#!/bin/sh\necho "swift $*" >> "%s/compiler.log"\nexit 1\n' "$T" > "$PFAKE/swift"
-chmod +x "$PFAKE/claude" "$PFAKE/swift"
-prun() {   # prun <home> <command…>: a sandboxed run with the fixture releases and a fake claude
+chmod +x "$PFAKE/claude" "$PFAKE/codex" "$PFAKE/swift"
+FAKE_LOG="$T/fakecli.log"
+FAKE_RULES="$T/fakecli.json"
+cat > "$FAKE_RULES" <<'JSON'
+{"rules": [
+  {"prog": "claude", "prefix": ["mcp", "add-json", "--scope", "user", "relay"], "action": "set",
+   "writes": {"path": "~/.claude.json", "format": "json", "key": ["mcpServers", "relay"]}},
+  {"prog": "claude", "prefix": ["mcp", "remove", "relay"], "action": "delete",
+   "writes": {"path": "~/.claude.json", "format": "json", "key": ["mcpServers", "relay"]}},
+  {"prog": "codex", "prefix": ["mcp", "add", "relay"], "action": "set",
+   "writes": {"path": "~/.codex/config.toml", "format": "toml", "key": ["mcp_servers", "relay"]}},
+  {"prog": "codex", "prefix": ["mcp", "remove", "relay"], "action": "delete",
+   "writes": {"path": "~/.codex/config.toml", "format": "toml", "key": ["mcp_servers", "relay"]}}
+]}
+JSON
+FAIL_RULES="$T/fakecli-fail.json"
+echo '{"fail": ["claude"]}' > "$FAIL_RULES"
+SAFE_PATH="$PFAKE:/usr/bin:/bin:/usr/sbin:/sbin"
+prun() {   # prun <home> <command…>: a sandboxed run with the fixture releases and the fake CLIs
   local home="$1"; shift
-  env -u HOOK_DEV -u RELAY_SKIP_MCP HOME="$home" PATH="$PFAKE:$PATH" HOOK_RELEASES_URL="file://$REL" \
-    RELAY_SKIP_BUILD=1 RELAY_SKIP_LAUNCH=1 "$@" >"$OUT" 2>&1
+  env -u HOOK_DEV -u RELAY_SKIP_MCP -u RELAY_SKIP_INTEGRATIONS HOME="$home" PATH="$SAFE_PATH" \
+    HOOK_BIN_DIRS= HOOK_APP_DIRS= HOOK_RELEASES_URL="file://$REL" \
+    FAKECLI_LOG="$FAKE_LOG" FAKECLI_CONFIG="${FAKE_CONFIG:-$FAKE_RULES}" FAKECLI_STATE="$home.fakecli-state.json" \
+    FAKECLI_CLIENTS="$REPO/clients" RELAY_SKIP_BUILD=1 RELAY_SKIP_LAUNCH=1 "$@" >"$OUT" 2>&1
+}
+called() {   # called <prog> <arg…>: the fake <prog> ran with exactly these arguments
+  python3 - "$FAKE_LOG" "$@" <<'PY'
+import json, sys
+log, prog, args = sys.argv[1], sys.argv[2], sys.argv[3:]
+try:
+    lines = open(log, encoding="utf-8").read().splitlines()
+except OSError:
+    lines = []
+sys.exit(0 if any(d.get("prog") == prog and d.get("argv") == args for d in map(json.loads, lines)) else 1)
+PY
+}
+calls() {   # calls: the fake CLI calls so far, one per line, for failure messages
+  python3 -c 'import json,sys
+for l in open(sys.argv[1]):
+    d = json.loads(l)
+    if "argv" in d: print(d["prog"], *d["argv"])' "$FAKE_LOG" 2>/dev/null || true
+}
+mcp_json() {   # mcp_json <link root>: the JSON Hook passes to claude mcp add-json
+  printf '{"type": "stdio", "command": "python3", "args": ["%s/mcp/relay_mcp.py"]}' "$1"
+}
+manifest_key() {   # manifest_key <home> <key>: a top-level value of the integrations manifest
+  python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get(sys.argv[2]))' \
+    "$1/.config/relay/integrations.json" "$2" 2>/dev/null || echo "(no manifest)"
 }
 g() {   # git that ignores the real ~/.gitconfig and never signs
   env GIT_CONFIG_NOSYSTEM=1 HOME="$T" git -c user.name=Test -c user.email=test@example.invalid \
@@ -365,9 +416,14 @@ old_clone() {   # old_clone <dir>: a clean clone of Hook as an older install lef
 }
 
 # 24. A fresh install from the release: the app comes from the release (nothing is built),
-#     the CLI, alias, skill, MCP server and repoPath go through ~/.local/share/hook/current.
+#     the CLI, alias and repoPath go through ~/.local/share/hook/current, and the
+#     integrations sync sets up the agents it finds (here Claude Code and Codex, fakes):
+#     without the app running, with --no-asks, and on a first install with --include-new.
 P="$T/p-home"
-mkdir -p "$P"
+mkdir -p "$P/.claude"
+printf '{\n  "theme": "dark",\n  "hooks": {"Stop": [{"hooks": [{"type": "command", "command": "say done"}]}]}\n}\n' \
+  > "$P/.claude/settings.json"
+SETTINGS_BEFORE="$(shasum "$P/.claude/settings.json")"
 HC="$P/.local/share/hook/current"
 prun "$P" bash "$REPO/scripts/get.sh" --local || { cat "$OUT"; fail "a prebuilt install exited non-zero"; }
 [ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$P/Applications/Hook.app/Contents/Info.plist")" = "io.github.xooxoxxo.relay" ] \
@@ -375,9 +431,20 @@ prun "$P" bash "$REPO/scripts/get.sh" --local || { cat "$OUT"; fail "a prebuilt 
 grep -q "app: installed $P/Applications/Hook.app" "$OUT" || { cat "$OUT"; fail "the app copy was not reported"; }
 [ "$(readlink "$P/.local/bin/relay")" = "$HC/bin/relay" ] || fail "CLI link is $(readlink "$P/.local/bin/relay")"
 [ "$(readlink "$P/.local/bin/hook")" = "$HC/bin/relay" ] || fail "hook alias is $(readlink "$P/.local/bin/hook")"
-[ "$(readlink "$P/.claude/skills/instructables")" = "$HC/skill/instructables" ] || fail "skill link is wrong"
-grep -qx "mcp add --scope user relay -- python3 $HC/mcp/relay_mcp.py" "$T/claude-prebuilt.log" \
-  || fail "MCP registration: $(cat "$T/claude-prebuilt.log")"
+[ ! -e "$P/.claude/skills/instructables" ] || fail "install linked a skill into ~/.claude/skills"
+grep -qx 'integrations: sync --include-new --no-asks' "$OUT" || { cat "$OUT"; fail "the integrations sync did not run with --include-new --no-asks"; }
+[ -f "$P/.config/relay/integrations.json" ] || { cat "$OUT"; fail "the sync wrote no manifest"; }
+[ "$(manifest_key "$P" linkRoot)" = "~/.local/share/hook/current" ] || fail "manifest linkRoot is $(manifest_key "$P" linkRoot)"
+[ -f "$P/.local/share/hook/plugins/claude/.claude-plugin/marketplace.json" ] \
+  || { find "$P/.local/share/hook" -maxdepth 4; fail "the Claude Code plugin was not rendered"; }
+called claude plugin marketplace add "$P/.local/share/hook/plugins/claude" || { calls; fail "no claude plugin marketplace add"; }
+called claude mcp add-json --scope user relay "$(mcp_json "$HC")" || { calls; fail "no claude mcp add-json through current"; }
+called codex mcp add relay -- python3 "$HC/mcp/relay_mcp.py" || { calls; fail "no codex mcp add through current"; }
+[ -f "$P/.claude/rules/hook.md" ] && [ -f "$P/.codex/AGENTS.md" ] || fail "the instructions were not installed"
+if grep -rq '/\.local/share/hook/[0-9]' "$P/.claude.json" "$P/.codex" "$P/.local/share/hook/plugins"; then
+  fail "a harness config names a versioned folder"
+fi
+grep -q 'integrations:' "$OUT" && ! grep -q '^integrations: failed\|weren.t set up' "$OUT" || { cat "$OUT"; fail "the integrations sync warned"; }
 python3 -c 'import json,sys; c=json.load(open(sys.argv[1])); sys.exit(0 if c["repoPath"]==sys.argv[2] and c["source"]=="local" else 1)' \
   "$P/.config/relay/config.json" "$HC" || fail "config: $(cat "$P/.config/relay/config.json")"
 [ -f "$P/Library/LaunchAgents/io.github.xooxoxxo.relay.plist" ] || fail "a first prebuilt install wrote no LaunchAgent"
@@ -385,13 +452,28 @@ python3 -c 'import json,sys; c=json.load(open(sys.argv[1])); sys.exit(0 if c["re
 "$P/.local/bin/relay" --version >/dev/null 2>&1 || fail "the linked CLI doesn't run"
 ok "prebuilt install through current"
 
-# 25. --uninstall from the release removes its own links.
+# 25. --uninstall from the release runs `integrations remove --all` (so the agents lose
+#     exactly what Hook wrote, and ~/.claude/settings.json is as it was before the install),
+#     then removes its own links and the app.
 prun "$P" "$HC/scripts/install.sh" --uninstall || { cat "$OUT"; fail "a prebuilt --uninstall exited non-zero"; }
-for l in "$P/.local/bin/relay" "$P/.local/bin/hook" "$P/.claude/skills/instructables"; do
+grep -qx 'integrations: remove --all' "$OUT" || { cat "$OUT"; fail "--uninstall did not run integrations remove --all"; }
+for l in "$P/.local/bin/relay" "$P/.local/bin/hook"; do
   [ ! -e "$l" ] && [ ! -L "$l" ] || fail "--uninstall kept $l"
 done
 [ ! -e "$P/Applications/Hook.app" ] || fail "--uninstall kept Hook.app"
-ok "prebuilt --uninstall"
+[ "$(shasum "$P/.claude/settings.json")" = "$SETTINGS_BEFORE" ] || { cat "$P/.claude/settings.json"; fail "~/.claude/settings.json changed"; }
+called claude mcp remove relay --scope user || { calls; fail "no claude mcp remove"; }
+called claude plugin uninstall hook@hook --scope user || { calls; fail "no claude plugin uninstall"; }
+called codex mcp remove relay || { calls; fail "no codex mcp remove"; }
+if python3 -c 'import json,sys; sys.exit(0 if "relay" in json.load(open(sys.argv[1])).get("mcpServers", {}) else 1)' "$P/.claude.json" 2>/dev/null; then
+  fail "~/.claude.json still has Hook's MCP server"
+fi
+[ ! -e "$P/.claude/rules/hook.md" ] && [ ! -e "$P/.codex/AGENTS.md" ] && [ ! -e "$P/.agents/skills/instructables" ] \
+  || fail "--uninstall left Hook's instructions or skill"
+[ ! -e "$P/.local/share/hook/plugins" ] || fail "--uninstall kept the rendered plugins"
+[ "$(manifest_key "$P" harnesses)" = "{}" ] || fail "the manifest still has harnesses: $(manifest_key "$P" harnesses)"
+grep -q "config: $P/.config/relay/config.json" "$OUT" || fail "--uninstall did not list the kept config"
+ok "prebuilt --uninstall removes the integrations first"
 
 # 26. --prebuilt refuses a clone, and a payload that current doesn't link to.
 prun "$P" "$INSTALL" --prebuilt && fail "--prebuilt ran from a clone"
@@ -411,13 +493,16 @@ ln -s "$M/relay/bin/relay" "$M/.local/bin/hook"
 ln -s "$M/relay/skill/instructables" "$M/.claude/skills/instructables"
 cp -R "$T/fixture-app/Hook.app" "$M/Applications/Hook.app"
 printf '{"source": "local", "repoPath": "%s"}\n' "$M/relay" > "$M/.config/relay/config.json"
-: > "$T/claude-prebuilt.log"
+: > "$FAKE_LOG"
 prun "$M" bash "$REPO/scripts/get.sh" || { cat "$OUT"; fail "a migrating install exited non-zero"; }
 MC="$M/.local/share/hook/current"
 [ "$(readlink "$M/.local/bin/relay")" = "$MC/bin/relay" ] || fail "the CLI link stayed on the clone"
 [ "$(readlink "$M/.local/bin/hook")" = "$MC/bin/relay" ] || fail "the hook link stayed on the clone"
-[ "$(readlink "$M/.claude/skills/instructables")" = "$MC/skill/instructables" ] || fail "the skill link stayed on the clone"
-grep -qx "mcp add --scope user relay -- python3 $MC/mcp/relay_mcp.py" "$T/claude-prebuilt.log" || fail "MCP still on the clone"
+# The update syncs without --include-new (the manifest's autoSetup decides), and the Claude
+# Code migration removes the old skill link: the plugin carries the skill.
+grep -qx 'integrations: sync --no-asks' "$OUT" || { cat "$OUT"; fail "an update did not sync without --include-new"; }
+[ ! -e "$M/.claude/skills/instructables" ] && [ ! -L "$M/.claude/skills/instructables" ] || fail "the old skill link into the clone stayed"
+called claude mcp add-json --scope user relay "$(mcp_json "$MC")" || { calls; fail "MCP still on the clone"; }
 grep -q "\"repoPath\": \"$MC\"" "$M/.config/relay/config.json" || fail "repoPath: $(cat "$M/.config/relay/config.json")"
 grep -qx 'The old copy in ~/relay is no longer used; you can delete it.' "$OUT" || { cat "$OUT"; fail "no note about the old clone"; }
 [ -d "$M/relay/.git" ] && [ -f "$M/relay/bin/relay" ] || fail "the old clone was changed"
@@ -484,6 +569,95 @@ prun "$V" env HOOK_DEV=0 "$V/dev/scripts/install.sh" || { cat "$OUT"; fail "HOOK
 [ "$(readlink "$V/.local/bin/relay")" = "$V/.local/share/hook/current/bin/relay" ] || fail "HOOK_DEV=0 left the CLI on the clone"
 if grep -q '"updateMode"' "$VCONF"; then fail "the release install kept updateMode: $(cat "$VCONF")"; fi
 ok "a HOOK_DEV=1 clone stays a developer's on later runs; HOOK_DEV=0 moves it to the release"
+
+# --- agent integrations (relay_integrations.py, run at the end of every install) -----------
+
+dev_copy() {   # dev_copy <dir>: this checkout's working tree (what an install reads) as a git clone
+  mkdir -p "$1"
+  (cd "$REPO" && tar --exclude __pycache__ --exclude clients/fixtures -cf - Resources/Info.plist bin clients mcp \
+    integration skill schema scripts docs/claude-md-section.md) | (cd "$1" && tar -xf -)
+  g init --quiet "$1"
+  g -C "$1" add -A
+  g -C "$1" commit --quiet -m dev
+}
+
+# 32. A developer's clone builds its own bundle (build/integration, stamped with the version in
+#     Resources/Info.plist) before the CLI links, and syncs with the clone as the link root.
+DV="$T/dv-home"
+mkdir -p "$DV/.claude"
+dev_copy "$DV/dev"
+: > "$FAKE_LOG"
+prun "$DV" env HOOK_DEV=1 "$DV/dev/scripts/install.sh" || { cat "$OUT"; fail "a developer clone's install exited non-zero"; }
+[ -f "$DV/dev/build/integration/bundle.json" ] || { cat "$OUT"; fail "the developer clone built no build/integration/bundle.json"; }
+python3 -c 'import json,sys; sys.exit(0 if json.load(open(sys.argv[1]))["version"] == sys.argv[2] else 1)' \
+  "$DV/dev/build/integration/bundle.json" "$VERSION" || fail "the clone's bundle is not stamped $VERSION"
+grep -qx 'integrations: sync --include-new --no-asks' "$OUT" || { cat "$OUT"; fail "the developer clone did not sync"; }
+[ "$(manifest_key "$DV" linkRoot)" = "~/dev" ] || fail "manifest linkRoot is $(manifest_key "$DV" linkRoot), not the clone"
+called claude mcp add-json --scope user relay "$(mcp_json "$DV/dev")" || { calls; fail "the MCP server does not run from the clone"; }
+[ -f "$DV/.local/share/hook/plugins/claude/.claude-plugin/plugin.json" ] || fail "the clone's install rendered no plugin"
+ok "a developer clone builds its bundle and syncs with itself as the link root"
+
+# 33. A bundle that won't build warns, skips the integrations, and the install still finishes.
+DB="$T/db-home"
+mkdir -p "$DB"
+dev_copy "$DB/dev"
+echo '{' > "$DB/dev/integration/harnesses.json"
+: > "$FAKE_LOG"
+prun "$DB" env HOOK_DEV=1 "$DB/dev/scripts/install.sh" || { cat "$OUT"; fail "a failed bundle build aborted the install"; }
+grep -q "^integrations: couldn't build the bundle" "$OUT" || { cat "$OUT"; fail "the failed bundle build was not reported"; }
+grep -qx 'integrations: skipped (RELAY_SKIP_INTEGRATIONS=1)' "$OUT" || { cat "$OUT"; fail "the integrations ran without a bundle"; }
+[ ! -s "$FAKE_LOG" ] || { calls; fail "a harness CLI ran without a bundle"; }
+grep -q '^launchagent: ' "$OUT" && grep -q '^start: skipped' "$OUT" || { cat "$OUT"; fail "the install stopped after the bundle failure"; }
+ok "a bundle that won't build is not fatal"
+
+# 34. A failing sync (claude exits 1) warns with the command to look at, and the install
+#     still finishes with status 0.
+F="$T/f-home"
+mkdir -p "$F/.claude"
+status=0; FAKE_CONFIG="$FAIL_RULES" prun "$F" bash "$REPO/scripts/get.sh" || status=$?
+[ "$status" = "0" ] || { cat "$OUT"; fail "a failing integrations sync made the install exit $status"; }
+grep -qx "integrations: some agents weren't set up; see: relay integrations status" "$OUT" || { cat "$OUT"; fail "no integrations warning"; }
+grep -q '^launchagent: ' "$OUT" && grep -q '^start: skipped' "$OUT" || { cat "$OUT"; fail "the install stopped after the failing sync"; }
+ok "a failing integrations sync is not fatal"
+
+# 35. RELAY_SKIP_INTEGRATIONS=1, and its old name RELAY_SKIP_MCP=1, skip the integrations.
+for switch in RELAY_SKIP_INTEGRATIONS RELAY_SKIP_MCP; do
+  K="$T/k-home-$switch"
+  mkdir -p "$K/.claude"
+  : > "$FAKE_LOG"
+  prun "$K" env "$switch=1" bash "$REPO/scripts/get.sh" || { cat "$OUT"; fail "$switch=1: the install exited non-zero"; }
+  grep -qx 'integrations: skipped (RELAY_SKIP_INTEGRATIONS=1)' "$OUT" || { cat "$OUT"; fail "$switch=1 did not skip"; }
+  [ ! -s "$FAKE_LOG" ] || { calls; fail "$switch=1: a harness CLI ran"; }
+  [ ! -e "$K/.config/relay/integrations.json" ] || fail "$switch=1 wrote a manifest"
+done
+ok "RELAY_SKIP_INTEGRATIONS=1 and RELAY_SKIP_MCP=1 skip"
+
+# 36. A skill link in ~/.claude/skills that isn't Hook's: sync reports it as foreign and leaves it.
+G="$T/g-home"
+mkdir -p "$G/.claude/skills" "$T/someone-elses-skill"
+ln -s "$T/someone-elses-skill" "$G/.claude/skills/instructables"
+prun "$G" bash "$REPO/scripts/get.sh" || { cat "$OUT"; fail "an install with a foreign skill link exited non-zero"; }
+[ "$(readlink "$G/.claude/skills/instructables")" = "$T/someone-elses-skill" ] || fail "sync replaced a foreign skill link"
+grep -q 'foreign.*~/.claude/skills/instructables\|~/.claude/skills/instructables.*foreign' "$OUT" \
+  || { cat "$OUT"; fail "sync did not report the foreign skill link"; }
+prun "$G" "$G/.local/share/hook/current/scripts/install.sh" --uninstall || { cat "$OUT"; fail "--uninstall exited non-zero"; }
+[ "$(readlink "$G/.claude/skills/instructables")" = "$T/someone-elses-skill" ] || fail "--uninstall removed a foreign skill link"
+ok "a foreign skill link is reported by sync and left alone"
+
+# 37. --uninstall without a manifest (an install from before 0.13) keeps the legacy cleanup:
+#     claude mcp remove, and the old skill link into this install.
+L="$T/l-home"
+mkdir -p "$L/.claude"
+prun "$L" env RELAY_SKIP_INTEGRATIONS=1 bash "$REPO/scripts/get.sh" || { cat "$OUT"; fail "the legacy fixture install exited non-zero"; }
+LC="$L/.local/share/hook/current"
+mkdir -p "$L/.claude/skills"
+ln -s "$LC/skill/instructables" "$L/.claude/skills/instructables"
+: > "$FAKE_LOG"
+prun "$L" "$LC/scripts/install.sh" --uninstall || { cat "$OUT"; fail "a legacy --uninstall exited non-zero"; }
+called claude mcp remove relay --scope user || { calls; fail "a legacy --uninstall did not remove the claude mcp server"; }
+[ ! -L "$L/.claude/skills/instructables" ] || fail "a legacy --uninstall kept the old skill link"
+if grep -q '^integrations: remove' "$OUT"; then fail "--uninstall ran integrations remove without a manifest"; fi
+ok "--uninstall without a manifest keeps the legacy cleanup"
 
 # 21. A Hook that ignores SIGTERM is force-quit before its bundle is replaced; another app
 #     called Hook is never touched; a copy whose bundle is gone counts as ours only from

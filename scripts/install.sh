@@ -5,20 +5,27 @@
 #   scripts/install.sh --mailbox <dir>  the same, and use the mailbox named by <dir>/mailbox-url and <dir>/mailbox-token
 #   scripts/install.sh --prebuilt       install the release this script came with (scripts/get.sh runs it
 #                                       as ~/.local/share/hook/current/scripts/install.sh); nothing is built
-#   scripts/install.sh --uninstall      remove the app (Hook.app and an old Relay.app), LaunchAgent,
-#                                       this install's CLI links, MCP server and skill link (keeps the config, token and queue)
+#   scripts/install.sh --uninstall      remove what Hook set up in agent harnesses (relay integrations
+#                                       remove --all), the app (Hook.app and an old Relay.app), LaunchAgent
+#                                       and this install's CLI links (keeps the config, token and queue)
 # Run from a clone, it builds Hook from source only in a developer's clone (HOOK_DEV=1, changes
 # that aren't committed, a local branch other than main, or a clone an earlier run built
 # from source as a developer's, which the config records as "updateMode": "developer"). Any other clone, such as one an
 # older Hook updates with git, hands over to the release download (scripts/get.sh), and builds
 # from source only when that download fails.
-# A --prebuilt install moves the CLI, MCP server and skill off an older clone to
-# ~/.local/share/hook/current and says the clone can be deleted; a developer's clone keeps its links.
+# A --prebuilt install moves the CLI off an older clone to ~/.local/share/hook/current and says
+# the clone can be deleted; a developer's clone keeps its links.
+# The last step sets up Hook in the agent harnesses on this Mac (its MCP server, the
+# instructables skill, its instructions and the replies hook) with
+# clients/relay_integrations.py sync, through the same link root as the CLI. A developer's
+# clone first builds its integration bundle into build/integration; a release carries one.
+# That step is never fatal: a failure warns with the command to run later.
 # This script never reads or prints any token.
 # Test-only switches, used by scripts/test-install.sh and nothing else:
 #   RELAY_SKIP_BUILD=1   no build, no app quit, no copy to ~/Applications
 #   RELAY_SKIP_LAUNCH=1  no launchctl, no pkill, no lsregister, no app start
-#   RELAY_SKIP_MCP=1     no `claude mcp` calls
+#   RELAY_SKIP_INTEGRATIONS=1  no agent integrations (no sync, no remove, no harness CLI);
+#                        RELAY_SKIP_MCP=1, its name before 0.13, does the same
 #   RELAY_APP_SCOPE=<dir>  only app copies whose bundle is under <dir> count as running
 #   RELAY_TEST_STEP=stop   with RELAY_APP_SCOPE: only quit (and force-quit) running copies, then exit
 #   RELAY_TEST_STEP=start  with RELAY_APP_SCOPE: only start the app and check no older copy runs,
@@ -41,12 +48,12 @@ CONFIG="$CONFIG_DIR/config.json"
 DATA_DIR="$HOME/Library/Application Support/Relay"
 CLI_LINK="$HOME/.local/bin/relay"
 CLI_ALIAS="$HOME/.local/bin/hook"   # the same CLI under the new name
-SKILL_LINK="$HOME/.claude/skills/instructables"
+SKILL_LINK="$HOME/.claude/skills/instructables"   # before 0.13; the Claude Code plugin carries the skill now
+MANIFEST="$CONFIG_DIR/integrations.json"          # what relay integrations installed
 GUI="gui/$(id -u)"
 LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 SKIP_BUILD="${RELAY_SKIP_BUILD:-0}"
 SKIP_LAUNCH="${RELAY_SKIP_LAUNCH:-0}"
-SKIP_MCP="${RELAY_SKIP_MCP:-0}"
 APP_SCOPE="${RELAY_APP_SCOPE:-}"
 TEST_STEP="${RELAY_TEST_STEP:-}"
 
@@ -63,8 +70,11 @@ Usage: scripts/install.sh [--local | --mailbox <dir>] [--prebuilt] | --uninstall
                    and <dir>/mailbox-token (only its path is stored; it is never read).
   --prebuilt       Install the release this script came with (get.sh and Hook's
                    updater run it from ~/.local/share/hook/current). Builds nothing.
-  --uninstall      Remove the app, LaunchAgent, CLI links, MCP server and this
-                   install's skill link. Keeps the config, token and queue.
+  --uninstall      Remove what Hook set up in agent harnesses (MCP server, skill,
+                   instructions, replies hook), then the app, LaunchAgent and CLI
+                   links. Keeps the config, token and queue.
+
+An install ends by setting up Hook in the agents on this Mac (relay integrations sync).
 EOF
 }
 
@@ -143,7 +153,6 @@ if [ "$prebuilt" -eq 1 ]; then
     || die "--prebuilt: $(tilde "$HOOK_HOME/current") does not link to $(tilde "$REPO"); install with scripts/get.sh"
   LINK_ROOT="$HOOK_HOME/current"
 fi
-MCP_CMD="claude mcp add --scope user relay -- python3 \"$LINK_ROOT/mcp/relay_mcp.py\""
 
 # Old clones the links moved off, to name at the end.
 OLD_COPIES=()
@@ -328,6 +337,37 @@ remove_old_agent() {
   echo "launchagent: removed the old $OLD_LABEL LaunchAgent"
 }
 
+warn() { echo "$*" >&2; }
+
+# integrations <args…>: clients/relay_integrations.py through this install's link root.
+# Never fatal: status 4 (some agents weren't set up) is a warning, any other is louder.
+integrations() {
+  [ "${RELAY_SKIP_INTEGRATIONS:-${RELAY_SKIP_MCP:-0}}" = "1" ] && { echo "integrations: skipped (RELAY_SKIP_INTEGRATIONS=1)"; return 0; }
+  echo "integrations: $*"
+  st=0; python3 "$LINK_ROOT/clients/relay_integrations.py" "$@" --link-root "$LINK_ROOT" || st=$?
+  case "$1:$st" in
+    *:0) ;;
+    remove:4) warn "integrations: some agents still have Hook's setup; see: relay integrations status" ;;
+    remove:*) warn "integrations: remove failed (status $st); later run: python3 \"$LINK_ROOT/clients/relay_integrations.py\" remove --all" ;;
+    *:4) warn "integrations: some agents weren't set up; see: relay integrations status" ;;
+    *) warn "integrations: failed (status $st); later run: relay integrations sync" ;;
+  esac
+}
+
+# A clone has no integration bundle of its own: build one into build/integration, stamped
+# with the version in Resources/Info.plist. A failure skips the integrations for this run.
+dev_bundle() {
+  [ "$prebuilt" -eq 0 ] || return 0
+  [ "${RELAY_SKIP_INTEGRATIONS:-${RELAY_SKIP_MCP:-0}}" != "1" ] || return 0
+  bundle_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$REPO/Resources/Info.plist" 2>/dev/null || true)"
+  if python3 "$REPO/clients/relay_bundle.py" build --version "$bundle_version" --out "$REPO/build/integration" >/dev/null; then
+    echo "integrations: built the bundle in $(tilde "$REPO/build/integration")"
+  else
+    warn "integrations: couldn't build the bundle (python3 clients/relay_bundle.py build --out build/integration); the agents are not set up this time"
+    export RELAY_SKIP_INTEGRATIONS=1
+  fi
+}
+
 # --- test-only single steps (scripts/test-install.sh) -----------------------------
 
 if [ -n "$TEST_STEP" ]; then
@@ -347,18 +387,30 @@ if [ "$uninstall" -eq 1 ]; then
     launchctl bootout "$GUI/$LABEL" 2>/dev/null || true
     stop_apps
   fi
+  # What Hook set up in the agents goes first, while the CLI and payload are still here.
+  # Without a manifest (an install from before 0.13), the old setup is cleaned up as before.
+  if [ -f "$MANIFEST" ]; then
+    dev_bundle
+    integrations remove --all
+  else
+    skip_integrations="${RELAY_SKIP_INTEGRATIONS:-${RELAY_SKIP_MCP:-0}}"
+    if [ "$skip_integrations" = "1" ]; then
+      echo "integrations: skipped (RELAY_SKIP_INTEGRATIONS=1)"
+    elif have_claude; then
+      claude mcp remove relay --scope user >/dev/null 2>&1 || true
+    fi
+    if our_link "$SKILL_LINK" skill/instructables; then
+      rm "$SKILL_LINK"
+    elif [ -e "$SKILL_LINK" ] || [ -L "$SKILL_LINK" ]; then
+      echo "skill: $SKILL_LINK is not this install's link; left alone"
+    fi
+  fi
   rm -f "$PLIST"
   remove_old_agent
   remove_app "$APP"
   remove_app "$OLD_APP"
   remove_cli_link "$CLI_LINK"
   remove_cli_link "$CLI_ALIAS"
-  if [ "$SKIP_MCP" != "1" ] && have_claude; then claude mcp remove relay --scope user >/dev/null 2>&1 || true; fi
-  if our_link "$SKILL_LINK" skill/instructables; then
-    rm "$SKILL_LINK"
-  elif [ -e "$SKILL_LINK" ] || [ -L "$SKILL_LINK" ]; then
-    echo "skill: $SKILL_LINK is not this install's link; left alone"
-  fi
   echo "Hook uninstalled. Kept:"
   echo "  config: $CONFIG"
   echo "  token:  $CONFIG_DIR/local-token"
@@ -547,11 +599,12 @@ if [ -d "$APP" ] && ours "$APP" && [ -d "$OLD_APP" ]; then
   fi
 fi
 
-# Steps 4-6 are optional: a failure warns with the command to run later, and the
-# LaunchAgent, start and health check still run.
-warn() { echo "$*" >&2; }
+# Step 4 and the agent integrations (7) are optional: a failure warns with the command to
+# run later, and the LaunchAgent, start and health check still run.
 
 # --- 4. CLI; never replace a `relay` command that isn't ours ---------------------------
+
+dev_bundle
 
 # link_to <link> <path in the payload> <label> <what to say when it is someone else's>
 # Links <link> to this install unless something that isn't ours is there. A --prebuilt
@@ -583,31 +636,15 @@ case ":$PATH:" in
      echo '  export PATH="$HOME/.local/bin:$PATH"' ;;
 esac
 
-# --- 5. MCP server, user scope -----------------------------------------------------
-
-if [ "$SKIP_MCP" = "1" ]; then
-  echo "mcp: skipped (RELAY_SKIP_MCP=1)"
-elif have_claude; then
-  claude mcp remove relay --scope user >/dev/null 2>&1 || true
-  if claude mcp add --scope user relay -- python3 "$LINK_ROOT/mcp/relay_mcp.py"; then
-    echo "mcp: registered relay (user scope)"
-  else
-    warn "mcp: registration failed; later run: $MCP_CMD"
-  fi
-else
-  echo "mcp: claude CLI not found; later run: $MCP_CMD"
-fi
-
-# --- 6. skill symlink; never replace something that isn't ours ---------------------
-
-link_to "$SKILL_LINK" skill/instructables skill "skill: $SKILL_LINK points elsewhere; left alone"
+# (Before 0.13, steps 5 and 6 here were `claude mcp add` and the skill link; the agent
+# integrations, step 7, do that now.)
 
 # The clones the links moved off stay where they are.
 for old in ${OLD_COPIES[@]+"${OLD_COPIES[@]}"}; do
   if [ -d "$old" ]; then echo "The old copy in $(tilde "$old") is no longer used; you can delete it."; fi
 done
 
-# --- 7. LaunchAgent: only on a first install, or when it already exists --------------
+# --- 5. LaunchAgent: only on a first install, or when it already exists --------------
 # Once the owner turns off "Launch at login" in Settings, an update never turns it back on.
 # A LaunchAgent under the old bundle id counts as existing; it is replaced by the new one.
 
@@ -656,10 +693,17 @@ else
   echo "launchagent: not written (not a first install, and there is no LaunchAgent to update)"
 fi
 
-# --- 8. start and check /health ------------------------------------------------------
+# --- 6. start and check /health, then 7. the agent integrations ---------------------
+# The sync posts owner steps to the running app; without it (not started, or not answering)
+# it runs with --no-asks, and the app's own sync posts them later. A first install sets up
+# every agent it finds (--include-new); an update leaves that to the manifest's autoSetup.
+
+new_agents=""
+[ "$first_install" -eq 0 ] || new_agents="--include-new"
 
 if [ "$SKIP_LAUNCH" = "1" ]; then
   echo "start: skipped (RELAY_SKIP_LAUNCH=1)"
+  integrations sync ${new_agents:+"$new_agents"} --no-asks
   exit 0
 fi
 port="$(python3 - "$CONFIG" <<'PY'
@@ -683,10 +727,12 @@ except ValueError:
 print(d.get("source", "?") if isinstance(d, dict) and d.get("app") == "relay" else "")' 2>/dev/null || true)"
   if [ -n "$src" ]; then
     echo "hook: running on 127.0.0.1:$port (source: $src)"
+    integrations sync ${new_agents:+"$new_agents"}
     echo "Done. Settings: right-click the menu-bar icon. Config: $CONFIG"
     exit 0
   fi
   sleep 0.5
 done
 echo "warning: Hook did not answer on 127.0.0.1:$port/health. It may still be starting: check the menu bar, or open $APP by hand" >&2
+integrations sync ${new_agents:+"$new_agents"} --no-asks
 exit 1
