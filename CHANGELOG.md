@@ -3,6 +3,59 @@
 All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## [Unreleased]
+
+### Added
+- Agent integrations. Hook sets itself up in every coding agent it finds on the Mac: its MCP
+  server, the instructables skill, one instructions text and, where the agent has one, the
+  replies hook, each the agent's own way (its CLI, a plugin, a file Hook owns, one key, or a
+  marked block). 18 agents: Claude Code, Codex, Gemini CLI, Antigravity CLI, Copilot CLI,
+  VS Code Copilot, Cursor, OpenCode, Zed, pi, Devin, Factory Droid, Kiro, Amp, Cline, Goose,
+  Junie and Warp. Antigravity CLI, VS Code Copilot, Devin, Factory Droid, Kiro, Amp, Cline,
+  Goose, Junie and Warp are set up from their docs and fixture tests and are not tested on a Mac
+  yet. Every config names a stable path, so an update changes content, never config. The
+  agent table is data, `integration/harnesses.json`, and each release carries its bundle in
+  `support/integration`. See [docs/agents.md](docs/agents.md).
+- `relay integrations status|sync|reinstall|accept|diff|remove|migrate|set` (also
+  `hook integrations`). A manifest, `~/.config/relay/integrations.json`, records every file, key
+  and block Hook wrote with its hash, so status tells installed, outdated and edited apart and
+  remove takes out exactly what Hook wrote. A file you edited is never overwritten without
+  `--force`, which saves a `.bak` first; a file that doesn't parse is never rewritten.
+- It runs at the end of every install and update, 30 s after the app launches when something
+  changed, and daily. New agents are set up automatically unless Settings › Agents › Set up new
+  agents automatically is off.
+- Steps only you can do (trust Hook's hook in Codex, reload Cursor, add Hook's rule to Warp, the
+  CLAUDE.md section) arrive once each as an ask. A sync you didn't start sends the files you
+  edited as one ask, Keep mine or Use Hook's per file.
+- `relay hook replies --format claude|gemini|kiro|cursor|copilot|plain`: the replies hook in
+  the shape each agent's hook reads, per prompt with a cursor per session, or at session start
+  with the last 24 h. It never launches Hook and always exits 0.
+- Settings › Agents: the agents on this Mac in a list, and the selected one's pieces, each with
+  its state, "?" and a folder button. A piece marked Edited by you has a Fix… menu: Keep Mine,
+  Show Difference and Use Hook's. Reinstall All and the automatic setup checkbox are below. The
+  setup window's agents page lists them too.
+- The skill and the instructions tell agents without a per-prompt hook to call `relay_list` at
+  the start of a session and `relay_status {id}` before waiting.
+
+### Changed
+- Claude Code moves to the Hook plugin (`hook@hook`, carrying the skill and the replies hook)
+  and the rules file `~/.claude/rules/hook.md`. They replace the CLAUDE.md section you pasted
+  and the replies hook in `~/.claude/settings.json`, which the first sync removes once the
+  plugin's hook runs: a section a Hook release shipped at once, an edited one only after you
+  answer its ask. The MCP server stays a user-scope `relay` server, so tool names and
+  permission lists don't change. See [docs/claude-code.md](docs/claude-code.md).
+- The Connect tab is now Agents. `install.sh` no longer runs `claude mcp add` or links the
+  skill, and `--uninstall` runs `relay integrations remove --all` first.
+- `relay replies --new --hook` is now the 0.12 name of `relay hook replies --format plain`, with
+  the same output.
+- The MCP tools and the `relay` command moved from docs/claude-code.md to docs/agents.md.
+
+### Removed
+- `docs/claude-md-section.md`, and Settings › Connect › Copy CLAUDE.md section. The release
+  zip's `support/docs` folder goes with it.
+<!-- hook:pond=^1.1.0 -->
+<!-- hook:mailbox-protocol=5 -->
+
 ## [0.12.0] - 2026-11-03
 
 ### Added

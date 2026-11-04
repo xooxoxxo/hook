@@ -137,15 +137,16 @@ class UnitTest(unittest.TestCase):
     def test_legacy_texts_are_the_released_ones(self):
         names = sorted(p.name for p in LEGACY.glob("*.md"))
         self.assertEqual(names, ["v0.2.0.md", "v0.8.0.md"])
-        self.assertEqual((LEGACY / "v0.8.0.md").read_text("utf-8"),
-                         (ROOT / "docs" / "claude-md-section.md").read_text("utf-8"))
-        try:
-            old = subprocess.run(["git", "-C", str(ROOT), "show", "v0.2.0:docs/claude-md-section.md"],
-                                 capture_output=True, text=True, timeout=10)
-        except (OSError, subprocess.TimeoutExpired):
-            return
-        if old.returncode == 0:
-            self.assertEqual((LEGACY / "v0.2.0.md").read_text("utf-8"), old.stdout)
+        # 0.13 removed docs/claude-md-section.md; v0.12.0 shipped the last text (the v0.8.0 one).
+        self.assertFalse((ROOT / "docs" / "claude-md-section.md").exists())
+        for name, tag in (("v0.2.0.md", "v0.2.0"), ("v0.8.0.md", "v0.8.0"), ("v0.8.0.md", "v0.12.0")):
+            try:
+                old = subprocess.run(["git", "-C", str(ROOT), "show", f"{tag}:docs/claude-md-section.md"],
+                                     capture_output=True, text=True, timeout=10)
+            except (OSError, subprocess.TimeoutExpired):
+                return
+            if old.returncode == 0:                    # a clone without the tags skips this
+                self.assertEqual((LEGACY / name).read_text("utf-8"), old.stdout, tag)
 
 
 class Base(unittest.TestCase):

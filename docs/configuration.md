@@ -22,7 +22,7 @@ Hook reads `~/.config/relay/config.json`, and Settings edits the same file.
 | `notify` | object | `{"now":true,"today":true,"whenever":false,"sound":false,"slideIn":true}` | Which urgencies notify, sound, and whether "now" asks slide the panel in |
 | `presence` | `"auto"` \| `"home"` \| `"away"` | `"auto"` | [Away mode](using.md#away-mode): `auto` follows the screen lock, display sleep, user switching, Screen Sharing and idle time; `home` and `away` set it by hand |
 | `awayAfterMinutes` | 5, 10, 15, 30 or 60 | 10 | Automatic: minutes without input before Hook marks you away |
-| `repoPath` | path | none | Set by the installer; Settings › Connect builds its commands from it |
+| `repoPath` | path | none | Set by the installer; Settings › Agents runs `relay integrations` from it |
 | `sidebarDisplay` | display UUID string | none | The display the panel is pinned to. Dragging the panel sets it (and `sidebarEdge`); while that display is disconnected, the main display is used. Delete it to go back to the main display |
 | `afterClose` | `"next"` \| `"queue"` | `"next"` | After Done or Skip in an ask: open the next ask in the list, or go back to the queue with the next row selected. Any other value means `"next"` |
 | `mailboxUpdateCommand` | string | none | Pond mode: the shell command **Update Pond…** runs in a new terminal window (the `terminal` below) through your login shell. One line; empty or missing opens the [update guide](mailbox-protocol.md#updating-the-mailbox) instead. Set it in Settings › Queue › Pond › Update command |
@@ -30,6 +30,15 @@ Hook reads `~/.config/relay/config.json`, and Settings edits the same file.
 | `terminal` | `"automatic"` \| a terminal's bundle id | `"automatic"` | Where Resume Session opens: `com.apple.Terminal`, `com.googlecode.iterm2`, `com.mitchellh.ghostty`, `net.kovidgoyal.kitty`, `com.github.wez.wezterm`, `dev.warp.Warp-Stable` or `org.alacritty`. `automatic`, an unknown id or a terminal that isn't installed means the first installed of Ghostty, iTerm2, WezTerm, kitty, Warp and Alacritty, else Terminal |
 | `crashReports` | `"ask"` \| `"auto"` \| `"off"` | `"ask"` | After Hook quits unexpectedly: `ask` docks a bar in the panel and shows the report before anything is sent; `auto` sends it to your own Pond without asking when `crashReportTarget` is `pond` (and works like `ask` for GitHub); `off` shows and sends nothing. Any other value means `ask`. Set it in Settings › General › Privacy; see [Privacy](privacy.md) |
 | `crashReportTarget` | `"github"` \| `"pond"` | `"github"` | Where a crash report goes: `github` opens a prefilled issue in your browser for you to submit; `pond` files it on your Pond as a Hook bug. `pond` counts only while the source is a Pond and this Mac's owner key is approved; otherwise it reads as `github`. Any other value means `github` |
+
+## Agent integrations
+
+`relay integrations` keeps its own files; Settings never edits them ([Agents](agents.md)):
+
+- `~/.config/relay/integrations.json` (the manifest): every file, key and block Hook wrote in an agent's setup, with its hash, the asks it posted for your steps, and `autoSetup`, which Settings › Agents › Set up new agents automatically changes through `relay integrations set auto-setup on|off`. One that isn't valid JSON moves to `integrations.json.bad-<time>`. `integrations.lock` beside it keeps two runs apart.
+- `~/.local/share/hook/plugins/<agent>`: the Claude Code, Gemini CLI and Antigravity plugins, rendered for this Mac with its paths filled in. Cursor's goes to `~/.cursor/plugins/local/hook`.
+- `~/.local/share/hook/backups`: copies of folders Hook replaced. A file's copy is `<file>.bak` beside it.
+- `~/.local/state/relay/integrations/claude-md-proposal.md`: the proposal for Claude Code's CLAUDE.md section, while it waits for your answer.
 
 ## The away flag
 

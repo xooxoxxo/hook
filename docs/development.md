@@ -80,7 +80,7 @@ A pull request that changes `Sources/RelayUI/` attaches the before and after PNG
 
 1. **Version.** Bump it in the three places that carry it: `CFBundleShortVersionString` and
    `CFBundleVersion` in `Resources/Info.plist`, `VERSION` in `clients/relay_client.py`, and the
-   `relay --version` row in [docs/claude-code.md](claude-code.md). Hook's version stays 0.x.
+   `relay --version` row in [docs/agents.md](agents.md). Hook's version stays 0.x.
 2. **CHANGELOG.** Rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD` and read it as release
    notes: one line per change a user would notice, under Added, Changed and Fixed.
 3. **Privacy scan.** The repository is public. Read the diff since the last tag
@@ -97,8 +97,8 @@ A pull request that changes `Sources/RelayUI/` attaches the before and after PNG
 7. **Release workflow.** The tag runs [Release](../.github/workflows/release.yml): it checks the
    tag matches `Info.plist` and the notes carry both markers, builds a universal (arm64 and
    x86_64) Hook.app, packs `Hook-X.Y.Z.zip` (the app and the `support/` payload:
-   `bin/relay`, `clients/`, `mcp/`, `schema/`, `skill/`, `scripts/install.sh`, `scripts/get.sh`,
-   `docs/claude-md-section.md`, `VERSION`) with `scripts/package-release.sh`, writes
+   `bin/relay`, `clients/`, `mcp/`, `schema/`, `skill/`, `integration/`, `scripts/install.sh`,
+   `scripts/get.sh`, `VERSION`) with `scripts/package-release.sh`, writes
    `SHA256SUMS`, and publishes the release with the CHANGELOG section as its notes. A new
    release stays a draft until both files are attached, so `get.sh` and the updater never see
    a release they can't download. A release you made by hand gets the files attached and keeps

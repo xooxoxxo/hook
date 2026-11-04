@@ -409,7 +409,7 @@ g() {   # git that ignores the real ~/.gitconfig and never signs
 old_clone() {   # old_clone <dir>: a clean clone of Hook as an older install left it, on main only
   mkdir -p "$1"
   (cd "$REPO" && tar -cf - Resources/Info.plist bin/relay mcp/relay_mcp.py scripts/install.sh scripts/get.sh \
-    scripts/build.sh skill/instructables docs/claude-md-section.md) | (cd "$1" && tar -xf -)
+    scripts/build.sh skill/instructables) | (cd "$1" && tar -xf -)
   g init --quiet "$1"
   g -C "$1" add -A
   g -C "$1" commit --quiet -m release
@@ -575,7 +575,7 @@ ok "a HOOK_DEV=1 clone stays a developer's on later runs; HOOK_DEV=0 moves it to
 dev_copy() {   # dev_copy <dir>: this checkout's working tree (what an install reads) as a git clone
   mkdir -p "$1"
   (cd "$REPO" && tar --exclude __pycache__ --exclude clients/fixtures -cf - Resources/Info.plist bin clients mcp \
-    integration skill schema scripts docs/claude-md-section.md) | (cd "$1" && tar -xf -)
+    integration skill schema scripts) | (cd "$1" && tar -xf -)
   g init --quiet "$1"
   g -C "$1" add -A
   g -C "$1" commit --quiet -m dev

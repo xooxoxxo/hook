@@ -312,6 +312,9 @@ To pick one up, read it with `relay_status {id}`, fix the crash, then close it w
   `— answer <path> (version N): "<value>"` for a step answer. The hook shows
   answers to every session's asks: act only on ids you posted. Problem reports, accepted
   corrections and messages show only for the asks you posted.
+- If your agent shows no `Hook:` lines with each prompt (Zed, Warp, Goose, Kiro, Junie,
+  Cline, and Cursor, Copilot or Antigravity after the session starts), call `relay_list` at
+  the start of a session and `relay_status {id}` before you wait.
 - `relay_list` (or `relay list`) shows every open ask. Check it before posting, so you
   don't ask twice.
 - Don't post the same title again within 24 h. To fix a step of an open ask, correct it

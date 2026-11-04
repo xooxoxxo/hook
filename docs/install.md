@@ -36,10 +36,9 @@ A curl download isn't quarantined, so macOS opens Hook even though releases aren
 2. Writes `~/.config/relay/config.json` (folder `0700`, file `0600`), keeping existing keys. A config that doesn't parse moves to `config.json.bad-<time>`. A new config, or a kept one when `~/Applications/Hook.app` is new (you deleted the app and installed again), gets `"onboarding": "pending"`, so Hook opens its setup window, filled in from the config.
 3. Replaces `~/Applications/Hook.app` with the release's. It quits a running Hook or Relay first (force-quitting one that doesn't quit within 5 s, and stopping if it still runs), and once Hook.app is in place it removes an old `~/Applications/Relay.app`.
 4. Links `relay` to `~/.local/bin/relay` unless another `relay` is there, and `hook` (the same command) to `~/.local/bin/hook` unless another `hook` is there, both through `~/.local/share/hook/current`. Prints the `~/.zshrc` line if that folder isn't on your `PATH`.
-5. Runs `claude mcp add --scope user relay -- python3 "$HOME/.local/share/hook/current/mcp/relay_mcp.py"`, or prints it when `claude` is missing or the call fails.
-6. Links the skill to `~/.claude/skills/instructables` unless something else is there.
-7. Writes the login LaunchAgent `~/Library/LaunchAgents/io.github.xooxoxxo.relay.plist` only on a first install or if it exists, so turning it off sticks. Removes the pre-release `dev.instructables.relay` one.
-8. Starts Hook, checks that no copy older than the install is still running (one is force-quit and Hook started again, once; then the install fails), and checks `http://127.0.0.1:<port>/health` (port 47823 unless `port` says otherwise).
+5. Writes the login LaunchAgent `~/Library/LaunchAgents/io.github.xooxoxxo.relay.plist` only on a first install or if it exists, so turning it off sticks. Removes the pre-release `dev.instructables.relay` one.
+6. Starts Hook, checks that no copy older than the install is still running (one is force-quit and Hook started again, once; then the install fails), and checks `http://127.0.0.1:<port>/health` (port 47823 unless `port` says otherwise).
+7. Sets up the agents it finds, last, so your steps can reach the running Hook: see [agents.md](agents.md). It never stops the install; a failure prints the command to run later.
 
 ## Update
 
@@ -53,7 +52,7 @@ To go back to the version before by hand: `ln -sfn <version> ~/.local/share/hook
 
 ### Coming from a clone
 
-Hook 0.9.x and earlier ran from a git clone (often `~/relay`, or `~/.local/share/hook` from 0.9.3's `get.sh`). The first prebuilt install, from `get.sh` or from the old Hook's Check for Updates, moves the `relay` and `hook` links, the MCP server and the skill to `~/.local/share/hook/current`. It leaves the clone where it was and prints:
+Hook 0.9.x and earlier ran from a git clone (often `~/relay`, or `~/.local/share/hook` from 0.9.3's `get.sh`). The first prebuilt install, from `get.sh` or from the old Hook's Check for Updates, moves the `relay` and `hook` links to `~/.local/share/hook/current`, and its agent setup moves the MCP server and the skill there too. It leaves the clone where it was and prints:
 
 ```
 The old copy in ~/relay is no longer used; you can delete it.
@@ -65,6 +64,6 @@ Coming from Relay 0.7.x: the update replaces `Relay.app` with `Hook.app`. The co
 
 ## Uninstall
 
-`~/.local/share/hook/current/scripts/install.sh --uninstall` removes the app (and an old Relay.app), LaunchAgent, CLI links, MCP server and skill link. It keeps the config, token and queue, and prints their paths.
+`~/.local/share/hook/current/scripts/install.sh --uninstall` removes what Hook set up in your agents (`relay integrations remove --all`, see [agents.md](agents.md#removing-hook)), then the app (and an old Relay.app), LaunchAgent and CLI links. It keeps the config, token and queue, and prints their paths.
 
 To remove everything, also delete `~/.local/share/hook`, `~/Library/Application Support/Relay` and `~/.config/relay`, and run `defaults delete io.github.xooxoxxo.relay` (the uninstaller prints it) to clear the UI state.

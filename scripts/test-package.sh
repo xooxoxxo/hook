@@ -44,9 +44,11 @@ ditto -x -k "$ZIP" "$T/x"
 S="$T/x/support"
 for f in bin/relay clients/relay_client.py clients/relay_cli.py clients/relay_lint.py clients/relay_replies.py clients/relay_wait.py \
          mcp/relay_mcp.py schema/instructable.v1.json skill/instructables/SKILL.md scripts/install.sh \
-         scripts/get.sh docs/claude-md-section.md LICENSE THIRD_PARTY_NOTICES.md VERSION; do
+         scripts/get.sh LICENSE THIRD_PARTY_NOTICES.md VERSION; do
   [ -f "$S/$f" ] || fail "support/$f is missing"
 done
+# 0.13: the pasted CLAUDE.md section is gone; the bundle's instructions/hook.md replaces it.
+[ ! -e "$S/docs" ] || fail "support/docs is in the payload: $(ls -A "$S/docs" | tr '\n' ' ')"
 [ -x "$S/bin/relay" ] && [ -x "$S/scripts/install.sh" ] && [ -x "$S/scripts/get.sh" ] || fail "a script lost its x bit"
 [ "$(cat "$S/VERSION")" = "$VERSION" ] || fail "support/VERSION is $(cat "$S/VERSION")"
 if find "$S" \( -name 'test_*' -o -name '__pycache__' -o -name '*.pyc' -o -name 'answers_fixture.py' -o -name '.DS_Store' \) | grep -q .; then

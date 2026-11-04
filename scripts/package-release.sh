@@ -44,7 +44,7 @@ fi
 stage="$(mktemp -d)"
 trap 'rm -rf "$stage"' EXIT
 S="$stage/support"
-mkdir -p "$S/bin" "$S/clients" "$S/mcp" "$S/schema" "$S/scripts" "$S/docs" "$S/skill"
+mkdir -p "$S/bin" "$S/clients" "$S/mcp" "$S/schema" "$S/scripts" "$S/skill"
 
 # The payload: what the CLI, the MCP server, the skill, the app's Connect tab and the
 # installer read. Tests, fixtures and caches stay out.
@@ -61,7 +61,6 @@ ditto --norsrc "$ROOT/skill/instructables" "$S/skill/instructables"
 python3 "$ROOT/clients/relay_bundle.py" build --version "$version" --out "$S/integration" >/dev/null \
   || die "the integration bundle did not build"
 cp "$ROOT/scripts/install.sh" "$ROOT/scripts/get.sh" "$S/scripts/"
-cp "$ROOT/docs/claude-md-section.md" "$S/docs/"
 cp "$ROOT/LICENSE" "$ROOT/THIRD_PARTY_NOTICES.md" "$S/"
 printf '%s\n' "$version" > "$S/VERSION"
 find "$S" \( -name '.DS_Store' -o -name '__pycache__' -o -name '*.pyc' \) -prune -exec rm -rf {} +
