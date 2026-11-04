@@ -1,4 +1,5 @@
-"""The `relay` command (also linked as `hook`): post an instructable, check on it, list, resolve, read replies.
+"""The `relay` command (also linked as `hook`): post an instructable, check on it, list, resolve, read replies;
+`relay hook replies` for harness hooks (relay_hook).
 
 Exit codes: 0 ok, 1 refused / not found / bad input, 2 no config or Hook unreachable,
 3 `wait` saw no owner answer before its timeout.
@@ -98,9 +99,13 @@ def _parser(out: Any, err: Any, prog: str = "relay") -> argparse.ArgumentParser:
         cmd = sub.add_parser(name, help=text)
         cmd.add_argument("id")
         cmd.add_argument("note", nargs="?")
+    sub.add_parser("hook", add_help=False,
+                   help="for agent harness hooks: `hook replies --format FORMAT` (always exits 0)")
     replies = sub.add_parser("replies", help="new owner answers")
     replies.add_argument("--new", action="store_true", help="remember what was shown")
-    replies.add_argument("--hook", action="store_true", help="run as a UserPromptSubmit hook; always exits 0")
+    replies.add_argument("--hook", action="store_true",
+                         help="run as a UserPromptSubmit hook (the 0.12 name of `hook replies --format plain`); "
+                              "always exits 0")
     wait = sub.add_parser("wait", help="wait for the owner's answer to one ask (run it in the background)")
     wait.add_argument("id")
     wait.add_argument("--timeout", type=float, default=28800.0, metavar="SECONDS",
@@ -369,16 +374,10 @@ def _cmd_replies(args: argparse.Namespace, ctx: _Ctx) -> int:
     if not args.hook:
         client = ctx.factory(autolaunch=True, timeout=DEFAULT_TIMEOUT)
         return relay_replies.run(client, new=args.new, hook=False, session_id=None, out=ctx.out, err=ctx.err)
-    # Hook: never auto-launch, 2 s budget, nothing on stdout on failure, always exit 0.
-    try:
-        session_id = relay_replies.read_hook_session(ctx.stdin)
-        client = ctx.factory(autolaunch=False, timeout=relay_replies.HOOK_BUDGET_S)
-        relay_replies.run(client, new=args.new, hook=True, session_id=session_id, out=ctx.out, err=ctx.err)
-    except RelayError as exc:
-        ctx.err.write(f"relay replies: {exc}\n")
-    except Exception as exc:  # noqa: BLE001
-        ctx.err.write(f"relay replies: internal error: {type(exc).__name__}\n")
-    return 0
+    # The 0.12 hook, now an alias of `hook replies --format plain`: never auto-launch, 2 s budget,
+    # nothing on stdout on failure, always exit 0.
+    import relay_hook
+    return relay_hook.run_alias(new=args.new, stdin=ctx.stdin, out=ctx.out, err=ctx.err, client_factory=ctx.factory)
 
 
 def _cmd_wait(args: argparse.Namespace, ctx: _Ctx) -> int:
@@ -449,6 +448,10 @@ def main(argv: Optional[List[str]] = None, *, stdin: Any = None, stdout: Any = N
     err = stderr if stderr is not None else sys.stderr
     stdin = stdin if stdin is not None else sys.stdin
     factory = client_factory or _default_factory(env)
+    if argv[:1] == ["hook"]:
+        # A harness's hook: argument errors, failures and all exit 0 (relay_hook).
+        import relay_hook
+        return relay_hook.run(argv[1:], stdin=stdin, out=out, err=err, client_factory=factory, env=env)
     parser = _parser(out, err, prog)
     try:
         args = parser.parse_args(argv)

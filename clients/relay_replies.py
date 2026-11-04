@@ -191,6 +191,9 @@ class _OutOfTime(Exception):
     pass
 
 
+OutOfTime = _OutOfTime            # for relay_hook: the budget ran out before the first answer
+
+
 def _arm(client: Any, deadline: Optional[float], clock: Callable[[], float]) -> None:
     """Before each call under a budget: give the client only the time that is left."""
     if deadline is None:
@@ -284,6 +287,28 @@ def _posted_by(client: Any, item_id: str, session_id: Optional[str], cache: Dict
     return cache[item_id]
 
 
+def _label(event: Dict[str, Any]) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
+    """(the verdict label, the parsed answer body); the label is None for a kind no session reads."""
+    label = OWNER_LABELS.get(event.get("kind"))
+    body = parse_answer(event)
+    if event.get("kind") == "answer" and event.get("actor") == "owner":
+        label = f"answer {body['step']}" if body else "answer"
+    return label, body
+
+
+def _valid_id(item_id: Any) -> bool:
+    return isinstance(item_id, str) and UUID.fullmatch(item_id) is not None
+
+
+def _line(client: Any, event: Dict[str, Any], label: str, body: Optional[Dict[str, Any]], titles: Dict[str, str],
+          deadline: Optional[float], clock: Callable[[], float]) -> str:
+    """One `Hook: [<id>] <project> · "<title>" — <verdict>` line; raises _OutOfTime."""
+    item_id = event.get("itemId")
+    valid = _valid_id(item_id)
+    where = _where(client, item_id, titles, deadline, clock) if valid else "?"
+    return f"Hook: [{item_id if valid else '(bad id)'}] {where} — {_verdict(event, label, body)}"
+
+
 def _collect(client: Any, key: str, new: bool, deadline: Optional[float],
              clock: Callable[[], float], session_id: Optional[str] = None) -> Tuple[List[str], bool]:
     """The new owner lines. session_id is set in hook mode: problem, accepted and message lines
@@ -312,23 +337,19 @@ def _collect(client: Any, key: str, new: bool, deadline: Optional[float],
             seq = event.get("seq")
             if not isinstance(seq, int) or isinstance(seq, bool):
                 continue
-            label = OWNER_LABELS.get(event.get("kind"))
-            body = parse_answer(event)
-            if event.get("kind") == "answer" and event.get("actor") == "owner":
-                label = f"answer {body['step']}" if body else "answer"
+            label, body = _label(event)
             if not first_run and label is not None and event.get("actor") == "owner":
                 item_id = event.get("itemId")
-                valid = isinstance(item_id, str) and UUID.fullmatch(item_id) is not None
+                valid = _valid_id(item_id)
                 if session_id is not None and event.get("kind") in POSTER_ONLY and \
                         not (valid and _posted_by(client, item_id, session_id, posters)):
                     last = max(last, seq)
                     continue
                 try:
-                    where = _where(client, item_id, titles, deadline, clock) if valid else "?"
+                    lines.append(_line(client, event, label, body, titles, deadline, clock))
                 except _OutOfTime:
                     partial = True
                     break
-                lines.append(f"Hook: [{item_id if valid else '(bad id)'}] {where} — {_verdict(event, label, body)}")
             last = max(last, seq)
         store.set_head(source_key, last)
         store.set_cursor(source_key, key, last if (first_run or new) else (cursor or 0))
@@ -361,3 +382,61 @@ def run(client: Any, *, new: bool, hook: bool, session_id: Optional[str], out: A
     if partial:
         err.write("relay replies: stopped at the time budget; the rest shows next time\n")
     return 0
+
+
+# --- for `relay hook replies` (relay_hook) ---------------------------------------------------
+
+RECENT_HOURS = 24
+RECENT_LIMIT = 10
+
+
+def collect(client: Any, key: str, *, session_id: Optional[str], new: bool = True, budget_s: float = HOOK_BUDGET_S,
+            monotonic: Optional[Callable[[], float]] = None) -> Tuple[List[str], bool]:
+    """Prompt mode: the new owner lines for cursor `key`, under the budget → (lines, partial).
+    session_id "" (no session named) leaves the poster-only kinds out. Raises OutOfTime."""
+    clock = monotonic or time.monotonic
+    return _collect(client, key, new, clock() + budget_s, clock, session_id)
+
+
+def _at(value: Any) -> Optional[datetime.datetime]:
+    if not isinstance(value, str) or not value:
+        return None
+    text = value[:-1] + "+00:00" if value.endswith("Z") else value
+    try:
+        at = datetime.datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    return at if at.tzinfo is not None else at.replace(tzinfo=datetime.timezone.utc)
+
+
+def recent(client: Any, *, now: Optional[datetime.datetime] = None, hours: int = RECENT_HOURS,
+           limit: int = RECENT_LIMIT, budget_s: float = HOOK_BUDGET_S,
+           monotonic: Optional[Callable[[], float]] = None) -> Tuple[List[str], bool]:
+    """Session-start mode: the owner's events from the last `hours`, the newest `limit`, as the
+    same quoted lines, oldest first → (lines, partial). Poster-only kinds are left out (no session
+    is named at session start), and no cursor is read or written. Raises OutOfTime."""
+    clock = monotonic or time.monotonic
+    deadline = clock() + budget_s
+    when = now or datetime.datetime.now(datetime.timezone.utc)
+    cutoff = when - datetime.timedelta(hours=hours)
+    events, _, partial = _page(client, 0, deadline, clock)
+    picked: List[Tuple[Dict[str, Any], str, Optional[Dict[str, Any]]]] = []
+    for event in events:
+        seq = event.get("seq")
+        if not isinstance(seq, int) or isinstance(seq, bool) or event.get("actor") != "owner" \
+                or event.get("kind") in POSTER_ONLY:
+            continue
+        label, body = _label(event)
+        at = _at(event.get("at"))
+        if label is None or at is None or at < cutoff:
+            continue
+        picked.append((event, label, body))
+    lines: List[str] = []
+    titles: Dict[str, str] = {}
+    for event, label, body in picked[-limit:] if limit > 0 else []:
+        try:
+            lines.append(_line(client, event, label, body, titles, deadline, clock))
+        except _OutOfTime:
+            partial = True
+            break
+    return lines, partial
