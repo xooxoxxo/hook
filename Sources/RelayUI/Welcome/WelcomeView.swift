@@ -106,12 +106,14 @@ public struct WelcomeView<Model: SettingsViewModel>: View {
         ConnectInfo.donationLink(raw) != nil
     }
 
-    /// A grouped Form on the window background, one surface with the footer.
+    /// A grouped Form on the window background, one surface with the footer; a long page ends
+    /// above the dots and fades out under them (`setupScrollEnd`).
     private func formPage(@ViewBuilder _ content: () -> some View) -> some View {
         Form { content() }
             .formStyle(.grouped)
             .scrollContentBackground(.hidden)
             .controlSize(DS.Control.form)
+            .setupScrollEnd()
     }
 
     // MARK: Pages

@@ -275,3 +275,20 @@ public struct SetupDone: View {
         }
     }
 }
+
+extension View {
+    /// A Welcome form page's end: the page stops `DS.Space.setupFormEnd` above the footer's dots,
+    /// whatever scrolls past its bottom fades out over `DS.Metric.setupFade`, and scrolled to the
+    /// end its last row clears the fade, so a long page (nine agents) reads as scrolling, not cut off.
+    public func setupScrollEnd() -> some View {
+        contentMargins(.bottom, DS.Metric.setupFade, for: .scrollContent)
+            .mask {
+                VStack(spacing: 0) {
+                    Color.black
+                    LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
+                        .frame(height: DS.Metric.setupFade)
+                }
+            }
+            .padding(.bottom, DS.Space.setupFormEnd)
+    }
+}
