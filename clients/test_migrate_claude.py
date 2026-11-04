@@ -247,6 +247,41 @@ class SkillAndHookTest(Base):
         self.assertEqual((self.claude / "settings.json").read_text(), SETTINGS_AFTER)
         self.assertEqual(sorted(p.name for p in self.claude.iterdir() if ".bak" in p.name), ["settings.json.bak"])
 
+    def test_the_legacy_hook_stays_until_the_plugin_hook_runs(self):
+        relay = self.w.link_root / "bin" / "relay"
+        self.w.fake_relay(probe=False)                 # an older relay: no `hook replies` yet
+        out = self.sync()
+        self.assertEqual((self.claude / "settings.json").read_text(), SETTINGS)
+        self.assertFalse((self.claude / "settings.json.bak").exists())
+        rec = self.migration("claude-hook")
+        self.assertEqual(rec["state"], "waiting")
+        self.assertIn("the old replies hook stays", rec["note"])
+        self.assertIn("claude-hook: waiting", out)
+        self.assertNotIn(SECRET, out)
+        self.assertEqual(self.sync().count("claude-hook"), 0)     # said once
+        relay.unlink()                                 # no relay at all
+        self.sync()
+        self.assertEqual((self.claude / "settings.json").read_text(), SETTINGS)
+        self.w.fake_relay(probe=True)
+        self.sync()
+        self.assertEqual((self.claude / "settings.json").read_text(), SETTINGS_AFTER)
+        self.assertEqual(self.migration("claude-hook")["state"], "removed")
+
+    def test_the_probe_runs_the_rendered_plugin_command(self):
+        self.sync()
+        rendered = json.loads((self.w.home / ".local" / "share" / "hook" / "plugins" / "claude" / "hooks"
+                               / "claude-hooks.json").read_text())
+        command = rendered["hooks"]["UserPromptSubmit"][0]["hooks"][0]["command"]
+        self.assertIn(" hook replies --format claude", command)
+        probes = (self.w.root / "relay-probes.log").read_text().splitlines()
+        self.assertEqual(probes, ["hook replies --format claude --probe"])
+
+    def test_dry_run_does_not_remove_an_unverified_hook(self):
+        self.w.fake_relay(probe=False)
+        rc, out, err = self.w.run("sync", "--dry-run")
+        self.assertEqual(rc, 0)
+        self.assertEqual((self.claude / "settings.json").read_text(), SETTINGS)
+
     def test_an_unparseable_settings_file_is_left(self):
         bad = write(self.claude / "settings.json", '{"hooks": ')
         self.sync()

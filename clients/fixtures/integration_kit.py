@@ -22,6 +22,7 @@ import relay_bundle as rb  # noqa: E402
 import relay_integrations as ri  # noqa: E402
 
 import relay_client  # noqa: E402
+from relay_hook import PROBE_OK  # noqa: E402
 import relay_owner_steps as ros  # noqa: E402
 
 FAKECLI = Path(__file__).resolve().parent / "fakecli.py"
@@ -136,9 +137,20 @@ class World:
         (self.link_root / "mcp").mkdir(parents=True)
         (self.link_root / "mcp" / "relay_mcp.py").write_text("# fake MCP server\n", "utf-8")
         (self.link_root / "bin").mkdir()
-        (self.link_root / "bin" / "relay").write_text("#!/bin/sh\nexit 0\n", "utf-8")
+        self.fake_relay()
         self.build(version)
         self.save_config()
+
+    def fake_relay(self, *, probe: bool = True, link_root: Optional[Path] = None) -> None:
+        """<link root>/bin/relay: answers `hook replies … --probe` as relay_hook does (or, with
+        probe=False, as a relay from before `hook replies`), logs each probe, and does nothing else."""
+        dest = (link_root or self.link_root) / "bin" / "relay"
+        log = self.root / "relay-probes.log"
+        answer = f'echo "{PROBE_OK}"; exit 0' if probe else 'echo "relay: invalid choice: hook" >&2; exit 2'
+        dest.write_text("#!/bin/sh\n"
+                        f'case "$*" in *"--probe"*) echo "$*" >> "{log}"; {answer};; esac\n'
+                        "exit 0\n", "utf-8")
+        dest.chmod(0o755)
 
     # --- setup ---------------------------------------------------------------------------
 

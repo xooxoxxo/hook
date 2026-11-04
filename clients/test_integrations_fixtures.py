@@ -86,7 +86,7 @@ class Cycle:
         (lr / "mcp").mkdir(parents=True, exist_ok=True)
         (lr / "mcp" / "relay_mcp.py").write_text("# fake MCP server\n", "utf-8")
         (lr / "bin").mkdir(exist_ok=True)
-        (lr / "bin" / "relay").write_text("#!/bin/sh\nexit 0\n", "utf-8")
+        self.w.fake_relay()
         self.w.build()
 
     def run(self, *argv: str) -> Tuple[int, str, str]:

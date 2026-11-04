@@ -14,6 +14,9 @@ recorded in manifest.migrations as {"id": "claude-<step>", "state", ...}:
           link is foreign and stays.
 3. hook   Every inner hook in hooks.UserPromptSubmit whose command runs `relay replies --new` or
           `hook replies --new` is removed, with a .bak first; nothing else in the file changes.
+          Only after the plugin's own hook command runs: each `hook replies` command in the
+          rendered plugin's hooks file is run once with --probe and must print PROBE_OK
+          (a relay from before `hook replies` doesn't); until then the old hook stays (waiting).
 4. md     The "Owner asks go to Hook|Relay" section (by heading) or a Hook instructions block:
           a released Hook text goes at once (.bak first); a hand-written one gets a proposal
           file and one ask (Apply / Remove the whole section / Keep CLAUDE.md as is). The answer
@@ -451,7 +454,39 @@ def _legacy_hook(element: Any) -> bool:
     return isinstance(command, str) and any(mark in command for mark in LEGACY_HOOK)
 
 
-def _step_hook(values: Any, manifest: Any, now: datetime, dry_run: bool) -> List[Dict[str, Any]]:
+PLUGIN_HOOKS = Path("hooks") / "claude-hooks.json"
+PROBE_TIMEOUT = 10.0
+
+
+def plugin_hook_runs(values: Any, manifest: Any, runner: Any) -> Optional[str]:
+    """None when every `hook replies` command in the rendered plugin's hooks file runs (its
+    --probe prints PROBE_OK), else why not. Nothing reaches Hook: --probe contacts nothing."""
+    from relay_hook import PROBE_OK
+    h = manifest.harnesses.get(HID) or {}
+    rec = manifest.targets.get(h.get("plugin") or "") or {}
+    if not rec.get("path"):
+        return "the plugin isn't installed"
+    hooks_file = Path(rec["path"]) / PLUGIN_HOOKS
+    try:
+        hooks = json.loads(hooks_file.read_text("utf-8"))
+        groups = hooks["hooks"]["UserPromptSubmit"]
+        commands = [inner["command"] for group in groups for inner in group.get("hooks") or []
+                    if isinstance(inner, dict) and isinstance(inner.get("command"), str)
+                    and "hook replies" in inner["command"]]
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return "the plugin's hooks file doesn't read"
+    if not commands:
+        return "the plugin has no replies hook"
+    if runner is None:
+        return "nothing to run its hook with"
+    for command in commands:
+        rc, out, _ = runner.run(["/bin/sh", "-c", command + " --probe"], timeout=PROBE_TIMEOUT)
+        if rc != 0 or PROBE_OK not in out.splitlines():
+            return f"its command exited {rc}" if rc != 0 else "its command printed something else"
+    return None
+
+
+def _step_hook(values: Any, manifest: Any, now: datetime, dry_run: bool, runner: Any = None) -> List[Dict[str, Any]]:
     path = values.home / ".claude" / "settings.json"
     shown = "~/.claude/settings.json"
     if not path.is_file():
@@ -465,6 +500,16 @@ def _step_hook(values: Any, manifest: Any, now: datetime, dry_run: bool) -> List
             return [_item("claude-hook", "blocked", shown, note)]
         return []
     if new == text:
+        return []
+    why = plugin_hook_runs(values, manifest, runner)
+    if why is not None:
+        # Removing the old hook now would leave Claude Code with no working replies hook.
+        note = f"the plugin's replies hook doesn't run yet ({why}); the old replies hook stays until it does"
+        if dry_run:
+            return [] if _peek(manifest, "claude-hook").get("state") == "waiting" else \
+                [_item("claude-hook", "would wait", shown, note)]
+        if _set(_record(manifest, "claude-hook"), "waiting", path=shown, note=note):
+            return [_item("claude-hook", "waiting", shown, note)]
         return []
     if dry_run:
         return [_item("claude-hook", "would remove", shown, "the old replies hook; the plugin has it")]
@@ -588,7 +633,7 @@ def migrate(values: Any, manifest: Any, runner: Any, client_factory: Any, now: d
     if not (plugin_ok and rules_ok):
         return items
     items += _step_skill(values, manifest, dry_run)
-    items += _step_hook(values, manifest, now, dry_run)
+    items += _step_hook(values, manifest, now, dry_run, runner)
     items += _step_md(values, manifest, None if dry_run else poster, now, dry_run, again, choice)
     return items
 
