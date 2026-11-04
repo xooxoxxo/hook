@@ -27,8 +27,11 @@ public enum DocumentPage {
         let body: String
         switch kind {
         case .markdown:
-            // viewer.js replaces #hook-doc's content and removes #hook-source.
-            body = "<main id=\"hook-doc\"></main>\n<pre id=\"hook-source\" hidden>\(escape(text))</pre>"
+            // viewer.js replaces #hook-doc's content and removes #hook-source; the front
+            // matter strip sits before both, out of its reach.
+            let split = FrontMatter.split(text)
+            body = frontMatter(split.front)
+                + "<main id=\"hook-doc\"></main>\n<pre id=\"hook-source\" hidden>\(escape(split.body))</pre>"
         case .plain:
             body = "<main id=\"hook-doc\"><pre class=\"plain\">\(escape(text))</pre></main>"
         }
@@ -49,6 +52,33 @@ public enum DocumentPage {
         </body>
         </html>
         """
+    }
+
+    /// The summary of a front matter block Hook couldn't read.
+    public static let rawFrontMatterTitle = "Front matter"
+
+    /// The front matter strip above a Markdown document, every part escaped: one line of tag
+    /// chips and `created` and `status`, with the other fields behind "N more" (a `<details>`,
+    /// collapsed; the page runs no script). Malformed, the raw text in a collapsed block.
+    /// Absent or empty, nothing.
+    static func frontMatter(_ front: FrontMatter) -> String {
+        if case .malformed(let raw) = front {
+            return "<details class=\"front front-raw\"><summary>\(rawFrontMatterTitle)</summary>"
+                + "<pre>\(escape(raw))</pre></details>\n"
+        }
+        guard let strip = FrontMatter.Strip(front) else { return "" }
+        var items = strip.tags.map { "<span class=\"front-chip\">\(escape($0))</span>" }
+        items += strip.inline.map { field in
+            "<span class=\"front-item\" title=\"\(escape(field.value.display))\">"
+                + "<span class=\"front-key\">\(escape(field.key))</span> \(escape(field.value.display))</span>"
+        }
+        let line = "<span class=\"front-items\">\(items.joined(separator: " "))</span>"
+        guard !strip.more.isEmpty else {
+            return "<div class=\"front\"><div class=\"front-line\">\(line)</div></div>\n"
+        }
+        let list = strip.more.map { "<dt>\(escape($0.key))</dt><dd>\(escape($0.value.display))</dd>" }.joined()
+        return "<details class=\"front\"><summary class=\"front-line\">\(line)"
+            + "<span class=\"front-more\">\(escape(strip.moreTitle))</span></summary><dl>\(list)</dl></details>\n"
     }
 
     /// `&`, `<`, `>`, `"` and `'` as entities: the text can't close the element it sits in.

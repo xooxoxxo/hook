@@ -83,16 +83,55 @@ More detail is on the [status page](https://status.example.com).
 ![Rollout chart](https://images.example.com/chart.png)
 """#
 
-/// The viewer window's content: `text` rendered as `kind`.
-@MainActor func viewerScene(_ name: String, text: String, kind: DocumentKind, height: CGFloat) -> GalleryScene {
+/// A note with front matter, the way a vault writes it: tags, dates, a status and links.
+let viewerFrontMatterMarkdown = #"""
+---
+tags: [project/atlas, spec, release]
+created: 2026-11-04
+status: picks in; the rollout dates still need the release team
+owner: Release team
+related: "[[Atlas - 4.3 rollout]]"
+aliases:
+  - Release plan
+  - Beta plan
+---
+
+# Release plan
+
+The beta goes to **everyone** on Friday. Read the *rollback* section first, and keep the `beta` flag on until Monday.
+
+## Dates
+
+1. Wednesday: freeze the build.
+2. Friday: public beta.
+"""#
+
+/// Front matter that isn't the subset Hook reads: an unclosed list and a stray line.
+let viewerMalformedFrontMatterMarkdown = #"""
+---
+tags: [project/atlas, spec
+this line is not a field
+---
+
+# Release plan
+
+The beta goes to **everyone** on Friday.
+"""#
+
+/// The viewer window's content: `text` rendered as `kind`, at the window's first width or
+/// `width`. `expandFront` opens the front matter's "N more", as a click would.
+@MainActor func viewerScene(_ name: String, text: String, kind: DocumentKind, height: CGFloat,
+                            width: CGFloat? = nil, expandFront: Bool = false) -> GalleryScene {
     GalleryScene(
-        name: name, size: .web(NSSize(width: DS.Viewer.windowWidth, height: height)), standIn: false,
+        name: name, size: .web(NSSize(width: width ?? DS.Viewer.windowWidth, height: height)), standIn: false,
         view: { AnyView(EmptyView()) },
         web: {
-            DocumentWebView(
-                page: DocumentPage.html(text: text, kind: kind, title: "release-plan.md",
-                                        stylesheet: DS.Viewer.stylesheet()),
-                folder: nil)
+            var page = DocumentPage.html(text: text, kind: kind, title: "release-plan.md",
+                                         stylesheet: DS.Viewer.stylesheet())
+            if expandFront {
+                page = page.replacingOccurrences(of: "<details class=\"front\">", with: "<details class=\"front\" open>")
+            }
+            return DocumentWebView(page: page, folder: nil)
         })
 }
 
@@ -102,4 +141,13 @@ More detail is on the [status page](https://status.example.com).
     viewerScene("viewer-markdown", text: viewerSampleMarkdown, kind: .markdown, height: 760),
     viewerScene("viewer-plain", text: "Plain text keeps its spacing:\n\n  name      size\n  plan.md   4 KB\n",
                 kind: .plain, height: 240),
+    // 0.14: the front matter as one quiet line above the title; "N more" opened; the
+    // narrowest window (one line, cut short, "N more" still in view); malformed, a collapsed raw block.
+    viewerScene("viewer-front-matter", text: viewerFrontMatterMarkdown, kind: .markdown, height: 300),
+    viewerScene("viewer-front-matter-open", text: viewerFrontMatterMarkdown, kind: .markdown, height: 400,
+                expandFront: true),
+    viewerScene("viewer-front-matter-narrow", text: viewerFrontMatterMarkdown, kind: .markdown, height: 360,
+                width: DS.Viewer.windowMinWidth),
+    viewerScene("viewer-front-matter-malformed", text: viewerMalformedFrontMatterMarkdown, kind: .markdown,
+                height: 240),
 ]
