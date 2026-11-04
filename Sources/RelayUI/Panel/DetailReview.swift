@@ -35,6 +35,7 @@ struct DetailReview: View {
                 Spacer(minLength: 0)
                 HelpButton(rowLabel: "Edit key", text: ReviewPage.editKeyHelp)
             }
+            .helpLabelStyle(.heading)
             Text(verbatim: page.since)
                 .font(DS.Font.prose)
                 .foregroundStyle(DS.Color.secondary)

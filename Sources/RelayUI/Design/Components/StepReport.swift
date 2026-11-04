@@ -68,8 +68,8 @@ public struct InlineReportField: View {
                     .font(DS.Font.caption.weight(.semibold))
                     .foregroundStyle(DS.Color.secondary)
                 HelpButton(rowLabel: ProblemReport.menuTitle, text: ProblemReport.help)
-                    .controlSize(DS.Control.inline)
             }
+            .helpLabelStyle(.caption)
             MultilineField(ProblemReport.placeholder, text: text, lines: DS.Metric.fieldLines, isFocused: $focused)
                 .disabled(slot.state == .held || slot.state == .sending)
                 .onExitCommand { slot.onCancel() }

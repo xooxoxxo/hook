@@ -185,6 +185,18 @@ public enum DS {
         public static var headingCapHeight: CGFloat {
             NSFont.preferredFont(forTextStyle: .headline).capHeight * galleryScale
         }
+        /// The cap height of a label in `style`, for a "?" centred on that label's capitals.
+        public static func capHeight(_ style: HelpLabelStyle) -> CGFloat {
+            let ns: NSFont.TextStyle
+            switch style {
+            case .body: ns = .body
+            case .heading: ns = .headline
+            case .prose: ns = .callout
+            case .caption: ns = .caption1
+            case .subheadline: ns = .subheadline
+            }
+            return NSFont.preferredFont(forTextStyle: ns).capHeight * galleryScale
+        }
         public static var body: SwiftUI.Font { style(.body, .body) }
         public static var currentAction: SwiftUI.Font { style(.headline, .headline) }
         public static var meta: SwiftUI.Font { style(.subheadline, .subheadline) }
@@ -470,6 +482,8 @@ public enum DS {
         /// Report a Problem on a step, and a step with a report waiting for a correction.
         public static let report = "exclamationmark.bubble"
         public static let reported = "exclamationmark.bubble.fill"
+        /// The "?" beside a label: outlined and small (owner pick 2), never the stock filled HelpLink.
+        public static let helpOutline = "questionmark.circle"
     }
 
     public enum Control {

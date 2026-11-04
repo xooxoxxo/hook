@@ -71,6 +71,28 @@ public enum InkScan {
         return (first + last) / 2
     }
 
+    /// The pixel rows inside `rect` that hold ink. `background` defaults to the rect's top-left pixel.
+    public static func inkRows(_ bitmap: InkBitmap, in rect: CGRect, threshold: Int,
+                               background: UInt32? = nil) -> [Int] {
+        let x0 = max(0, Int((rect.minX * bitmap.scale).rounded(.down)))
+        let x1 = min(bitmap.width, Int((rect.maxX * bitmap.scale).rounded(.up)))
+        let y0 = max(0, Int((rect.minY * bitmap.scale).rounded(.down)))
+        let y1 = min(bitmap.height, Int((rect.maxY * bitmap.scale).rounded(.up)))
+        guard x0 < x1, y0 < y1 else { return [] }
+        let back = background ?? bitmap.pixels[y0 * bitmap.width + x0]
+        return (y0..<y1).filter { y in
+            (x0..<x1).contains { x in bitmap.differs(bitmap.pixels[y * bitmap.width + x], back, threshold: threshold) }
+        }
+    }
+
+    /// The vertical centre of the ink inside `rect`, in points from the top.
+    public static func centreY(_ bitmap: InkBitmap, in rect: CGRect, threshold: Int,
+                               background: UInt32? = nil) -> CGFloat? {
+        let rows = inkRows(bitmap, in: rect, threshold: threshold, background: background)
+        guard let first = rows.first, let last = rows.last else { return nil }
+        return CGFloat(first + last + 1) / 2 / bitmap.scale
+    }
+
     static func inkColumns(_ bitmap: InkBitmap, _ rect: CGRect, _ threshold: Int,
                            _ excluding: [CGRect] = []) -> [Int] {
         func pixels(_ r: CGRect) -> (x: Range<Int>, y: Range<Int>) {

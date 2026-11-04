@@ -119,6 +119,7 @@ public struct CrashReportSheet<Model: PanelViewModel>: View {
                 Spacer(minLength: 0)
                 Text(sheet.countText).font(DS.Font.caption).foregroundStyle(DS.Color.secondary)
             }
+            .helpLabelStyle(.heading)
             ScrollView {
                 ReportPreview(text: sheet.preview)
             }

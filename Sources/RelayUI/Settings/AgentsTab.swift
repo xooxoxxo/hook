@@ -180,6 +180,7 @@ public struct AgentsTab<Model: SettingsViewModel>: View {
                     .disabled(agents.busy)
                 HelpButton(rowLabel: "Reinstall All", text: AgentsHelp.reinstall)
             }
+            .helpLabelStyle(.body)
             if let error = agents.error {
                 Text(error).font(DS.Font.caption).foregroundStyle(DS.Color.error)
                     .fixedSize(horizontal: false, vertical: true)
@@ -296,6 +297,7 @@ struct AgentDetail: View {
                         HelpButton(rowLabel: harness.name, text: help)
                     }
                 }
+                .helpLabelStyle(.heading)
                 AgentStateLabel(text: harness.state.label, look: AgentsPane.look(harness.state))
                     .font(DS.Font.meta)
             }

@@ -195,6 +195,7 @@ public struct ReviewBar<Buttons: View>: View {
                     Spacer(minLength: 0)
                     HelpButton(rowLabel: title, text: help)
                 }
+                .helpLabelStyle(.prose)
                 HStack(spacing: DS.Space.inline) { buttons }
                     .controlSize(DS.Control.action)
             }

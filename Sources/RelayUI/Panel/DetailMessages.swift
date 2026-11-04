@@ -60,6 +60,7 @@ struct DetailMessages<Model: PanelViewModel>: View {
                 HelpButton(rowLabel: MessageText.heading, text: MessageText.help)
                 RequiredHeadingBadge(on: marked)
             }
+            .helpLabelStyle(.heading)
             if !snapshot.messages.isEmpty { RepliesList(snapshot.messages) }
             switch Self.fieldPlacement(snapshot) {
             case .none: EmptyView()
