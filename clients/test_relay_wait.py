@@ -90,6 +90,11 @@ class WaitTest(unittest.TestCase):
                          "  ↳ owner declined 2026-10-11T09:03:00+00:00\nlast seq: 3\n")
         self.assertEqual(self.clock.sleeps, [20.0, 20.0])
 
+    def test_progress_never_wakes_the_waiter(self):
+        ticked = detail(event(1, "posted", "session"), event(2, "progress", "owner", '{"tick":["s1"],"untick":[]}'))
+        self.assertEqual(self.wait(FakeAsk(ticked, ticked), timeout=30)[0], 3)
+        self.assertNotIn("progress", rw.OWNER_KINDS)
+
     def test_a_message_wakes_the_waiter_on_one_quoted_line(self):
         quiet = detail(event(1, "posted", "session"))
         told = detail(event(1, "posted", "session"),

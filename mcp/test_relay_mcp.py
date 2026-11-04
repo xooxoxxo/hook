@@ -461,6 +461,16 @@ ASKING = {"v": 1, "title": "Pick", "steps": [{"do": "Choose", "substeps": [
 PLAIN = {"v": 1, "title": "Plain", "steps": [{"do": "Run it"}]}
 OPTIONAL = {"v": 1, "title": "Feedback", "steps": [{"do": "Tell us", "optional": True, "question": {"prompt": "Any?"}}]}
 WITH_IDS = {"v": 1, "title": "Ids", "steps": [{"do": "Run it", "id": "run"}]}
+REQUIRED = {"v": 1, "title": "Rotate the staging deploy key", "steps": [
+    {"do": "Rotate the key"}, {"do": "Confirm the deploy", "required": True}], "done": ["message"]}
+
+
+class Pond120(StubVersioned):
+    version = {"service": "pond", "version": "1.2.0", "protocol": 5}
+
+
+class Pond130(StubVersioned):
+    version = {"service": "pond", "version": "1.3.0", "protocol": 5}
 
 
 class PondGateTest(StubServerCase):
@@ -499,6 +509,17 @@ class PondGateTest(StubServerCase):
         res = self.post(WITH_IDS)
         self.assertEqual(res["structuredContent"]["error"], TOO_OLD.format(m="1.0.0", key="id", n="1.1.0"))
         self.assertEqual(POSTED, [])
+
+    def test_required_and_done_need_pond_1_3_0(self):
+        self.httpd.RequestHandlerClass = Pond120
+        res = self.post(REQUIRED)
+        self.assertTrue(res["isError"])
+        self.assertEqual(res["structuredContent"]["error"], TOO_OLD.format(m="1.2.0", key="required", n="1.3.0"))
+        self.assertEqual(POSTED, [])
+        self.httpd.RequestHandlerClass = Pond130   # a new server process: no cached version
+        res = self.post(REQUIRED)
+        self.assertFalse(res["isError"], res)
+        self.assertEqual(POSTED[-1]["instructable"]["done"], ["message"])
 
     def test_a_plain_instructable_still_posts_on_a_pond_without_version(self):
         res = self.post(PLAIN)
@@ -630,6 +651,26 @@ class DescriptionTest(unittest.TestCase):
                          "Short project name: what the repo's CLAUDE.md names, else the repo folder name.")
         for tool in tools:
             self.assertIn("Hook queue", tool["description"])
+
+    def test_post_describes_required_and_ships_the_keys(self):
+        import relay_cli
+        post = relay_mcp.tool_list()[0]
+        self.assertEqual(relay_mcp.REQUIRED_SENTENCE, relay_cli.REQUIRED_SENTENCE)
+        self.assertIn(relay_mcp.REQUIRED_SENTENCE, post["description"])
+        for word in ("`required: true`", "`done`", "Skip always stays", "Pond 1.3.0"):
+            self.assertIn(word, relay_mcp.REQUIRED_SENTENCE)
+        for schema in (post["inputSchema"], relay_mcp.amend_input_schema()):
+            defs = schema["$defs"]
+            self.assertEqual(defs["step"]["properties"]["required"]["type"], "boolean")
+            self.assertEqual(defs["leaf"]["properties"]["required"]["type"], "boolean")
+            self.assertNotIn("required", defs["verify"]["properties"])
+            self.assertEqual(schema["properties"]["instructable"]["properties"]["done"]["items"],
+                             {"enum": ["steps", "reply", "message"]})
+
+    def test_status_describes_requirements(self):
+        status = next(t for t in relay_mcp.tool_list() if t["name"] == "relay_status")
+        self.assertIn("requirements", status["description"])
+        self.assertIn("{left, ready}", status["description"])
 
     def test_post_describes_substeps_and_ships_both_defs(self):
         import relay_cli
@@ -766,6 +807,22 @@ class ResolvedByTest(unittest.TestCase):
     def test_ask_without_questions_has_empty_answers(self):
         result = self.status("open", [event(1, "posted", "session")])
         self.assertEqual((result["answers"], result["unanswered"]), ({}, []))
+
+    def test_status_returns_requirements_and_keeps_progress_out_of_owner_events(self):
+        left = {"left": [{"kind": "step", "id": "s2", "path": "2"}, {"kind": "message"}], "ready": False}
+        progress = dict(event(2, "progress", "owner", '{"tick":["s1"],"untick":[]}'), auth="owner-key")
+        detail = {"item": {"id": ITEM_ID, "title": "Rotate the staging deploy key", "status": "open",
+                           "requirements": left},
+                  "events": [event(1, "posted", "session"), progress, event(3, "reply", "owner", "ok")]}
+        with mock.patch.object(relay_mcp, "make_client", lambda: FakeClient(detail)):
+            result = relay_mcp.relay_status({"id": ITEM_ID})
+        self.assertEqual(result["requirements"], left)
+        self.assertEqual([e["kind"] for e in result["ownerEvents"]], ["reply"])
+
+    def test_status_requirements_is_null_without_them(self):
+        result = self.status("open", [event(1, "posted", "session")])
+        self.assertIn("requirements", result)
+        self.assertIsNone(result["requirements"])
 
     def test_status_carries_the_version_fields(self):
         problem = dict(event(2, "problem", "owner", json.dumps({"id": "s1", "step": "1", "note": "nope"})), rev=1)

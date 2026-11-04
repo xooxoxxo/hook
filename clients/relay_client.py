@@ -51,8 +51,12 @@ PROOF_PREFIX = "relay-proof-v1\n"   # message: PROOF_PREFIX + str(port) + "\n" +
 # lists them. A gated key is checked before it is posted; a minor or patch Pond bump never
 # blocks a key it already took. 1.0.0 is what was protocol level 4.
 KEY_MIN_POND = (("id", "1.1.0"), ("optional", "1.0.0"), ("file", "1.0.0"), ("blocking", "1.0.0"),
-                ("warning", "1.0.0"), ("question", "1.0.0"))
+                ("warning", "1.0.0"), ("question", "1.0.0"), ("required", "1.3.0"))
 LINK_PATH_KEY, LINK_PATH_POND = "links[].path", "1.0.0"   # a link's `path` (a local file)
+TOP_KEY_MIN_POND = (("done", "1.3.0"),)                    # ask-level keys
+# Required before Done: `required` on a step, `done` on the ask, and `requirements` on an item.
+# This Mac's queue stays Pond 1.0.0, so it refuses both keys.
+REQUIREMENTS_POND = "1.3.0"
 AMEND_POND = "1.1.0"            # amend, edit keys, accept and problems
 PROTOCOL_CACHE_S = 300.0
 # Per process: source -> (when checked, (effective version, legacy protocol or None) or None).
@@ -66,6 +70,9 @@ _ASK_ID = re.compile(r"[0-9A-Za-z][0-9A-Za-z-]{0,63}")
 # Owner event kinds as the CLI and the hook print them.
 OWNER_LABELS = {"resolved": "done", "declined": "skipped", "reply": "reply", "reopened": "reopened",
                 "problem": "problem", "accepted": "accepted", "message": "message"}
+# The owner events a session reads (status --json and relay_status ownerEvents). Pond 1.3.0's
+# `progress` events (the owner's ticks, ids only) are bookkeeping for the Done gate, never an act.
+OWNER_EVENT_KINDS = tuple(OWNER_LABELS) + ("answer",)
 # `list(kind=)`: plain asks, or the bug reports Hook files on a Pond 1.2.0 or later.
 LIST_KINDS = ("ask", "bug")
 
@@ -99,6 +106,12 @@ def messages(detail: Any) -> List[Dict[str, Any]]:
     events = detail.get("events") if isinstance(detail, dict) and isinstance(detail.get("events"), list) else []
     return [{"text": e.get("text"), "at": e.get("at"), "verified": is_verified(e)} for e in events
             if isinstance(e, dict) and e.get("kind") == "message" and e.get("actor") == "owner"]
+
+
+def owner_events(events: Any) -> List[Dict[str, Any]]:
+    """The owner's events a session reads, in log order: kinds in OWNER_EVENT_KINDS only."""
+    return [e for e in events if isinstance(e, dict) and e.get("actor") == "owner"
+            and e.get("kind") in OWNER_EVENT_KINDS] if isinstance(events, list) else []
 
 
 def message_line(event: Dict[str, Any], quoted: str) -> str:
@@ -185,8 +198,11 @@ def _version_key(minimum: str) -> relay_semver.Version:
 
 def keys_needing_pond(instructable: Any) -> Dict[str, str]:
     """{key: first Pond version} for the gated keys of steps and sub-steps (not verify),
-    plus LINK_PATH_KEY when a link carries `path`."""
+    plus LINK_PATH_KEY when a link carries `path` and the gated ask-level keys (`done`)."""
     found: Dict[str, str] = {}
+    for key, needs in TOP_KEY_MIN_POND:
+        if isinstance(instructable, dict) and key in instructable:
+            found[key] = needs
     links = instructable.get("links") if isinstance(instructable, dict) else None
     if isinstance(links, list) and any(isinstance(link, dict) and "path" in link for link in links):
         found[LINK_PATH_KEY] = LINK_PATH_POND
@@ -201,6 +217,45 @@ def keys_needing_pond(instructable: Any) -> Dict[str, str]:
         if isinstance(subs, list):
             stack.extend(s for s in subs if isinstance(s, dict))
     return found
+
+
+def requirements_of(detail: Any) -> Optional[Dict[str, Any]]:
+    """The item's `requirements` {left, ready} (Pond 1.3.0, on one ask's detail only): what the
+    owner must still finish before their Done turns on. None for an ask without requirements,
+    an older Pond, or a shape this client can't read; `left` keeps only its object entries."""
+    item = detail.get("item") if isinstance(detail, dict) else None
+    value = item.get("requirements") if isinstance(item, dict) else None
+    if not isinstance(value, dict) or not isinstance(value.get("left"), list) \
+            or not isinstance(value.get("ready"), bool):
+        return None
+    return {"left": [e for e in value["left"] if isinstance(e, dict)], "ready": value["ready"]}
+
+
+_SUB_LETTERS = "abcdefghij"
+_LEFT_NAMES = {"reply": "the reply", "message": "a message"}
+
+
+def _step_number(path: str) -> str:
+    """"3.2" → "3b", as Hook and the Pond number a sub-step."""
+    top, _, sub = path.partition(".")
+    if not sub:
+        return top
+    index = int(sub) - 1 if sub.isdigit() else -1
+    return f"{top}{_SUB_LETTERS[index]}" if 0 <= index < len(_SUB_LETTERS) else path
+
+
+def left_words(left: Any) -> List[str]:
+    """`requirements.left` in the Pond's words: "step 2", "step 3b", "the reply", "a message".
+    An entry of another shape is left out; a path is a label (one line, cut), never a line."""
+    words: List[str] = []
+    for entry in left if isinstance(left, list) else []:
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("kind") == "step" and isinstance(entry.get("path"), str):
+            words.append("step " + session_label(_step_number(entry["path"]), 20))
+        elif entry.get("kind") in _LEFT_NAMES:
+            words.append(_LEFT_NAMES[entry["kind"]])
+    return words
 
 
 def pond_display(pond: Tuple[relay_semver.Version, Optional[int]]) -> str:
@@ -912,7 +967,7 @@ class Client:
         pond = self.pond_info()
         if pond is None:
             return
-        order = [k for k, _ in KEY_MIN_POND] + [LINK_PATH_KEY]
+        order = [k for k, _ in KEY_MIN_POND] + [LINK_PATH_KEY] + [k for k, _ in TOP_KEY_MIN_POND]
         for key, needs in sorted(needed.items(), key=lambda kv: (_version_key(kv[1]), -order.index(kv[0])),
                                  reverse=True):
             if not relay_semver.at_least(pond[0], needs):
@@ -961,6 +1016,11 @@ class Client:
         pond = self.pond_info()
         if pond is not None and not relay_semver.at_least(pond[0], AMEND_POND):
             raise PondTooOld(pond_display(pond), "amend", AMEND_POND)
+        # The same checks as post, on the corrected instructable, before anything is sent.
+        problems = lint_details(instructable)
+        if problems:
+            raise Refused(400, "invalid instructable", problems)
+        self.check_pond(instructable)
         keys = edit_keys if edit_keys is not None else EditKeys(self.env)
         record = keys.load(ask_id)
         # A key only ever goes to the Pond it was made for: after a source change it stays home.

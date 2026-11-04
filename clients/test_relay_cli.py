@@ -217,6 +217,56 @@ class CliTest(unittest.TestCase):
         self.assertIsNone(data["resolvedBy"])
         self.assertEqual([e["kind"] for e in data["ownerEvents"]], ["resolved", "reopened"])
 
+    def requirements_detail(self, requirements, questions=False):
+        steps = [{"do": "Open the deploy settings"}, {"do": "Rotate the key", "required": True}]
+        if questions:
+            steps[0]["question"] = {"prompt": "Which?", "choices": ["Staging", "Preview"]}
+        ins = {"v": 1, "title": "Rotate the staging deploy key", "steps": steps, "done": ["reply", "message"],
+               "reply": {"prompt": "Did the deploy pass?", "choices": []}}
+        item = dict(ITEM, title=ins["title"], payload={"instructable": ins})
+        if requirements is not None:
+            item["requirements"] = requirements
+        progress = dict(event(2, "progress", "owner", '{"tick":["s1"],"untick":[]}'), auth="owner-key")
+        return {"item": item, "events": [event(1, "posted", "session"), progress]}
+
+    LEFT = {"left": [{"kind": "step", "id": "s2", "path": "2"}, {"kind": "reply"}, {"kind": "message"}],
+            "ready": False}
+
+    def test_status_says_what_is_left_before_done(self):
+        self.client.detail = self.requirements_detail(self.LEFT, questions=True)
+        self.assertEqual(self.run_cli("status", ITEM_ID)[1],
+                         'open · Acme · "Rotate the staging deploy key"\n'
+                         "Answers (0 of 1):\n"
+                         '  1  "Which?"\n'
+                         "Unanswered: 1\n"
+                         "Left before Done: step 2, the reply, a message\n")
+        data = json.loads(self.run_cli("status", ITEM_ID, "--json")[1])
+        self.assertEqual(data["requirements"], self.LEFT)
+        self.assertEqual(data["ownerEvents"], [])           # progress is never an owner act
+
+    def test_status_says_ready_for_done(self):
+        self.client.detail = self.requirements_detail({"left": [], "ready": True})
+        self.assertEqual(self.run_cli("status", ITEM_ID)[1],
+                         'open · Acme · "Rotate the staging deploy key"\nReady for Done\n')
+        self.assertEqual(json.loads(self.run_cli("status", ITEM_ID, "--json")[1])["requirements"],
+                         {"left": [], "ready": True})
+
+    def test_status_says_nothing_without_requirements(self):
+        # An ask without requirements, or an older Pond that never sends them.
+        self.client.detail = self.requirements_detail(None)
+        self.assertEqual(self.run_cli("status", ITEM_ID)[1], 'open · Acme · "Rotate the staging deploy key"\n')
+        data = json.loads(self.run_cli("status", ITEM_ID, "--json")[1])
+        self.assertIn("requirements", data)
+        self.assertIsNone(data["requirements"])
+
+    def test_post_help_explains_required(self):
+        with mock.patch.dict(os.environ, {"COLUMNS": "80"}):
+            code, out, err = self.run_cli("post", "--help")
+        self.assertEqual((code, err), (0, ""))
+        self.assertIn(flat(relay_cli.REQUIRED_SENTENCE), flat(out))
+        for word in ("Telegram", "relay post", "relay_post", "MCP", "CLI"):
+            self.assertNotIn(word, relay_cli.REQUIRED_SENTENCE)
+
     def test_status_not_found(self):
         self.client.error = NotFound(f"no ask with id {ITEM_ID}")
         self.assertEqual(self.run_cli("status", ITEM_ID), (1, "", f"relay: no ask with id {ITEM_ID}\n"))

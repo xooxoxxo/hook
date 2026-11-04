@@ -102,6 +102,15 @@ class RepliesTest(unittest.TestCase):
         self.queue.add(A, "declined", "owner")
         self.assertEqual(self.replies()[1], f"Hook: [{A}] Acme · \"Check Node\" — skipped\n")
 
+    def test_progress_is_never_an_owner_reply(self):
+        # Pond 1.3.0 records the owner's ticks as progress/owner events: ids only, never a reply.
+        self.replies()
+        self.queue.add(A, "progress", "owner", '{"tick":["s1"],"untick":[]}', auth="owner-key")
+        self.assertEqual(self.replies(), (0, "", ""))
+        self.queue.add(A, "progress", "owner", '{"tick":["s2"],"untick":[]}', auth="owner-key")
+        self.queue.add(A, "resolved", "owner")
+        self.assertEqual(self.replies()[1], f"Hook: [{A}] Acme · \"Check Node\" — done\n")
+
     def test_two_session_keys_each_see_it(self):
         self.replies(hook=True, session_id="s1")
         self.replies(hook=True, session_id="s2")

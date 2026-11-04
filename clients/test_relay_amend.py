@@ -202,6 +202,36 @@ class AmendTests(Base):
             self.assertEqual(self.amend()["revision"]["rev"], 2)
             self.keys.record_write(ITEM_ID, 1, H1)   # back to what the fake Pond serves
 
+    def test_amend_with_done_on_a_1_2_0_pond_is_refused_before_any_post(self):
+        rc._ponds.clear()
+        self.http.routes[("GET", "/version")] = (200, {"version": "1.2.0", "protocol": 5})
+        with self.assertRaises(rc.PondTooOld) as ctx:
+            self.client().amend(ITEM_ID, "Done waits for a message", dict(FIXED, done=["message"]))
+        self.assertEqual(ctx.exception.error, "Your Pond (1.2.0) is older than `done` needs (Pond 1.3.0 or newer). "
+                                              "Update the Pond, or leave the key out.")
+        self.assertEqual(self.http.sent(f"/asks/{ITEM_ID}/amend"), [])
+
+    def test_amend_with_required_on_a_1_3_0_pond_is_sent(self):
+        rc._ponds.clear()
+        self.http.routes[("GET", "/version")] = (200, {"version": "1.3.0", "protocol": 5})
+        fixed = {"v": 1, "title": "Check Node", "steps": [{"do": "Run it", "id": "s1", "code": "node -v",
+                                                           "required": True}], "done": ["message"]}
+        self.assertEqual(self.client().amend(ITEM_ID, "Done waits for step 1", fixed)["revision"]["rev"], 2)
+        self.assertEqual(json.loads(self.http.sent(f"/asks/{ITEM_ID}/amend")[0].data)["instructable"], fixed)
+
+    def test_amend_runs_the_lint_before_sending(self):
+        cases = ((dict(FIXED, steps=[{"do": "Open https://app.example.com/settings", "id": "s1"}]),
+                  'steps[0].do: "https://app.example.com/settings" is a value to copy: put it in code (or a URL in url)'),
+                 (dict(FIXED, done=["reply"]),
+                  'done: "reply" needs a reply prompt: add reply, or drop it from done'))
+        for fixed, line in cases:
+            with self.subTest(line):
+                with self.assertRaises(rc.Refused) as ctx:
+                    self.client().amend(ITEM_ID, "why", fixed)
+                self.assertEqual((ctx.exception.status, ctx.exception.error, ctx.exception.details),
+                                 (400, "invalid instructable", [line]))
+        self.assertEqual(self.http.sent(f"/asks/{ITEM_ID}/amend"), [])
+
     def test_local_mode_cant_amend(self):
         client = self.local(FakeHTTP())
         with self.assertRaises(rc.LocalCantAmend) as ctx:

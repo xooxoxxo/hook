@@ -1,10 +1,11 @@
-"""Values to copy that sit inside a step's prose.
+"""Values to copy that sit inside a step's prose, and requirements that can never be met.
 
 An owner can copy a step's `code` and open its `url`, but nothing inside `do`. So a URL,
 an address, a path, a model name or a command written into `do` has to be retyped by hand.
 lint_instructable() finds them; `relay post` and `relay_post` refuse an ask that has any,
 with the same output as a validation error, so the session moves each value into a
-sub-step's `code` (or a page into `url`) and posts again.
+sub-step's `code` (or a page into `url`) and posts again. lint_requirements() adds the
+`required` and `done` (Pond 1.3.0) that nothing could ever finish, worded as guidance.
 
 The rules live here and nowhere else in Hook. Other clients copy this file's functions and
 test them against clients/lint-vectors.json. Stdlib only, Python 3.9+.
@@ -156,9 +157,67 @@ def lint_do(text: Any, codes: List[str], urls: List[str]) -> List[str]:
     return values
 
 
+# --- requirements that can never be met (Pond 1.3.0's `required` and `done`) ---
+
+NOTHING_TO_FINISH = ("has nothing to finish: every sub-step is optional. Drop required, "
+                     "or make a sub-step one the owner must do")
+WITH_OPTIONAL = "can't go with optional: drop one of them"
+INSIDE_OPTIONAL = "can't be required inside an optional step"
+NO_REPLY = "\"reply\" needs a reply prompt: add reply, or drop it from done"
+ALL_OPTIONAL = "\"steps\" has nothing to finish: every step is optional"
+
+
+def _all_optional(steps: Any) -> bool:
+    """A non-empty list whose entries are all steps with optional: true."""
+    return (isinstance(steps, list) and bool(steps)
+            and all(isinstance(s, dict) and s.get("optional") is True for s in steps))
+
+
+def lint_requirements(doc: Any) -> List[Tuple[str, str]]:
+    """(path, message) for a `required` or `done` that can never be met, with what to do about
+    it. Guidance only: the Pond's validator stays authoritative and words a malformed key itself
+    (a `required` that isn't a bool, a `done` that isn't a list of known values). One pair per
+    step, in document order, then one per distinct `done` entry, in its order."""
+    problems: List[Tuple[str, str]] = []
+    if not isinstance(doc, dict):
+        return problems
+
+    def check(path: str, node: Dict[str, Any], *, in_optional: bool) -> None:
+        if node.get("required") is not True:
+            return
+        if node.get("optional") is True:
+            problems.append((f"{path}.required", WITH_OPTIONAL))
+        elif in_optional:
+            problems.append((f"{path}.required", INSIDE_OPTIONAL))
+        elif node.get("question") is None and _all_optional(node.get("substeps")):
+            problems.append((f"{path}.required", NOTHING_TO_FINISH))
+
+    steps = doc.get("steps") if isinstance(doc.get("steps"), list) else []
+    for i, step in enumerate(steps):
+        if not isinstance(step, dict):
+            continue
+        check(f"steps[{i}]", step, in_optional=False)
+        subs = step.get("substeps") if isinstance(step.get("substeps"), list) else []
+        for j, sub in enumerate(subs):
+            if isinstance(sub, dict):
+                check(f"steps[{i}].substeps[{j}]", sub, in_optional=step.get("optional") is True)
+    done = doc.get("done")
+    seen: List[str] = []
+    for entry in done if isinstance(done, list) else []:
+        if not isinstance(entry, str) or entry in seen:
+            continue
+        seen.append(entry)
+        if entry == "reply" and doc.get("reply") is None:
+            problems.append(("done", NO_REPLY))
+        elif entry == "steps" and _all_optional(doc.get("steps")):
+            problems.append(("done", ALL_OPTIONAL))
+    return problems
+
+
 def lint_instructable(doc: Any) -> List[Tuple[str, str]]:
     """(path, message) for each `do` (step, sub-step, verify) that holds a value the owner
-    would have to retype. A step shares its sub-steps' code and url, and they share its."""
+    would have to retype, then lint_requirements' pairs. A step shares its sub-steps' code
+    and url, and they share its."""
     problems: List[Tuple[str, str]] = []
     if not isinstance(doc, dict):
         return problems
@@ -180,7 +239,7 @@ def lint_instructable(doc: Any) -> List[Tuple[str, str]]:
         values = lint_do(verify.get("do"), _strings(verify, "code"), _strings(verify, "url"))
         if values:
             problems.append(("verify.do", _message(values, verify=True)))
-    return problems
+    return problems + lint_requirements(doc)
 
 
 def lint_details(doc: Any) -> List[str]:

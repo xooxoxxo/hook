@@ -20,7 +20,8 @@ import relay_replies
 import relay_wait
 from relay_client import (LIST_KINDS, OWNER_LABELS, UNVERIFIED_MESSAGE, VERSION, Client, EditKeys, PondTooOld, Refused,
                           RelayError, accepted_rev, answer_state, answer_value, event_rev, instructable_of, is_verified,
-                          item_kind, messages, open_questions, questions, revision_of, session_label, session_text)
+                          item_kind, left_words, messages, open_questions, owner_events, questions,
+                          requirements_of, revision_of, session_label, session_text)
 
 DEFAULT_TIMEOUT = 10.0
 SUBSTEPS_SENTENCE = ("A step that needs more than one action can hold `substeps`: 1 to 10 step objects "
@@ -37,6 +38,9 @@ OPTIONAL_SENTENCE = ("A step or sub-step (not verify) can set `optional: true` w
                      "without doing or answering it, e.g. a feedback question or a nice-to-have; it can't "
                      "also be blocking. On a step with sub-steps it makes every sub-step optional. "
                      "A Pond that is too old refuses this key.")
+REQUIRED_SENTENCE = ("`required: true` on a step keeps the owner's Done off until that step is finished "
+                     "(ticked, answered, or all sub-steps); `done` on the ask lists `steps`, `reply` or `message` "
+                     "(the owner messages the session) the same way; Skip always stays. Needs Pond 1.3.0.")
 FILES_SENTENCE = ("When the owner should read a document, write it as a Markdown file and point to it with "
                   "`file` on a step or sub-step (not verify), or with a link that has `path` instead of `url`: "
                   "an absolute path (/... or ~/...) on the owner's Mac, which Hook opens rendered. Keep `do` to "
@@ -84,7 +88,7 @@ def _parser(out: Any, err: Any, prog: str = "relay") -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", metavar="<command>")
     post = sub.add_parser("post", help="post one instructable",
                           description=" ".join((SUBSTEPS_SENTENCE, QUESTIONS_SENTENCE, BLOCKING_SENTENCE,
-                                                OPTIONAL_SENTENCE, FILES_SENTENCE)))
+                                                OPTIONAL_SENTENCE, REQUIRED_SENTENCE, FILES_SENTENCE)))
     post.add_argument("project")
     post.add_argument("--json", dest="json_src", required=True, metavar="FILE|-",
                       help="the instructable, from a file or - for stdin")
@@ -217,12 +221,27 @@ def format_status(detail: dict) -> list:
                 lines.append("     " + session_text(answer_value(answer), OWNER_TEXT_CAP) + note)
         if open_paths:
             lines.append("Unanswered: " + ", ".join(open_paths))
+    left = requirements_line(detail)
+    if left is not None:
+        lines.append(left)
     if earlier:
         lines.append("Answers to steps this version no longer has (they don't count):")
         for answer in earlier:
             lines.append(f"  {session_label(answer['step'], 20)} (version {answer['rev']}, step id "
                          f"{session_label(answer['id'], 40)})  " + session_text(answer_value(answer), OWNER_TEXT_CAP))
     return lines
+
+
+def requirements_line(detail: dict) -> Optional[str]:
+    """"Left before Done: step 2, the reply, a message" or "Ready for Done" from the item's
+    `requirements` (Pond 1.3.0); None for an ask without requirements or on an older Pond."""
+    requirements = requirements_of(detail)
+    if requirements is None:
+        return None
+    if requirements["ready"]:
+        return "Ready for Done"
+    words = left_words(requirements["left"])
+    return "Left before Done: " + ", ".join(words) if words else None
 
 
 def _answer_json(answer: Dict[str, Any], *keys: str) -> Dict[str, Any]:
@@ -269,9 +288,14 @@ def _status_json(detail: dict, editable: bool = False) -> Dict[str, Any]:
     return {"id": item.get("id"), "status": status,
             "resolvedBy": resolved_by(events) if status != "open" else None,
             "project": item.get("projectId"), "title": item.get("title"),
-            "ownerEvents": [{"kind": e.get("kind"), "text": e.get("text"), "at": e.get("at")}
-                            for e in events if isinstance(e, dict) and e.get("actor") == "owner"],
-            "messages": messages(detail), **answers_json(detail), **revision_json(detail, editable)}
+            "ownerEvents": owner_events_json(events), "messages": messages(detail),
+            "requirements": requirements_of(detail), **answers_json(detail), **revision_json(detail, editable)}
+
+
+def owner_events_json(events: Any) -> List[Dict[str, Any]]:
+    """ownerEvents of status --json and relay_status: {kind, text, at} for each owner act
+    (relay_client.OWNER_EVENT_KINDS; never Pond 1.3.0's progress)."""
+    return [{"kind": e.get("kind"), "text": e.get("text"), "at": e.get("at")} for e in owner_events(events)]
 
 
 def _read_instructable(src: str, stdin: Any) -> Dict[str, Any]:

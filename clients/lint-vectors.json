@@ -1027,6 +1027,585 @@
     "title": "Lint vector"
    },
    "expect": []
+  },
+  {
+   "name": "required-leaf",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Confirm the deploy",
+      "required": true
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "required-substep",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Rotate it",
+      "substeps": [
+       {
+        "do": "Revoke the old key",
+        "required": true
+       },
+       {
+        "do": "Note the time",
+        "optional": true
+       }
+      ]
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "required-question",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Pick the target",
+      "required": true,
+      "question": {
+       "prompt": "Which one?",
+       "choices": [
+        "Staging",
+        "Preview"
+       ]
+      }
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "required-beside-blocking",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Confirm the deploy",
+      "required": true,
+      "blocking": true
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "required-false-beside-optional",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Confirm the deploy",
+      "required": false,
+      "optional": true
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "required-parent-all-optional",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Tidy up",
+      "required": true,
+      "substeps": [
+       {
+        "do": "Copy the old key aside",
+        "optional": true
+       },
+       {
+        "do": "Note the rotation time",
+        "optional": true
+       }
+      ]
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[2].required",
+     "has nothing to finish: every sub-step is optional. Drop required, or make a sub-step one the owner must do"
+    ]
+   ]
+  },
+  {
+   "name": "required-parent-all-optional-asks-its-own",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Tidy up",
+      "required": true,
+      "substeps": [
+       {
+        "do": "Copy the old key aside",
+        "optional": true
+       },
+       {
+        "do": "Note the rotation time",
+        "optional": true
+       }
+      ],
+      "question": {
+       "prompt": "Anything left?",
+       "choices": [
+        "No",
+        "Yes"
+       ]
+      }
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "required-parent-one-sub-to-do",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Tidy up",
+      "required": true,
+      "substeps": [
+       {
+        "do": "Copy the old key aside",
+        "optional": true
+       },
+       {
+        "do": "Delete the old key"
+       }
+      ]
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "required-beside-optional",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Confirm the deploy",
+      "required": true,
+      "optional": true
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[2].required",
+     "can't go with optional: drop one of them"
+    ]
+   ]
+  },
+  {
+   "name": "required-inside-optional-parent",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Tidy up",
+      "optional": true,
+      "substeps": [
+       {
+        "do": "Delete the old key",
+        "required": true
+       },
+       {
+        "do": "Note the time"
+       }
+      ]
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[2].substeps[0].required",
+     "can't be required inside an optional step"
+    ]
+   ]
+  },
+  {
+   "name": "required-substep-beside-optional",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Tidy up",
+      "substeps": [
+       {
+        "do": "Delete the old key",
+        "required": true,
+        "optional": true
+       }
+      ]
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[2].substeps[0].required",
+     "can't go with optional: drop one of them"
+    ]
+   ]
+  },
+  {
+   "name": "required-after-a-value-to-copy",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open https://app.example.com/settings"
+     },
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Confirm the deploy",
+      "required": true,
+      "optional": true
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"https://app.example.com/settings\" is a value to copy: put it in code (or a URL in url)"
+    ],
+    [
+     "steps[2].required",
+     "can't go with optional: drop one of them"
+    ]
+   ]
+  },
+  {
+   "name": "done-steps",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     }
+    ],
+    "done": [
+     "steps"
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "done-reply",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     }
+    ],
+    "done": [
+     "reply"
+    ],
+    "reply": {
+     "prompt": "Did the deploy pass?",
+     "choices": []
+    }
+   },
+   "expect": []
+  },
+  {
+   "name": "done-reply-without-a-prompt",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     }
+    ],
+    "done": [
+     "reply"
+    ]
+   },
+   "expect": [
+    [
+     "done",
+     "\"reply\" needs a reply prompt: add reply, or drop it from done"
+    ]
+   ]
+  },
+  {
+   "name": "done-message",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     }
+    ],
+    "done": [
+     "message"
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "done-steps-all-optional",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings",
+      "optional": true
+     },
+     {
+      "do": "Rotate the key",
+      "optional": true
+     }
+    ],
+    "done": [
+     "steps"
+    ]
+   },
+   "expect": [
+    [
+     "done",
+     "\"steps\" has nothing to finish: every step is optional"
+    ]
+   ]
+  },
+  {
+   "name": "done-steps-one-to-do",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings",
+      "optional": true
+     },
+     {
+      "do": "Rotate the key"
+     }
+    ],
+    "done": [
+     "steps"
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "done-steps-with-required",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key",
+      "required": true
+     }
+    ],
+    "done": [
+     "steps",
+     "message"
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "done-both-refusals-in-list-order",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings",
+      "optional": true
+     }
+    ],
+    "done": [
+     "reply",
+     "steps"
+    ]
+   },
+   "expect": [
+    [
+     "done",
+     "\"reply\" needs a reply prompt: add reply, or drop it from done"
+    ],
+    [
+     "done",
+     "\"steps\" has nothing to finish: every step is optional"
+    ]
+   ]
+  },
+  {
+   "name": "done-and-required-refusals",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Tidy up",
+      "required": true,
+      "substeps": [
+       {
+        "do": "Copy the old key aside",
+        "optional": true
+       },
+       {
+        "do": "Note the rotation time",
+        "optional": true
+       }
+      ]
+     }
+    ],
+    "done": [
+     "message",
+     "reply"
+    ]
+   },
+   "expect": [
+    [
+     "steps[2].required",
+     "has nothing to finish: every sub-step is optional. Drop required, or make a sub-step one the owner must do"
+    ],
+    [
+     "done",
+     "\"reply\" needs a reply prompt: add reply, or drop it from done"
+    ]
+   ]
+  },
+  {
+   "name": "done-malformed-is-the-validators",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     }
+    ],
+    "done": "reply"
+   },
+   "expect": []
   }
  ]
 }

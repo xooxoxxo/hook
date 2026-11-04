@@ -461,6 +461,45 @@ class PondGateTests(Base):
     def test_the_old_name_still_works(self):
         self.assertIs(rc.ProtocolTooOld, rc.PondTooOld)
 
+    # Required before Done (Pond 1.3.0): `required` on a step or sub-step, `done` on the ask.
+    REQUIRED = {"v": 1, "title": "Rotate the staging deploy key", "steps": [
+        {"do": "Open the deploy settings"},
+        {"do": "Rotate it", "substeps": [{"do": "Revoke the old key", "required": True}]}]}
+    DONE = {"v": 1, "title": "Rotate the staging deploy key", "steps": [{"do": "Rotate the key"}],
+            "done": ["message"]}
+
+    def test_keys_needing_pond_finds_required_in_a_sub_step_and_done_at_the_top(self):
+        self.assertEqual(rc.keys_needing_pond(self.REQUIRED), {"required": "1.3.0"})
+        self.assertEqual(rc.keys_needing_pond(self.DONE), {"done": "1.3.0"})
+        both = dict(self.REQUIRED, done=["steps"])
+        self.assertEqual(rc.keys_needing_pond(both), {"required": "1.3.0", "done": "1.3.0"})
+        self.assertEqual(rc.REQUIREMENTS_POND, "1.3.0")
+        # `required` on verify is the validator's to refuse, never a gated key.
+        self.assertEqual(rc.keys_needing_pond({"v": 1, "title": "x", "steps": [{"do": "a"}],
+                                               "verify": {"do": "b", "required": True}}), {})
+
+    def test_required_and_done_need_pond_1_3_0(self):
+        self.pond("1.2.0")
+        self.assertEqual(self.refused(self.REQUIRED), self.MESSAGE.format(m="1.2.0", key="required", n="1.3.0"))
+        self.assertEqual(self.refused(self.DONE), self.MESSAGE.format(m="1.2.0", key="done", n="1.3.0"))
+        # Both: the first key in the table is named.
+        self.assertIn("`required` needs", self.refused(dict(self.REQUIRED, done=["steps"])))
+        self.old_pond(4)
+        self.assertEqual(self.refused(self.DONE), self.MESSAGE.format(m="protocol 4", key="done", n="1.3.0"))
+        for version in ("1.3.0", "1.4.1"):
+            self.pond(version)
+            self.assertEqual(self.client().post("Acme", self.REQUIRED)["item"]["id"], ITEM_ID)
+            self.assertEqual(self.client().post("Acme", self.DONE)["item"]["id"], ITEM_ID)
+
+    def test_this_mac_refuses_required_and_done(self):
+        for ask, key in ((self.REQUIRED, "required"), (self.DONE, "done")):
+            rc._ponds.clear()
+            local = self.local_http("1.0.0", 4)
+            with self.assertRaises(rc.PondTooOld) as ctx:
+                self.local(local).post("Acme", ask)
+            self.assertEqual(ctx.exception.error, f"Hook's This Mac queue (Pond 1.0.0) can't take `{key}` yet.")
+            self.assertEqual(local.sent("/asks"), [])
+
     def local_http(self, version, protocol):
         local = FakeHTTP()
         local.routes[("GET", "/version")] = (200, {"service": "hook", "version": version, "protocol": protocol})
@@ -648,6 +687,37 @@ class HelperTests(Base):
         self.assertEqual(rc.fill_from(original, {"CLAUDE_PROJECT_DIR": "acme"})["from"]["cwd"], os.getcwd())
         self.assertEqual(rc.fill_from(original, {"CLAUDE_PROJECT_DIR": ""})["from"]["cwd"], os.getcwd())
         self.assertEqual(rc.fill_from(original, {})["from"]["cwd"], os.getcwd())
+
+    def test_requirements_of(self):
+        left = [{"kind": "step", "id": "s2", "path": "2"}, {"kind": "message"}]
+        self.assertEqual(rc.requirements_of({"item": {"requirements": {"left": left, "ready": False}}}),
+                         {"left": left, "ready": False})
+        self.assertEqual(rc.requirements_of({"item": {"requirements": {"left": [], "ready": True}}}),
+                         {"left": [], "ready": True})
+        for detail in ({}, {"item": {}}, {"item": {"requirements": None}}, {"item": {"requirements": []}},
+                       {"item": {"requirements": {"left": "x", "ready": False}}},
+                       {"item": {"requirements": {"left": [], "ready": "yes"}}}, None, {"item": "x"}):
+            self.assertIsNone(rc.requirements_of(detail), detail)
+        # An entry of another shape is dropped, not passed on.
+        self.assertEqual(rc.requirements_of({"item": {"requirements": {"left": [left[0], 5, "x"], "ready": False}}}),
+                         {"left": [left[0]], "ready": False})
+
+    def test_left_words_match_the_ponds(self):
+        left = [{"kind": "step", "id": "s2", "path": "2"}, {"kind": "step", "id": "s3.2", "path": "3.2"},
+                {"kind": "reply"}, {"kind": "message"}]
+        self.assertEqual(rc.left_words(left), ["step 2", "step 3b", "the reply", "a message"])
+        self.assertEqual(rc.left_words([{"kind": "step"}, {"kind": "other"}, 7]), [])
+        self.assertEqual(rc.left_words(None), [])
+        # A path is a label: one line, brackets and quotes neutralised.
+        self.assertEqual(rc.left_words([{"kind": "step", "path": "2\n[x]"}]), ["step 2 ⏎ (x)"])
+
+    def test_owner_events_leave_progress_out(self):
+        events = [{"kind": "posted", "actor": "session"}, {"kind": "progress", "actor": "owner", "text": "{}"},
+                  {"kind": "answer", "actor": "owner"}, {"kind": "reply", "actor": "owner"},
+                  {"kind": "message", "actor": "owner"}, {"kind": "resolved", "actor": "session"}, "junk"]
+        self.assertEqual([e["kind"] for e in rc.owner_events(events)], ["answer", "reply", "message"])
+        self.assertNotIn("progress", rc.OWNER_EVENT_KINDS)
+        self.assertNotIn("progress", rc.OWNER_LABELS)
 
     def test_one_line(self):
         self.assertEqual(rc.one_line("a\nb\r\nc"), "a ⏎ b ⏎ c")

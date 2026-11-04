@@ -7,7 +7,7 @@ from pathlib import Path
 
 SCHEMA = json.loads((Path(__file__).resolve().parent.parent / "schema" / "instructable.v1.json").read_text("utf-8"))
 VERIFY_KEYS = {"do", "where", "code", "lang", "expect", "detail", "url"}
-LEAF_KEYS = VERIFY_KEYS | {"question", "blocking", "warning", "optional", "file", "id"}
+LEAF_KEYS = VERIFY_KEYS | {"question", "blocking", "warning", "optional", "required", "file", "id"}
 ID_PATTERN = "^[a-z0-9][a-z0-9.-]{0,23}$"
 
 
@@ -105,6 +105,27 @@ class SchemaTest(unittest.TestCase):
             self.assertTrue(pattern.search(good), good)
         for bad in ("S1x", "a" * 25, "-s1", ".s", "", "s 1"):
             self.assertFalse(pattern.search(bad), bad)
+
+    def test_required_sits_on_steps_and_leaves_never_on_verify(self):
+        for name in ("step", "leaf"):
+            required = SCHEMA["$defs"][name]["properties"]["required"]
+            self.assertEqual(required["type"], "boolean")
+            self.assertIs(required["default"], False)
+            # The cross-key rules JSON Schema can't hold are stated, as for blocking.
+            for words in ("optional", "inside an optional step", "every sub-step is optional", "Skip"):
+                self.assertIn(words, required["description"])
+        self.assertEqual(SCHEMA["$defs"]["step"]["properties"]["required"],
+                         SCHEMA["$defs"]["leaf"]["properties"]["required"])
+        self.assertNotIn("required", SCHEMA["$defs"]["verify"]["properties"])
+
+    def test_done_is_a_unique_list_of_known_requirements(self):
+        done = SCHEMA["properties"]["done"]
+        self.assertEqual(done["type"], "array")
+        self.assertEqual((done["minItems"], done["maxItems"], done["uniqueItems"]), (1, 3, True))
+        self.assertEqual(done["items"], {"enum": ["steps", "reply", "message"]})
+        for words in ("reply prompt", "every step is optional", "Skip"):
+            self.assertIn(words, done["description"])
+        self.assertNotIn("done", SCHEMA["required"])
 
     def test_steps_use_step(self):
         self.assertEqual(SCHEMA["properties"]["steps"]["items"], {"$ref": "#/$defs/step"})

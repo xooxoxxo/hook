@@ -54,6 +54,43 @@ class VectorTests(unittest.TestCase):
                 got = [list(p) for p in relay_lint.lint_instructable(case["instructable"])]
                 self.assertEqual(got, case["expect"])
 
+    def test_requirement_vectors_hold_the_five_guidance_lines(self):
+        cases = [c for c in CASES if c["name"].startswith(("required-", "done-"))]
+        self.assertGreaterEqual(len(cases), 15)
+        lines = {tuple(pair) for c in cases for pair in c["expect"]}
+        self.assertLessEqual({
+            ("steps[2].required", "has nothing to finish: every sub-step is optional. Drop required, "
+                                  "or make a sub-step one the owner must do"),
+            ("steps[2].required", "can't go with optional: drop one of them"),
+            ("steps[2].substeps[0].required", "can't be required inside an optional step"),
+            ("done", "\"reply\" needs a reply prompt: add reply, or drop it from done"),
+            ("done", "\"steps\" has nothing to finish: every step is optional"),
+        }, lines)
+        for case in cases:
+            with self.subTest(case["name"]):
+                got = [list(p) for p in relay_lint.lint_requirements(case["instructable"])]
+                self.assertEqual(got, [p for p in case["expect"] if not p[0].endswith(".do")])
+
+    def test_requirement_pairs_come_after_the_values_to_copy(self):
+        doc = {"v": 1, "title": "x", "done": ["reply"],
+               "steps": [{"do": "Go", "required": True, "optional": True}, {"do": "Open https://example.com/a"}]}
+        self.assertEqual([p[0] for p in relay_lint.lint_instructable(doc)], ["steps[1].do", "steps[0].required", "done"])
+
+    def test_requirement_shapes_are_left_to_the_validator(self):
+        for doc in ({"v": 1, "title": "x", "steps": [{"do": "a", "required": "yes", "optional": True}]},
+                    {"v": 1, "title": "x", "steps": [{"do": "a"}], "done": "reply"},
+                    {"v": 1, "title": "x", "steps": [{"do": "a"}], "done": [], },
+                    {"v": 1, "title": "x", "steps": [{"do": "a"}], "done": ["later", 3, None]},
+                    {"v": 1, "title": "x", "steps": [{"do": "a", "substeps": []}], "verify": {"do": "b", "required": True}},
+                    {"v": 1, "title": "x", "steps": [{"do": "a", "required": True, "substeps": []}]}):
+            with self.subTest(doc):
+                self.assertEqual(relay_lint.lint_requirements(doc), [])
+
+    def test_a_duplicate_done_entry_is_linted_once(self):
+        doc = {"v": 1, "title": "x", "steps": [{"do": "a"}], "done": ["reply", "reply"]}
+        self.assertEqual(relay_lint.lint_requirements(doc),
+                         [("done", "\"reply\" needs a reply prompt: add reply, or drop it from done")])
+
     def test_the_messages_say_what_to_do(self):
         self.assertEqual(relay_lint.lint_details(CRAMMED), [CRAMMED_DETAIL])
         self.assertEqual(relay_lint.lint_details(REWRITTEN), [])
