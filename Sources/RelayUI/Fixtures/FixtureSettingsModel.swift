@@ -179,18 +179,19 @@ public enum SettingsFixtures {
     public static let agentsMac = AgentsState(
         repoPath: repoPath, lastCall: GalleryFixtures.now.addingTimeInterval(-120), status: agentsMacStatus)
 
-    /// Show Difference on OpenCode's MCP server.
+    /// Show Difference on OpenCode's MCP server, labelled as `relay integrations diff` labels it:
+    /// the owner's edit first (it pinned /usr/bin/python3 and added a timeout), Hook's piece second.
     public static let agentsDiff = IntegrationDiff(
         harness: "opencode", piece: "mcp", target: "~/.config/opencode/opencode.json",
         diff: """
-        --- hook
-        +++ ~/.config/opencode/opencode.json
-        @@ -1,6 +1,7 @@
+        --- ~/.config/opencode/opencode.json (yours)
+        +++ ~/.config/opencode/opencode.json (Hook's)
+        @@ -1,7 +1,6 @@
          "relay": {
            "type": "local",
-        -  "command": ["python3", "~/.local/share/hook/current/mcp/relay_mcp.py"],
-        +  "command": ["/usr/bin/python3", "~/.local/share/hook/current/mcp/relay_mcp.py"],
-        +  "timeout": 20000,
+        -  "command": ["/usr/bin/python3", "~/.local/share/hook/current/mcp/relay_mcp.py"],
+        -  "timeout": 20000,
+        +  "command": ["python3", "~/.local/share/hook/current/mcp/relay_mcp.py"],
            "enabled": true
          }
         """)

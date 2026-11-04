@@ -220,6 +220,18 @@ private func harness(_ id: String, _ name: String, _ state: HarnessState, detect
 
     // MARK: The diff sheet
 
+    /// The gallery's diff is labelled as `relay integrations diff` labels it: the owner's file
+    /// first ("−" lines), Hook's piece second ("+" lines).
+    @Test func theFixtureDiffIsLabelledAsTheCLILabelsIt() {
+        let diff = SettingsFixtures.agentsDiff
+        let lines = diff.diff.components(separatedBy: "\n")
+        #expect(lines.first == "--- \(diff.target) (yours)")
+        #expect(lines.dropFirst().first == "+++ \(diff.target) (Hook's)")
+        // Hook's piece runs plain python3; the owner's edit pinned /usr/bin/python3 and added a timeout.
+        #expect(lines.contains { $0.hasPrefix("+") && $0.contains("[\"python3\"") })
+        #expect(lines.contains { $0.hasPrefix("-") && $0.contains("timeout") })
+    }
+
     @Test func diffLinesAreTintedByKind() {
         #expect(DiffLineKind.of("--- hook") == .header)
         #expect(DiffLineKind.of("+++ ~/.config/opencode/opencode.json") == .header)
