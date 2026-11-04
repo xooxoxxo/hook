@@ -156,6 +156,24 @@ class DocsSetTests(unittest.TestCase):
             self.assertIn(words, text)
         self.assertNotIn("## MCP tools", text)
 
+    def test_using_md_current(self):
+        text = read(DOCS / "using.md")
+        self.assertNotRegex(text, r"\| *Settings *\|.*Connect")              # the keys table's tab row
+        self.assertNotIn("**Connect:**", text)
+        self.assertNotIn("Settings › Connect", text)
+        self.assertNotIn("git pull", text)
+        self.assertNotIn("updates your checkout", text)
+        self.assertNotRegex(text, r"(?i)copy the CLAUDE\.md section")
+        for words in ("General, Panel, Queue, Notifications, Agents", "Settings › Agents", "Check for Updates…",
+                      "~/.claude/rules/hook.md", "relay integrations", "8,000", "Pond 1.4.0"):
+            self.assertIn(words, text)
+
+    def test_security_md_names_github_connections(self):
+        text = read(DOCS / "security.md")
+        self.assertNotIn("no outbound connections", text)
+        for words in ("GitHub", "updates", "issues", "never leaves the Mac"):
+            self.assertIn(words, text)
+
 
 class ChangelogTests(unittest.TestCase):
     def test_the_integrations_release_names_them_and_every_docs_only_agent(self):

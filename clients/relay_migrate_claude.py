@@ -346,6 +346,30 @@ def _peek(manifest: Any, mid: str) -> Dict[str, Any]:
     return {}
 
 
+def _after_heading(sec: Section) -> str:
+    return sec.text.split("\n", 1)[1] if "\n" in sec.text else ""
+
+
+def planned_text(values: Any, text: str, sec: Section, choice: str) -> str:
+    """CLAUDE.md as the owner's choice would leave it: Apply puts the proposal in place of the
+    section, Remove takes the section out, Keep changes nothing. Pure: it reads and writes
+    nothing, so apply_choice and the dry run show the same change. values is the run's
+    settings, as for every step here; the text depends only on text, sec and choice."""
+    if choice not in CHOICES:
+        raise ValueError(f"choose one of: {', '.join(CHOICES)}")
+    if choice == KEEP:
+        return text
+    if choice == REMOVE:
+        return _without(text, sec)
+    return text[:sec.start] + replacement(sec, personal_remainder(_after_heading(sec))) + text[sec.end:]
+
+
+def text_diff(old: str, new: str) -> List[str]:
+    """A unified diff of ~/.claude/CLAUDE.md with 3 lines of context, one line per item."""
+    return list(difflib.unified_diff(old.splitlines(), new.splitlines(), fromfile="~/.claude/CLAUDE.md (now)",
+                                     tofile="~/.claude/CLAUDE.md (after)", n=3, lineterm=""))
+
+
 def apply_choice(values: Any, manifest: Any, choice: str, now: datetime) -> Dict[str, Any]:
     """Carry out the owner's choice on CLAUDE.md, only while the section is the one proposed.
     Returns the record; its state is applied, removed, declined, or changed (propose again)."""
@@ -361,8 +385,7 @@ def apply_choice(values: Any, manifest: Any, choice: str, now: datetime) -> Dict
     if choice == KEEP:
         rec.update(state="declined", decided=_iso(now), note="you kept CLAUDE.md as it is")
         return rec
-    new = _without(text, sec) if choice == REMOVE else \
-        text[:sec.start] + replacement(sec, personal_remainder(sec.text.split("\n", 1)[1] if "\n" in sec.text else "")) + text[sec.end:]
+    new = planned_text(values, text, sec, choice)
     backup = ed.make_backup(path, now)
     ed.atomic_write(path, new.encode("utf-8"))
     rec.update(state="removed" if choice == REMOVE else "applied", decided=_iso(now),
@@ -569,7 +592,9 @@ def _step_md(values: Any, manifest: Any, poster: Any, now: datetime, dry_run: bo
     sha = sha256(sec.text)
     if _known(sec, values.bundle):
         if dry_run:
-            return [_item("claude-md", "would remove", shown, "a section Hook wrote; its rules file has it now")]
+            item = _item("claude-md", "would remove", shown, "a section Hook wrote; its rules file has it now")
+            item["diff"] = text_diff(text, _without(text, sec))
+            return [item]
         backup = ed.make_backup(path, now)
         ed.atomic_write(path, _without(text, sec).encode("utf-8"))
         rec = _record(manifest, "claude-md")
@@ -577,12 +602,10 @@ def _step_md(values: Any, manifest: Any, poster: Any, now: datetime, dry_run: bo
             rec.pop(k, None)
         _set(rec, "removed", path=shown, backup=_tilde(backup, values.home), sha=sha, decided=_iso(now))
         return [_item("claude-md", "removed", shown, "a section Hook wrote; its rules file has it now")]
+    if dry_run:
+        return [_dry_md(values, rec, text, sec, sha, again, choice)]
     if rec.get("state") == "declined" and not again and choice is None:
         return []
-    if dry_run:
-        if rec.get("state") == "proposed" and rec.get("sha") == sha:
-            return []
-        return [_item("claude-md", "would propose", shown, "Hook asks before it changes this section")]
     rec = _record(manifest, "claude-md")
     answer = choice or ((rec.get("answers") or {}).get(QUESTION_STEP) if rec.get("state") == "proposed" else None)
     if rec.get("state") == "proposed" and rec.get("sha") == sha and not again:
@@ -607,7 +630,7 @@ def _step_md(values: Any, manifest: Any, poster: Any, now: datetime, dry_run: bo
     still_open = bool(rec.get("askId")) and rec.get("askState", "open") == "open"
     if still_open and poster is not None:
         poster.resolve(rec["askId"], "Hook made a new proposal: the section changed since.")
-    remainder = personal_remainder(sec.text.split("\n", 1)[1] if "\n" in sec.text else "")
+    remainder = personal_remainder(_after_heading(sec))
     propose(values, sec, remainder)
     if rec.get("askId"):
         # Should the queue hand the old ask back, its earlier answers don't count again.
@@ -618,6 +641,43 @@ def _step_md(values: Any, manifest: Any, poster: Any, now: datetime, dry_run: bo
                proposal=_tilde(proposal_path(values), values.home), proposed=_iso(now))
     _post_proposal(values, rec, poster, now)
     return [_item("claude-md", "proposed", shown, "Hook asks before it changes this section")]
+
+
+DRY_NOTES = {APPLY: "the proposal takes the section's place; your own lines stay",
+             REMOVE: "the whole section goes, your own lines too",
+             KEEP: "you kept CLAUDE.md as it is"}
+PENDING = "your answer is pending on the Hook ask; pass --choose to see the change"
+UNPOSTED = "the Hook ask goes out at the next sync; pass --choose to see the change"
+
+
+def _would(values: Any, text: str, sec: Section, choice: str, note: Optional[str] = None) -> Dict[str, Any]:
+    """The dry run of a choice: would apply, would remove or would keep, with the change."""
+    verb = {APPLY: "would apply", REMOVE: "would remove", KEEP: "would keep"}[choice]
+    item = _item("claude-md", verb, "~/.claude/CLAUDE.md", note or DRY_NOTES[choice])
+    new = planned_text(values, text, sec, choice)
+    item["diff"] = text_diff(text, new) if new != text else []
+    return item
+
+
+def _dry_md(values: Any, rec: Dict[str, Any], text: str, sec: Section, sha: str, again: bool,
+            choice: Optional[str]) -> Dict[str, Any]:
+    """What _step_md would do with a hand-written section, mirroring its branches; never
+    silent while the section is there. Reads only."""
+    shown = "~/.claude/CLAUDE.md"
+    propose_item = _item("claude-md", "would propose", shown, "Hook asks before it changes this section")
+    state, same = rec.get("state"), rec.get("sha") == sha
+    if state == "proposed" and same and not again:
+        answer = choice or (rec.get("answers") or {}).get(QUESTION_STEP)
+        if answer in CHOICES:
+            return _would(values, text, sec, answer)
+        if rec.get("askState") in ("done", "skipped"):
+            return _would(values, text, sec, KEEP, "you closed the ask without choosing")
+        return _item("claude-md", "would wait", shown, PENDING if rec.get("askId") else UNPOSTED)
+    if choice in CHOICES and same:
+        return _would(values, text, sec, choice)
+    if state == "declined" and not again and choice is None:
+        return _would(values, text, sec, KEEP, "you kept CLAUDE.md as it is; pass --again to be asked again")
+    return propose_item
 
 
 def migrate(values: Any, manifest: Any, runner: Any, client_factory: Any, now: datetime, *, dry_run: bool,

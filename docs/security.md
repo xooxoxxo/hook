@@ -4,7 +4,10 @@ What Hook protects, and how. To report a vulnerability, see [SECURITY.md](../SEC
 
 ## The queue and the network
 
-- In This Mac only mode, Hook makes no outbound connections and the queue never leaves the Mac.
+- In This Mac only mode, the queue never leaves the Mac: asks, answers and replies stay in Hook's folder. Hook still connects to GitHub, over https and without an account or cookies, to check for updates and to look up crash reports in its issues:
+  - **Updates.** A minute after launch, then once a day, and when you choose **Check for Updates…**, Hook asks `api.github.com` for the latest release of `xooxoxxo/hook`. The request carries Hook's version in its `User-Agent` (`Hook/<version>`) and nothing else about you or your asks. Only when you choose **Update Hook to X.Y.Z…** does it download that release's zip and `SHA256SUMS` from `github.com`.
+  - **Crash issues.** When you open **Send a Crash Report** with GitHub as the target, Hook searches the repository's issues once, on `api.github.com`, for the crash's signature: a 12-character hash, with the `User-Agent` `Hook`. The report itself goes to GitHub only if you submit the issue in your browser.
+  - Like any web request, both show GitHub your IP address.
 - The listener binds `127.0.0.1` only, and every API call needs the 256-bit token, kept `0600` in a `0700` folder. That separates user accounts; a process running as you can read the token and the queue, but it already has your privileges.
 - The Pond token and every ask travel with each request, so use an https `mailboxURL` unless the Pond is only on a private, encrypted network such as a VPN. Hook never follows a Pond redirect.
 

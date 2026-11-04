@@ -1793,8 +1793,11 @@ def _migrate(ctx: Context, report: Report, poster: Any, now: datetime, *, dry_ru
         if dry_run:
             what = state[len("would "):] if state.startswith("would ") else state
             note = f"{what}: {it['note']}" if it.get("note") else what
-            report.results.append({"harness": MIGRATE_HID, "piece": it["id"], "action": "migrate",
-                                   "target": it["path"], "outcome": "would", "note": note})
+            row = {"harness": MIGRATE_HID, "piece": it["id"], "action": "migrate",
+                   "target": it["path"], "outcome": "would", "note": note}
+            if it.get("diff"):
+                row["diff"] = it["diff"]
+            report.results.append(row)
         else:
             report.results.append({"harness": MIGRATE_HID, "piece": it["id"], "action": "migrate",
                                    "target": it["path"], "outcome": state, "note": it.get("note")})
@@ -2165,6 +2168,8 @@ def _human_report(report: Report, out) -> None:
         if report.dry_run:
             print(f"would {VERBS.get(r['action'], r['action'])} {r['harness']} {r['piece']}: {r['target']}"
                   + (f" ({r['note']})" if r["note"] else ""), file=out)
+            for line in r.get("diff") or []:
+                print(f"  {line}", file=out)
         elif r["outcome"] not in ("shared", "released") or r["note"]:
             print(f"{r['harness']} {r['piece']}: {r['outcome']} {r['target']}"
                   + (f" ({r['note']})" if r["note"] else ""), file=out)

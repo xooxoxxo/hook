@@ -832,5 +832,23 @@ class EmptyShapeTest(Base):
             self.assertEqual((self.home / rel).read_text(), text, rel)
 
 
+class HumanReportTest(unittest.TestCase):
+    def test_a_dry_run_item_prints_its_diff_under_its_would_line(self):
+        import io
+        report = ri.Report(dry_run=True)
+        report.results.append({"harness": "claude-code", "piece": "claude-md", "action": "migrate",
+                               "target": "~/.claude/CLAUDE.md", "outcome": "would", "note": "apply",
+                               "diff": ["--- a", "+++ b", "@@ -1 +1 @@", "-old", "+new"]})
+        report.results.append({"harness": "claude-code", "piece": "claude-skill", "action": "migrate",
+                               "target": "~/.claude/skills/instructables", "outcome": "would", "note": None})
+        out = io.StringIO()
+        ri._human_report(report, out)
+        self.assertEqual(out.getvalue().splitlines(), [
+            "would migrate claude-code claude-md: ~/.claude/CLAUDE.md (apply)",
+            "  --- a", "  +++ b", "  @@ -1 +1 @@", "  -old", "  +new",
+            "would migrate claude-code claude-skill: ~/.claude/skills/instructables",
+        ])
+
+
 if __name__ == "__main__":
     unittest.main()
