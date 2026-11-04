@@ -3,7 +3,7 @@
 All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
-## [Unreleased]
+## [0.13.0] - 2026-11-04
 
 ### Added
 - Agent integrations. Hook sets itself up in every coding agent it finds on the Mac: its MCP

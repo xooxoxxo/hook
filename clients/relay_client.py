@@ -31,7 +31,7 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 import relay_semver
 from relay_lint import lint_details, lint_instructable  # noqa: F401  (re-exported)
 
-VERSION = "0.12.0"
+VERSION = "0.13.0"
 DEFAULT_CONFIG = "~/.config/relay/config.json"
 DEFAULT_PORT = 47823
 DEFAULT_CONTEXT = "personal"

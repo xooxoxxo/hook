@@ -158,10 +158,10 @@ class DocsSetTests(unittest.TestCase):
 
 
 class ChangelogTests(unittest.TestCase):
-    def test_unreleased_names_the_integrations_and_every_docs_only_agent(self):
+    def test_the_integrations_release_names_them_and_every_docs_only_agent(self):
         text = read(ROOT / "CHANGELOG.md")
-        newest = text.split("\n## [", 2)[1]
-        self.assertTrue(newest.startswith("Unreleased]"), newest[:40])
+        sections = text.split("\n## [")[1:]
+        newest = next(s for s in sections if s.startswith("Unreleased]") or s.startswith("0.13.0]"))
         for words in ("relay integrations", "relay hook replies", "Settings › Agents",
                       "docs/claude-md-section.md", "### Removed", "### Changed", "### Added"):
             self.assertIn(words, newest)
