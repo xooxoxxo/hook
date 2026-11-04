@@ -84,6 +84,31 @@ private func removed(_ tokens: [DiffToken]) -> String {
         #expect(diff.resets.contains("Step 1 loses its tick"))
     }
 
+    /// `required` is a step field and `done` a top key (RD 12, 29); toggling `required` keeps the tick.
+    @Test func requiredAndDoneShowInTheDiffAndKeepTheTick() {
+        let one = steps(3)
+        var two = steps(3) { $0[1].required = true }
+        two.done = ["steps", "message"]
+        let diff = RevisionDiff.make(baseline: one, firstRevision: one, current: two, reasons: [])
+        #expect(diff.steps.map(\.stepID) == ["s2"])
+        #expect(diff.steps.first?.fields.map(\.name) == ["required"])
+        #expect(diff.top.map(\.name) == ["done"])
+        #expect(diff.top.first?.new == "steps\nmessage")
+        #expect(!diff.resets.contains("Step 2 loses its tick"))
+        #expect(!diff.touchesCommandsLinksOrFiles)
+        #expect(ReviewPage.label("required") == "Required")
+        #expect(ReviewPage.label("done") == "Before Done")
+        let full = RevisionDiff.make(baseline: nil, firstRevision: two, current: two, reasons: [])
+        #expect(full.top.contains { $0.name == "done" })
+    }
+
+    @Test func anAskWithoutTheKeysDiffsAsBefore() {
+        let one = steps(2)
+        let diff = RevisionDiff.make(baseline: one, firstRevision: one, current: one, reasons: [])
+        #expect(diff.steps.isEmpty && diff.top.isEmpty)
+        #expect(!RevisionDiff.fields(Step(action: "a")).contains { $0.1 != nil && $0.0 == "required" })
+    }
+
     @Test func aChangedQuestionMakesItsAnswerEarlier() {
         let one = steps(2) { $0[1].question = Question(prompt: "Env?", choices: ["A", "B"]) }
         let two = steps(2) { $0[1].question = Question(prompt: "Env?", choices: ["A", "C"]) }

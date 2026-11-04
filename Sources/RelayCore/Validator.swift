@@ -20,11 +20,12 @@ public enum Validator {
     static let maxProject = 60
     static let urgencies: Set<String> = ["now", "today", "whenever"]
 
-    static let topKeys: Set<String> = ["v", "title", "why", "urgency", "steps", "verify", "reply", "links", "from"]
+    static let topKeys: Set<String> = ["v", "title", "why", "urgency", "steps", "verify", "reply", "links", "from", "done"]
     /// Verify: a leaf that asks, blocks and opts out of nothing.
     static let verifyKeys: Set<String> = ["do", "where", "code", "lang", "expect", "detail", "url"]
     /// A sub-step.
-    static let leafKeys: Set<String> = verifyKeys.union(["question", "blocking", "warning", "optional", "file", "id"])
+    static let leafKeys: Set<String> = verifyKeys.union(["question", "blocking", "warning", "optional", "required", "file",
+                                                         "id"])
     /// `warning`: multi-line, like `detail`.
     static let warningLimit = 300
     /// An entry of `steps`.
@@ -39,6 +40,9 @@ public enum Validator {
     static let linkKeys: Set<String> = ["label", "url", "path"]
     /// `file` and a link's `path`: an absolute local path of at most this many characters.
     static let maxPath = 500
+    /// The values `done` may hold (Pond 1.3.0), in this order.
+    static let requirements = ["steps", "reply", "message"]
+    static let doneShape = "done: must be a list of 1 to 3 of steps, reply, message"
     static let fromKeys = ["session", "host", "cwd"]
     /// A step id (Pond 1.1.0), matched whole: on steps and sub-steps, never on verify.
     public static let idPattern = "[a-z0-9][a-z0-9.-]{0,23}"
@@ -56,8 +60,9 @@ public enum Validator {
     }
 
     /// `.success` holds the cleaned instructable: the input with `urgency`
-    /// set to "today" when it is absent or null.
-    public static func validate(_ value: JSONValue) -> Result<JSONValue, ValidationFailure> {
+    /// set to "today" when it is absent or null. `requirements: false` (This Mac, RD 20) checks
+    /// what a Pond 1.2.0 does: `required` and `done` are unknown keys.
+    public static func validate(_ value: JSONValue, requirements: Bool = true) -> Result<JSONValue, ValidationFailure> {
         guard case .object(let object) = value else {
             return .failure(ValidationFailure(errors: ["instructable: must be an object"]))
         }
@@ -66,7 +71,10 @@ public enum Validator {
         }
 
         var errors: [String] = []
-        keys(&errors, "", value, allowed: topKeys)
+        let top = requirements ? topKeys : topKeys.subtracting(["done"])
+        let stepAllowed = requirements ? stepKeys : stepKeys.subtracting(["required"])
+        let leafAllowed = requirements ? leafKeys : leafKeys.subtracting(["required"])
+        keys(&errors, "", value, allowed: top)
 
         if object["v"] != .int(1) {
             errors.append("v: must be 1")
@@ -80,7 +88,7 @@ public enum Validator {
 
         if case .array(let steps)? = present(object["steps"]), (1...maxSteps).contains(steps.count) {
             for (index, item) in steps.enumerated() {
-                step(&errors, "steps[\(index)]", item, allowed: stepKeys)
+                step(&errors, "steps[\(index)]", item, allowed: stepAllowed, leaves: leafAllowed)
             }
             let total = steps.count + steps.reduce(0) { sum, item in
                 if case .object(let members) = item, case .array(let subs)? = members["substeps"] { return sum + subs.count }
@@ -110,6 +118,9 @@ public enum Validator {
             } else {
                 errors.append("reply.choices: must be a list of at most \(maxChoices) choices")
             }
+        }
+        if requirements {
+            done(&errors, object)
         }
 
         if let linksValue = present(object["links"]) {
@@ -362,7 +373,7 @@ public enum Validator {
     /// warning, question, substeps.
     static func step(
         _ errors: inout [String], _ path: String, _ value: JSONValue, allowed: Set<String>,
-        inOptional: Bool = false
+        leaves: Set<String> = leafKeys, inOptional: Bool = false
     ) {
         guard let step = keys(&errors, path, value, allowed: allowed) else { return }
         for field in stepFields {
@@ -390,6 +401,9 @@ public enum Validator {
             case .bool?: break
             default: errors.append("\(path).optional: must be true or false")
             }
+            if allowed.contains("required") {
+                required(&errors, path, step, inOptional: inOptional)
+            }
             text(&errors, "\(path).warning", step["warning"], limit: warningLimit, kind: .multi)
         }
         if allowed.contains("question"), let question = present(step["question"]) {
@@ -401,8 +415,62 @@ public enum Validator {
             return
         }
         for (index, sub) in subs.enumerated() {
-            Self.step(&errors, "\(path).substeps[\(index)]", sub, allowed: leafKeys,
+            Self.step(&errors, "\(path).substeps[\(index)]", sub, allowed: leaves, leaves: leaves,
                       inOptional: present(step["optional"]) == .bool(true))
+        }
+    }
+
+    /// `_required` (Pond 1.3.0): a bool, never beside optional or inside an optional parent,
+    /// and never on a parent with nothing to finish (no question of its own, every sub-step
+    /// optional). A leaf always has a tick or an answer to give. One error at most.
+    static func required(_ errors: inout [String], _ path: String, _ step: [String: JSONValue], inOptional: Bool) {
+        guard let value = present(step["required"]) else { return }
+        guard case .bool(let on) = value else {
+            errors.append("\(path).required: must be true or false")
+            return
+        }
+        guard on else { return }
+        if present(step["optional"]) == .bool(true) {
+            errors.append("\(path).required: can't be required and optional")
+        } else if inOptional {
+            errors.append("\(path).required: can't be required inside an optional step")
+        } else if present(step["question"]) == nil, allOptional(step["substeps"]) {
+            errors.append("\(path).required: has nothing to finish (every sub-step is optional)")
+        }
+    }
+
+    /// `_all_optional`: a non-empty list whose entries are all steps with `optional: true`.
+    static func allOptional(_ value: JSONValue?) -> Bool {
+        guard case .array(let items)? = value, !items.isEmpty else { return false }
+        return items.allSatisfy { item in
+            if case .object(let members) = item { return members["optional"] == .bool(true) }
+            return false
+        }
+    }
+
+    /// `_done` (Pond 1.3.0): 1 to 3 distinct `requirements`; "reply" needs a reply prompt and
+    /// "steps" a step that isn't optional. Null counts as absent; errors name the index, never the value.
+    static func done(_ errors: inout [String], _ object: [String: JSONValue]) {
+        guard let value = present(object["done"]) else { return }
+        guard case .array(let entries) = value, (1...requirements.count).contains(entries.count) else {
+            errors.append(doneShape)
+            return
+        }
+        var seen: [[UInt32]] = []   // by code point, as Python compares strings
+        for (index, entry) in entries.enumerated() {
+            let string = entry.stringValue
+            let scalars = string.map { $0.unicodeScalars.map(\.value) }
+            let known = scalars.map { s in requirements.contains { $0.unicodeScalars.map(\.value) == s } } ?? false
+            if !known {
+                errors.append("done[\(index)]: must be steps, reply or message")
+            } else if let scalars, seen.contains(scalars) {
+                errors.append("done[\(index)]: duplicate")
+            } else if string == "reply", present(object["reply"]) == nil {
+                errors.append("done[\(index)]: reply needs a reply prompt")
+            } else if string == "steps", allOptional(object["steps"]) {
+                errors.append("done[\(index)]: steps has nothing to finish (every step is optional)")
+            }
+            if let scalars { seen.append(scalars) }
         }
     }
 

@@ -117,7 +117,8 @@ public actor LocalQueue {
     public func post(project: JSONValue?, instructable: JSONValue?) throws -> (item: LocalItem, deduped: Bool) {
         guard let instructable, instructable != .null else { throw LocalQueueError.missingFields }
         let cleaned: JSONValue
-        switch Validator.validate(instructable) {
+        // This Mac takes no requirements in 0.13 (RD 20): `required` and `done` are unknown keys.
+        switch Validator.validate(instructable, requirements: false) {
         case .success(let value): cleaned = value
         case .failure(let failure): throw LocalQueueError.invalidInstructable(failure.errors)
         }

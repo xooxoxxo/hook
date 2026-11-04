@@ -117,11 +117,14 @@ public struct StepContent: Equatable, Sendable {
     public var optionalByParent: Bool
     /// An absolute local path ("/…" or "~/…") to a document to read; raw, as sent.
     public var file: String?
+    /// The step's own `required`: Done waits until it is finished. Never on verify, an
+    /// optional step or a sub-step of one.
+    public var required: Bool
 
     public init(action: String, place: String? = nil, detail: String? = nil, url: String? = nil,
                 code: String? = nil, lang: String? = nil, expect: String? = nil,
                 blocking: Bool = false, warning: String? = nil, optional: Bool = false,
-                optionalByParent: Bool = false, file: String? = nil) {
+                optionalByParent: Bool = false, file: String? = nil, required: Bool = false) {
         self.action = action
         self.place = place
         self.detail = detail
@@ -134,6 +137,7 @@ public struct StepContent: Equatable, Sendable {
         self.optional = optional
         self.optionalByParent = optional && optionalByParent
         self.file = file
+        self.required = required && !optional
     }
 
     /// The warning box's text on a blocking step: `warning`, else `Flow.blockingWarning`;

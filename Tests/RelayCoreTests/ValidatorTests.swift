@@ -69,7 +69,7 @@ private let minimal: [String: JSONValue] = [
                 case .failure(let failure):
                     #expect(!vector.valid, "\(vector.name): Swift rejects what Python accepts")
                     #expect(failure.errors.sorted() == vector.errors.sorted(), "\(vector.name)")
-                    if vector.name.hasPrefix("optional-") || vector.name.hasPrefix("file-") {
+                    if ["optional-", "file-", "required-", "done-"].contains(where: vector.name.hasPrefix) {
                         #expect(failure.errors == vector.errors, "\(vector.name): the reference's order")
                     }
                 }
@@ -172,6 +172,35 @@ private let minimal: [String: JSONValue] = [
         }
     }
 
+    @Test func requiredAndDoneCasesAreInTheFixture() throws {
+        let names = Set(try loadVectors().map(\.name))
+        for name in ["required-valid-leaf", "required-valid-parent", "required-valid-substep", "required-valid-question",
+                     "required-valid-with-blocking", "required-and-optional", "required-inside-optional-parent",
+                     "required-on-verify", "required-not-bool-string", "required-parent-all-optional",
+                     "required-valid-parent-all-optional-own-question"] {
+            #expect(names.contains(name), "\(name)")
+        }
+        #expect(names.contains { $0.hasPrefix("done-") })
+    }
+
+    /// Without requirements (This Mac, RD 20) both keys are unknown and nothing else is checked.
+    @Test func withoutRequirementsTheKeysAreUnknown() throws {
+        let value = try JSONValue.parse(Data(#"""
+        {"v":1,"title":"t","done":[],"steps":[{"do":"a","required":"yes","optional":true}]}
+        """#.utf8))
+        guard case .failure(let failure) = Validator.validate(value, requirements: false) else {
+            Issue.record("should fail")
+            return
+        }
+        #expect(failure.errors.sorted() == ["done: unknown key", "steps[0].required: unknown key"])
+        guard case .failure(let full) = Validator.validate(value) else {
+            Issue.record("should fail")
+            return
+        }
+        #expect(full.errors == ["steps[0].required: must be true or false",
+                                "done: must be a list of 1 to 3 of steps, reply, message"])
+    }
+
     @Test func fileCasesAreInTheFixture() throws {
         let names = Set(try loadVectors().map(\.name))
         for name in ["file-valid-home", "file-valid-absolute", "file-valid-on-substep", "file-valid-500", "file-relative",
@@ -248,7 +277,10 @@ private let minimal: [String: JSONValue] = [
 
     @Test func stepAndLeafKeys() {
         #expect(Validator.verifyKeys == ["do", "where", "code", "lang", "expect", "detail", "url"])
-        #expect(Validator.leafKeys == Validator.verifyKeys.union(["question", "blocking", "warning", "optional", "file", "id"]))
+        #expect(Validator.leafKeys == Validator.verifyKeys.union(["question", "blocking", "warning", "optional", "required",
+                                                                  "file", "id"]))
+        #expect(Validator.topKeys.contains("done"))
+        #expect(!Validator.verifyKeys.contains("required"))
         #expect(!Validator.verifyKeys.contains("id"))
         #expect(Validator.linkKeys == ["label", "url", "path"])
         #expect(Validator.maxPath == 500)

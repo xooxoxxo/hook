@@ -156,6 +156,25 @@ enum QueueFixture {
         #expect(await queue.list(status: "all", days: nil).isEmpty)
     }
 
+    /// This Mac takes no requirements in 0.13 (RD 20): both keys are unknown, as a Pond 1.2.0 says.
+    @Test func thisMacRefusesRequiredAndDoneAsUnknownKeys() async throws {
+        let dir = QueueFixture.directory()
+        defer { QueueFixture.remove(dir) }
+        let queue = try await QueueFixture.openQueue(dir)
+        let body = try JSONValue.parse(Data(#"""
+        {"v":1,"title":"Rotate the staging deploy key","done":["steps"],
+         "steps":[{"do":"Open the deploy settings","required":true,"substeps":[{"do":"Copy it","required":true}]}]}
+        """#.utf8))
+        do {
+            _ = try await queue.post(project: .string("Example"), instructable: body)
+            Issue.record("This Mac took required and done")
+        } catch LocalQueueError.invalidInstructable(let errors) {
+            #expect(errors.sorted() == ["done: unknown key", "steps[0].required: unknown key",
+                                        "steps[0].substeps[0].required: unknown key"])
+        }
+        #expect(await queue.list(status: "all", days: nil).isEmpty)
+    }
+
     @Test func dedupesOnProjectAndTitle() async throws {
         let dir = QueueFixture.directory()
         defer { QueueFixture.remove(dir) }

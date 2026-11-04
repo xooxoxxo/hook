@@ -17,7 +17,8 @@ private func check(pond version: String, level: Int? = 5) -> MailboxCheck {
 
 private func semver(_ text: String) -> PondVersion { .semver(SemVer(strict: text)!) }
 
-private let everyFeature: [MailboxFeature] = [.answers, .blocking, .optional, .fileLinks, .corrections, .bugs, .messages]
+private let everyFeature: [MailboxFeature] = [.answers, .blocking, .optional, .fileLinks, .corrections, .bugs, .messages,
+                                              .requirements]
 /// The features the Notice can name: the ones this Hook's range needs.
 private let everyNeededFeature: [MailboxFeature] = [.answers, .blocking, .optional, .fileLinks, .corrections]
 
@@ -46,6 +47,20 @@ private let everyNeededFeature: [MailboxFeature] = [.answers, .blocking, .option
         #expect(!semver("1.2.0-rc.1").supports(.bugs))
         #expect(semver("1.1.0").supports(.corrections))
         #expect(!PondVersion.legacy(protocol: 4).supports(.corrections))
+        #expect(PondCompat.required == "^1.1.0")
+    }
+
+    /// Required steps before Done (Pond 1.3.0) are gated too: never in the older-Pond Notice (RD 21).
+    @Test func requirementsAreGatedOnPond130() {
+        #expect(MailboxFeature.requirements.minimumPond == SemVer(major: 1, minor: 3, patch: 0))
+        #expect(MailboxFeature.requirements.gated)
+        #expect(MailboxFeature.requirements.displayName == "required steps before Done")
+        #expect(semver("1.3.0").supports(.requirements))
+        #expect(!semver("1.2.9").supports(.requirements))
+        #expect(!semver("1.3.0-rc.1").supports(.requirements))
+        for pond in ["1.1.0", "1.2.0", "1.0.0"] {
+            #expect(!MailboxProtocol.missingFeatures(pond: semver(pond)).contains(.requirements), "\(pond)")
+        }
         #expect(PondCompat.required == "^1.1.0")
     }
 

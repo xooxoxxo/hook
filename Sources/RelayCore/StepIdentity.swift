@@ -6,11 +6,13 @@ import Foundation
 /// that changes any of its fields drops it.
 public enum StepIdentity {
     /// The first 16 hex characters of SHA-256 over `kind US (parentID ?? "") US` + the step's
-    /// sorted-keys JSON without `id` and `substeps`: every field the owner sees counts.
+    /// sorted-keys JSON without `id`, `substeps` and `required`: every field the owner sees counts,
+    /// and a correction that only toggles `required` keeps ticks and answers (RD 12).
     public static func contentHash(_ step: Step, parentID: String?, kind: StepFingerprint.Kind) -> String {
         var own = step
         own.id = nil
         own.substeps = nil
+        own.required = nil
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         let json = (try? encoder.encode(own)) ?? Data()

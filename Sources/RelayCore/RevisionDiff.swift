@@ -143,7 +143,7 @@ public struct StepChange: Equatable, Sendable {
 public struct RevisionDiff: Equatable, Sendable {
     public var isFirstView: Bool
     public var steps: [StepChange]
-    /// why, every verify field, the reply's prompt and choices, each link's label, url and path.
+    /// why, every verify field, the reply's prompt and choices, `done`, each link's label, url and path.
     public var top: [FieldDiff]
     /// Every reason since the baseline (since rev 1 on a first view), oldest first.
     public var reasons: [(rev: Int, reason: String)]
@@ -203,6 +203,7 @@ public struct RevisionDiff: Equatable, Sendable {
         [("do", step.action), ("where", step.place), ("detail", step.detail), ("code", step.code), ("lang", step.lang),
          ("expect", step.expect), ("url", step.url), ("file", step.file), ("warning", step.warning),
          ("blocking", step.blocking == true ? "true" : nil), ("optional", step.optional == true ? "true" : nil),
+         ("required", step.required == true ? "true" : nil),
          ("question.prompt", step.question?.prompt),
          ("question.choices", step.question?.choices.map { $0.joined(separator: "\n") }),
          ("question.multi", step.question?.multi == true ? "true" : nil)]
@@ -225,6 +226,9 @@ public struct RevisionDiff: Equatable, Sendable {
         let values: [String?] = ins.verify.map { Self.fields($0).map(\.1) } ?? Array(repeating: nil, count: names.count)
         fields += zip(names, values).map { ("verify." + $0, $1) }
         fields += [("reply.prompt", ins.reply?.prompt), ("reply.choices", ins.reply?.choices.map { $0.joined(separator: "\n") })]
+        // The known values only, in the order the ask gives them.
+        let done = (ins.done ?? []).filter { DoneRequirement(rawValue: $0) != nil }
+        fields.append(("done", done.isEmpty ? nil : done.joined(separator: "\n")))
         return fields
     }
 
@@ -278,7 +282,8 @@ public struct RevisionDiff: Equatable, Sendable {
     private static func resets(_ steps: [StepChange], baseline: Instructable, current: Instructable) -> [String] {
         var lines: [String] = []
         let paths = StepIdentity.paths(current)
-        for change in steps where change.kind == .changed {
+        // A change to `required` alone keeps the tick (RD 12): it isn't in the content hash.
+        for change in steps where change.kind == .changed && change.fields.contains(where: { $0.name != "required" }) {
             guard let path = change.newPath else { continue }
             lines.append("Step \(label(path)) loses its tick")
             if change.fields.contains(where: { $0.name.hasPrefix("question.") }) {

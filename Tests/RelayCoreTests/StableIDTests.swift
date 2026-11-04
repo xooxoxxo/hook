@@ -51,6 +51,18 @@ private func nodes(_ steps: [Step]) -> [DetailModel.Node] {
         #expect(StepIdentity.contentHash(base, parentID: "s2", kind: .sub) != hash)
     }
 
+    /// Toggling `required` keeps ticks and answers (RD 12); an ask without the key hashes as in 0.12.
+    @Test func requiredIsLeftOutOfTheContentHash() {
+        let base = Step(action: "Rotate the key", code: "make rotate", id: "s2")
+        let hash = StepIdentity.contentHash(base, parentID: nil, kind: .step)
+        #expect(hash == "98448cd0d60ac522")
+        for required in [true, false] {
+            var marked = base
+            marked.required = required
+            #expect(StepIdentity.contentHash(marked, parentID: nil, kind: .step) == hash)
+        }
+    }
+
     // MARK: Ticks
 
     @Test func v2TicksMigrateToV3ByID() throws {

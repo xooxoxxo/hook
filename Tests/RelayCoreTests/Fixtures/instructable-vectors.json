@@ -12991,6 +12991,1403 @@
    ],
    "cleaned": null,
    "pyBytes": 231
+  },
+  {
+   "name": "required-valid-leaf",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key",
+      "required": true
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key",
+      "required": true
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 133
+  },
+  {
+   "name": "required-valid-false",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key",
+      "required": false
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key",
+      "required": false
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 134
+  },
+  {
+   "name": "required-valid-null",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key",
+      "required": null
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key",
+      "required": null
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 133
+  },
+  {
+   "name": "required-valid-parent",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings",
+      "required": true,
+      "substeps": [
+       {
+        "do": "Rotate the key"
+       }
+      ]
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings",
+      "required": true,
+      "substeps": [
+       {
+        "do": "Rotate the key"
+       }
+      ]
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 183
+  },
+  {
+   "name": "required-valid-substep",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings",
+      "substeps": [
+       {
+        "do": "Rotate the key",
+        "required": true
+       }
+      ]
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings",
+      "substeps": [
+       {
+        "do": "Rotate the key",
+        "required": true
+       }
+      ]
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 183
+  },
+  {
+   "name": "required-valid-question",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key",
+      "required": true,
+      "question": {
+       "prompt": "Which environment?",
+       "choices": [
+        "Staging",
+        "Preview"
+       ]
+      }
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key",
+      "required": true,
+      "question": {
+       "prompt": "Which environment?",
+       "choices": [
+        "Staging",
+        "Preview"
+       ]
+      }
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 214
+  },
+  {
+   "name": "required-valid-with-blocking",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key",
+      "required": true,
+      "blocking": true
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key",
+      "required": true,
+      "blocking": true
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 151
+  },
+  {
+   "name": "required-valid-false-with-optional",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key",
+      "required": false,
+      "optional": true
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key",
+      "required": false,
+      "optional": true
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 152
+  },
+  {
+   "name": "required-valid-parent-some-optional",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings",
+      "required": true,
+      "substeps": [
+       {
+        "do": "Rotate the key"
+       },
+       {
+        "do": "Copy it",
+        "optional": true
+       }
+      ]
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings",
+      "required": true,
+      "substeps": [
+       {
+        "do": "Rotate the key"
+       },
+       {
+        "do": "Copy it",
+        "optional": true
+       }
+      ]
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 220
+  },
+  {
+   "name": "required-valid-parent-all-optional-own-question",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings",
+      "required": true,
+      "question": {
+       "prompt": "Which environment?",
+       "choices": [
+        "Staging",
+        "Preview"
+       ]
+      },
+      "substeps": [
+       {
+        "do": "Rotate the key",
+        "optional": true
+       }
+      ]
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings",
+      "required": true,
+      "question": {
+       "prompt": "Which environment?",
+       "choices": [
+        "Staging",
+        "Preview"
+       ]
+      },
+      "substeps": [
+       {
+        "do": "Rotate the key",
+        "optional": true
+       }
+      ]
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 282
+  },
+  {
+   "name": "required-valid-substep-of-required-parent",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings",
+      "required": true,
+      "substeps": [
+       {
+        "do": "Rotate the key",
+        "required": true
+       }
+      ]
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings",
+      "required": true,
+      "substeps": [
+       {
+        "do": "Rotate the key",
+        "required": true
+       }
+      ]
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 201
+  },
+  {
+   "name": "required-and-optional",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key",
+      "required": true,
+      "optional": true
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].required: can't be required and optional"
+   ],
+   "cleaned": null,
+   "pyBytes": 151
+  },
+  {
+   "name": "required-and-optional-substep",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings",
+      "substeps": [
+       {
+        "do": "Rotate the key",
+        "required": true,
+        "optional": true
+       }
+      ]
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].substeps[0].required: can't be required and optional"
+   ],
+   "cleaned": null,
+   "pyBytes": 201
+  },
+  {
+   "name": "required-inside-optional-parent",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings",
+      "optional": true,
+      "substeps": [
+       {
+        "do": "Rotate the key",
+        "required": true
+       }
+      ]
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].substeps[0].required: can't be required inside an optional step"
+   ],
+   "cleaned": null,
+   "pyBytes": 201
+  },
+  {
+   "name": "required-inside-optional-parent-second",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings",
+      "optional": true,
+      "substeps": [
+       {
+        "do": "Rotate the key"
+       },
+       {
+        "do": "Copy it",
+        "required": true
+       }
+      ]
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].substeps[1].required: can't be required inside an optional step"
+   ],
+   "cleaned": null,
+   "pyBytes": 220
+  },
+  {
+   "name": "required-on-verify",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "verify": {
+     "do": "Check the deploy",
+     "required": true
+    }
+   },
+   "valid": false,
+   "errors": [
+    "verify.required: unknown key"
+   ],
+   "cleaned": null,
+   "pyBytes": 171
+  },
+  {
+   "name": "required-not-bool-string",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key",
+      "required": "true"
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].required: must be true or false"
+   ],
+   "cleaned": null,
+   "pyBytes": 135
+  },
+  {
+   "name": "required-not-bool-number",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key",
+      "required": 1
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].required: must be true or false"
+   ],
+   "cleaned": null,
+   "pyBytes": 130
+  },
+  {
+   "name": "required-not-bool-list",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key",
+      "required": []
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].required: must be true or false"
+   ],
+   "cleaned": null,
+   "pyBytes": 131
+  },
+  {
+   "name": "required-substep-not-bool",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings",
+      "substeps": [
+       {
+        "do": "Rotate the key",
+        "required": "yes"
+       }
+      ]
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].substeps[0].required: must be true or false"
+   ],
+   "cleaned": null,
+   "pyBytes": 184
+  },
+  {
+   "name": "required-parent-all-optional",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings",
+      "required": true,
+      "substeps": [
+       {
+        "do": "Rotate the key",
+        "optional": true
+       },
+       {
+        "do": "Copy it",
+        "optional": true
+       }
+      ]
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].required: has nothing to finish (every sub-step is optional)"
+   ],
+   "cleaned": null,
+   "pyBytes": 238
+  },
+  {
+   "name": "required-not-bool-after-optional",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key",
+      "optional": 1,
+      "required": "x",
+      "warning": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].optional: must be true or false",
+    "steps[0].required: must be true or false",
+    "steps[0].warning: longer than 300 characters"
+   ],
+   "cleaned": null,
+   "pyBytes": 463
+  },
+  {
+   "name": "required-and-optional-blocking",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key",
+      "required": true,
+      "optional": true,
+      "blocking": true
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].optional: can't be optional and blocking",
+    "steps[0].required: can't be required and optional"
+   ],
+   "cleaned": null,
+   "pyBytes": 169
+  },
+  {
+   "name": "done-valid-steps",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "done": [
+     "steps"
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "done": [
+     "steps"
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 134
+  },
+  {
+   "name": "done-valid-reply",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "reply": {
+     "prompt": "Did the deploy pass?",
+     "choices": [
+      "Yes",
+      "No"
+     ]
+    },
+    "done": [
+     "reply"
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "reply": {
+     "prompt": "Did the deploy pass?",
+     "choices": [
+      "Yes",
+      "No"
+     ]
+    },
+    "done": [
+     "reply"
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 205
+  },
+  {
+   "name": "done-valid-reply-free-text",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "reply": {
+     "prompt": "What did the deploy print?",
+     "choices": []
+    },
+    "done": [
+     "reply"
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "reply": {
+     "prompt": "What did the deploy print?",
+     "choices": []
+    },
+    "done": [
+     "reply"
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 200
+  },
+  {
+   "name": "done-valid-message",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "done": [
+     "message"
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "done": [
+     "message"
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 136
+  },
+  {
+   "name": "done-valid-all",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "reply": {
+     "prompt": "Did the deploy pass?",
+     "choices": [
+      "Yes",
+      "No"
+     ]
+    },
+    "done": [
+     "message",
+     "reply",
+     "steps"
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "reply": {
+     "prompt": "Did the deploy pass?",
+     "choices": [
+      "Yes",
+      "No"
+     ]
+    },
+    "done": [
+     "message",
+     "reply",
+     "steps"
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 225
+  },
+  {
+   "name": "done-valid-null",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "done": null
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "done": null,
+    "urgency": "today"
+   },
+   "pyBytes": 129
+  },
+  {
+   "name": "done-valid-steps-with-required",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key",
+      "required": true
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "done": [
+     "steps"
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key",
+      "required": true
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "done": [
+     "steps"
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 152
+  },
+  {
+   "name": "done-valid-steps-some-optional",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key",
+      "optional": true
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "done": [
+     "steps"
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key",
+      "optional": true
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "done": [
+     "steps"
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 152
+  },
+  {
+   "name": "done-reply-without-prompt",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "done": [
+     "reply"
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "done[0]: reply needs a reply prompt"
+   ],
+   "cleaned": null,
+   "pyBytes": 134
+  },
+  {
+   "name": "done-empty",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "done": []
+   },
+   "valid": false,
+   "errors": [
+    "done: must be a list of 1 to 3 of steps, reply, message"
+   ],
+   "cleaned": null,
+   "pyBytes": 127
+  },
+  {
+   "name": "done-string",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "done": "steps"
+   },
+   "valid": false,
+   "errors": [
+    "done: must be a list of 1 to 3 of steps, reply, message"
+   ],
+   "cleaned": null,
+   "pyBytes": 132
+  },
+  {
+   "name": "done-object",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "done": {
+     "steps": true
+    }
+   },
+   "valid": false,
+   "errors": [
+    "done: must be a list of 1 to 3 of steps, reply, message"
+   ],
+   "cleaned": null,
+   "pyBytes": 140
+  },
+  {
+   "name": "done-unknown",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "done": [
+     "ticks"
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "done[0]: must be steps, reply or message"
+   ],
+   "cleaned": null,
+   "pyBytes": 134
+  },
+  {
+   "name": "done-not-string",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "done": [
+     "steps",
+     3
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "done[1]: must be steps, reply or message"
+   ],
+   "cleaned": null,
+   "pyBytes": 137
+  },
+  {
+   "name": "done-duplicate",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "done": [
+     "steps",
+     "steps"
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "done[1]: duplicate"
+   ],
+   "cleaned": null,
+   "pyBytes": 143
+  },
+  {
+   "name": "done-four",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "reply": {
+     "prompt": "Did the deploy pass?",
+     "choices": [
+      "Yes",
+      "No"
+     ]
+    },
+    "done": [
+     "steps",
+     "reply",
+     "message",
+     "steps"
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "done: must be a list of 1 to 3 of steps, reply, message"
+   ],
+   "cleaned": null,
+   "pyBytes": 234
+  },
+  {
+   "name": "done-steps-all-optional",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key",
+      "optional": true
+     },
+     {
+      "do": "Redeploy staging",
+      "optional": true
+     }
+    ],
+    "done": [
+     "steps"
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "done[0]: steps has nothing to finish (every step is optional)"
+   ],
+   "cleaned": null,
+   "pyBytes": 170
+  },
+  {
+   "name": "done-unknown-before-bad-reply",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Redeploy staging"
+     }
+    ],
+    "done": [
+     "ticks",
+     "reply"
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "done[0]: must be steps, reply or message",
+    "done[1]: reply needs a reply prompt"
+   ],
+   "cleaned": null,
+   "pyBytes": 143
   }
  ]
 }

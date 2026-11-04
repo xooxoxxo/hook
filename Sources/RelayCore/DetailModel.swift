@@ -27,10 +27,14 @@ public struct DetailModel: Sendable, Equatable {
         public var stepID: String?
         /// `StepIdentity.contentHash`: every field the owner sees, its kind and its parent's id.
         public var contentHash: String
+        /// Done waits for this node: its own `required` (`content.required`), or the ask's
+        /// `done: ["steps"]` on a top-level step that isn't optional. Never verify.
+        public var isRequired: Bool
 
         public init(path: String, label: String, kind: StepFingerprint.Kind, number: Int, content: StepContent,
                     children: [Node] = [], fingerprint: String, question: Question? = nil, answer: Answer? = nil,
-                    earlierAnswer: Answer? = nil, stepID: String? = nil, contentHash: String = "") {
+                    earlierAnswer: Answer? = nil, stepID: String? = nil, contentHash: String = "",
+                    isRequired: Bool? = nil) {
             self.path = path
             self.label = label
             self.kind = kind
@@ -43,6 +47,7 @@ public struct DetailModel: Sendable, Equatable {
             self.earlierAnswer = question == nil ? nil : earlierAnswer
             self.stepID = stepID
             self.contentHash = contentHash
+            self.isRequired = kind != .verify && (isRequired ?? content.required)
         }
 
         public var id: String { path }
@@ -90,6 +95,8 @@ public struct DetailModel: Sendable, Equatable {
     public var nodes: [Node]
     public var links: [LinkRef]
     public var reply: ReplySpec?
+    /// What the ask's `done` list asks for before the owner's Done; unknown values are left out.
+    public var done: Set<DoneRequirement> = []
     public var ownerReplies: [String]
     /// The owner's messages to the session (Pond 1.2.0), oldest first. Never replies: a
     /// message answers nothing.
@@ -116,9 +123,10 @@ public struct DetailModel: Sendable, Equatable {
 
     /// Steps in order, each with its sub-steps (at most ten), then verify. `answers`
     /// (path → current answer, from `Answers.current`) fills each question node's answer, and
-    /// `earlier` its answer to an earlier version.
+    /// `earlier` its answer to an earlier version. `done` holding `.steps` makes every top-level
+    /// step that isn't optional required.
     public static func nodes(steps: [Step], verify: Step?, answers: [String: Answer] = [:],
-                             earlier: [String: Answer] = [:]) -> [Node] {
+                             earlier: [String: Answer] = [:], done: Set<DoneRequirement> = []) -> [Node] {
         var nodes: [Node] = []
         for (index, step) in steps.enumerated() {
             let number = index + 1
@@ -138,7 +146,8 @@ public struct DetailModel: Sendable, Equatable {
             nodes.append(Node(path: "\(number)", label: "\(number)", kind: .step, number: number, content: content,
                               children: Array(subs), fingerprint: fingerprint,
                               question: step.question, answer: answers["\(number)"], earlierAnswer: earlier["\(number)"],
-                              stepID: step.id, contentHash: StepIdentity.contentHash(step, parentID: nil, kind: .step)))
+                              stepID: step.id, contentHash: StepIdentity.contentHash(step, parentID: nil, kind: .step),
+                              isRequired: content.required || (done.contains(.steps) && !content.optional)))
         }
         if let verify {
             let content = content(verify, leaf: false)
@@ -153,7 +162,8 @@ public struct DetailModel: Sendable, Equatable {
     /// `blocking`, `warning`, `optional` and `file` only on a step or sub-step: verify
     /// (`leaf: false`) never carries them, even when a malformed instructable got past
     /// validation; a step that says both blocking and optional is only blocking. A sub-step
-    /// of an optional step (`inOptional`) is optional and never blocking.
+    /// of an optional step (`inOptional`) is optional and never blocking. `required` likewise
+    /// only on a step or sub-step, and never on one that says `optional` or sits in an optional parent.
     private static func content(_ step: Step, leaf: Bool = true, inOptional: Bool = false) -> StepContent {
         let own = leaf && step.optional == true && step.blocking != true
         return StepContent(
@@ -161,7 +171,8 @@ public struct DetailModel: Sendable, Equatable {
             code: present(step.code), lang: present(step.lang), expect: present(step.expect),
             blocking: leaf && !inOptional && step.blocking == true, warning: leaf ? present(step.warning) : nil,
             optional: own || (leaf && inOptional), optionalByParent: leaf && inOptional && !own,
-            file: leaf ? present(step.file) : nil)
+            file: leaf ? present(step.file) : nil,
+            required: leaf && !inOptional && step.required == true && step.optional != true)
     }
 
     public static func make(_ detail: AskDetail) -> DetailModel {
@@ -177,11 +188,14 @@ public struct DetailModel: Sendable, Equatable {
         var nodes: [Node] = []
         var links: [LinkRef] = []
         var reply: ReplySpec?
+        var done: Set<DoneRequirement> = []
 
         if let ins = item.instructable {
             why = present(ins.why)
+            done = DoneRequirement.parse(ins.done)
             let answers = Answers.current(events: events, history: history, rendered: ins)
-            nodes = Self.nodes(steps: ins.steps, verify: ins.verify, answers: answers.counted, earlier: answers.earlier)
+            nodes = Self.nodes(steps: ins.steps, verify: ins.verify, answers: answers.counted, earlier: answers.earlier,
+                               done: done)
             links = ins.links ?? []
             reply = ins.reply
             origin = AskOrigin(from: ins.from)
@@ -214,6 +228,7 @@ public struct DetailModel: Sendable, Equatable {
             nodes: nodes,
             links: links,
             reply: reply,
+            done: done,
             ownerReplies: events.filter { $0.kind == "reply" && $0.actor == "owner" }.compactMap(\.text),
             ownerMessages: events.filter { $0.kind == "message" && $0.actor == "owner" }.compactMap(\.text),
             isOpen: isOpen,

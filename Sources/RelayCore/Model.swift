@@ -26,6 +26,9 @@ public struct Step: Codable, Sendable, Equatable {
     /// An absolute local path ("/…" or "~/…") to a document the owner should read,
     /// usually Markdown (never on verify).
     public var file: String?
+    /// Done stays off until this step is finished: ticked, answered, or (a parent) every
+    /// sub-step that isn't optional (Pond 1.3.0; never on verify, never with `optional`).
+    public var required: Bool?
     /// The step's stable id (Pond 1.1.0): "s1", "s3.1", or a session's own. Corrections keep
     /// it, so ticks and answers follow the step (never on verify).
     public var id: String?
@@ -33,17 +36,17 @@ public struct Step: Codable, Sendable, Equatable {
     enum CodingKeys: String, CodingKey {
         case action = "do"
         case place = "where"
-        case code, lang, expect, detail, url, substeps, question, blocking, warning, optional, file, id
+        case code, lang, expect, detail, url, substeps, question, blocking, warning, optional, file, required, id
     }
 
     public init(action: String, place: String? = nil, code: String? = nil, lang: String? = nil, expect: String? = nil,
                 detail: String? = nil, url: String? = nil, substeps: [Step]? = nil, question: Question? = nil,
                 blocking: Bool? = nil, warning: String? = nil, optional: Bool? = nil, file: String? = nil,
-                id: String? = nil) {
+                required: Bool? = nil, id: String? = nil) {
         self.action = action; self.place = place; self.code = code; self.lang = lang; self.expect = expect
         self.detail = detail; self.url = url; self.substeps = substeps; self.question = question
         self.blocking = blocking; self.warning = warning; self.optional = optional; self.file = file
-        self.id = id
+        self.required = required; self.id = id
     }
 }
 
@@ -67,7 +70,7 @@ public struct Question: Codable, Sendable, Equatable {
 
 extension Step {
     /// As the synthesized decoder did, plus a lenient `substeps`, `question`, `blocking`,
-    /// `warning`, `optional`, `file` and `id`: null,
+    /// `warning`, `optional`, `file`, `required` and `id`: null,
     /// the wrong type or a malformed value becomes nil instead of failing the instructable.
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -84,6 +87,7 @@ extension Step {
         warning = (try? c.decodeIfPresent(String.self, forKey: .warning)) ?? nil
         optional = (try? c.decodeIfPresent(Bool.self, forKey: .optional)) ?? nil
         file = (try? c.decodeIfPresent(String.self, forKey: .file)) ?? nil
+        required = (try? c.decodeIfPresent(Bool.self, forKey: .required)) ?? nil
         id = (try? c.decodeIfPresent(String.self, forKey: .id)) ?? nil
     }
 }
@@ -146,11 +150,39 @@ public struct Instructable: Codable, Sendable, Equatable {
     public var reply: ReplySpec?
     public var links: [LinkRef]?
     public var from: Origin?
+    /// What must happen before the owner's Done (Pond 1.3.0): "steps", "reply", "message".
+    /// Lenient: a non-list is nil, and only its strings are kept; an unknown value stays here
+    /// raw and the model ignores it (`DoneRequirement`).
+    public var done: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case v, title, why, urgency, steps, verify, reply, links, from, done
+    }
 
     public init(v: Int? = nil, title: String, why: String? = nil, urgency: String? = nil, steps: [Step],
-                verify: Step? = nil, reply: ReplySpec? = nil, links: [LinkRef]? = nil, from: Origin? = nil) {
+                verify: Step? = nil, reply: ReplySpec? = nil, links: [LinkRef]? = nil, from: Origin? = nil,
+                done: [String]? = nil) {
         self.v = v; self.title = title; self.why = why; self.urgency = urgency; self.steps = steps
-        self.verify = verify; self.reply = reply; self.links = links; self.from = from
+        self.verify = verify; self.reply = reply; self.links = links; self.from = from; self.done = done
+    }
+
+    /// As the synthesized decoder did, plus a lenient `done`.
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        v = try c.decodeIfPresent(Int.self, forKey: .v)
+        title = try c.decode(String.self, forKey: .title)
+        why = try c.decodeIfPresent(String.self, forKey: .why)
+        urgency = try c.decodeIfPresent(String.self, forKey: .urgency)
+        steps = try c.decode([Step].self, forKey: .steps)
+        verify = try c.decodeIfPresent(Step.self, forKey: .verify)
+        reply = try c.decodeIfPresent(ReplySpec.self, forKey: .reply)
+        links = try c.decodeIfPresent([LinkRef].self, forKey: .links)
+        from = try c.decodeIfPresent(Origin.self, forKey: .from)
+        if let raw = (try? c.decodeIfPresent(JSONValue.self, forKey: .done)) ?? nil, case .array(let values) = raw {
+            done = values.compactMap(\.stringValue)
+        } else {
+            done = nil
+        }
     }
 }
 
@@ -229,6 +261,28 @@ public struct ServedRevision: Codable, Sendable, Equatable {
     }
 
     public var stamp: RevisionStamp { RevisionStamp(rev: rev, hash: hash) }
+}
+
+/// One requirement the Pond still waits for (Pond 1.3.0): `kind` "step" (with the step's
+/// `id` and display `path`), "reply" or "message".
+public struct PondRequirement: Codable, Sendable, Hashable {
+    public var kind: String
+    public var id: String?
+    public var path: String?
+
+    public init(kind: String, id: String? = nil, path: String? = nil) {
+        self.kind = kind; self.id = id; self.path = path
+    }
+}
+
+/// `item.requirements` (Pond 1.3.0): what's left before the owner's Done, and whether it may go.
+public struct PondRequirements: Codable, Sendable, Equatable {
+    public var left: [PondRequirement]
+    public var ready: Bool
+
+    public init(left: [PondRequirement], ready: Bool) {
+        self.left = left; self.ready = ready
+    }
 }
 
 /// The fields of the mailbox's item envelope that Hook uses.

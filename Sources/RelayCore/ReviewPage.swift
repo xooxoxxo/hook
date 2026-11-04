@@ -236,6 +236,7 @@ public struct ReviewPage: Equatable, Sendable {
         if parts.first == "reply" { return leaf == "prompt" ? "Prompt" : "Choices" }
         let labels = ["do": "Text", "where": "Where", "detail": "Detail", "lang": "Language", "expect": "Expect",
                       "url": "Link", "file": "File", "warning": "Warning", "blocking": "Blocking", "optional": "Optional",
+                      "required": "Required", "done": "Before Done",
                       "prompt": "Question", "choices": "Choices", "multi": "More than one answer", "why": "Why"]
         return labels[leaf] ?? leaf
     }
@@ -266,6 +267,9 @@ public struct ReviewPage: Equatable, Sendable {
             case "reply":
                 label = "Reply"
                 action = "What the session asks you to answer"
+            case "done":
+                label = "Before Done"
+                action = "What must happen before you can press Done"
             default:
                 let n = key.dropFirst("link ".count)
                 label = "Link \(n)"
