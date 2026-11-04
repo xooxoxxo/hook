@@ -56,6 +56,7 @@ public struct Notice: View {
                 }
             }
         }
+        .helpLabelStyle(.prose)
         .modifier(NoticeSizing())
         .accessibilityElement(children: .contain)
         .onAppear { AccessibilityNotification.Announcement(text).post() }

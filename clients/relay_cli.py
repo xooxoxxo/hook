@@ -21,7 +21,7 @@ import relay_wait
 from relay_client import (LIST_KINDS, OWNER_LABELS, UNVERIFIED_MESSAGE, VERSION, Client, EditKeys, PondTooOld, Refused,
                           RelayError, accepted_rev, answer_state, answer_value, event_rev, instructable_of, is_verified,
                           item_kind, left_words, messages, open_questions, owner_events, questions,
-                          requirements_of, revision_of, session_label, session_text)
+                          requirements_of, revision_of, session_label, session_text, session_text_cut)
 
 DEFAULT_TIMEOUT = 10.0
 SUBSTEPS_SENTENCE = ("A step that needs more than one action can hold `substeps`: 1 to 10 step objects "
@@ -41,6 +41,10 @@ OPTIONAL_SENTENCE = ("A step or sub-step (not verify) can set `optional: true` w
 REQUIRED_SENTENCE = ("`required: true` on a step keeps the owner's Done off until that step is finished "
                      "(ticked, answered, or all sub-steps); `done` on the ask lists `steps`, `reply` or `message` "
                      "(the owner messages the session) the same way; Skip always stays. Needs Pond 1.3.0.")
+CHOICE_SENTENCE = ("A choice that needs the owner's words is an object {\"label\", \"text\"} (text is its field's "
+                   "placeholder, at most 100 chars), never a label like \"Mix (reply what)\": the answer arrives "
+                   "as \"choice: Mix · <words>\" or \"Mix · <words>\". Not in a multi question. Needs Pond 1.4.0; "
+                   "on an older Pond use plain strings and say in the prompt what to write.")
 FILES_SENTENCE = ("When the owner should read a document, write it as a Markdown file and point to it with "
                   "`file` on a step or sub-step (not verify), or with a link that has `path` instead of `url`: "
                   "an absolute path (/... or ~/...) on the owner's Mac, which Hook opens rendered. Keep `do` to "
@@ -51,7 +55,7 @@ FILES_SENTENCE = ("When the owner should read a document, write it as a Markdown
 AMEND_SENTENCE = ("Send the whole corrected instructable: keep every step's `id` and leave ids out only on new "
                   "steps. Only the process that posted the ask holds its edit key. The owner reviews the change "
                   "in Hook before acting on it.")
-OWNER_TEXT_CAP = 300
+OWNER_TEXT_CAP = 8000   # past it, the line names the rest: relay status <id> --json
 
 
 class _ParserExit(Exception):
@@ -88,7 +92,8 @@ def _parser(out: Any, err: Any, prog: str = "relay") -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", metavar="<command>")
     post = sub.add_parser("post", help="post one instructable",
                           description=" ".join((SUBSTEPS_SENTENCE, QUESTIONS_SENTENCE, BLOCKING_SENTENCE,
-                                                OPTIONAL_SENTENCE, REQUIRED_SENTENCE, FILES_SENTENCE)))
+                                                OPTIONAL_SENTENCE, REQUIRED_SENTENCE, CHOICE_SENTENCE,
+                                                FILES_SENTENCE)))
     post.add_argument("project")
     post.add_argument("--json", dest="json_src", required=True, metavar="FILE|-",
                       help="the instructable, from a file or - for stdin")
@@ -177,6 +182,7 @@ def format_status(detail: dict) -> list:
     """`relay status`: owner text and answers quoted on one line each (session_text), so nothing
     the owner or an ask says can pass for a line of its own."""
     item = detail.get("item") if isinstance(detail.get("item"), dict) else {}
+    ask = item.get("id")
     events = detail.get("events") if isinstance(detail.get("events"), list) else []
     status = item.get("status") or "?"
     title = session_text(item["title"], 120) if item.get("title") else "?"
@@ -196,17 +202,17 @@ def format_status(detail: dict) -> list:
             lines.append(f"{at} accepted version {event_rev(event)}")
             continue
         if event.get("kind") == "message" and not is_verified(event):
-            lines.append(f"{at} {UNVERIFIED_MESSAGE}: {session_text(event.get('text') or '', OWNER_TEXT_CAP)}")
+            lines.append(f"{at} {UNVERIFIED_MESSAGE}: {session_text_cut(event.get('text') or '', OWNER_TEXT_CAP, ask)}")
             continue
         label = OWNER_LABELS.get(event.get("kind"))
         if label is None:
             continue
         text = event.get("text") or ""
-        lines.append(f"{at} {label}: {session_text(text, OWNER_TEXT_CAP)}" if text else f"{at} {label}")
+        lines.append(f"{at} {label}: {session_text_cut(text, OWNER_TEXT_CAP, ask)}" if text else f"{at} {label}")
     for problem in problems(detail):
         lines.append(f"{session_label(problem['at'] or '?', 40)} problem on step "
                      f"{session_label(problem['step'] or '?', 20)} (version {problem['rev']}), quoted: "
-                     f"{session_text(problem['note'], OWNER_TEXT_CAP)}")
+                     f"{session_text_cut(problem['note'], OWNER_TEXT_CAP, ask)}")
     asked = questions(instructable_of(detail))
     given, earlier = answer_state(detail)
     if asked:
@@ -218,7 +224,7 @@ def format_status(detail: dict) -> list:
             if path in given:
                 answer = given[path]
                 note = f" (version {answer['rev']}, an earlier question)" if answer["stale"] else ""
-                lines.append("     " + session_text(answer_value(answer), OWNER_TEXT_CAP) + note)
+                lines.append("     " + session_text_cut(answer_value(answer), OWNER_TEXT_CAP, ask) + note)
         if open_paths:
             lines.append("Unanswered: " + ", ".join(open_paths))
     left = requirements_line(detail)
@@ -228,7 +234,7 @@ def format_status(detail: dict) -> list:
         lines.append("Answers to steps this version no longer has (they don't count):")
         for answer in earlier:
             lines.append(f"  {session_label(answer['step'], 20)} (version {answer['rev']}, step id "
-                         f"{session_label(answer['id'], 40)})  " + session_text(answer_value(answer), OWNER_TEXT_CAP))
+                         f"{session_label(answer['id'], 40)})  " + session_text_cut(answer_value(answer), OWNER_TEXT_CAP, ask))
     return lines
 
 

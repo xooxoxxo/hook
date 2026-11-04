@@ -15,27 +15,70 @@ import Testing
         #expect(StepRow.isExpandable(state: .done, locked: false) && StepRow.isExpandable(state: .todo, locked: false))
     }
 
-    @Test func reportShowsOnlyOnAnOpenActionableRow() {
-        #expect(StepRow.reportable(allowed: true, actionable: true, open: true, locked: false))
-        #expect(!StepRow.reportable(allowed: true, actionable: true, open: false, locked: false))    // collapsed
-        #expect(!StepRow.reportable(allowed: true, actionable: false, open: true, locked: false))    // a required question
-        #expect(!StepRow.reportable(allowed: true, actionable: true, open: true, locked: true))
-        #expect(!StepRow.reportable(allowed: false, actionable: true, open: true, locked: false))    // closed ask or This Mac
-        // A row that can't expand offers it from its context menu instead.
+    /// Report sits at the bottom right of an expanded, actionable, unreported row whose field
+    /// isn't open; a row that can't expand offers it from its context menu.
+    @Test(arguments: [false, true], [false, true])
+    func reportLinkOnlyOnExpandedActionableUnreported(reported: Bool, targeted: Bool) {
+        for open in [false, true] {
+            for actionable in [false, true] {
+                for locked in [false, true] {
+                    for allowed in [false, true] {
+                        let slot = StepReportSlot(allowed: allowed, actionable: actionable, reported: reported,
+                                                  targeted: targeted, state: .idle, keyReady: true, limits: .old)
+                        let expected = allowed && actionable && open && !locked && !reported && !targeted
+                        #expect(StepRow.showsReportLink(slot, open: open, locked: locked) == expected,
+                                "open \(open) actionable \(actionable) locked \(locked) allowed \(allowed)")
+                        // The field shows while its slot is targeted, even on a collapsed row.
+                        #expect(StepRow.showsReportField(slot) == (allowed && targeted))
+                    }
+                }
+            }
+        }
         #expect(StepRow.reportsFromMenu(allowed: true, actionable: true, expandable: false, locked: false))
         #expect(!StepRow.reportsFromMenu(allowed: true, actionable: true, expandable: true, locked: false))
         #expect(!StepRow.reportsFromMenu(allowed: false, actionable: true, expandable: false, locked: false))
         #expect(!StepRow.reportsFromMenu(allowed: true, actionable: true, expandable: false, locked: true))
     }
 
+    /// A reported step shows only the icon: no link, whether open or not.
+    @Test func reportedRowShowsOnlyIcon() {
+        let slot = StepReportSlot(allowed: true, actionable: true, reported: true, targeted: false, state: .idle,
+                                  keyReady: true, limits: .old)
+        #expect(!StepRow.showsReportLink(slot, open: true, locked: false))
+        #expect(!StepRow.showsReportField(slot))
+        #expect(ProblemReport.reportedHelp == "Reported. Waiting for a correction.")
+    }
+
     @Test func theReportSlotsFollowThePaths() {
         let reports = StepReports(allowed: true, actionable: ["1", "2"], reported: ["1"], target: "2", onReport: { _ in })
+        #expect(reports.slot("2").state == .idle && reports.slot("2").limits == .old)
         #expect(reports.slot("1").reported == true)
         #expect(reports.slot("1").targeted == false)
         #expect(reports.slot("2").targeted == true)
         #expect(reports.slot("2").actionable == true)
         #expect(reports.slot("3").actionable == false)
         #expect(StepReports.none.slot("1").allowed == false)
+    }
+
+    /// While any report field in the ask is open, no row offers Report: a second link would
+    /// open another field and drop the note being typed (a parent's link beside its sub-step's field).
+    @Test func noReportLinkWhileAFieldIsOpen() {
+        let open = StepReports(allowed: true, actionable: ["2", "2.1", "3"], reported: [], target: "2.1",
+                               onReport: { _ in })
+        #expect(open.slot("2").fieldOpen && open.slot("3").fieldOpen && open.slot("2.1").fieldOpen)
+        #expect(!StepRow.showsReportLink(open.slot("2"), open: true, locked: false))
+        #expect(!StepRow.showsReportLink(open.slot("3"), open: true, locked: false))
+        #expect(StepRow.showsReportField(open.slot("2.1")))
+        let idle = StepReports(allowed: true, actionable: ["2"], reported: [], target: nil, onReport: { _ in })
+        #expect(!idle.slot("2").fieldOpen)
+        #expect(StepRow.showsReportLink(idle.slot("2"), open: true, locked: false))
+    }
+
+    /// A parent's own Report is the last row of its card, after its sub-steps (owner pick 1:
+    /// bottom right), never between its header and its sub-steps.
+    @Test func aParentsReportComesAfterItsSubSteps() {
+        #expect(ParentStepView.openParts(question: false) == [.body, .subSteps, .report])
+        #expect(ParentStepView.openParts(question: true) == [.body, .question, .subSteps, .report])
     }
 
     @Test func theWarningShowsUntilTheStepIsDone() {

@@ -13,19 +13,25 @@ public enum ReviewState: Equatable, Sendable {
     case pending(shown: RevisionStamp?, current: RevisionStamp, baseline: Int?)
     /// The history failed its checks, or went back on what this Mac pinned.
     case historyChanged(HistoryProblem)
+    /// The review records are still being read (the Keychain may be waiting on its password
+    /// prompt), so neither this Mac's acceptance nor its pins are known yet: fail closed. Every
+    /// ask that has a history (`current`, its current revision) or could have one (a Pond's
+    /// ask without one, `current` nil) is locked, with nothing to review, until the records
+    /// are in and the gate runs again (`Store.reviewState`).
+    case waitingForKeychain(current: RevisionStamp?)
 
     /// No copy, link, file, Done, answer, reply or tick; Skip still works.
     public var isLocked: Bool {
         switch self {
         case .legacy, .current: return false
-        case .pending, .historyChanged: return true
+        case .pending, .historyChanged, .waitingForKeychain: return true
         }
     }
 
     /// What the review entry point offers, from the state alone (never from the Notice slot).
     public var action: ReviewAction? {
         switch self {
-        case .legacy, .current: return nil
+        case .legacy, .current, .waitingForKeychain: return nil
         case .pending(_, let current, _): return .review(current: current)
         case .historyChanged: return .trustHistory
         }
@@ -113,6 +119,9 @@ public enum ReviewGate {
             return history.body(stamp) == nil ? nil : stamp
         case .pending(let shown, _, _):
             if let shown, history.body(shown) != nil { return shown }
+            if let first = history.stamps[1], history.bodies[1] != nil { return first }
+            return nil
+        case .waitingForKeychain:
             if let first = history.stamps[1], history.bodies[1] != nil { return first }
             return nil
         }

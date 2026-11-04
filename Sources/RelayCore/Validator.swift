@@ -37,6 +37,10 @@ public enum Validator {
     static let maxQuestions = 20
     static let questionKeys: Set<String> = ["prompt", "choices", "multi"]
     static let replyKeys: Set<String> = ["prompt", "choices"]
+    /// A choice object (Pond 1.4.0): a label and the placeholder of the owner's words.
+    static let choiceKeys: Set<String> = ["label", "text"]
+    static let choiceLabelLimit = 60
+    static let choiceTextLimit = 100
     static let linkKeys: Set<String> = ["label", "url", "path"]
     /// `file` and a link's `path`: an absolute local path of at most this many characters.
     static let maxPath = 500
@@ -61,8 +65,10 @@ public enum Validator {
 
     /// `.success` holds the cleaned instructable: the input with `urgency`
     /// set to "today" when it is absent or null. `requirements: false` (This Mac, RD 20) checks
-    /// what a Pond 1.2.0 does: `required` and `done` are unknown keys.
-    public static func validate(_ value: JSONValue, requirements: Bool = true) -> Result<JSONValue, ValidationFailure> {
+    /// what a Pond 1.2.0 does: `required` and `done` are unknown keys. `choiceObjects: false`
+    /// (This Mac in 0.14) checks what a Pond 1.3.0 does: a choice must be a string.
+    public static func validate(_ value: JSONValue, requirements: Bool = true,
+                                choiceObjects: Bool = true) -> Result<JSONValue, ValidationFailure> {
         guard case .object(let object) = value else {
             return .failure(ValidationFailure(errors: ["instructable: must be an object"]))
         }
@@ -88,7 +94,7 @@ public enum Validator {
 
         if case .array(let steps)? = present(object["steps"]), (1...maxSteps).contains(steps.count) {
             for (index, item) in steps.enumerated() {
-                step(&errors, "steps[\(index)]", item, allowed: stepAllowed, leaves: leafAllowed)
+                step(&errors, "steps[\(index)]", item, allowed: stepAllowed, leaves: leafAllowed, objects: choiceObjects)
             }
             let total = steps.count + steps.reduce(0) { sum, item in
                 if case .object(let members) = item, case .array(let subs)? = members["substeps"] { return sum + subs.count }
@@ -112,8 +118,12 @@ public enum Validator {
            let reply = keys(&errors, "reply", replyValue, allowed: replyKeys) {
             text(&errors, "reply.prompt", reply["prompt"], limit: 300, required: true, kind: .multi)
             if case .array(let choices)? = present(reply["choices"]), choices.count <= maxChoices {
+                // A reply list of plain strings keeps the 1.3.0 rules (no duplicate check); one that
+                // holds a choice object needs distinct labels.
+                var seen: Set<[UInt32]>? = choices.contains { if case .object = $0 { return true } else { return false } }
+                    ? [] : nil
                 for (index, choice) in choices.enumerated() {
-                    text(&errors, "reply.choices[\(index)]", choice, limit: 60, required: true)
+                    Self.choice(&errors, "reply.choices[\(index)]", choice, seen: &seen, multi: false, objects: choiceObjects)
                 }
             } else {
                 errors.append("reply.choices: must be a list of at most \(maxChoices) choices")
@@ -373,7 +383,7 @@ public enum Validator {
     /// warning, question, substeps.
     static func step(
         _ errors: inout [String], _ path: String, _ value: JSONValue, allowed: Set<String>,
-        leaves: Set<String> = leafKeys, inOptional: Bool = false
+        leaves: Set<String> = leafKeys, inOptional: Bool = false, objects: Bool = true
     ) {
         guard let step = keys(&errors, path, value, allowed: allowed) else { return }
         for field in stepFields {
@@ -407,7 +417,7 @@ public enum Validator {
             text(&errors, "\(path).warning", step["warning"], limit: warningLimit, kind: .multi)
         }
         if allowed.contains("question"), let question = present(step["question"]) {
-            Self.question(&errors, "\(path).question", question)
+            Self.question(&errors, "\(path).question", question, objects: objects)
         }
         guard allowed.contains("substeps"), let subsValue = present(step["substeps"]) else { return }
         guard case .array(let subs) = subsValue, (1...maxSubsteps).contains(subs.count) else {
@@ -416,7 +426,7 @@ public enum Validator {
         }
         for (index, sub) in subs.enumerated() {
             Self.step(&errors, "\(path).substeps[\(index)]", sub, allowed: leaves, leaves: leaves,
-                      inOptional: present(step["optional"]) == .bool(true))
+                      inOptional: present(step["optional"]) == .bool(true), objects: objects)
         }
     }
 
@@ -476,20 +486,16 @@ public enum Validator {
 
     /// `_question`: a prompt, then 0 to 6 distinct choices (none asks for free text)
     /// and `multi`, which allows several picks and needs at least 2 choices.
-    static func question(_ errors: inout [String], _ path: String, _ value: JSONValue) {
+    static func question(_ errors: inout [String], _ path: String, _ value: JSONValue, objects: Bool = true) {
         guard let question = keys(&errors, path, value, allowed: questionKeys) else { return }
         text(&errors, "\(path).prompt", question["prompt"], limit: 300, required: true, kind: .multi)
         var count: Int? = 0   // nil: the choices are malformed
         if let choicesValue = present(question["choices"]) {
             if case .array(let choices) = choicesValue, choices.count <= maxChoices {
-                var seen = Set<[UInt32]>()   // by code point, as Python compares strings
+                var seen: Set<[UInt32]>? = []   // by code point, as Python compares strings
+                let multi = present(question["multi"]) == .bool(true)
                 for (index, choice) in choices.enumerated() {
-                    let before = errors.count
-                    text(&errors, "\(path).choices[\(index)]", choice, limit: 60, required: true)
-                    guard errors.count == before, case .string(let string) = choice else { continue }
-                    if !seen.insert(string.unicodeScalars.map(\.value)).inserted {
-                        errors.append("\(path).choices[\(index)]: duplicate choice")
-                    }
+                    Self.choice(&errors, "\(path).choices[\(index)]", choice, seen: &seen, multi: multi, objects: objects)
                 }
                 count = choices.count
             } else {
@@ -504,6 +510,39 @@ public enum Validator {
             if let count, count < 2 { errors.append("\(path).multi: needs at least 2 choices") }
         default:
             errors.append("\(path).multi: must be true or false")
+        }
+    }
+
+    /// `_choice`: a string of 1 to 60 characters on one line, or (Pond 1.4.0, `objects`) an object
+    /// {label, text}, both required: the label follows the string rules and `text`, the placeholder
+    /// of the owner's words, is 1 to 100 characters on one line. A choice with text can't be in a
+    /// multi question. With `seen`, labels must be distinct (a string and an object's label alike),
+    /// checked only when the choice raised nothing else. Without `objects` an object is
+    /// "must be a string", as Pond 1.3.0 says.
+    static func choice(_ errors: inout [String], _ path: String, _ value: JSONValue, seen: inout Set<[UInt32]>?,
+                       multi: Bool, objects: Bool) {
+        let before = errors.count
+        var label: String?
+        switch present(value) {
+        case .object(let members)? where objects:
+            keys(&errors, path, value, allowed: choiceKeys)
+            text(&errors, "\(path).label", members["label"], limit: choiceLabelLimit, required: true)
+            text(&errors, "\(path).text", members["text"], limit: choiceTextLimit, required: true)
+            if multi { errors.append("\(path): a choice with text can't be in a multi question") }
+            label = members["label"]?.stringValue
+        case nil, .string?, .object?:
+            text(&errors, path, value, limit: choiceLabelLimit, required: true)
+            label = value.stringValue
+        default:
+            if objects {
+                errors.append("\(path): must be a string or {label, text}")
+            } else {
+                text(&errors, path, value, limit: choiceLabelLimit, required: true)
+            }
+        }
+        guard errors.count == before, let label, seen != nil else { return }
+        if seen?.insert(label.unicodeScalars.map(\.value)).inserted == false {
+            errors.append("\(path): duplicate choice")
         }
     }
 

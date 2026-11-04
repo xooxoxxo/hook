@@ -21,8 +21,8 @@ public enum CrashTarget: String, Codable, Sendable, CaseIterable {
     }
 }
 
-/// The signatures already raised, so each crash is raised once. UserDefaults
-/// `relay.crash.handled`, the last 50.
+/// The crashes already raised (`CrashSummary.handledKey`), so each is raised once.
+/// UserDefaults `relay.crash.handled`, the last 50.
 public struct HandledCrashes: Equatable, Sendable {
     public static let defaultsKey = "relay.crash.handled"
     public static let limit = 50
@@ -61,7 +61,7 @@ public enum CrashDecision: Equatable, Sendable {
 
     public static func decide(_ summary: CrashSummary, setting: CrashReportsSetting, target: CrashTarget,
                               pondOffered: Bool, handled: HandledCrashes) -> CrashDecision {
-        guard setting != .off, !handled.contains(summary.signature) else { return .ignore }
+        guard setting != .off, !handled.contains(summary.handledKey) else { return .ignore }
         if setting == .auto, target.effective(pondOffered: pondOffered) == .pond { return .sendToPond }
         return .offer
     }

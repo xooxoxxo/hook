@@ -151,6 +151,8 @@ struct DetailView<Model: PanelViewModel>: View {
                 }
                 .onAppear { restoreAnchor(proxy) }
                 .onChange(of: snapshot.current) { _, current in scrollToCurrent(current, proxy: proxy) }
+                // The queue row's Report a Problem… can open the field on a step out of sight.
+                .onChange(of: snapshot.reportTarget) { _, target in scrollToCurrent(target, proxy: proxy) }
                 .safeAreaInset(edge: .top, spacing: 0) { header(snapshot) }
                 .safeAreaInset(edge: .bottom, spacing: 0) { bottomBars(snapshot) }
             }
@@ -191,7 +193,8 @@ struct DetailView<Model: PanelViewModel>: View {
         }
     }
 
-    /// After a tick: bring the new current leaf in only when it starts below the visible area.
+    /// After a tick (or a report opened on a step): bring that row in only when it starts below
+    /// the visible area.
     /// A sub-step row has its own `.id(path)` and frame, so the
     /// leaf itself is the target, never its parent.
     private func scrollToCurrent(_ current: String?, proxy: ScrollViewProxy) {
@@ -233,6 +236,12 @@ struct DetailView<Model: PanelViewModel>: View {
     static func bar(_ snapshot: DetailSnapshot, reviewing: Bool) -> Bar {
         guard snapshot.closedText == nil, let lock = snapshot.lockBar else { return .action }
         return reviewing && lock.tone == .correction ? .review : .lock(lock)
+    }
+
+    /// The ask's own bars under the detail, besides the crash and undo bars: only `bar`. A
+    /// report opens inside its step (0.14), never docked here.
+    static func barKinds(_ snapshot: DetailSnapshot, reviewing: Bool) -> [Bar] {
+        [bar(snapshot, reviewing: reviewing)]
     }
 
     private func content(_ snapshot: DetailSnapshot) -> some View {
@@ -426,12 +435,6 @@ struct DetailView<Model: PanelViewModel>: View {
                 UndoBar(undo: undo, sending: model.sendingCloses > 0, onUndo: { model.undo() })
                     .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
             }
-            if Self.bar(snapshot, reviewing: model.isReviewing(id)) != .review, let title = Self.reportTitle(snapshot) {
-                ReportComposer(title: title, state: snapshot.report, keyReady: snapshot.ownerKeyReady,
-                               onSend: { model.sendReport(id, note: $0) }, onCancel: { model.endReport(id) })
-                    .id("report-\(id)-\(snapshot.reportTarget ?? "")")
-                    .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
-            }
             switch Self.bar(snapshot, reviewing: model.isReviewing(id)) {
             case .review:
                 DetailReviewBar(model: model, id: id, page: model.reviewPage(id))
@@ -450,7 +453,6 @@ struct DetailView<Model: PanelViewModel>: View {
         }
         .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: model.undoInfo)
         .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: model.crashOffer)
-        .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: snapshot.reportTarget)
         // The bars grow past DS.Metric.actionBar (a wrapped caption, the undo bar), so the
         // visible band is measured, the same way the viewport is.
         .background(GeometryReader { geometry in
@@ -458,14 +460,6 @@ struct DetailView<Model: PanelViewModel>: View {
                 .onAppear { barHeight = geometry.size.height }
                 .onChange(of: geometry.size.height) { _, height in barHeight = height }
         })
-    }
-
-    /// "Problem with step 2" while the composer is open on a step of the rendered tree; nil otherwise
-    /// (closed, This Mac, or the inline review is up).
-    static func reportTitle(_ snapshot: DetailSnapshot) -> String? {
-        guard snapshot.canReport, let path = snapshot.reportTarget,
-              let node = Flow.flattened(snapshot.model?.nodes ?? []).first(where: { $0.path == path }) else { return nil }
-        return ProblemReport.composerTitle(label: node.label)
     }
 
     private func primary(_ snapshot: DetailSnapshot) {

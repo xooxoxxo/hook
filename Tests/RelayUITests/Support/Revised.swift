@@ -47,11 +47,13 @@ func revised(_ id: String, _ bodies: [Instructable], reasons: [String] = [], acc
     return (item, AskDetail(item: item, events: events, revisions: chain))
 }
 
-/// A Store whose review records live in `secrets` and a temp `reviews.json`.
+/// A Store whose review records live in `secrets` and a temp `reviews.json`, once it has read them.
 @MainActor func reviewingStore(_ defaults: TestDefaults, secrets: MemorySecretStore = MemorySecretStore(),
-                               url: URL = reviewsURL(), now: (@MainActor () -> Date)? = nil) -> Store {
-    Store(defaults: defaults.defaults, now: now ?? { fixedNow },
-          reviews: ReviewPersistence(secrets: secrets, url: url))
+                               url: URL = reviewsURL(), now: (@MainActor () -> Date)? = nil) async -> Store {
+    let store = Store(defaults: defaults.defaults, now: now ?? { fixedNow },
+                      reviews: ReviewPersistence(secrets: secrets, url: url))
+    await store.reviewsLoaded()
+    return store
 }
 
 func reviewsURL() -> URL {

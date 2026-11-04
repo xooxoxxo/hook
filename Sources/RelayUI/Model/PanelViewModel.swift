@@ -67,6 +67,11 @@ public enum CopyOutcome: Equatable, Sendable {
     var pendingChoice: [String: Int] { get set }
     /// Unsent step answers per ask, then step path (memory only).
     var answerDrafts: [String: [String: AnswerDraft]] { get set }
+    /// The owner's words under a choice that takes them, per ask, then step path or
+    /// `replyWordsKey` (memory only). nil = untouched: the sent words stand.
+    var choiceWords: [String: [String: String]] { get set }
+    /// The key of the open ask's words field that has the keys (⌘Return sends that choice).
+    var choiceFocus: String? { get set }
     var expandedDone: [String: Set<String>] { get set }
     /// Asks whose sent reply is being changed (memory only).
     var editingReply: Set<String> { get set }
@@ -143,14 +148,18 @@ public enum CopyOutcome: Equatable, Sendable {
     func reportProblem(_ id: String, stepID: String, note: String)
     /// What this source lets Hook say to the posting session; nothing on This Mac.
     var talk: SessionTalk { get }
-    /// The docked report composer, by ask: the step path it reports on (memory only).
+    /// The inline report field, by ask: the step path it reports on (memory only).
     var reporting: [String: String] { get set }
-    /// Opens the composer on `path` and the ask's detail; nil (the queue row's Report a
+    /// The inline report field's text, by ask (memory only).
+    var reportDrafts: [String: String] { get set }
+    /// The ask whose inline report field has the keys (⌘Return sends the report).
+    var reportFocus: String? { get set }
+    /// Opens the field on `path` and the ask's detail; nil (the queue row's Report a
     /// Problem…) picks the first unticked actionable step.
     func beginReport(_ id: String, path: String?)
-    /// Esc or Cancel: the composer goes, and a held note with it.
+    /// Esc or Cancel: the field goes, with its text and a held note.
     func endReport(_ id: String)
-    /// The composer's Send, or Set Up Owner Key… without an approved key (the note is held).
+    /// The field's Send; without an approved key the note is held and the setup starts.
     func sendReport(_ id: String, note: String)
     /// The Messages field's text, by ask (memory only).
     var messageDrafts: [String: String] { get set }
@@ -206,6 +215,16 @@ extension PanelViewModel {
 }
 
 extension PanelViewModel {
+    /// The key of the reply's words in `choiceWords`.
+    public static var replyWordsKey: String { ReplyText.wordsKey }
+
+    /// The words field's text, typed as is (an emptied field is kept: it drops sent words).
+    public func setChoiceWords(_ id: String, key: String, text: String) {
+        var words = choiceWords[id] ?? [:]
+        words[key] = text
+        choiceWords[id] = words
+    }
+
     /// The queue row's Report a Problem…: the first unticked actionable step.
     public func beginReport(_ id: String) { beginReport(id, path: nil) }
 }
@@ -229,6 +248,7 @@ extension PanelViewModel {
         editingReply.remove(id)
         drafts[id] = nil
         pendingChoice[id] = nil
+        dropWords(id, key: Self.replyWordsKey)
     }
 
     /// The question's control comes back, starting from the sent answer.
@@ -236,11 +256,19 @@ extension PanelViewModel {
         editingAnswers[id, default: []].insert(path)
     }
 
+    /// Drops one key's words, so the sent words stand again.
+    private func dropWords(_ id: String, key: String) {
+        guard var words = choiceWords[id], words[key] != nil else { return }
+        words[key] = nil
+        choiceWords[id] = words.isEmpty ? nil : words
+    }
+
     /// Back to the answered row; the unsent draft at `path` goes.
     public func cancelAnswerChange(_ id: String, path: String) {
         var paths = editingAnswers[id] ?? []
         paths.remove(path)
         editingAnswers[id] = paths.isEmpty ? nil : paths
+        dropWords(id, key: path)
         guard var drafts = answerDrafts[id] else { return }
         drafts[path] = nil
         answerDrafts[id] = drafts.isEmpty ? nil : drafts

@@ -57,9 +57,6 @@ import RelayUI
     /// Open (or held for Undo or sending) and Recently closed ids at the last Store change.
     private var lastOpenIDs: Set<String> = []
     private var lastClosedIDs: Set<String> = []
-    /// SIGTERM (`kill`, `launchctl bootout`) skips applicationWillTerminate, so it
-    /// is caught here to clear the away flag first.
-    private var termSource: (any DispatchSourceSignal)?
     /// The daily release check behind "Update Hook to …" and Check for Updates….
     private let updates = UpdateChecker()
     /// An update job was started; a second click does nothing.
@@ -101,6 +98,9 @@ import RelayUI
         self.secrets = secrets
         let reviews = model.dataDirectory.appending(path: "reviews.json", directoryHint: .notDirectory)
         // The Store makes the seal at launch, if Hook has none; the owner key only reads it.
+        // No Keychain call runs on the main thread (`KeychainQueue`): after an update macOS
+        // shows a prompt for each item, and the app, the panel and the local server keep going
+        // until the owner answers it, however long that takes. The Store's read goes first.
         let store = Store(reviews: ReviewPersistence(secrets: secrets, url: reviews))
         let seal: @Sendable () throws -> SymmetricKey? = { try ReviewSeal.load(secrets, file: reviews) }
         self.seal = seal
@@ -111,9 +111,8 @@ import RelayUI
         }
         store.onOwnerKeyRefused = { [weak ownerKey] in ownerKey?.keyRefused() }
         store.onReviewRecordsReset = { [weak ownerKey] in ownerKey?.reread() }
-        store.ownerKeyApproved = { key, url in
-            url.map { OwnerKeyVault.approvedKey(secrets, sourceKey: key, url: $0, seal: (try? seal()) ?? nil) != nil } ?? false
-        }
+        // From the flow's state, never a Keychain read on the main actor (the snapshot asks too).
+        store.ownerKeyApproved = { [weak ownerKey] key, url in ownerKey?.isApproved(sourceKey: key, url: url) ?? false }
         self.ownerKey = ownerKey
         model.ownerKey = ownerKey
         store.setLocalHost(HostName.current)
@@ -182,9 +181,13 @@ import RelayUI
             mode: model.config?.presence ?? .auto,
             awayAfterMinutes: model.config?.awayAfterMinutes ?? PresenceLogic.defaultAwayAfterMinutes)
         presenceChanged(to: presence.status)
-        watchTermSignal()
-        updates.start()
+        // SIGTERM and SIGHUP (`kill`, `launchctl bootout`, a closed terminal) clear the away
+        // flag, then quit through AppKit with their sender logged.
+        QuitTracker.shared.watchSignals(dataDirectory: model.dataDirectory) { [weak self] in self?.presence.stop() }
         startCrashMonitor(model: model, notifier: notifier)
+        let safeMode = crash?.safeMode ?? false
+        if !safeMode { updates.start() }
+        DiagnosticsSubscriber.shared.start()
         applyGeneral(model.config)
         scheduleApply(model.config)
 
@@ -200,7 +203,7 @@ import RelayUI
             pendingShow = false
             panel?.present(focus: true, animated: true)
         }
-        startAgentsSchedule(model: model, store: store)
+        if !safeMode { startAgentsSchedule(model: model, store: store) }
     }
 
     /// `relay integrations sync --if-changed` after `launchDelay` (so launch stays quick), then
@@ -236,6 +239,7 @@ import RelayUI
         let crash = CrashMonitor(dataDirectory: model.dataDirectory, home: UpdateRunner.home)
         crash.onNotify = { [weak notifier] in notifier?.showCrashNotice() }
         crash.onOffer = { [weak self] summary in self?.store?.offerCrash(summary) }
+        crash.onNotice = { [weak self] text in self?.store?.post(.crashReport(message: text)) }
         crash.onSendToPond = { [weak self] summary in
             Task { @MainActor in await self?.store?.sendCrashAutomatically(summary) }
         }
@@ -271,7 +275,7 @@ import RelayUI
               let show = URL(string: "relay://show") else { return false }
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = false
-        NSWorkspace.shared.open([show], withApplicationAt: appURL, configuration: configuration) { _, error in
+        NSWorkspace.shared.open([show], withApplicationAt: appURL, configuration: configuration) { @Sendable _, error in
             if let error { HookLog.error("SingleInstance", "hand-off to running copy failed: " + error.localizedDescription) }
             Task { @MainActor [weak self] in await self?.leaveUnlessQuit(pid) }
         }
@@ -287,7 +291,7 @@ import RelayUI
         while !gone(), ContinuousClock.now < deadline {
             try? await Task.sleep(for: .milliseconds(100))
         }
-        guard gone() else { exit(0) }
+        guard gone() else { QuitTracker.shared.exit(QuitCause(.duplicate)) }
         HookLog.error("SingleInstance", "the running copy quit during the hand-off; starting")
         startUp()
     }
@@ -306,6 +310,7 @@ import RelayUI
     /// Held-back Done and Skip are sent before quitting, with a 3 s cap so
     /// quitting never hangs on an unreachable source.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        QuitTracker.shared.resolve()
         guard let store, store.hasPendingCloses else { return .terminateNow }
         terminationAnswered = false
         store.sendingCloses = store.pending.count
@@ -321,27 +326,14 @@ import RelayUI
     }
 
     /// A normal quit or SIGTERM removes the away flag; after a crash it stays
-    /// until the next launch rewrites or removes it.
+    /// until the next launch rewrites or removes it. The quit's cause goes to the log and the
+    /// run marker.
     func applicationWillTerminate(_ notification: Notification) {
         presence.stop()
-        crash?.markClean()
-        HookLog.record(.quit(clean: true))
-    }
-
-    private func watchTermSignal() {
-        signal(SIGTERM, SIG_IGN)
-        let source = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
-        source.setEventHandler { [weak self] in
-            MainActor.assumeIsolated {
-                self?.presence.stop()
-                // terminate(_:) waits in a nested event loop while held closes are sent. Inside
-                // this main-queue handler that loop can't run main-queue work, so the send never
-                // finished and Hook never quit; from a run-loop block it can.
-                RunLoop.main.perform { MainActor.assumeIsolated { NSApp.terminate(nil) } }
-            }
-        }
-        source.resume()
-        termSource = source
+        QuitTracker.shared.resolve()
+        let cause = QuitTracker.shared.cause
+        crash?.markClean(cause: cause)
+        HookLog.record(.quit(clean: true, cause: cause))
     }
 
     private func answerTermination() {
@@ -420,7 +412,7 @@ import RelayUI
         store.shell = PanelShellActions(
             hide: { [weak self] in self?.panel?.hide(animated: true) },
             setUp: { [weak self] in self?.setUp() },
-            quit: { NSApp.terminate(nil) },
+            quit: { QuitTracker.shared.terminate(.user("panel")) },
             dock: { [weak self] edge in self?.panel?.dock(edge) },
             openSettings: { [weak self] tab in self?.showSettings(tab: tab) },
             copy: { text in
@@ -435,7 +427,14 @@ import RelayUI
         // ⌘↩ while Done is off (an ask's requirements aren't met).
         store.shell.beep = { NSSound.beep() }
         // Report a Problem's Set Up Owner Key…: Settings › Queue, and the setup starts there.
+        // While the key is still being read the note waits for the read; the setup starts after
+        // it only if the key isn't approved.
         store.shell.setUpOwnerKey = { [weak self] in
+            if self?.ownerKey?.setUpAfterRead() == true { return }
+            self?.showSettings(tab: .queue)
+            self?.ownerKey?.setUp()
+        }
+        ownerKey?.onSetUpAfterRead = { [weak self] in
             self?.showSettings(tab: .queue)
             self?.ownerKey?.setUp()
         }
@@ -756,7 +755,7 @@ import RelayUI
         case .update: confirmUpdate()
         case .checkForUpdates: checkForUpdatesNow()
         case .updateMailbox: mailbox.updateMailbox()
-        case .quit: NSApp.terminate(nil)
+        case .quit: QuitTracker.shared.terminate(.user("menuBar"))
         }
     }
 

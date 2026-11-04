@@ -102,6 +102,61 @@ private let abc = [item("a", created: stamp(minutesAgo: 10)), item("b", created:
         #expect(store.notice == nil)
     }
 
+    // MARK: Stale retries (0.13 low finding)
+
+    /// A Retry Notice for `id` posted now, as a later failure would: it must find no old close.
+    private func retryFindsNothing(_ store: Store, _ fake: FakeQueueSource, _ id: String) async -> Bool {
+        let before = await fake.count("resolve")
+        store.post(.actionFailed(verdict: .done, id: id, title: "Ask \(id)", reason: "timed out"))
+        await store.performNoticeAction()
+        try? await Task.sleep(for: .milliseconds(30))
+        return await fake.count("resolve") == before
+    }
+
+    @Test func requirementsRefusalLeavesNoFailedClose() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let clock = TestClock()
+        let (store, fake) = await ready(clock: clock, defaults: defaults)
+        await fake.failNext(QueueError.requirementsUnmet(left: []), on: "resolve")
+        store.close("a", .done)
+        clock.advance(11)
+        store.sendDue()
+        #expect(await eventually { store.notice == .doneRefused(id: "a", title: "Ask a") })
+        #expect(await retryFindsNothing(store, fake, "a"))
+    }
+
+    @Test func ownerKeyRefusalLeavesNoFailedClose() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let clock = TestClock()
+        let (store, fake) = await ready(clock: clock, defaults: defaults)
+        await fake.failNext(QueueError.ownerKeyRefused, on: "resolve")
+        store.close("a", .done)
+        clock.advance(11)
+        store.sendDue()
+        #expect(await eventually { store.notice == .ownerKeyRefused })
+        #expect(await retryFindsNothing(store, fake, "a"))
+    }
+
+    @Test func aNewCloseDropsTheFailedOne() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let clock = TestClock()
+        let (store, fake) = await ready(clock: clock, defaults: defaults)
+        await fake.failNext(QueueError.unreachable("timed out"), on: "resolve")
+        store.close("a", .done)
+        clock.advance(11)
+        store.sendDue()
+        #expect(await eventually { store.notice != nil })
+        #expect(await eventually { store.items.contains { $0.id == "a" } })
+        // The owner skips it instead; the Notice's Retry must not send the old Done as well.
+        store.close("a", .declined)
+        await store.performNoticeAction()
+        try? await Task.sleep(for: .milliseconds(30))
+        #expect(await fake.count("resolve a done") == 1)
+    }
+
     @Test func aSentCloseCallsTheCleanUpHook() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }

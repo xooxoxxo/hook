@@ -20,7 +20,7 @@ FULL_EXAMPLES_BEFORE = 1       # the Slack channel ask; the correction example m
 HOOK_NEEDS = "1.1.0"           # the lowest Pond the Hook release needs (PondCompat.required ^1.1.0)
 # Keys an example may use although they're above that floor (RD 35): the skill's Pond-version
 # paragraph must name each of them, so a session knows to post again without them.
-GATED_KEYS = {"required", "done"}
+GATED_KEYS = {"required", "done", "choices[].text"}
 
 TYPES = {"string": str, "boolean": bool, "integer": int, "array": list, "object": dict}
 
@@ -71,6 +71,20 @@ def check(value, schema, path, errors):
             matches += not trial
         if matches != 1:
             errors.append(f"{path}: must match exactly one of oneOf")
+
+
+def _choice_lists(ins):
+    """Every choices list of an instructable: steps, sub-steps, then the reply."""
+    found = []
+    for step in ins.get("steps", []):
+        for node in [step] + step.get("substeps", []):
+            question = node.get("question")
+            if isinstance(question, dict) and isinstance(question.get("choices"), list):
+                found.append(question["choices"])
+    reply = ins.get("reply")
+    if isinstance(reply, dict) and isinstance(reply.get("choices"), list):
+        found.append(reply["choices"])
+    return found
 
 
 def examples(text=SKILL):
@@ -164,6 +178,33 @@ class SkillExampleTest(unittest.TestCase):
         self.assertEqual(ids.count(None), 1)
         self.assertEqual(sorted(i for i in ids if i), ["s1", "s2", "s3"])
         self.assertEqual(rc.keys_needing_pond(corrected).get("id"), "1.1.0")
+
+    def test_skill_teaches_choice_objects(self):
+        full, steps = examples()
+        uses = [ins for ins in full + steps if rc.CHOICE_KEY in rc.keys_needing_pond(ins)]
+        self.assertTrue(uses, 'no example with a {"label", "text"} choice')
+        self.assertIn('{"label"', SKILL)
+        for ins in full + steps:
+            with self.subTest(ins["title"]):
+                self.assertEqual(relay_lint.lint_choice_labels(ins), [])
+                for choices in _choice_lists(ins):
+                    for choice in choices:
+                        label = choice["label"] if isinstance(choice, dict) else choice
+                        self.assertNotIn("(reply", label.lower())
+        paragraph = SKILL.split("- **Pond version.**", 1)[1].split("\n- **", 1)[0]
+        self.assertIn(rc.CHOICE_KEY, paragraph)
+        self.assertIn(rc.CHOICE_POND, paragraph)
+        self.assertIn("choice: Mix \u00b7", SKILL)
+
+    def test_docs_teach_choice_objects_and_the_1_4_0_limits(self):
+        protocol = (ROOT / "docs" / "mailbox-protocol.md").read_text("utf-8")
+        for name, text in (("instructables.md", DOCS), ("mailbox-protocol.md", protocol)):
+            with self.subTest(name):
+                self.assertIn('{"label": "Mix", "text": "What should change?"}', text)
+                self.assertIn("choice: Mix \u00b7 ", text)
+                self.assertIn("1.4.0", text)
+                self.assertIn("8000", text)
+        self.assertIn("X-Hook-Protocol: 6", protocol)
 
     def test_the_skill_acts_only_on_verified_messages(self):
         section = SKILL.split("## Messages from the owner", 1)[1].split("\n## ", 1)[0]

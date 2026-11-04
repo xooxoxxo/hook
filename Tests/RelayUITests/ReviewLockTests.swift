@@ -13,7 +13,7 @@ import Testing
         let url = reviewsURL()
         defer { try? FileManager.default.removeItem(at: url) }
         let secrets = MemorySecretStore()
-        let store = reviewingStore(defaults, secrets: secrets, url: url)
+        let store = await reviewingStore(defaults, secrets: secrets, url: url)
         let one = revised("a", [idSteps(3)])
         let two = revised("b", [idSteps(3, id: "b"), idSteps(4, id: "b")])
         let fake = FakeQueueSource(items: [one.item, two.item], details: ["a": one.detail, "b": two.detail])
@@ -43,7 +43,7 @@ import Testing
         let before = try Data(contentsOf: url)
         let writes = secrets.writes
         secrets.readError = .unreadable(-128)
-        let store = reviewingStore(defaults, secrets: secrets, url: url)
+        let store = await reviewingStore(defaults, secrets: secrets, url: url)
         let two = revised("a", [idSteps(3), idSteps(4)])
         let fake = FakeQueueSource(items: [two.item], details: ["a": two.detail])
         await start(store, fake)
@@ -71,7 +71,7 @@ import Testing
         let before = try Data(contentsOf: url)
         let writes = secrets.writes
         secrets.readError = .unreadable(-128)
-        let store = reviewingStore(defaults, secrets: secrets, url: url)
+        let store = await reviewingStore(defaults, secrets: secrets, url: url)
         let two = revised("a", [idSteps(3), idSteps(4)])
         let fake = FakeQueueSource(items: [two.item], details: ["a": two.detail])
         await start(store, fake)
@@ -99,13 +99,13 @@ import Testing
         let secrets = MemorySecretStore()
         _ = try ReviewSeal.loadOrCreate(secrets, file: url)
         secrets.readError = .unreadable(-128)
-        let store = reviewingStore(defaults, secrets: secrets, url: url)
+        let store = await reviewingStore(defaults, secrets: secrets, url: url)
         let two = revised("a", [idSteps(3), idSteps(4)])
         await start(store, FakeQueueSource(items: [two.item], details: ["a": two.detail]))
         #expect(store.reviewsUnreadable)
 
         secrets.readError = nil
-        store.retryReviewKey()
+        await store.retryReviewKey()
         #expect(!store.reviewsUnreadable)
         #expect(store.record("a")?.pins[2] == two.detail.revisions[1].hash)
         #expect(store.saveReviewsNow())
@@ -128,7 +128,7 @@ import Testing
         let before = try Data(contentsOf: url)
         let secrets = MemorySecretStore()
         secrets.plantForeign(.reviewSeal, Data(repeating: 7, count: 32))
-        let store = reviewingStore(defaults, secrets: secrets, url: url)
+        let store = await reviewingStore(defaults, secrets: secrets, url: url)
         let fake = FakeQueueSource(items: [two.item], details: ["a": two.detail])
         await start(store, fake)
 
@@ -163,7 +163,7 @@ import Testing
         try JSONSerialization.data(withJSONObject: file).write(to: url)
         let before = try Data(contentsOf: url)
         let secrets = MemorySecretStore([.reviewSeal: Data(repeating: 7, count: 32)])
-        let store = reviewingStore(defaults, secrets: secrets, url: url)
+        let store = await reviewingStore(defaults, secrets: secrets, url: url)
         await start(store, FakeQueueSource(items: [two.item], details: ["a": two.detail]))
 
         #expect(store.reviewsUnreadable)
@@ -193,7 +193,7 @@ import Testing
             .write(to: url)
         try FileManager.default.removeItem(at: url)
         let writes = secrets.writes
-        let store = reviewingStore(defaults, secrets: secrets, url: url)
+        let store = await reviewingStore(defaults, secrets: secrets, url: url)
         await start(store, FakeQueueSource(items: [two.item], details: ["a": two.detail]))
 
         #expect(store.reviewsUnreadable)
@@ -217,7 +217,7 @@ import Testing
         let secrets = MemorySecretStore()
         let old = try ReviewSeal.loadOrCreate(secrets, file: url)
         try FileManager.default.removeItem(at: url)
-        let store = reviewingStore(defaults, secrets: secrets, url: url)
+        let store = await reviewingStore(defaults, secrets: secrets, url: url)
         let recorder = ShellRecorder()
         store.shell = recorder.shell
         var resets = 0
@@ -265,7 +265,7 @@ import Testing
             sealKey: SymmetricKey(size: .bits256))) as? [String: Any])
         file["seal"] = ReviewStore.sealID(seal)
         try JSONSerialization.data(withJSONObject: file).write(to: url)
-        let store = reviewingStore(defaults, secrets: secrets, url: url)
+        let store = await reviewingStore(defaults, secrets: secrets, url: url)
         let fake = FakeQueueSource(items: [two.item], details: ["a": two.detail])
         await start(store, fake)
         #expect(store.notice == .reviewRecordsChanged)
@@ -275,7 +275,7 @@ import Testing
     @Test func aLaterNoticeKeepsTheReviewEntryPoint() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }
-        let store = reviewingStore(defaults)
+        let store = await reviewingStore(defaults)
         let two = revised("a", [idSteps(3), idSteps(4)])
         let fake = FakeQueueSource(items: [two.item], details: ["a": two.detail])
         await start(store, fake)
@@ -303,7 +303,7 @@ import Testing
         let defaults = TestDefaults()
         defer { defaults.drop() }
         let recorder = ShellRecorder()
-        let store = reviewingStore(defaults)
+        let store = await reviewingStore(defaults)
         store.shell = recorder.shell
         let two = revised("a", [idSteps(3), idSteps(4)])
         let fake = FakeQueueSource(items: [two.item], details: ["a": two.detail])

@@ -474,6 +474,100 @@ class ClaudeMdTest(Base):
         rc, out, err = self.w.run("sync", "--dry-run")
         self.assertEqual(self.w.snapshot(), snap)
 
+    def dry(self, *extra):
+        """migrate claude-md --dry-run: it prints, and writes nothing (files, mtimes, manifest)."""
+        manifest = self.w.manifest()
+        snap = self.w.snapshot()
+        posts, resolved = len(self.hub.posts), len(self.hub.resolved)
+        rc, out, err = self.w.run("migrate", "claude-md", "--dry-run", *extra)
+        self.assertEqual(rc, 0, out + err)
+        self.assertEqual(self.w.snapshot(), snap)
+        self.assertEqual(self.w.manifest(), manifest)
+        self.assertEqual((len(self.hub.posts), len(self.hub.resolved)), (posts, resolved))
+        return out
+
+    def md_line(self, out):
+        """(the claude-md line, the lines under it)."""
+        lines = out.splitlines()
+        k = next(i for i, line in enumerate(lines) if "claude-code claude-md:" in line)
+        return lines[k], [line for line in lines[k + 1:] if line.startswith("  ")]
+
+    def set_md_record(self, **fields):
+        path = self.home / ".config" / "relay" / "integrations.json"
+        data = json.loads(path.read_text("utf-8"))
+        rec = next(m for m in data["migrations"] if m["id"] == "claude-md")
+        rec.clear()
+        rec.update(id="claude-md", **fields)
+        path.write_text(json.dumps(data, indent=2) + "\n", "utf-8")
+
+    def test_dry_run_pending_proposal_prints_wait(self):
+        self.propose()
+        line, diff = self.md_line(self.dry())
+        self.assertEqual(line, "would migrate claude-code claude-md: ~/.claude/CLAUDE.md (wait: your answer is pending "
+                               "on the Hook ask; pass --choose to see the change)")
+        self.assertEqual(diff, [])
+        rc, out, err = self.w.run("sync", "--dry-run")
+        self.assertEqual(rc, 0, out + err)
+        self.assertIn("claude-md: ~/.claude/CLAUDE.md (wait: your answer is pending", out)
+
+    def test_dry_run_choose_apply_prints_diff(self):
+        self.propose()
+        mtime = self.md().stat().st_mtime_ns
+        line, diff = self.md_line(self.dry("--choose", "Apply"))
+        self.assertTrue(line.startswith("would migrate claude-code claude-md: ~/.claude/CLAUDE.md (apply"), line)
+        self.assertEqual(diff[:2], ["  --- ~/.claude/CLAUDE.md (now)", "  +++ ~/.claude/CLAUDE.md (after)"])
+        self.assertIn("  -- If your work waits on the answer, run `relay wait <id>` in the background.", diff)
+        self.assertIn("  +<!-- hook:migrated v=1 -->", diff)
+        self.assertEqual(diff[2:4], ["  @@ -7,20 +7,14 @@", "   Keep these short."])  # 3 lines of context
+        self.assertEqual(self.md().read_text(), BEFORE + SECTION + AFTER)
+        self.assertEqual(self.md().stat().st_mtime_ns, mtime)
+        self.assertEqual(list(self.claude.glob("CLAUDE.md.bak*")), [])
+        line, diff = self.md_line(self.dry("--choose", "Remove the whole section"))
+        self.assertIn("(remove", line)
+        self.assertIn("  -# Owner asks go to Hook (formerly Relay) as instructables", diff)
+        self.assertFalse(any(row.startswith("  +") and not row.startswith("  +++") for row in diff), diff)
+        line, diff = self.md_line(self.dry("--choose", "Keep CLAUDE.md as is"))
+        self.assertIn("(keep", line)
+        self.assertEqual(diff, [])
+
+    def test_dry_run_answered_prints_diff(self):
+        post = self.propose()
+        rec = self.migration("claude-md")
+        self.set_md_record(**{k: v for k, v in rec.items() if k != "id"}, answers={"2": "Apply"})
+        line, diff = self.md_line(self.dry())
+        self.assertIn("(apply", line)
+        self.assertIn("  +<!-- hook:migrated v=1 -->", diff)
+        self.assertEqual(self.md().read_text(), BEFORE + SECTION + AFTER)
+        self.assertNotIn(post["id"], [r[0] for r in self.hub.resolved])
+
+    def test_dry_run_never_silent(self):
+        self.propose()
+        rec = {k: v for k, v in self.migration("claude-md").items() if k != "id"}
+        sha = rec["sha"]
+        cases = {
+            "no record": {},
+            "proposed": rec,
+            "proposed, not posted yet": {k: v for k, v in rec.items() if k not in ("askId", "askState")},
+            "proposed, answered": dict(rec, answers={"2": "Remove the whole section"}),
+            "proposed, closed unanswered": dict(rec, askState="done"),
+            "proposed, edited since": dict(rec, sha="0" * 64),
+            "declined": {"state": "declined", "sha": sha, "note": "you kept CLAUDE.md as it is"},
+            "changed": {"state": "changed", "sha": sha},
+            "gone": {"state": "gone", "sha": sha},
+            "applied": {"state": "applied", "sha": sha},
+            "removed": {"state": "removed", "sha": sha},
+        }
+        for name, fields in cases.items():
+            for extra in ((), ("--again",)):
+                with self.subTest(name, extra=extra):
+                    self.set_md_record(**fields)
+                    line, _ = self.md_line(self.dry(*extra))
+                    self.assertTrue(line.startswith("would migrate claude-code claude-md: ~/.claude/CLAUDE.md ("), line)
+        write(self.md(), "# Mine\n\n" + (LEGACY / "v0.8.0.md").read_text())          # a known text
+        line, diff = self.md_line(self.dry())
+        self.assertIn("(remove: a section Hook wrote", line)
+        self.assertIn("  -" + (LEGACY / "v0.8.0.md").read_text().splitlines()[0], diff)
+
     def test_uninstall_keeps_the_change_and_names_the_backup(self):
         write(self.md(), "# Mine\n\n" + (LEGACY / "v0.8.0.md").read_text())
         self.sync()

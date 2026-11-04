@@ -11,6 +11,12 @@ let crashWithReport = CrashSummary(
 let crashWithoutReport = CrashSummary(report: nil, hookVersion: "0.12.0", macOS: "15.6.0", cpu: "arm64",
                                       when: fixedNow.addingTimeInterval(-3600))
 
+/// A run something else closed: a SIGTERM from launchd.
+let closedByLaunchd = CrashSummary(report: nil, hookVersion: "0.14.0", macOS: "15.6.0", cpu: "arm64",
+                                   when: fixedNow.addingTimeInterval(-3600),
+                                   closed: .signal("TERM", pid: 1, process: "launchd"),
+                                   run: fixedNow.addingTimeInterval(-7200))
+
 /// What a @Sendable shell action was called with.
 @MainActor final class SentValues<T> {
     var items: [T] = []
@@ -44,6 +50,28 @@ let crashWithoutReport = CrashSummary(report: nil, hookVersion: "0.12.0", macOS:
         store.offerCrash(crashWithoutReport)
         store.swap(to: nil, identity: SourceIdentity(key: SourceKey.none, mailbox: nil), pollSeconds: 60)
         #expect(store.crashOffer?.summary == crashWithoutReport)
+    }
+
+    @Test func aClosedRunNamesWhatClosedIt() {
+        let offer = CrashOffer(summary: closedByLaunchd)
+        #expect(CrashBar.title(offer) == "Hook was closed: SIGTERM from launchd (pid 1)")
+        #expect(CrashBar.caption(offer) == "Last run · log only, nothing sent")
+        #expect(CrashBar.accessibilityText(offer)
+            == "Hook was closed: SIGTERM from launchd (pid 1). Last run · log only, nothing sent")
+        #expect(CrashBar.title(CrashOffer(summary: crashWithoutReport)) == "Hook quit unexpectedly")
+    }
+
+    /// Not Now on a run without a report remembers that run only, so the next one shows again.
+    @Test func notNowOnAReportlessRunRemembersThatRun() {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let store = Store(defaults: defaults.defaults)
+        var handled: [String] = []
+        store.onCrashHandled = { handled.append($0) }
+        store.offerCrash(closedByLaunchd)
+        store.dismissCrash()
+        #expect(handled == [closedByLaunchd.handledKey])
+        #expect(handled != [closedByLaunchd.signature])
     }
 
     @Test func captions() {

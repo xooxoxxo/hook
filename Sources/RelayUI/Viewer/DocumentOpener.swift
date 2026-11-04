@@ -127,7 +127,7 @@ public struct FileActions: Sendable {
         case .app(let app):
             let configuration = NSWorkspace.OpenConfiguration()
             configuration.activates = true
-            NSWorkspace.shared.open([file.url], withApplicationAt: app, configuration: configuration) { _, error in
+            NSWorkspace.shared.open([file.url], withApplicationAt: app, configuration: configuration) { @Sendable _, error in
                 if error != nil { Task { @MainActor in NSSound.beep() } }
             }
         case .refuse:

@@ -66,6 +66,16 @@ on you" line in chat alone gets lost.
   - `choices`: 0–6 distinct strings of at most 60 chars. Leave it out for a free-text answer.
   - `"multi": true` allows several picks and needs at least 2 choices.
   - At most 20 questions per instructable.
+  - A choice that needs the owner's words is an object, `{"label": "Mix", "text": "What should
+    change?"}` (Pond 1.4.0). Picking it opens its own field, with `text` as the placeholder
+    (at most 100 chars), and the words go with the pick. Never write "(reply …)" into a label:
+    "Mix (reply what)" makes the owner type the words in Messages. Not in a `multi` question.
+
+    ```json
+    {"do": "Pick the rota change", "where": "Hook",
+     "question": {"prompt": "How should the night rota change?",
+                  "choices": ["Keep it", {"label": "Mix", "text": "What should change?"}]}}
+    ```
 
   Bundle related questions into one ask as per-step questions. Don't post one ask per
   question. Use the ask-level `reply` only for one overall answer.
@@ -116,7 +126,10 @@ on you" line in chat alone gets lost.
   post once it is updated. In This Mac mode the answer is "Hook's This Mac queue (Pond V) can't take
   `<key>` yet.": post without the key. `required` and `done` need 1.3.0 (This Mac takes neither).
   When refused, post again without them and say in the step's `warning` that it must be done
-  before Done.
+  before Done. A choice object (`choices[].text`) needs 1.4.0 (This Mac takes none): when refused,
+  post plain string choices and say in the prompt what to write ("If Mix, say what should
+  change in Messages"). Pond 1.4.0 also takes messages and problem reports up to 8000
+  characters (1000 and 300 before).
 - **detail**: longer instructions for one step (at most 1500 chars, line breaks
   allowed), shown as wrapped text under `do`.
 - **code**: the exact command or text to paste. Make it complete, with nothing for
@@ -126,7 +139,9 @@ on you" line in chat alone gets lost.
 - **url**: the exact page that step needs (http or https only).
 - **verify**: a final Step that proves it worked. A command with `expect` is best.
 - **reply**: for a decision, `{"prompt": "…", "choices": ["A", "B"]}`, with up to 6 choices of at most 60 chars each.
-  Use `"choices": []` to ask for free text.
+  Use `"choices": []` to ask for free text. A reply choice can take words too,
+  `{"label": "Mix", "text": "What should change?"}` (Pond 1.4.0): the reply arrives as
+  `choice: Mix · <words>`, or `choice: Mix` when the owner wrote nothing.
 - **links**: up to 10 `{label, url}` pairs for specs or docs, or `{label, path}` for a local document (exactly one of `url` and `path`).
 - Leave out `from`, because `relay_post` and `relay post` fill it in. Spell keys
   exactly: unknown keys are rejected. The whole thing must stay under 32 KB.
@@ -331,7 +346,8 @@ To pick one up, read it with `relay_status {id}`, fix the crash, then close it w
     `done (by session)` means a session closed it, not the owner.
 - **Per-step answers arrive while the ask stays open.**
   - What `relay wait` prints:
-    - one `  ↳ owner answer 3.2 (version 1): "Staging"` line per answer;
+    - one `  ↳ owner answer 3.2 (version 1): "Staging"` line per answer, or
+      `"Mix · <words>"` when the pick took the owner's words;
     - `answered 2 of 4; open: 4, 5.1`.
   - It waits 10 s after an answer, so a burst of answers wakes you once.
   - When your work can start on partial answers, act on the answers you have, then run
@@ -342,7 +358,8 @@ To pick one up, read it with `relay_status {id}`, fix the crash, then close it w
   it as open again, and wait for the next answer with `relay wait <id> --after <last seq>`.
 - If the replies hook is set up, answers also show up in your next prompt as
   `Hook: [<id>] <project> · "<title>" — <done|skipped|reply>: "<text>"`, or
-  `— answer <path> (version N): "<value>"` for a step answer. The hook shows
+  `— answer <path> (version N): "<value>"` for a step answer. Owner text past 8000 characters
+  ends with `(N more characters: relay status <id> --json)`: read the rest there. The hook shows
   answers to every session's asks: act only on ids you posted. Problem reports, accepted
   corrections and messages show only for the asks you posted.
 - If your agent shows no `Hook:` lines with each prompt (Zed, Warp, Goose, Kiro, Junie,

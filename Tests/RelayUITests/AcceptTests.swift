@@ -23,7 +23,7 @@ import Testing
         let secrets = MemorySecretStore(), url = reviewsURL()
         var now: (@MainActor () -> Date)?
         if let clock { now = { clock.now } }
-        let store = reviewingStore(defaults, secrets: secrets, url: url, now: now)
+        let store = await reviewingStore(defaults, secrets: secrets, url: url, now: now)
         let recorder = ShellRecorder()
         store.shell = recorder.shell
         let ask = revised("a", [first, corrected], acceptedRev: 1)

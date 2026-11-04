@@ -19,6 +19,9 @@ public enum MailboxFeature: String, CaseIterable, Sendable, Comparable {
     /// `required` steps and the ask's `done` list, `POST /asks/{id}/progress` and the owner's
     /// Done refused with 409 `requirements_unmet` while something is left (Hook 0.13).
     case requirements
+    /// Messages and problem reports of up to 8000 characters, and problem reports over several
+    /// lines (Hook 0.14). Older Ponds keep 1000 and 300, one line.
+    case longText
 
     /// The first Pond version that has the feature: everything up to the old protocol level 4
     /// is in 1.0.0.
@@ -28,6 +31,7 @@ public enum MailboxFeature: String, CaseIterable, Sendable, Comparable {
         case .corrections: return SemVer(major: 1, minor: 1, patch: 0)
         case .bugs, .messages: return SemVer(major: 1, minor: 2, patch: 0)
         case .requirements: return SemVer(major: 1, minor: 3, patch: 0)
+        case .longText: return SemVer(major: 1, minor: 4, patch: 0)
         }
     }
 
@@ -35,7 +39,7 @@ public enum MailboxFeature: String, CaseIterable, Sendable, Comparable {
     /// `PondVersion.supports(_:)` and works without it, so the "older Pond" Notice never names it.
     public var gated: Bool {
         switch self {
-        case .bugs, .messages, .requirements: return true
+        case .bugs, .messages, .requirements, .longText: return true
         case .answers, .blocking, .optional, .fileLinks, .corrections: return false
         }
     }
@@ -51,6 +55,7 @@ public enum MailboxFeature: String, CaseIterable, Sendable, Comparable {
         case .bugs: return "crash reports sent to your Pond"
         case .messages: return "messages to sessions"
         case .requirements: return "required steps before Done"
+        case .longText: return "long messages and reports"
         }
     }
 

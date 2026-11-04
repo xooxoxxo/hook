@@ -13,9 +13,9 @@ import SwiftUI
 /// An optional step shows an "Optional" caption at the end of its title row.
 /// A required step left (`stepRequired`, owner pick 1) carries a badge on its marker and the
 /// required hue behind its row, until it is finished.
-/// Report a Problem (`stepReport`): an open, actionable row ends with Report; a row that can't
-/// expand offers it from its context menu; a reported step shows only the report icon; the
-/// composer's target is outlined.
+/// Report a Problem (`stepReport`, 0.14): an open, actionable, unreported row ends with Report at
+/// its bottom right, which opens the report's field right there; a row that can't expand offers
+/// it from its context menu; a reported step shows only the report icon.
 public struct StepView: View {
     let content: StepContent
     let level: StepLevel
@@ -56,7 +56,7 @@ public struct StepView: View {
     private var isOpen: Bool { StepRow.isOpen(state: state, locked: locked, expanded: expanded.wrappedValue) }
     private var showsReport: Bool {
         guard let report else { return false }
-        return StepRow.reportable(allowed: report.allowed, actionable: report.actionable, open: isOpen, locked: locked)
+        return StepRow.showsReportLink(report, open: isOpen, locked: locked)
     }
     private var reportsFromMenu: Bool {
         guard let report else { return false }
@@ -78,8 +78,6 @@ public struct StepView: View {
             HStack(alignment: .firstTextBaseline, spacing: DS.Space.marker) {
                 marker.requiredBadge(required)
                 titleArea
-                // Outside the disclosure button, so its click is its own.
-                if showsReport, let report { ReportButton(action: report.onReport) }
             }
             if let warning = StepRow.warning(content, state: state, locked: locked) {
                 WarningBox(warning).padding(.leading, DS.Space.subIndent)
@@ -94,12 +92,24 @@ public struct StepView: View {
                 .padding(.bottom, DS.Space.stepPart)
                 .transition(.opacity)
             }
+            reportArea
         }
         .padding(.horizontal, level.isSub ? 0 : DS.Space.groupRowH)
         .padding(.vertical, level.isSub ? DS.Space.subRowV : DS.Space.groupRowV)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background { if report?.targeted == true { ReportTargetHighlight() } }
-        .requiredRow(required && report?.targeted != true, bleed: level.isSub ? Self.subBleed : EdgeInsets())
+        .requiredRow(required, bleed: level.isSub ? Self.subBleed : EdgeInsets())
+    }
+
+    /// The bottom of the row: the open report field, else Report on an expanded row.
+    @ViewBuilder private var reportArea: some View {
+        if let report, StepRow.showsReportField(report) {
+            InlineReportField(title: ProblemReport.composerTitle(label: level.label), slot: report)
+                .padding(.leading, DS.Space.subIndent)
+                .padding(.bottom, DS.Space.stepPart)
+        } else if showsReport, let report {
+            StepReportLink(action: report.onReport)
+                .padding(.leading, DS.Space.subIndent)
+        }
     }
 
     /// A sub-step row has no side padding of its own: its hue reaches past it.
@@ -242,10 +252,18 @@ public enum StepRow {
         return names
     }
 
-    /// Report shows at the end of an open, actionable row (code or a tick) on an ask that takes
-    /// reports; never on hover, a collapsed row, a locked one, a closed ask or This Mac.
-    public static func reportable(allowed: Bool, actionable: Bool, open: Bool, locked: Bool) -> Bool {
-        allowed && actionable && open && !locked
+    /// Report shows at the bottom right of an open, actionable row (code or a tick) on an ask
+    /// that takes reports, until it is reported; never while a report field is open anywhere in
+    /// the ask (a second link would drop the note being typed), on hover, a collapsed row, a
+    /// locked one, a closed ask or This Mac.
+    public static func showsReportLink(_ slot: StepReportSlot, open: Bool, locked: Bool) -> Bool {
+        slot.allowed && slot.actionable && open && !locked && !slot.reported && !slot.targeted && !slot.fieldOpen
+    }
+
+    /// The inline field shows while its row is the report's target, even on a collapsed row (the
+    /// queue row's Report a Problem… can pick one).
+    public static func showsReportField(_ slot: StepReportSlot) -> Bool {
+        slot.allowed && slot.targeted
     }
 
     /// A row that can't expand gets Report a Problem… from its context menu.

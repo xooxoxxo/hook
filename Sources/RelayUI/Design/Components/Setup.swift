@@ -231,6 +231,7 @@ public struct SetupRow<Control: View>: View {
                     HelpButton(rowLabel: title, text: help)
                 }
             }
+            .helpLabelStyle(.body)
             .alignmentGuide(.setupControlCenter) { $0[VerticalAlignment.center] }
             Spacer(minLength: DS.Space.inline)
             VStack(alignment: .trailing, spacing: DS.Space.rowLine) {

@@ -46,7 +46,8 @@ class SchemaTest(unittest.TestCase):
         self.assertEqual(question["properties"]["prompt"], {"type": "string", "minLength": 1, "maxLength": 300})
         choices = question["properties"]["choices"]
         self.assertEqual((choices["minItems"], choices["maxItems"], choices["uniqueItems"]), (0, 6, True))
-        self.assertEqual(choices["items"], {"type": "string", "minLength": 1, "maxLength": 60})
+        self.assertEqual(choices["items"]["oneOf"], [{"type": "string", "minLength": 1, "maxLength": 60},
+                                                     {"$ref": "#/$defs/wordChoice"}])
         self.assertEqual(question["properties"]["multi"], {"type": "boolean", "default": False})
 
     def test_optional_is_a_boolean_on_steps_and_leaves_never_on_verify(self):
@@ -138,3 +139,35 @@ class SchemaTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+    # Pond 1.4.0: a choice that takes the owner's words is {"label", "text"}.
+    def test_the_word_choice_shape(self):
+        word = SCHEMA["$defs"]["wordChoice"]
+        self.assertEqual(word["type"], "object")
+        self.assertEqual(word["required"], ["label", "text"])
+        self.assertIs(word["additionalProperties"], False)
+        self.assertEqual(word["properties"]["label"], {"type": "string", "minLength": 1, "maxLength": 60})
+        self.assertEqual(word["properties"]["text"], {"type": "string", "minLength": 1, "maxLength": 100})
+        self.assertIn("Pond 1.4.0", word["description"])
+        reply = SCHEMA["properties"]["reply"]["properties"]["choices"]["items"]
+        self.assertIn({"$ref": "#/$defs/wordChoice"}, reply["oneOf"])
+
+    def test_schema_accepts_choice_object(self):
+        from test_skill_examples import check
+        doc = {"v": 1, "title": "Plan the rota", "steps": [
+            {"do": "Pick", "question": {"prompt": "How?", "choices": ["Keep", {"label": "Mix", "text": "What?"}]}}],
+               "reply": {"prompt": "Ship?", "choices": [{"label": "Yes", "text": "Anything to add?"}, "No"]}}
+        errors = []
+        check(doc, SCHEMA, "$", errors)
+        self.assertEqual(errors, [])
+
+    def test_schema_refuses_object_without_text(self):
+        from test_skill_examples import check
+        for bad in ({"label": "Mix"}, {"label": "Mix", "text": ""}, {"label": "Mix", "text": "x", "hint": "y"},
+                    {"label": "", "text": "What?"}, {"label": "Mix", "text": "x" * 101}):
+            with self.subTest(bad=bad):
+                doc = {"v": 1, "title": "x", "steps": [{"do": "a", "question": {"prompt": "?", "choices": [bad]}}]}
+                errors = []
+                check(doc, SCHEMA, "$", errors)
+                self.assertTrue(errors, bad)
+

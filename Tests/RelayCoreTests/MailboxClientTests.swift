@@ -89,7 +89,7 @@ private func makeClient(
     writeToken: Bool = true,
     scheme: String = "https",
     host fixedHost: String? = nil,
-    ownerKey: (@Sendable () -> String?)? = nil,
+    ownerKey: (@Sendable () async -> String?)? = nil,
     _ handler: @escaping MailboxStubRegistry.Handler
 ) throws -> (client: MailboxClient, host: String) {
     let host = fixedHost ?? "mbx-" + UUID().uuidString.lowercased() + ".test"
@@ -423,6 +423,11 @@ private func sentHeader(_ host: String, _ name: String) -> String? {
 }
 
 @Suite struct MailboxClientRevisionTests {
+    /// Protocol 6 (Hook 0.14): the Pond serves choice objects; below 6 it serves labels only.
+    @Test func sendsProtocol6() {
+        #expect(MailboxClient.clientProtocol == "6")
+    }
+
     @Test func everyRequestSaysItReadsRevisions() async throws {
         let (client, host) = try makeClient { request, _ in
             switch request.url?.path() ?? "" {
@@ -453,7 +458,7 @@ private func sentHeader(_ host: String, _ name: String) -> String? {
         ]
         for (name, call) in calls {
             try await call()
-            #expect(sentHeader(host, "X-Hook-Protocol") == "5", "\(name)")
+            #expect(sentHeader(host, "X-Hook-Protocol") == "6", "\(name)")
         }
     }
 
@@ -740,15 +745,15 @@ private struct MessageVectors {
                 _ = try await client.message(askID, text: "x")
                 Issue.record("\(name) should be refused")
             } catch {
-                #expect(MessageText.refusal(error) == text, "\(name)")
+                #expect(MessageText.refusal(error, limits: .old) == text, "\(name)")
                 // A refusal never echoes the text it refused.
-                #expect(!MessageText.refusal(error).contains("ghp_"))
+                #expect(!MessageText.refusal(error, limits: .old).contains("ghp_"))
             }
         }
         let (capped, _) = try makeClient { _, _ in (409, #"{"error":"too many messages"}"#) }
         await #expect(throws: QueueError.self) { _ = try await capped.message(askID, text: "x") }
         do { _ = try await capped.message(askID, text: "x") } catch {
-            #expect(MessageText.refusal(error) == "This ask has had 50 messages already.")
+            #expect(MessageText.refusal(error, limits: .old) == "This ask has had 50 messages already.")
         }
     }
 
@@ -772,14 +777,11 @@ private struct MessageVectors {
     }
 
     @Test func theTextRules() {
-        #expect(!MessageText.canSend(""))
-        #expect(!MessageText.canSend(" \n "))
-        #expect(MessageText.canSend("Line one\nline two"))
-        #expect(MessageText.canSend(String(repeating: "m", count: 1000)))
-        #expect(!MessageText.canSend(String(repeating: "m", count: 1001)))
-        #expect(!MessageText.showsCounter(String(repeating: "m", count: 899)))
-        #expect(MessageText.showsCounter(String(repeating: "m", count: 900)))
-        #expect(MessageText.counter("abc") == "3/1000")
+        #expect(!MessageText.canSend("", limits: .old))
+        #expect(!MessageText.canSend(" \n ", limits: .old))
+        #expect(MessageText.canSend("Line one\nline two", limits: .old))
+        #expect(MessageText.canSend(String(repeating: "m", count: 1000), limits: .old))
+        #expect(!MessageText.canSend(String(repeating: "m", count: 1001), limits: .old))
     }
 }
 

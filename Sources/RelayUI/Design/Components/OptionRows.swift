@@ -7,6 +7,11 @@ import SwiftUI
 /// choice in body text and a trailing mark: a checkmark on the picked single option, a
 /// checkbox on each multi option. VoiceOver reads a radio group or checkboxes
 /// (`accessibilityRepresentation`), never plain buttons.
+///
+/// A single pick of a choice that takes words (Pond 1.4.0, a non-nil `placeholders[i]`) opens
+/// its own field under the row, inside the list, on the row's highlight (owner pick 5 A). The
+/// field grows to 8 lines; Return adds a line and ⌘Return sends. While it shows, VoiceOver reads
+/// the rows as selectable buttons and the field after the picked one.
 public struct OptionRows: View {
     /// The question, as VoiceOver names the group. Raw; sanitized here.
     let prompt: String
@@ -20,11 +25,20 @@ public struct OptionRows: View {
     let filled: Bool
     /// Lead each row with its number: only for the reply's choices, which the digit keys pick.
     let numbered: Bool
+    /// Each choice's words placeholder, by index; nil (or past the end) for a plain choice.
+    let placeholders: [String?]
+    /// The words typed under the picked word choice; nil shows no field.
+    let words: Binding<String>?
+    /// The words field has the keys (the model's `choiceFocus`).
+    let onWordsFocus: (Bool) -> Void
     /// Single: pick `index`. Multi: flip it.
     let onPick: (Int) -> Void
+    @FocusState private var wordsFocused: Bool
 
     public init(prompt: String, options: [String], multi: Bool = false, selected: Set<Int>, sent: Set<Int> = [],
-                disabled: Bool = false, filled: Bool = false, numbered: Bool = false, onPick: @escaping (Int) -> Void) {
+                disabled: Bool = false, filled: Bool = false, numbered: Bool = false,
+                placeholders: [String?] = [], words: Binding<String>? = nil,
+                onWordsFocus: @escaping (Bool) -> Void = { _ in }, onPick: @escaping (Int) -> Void) {
         self.prompt = prompt
         self.options = options
         self.multi = multi
@@ -33,7 +47,21 @@ public struct OptionRows: View {
         self.disabled = disabled
         self.filled = filled
         self.numbered = numbered
+        self.placeholders = placeholders
+        self.words = words
+        self.onWordsFocus = onWordsFocus
         self.onPick = onPick
+    }
+
+    /// The row the words field opens under: the single picked choice, when it takes words.
+    public static func fieldIndex(selected: Set<Int>, placeholders: [String?], multi: Bool) -> Int? {
+        guard !multi, selected.count == 1, let index = selected.first, placeholders.indices.contains(index),
+              placeholders[index] != nil else { return nil }
+        return index
+    }
+
+    private var fieldIndex: Int? {
+        words == nil ? nil : Self.fieldIndex(selected: selected, placeholders: placeholders, multi: multi)
     }
 
     /// The trailing mark's symbol, or nil when nothing shows (an unpicked single option).
@@ -49,17 +77,25 @@ public struct OptionRows: View {
 
     public var body: some View {
         let shape = RoundedRectangle(cornerRadius: DS.Metric.optionRadius, style: .continuous)
+        let open = fieldIndex
         let rows = VStack(alignment: .leading, spacing: 0) {
             ForEach(options.indices, id: \.self) { i in
                 if i > 0 { Divider().padding(.leading, numbered ? DS.Space.optionText : DS.Space.optionH) }
-                row(i)
+                row(i, plainAccessibility: open != nil)
+                if open == i, let words { field(i, words) }
             }
         }
         .background(filled ? DS.Color.groupFill : Color.clear)
         .clipShape(shape)
         .overlay(shape.strokeBorder(DS.Color.optionStroke, lineWidth: DS.Metric.cardBorder))
         .disabled(disabled)
-        if multi {
+        .onChange(of: open) { old, new in
+            // A pick that opens the field gives it the keys.
+            if new != nil, new != old { wordsFocused = true }
+        }
+        .onChange(of: wordsFocused) { _, focused in onWordsFocus(focused) }
+        if multi || open != nil {
+            // Open, the field sits among the rows: a Picker stand-in would hide it from VoiceOver.
             rows
                 .accessibilityElement(children: .contain)
                 .accessibilityLabel(line(prompt))
@@ -79,7 +115,27 @@ public struct OptionRows: View {
         }
     }
 
-    @ViewBuilder private func row(_ i: Int) -> some View {
+    /// The picked choice's own field, on the row's highlight, with the trim line over the cap.
+    private func field(_ i: Int, _ words: Binding<String>) -> some View {
+        let count = words.wrappedValue.unicodeScalars.count
+        return VStack(alignment: .leading, spacing: DS.Space.rowLine) {
+            MultilineField(line(placeholders[i] ?? ""), text: words, lines: DS.Metric.choiceFieldLines,
+                           isFocused: $wordsFocused)
+                .accessibilityLabel(line(options[i]) + ": " + line(placeholders[i] ?? ""))
+            HStack(alignment: .firstTextBaseline, spacing: DS.Space.inline) {
+                LimitCaption(count: count, limit: AnswerDrafts.wordsLimit)
+                Spacer(minLength: 0)
+                LimitCounter(count: count, limit: AnswerDrafts.wordsLimit)
+            }
+        }
+        .padding(.leading, numbered ? DS.Space.optionText : DS.Space.optionH)
+        .padding(.trailing, DS.Space.optionH)
+        .padding(.bottom, DS.Space.optionV)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DS.Color.optionSelected)
+    }
+
+    @ViewBuilder private func row(_ i: Int, plainAccessibility: Bool = false) -> some View {
         let isOn = selected.contains(i)
         let button = Button { onPick(i) } label: {
             HStack(alignment: .firstTextBaseline, spacing: DS.Space.inline) {
@@ -109,7 +165,11 @@ public struct OptionRows: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        if multi {
+        if plainAccessibility && !multi {
+            button
+                .accessibilityLabel(Self.accessibilityText(index: i, option: options[i], sent: sent.contains(i), numbered: numbered))
+                .accessibilityAddTraits(isOn ? .isSelected : [])
+        } else if multi {
             button.accessibilityRepresentation {
                 Toggle(isOn: Binding(get: { isOn }, set: { _ in onPick(i) })) {
                     Text(verbatim: Self.accessibilityText(index: i, option: options[i], sent: sent.contains(i), numbered: numbered))

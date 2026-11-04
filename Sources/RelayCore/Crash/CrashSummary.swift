@@ -18,20 +18,36 @@ public struct CrashSummary: Equatable, Sendable {
     public var title: String
     /// The .ips it was read from, for Show in Finder; never sent.
     public var reportFile: URL?
+    /// The run quit cleanly, but for a cause nobody expected (a signal, another app, code).
+    public var closed: QuitCause?
+    /// When the run that ended started; with no report it tells one run from the next.
+    public var run: Date?
 
-    public init(report: IPSReport?, hookVersion: String, macOS: String, cpu: String, when: Date, reportFile: URL? = nil) {
+    public init(report: IPSReport?, hookVersion: String, macOS: String, cpu: String, when: Date, reportFile: URL? = nil,
+                closed: QuitCause? = nil, run: Date? = nil) {
         self.report = report
         self.reportFile = reportFile
         self.hookVersion = hookVersion
         self.macOS = macOS
         self.cpu = cpu
         self.when = when
-        let signature = Self.signature(report: report, hookVersion: hookVersion)
+        self.closed = report == nil ? closed : nil
+        self.run = run
+        let signature = Self.signature(report: report, closed: self.closed, hookVersion: hookVersion)
         self.signature = signature
-        self.title = Self.title(report: report, signature: signature)
+        self.title = Self.title(report: report, closed: self.closed, signature: signature)
     }
 
-    static func signature(report: IPSReport?, hookVersion: String) -> String {
+    /// What Not Now and a send remember, so it isn't raised again. A crash report's signature
+    /// names that crash; a run without one (no report, or closed) is only that run, so the
+    /// next one like it is raised too. Before 0.14 every report-less end of a version shared
+    /// one signature, so after one Not Now the bar never came back for that version.
+    public var handledKey: String {
+        guard report == nil else { return signature }
+        return "\(signature)@\(Int((run ?? when).timeIntervalSince1970))"
+    }
+
+    static func signature(report: IPSReport?, closed: QuitCause? = nil, hookVersion: String) -> String {
         var parts: [String]
         if let report {
             let top = report.appFrames.prefix(3)
@@ -39,6 +55,8 @@ public struct CrashSummary: Equatable, Sendable {
                 frame.symbol.map(bareSymbol) ?? "Hook+0x" + String(frame.imageOffset, radix: 16)
             }
             if top.contains(where: { $0.symbol == nil }) || top.isEmpty { parts.append(hookVersion) }
+        } else if let closed {
+            parts = ["closed", closed.kind.rawValue, closed.detail ?? "", closed.process ?? "", hookVersion]
         } else {
             parts = ["no-report", hookVersion]
         }
@@ -58,7 +76,8 @@ public struct CrashSummary: Equatable, Sendable {
         return String(bare[..<paren])
     }
 
-    static func title(report: IPSReport?, signature: String) -> String {
+    static func title(report: IPSReport?, closed: QuitCause? = nil, signature: String) -> String {
+        if report == nil, let closed { return "Hook was closed: \(closed.text) (\(signature))" }
         guard let report else { return "Hook quit unexpectedly (\(signature))" }
         let place: String
         if let top = report.appFrames.first {
@@ -78,12 +97,12 @@ public enum CrashFinder {
         var when = previous.started
         let file = IPSReport.newest(in: reports, after: previous.started)
         if let url = file {
-            report = (try? Data(contentsOf: url)).flatMap { try? IPSReport.parse($0) }
+            report = IPSReport.read(url)
             if let date = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.modificationDate] as? Date {
                 when = date
             }
         }
         return CrashSummary(report: report, hookVersion: previous.version, macOS: macOS, cpu: cpu, when: when,
-                            reportFile: file)
+                            reportFile: file, run: previous.started)
     }
 }

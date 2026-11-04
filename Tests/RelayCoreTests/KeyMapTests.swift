@@ -178,6 +178,18 @@ private func typing(_ c: KeyContext) -> KeyContext { var c = c; c.textFieldFocus
         #expect(cmd(.cmdReturn, elsewhere) == .done)
     }
 
+    /// ⌘↩ in a choice's words field sends that choice with its words (the reply, or one step's
+    /// answer), never Done.
+    @Test func commandReturnInAChoiceWordsFieldSendsIt() {
+        var typing = detail
+        typing.textFieldFocused = true
+        typing.choiceWordsFocused = true
+        typing.hasDraftOrPick = true
+        #expect(cmd(.cmdReturn, typing) == .sendChoiceWords)
+        typing.askOpen = false
+        #expect(cmd(.cmdReturn, typing) == nil)
+    }
+
     @Test func detailDigitsPickChoices() {
         #expect(cmd(.digit(1), detail) == .pickChoice(0))
         #expect(cmd(.digit(3), detail) == .pickChoice(2))
@@ -341,5 +353,16 @@ private func typing(_ c: KeyContext) -> KeyContext { var c = c; c.textFieldFocus
     @Test func cmdSDecodes() {
         #expect(PanelKey(keyCode: 1, modifiers: .command, characters: "s") == .cmdS)
         #expect(PanelKey(keyCode: 1, modifiers: [.shift, .command], characters: "s") == nil)
+    }
+}
+
+/// The inline report field (0.14): ⌘Return sends the report and never closes the ask.
+@Suite struct KeyMapReportTests {
+    @Test func commandReturnInTheReportFieldSendsTheReport() {
+        let report = KeyContext(mode: .detail, textFieldFocused: true, hasDraftOrPick: true, reportFieldFocused: true)
+        #expect(KeyMap.command(for: .cmdReturn, in: report) == .sendReport)
+        let closed = KeyContext(mode: .detail, textFieldFocused: true, askOpen: false, reportFieldFocused: true)
+        #expect(KeyMap.command(for: .cmdReturn, in: closed) == nil)
+        #expect(KeyMap.command(for: .cmdReturn, in: KeyContext(mode: .detail)) == .done)
     }
 }

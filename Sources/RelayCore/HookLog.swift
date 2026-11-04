@@ -11,14 +11,20 @@ import os
 public enum HookLog {
     public enum Event: Sendable, Equatable {
         case launch(hook: String, macOS: String, cpu: String)
-        case quit(clean: Bool)
+        /// `cause` is why (new in 0.14): the Quit command, a signal and its sender, logout, ….
+        case quit(clean: Bool, cause: QuitCause? = nil)
+        /// The last run, read at launch, when it couldn't log its own quit (install.sh force-quit it).
+        case lastRun(clean: Bool, cause: QuitCause)
         case screen(Screen)
         case action(Action)
         /// The queue source and, for a Pond, its version only, never its address.
         case source(SourceKind, pond: String?)
         /// `route` is cut to its template and `message` is redacted.
         case error(type: String, status: Int?, route: String?, message: String)
-        case crashFound(signature: String, report: Bool)
+        /// `closed`: the run quit cleanly for an unexpected cause rather than crashing.
+        case crashFound(signature: String, report: Bool, closed: QuitCause.Kind? = nil)
+        /// A MetricKit diagnostic (crash, hang, CPU or disk-write exception), summed up on one line.
+        case diagnostic(kind: String, detail: String)
         /// Away mode changed; the reason is one of `PresenceLogic`'s phrases.
         case presence(PresenceState, reason: String)
     }
@@ -169,8 +175,11 @@ extension HookLog.Event {
         switch self {
         case .launch(let hook, let macOS, let cpu):
             return "launch hook=\(Self.safe(hook)) macos=\(Self.safe(macOS)) cpu=\(Self.safe(cpu))"
-        case .quit(let clean):
-            return "quit clean=\(clean)"
+        case .quit(let clean, let cause):
+            guard let cause else { return "quit clean=\(clean)" }
+            return "quit clean=\(clean) cause=" + cause.logFields { Self.quoted($0, home: home, user: user) }
+        case .lastRun(let clean, let cause):
+            return "last-run clean=\(clean) cause=" + cause.logFields { Self.quoted($0, home: home, user: user) }
         case .screen(let screen):
             return "screen \(screen.rawValue)"
         case .action(let action):
@@ -184,8 +193,11 @@ extension HookLog.Event {
             if let route { parts.append("route=\(Self.safe(RouteTemplate.template(route), extra: "{}/"))") }
             parts.append("message=\(Self.quoted(message, home: home, user: user))")
             return parts.joined(separator: " ")
-        case .crashFound(let signature, let report):
-            return "crash signature=\(Self.signature(signature)) report=\(report)"
+        case .crashFound(let signature, let report, let closed):
+            let line = "crash signature=\(Self.signature(signature)) report=\(report)"
+            return closed.map { line + " closed=\($0.rawValue)" } ?? line
+        case .diagnostic(let kind, let detail):
+            return "diagnostic \(Self.safe(kind)) \(Self.quoted(detail, home: home, user: user))"
         case .presence(let state, let reason):
             return "presence \(state.rawValue) reason=\(Self.quoted(reason, home: home, user: user))"
         }
@@ -281,7 +293,7 @@ public struct RollingLog: Sendable {
         return Int(info.st_size)
     }
 
-    static func oneLine(_ s: String) -> String {
+    public static func oneLine(_ s: String) -> String {
         s.replacingOccurrences(of: "\r\n", with: " ")
             .replacingOccurrences(of: "\n", with: " ")
             .replacingOccurrences(of: "\r", with: " ")

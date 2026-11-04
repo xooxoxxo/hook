@@ -61,6 +61,8 @@ let queueFlatRules: [AlignmentRule] = [
 /// The crash bar's two offers: a report ready, and a run that left only the log.
 let galleryCrashOffer = CrashOffer(summary: GalleryFixtures.crash)
 let galleryHangOffer = CrashOffer(summary: GalleryFixtures.hang)
+/// A run that something else closed (0.14): "Hook was closed: SIGTERM from launchd (pid 1)".
+let galleryClosedOffer = CrashOffer(summary: GalleryFixtures.closedRun)
 
 /// The status bar's states over the plain queue, short enough to show the bottom bars.
 @MainActor func statusScene(_ name: String, _ status: PanelStatus, profiles: ProfileMenu? = nil,
@@ -153,6 +155,7 @@ let queueClosedHeight: CGFloat = 1120
     statusScene("queue-status-updating",
                 PanelStatus.make(StatusInputs(sourceKey: galleryMailboxKey, reachable: true, loadedOnce: true, updating: true))),
     statusScene("queue-crash-bar", readyStatus, crashOffer: galleryCrashOffer),
+    statusScene("queue-crash-bar-closed", readyStatus, crashOffer: galleryClosedOffer),
     statusScene("queue-crash-bar-undo", readyStatus, crashOffer: galleryHangOffer,
                 undo: UndoInfo(verdict: .done, title: "Rotate the example token", deadline: Date().addingTimeInterval(8), more: 0)),
     panelScene("queue-offline-stale", queueModel(GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false),

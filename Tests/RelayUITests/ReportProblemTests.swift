@@ -5,10 +5,23 @@ import Testing
 
 /// Report a Problem (Task 3.9, and its UI in 0.12): the note's rules, the owner key, the
 /// Pond's refusals, the composer's state and the reported icon.
+private let pond140 = PondVersion.semver(SemVer(major: 1, minor: 4, patch: 0))
+private let pond130 = PondVersion.semver(SemVer(major: 1, minor: 3, patch: 0))
+
+/// A pasted traceback: 14 lines, 937 characters (the spec's case).
+let traceback: String = {
+    var lines = ["Traceback (most recent call last):"]
+    for n in 1...12 { lines.append("  File \"/Users/me/deploy/step_\(n).py\", line \(n * 7), in rotate") }
+    let head = lines.joined(separator: "\n") + "\n"
+    let tail = "KeyError: "
+    let pad = 937 - head.unicodeScalars.count - tail.unicodeScalars.count
+    return head + tail + String(repeating: "k", count: max(0, pad))
+}()
+
 @Suite @MainActor struct ReportProblemTests {
     private func started(_ defaults: TestDefaults, bodies: [Instructable] = [idSteps(3)], approved: Bool = true,
                          identity: SourceIdentity = mailboxIdentity) async -> (Store, FakeQueueSource, AskDetail) {
-        let store = reviewingStore(defaults)
+        let store = await reviewingStore(defaults)
         store.ownerKeyApproved = { _, _ in approved }
         let ask = revised("a", bodies)
         let fake = FakeQueueSource(items: [ask.item], details: ["a": ask.detail])
@@ -17,16 +30,14 @@ import Testing
     }
 
     @Test func theNoteRules() {
-        #expect(!ProblemReport.canSend(String(repeating: "x", count: 301)))
-        #expect(ProblemReport.canSend(String(repeating: "x", count: 300)))
-        #expect(!ProblemReport.canSend("   \n "))
+        #expect(!ProblemReport.canSend(String(repeating: "x", count: 301), limits: .old))
+        #expect(ProblemReport.canSend(String(repeating: "x", count: 300), limits: .old))
+        #expect(!ProblemReport.canSend("   \n ", limits: .old))
+        #expect(!ProblemReport.canSend("   \n ", limits: TalkLimits.make(pond: pond140)))
         #expect(ProblemReport.clean("wrong\nflag\r\nhere ") == "wrong flag  here")
-        #expect(ProblemReport.counter("abc") == "3/300")
         #expect(ProblemReport.help == "The session gets this as a quoted report about its step. "
             + "Don't paste secrets; the Pond refuses them.")
         #expect(ProblemReport.menuTitle == "Report a Problem…")
-        #expect(!ProblemReport.showsCounter(String(repeating: "x", count: 249)))
-        #expect(ProblemReport.showsCounter(String(repeating: "x", count: 250)))
         #expect(ProblemReport.composerTitle(label: "2") == "Problem with step 2")
         #expect(ProblemReport.composerTitle(label: "3b") == "Problem with step 3b")
         #expect(ProblemReport.composerTitle(label: "Verify") == "Problem with Verify")
@@ -49,6 +60,44 @@ import Testing
         store.endReport("a")
         #expect(store.reporting.isEmpty)
         #expect(store.detail("a")?.reportTarget == nil)
+    }
+
+    @Test func reportOnAnotherStepKeepsEachStepsDraft() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, _, _) = await started(defaults)
+        store.beginReport("a", path: "2")
+        store.reportDrafts["a"] = "step two's flag is wrong"
+        store.beginReport("a", path: "3")
+        #expect(store.reporting["a"] == "3")
+        #expect(store.reportDrafts["a"] == nil)
+        store.reportDrafts["a"] = "step three times out"
+        store.beginReport("a", path: "2")
+        #expect(store.reportDrafts["a"] == "step two's flag is wrong")
+        store.beginReport("a", path: "3")
+        #expect(store.reportDrafts["a"] == "step three times out")
+        // Cancel drops the open step's text only.
+        store.endReport("a")
+        store.beginReport("a", path: "3")
+        #expect(store.reportDrafts["a"] == nil)
+        store.beginReport("a", path: "2")
+        #expect(store.reportDrafts["a"] == "step two's flag is wrong")
+    }
+
+    @Test func aHeldNoteMovedOffItsStepComesBackAsItsDraft() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, fake, _) = await started(defaults, approved: false)
+        store.shell.setUpOwnerKey = {}
+        store.beginReport("a", path: "2")
+        #expect(await store.sendReport("a", note: "the flag is wrong") == .notEnrolled)
+        store.beginReport("a", path: "3")
+        #expect(store.detail("a")?.report != .held)
+        store.ownerKeyApproved = { _, _ in true }
+        await store.flushHeldReports()
+        #expect(await fake.count("problem") == 0)
+        store.beginReport("a", path: "2")
+        #expect(store.reportDrafts["a"] == "the flag is wrong")
     }
 
     @Test func theRowMenuTargetsTheFirstUntickedActionableStep() async {
@@ -118,6 +167,108 @@ import Testing
         #expect(store.reporting["a"] == nil)
     }
 
+    /// 0.14: the report opens inline in its step; nothing docks above the action bar.
+    @Test func noDockedComposer() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, _, _) = await started(defaults)
+        store.beginReport("a", path: "2")
+        let snapshot = store.detail("a")!
+        #expect(snapshot.reportTarget == "2")
+        #expect(DetailView<Store>.barKinds(snapshot, reviewing: false) == [.action])
+    }
+
+    /// Each row's slot carries what its inline field needs.
+    @Test func slotCarriesStateAndLimits() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, _, _) = await started(defaults)
+        store.setPond(pond140)
+        store.beginReport("a", path: "2")
+        store.reportDrafts["a"] = "the flag is wrong"
+        let reports = DetailSteps<Store>.reports(store.detail("a")!, model: store)
+        let slot = reports.slot("2")
+        #expect(slot.targeted)
+        #expect(slot.state == .idle)
+        #expect(slot.keyReady)
+        #expect(slot.limits == .long)
+        #expect(slot.draft == "the flag is wrong")
+        #expect(!reports.slot("1").targeted)
+        slot.onEdit("the flag is wrong in step 2")
+        #expect(store.reportDrafts["a"] == "the flag is wrong in step 2")
+        slot.onCancel()
+        #expect(store.reporting["a"] == nil)
+    }
+
+    @Test func sendClosesFieldAndMarksReported() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, fake, _) = await started(defaults)
+        store.beginReport("a", path: "2")
+        store.reportDrafts["a"] = "the flag is wrong"
+        #expect(await store.sendReport("a", note: "the flag is wrong") == .sent)
+        #expect(await fake.problems.first?.note == "the flag is wrong")
+        #expect(store.reporting["a"] == nil)
+        #expect(store.reportDrafts["a"] == nil)
+        #expect(store.detail("a")?.reported == ["2"])
+        // A reported step offers no Report link, only the icon.
+        let slot = DetailSteps<Store>.reports(store.detail("a")!, model: store).slot("2")
+        #expect(slot.reported)
+        #expect(!StepRow.showsReportLink(slot, open: true, locked: false))
+    }
+
+    @Test func cancelKeepsNothing() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, _, _) = await started(defaults, approved: false)
+        store.beginReport("a", path: "2")
+        store.reportDrafts["a"] = "half a note"
+        _ = await store.sendReport("a", note: "half a note")
+        #expect(store.detail("a")?.report == .held)
+        store.reportFocus = "a"
+        store.endReport("a")
+        #expect(store.reporting["a"] == nil)
+        #expect(store.reportDrafts["a"] == nil)
+        #expect(store.reportFocus == nil)
+        #expect(store.detail("a")?.report == .idle)
+        store.beginReport("a", path: "2")
+        #expect(store.reportDrafts["a"] == nil)
+        #expect(store.detail("a")?.report == .idle)
+    }
+
+    /// Without an approved key the button stays Send; the held caption shows under the field.
+    @Test func heldShowsCaptionNotSetUpButton() {
+        #expect(InlineReportField.caption(.held) == ProblemReport.heldCaption)
+        #expect(InlineReportField.caption(.failed("The Pond refused the note: it looks like a secret."))
+            == "The Pond refused the note: it looks like a secret.")
+        #expect(InlineReportField.caption(.idle) == nil)
+        #expect(InlineReportField.sendTitle == "Send")
+        #expect(ProblemReport.linkTitle == "Report")
+        #expect(ProblemReport.placeholder == "What went wrong? Paste the error if there is one.")
+        #expect(!InlineReportField.canSend("the flag", limits: .old, state: .held))
+        #expect(!InlineReportField.canSend("the flag", limits: .old, state: .sending))
+        #expect(InlineReportField.canSend("the flag", limits: .old, state: .idle))
+        #expect(!InlineReportField.canSend(String(repeating: "x", count: 301), limits: .old, state: .idle))
+        #expect(InlineReportField.canSend(String(repeating: "x", count: 301), limits: .long, state: .idle))
+    }
+
+    /// ⌘Return in the report field sends the report (never Done), through the key router.
+    @Test func commandReturnSendsTheReport() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, fake, _) = await started(defaults)
+        store.beginReport("a", path: "2")
+        store.reportDrafts["a"] = "the flag is wrong"
+        store.reportFocus = "a"
+        let context = store.keyContext(textFieldFocused: true, popoverOpen: false, closedHeaderFocused: false)
+        #expect(context.reportFieldFocused)
+        #expect(KeyMap.command(for: .cmdReturn, in: context) == .sendReport)
+        store.perform(.sendReport)
+        _ = await eventually { await fake.count("problem") == 1 }
+        #expect(await fake.problems.first?.note == "the flag is wrong")
+        #expect(await fake.count("resolve") == 0)
+    }
+
     @Test func aHeldNoteIsDroppedWhenTheAskCloses() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }
@@ -149,7 +300,7 @@ import Testing
     @Test func reportIsHiddenOnAClosedAsk() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }
-        let store = reviewingStore(defaults)
+        let store = await reviewingStore(defaults)
         store.ownerKeyApproved = { _, _ in true }
         let ask = revised("a", [idSteps(3)])
         var shut = ask.detail
@@ -190,6 +341,43 @@ import Testing
             Issue.record("expected refused")
         }
         #expect(await fake.count("problem") == 0)
+    }
+
+    /// Pond 1.4.0: a long, multi-line note reaches the Pond as typed, its ends trimmed.
+    @Test func multilineNoteOn140() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        #expect(traceback.unicodeScalars.count == 937)
+        #expect(traceback.split(separator: "\n").count == 14)
+        let (store, fake, _) = await started(defaults)
+        store.setPond(pond140)
+        #expect(store.detail("a")?.limits == TalkLimits.make(pond: pond140))
+        #expect(await store.reportProblem("a", stepID: "s2", note: "\n" + traceback + "\n") == .sent)
+        #expect(await fake.problems.first?.note == traceback)
+        let long = String(repeating: "x", count: 8000)
+        #expect(await store.reportProblem("a", stepID: "s2", note: long) == .sent)
+        if case .refused = await store.reportProblem("a", stepID: "s2", note: long + "x") {} else {
+            Issue.record("8001 characters should be refused")
+        }
+        #expect(await fake.count("problem") == 2)
+    }
+
+    /// Pond 1.3.0: the 0.12 rules stay, one line and 300 characters, and nothing is cut to fit.
+    @Test func oldPondReportStaysOneLine() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, fake, _) = await started(defaults)
+        store.setPond(pond130)
+        #expect(store.detail("a")?.limits == .old)
+        #expect(await store.reportProblem("a", stepID: "s2", note: "the flag\nis wrong\n") == .sent)
+        #expect(await fake.problems.first?.note == "the flag is wrong")
+        if case .refused = await store.reportProblem("a", stepID: "s2", note: String(repeating: "x", count: 301)) {} else {
+            Issue.record("301 characters should be refused")
+        }
+        if case .refused = await store.reportProblem("a", stepID: "s2", note: traceback) {} else {
+            Issue.record("the traceback should be refused on 1.3.0")
+        }
+        #expect(await fake.count("problem") == 1)
     }
 
     @Test func aSecretLikeNoteIsRefusedInPlainWords() async {

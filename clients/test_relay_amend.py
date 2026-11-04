@@ -378,7 +378,7 @@ class CliAmendTests(Base):
 
 
 class HeaderTests(Base):
-    def test_every_request_carries_x_hook_protocol_5(self):
+    def test_every_request_carries_x_hook_protocol_6(self):
         http = Pond()
         client = self.mailbox(http)
         client.post("Acme", ASK)
@@ -390,7 +390,7 @@ class HeaderTests(Base):
         requests = http.requests + local.requests
         self.assertGreaterEqual(len(requests), 6)
         for req in requests:
-            self.assertEqual(req.get_header("X-hook-protocol"), "5", req.full_url)
+            self.assertEqual(req.get_header("X-hook-protocol"), "6", req.full_url)
         self.assertEqual(http.requests[0].get_header("Authorization"), "Bearer " + MAILBOX_TOKEN)
 
 

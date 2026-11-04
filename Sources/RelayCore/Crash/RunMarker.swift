@@ -1,18 +1,26 @@
 import Foundation
 
-/// What Hook writes at launch to `run-state.json` and marks clean on any clean quit. An
-/// unclean marker at the next launch means the last run ended badly.
+/// What Hook writes at launch to `run-state.json` and marks clean on any quit that goes
+/// through AppKit, with the quit's cause. An unclean marker at the next launch means the last
+/// run ended badly; a clean one whose cause wasn't expected means something closed it.
+/// `cause` and `ended` are new in 0.14 and optional, so a marker from an older version still
+/// reads (as clean or unclean, with no cause).
 public struct RunMarker: Codable, Equatable, Sendable {
     public var pid: Int32
     public var version: String
     public var started: Date
     public var clean: Bool
+    public var cause: QuitCause?
+    public var ended: Date?
 
-    public init(pid: Int32, version: String, started: Date, clean: Bool = false) {
+    public init(pid: Int32, version: String, started: Date, clean: Bool = false, cause: QuitCause? = nil,
+                ended: Date? = nil) {
         self.pid = pid
         self.version = version
         self.started = started
         self.clean = clean
+        self.cause = cause
+        self.ended = ended
     }
 }
 
@@ -31,11 +39,15 @@ public enum RunMarkerStore {
         return previous
     }
 
-    /// Marks this run's marker clean. A missing marker is left missing.
-    public static func markClean(at url: URL) throws {
+    /// Marks this run's marker clean, with why it quit and when. A missing marker is left
+    /// missing, and with `pid` a marker another run wrote (a copy started after this one) is
+    /// left alone.
+    public static func markClean(at url: URL, pid: Int32? = nil, cause: QuitCause? = nil, ended: Date? = nil) throws {
         guard var marker = read(url) else { return }
-        guard !marker.clean else { return }
+        guard !marker.clean, pid.map({ $0 == marker.pid }) ?? true else { return }
         marker.clean = true
+        marker.cause = cause
+        marker.ended = ended
         try write(marker, to: url)
     }
 
@@ -48,7 +60,7 @@ public enum RunMarkerStore {
         return previous
     }
 
-    static func read(_ url: URL) -> RunMarker? {
+    public static func read(_ url: URL) -> RunMarker? {
         guard let data = try? Data(contentsOf: url) else { return nil }
         return try? JSONDecoder.marker.decode(RunMarker.self, from: data)
     }

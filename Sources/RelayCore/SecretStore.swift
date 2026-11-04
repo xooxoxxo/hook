@@ -256,9 +256,14 @@ private struct SystemKeychain: KeychainOps {
 }
 
 /// An in-memory store for tests and the gallery. Setting a `…Error` makes every matching
-/// call throw it, as a refused or failing Keychain would.
+/// call throw it, as a refused or failing Keychain would; `holdReads()` makes every read wait,
+/// as one behind a Keychain prompt nobody has answered does.
 public final class MemorySecretStore: SecretStore, @unchecked Sendable {
     private let lock = NSLock()
+    /// The reads held by `holdReads()` wait on this, apart from `lock`.
+    private let gate = NSCondition()
+    private var held = false
+    private var _waitingReads = 0
     private var items: [SecretName: Data] = [:]
     private var _readError: SecretStoreError?
     private var _writeError: SecretStoreError?
@@ -300,11 +305,38 @@ public final class MemorySecretStore: SecretStore, @unchecked Sendable {
         }
     }
 
-    /// The stored bytes, bypassing `readError`.
+    /// The stored bytes, bypassing `readError` and a hold.
     public func peek(_ name: SecretName) -> Data? { locked { items[name] } }
 
+    /// From now on every `read` waits until `releaseReads()`.
+    public func holdReads() {
+        gate.lock()
+        held = true
+        gate.unlock()
+    }
+
+    /// The reads waiting go on, and later ones don't wait.
+    public func releaseReads() {
+        gate.lock()
+        held = false
+        gate.broadcast()
+        gate.unlock()
+    }
+
+    /// How many reads are waiting on a hold now.
+    public var waitingReads: Int {
+        gate.lock()
+        defer { gate.unlock() }
+        return _waitingReads
+    }
+
     public func read(_ name: SecretName) throws -> Data? {
-        try locked {
+        gate.lock()
+        _waitingReads += 1
+        while held { gate.wait() }
+        _waitingReads -= 1
+        gate.unlock()
+        return try locked {
             if let error = _readError { throw error }
             if foreign.contains(name), items[name] != nil { throw SecretStoreError.foreign }
             return items[name]

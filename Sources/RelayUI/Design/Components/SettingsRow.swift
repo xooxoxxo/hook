@@ -56,6 +56,7 @@ public struct SettingsRow<Control: View, Accessory: View>: View {
                     HelpButton(rowLabel: label, text: help)
                 }
             }
+            .helpLabelStyle(.body)
             // An accessory's hit area makes the line as tall as an icon button; the label
             // takes the same height so it stays centred on the control's line.
             .frame(minHeight: hasAccessory ? DS.Metric.hit : nil)

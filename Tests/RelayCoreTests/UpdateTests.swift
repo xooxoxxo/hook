@@ -169,6 +169,7 @@ private let page = "https://github.com/xooxoxxo/relay/releases/tag/v0.6.5"
         #expect(script.contains("rm -f '/tmp/relay-update.plist' '/tmp/relay-update.sh'"))
         #expect(script.contains("exec /bin/launchctl remove 'io.github.xooxoxxo.relay.update'"))
         #expect(script.contains("export HOME='/Users/me'"))
+        #expect(script.contains("\nexport HOOK_QUIT_BY=updater\n"))
     }
 
     @Test func pathsAreQuotedForTheShell() {

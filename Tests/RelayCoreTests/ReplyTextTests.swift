@@ -37,4 +37,67 @@ private func reply(_ seq: Int, _ text: String?, actor: String = "owner", kind: S
         let lines = ReplyText.lines(events: events, locale: Locale(identifier: "en_GB"), timeZone: TimeZone(identifier: "UTC")!)
         #expect(lines == [ReplyLine(id: 2, text: "You chose: A", time: "09:12", choice: "A"), ReplyLine(id: 5, text: "C07QX2", time: "09:31")])
     }
+
+    // MARK: Words on a choice (Pond 1.4.0)
+
+    @Test func wireWithWords() {
+        #expect(ReplyText.separator == " \u{00B7} ")
+        #expect(ReplyText.wire(choice: "Mix", words: " Staff Monday ") == "choice: Mix · Staff Monday")
+        #expect(ReplyText.wire(choice: "Mix", words: "line one\nline two\n") == "choice: Mix · line one\nline two")
+    }
+
+    @Test func wireEmptyWords() {
+        #expect(ReplyText.wire(choice: "Mix", words: nil) == "choice: Mix")
+        #expect(ReplyText.wire(choice: "Mix", words: "") == "choice: Mix")
+        #expect(ReplyText.wire(choice: "Mix", words: " \n ") == "choice: Mix")
+    }
+
+    @Test func parsePrefersLongestLabel() {
+        let choices = ["Mix", "Mix it"]
+        #expect(ReplyText.parse("choice: Mix it · now", choices: choices)! == (1, "now"))
+        #expect(ReplyText.parse("choice: Mix · now", choices: choices)! == (0, "now"))
+        #expect(ReplyText.parse("choice: Mix it", choices: choices)! == (1, nil))
+        #expect(ReplyText.parse("choice: Mix", choices: choices)! == (0, nil))
+        #expect(ReplyText.parse("choice: Mixed", choices: choices) == nil)
+        #expect(ReplyText.parse("Mix", choices: choices) == nil)
+        #expect(ReplyText.parse("choice: Mix · ", choices: choices) == nil)
+    }
+
+    @Test func parseLabelWithSeparator() {
+        #expect(ReplyText.parse("choice: A · B · c", choices: ["A · B"])! == (0, "c"))
+        #expect(ReplyText.parse("choice: A · B", choices: ["A · B"])! == (0, nil))
+        #expect(ReplyText.parse("choice: A · B", choices: ["A"])! == (0, "B"))
+        #expect(ReplyText.parse("choice: A · two\nlines", choices: ["A"])! == (0, "two\nlines"))
+    }
+
+    @Test func sentChoicesCountsWordReplies() {
+        let choices = ["No", "Yes"]
+        let events = [reply(1, "choice: Yes · Tell the night shift first"), reply(2, "choice: No")]
+        #expect(ReplyText.sentChoices(events: events, choices: choices) == [0, 1])
+        #expect(ReplyText.latestSentChoice(events: events, choices: choices) == 0)
+        #expect(ReplyText.latestSentChoice(events: [events[0]], choices: choices) == 1)
+        #expect(ReplyText.display("choice: Yes · Tell the night shift first") == "You chose: Yes · Tell the night shift first")
+    }
+
+    @Test func latestSentWords() {
+        let choices = ["No", "Yes"]
+        let events = [reply(1, "choice: Yes · Tell the night shift first")]
+        #expect(ReplyText.latestSentWords(events: events, choices: choices) == "Tell the night shift first")
+        #expect(ReplyText.latestSentWords(events: events + [reply(2, "choice: No")], choices: choices) == nil)
+        #expect(ReplyText.latestSentWords(events: [], choices: choices) == nil)
+    }
+
+    /// The words a choice reply carries: typed, else (untouched) those sent; only on a word choice.
+    @Test func replyWords() {
+        let spec = ReplySpec(prompt: "Ship?", choices: [Choice("Yes", text: "Anything to add?"), "No"])
+        #expect(ReplyText.words(typed: " Monday ", choice: 0, sentWords: nil, spec: spec) == "Monday")
+        #expect(ReplyText.words(typed: nil, choice: 0, sentWords: "Friday", spec: spec) == "Friday")
+        #expect(ReplyText.words(typed: "", choice: 0, sentWords: "Friday", spec: spec) == nil)
+        #expect(ReplyText.words(typed: "Monday", choice: 1, sentWords: nil, spec: spec) == nil)
+        #expect(ReplyText.hasNewWords(typed: "Monday", choice: nil, sent: 0, sentWords: "Friday", spec: spec))
+        #expect(!ReplyText.hasNewWords(typed: " Friday", choice: nil, sent: 0, sentWords: "Friday", spec: spec))
+        #expect(!ReplyText.hasNewWords(typed: nil, choice: 0, sent: 0, sentWords: "Friday", spec: spec))
+        #expect(!ReplyText.hasNewWords(typed: "Monday", choice: nil, sent: nil, sentWords: nil, spec: spec))
+        #expect(!ReplyText.hasNewWords(typed: "Monday", choice: nil, sent: 1, sentWords: nil, spec: spec))
+    }
 }

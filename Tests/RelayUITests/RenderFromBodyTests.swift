@@ -9,7 +9,7 @@ import Testing
     @Test func aRevisedItemRendersItsBodyNotItsPayload() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }
-        let store = reviewingStore(defaults)
+        let store = await reviewingStore(defaults)
         var says = idSteps(2)
         says.steps[0].action = "B"
         var payload = says
@@ -38,7 +38,7 @@ import Testing
         let record = ReviewRecord(accepted: one.stamp, seen: one.stamp, pins: [1: one.hash])
         try ReviewStore.sealed(records: [ReviewStore.key(sourceKey: localIdentity.key, id: "a"): record], sealKey: key)
             .write(to: url)
-        let store = reviewingStore(defaults, secrets: secrets, url: url)
+        let store = await reviewingStore(defaults, secrets: secrets, url: url)
         let fake = FakeQueueSource(items: [ask.item], details: ["a": ask.detail])
         await start(store, fake)
 
@@ -61,7 +61,7 @@ import Testing
     @Test func aListItemBeforeItsDetailRendersNoUnreviewedSteps() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }
-        let store = reviewingStore(defaults)
+        let store = await reviewingStore(defaults)
         let ask = revised("a", [idSteps(3), idSteps(4, codes: [4: "rm -rf ~/x"])])
         // The detail fetch fails: only the listed (current) revision is at hand.
         let fake = FakeQueueSource(items: [ask.item])
@@ -76,7 +76,7 @@ import Testing
     @Test func aBrokenHistoryIsLockedAndRendersNothingNew() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }
-        let store = reviewingStore(defaults)
+        let store = await reviewingStore(defaults)
         var ask = revised("a", [idSteps(3), idSteps(4)])
         ask.detail.revisions[1].body = ask.detail.revisions[1].body.replacingOccurrences(of: "run 4", with: "run 5")
         let fake = FakeQueueSource(items: [ask.item], details: ["a": ask.detail])

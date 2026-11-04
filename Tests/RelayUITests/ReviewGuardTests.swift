@@ -8,7 +8,7 @@ import Testing
 @Suite @MainActor struct ReviewGuardTests {
     private func pendingStore(_ defaults: TestDefaults, recorder: ShellRecorder, urls: [Int: String] = [:])
         async -> (Store, FakeQueueSource, AskDetail) {
-        let store = reviewingStore(defaults)
+        let store = await reviewingStore(defaults)
         store.shell = recorder.shell
         let two = revised("a", [idSteps(3, urls: urls), idSteps(4, urls: urls)])
         let fake = FakeQueueSource(items: [two.item], details: ["a": two.detail])
@@ -53,7 +53,7 @@ import Testing
         let defaults = TestDefaults()
         defer { defaults.drop() }
         let recorder = ShellRecorder()
-        let store = reviewingStore(defaults)
+        let store = await reviewingStore(defaults)
         store.shell = recorder.shell
         let one = revised("a", [idSteps(2)])
         await start(store, FakeQueueSource(items: [one.item], details: ["a": one.detail]))
@@ -100,7 +100,7 @@ import Testing
         body.steps[1].detail = "See [the docs](https://example.com/docs)."
         var corrected = body
         corrected.steps[0].code = "run one"
-        let store = reviewingStore(defaults)
+        let store = await reviewingStore(defaults)
         store.shell = recorder.shell
         let two = revised("a", [body, corrected])
         let fake = FakeQueueSource(items: [two.item], details: ["a": two.detail])
@@ -146,7 +146,7 @@ import Testing
         asking.reply = ReplySpec(prompt: "Anything?")
         var corrected = asking
         corrected.steps[0].code = "run one"
-        let store = reviewingStore(defaults)
+        let store = await reviewingStore(defaults)
         store.shell = recorder.shell
         let two = revised("a", [asking, corrected])
         let fake = FakeQueueSource(items: [two.item], details: ["a": two.detail])
@@ -176,7 +176,7 @@ import Testing
         let defaults = TestDefaults()
         defer { defaults.drop() }
         let clock = TestClock()
-        let store = reviewingStore(defaults, now: { clock.now })
+        let store = await reviewingStore(defaults, now: { clock.now })
         let two = revised("a", [idSteps(3), idSteps(4)])
         let fake = FakeQueueSource(items: [two.item], details: ["a": two.detail])
         await start(store, fake)
@@ -195,7 +195,7 @@ import Testing
         let defaults = TestDefaults()
         defer { defaults.drop() }
         let clock = TestClock()
-        let store = reviewingStore(defaults, now: { clock.now })
+        let store = await reviewingStore(defaults, now: { clock.now })
         let two = revised("a", [idSteps(3), idSteps(4)])
         let fake = FakeQueueSource(items: [two.item], details: ["a": two.detail])
         await start(store, fake)
@@ -221,7 +221,7 @@ import Testing
         let defaults = TestDefaults()
         defer { defaults.drop() }
         let clock = TestClock()
-        let store = reviewingStore(defaults, now: { clock.now })
+        let store = await reviewingStore(defaults, now: { clock.now })
         let two = revised("a", [idSteps(3), idSteps(4)])
         let fake = FakeQueueSource(items: [two.item], details: ["a": two.detail])
         await start(store, fake)

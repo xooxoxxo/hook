@@ -107,6 +107,7 @@ import Testing
         #expect(script.contains("exec /bin/launchctl remove 'io.github.xooxoxxo.relay.update'"))
         #expect(script.contains("/usr/bin/pgrep -u \"$(/usr/bin/id -u)\" -x Hook >/dev/null 2>&1 || /usr/bin/open -g -a '/Users/me/Applications/Hook.app'"))
         #expect(script.contains("export HOME='/Users/me'"))
+        #expect(script.contains("\nexport HOOK_QUIT_BY=updater\n"))
     }
 
     @Test func pathsAreQuoted() {

@@ -38,13 +38,13 @@ private func answerEvent(_ id: String, seq: Int, _ entry: JSONValue) -> Event {
 @MainActor private func answersScene(_ name: String, _ item: WireItem, events: [Event] = [], ticks: Set<String> = [],
                                      drafts: [String: AnswerDraft] = [:], closedText: String? = nil,
                                      height: CGFloat? = nil, expanded: Set<String> = [], editing: Set<String> = [],
-                                     doneWarning: Bool = false,
+                                     doneWarning: Bool = false, words: [String: String] = [:], pendingChoice: Int? = nil,
                                      setUp: (FixturePanelModel, String) -> Void = { _, _ in },
                                      overrides: PanelGalleryOverrides = fullHeight) -> GalleryScene {
     var snapshot = DetailSnapshot.build(
         item: item, detail: AskDetail(item: item, events: events), ticks: ticks, load: .loaded, reply: .idle,
-        draft: nil, pendingChoice: nil, busy: false, previous: .end, next: .end, closedBy: nil, answerDrafts: drafts,
-        doneWarning: doneWarning)
+        draft: nil, pendingChoice: pendingChoice, busy: false, previous: .end, next: .end, closedBy: nil,
+        answerDrafts: drafts, choiceWords: words, doneWarning: doneWarning)
     snapshot.replies = ReplyText.lines(events: events, locale: galleryGB, timeZone: galleryUTC)
     if let closedText {
         snapshot.closedText = closedText
@@ -54,6 +54,8 @@ private func answerEvent(_ id: String, seq: Int, _ entry: JSONValue) -> Event {
         details: [snapshot.id: snapshot],
         navigation: PanelNavigation(listSelection: snapshot.id, selectedID: snapshot.id), status: readyStatus)
     if !drafts.isEmpty { model.answerDrafts[snapshot.id] = drafts }
+    if !words.isEmpty { model.choiceWords[snapshot.id] = words }
+    if let pendingChoice { model.pendingChoice[snapshot.id] = pendingChoice }
     if !expanded.isEmpty { model.expandedDone[snapshot.id] = expanded }
     if !editing.isEmpty { model.editingAnswers[snapshot.id] = editing }
     setUp(model, snapshot.id)
@@ -196,7 +198,60 @@ private let regionReply = ReplySpec(prompt: "Which region should the backups use
     return answersScene("reply-changing", item, events: events, ticks: ["1"], setUp: { model, id in model.changeReply(id) })
 }
 
+// Pond 1.4.0: a choice with its own words field (owner picks 4 and 5 A).
+
+private let mixQuestion = Question(prompt: "How should the night rota change?",
+                                   choices: ["Keep it as it is", Choice("Mix", text: "What should change?"), "Drop the night shift"])
+private let shipReply = ReplySpec(prompt: "Can the release go out tonight?",
+                                  choices: [Choice("Yes", text: "Anything the night shift should know?"), "No", "Not yet"])
+
+private func rotaItem(_ id: String, reply: ReplySpec? = nil) -> WireItem {
+    answersItem(id, "Plan the Kestrel night rota", steps: [
+        Step(action: "Pick the rota change", question: mixQuestion),
+        Step(action: "Post the rota", url: "https://rota.example.com/kestrel"),
+    ], reply: reply)
+}
+
+/// A question with a word choice, nothing picked: no field yet.
+@MainActor private var wordsPlainScene: GalleryScene {
+    answersScene("choice-words-plain", rotaItem("kestrel-w1"))
+}
+
+/// "Mix" picked: its field opens under it, on the row's highlight, with the owner's words.
+@MainActor private var wordsOpenScene: GalleryScene {
+    answersScene("choice-words-open", rotaItem("kestrel-w2"), drafts: ["1": .picked(["Mix"])],
+                 words: ["1": "Staff on Monday, and swap Ana's Friday with Lee."])
+}
+
+/// Words past the 1 000 cap: the field grows to 8 lines and scrolls; the counter and trim line show.
+@MainActor private var wordsLongScene: GalleryScene {
+    let sentence = "Move the Friday handover to 22:00 so the night lead overlaps with the release check. "
+    let long = String(String(repeating: sentence, count: 13).prefix(1_040))
+    return answersScene("choice-words-long", rotaItem("kestrel-w3"), drafts: ["1": .picked(["Mix"])],
+                        words: ["1": long])
+}
+
+/// The reply's word choice picked: the field under it, empty, showing its placeholder.
+@MainActor private var wordsReplyScene: GalleryScene {
+    let item = answersItem("kestrel-w4", "Ship Kestrel 2.4 tonight", steps: [
+        Step(action: "Read the release check", url: "https://release.example.com/kestrel/check"),
+    ], reply: shipReply)
+    return answersScene("choice-words-reply", item, ticks: ["1"], pendingChoice: 0)
+}
+
+/// Both sent with words: the step's answered line and the reply's row read "Mix · …".
+@MainActor private var wordsSentScene: GalleryScene {
+    let item = rotaItem("kestrel-w5", reply: shipReply)
+    let events = [
+        answerEvent(item.id, seq: 1, Answers.entry(step: "1", picked: ["Mix"], words: "Staff on Monday")),
+        replyEvent(item.id, seq: 2, ReplyText.wire(choice: "Yes", words: "Tell the night shift first"),
+                   at: "2026-10-16T09:20:00+00:00"),
+    ]
+    return answersScene("choice-words-sent", item, events: events)
+}
+
 @MainActor var answerScenes: [GalleryScene] {
     [segmentedScene, radioScene, multiScene, textScene, parentScene, barScene, barWarningScene, closedScene,
-     answeredScene, changingScene, replyAnsweredScene, replyChangingScene]
+     answeredScene, changingScene, replyAnsweredScene, replyChangingScene,
+     wordsPlainScene, wordsOpenScene, wordsLongScene, wordsReplyScene, wordsSentScene]
 }

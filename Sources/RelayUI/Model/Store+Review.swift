@@ -7,10 +7,13 @@ import RelayCore
 public struct ReviewPersistence: Sendable {
     public var secrets: any SecretStore
     public var url: URL
+    /// Where the seal key is read and written, never the main thread.
+    public var keychain: KeychainQueue
 
-    public init(secrets: any SecretStore, url: URL) {
+    public init(secrets: any SecretStore, url: URL, keychain: KeychainQueue = .shared) {
         self.secrets = secrets
         self.url = url
+        self.keychain = keychain
     }
 }
 
@@ -53,7 +56,10 @@ extension Store {
     /// longer pending (accepted, or its history failed).
     private func endReviewIfLeft(_ id: String) {
         guard reviewing[id] != nil else { return }
-        if case .pending = reviewState(id), served[id]?.status == "open" { return }
+        switch reviewState(id) {
+        case .pending, .waitingForKeychain: if served[id]?.status == "open" { return }
+        case .legacy, .current, .historyChanged: break
+        }
         reviewing[id] = nil
     }
 
@@ -123,7 +129,7 @@ extension Store {
         switch reviewState(id) {
         case .legacy: return stamp == nil
         case .current(let current): return stamp == current && renderedStamp(id) == current
-        case .pending, .historyChanged: return false
+        case .pending, .historyChanged, .waitingForKeychain: return false
         }
     }
 
@@ -159,7 +165,9 @@ extension Store {
         HookLog.action(.accept)
         accepting.insert(id)
         defer { accepting.remove(id) }
-        if reviewsUnreadable { retryReviewKey() }
+        // Still reading the records: whether this Mac accepted it already isn't known yet.
+        guard !reviewsLoading else { return false }
+        if reviewsUnreadable { await retryReviewKey() }
         guard !reviewsUnreadable else {
             post(.reviewRecordsUnreadable)
             return false
@@ -217,6 +225,15 @@ extension Store {
             }
             answerDrafts[id] = kept.isEmpty ? nil : kept
         }
+        if let words = choiceWords[id] {
+            var kept: [String: String] = [:]
+            for (key, text) in words {
+                if key == Self.replyWordsKey { kept[key] = text; continue }
+                guard let stepID = oldIDs[key], !dropped.contains(stepID), let moved = newPaths[stepID] else { continue }
+                kept[moved] = text
+            }
+            choiceWords[id] = kept.isEmpty ? nil : kept
+        }
         if let first = diff.steps.first(where: { $0.kind == .changed || $0.kind == .added })?.newPath {
             detailAnchor[id] = first
         } else {
@@ -257,13 +274,14 @@ extension Store {
         }
     }
 
-    /// The seal key again, after a refused read: the owner may allow Hook this time.
-    func retryReviewKey() {
-        guard reviewsUnreadable else { return }
+    /// The seal key again, after a refused read: the owner may allow Hook this time. Waits for
+    /// the read (and its prompt); a refusal again leaves the records unreadable, with no Notice
+    /// (the caller posts its own).
+    func retryReviewKey() async {
+        guard reviewsUnreadable, !reviewsLoading else { return }
         reviewsUnreadable = false
-        pendingReviewNotice = nil
-        loadReviews()
-        pendingReviewNotice = nil
+        startLoadingReviews(notice: false)
+        await reviewsLoaded()
     }
 
     /// The item with its payload replaced by the body the gate names, else the last body
@@ -272,6 +290,8 @@ extension Store {
     func render(_ item: WireItem) -> WireItem {
         let state = reviewState(item.id)
         if case .legacy = state { return item }
+        // An ask without a history, locked while the records are read: its own payload, locked.
+        if case .waitingForKeychain(nil) = state { return item }
         var out = item
         out.revision = nil
         let history = try? histories[item.id]?.get()
@@ -317,9 +337,21 @@ extension Store {
 
     // MARK: The gate
 
+    /// While the records are still being read the gate fails closed (`waitingForKeychain`):
+    /// without the pins a swapped or rolled-back revision can't be told apart, and without the
+    /// acceptances a correction can't be either. Locked: every ask with a history, and on a
+    /// Pond every ask without one (it may have lost a revision this Mac pinned). Only This
+    /// Mac's own queue, which serves no revisions, stays open. A history that already failed
+    /// its own checks stays `historyChanged`.
     public func reviewState(_ id: String) -> ReviewState {
-        ReviewGate.resolve(record: record(id), history: histories[id], pond: pond,
-                           served: served[id]?.payload.instructable)
+        let state = ReviewGate.resolve(record: record(id), history: histories[id], pond: pond,
+                                       served: served[id]?.payload.instructable)
+        guard reviewsLoading else { return state }
+        switch state {
+        case .pending(_, let current, _), .current(let current): return .waitingForKeychain(current: current)
+        case .legacy: return identity.mailbox == nil ? .legacy : .waitingForKeychain(current: nil)
+        case .historyChanged, .waitingForKeychain: return state
+        }
     }
 
     /// The revision the card and detail render; nil for a legacy ask or a failed history.
@@ -365,7 +397,7 @@ extension Store {
     /// The detail rendered `stamp` while it was current: the owner saw it. Called from the
     /// snapshot builder, so it publishes nothing.
     func markSeen(_ id: String, _ stamp: RevisionStamp) {
-        guard !reviewsUnreadable, case .current(let current) = reviewState(id), current == stamp else { return }
+        guard !reviewsUnreadable, !reviewsLoading, case .current(let current) = reviewState(id), current == stamp else { return }
         var next = record(id) ?? ReviewRecord()
         guard next.seen != stamp else { return }
         next.seen = stamp
@@ -388,7 +420,7 @@ extension Store {
     /// one is rollback evidence the Pond could erase by leaving the ask out of one list, so it
     /// goes only after `ReviewRecord.retentionDays` days unlisted.
     func pruneReviews(keep: Set<String>) {
-        guard !reviewsUnreadable else { return }
+        guard !reviewsUnreadable, !reviewsLoading else { return }
         let prefix = ReviewStore.key(sourceKey: sourceKey, id: "")
         let today = ReviewRecord.day(now())
         var changed = false
@@ -468,8 +500,8 @@ extension Store {
     /// checks, or isn't loaded, keeps its pins: nothing here can make a bad hash good, or drop
     /// the evidence of a rollback that hasn't been shown again.
     @discardableResult public func trustHistoryAgain() async -> Bool {
-        guard await shell.confirmPresence("trust the Pond's history again") else { return false }
-        if reviewsUnreadable { retryReviewKey() }
+        guard !reviewsLoading, await shell.confirmPresence("trust the Pond's history again") else { return false }
+        if reviewsUnreadable { await retryReviewKey() }
         guard !reviewsUnreadable else {
             post(.reviewRecordsUnreadable)
             return false
@@ -510,7 +542,7 @@ extension Store {
             post(.corrected(id: id, rev: current.rev))
         case .historyChanged:
             post(.historyChanged(id: id))
-        case .legacy, .current, .pending:
+        case .legacy, .current, .pending, .waitingForKeychain:
             switch notice {
             case .corrected(let noticed, _)? where noticed == id: dismissNotice()
             case .historyChanged(let noticed)? where noticed == id: dismissNotice()
@@ -526,23 +558,24 @@ extension Store {
     /// so without an approved one nothing is sent.
     public func reportProblem(_ id: String, stepID: String, note: String) async -> ReportResult {
         guard ownerKeyApproved(sourceKey, identity.mailbox?.url) else { return .notEnrolled }
-        let cleaned = ProblemReport.clean(note)
-        guard ProblemReport.canSend(cleaned) else {
-            return .refused("The note must be 1 to \(ProblemReport.limit) characters.")
+        let limits = talk.limits
+        let prepared = ProblemReport.prepared(note, limits: limits)
+        guard ProblemReport.canSend(prepared, limits: limits) else {
+            return .refused(Self.noteLength(limits))
         }
         guard let source, let stamp = renderedStamp(id) else {
             return .refused("This ask comes from a Pond without problem reports.")
         }
         let gen = generation
         do {
-            _ = try await source.problem(id, stepID: stepID, stamp: stamp, note: cleaned)
+            _ = try await source.problem(id, stepID: stepID, stamp: stamp, note: prepared)
             guard gen == generation else { return .sent }
             await reload(id)
             return .sent
         } catch {
-            guard gen == generation else { return .refused(ProblemReport.refusal(error)) }
+            guard gen == generation else { return .refused(ProblemReport.refusal(error, limits: limits)) }
             if ownerKeyRefused(error) { return .notEnrolled }
-            return .refused(ProblemReport.refusal(error))
+            return .refused(ProblemReport.refusal(error, limits: limits))
         }
     }
 
@@ -551,12 +584,14 @@ extension Store {
 
     /// Report is offered on an open ask in the queue, from a Pond; never on This Mac or a closed ask.
     func canReport(_ id: String) -> Bool {
-        talk.reports && items.contains { $0.id == id } && item(for: id)?.status == "open"
+        // Not while the records are read: the version a report names isn't settled yet.
+        talk.reports && !reviewsLoading && items.contains { $0.id == id } && item(for: id)?.status == "open"
     }
 
-    /// Opens the docked composer on `path`; nil (the queue row's Report a Problem…) picks the
+    /// Opens the inline report field on `path`; nil (the queue row's Report a Problem…) picks the
     /// first unticked actionable step. The ask's detail opens too. Nothing for a step a report
-    /// can't be about.
+    /// can't be about. Moving the field to another step keeps the text typed for the step it
+    /// leaves (a held note too, unsent), and brings back what was typed for the new one.
     public func beginReport(_ id: String, path: String?) {
         guard canReport(id), let nodes = nodes(for: id),
               let target = path ?? ProblemReport.firstTarget(nodes: nodes, ticks: ticks(for: id)),
@@ -564,28 +599,35 @@ extension Store {
         else { return }
         if navigation.selectedID != id { open(id) }
         guard reporting[id] != target else { return }
+        if let old = reporting[id], let text = heldReports[id] ?? reportDrafts[id], !text.isEmpty {
+            reportStepDrafts[id, default: [:]][old] = text
+        }
         heldReports[id] = nil
         reportStates[id] = nil
+        reportDrafts[id] = reportStepDrafts[id]?.removeValue(forKey: target)
         reporting[id] = target
     }
 
-    /// Esc or Cancel: the composer goes, and a held note with it.
+    /// Esc or Cancel: the field goes, with its text and a held note. Text kept for the ask's
+    /// other steps stays.
     public func endReport(_ id: String) {
         reporting[id] = nil
         reportStates[id] = nil
         heldReports[id] = nil
+        reportDrafts[id] = nil
+        if reportFocus == id { reportFocus = nil }
     }
 
-    /// The composer's Send. Without an approved owner key it is Set Up Owner Key…: the note is
-    /// held in memory, Settings › Queue opens and the setup starts; the note goes once the key
-    /// is approved. Sent, the composer closes and the step shows the reported icon.
+    /// The field's Send (and ⌘Return in it). Without an approved owner key the note is held in
+    /// memory, Settings › Queue opens and the setup starts; the note goes once the key is
+    /// approved. Sent, the field closes and the step shows the reported icon.
     @discardableResult public func sendReport(_ id: String, note: String) async -> ReportResult {
         guard let path = reporting[id], reportStates[id] != .sending else { return .refused(Self.noReportOpen) }
         guard let stepID = nodes(for: id).flatMap({ Flow.flattened($0).first { $0.path == path }?.stepID }) else {
             return .refused(Self.noReportOpen)
         }
-        guard ProblemReport.canSend(note) else {
-            return .refused("The note must be 1 to \(ProblemReport.limit) characters.")
+        guard ProblemReport.canSend(note, limits: talk.limits) else {
+            return .refused(Self.noteLength(talk.limits))
         }
         HookLog.action(.report)
         guard ownerKeyApproved(sourceKey, identity.mailbox?.url) else {
@@ -604,6 +646,11 @@ extension Store {
     }
 
     static let noReportOpen = "No report is open on this ask."
+
+    /// "The note must be 1 to 8000 characters."
+    static func noteLength(_ limits: TalkLimits) -> String {
+        "The note must be 1 to \(limits.report) characters."
+    }
 
     private func holdReport(_ id: String, note: String) {
         heldReports[id] = note
@@ -656,7 +703,7 @@ extension Store {
 
     /// Ticking a step ends its chip.
     func clearChips(_ id: String, ticked: Set<String>) {
-        guard !ticked.isEmpty, !reviewsUnreadable, var next = record(id),
+        guard !ticked.isEmpty, !reviewsUnreadable, !reviewsLoading, var next = record(id),
               !ticked.isDisjoint(with: next.changed) else { return }
         next.changed.removeAll { ticked.contains($0) }
         next.added.removeAll { ticked.contains($0) }
@@ -666,37 +713,81 @@ extension Store {
 
     // MARK: Persistence
 
-    /// At launch: the seal key, then the records that still verify. A refused Keychain read, or a
-    /// seal item Hook didn't make (`.foreign`, also any item while `reviews.json` or its marker
-    /// is gone), loads nothing and writes nothing until the owner resets the records; a failed
-    /// write of a new key keeps records in memory only.
-    func loadReviews() {
+    /// What reading the seal key and `reviews.json` found, off the main actor.
+    enum ReviewLoad: Sendable {
+        case loaded(key: SymmetricKey, records: [String: ReviewRecord], tampered: Bool, sealReplaced: Bool)
+        /// A refused read, or a key Hook didn't make.
+        case unreadable
+        /// A new key couldn't be saved: records stay in memory only.
+        case failed(String)
+    }
+
+    /// At launch: the seal key, then the records that still verify, read on `KeychainQueue` so
+    /// the main actor never waits on a Keychain prompt (0.13.1 froze at launch on one). Until
+    /// the read returns, `reviewsLoading` is true: corrections are `waitingForKeychain`, pins
+    /// are taken in memory only, and nothing is written. A refused read, or a seal item Hook
+    /// didn't make (`.foreign`, also any item while `reviews.json` or its marker is gone), then
+    /// loads nothing and writes nothing until the owner resets the records; a failed write of
+    /// a new key keeps records in memory only.
+    func startLoadingReviews(notice: Bool = true) {
         guard let reviewFile else { return }
-        let key: SymmetricKey
-        let hadFile = FileManager.default.fileExists(atPath: reviewFile.url.path)
+        reviewsLoading = true
+        let previous = reviewLoad
+        reviewLoad = Task { @MainActor [weak self] in
+            await previous?.value
+            let outcome = await reviewFile.keychain.run { Self.readReviews(reviewFile) }
+            self?.finishLoadingReviews(outcome, notice: notice)
+        }
+    }
+
+    /// Returns once the records read at launch (or on a retry) are in.
+    public func reviewsLoaded() async {
+        await reviewLoad?.value
+    }
+
+    nonisolated static func readReviews(_ file: ReviewPersistence) -> ReviewLoad {
+        let hadFile = FileManager.default.fileExists(atPath: file.url.path)
+        let seal: (key: SymmetricKey, created: Bool)
         do {
-            let seal = try ReviewSeal.open(reviewFile.secrets, file: reviewFile.url)
-            key = seal.key
-            // A file whose seal item is gone was set aside with its records.
-            if seal.created, hadFile { pendingReviewNotice = .reviewRecordsChanged }
+            seal = try ReviewSeal.open(file.secrets, file: file.url)
         } catch SecretStoreError.unreadable, SecretStoreError.foreign {
+            return .unreadable
+        } catch {
+            return .failed(error.localizedDescription)
+        }
+        let loaded = ReviewStore.load(from: file.url, sealKey: seal.key)
+        // A file whose seal item is gone was set aside with its records.
+        return .loaded(key: seal.key, records: loaded.records, tampered: loaded.tampered,
+                       sealReplaced: seal.created && hadFile)
+    }
+
+    func finishLoadingReviews(_ outcome: ReviewLoad, notice: Bool) {
+        reviewsLoading = false
+        var problem: PanelNotice?
+        switch outcome {
+        case .unreadable:
             // A refused read, or a key Hook didn't make, whose maker could seal records: trust
             // none, and replace nothing (Reset Review Records… is the owner's).
             reviewsUnreadable = true
-            pendingReviewNotice = .reviewRecordsUnreadable
-            return
-        } catch {
-            HookLog.error("ReviewSeal", "couldn't save the review seal key; reviews stay in memory: " + error.localizedDescription)
-            return
+            problem = .reviewRecordsUnreadable
+        case .failed(let text):
+            HookLog.error("ReviewSeal", "couldn't save the review seal key; reviews stay in memory: " + text)
+        case .loaded(let key, let records, let tampered, let sealReplaced):
+            sealKey = key
+            // Pins taken while the read waited join the disk's (`joiningPins`).
+            reviews = Self.joiningPins(records, reviews)
+            if tampered || sealReplaced { problem = .reviewRecordsChanged }
+            if tampered || reviews != records { scheduleReviewSave() }
         }
-        sealKey = key
-        let loaded = ReviewStore.load(from: reviewFile.url, sealKey: key)
-        let inMemory = reviews
-        reviews = Self.joiningPins(loaded.records, inMemory)
-        if loaded.tampered {
-            pendingReviewNotice = .reviewRecordsChanged
+        if notice, let problem {
+            // Before the first swap the Notice waits for it (the swap clears the slot).
+            if generation == 0 { pendingReviewNotice = problem } else { post(problem) }
         }
-        if loaded.tampered || reviews != loaded.records { scheduleReviewSave() }
+        let ids = Set(listed.map(\.id)).union(details.keys).union(recentlyClosed.map(\.id))
+        holdingQueue { ids.forEach(rerender) }
+        if let selected = navigation.selectedID { noticeReview(selected) }
+        queueInputChanged()
+        objectWillChange.send()
     }
 
     /// Reset Review Records…: with the owner's presence, a new seal over whatever item is there,
@@ -707,7 +798,7 @@ extension Store {
               await shell.confirmPresence("reset Hook's review records") else { return false }
         let key: SymmetricKey
         do {
-            key = try ReviewSeal.create(reviewFile.secrets, file: reviewFile.url)
+            key = try await reviewFile.keychain.run { try ReviewSeal.create(reviewFile.secrets, file: reviewFile.url) }
         } catch {
             HookLog.error("ReviewStore", "couldn't reset the review records: " + error.localizedDescription)
             return false

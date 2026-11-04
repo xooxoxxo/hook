@@ -7687,7 +7687,7 @@
    },
    "valid": false,
    "errors": [
-    "steps[0].question.choices[0]: must be a string"
+    "steps[0].question.choices[0]: must be a string or {label, text}"
    ],
    "cleaned": null,
    "pyBytes": 141

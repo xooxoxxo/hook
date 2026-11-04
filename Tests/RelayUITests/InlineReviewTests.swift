@@ -8,7 +8,7 @@ import Testing
 @Suite @MainActor struct InlineReviewTests {
     private func pendingStore(_ defaults: TestDefaults, recorder: ShellRecorder)
         async -> (Store, FakeQueueSource, AskDetail) {
-        let store = reviewingStore(defaults)
+        let store = await reviewingStore(defaults)
         store.shell = recorder.shell
         let two = revised("a", [idSteps(3), idSteps(4, codes: [2: "run two --all"])])
         let fake = FakeQueueSource(items: [two.item], details: ["a": two.detail])

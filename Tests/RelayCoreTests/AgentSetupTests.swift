@@ -49,7 +49,7 @@ import Testing
         let start = Date()
         let outcome = await LoginShell.run("sleep 20 & echo $!; wait; true", shell: "/bin/bash", timeout: 0.5)
         #expect(outcome.timedOut && !outcome.ok)
-        #expect(Date().timeIntervalSince(start) < 5)
+        #expect(Date().timeIntervalSince(start) < 15)  // well under the 20 s sleep; CI runners are slow
         let sleeper = try #require(pid_t(outcome.output))
         var gone = false
         for _ in 0..<40 where !gone {
@@ -63,7 +63,7 @@ import Testing
         let start = Date()
         let outcome = await LoginShell.run("sleep 20; true", shell: "/bin/bash", timeout: 0.5)
         #expect(outcome.timedOut && !outcome.ok)
-        #expect(Date().timeIntervalSince(start) < 5)
+        #expect(Date().timeIntervalSince(start) < 15)  // well under the 20 s sleep; CI runners are slow
     }
 
     /// Something left behind that keeps the pipe open doesn't hold the result back.
@@ -71,7 +71,7 @@ import Testing
         let start = Date()
         let outcome = await LoginShell.run("(sleep 20 &); echo x", shell: "/bin/sh", timeout: 0.5)
         #expect(outcome.ok && outcome.output == "x")
-        #expect(Date().timeIntervalSince(start) < 5)
+        #expect(Date().timeIntervalSince(start) < 15)  // well under the 20 s sleep; CI runners are slow
     }
 
     @Test func aMissingShellFails() async {

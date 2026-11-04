@@ -12,12 +12,15 @@ public enum BugAsk {
     public static let why = "Hook quit unexpectedly. The report holds only Hook's own crash fields and its redacted "
         + "activity log; the crash file itself isn't attached."
 
+    public static let closedWhy = "Something other than the owner closed Hook. The report holds only Hook's own "
+        + "fields, what closed it and its redacted activity log."
+
     /// The instructable's JSON bytes, keys sorted.
     public static func instructable(_ s: CrashSummary, body: String) -> Data {
         let object: [String: Any] = [
             "v": 1,
             "title": title(s),
-            "why": why,
+            "why": s.closed == nil ? why : closedWhy,
             "urgency": "whenever",
             "steps": [["do": step, "code": code(body), "lang": "text"]],
         ]

@@ -133,13 +133,14 @@ public enum DS {
         public static let monogramRadius: CGFloat = 5
         /// The inset grouped steps list's corner.
         public static let groupRadius: CGFloat = 10
-        /// The Messages field: about three lines tall, with the stock text field's corner.
-        public static let messageField: CGFloat = 64
+        /// A long text's field (a message, a report): from 3 lines, growing to 8, then scrolling.
+        public static let fieldLines: ClosedRange<Int> = 3...8
+        /// A choice's own words field (owner pick 5 A): two lines to start, then up to 8.
+        public static let choiceFieldLines: ClosedRange<Int> = 2...8
         public static let messageFieldRadius: CGFloat = 6
         public static let messageFieldInset: CGFloat = 4
         public static let messageFieldStroke: CGFloat = 0.5
-        /// The report target's outline, inset from the row's edges.
-        public static let targetStroke: CGFloat = 1.5
+        /// The required hue's inset from the row's edges.
         public static let targetInset: CGFloat = 3
         /// An option list's corner.
         public static let optionRadius: CGFloat = 8
@@ -164,6 +165,9 @@ public enum DS {
         public static let barButtonMinWidth: CGFloat = 84
         /// The dot on a required step's marker, and beside a required section's "?".
         public static let requiredBadge: CGFloat = 7
+        /// The ring round that dot, in the row's surface colour (`DS.Color.requiredBadgeRing`), so
+        /// the dot stays apart from an accent marker it meets (at larger text sizes they touch).
+        public static let requiredBadgeRing: CGFloat = 1.5
         /// The fade at the bottom of a Welcome form page that scrolls under the footer.
         public static let setupFade: CGFloat = 24
     }
@@ -185,6 +189,18 @@ public enum DS {
         /// The heading font's cap height, for a mark centred on a heading's capitals.
         public static var headingCapHeight: CGFloat {
             NSFont.preferredFont(forTextStyle: .headline).capHeight * galleryScale
+        }
+        /// The cap height of a label in `style`, for a "?" centred on that label's capitals.
+        public static func capHeight(_ style: HelpLabelStyle) -> CGFloat {
+            let ns: NSFont.TextStyle
+            switch style {
+            case .body: ns = .body
+            case .heading: ns = .headline
+            case .prose: ns = .callout
+            case .caption: ns = .caption1
+            case .subheadline: ns = .subheadline
+            }
+            return NSFont.preferredFont(forTextStyle: ns).capHeight * galleryScale
         }
         public static var body: SwiftUI.Font { style(.body, .body) }
         public static var currentAction: SwiftUI.Font { style(.headline, .headline) }
@@ -238,9 +254,6 @@ public enum DS {
         /// A multi-line field drawn like the stock rounded text field.
         public static let fieldFill = SwiftUI.Color(nsColor: .textBackgroundColor)
         public static let fieldStroke = SwiftUI.Color.primary.opacity(0.18)
-        /// The step the report composer is about: a light accent fill and an accent outline.
-        public static let targetFill = SwiftUI.Color.accentColor.opacity(0.07)
-        public static let targetStroke = SwiftUI.Color.accentColor.opacity(0.55)
         /// A required item's badge (owner pick 1, RD 25): Done's own accent, so the mark reads as
         /// "this feeds Done".
         public static let required = SwiftUI.Color.accentColor
@@ -313,7 +326,26 @@ public enum DS {
             monogramPalette[Monogram.colorIndex(project) % monogramPalette.count]
         }
         /// The inset grouped steps list: near-white over the light panel, a faint lift over the dark one.
-        public static let groupFill = adaptive(light: .white.withAlphaComponent(0.8), dark: .white.withAlphaComponent(0.06))
+        public static let groupFill = adaptive(light: .white.withAlphaComponent(GroupLift.light),
+                                               dark: .white.withAlphaComponent(GroupLift.dark))
+        /// The white over the panel that `groupFill` lays down, by appearance.
+        enum GroupLift {
+            static let light: CGFloat = 0.8
+            static let dark: CGFloat = 0.06
+        }
+        /// The required badge's ring: the required row's surface made opaque (the window
+        /// background, the steps list's lift, then the required hue), so over the row the ring
+        /// disappears and over an accent marker it draws a gap.
+        public static let requiredBadgeRing = SwiftUI.Color(nsColor: NSColor(name: nil) { appearance in
+            let dark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            var base = NSColor.white, accent = NSColor.systemBlue
+            appearance.performAsCurrentDrawingAppearance {
+                base = NSColor.windowBackgroundColor.usingColorSpace(.sRGB) ?? base
+                accent = NSColor.controlAccentColor.usingColorSpace(.sRGB) ?? accent
+            }
+            let lifted = base.blended(withFraction: dark ? GroupLift.dark : GroupLift.light, of: .white) ?? base
+            return lifted.blended(withFraction: dark ? RequiredHue.dark : RequiredHue.light, of: accent) ?? lifted
+        })
         public static let groupStroke = SwiftUI.Color.primary.opacity(0.07)
         /// An option list's hairline, and the picked option's tint.
         public static let optionStroke = SwiftUI.Color.primary.opacity(0.14)
@@ -439,6 +471,8 @@ public enum DS {
         public static let agentNone = "minus.circle"
         /// Settings' same-line icon buttons: Show in Finder, Check for Updates…, open an app
         /// or a System Settings pane, and show an ask.
+        /// Save Diagnostics… in Settings › General › Privacy.
+        public static let saveDiagnostics = "square.and.arrow.down"
         public static let reveal = "folder"
         public static let update = "arrow.down.circle"
         public static let openApp = "arrow.up.forward.app"
@@ -474,6 +508,8 @@ public enum DS {
         /// Report a Problem on a step, and a step with a report waiting for a correction.
         public static let report = "exclamationmark.bubble"
         public static let reported = "exclamationmark.bubble.fill"
+        /// The "?" beside a label: outlined and small (owner pick 2), never the stock filled HelpLink.
+        public static let helpOutline = "questionmark.circle"
     }
 
     public enum Control {
@@ -519,6 +555,9 @@ public enum DS {
         /// How long tick changes on an ask with requirements wait before they go to the Pond, so
         /// a run of ticks goes as one progress call.
         public static let progressDebounce: TimeInterval = 0.5
+        /// How long a Done right after launch waits for the Pond's version check before it goes
+        /// without its ticks (the Pond may then refuse it, and say so).
+        public static let pondWait: TimeInterval = 5
     }
 
     /// The animation to use: `animation`, or `Motion.reduced` under Reduce Motion.

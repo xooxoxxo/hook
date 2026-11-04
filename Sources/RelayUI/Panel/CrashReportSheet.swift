@@ -119,6 +119,7 @@ public struct CrashReportSheet<Model: PanelViewModel>: View {
                 Spacer(minLength: 0)
                 Text(sheet.countText).font(DS.Font.caption).foregroundStyle(DS.Color.secondary)
             }
+            .helpLabelStyle(.heading)
             ScrollView {
                 ReportPreview(text: sheet.preview)
             }
@@ -151,13 +152,13 @@ public struct CrashReportSheet<Model: PanelViewModel>: View {
         .controlSize(DS.Control.form)
     }
 
-    /// "Hook quit unexpectedly · 15 Oct 2026 at 22:14".
+    /// "Hook quit unexpectedly · 15 Oct 2026 at 22:14", or "Hook was closed: … · …".
     static func subtitle(_ summary: CrashSummary, locale: Locale, timeZone: TimeZone) -> String {
         let formatter = DateFormatter()
         formatter.locale = locale
         formatter.timeZone = timeZone
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
-        return CrashBar.title + " · " + formatter.string(from: summary.when)
+        return CrashBar.title(CrashOffer(summary: summary)) + " · " + formatter.string(from: summary.when)
     }
 }

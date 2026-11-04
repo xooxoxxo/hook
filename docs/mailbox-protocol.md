@@ -6,7 +6,7 @@ The app polls every `pollSeconds`; the CLI and MCP server use the same routes.
 
 ## Requests
 
-Every request carries `Authorization: Bearer <content of tokenFile>` and `X-Hook-Protocol: 5`, which says the client reads revision histories (without it a Pond 1.1.0 serves a corrected ask as a stub). Owner acts from the app also carry `X-Hook-Owner-Key` once this Mac's [owner key](#the-owner-key) is approved. Bodies are JSON (`Content-Type: application/json`).
+Every request carries `Authorization: Bearer <content of tokenFile>` and `X-Hook-Protocol: 6`, which says the client reads revision histories (without 5 or more a Pond 1.1.0 serves a corrected ask as a stub) and choice objects (below 6 a Pond 1.4.0 serves an ask that holds one with labels only, [below](#choices-with-words)). Owner acts from the app also carry `X-Hook-Owner-Key` once this Mac's [owner key](#the-owner-key) is approved. Bodies are JSON (`Content-Type: application/json`).
 
 | Request | Sent by | Body or query | Hook expects |
 |---|---|---|---|
@@ -42,6 +42,7 @@ Every request carries `Authorization: Bearer <content of tokenFile>` and `X-Hook
 | 1.1.0 | step `id`s, revisions and corrections (`amend`, `accept`), and the owner key (`/owner`, `X-Hook-Owner-Key`) |
 | 1.2.0 | bug reports (`POST /asks` with `kind: "bug"`, `GET /asks?kind=`) and messages to the posting session (the `message` reply kind). This Hook works without them on 1.1.0: a crash report goes out as a plain ask, and the Messages section is hidden |
 | 1.3.0 | required before Done: the `required` step key and the ask-level `done` list, `POST /asks/{id}/progress`, `requirements` on an item, `progress` events, and the 409 `requirements_unmet` on an owner Done. `protocol` stays 5. `relay post`, `relay_post` and `relay amend` refuse the two keys on an older Pond; This Hook still works with 1.1.0 and 1.2.0, and keeps Done off on an ask that carries requirements whatever the Pond's version |
+| 1.4.0 | long text and [choices with words](#choices-with-words): messages and problem reports up to 8000 characters (1000 and 300 before; a report may span lines), Telegram splitting anything past 4096 into further messages, and the choice object `{"label": "Mix", "text": "What should change?"}` in a question's or the reply's `choices`, with the owner's words beside a pick. `protocol` stays 5. On an older Pond Hook keeps 1000 and 300 and a one-line report, and `relay post`, `relay_post` and `relay amend` refuse a choice object |
 
 A Pond 1.x still answers `protocol` (5 for 1.1.0) for Hook 0.9.x, which reads only that. Hook reads `version` first:
 
@@ -139,7 +140,18 @@ An event is `{seq, itemId, kind, actor, text, at}`; `seq` is an integer that onl
 
 - An owner's action has actor `owner` and kind `resolved`, `declined`, `reply` or `answer`.
 - `message` (actor `owner`, Pond 1.2.0): a message to the session that posted the ask, its `text` verbatim. It answers and closes nothing. A bug report's repeats add `occurrence` events (actor `hook`).
-- `answer` (actor `owner`): the answer to one step's question. Its `text` is compact JSON with `step` first: `{"step":"3.2","picked":["Staging"]}` for a choice question (picks in the order of the choices), `{"step":"4","text":"Use the EU region"}` for a free-text one. A step path is `"3"` or `"3.2"`, 1-based.
+- `answer` (actor `owner`): the answer to one step's question. Its `text` is compact JSON with `step` first: `{"step":"3.2","picked":["Staging"]}` for a choice question (picks in the order of the choices), `{"step":"4","text":"Use the EU region"}` for a free-text one. A step path is `"3"` or `"3.2"`, 1-based. Pond 1.4.0 adds the owner's words beside a single pick of a choice that takes them: `{"step":"2","id":"s2","picked":["Mix"],"text":"Staff on Monday"}`.
+
+### Choices with words
+
+From Pond 1.4.0 a choice in a question's or the reply's `choices` may be an object, `{"label": "Mix", "text": "What should change?"}`: `label` is 1–60 characters on one line and distinct in its list, `text` (the placeholder of the owner's field) 1–100 characters on one line; both are required, and such a choice is refused in a `multi` question. The owner's words travel with the pick:
+
+- a reply event's `text` is `choice: Mix · <words>` (U+00B7 with a space on each side), or `choice: Mix` without words; the Pond stores it like any reply. Hook caps the words at 1000 characters;
+- an `answer` event adds `text` (1–1000 characters, line breaks allowed) beside `picked`; words on any other pick are refused (`answers[0].text: this choice takes no words`).
+
+A client that sends `X-Hook-Protocol: 6` gets the objects. Below 6, an ask with an object in any revision comes back with labels only: revision 1 as its labels-only body, a later revision as the update stub, and no `revision` or `revisions` keys, so Hook 0.13 and older clients never see an unreadable question. Sessions read an answer with words as `answer 2 (version 1): "Mix · <words>"`.
+
+Messages and problem reports take 8000 characters on Pond 1.4.0. Owner text reaches a session cut at 8000 characters per event, followed by ` (N more characters: relay status <id> --json)`; `relay status <id> --json` carries all of it.
 - An ask closed by an agent has actor `session`.
 - `reopened` (actor `owner`): the ask is open again, and no client shows it closed until a later `resolved` or `declined`.
 - `progress` (actor `owner`, Pond 1.3.0): the owner's ticks on an ask with requirements, its `text` the compact JSON `{"tick":[ids],"untick":[ids]}`, step ids only. It is bookkeeping for the Done gate: no client shows it, and it never appears in `ownerEvents`, `relay replies` or `relay wait`.

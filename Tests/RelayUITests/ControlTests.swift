@@ -1,3 +1,5 @@
+import AppKit
+import SwiftUI
 import Testing
 @testable import RelayUI
 
@@ -9,6 +11,28 @@ import Testing
 
     @Test func helpButtonNamesItsRow() {
         #expect(HelpButton.accessibilityLabel(rowLabel: "Presence") == "Help: Presence")
+    }
+
+    /// Owner pick 2: a small outlined "?" in tertiary, never the stock filled HelpLink.
+    @Test func helpButtonIsOutlinedCaptionTertiary() {
+        #expect(DS.Symbol.helpOutline == "questionmark.circle")
+        #expect(HelpButton.symbol == DS.Symbol.helpOutline)
+        #expect(HelpButton.font == DS.Font.caption)
+        // HierarchicalShapeStyle isn't Equatable; its description names the level.
+        #expect(String(describing: HelpButton.foreground) == String(describing: DS.Color.tertiary))
+        #expect(String(describing: HelpButton.foreground) != String(describing: HierarchicalShapeStyle.secondary))
+    }
+
+    @Test func helpButtonKeepsAccessibilityLabel() {
+        #expect(HelpButton.accessibilityLabel(rowLabel: "Messages") == "Help: Messages")
+    }
+
+    /// The style's cap height is its text style's, so the glyph centres on that label's capitals.
+    @Test func capHeightFollowsTheLabelStyle() {
+        #expect(DS.Font.capHeight(.heading) == DS.Font.headingCapHeight)
+        #expect(DS.Font.capHeight(.body) == NSFont.preferredFont(forTextStyle: .body).capHeight)
+        #expect(DS.Font.capHeight(.caption) < DS.Font.capHeight(.body))
+        #expect(EnvironmentValues().helpLabelStyle == .body)
     }
 
     @Test func disclosureValue() {

@@ -60,6 +60,9 @@ struct OwnerKeySection<Model: SettingsViewModel>: View {
                 Text("Not set up").foregroundStyle(DS.Color.secondary)
                 Button(OwnerKeyText.setUp) { model.setUpOwnerKey() }
             }
+        case .reading:
+            Label(OwnerKeyFlow.readingKeychain, systemImage: DS.Symbol.locked)
+                .foregroundStyle(DS.Color.secondary)
         case .waiting:
             Label("Waiting for Telegram", systemImage: DS.Symbol.ownerKey)
                 .foregroundStyle(DS.Color.secondary)
@@ -101,6 +104,7 @@ struct OwnerKeySection<Model: SettingsViewModel>: View {
                 Text("Code for this Mac").font(DS.Font.meta).foregroundStyle(DS.Color.secondary)
                 HelpButton(rowLabel: "Code", text: OwnerKeyText.codeHelp)
             }
+            .helpLabelStyle(.subheadline)
             Text(verbatim: OwnerKeyText.grouped(code))
                 .font(DS.Font.enrollCode)
                 .accessibilityLabel("Code " + code.map(String.init).joined(separator: " "))
@@ -143,6 +147,7 @@ struct OwnerKeySection<Model: SettingsViewModel>: View {
                     Text("Require the owner key")
                     HelpButton(rowLabel: "Require the owner key", text: OwnerKeyText.requireHelp)
                 }
+                .helpLabelStyle(.body)
                 if let note = OwnerKeyText.requireNote(required: required, offPending: model.requireOffPending,
                                                        canRequire: model.canRequireOwnerKey,
                                                        problem: model.requireProblem) {

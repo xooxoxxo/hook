@@ -1,8 +1,9 @@
 import RelayCore
 import SwiftUI
 
-/// Design/CrashBar: the last run crashed. A warning symbol, "Hook quit unexpectedly" with
-/// what is ready ("Last run · report ready, nothing sent"), then Not Now (borderless) and
+/// Design/CrashBar: the last run crashed, or something closed it. A warning symbol, "Hook quit
+/// unexpectedly" (or "Hook was closed: <cause>") with what is ready ("Last run · report ready,
+/// nothing sent"), then Not Now (borderless) and
 /// Review… (prominent, opens the send sheet). It docks above the status bar, and above the
 /// detail's bottom bars, the way the Undo bar does, and stays until it is answered.
 public struct CrashBar: View {
@@ -23,7 +24,8 @@ public struct CrashBar: View {
                 HStack(spacing: DS.Space.inline) {
                     Image(systemName: DS.Symbol.warning).foregroundStyle(DS.Color.warn)
                     VStack(alignment: .leading, spacing: DS.Space.barCaption) {
-                        Text(Self.title).font(DS.Font.prose)
+                        Text(Self.title(offer)).font(DS.Font.prose)
+                            .fixedSize(horizontal: false, vertical: true)
                         Text(Self.caption(offer)).font(DS.Font.caption).foregroundStyle(DS.Color.secondary)
                     }
                 }
@@ -46,16 +48,23 @@ public struct CrashBar: View {
     }
 
     public static let title = "Hook quit unexpectedly"
+
+    /// "Hook quit unexpectedly", or "Hook was closed: SIGTERM from launchd (pid 1)" when the
+    /// last run quit for a cause nobody expected.
+    public static func title(_ offer: CrashOffer) -> String {
+        offer.summary.closed.map { "Hook was closed: " + $0.text } ?? title
+    }
     public static let notNow = "Not Now"
     public static let review = "Review…"
     public static let notNowHelp = "Don't report this crash. Hook won't ask about it again."
     public static let reviewHelp = "See exactly what would be sent before anything leaves this Mac"
 
-    /// "Last run · report ready, nothing sent", or "… no crash report, log only" after a
-    /// hang, a force quit or a kill.
+    /// "Last run · report ready, nothing sent", "… no crash report, log only" after a hang, a
+    /// force quit or a kill, or "… log only, nothing sent" after something closed it.
     public static func caption(_ offer: CrashOffer) -> String {
-        "Last run · " + (offer.summary.report == nil ? "no crash report, log only" : "report ready, nothing sent")
+        if offer.summary.closed != nil { return "Last run · log only, nothing sent" }
+        return "Last run · " + (offer.summary.report == nil ? "no crash report, log only" : "report ready, nothing sent")
     }
 
-    public static func accessibilityText(_ offer: CrashOffer) -> String { title + ". " + caption(offer) }
+    public static func accessibilityText(_ offer: CrashOffer) -> String { title(offer) + ". " + caption(offer) }
 }

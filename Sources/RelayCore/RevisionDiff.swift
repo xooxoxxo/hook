@@ -205,7 +205,7 @@ public struct RevisionDiff: Equatable, Sendable {
          ("blocking", step.blocking == true ? "true" : nil), ("optional", step.optional == true ? "true" : nil),
          ("required", step.required == true ? "true" : nil),
          ("question.prompt", step.question?.prompt),
-         ("question.choices", step.question?.choices.map { $0.joined(separator: "\n") }),
+         ("question.choices", step.question?.choices.map { $0.map(\.diffText).joined(separator: "\n") }),
          ("question.multi", step.question?.multi == true ? "true" : nil)]
     }
 
@@ -225,7 +225,7 @@ public struct RevisionDiff: Equatable, Sendable {
         let names = Self.fields(Step(action: "")).map(\.0)
         let values: [String?] = ins.verify.map { Self.fields($0).map(\.1) } ?? Array(repeating: nil, count: names.count)
         fields += zip(names, values).map { ("verify." + $0, $1) }
-        fields += [("reply.prompt", ins.reply?.prompt), ("reply.choices", ins.reply?.choices.map { $0.joined(separator: "\n") })]
+        fields += [("reply.prompt", ins.reply?.prompt), ("reply.choices", ins.reply?.choices.map { $0.map(\.diffText).joined(separator: "\n") })]
         // The known values only, in the order the ask gives them.
         let done = (ins.done ?? []).filter { DoneRequirement(rawValue: $0) != nil }
         fields.append(("done", done.isEmpty ? nil : done.joined(separator: "\n")))

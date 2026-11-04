@@ -35,6 +35,7 @@ struct DetailReview: View {
                 Spacer(minLength: 0)
                 HelpButton(rowLabel: "Edit key", text: ReviewPage.editKeyHelp)
             }
+            .helpLabelStyle(.heading)
             Text(verbatim: page.since)
                 .font(DS.Font.prose)
                 .foregroundStyle(DS.Color.secondary)
@@ -161,15 +162,28 @@ struct DetailLockBar<Model: PanelViewModel>: View {
 
     var body: some View {
         ReviewBar(tone: bar.tone == .history ? .history : .correction, title: bar.title, detail: bar.detail,
-                  help: bar.tone == .history ? ReviewLockBar.historyHelp : ReviewLockBar.lockHelp) {
+                  help: Self.help(bar.tone)) {
             Button("Skip") { model.close(id, .declined) }
                 .help(ActionBar.skipHelp)
                 .keyboardShortcut(KeyboardShortcut(.delete, modifiers: .command))
             Spacer(minLength: DS.Space.inline)
-            Button(bar.action) {
-                if bar.tone == .history { model.trustHistoryAgain() } else { model.startReview(id) }
+            if let action = bar.action {
+                Button(action) {
+                    if bar.tone == .history { model.trustHistoryAgain() } else { model.startReview(id) }
+                }
+                .buttonStyle(.borderedProminent)
+            } else {
+                // Waiting for the Keychain: nothing to press until the records are read.
+                ProgressView().controlSize(DS.Control.inline).accessibilityLabel(bar.title)
             }
-            .buttonStyle(.borderedProminent)
+        }
+    }
+
+    static func help(_ tone: ReviewLockBar.Tone) -> String {
+        switch tone {
+        case .correction: return ReviewLockBar.lockHelp
+        case .history: return ReviewLockBar.historyHelp
+        case .keychain: return ReviewLockBar.keychainHelp
         }
     }
 }

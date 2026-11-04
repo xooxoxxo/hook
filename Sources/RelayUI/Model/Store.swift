@@ -27,6 +27,7 @@ public enum LinkCheck: Equatable, Sendable {
     /// A new detail also settles the answer drafts: one its events show as sent goes.
     @Published public internal(set) var details: [String: AskDetail] = [:] {
         didSet {
+            Self.bumpChanged(&detailVersions, old: oldValue, new: details)
             settleAnswerDrafts()
             settleDoneWarnings()
             queueInputChanged()
@@ -60,6 +61,12 @@ public enum LinkCheck: Equatable, Sendable {
     @Published public var pendingChoice: [String: Int] = [:] { didSet { settleDoneWarnings() } }
     /// Unsent step answers per ask, then step path. Memory only, like `drafts`: they don't survive a quit.
     @Published public var answerDrafts: [String: [String: AnswerDraft]] = [:] { didSet { settleDoneWarnings() } }
+    /// The owner's words under a choice that takes them (Pond 1.4.0), per ask, then key: a
+    /// step path or `replyWordsKey`. nil = untouched (the sent words stand). Memory only.
+    @Published public var choiceWords: [String: [String: String]] = [:] { didSet { settleDoneWarnings() } }
+    /// The key (`replyWordsKey` or a step path) of the open ask's words field that has the
+    /// keys: ⌘Return sends that choice with its words.
+    @Published public var choiceFocus: String?
     /// Asks whose bar shows the Done warning: Done was pressed with something unsent. Memory
     /// only; it ends on Esc, on either of its buttons, on leaving the ask, and once nothing
     /// is unsent any more (a Send in the ask, or answers arriving from elsewhere).
@@ -131,10 +138,23 @@ public enum LinkCheck: Equatable, Sendable {
     @Published public var reviewing: [String: RevisionStamp] = [:]
     /// Asks whose Use Version N is in flight (Touch ID, then the Pond call).
     @Published public internal(set) var accepting: Set<String> = []
-    /// Report a Problem's docked composer, by ask: the step path it reports on. Memory only.
+    /// Report a Problem's inline field, by ask: the step path it reports on. Memory only.
     @Published public var reporting: [String: String] = [:]
-    /// The composer's send state, by ask, while it isn't idle.
+    /// The field's send state, by ask, while it isn't idle.
     @Published public internal(set) var reportStates: [String: ReportBoxState] = [:]
+    /// The inline report field's text, by ask. Memory only; editing a refused note clears the refusal.
+    @Published public var reportDrafts: [String: String] = [:] {
+        didSet {
+            for (id, state) in reportStates where oldValue[id] != reportDrafts[id] {
+                if case .failed = state { reportStates[id] = nil }
+            }
+        }
+    }
+    /// Report text typed for a step the field has moved off, by ask, then by step path; it
+    /// comes back when Report opens on that step again. Memory only.
+    var reportStepDrafts: [String: [String: String]] = [:]
+    /// The ask whose inline report field has the keys: ⌘Return sends the report, never Done.
+    @Published public var reportFocus: String?
     /// A note sent before this Mac had an approved owner key, by ask: held in memory only,
     /// sent once the key is approved (`flushHeldReports`), dropped if the ask closes.
     var heldReports: [String: String] = [:]
@@ -166,6 +186,16 @@ public enum LinkCheck: Equatable, Sendable {
     var progressTimers: [String: Task<Void, Never>] = [:]
     /// The progress send in flight per ask, so Done's flush waits for it.
     var progressSends: [String: (token: UUID, task: Task<Void, Never>)] = [:]
+    /// Each ask's requirement state with the inputs it was built from (`requirementState`), so a
+    /// queue rebuild with nothing changed builds no model. Cleared on a source swap.
+    var requirementCache: [String: (inputs: RequirementInputs, state: RequirementState)] = [:]
+    /// The models `requirementState` built (`DetailModel.make`): for tests.
+    var requirementModelBuilds = 0
+    /// Bumped per ask each time its cached detail or verified history changes.
+    var detailVersions: [String: Int] = [:]
+    var historyVersions: [String: Int] = [:]
+    /// Done's sends waiting for the Pond's version (`waitForPond`), by token.
+    var pondWaiters: [UUID: (continuation: CheckedContinuation<Void, Never>, timeout: Task<Void, Never>)] = [:]
     /// Set by AppDelegate: the config note, presence and quit-time sends, for the status bar.
     @Published public var configNote: String?
     /// config.json's problem, from AppModel; the status bar shows it ("config.json has an error").
@@ -180,7 +210,7 @@ public enum LinkCheck: Equatable, Sendable {
     @Published public internal(set) var updating = false
     /// The last run crashed: the docked bar, until Not Now or a send (Store+Crash).
     @Published public internal(set) var crashOffer: CrashOffer?
-    /// Called with the signature once a crash is answered, so it isn't raised again.
+    /// Called with the crash's `handledKey` once it is answered, so it isn't raised again.
     public var onCrashHandled: (@MainActor (String) -> Void)?
     /// The send sheet (Review…), until it is sent or cancelled.
     @Published public internal(set) var crashSheet: CrashSheetModel?
@@ -292,7 +322,9 @@ public enum LinkCheck: Equatable, Sendable {
     /// the review code reads it: `listed`, `details` and `recentlyClosed` hold rendered copies.
     var served: [String: WireItem] = [:]
     /// Each revised ask's history: the fetched detail's, brought up to date by the list.
-    public internal(set) var histories: [String: Result<VerifiedHistory, HistoryProblem>] = [:]
+    public internal(set) var histories: [String: Result<VerifiedHistory, HistoryProblem>] = [:] {
+        didSet { Self.bumpChanged(&historyVersions, old: oldValue, new: histories) }
+    }
     var fetchedHistories: [String: Result<VerifiedHistory, HistoryProblem>] = [:]
     var listedHistories: [String: Result<VerifiedHistory, HistoryProblem>] = [:]
     /// The last body rendered from a verified revision, for a locked ask whose shown body
@@ -304,11 +336,17 @@ public enum LinkCheck: Equatable, Sendable {
     var sealKey: SymmetricKey?
     /// The Keychain refused the seal key: no records loaded, nothing written, corrected asks locked.
     public internal(set) var reviewsUnreadable = false
+    /// The seal key and the records are being read (`startLoadingReviews`); the Keychain may be
+    /// waiting on its prompt. Corrections are `waitingForKeychain` meanwhile.
+    public internal(set) var reviewsLoading = false
+    var reviewLoad: Task<Void, Never>?
     var reviewSaveScheduled = false
     /// A load problem to post once the first swap has cleared the Notice slot.
     var pendingReviewNotice: PanelNotice?
     /// The connected Pond's version (MailboxCheck.pond); nil until checked, and in This Mac mode.
-    public internal(set) var pond: PondVersion?
+    public internal(set) var pond: PondVersion? {
+        didSet { if pond != nil { resumePondWaiters() } }
+    }
     /// The review state each open ask's Notice was last posted for, so a poll doesn't repost it.
     var reviewNoticed: [String: ReviewState] = [:]
 
@@ -340,7 +378,7 @@ public enum LinkCheck: Equatable, Sendable {
             sourceKey: SourceKey.none, loadedOnce: false, reachable: false, problem: Store.noSourceProblem,
             waitedTenSeconds: false, manualRefreshing: false, updated: "")
         rebuildQueue()
-        loadReviews()
+        startLoadingReviews()
     }
 
     /// Swap: 1 bump the generation; 2 stop the poll or stream; 3 clear the
@@ -367,6 +405,8 @@ public enum LinkCheck: Equatable, Sendable {
         navigation = PanelNavigation(listSelection: PanelPrefs.selection(defaults, sourceKey: identity.key), selectedID: openID)
         reloadCheckID = openID
         failedCloses = [:]
+        requirementCache = [:]
+        resumePondWaiters()
         notice = nil
         if let pending = pendingReviewNotice {
             pendingReviewNotice = nil
@@ -852,6 +892,8 @@ public enum LinkCheck: Equatable, Sendable {
         if verdict == .done, isContentLocked(id) || !requirementsMet(id) { return }
         HookLog.action(verdict == .done ? .done : .skip)
         reviewing[id] = nil
+        // A new close replaces one whose send failed: the Notice's Retry must not send that too.
+        failedCloses[id] = nil
         let order = visibleOrder
         let inDetail = navigation.selectedID == id
         doneWarnings.remove(id)
@@ -1127,6 +1169,12 @@ public enum LinkCheck: Equatable, Sendable {
             // Ticks the Pond hasn't heard of go first (Pond 1.3.0), then a local acceptance the
             // Pond hasn't heard of, or the Done would be refused.
             if close.verdict == .done {
+                // Right after launch the version check may not have answered: ticks wait for it
+                // (a while), or the Pond would refuse the Done for ticks it never got.
+                if progressSupport == nil, progressOutbox[close.id] != nil {
+                    await waitForPond(timeout: .seconds(DS.Timing.pondWait))
+                    guard gen == generation else { return }
+                }
                 await flushProgress(close.id)
                 guard gen == generation else { return }
                 try await sendPendingAccept(close.id, via: source)
@@ -1147,12 +1195,14 @@ public enum LinkCheck: Equatable, Sendable {
             sending.remove(close.id)
             updateItems()
             publishState()
-            failedCloses[close.id] = close
+            // Kept only for the Retry of an `.actionFailed` Notice: a refusal has no Retry.
+            failedCloses[close.id] = nil
             if ownerKeyRefused(error) { return }
             if case QueueError.requirementsUnmet(let left)? = error as? QueueError {
                 await doneRefused(close, left: left, via: source, generation: gen)
                 return
             }
+            failedCloses[close.id] = close
             post(.actionFailed(verdict: close.verdict, id: close.id, title: close.title, reason: Self.failureReason(error)))
         }
     }
@@ -1217,13 +1267,47 @@ public enum LinkCheck: Equatable, Sendable {
         }
     }
 
+    /// The picked choice (or, with only new words typed, the sent one), with the words typed
+    /// under it when it takes them: "choice: Mix · words". Words over `AnswerDrafts.wordsLimit`
+    /// are refused and kept, the reason in the reply state.
     public func sendChoice(_ id: String) async -> Bool {
-        guard let index = pendingChoice[id], let choices = item(for: id)?.instructable?.reply?.choices,
-              choices.indices.contains(index), replyStates[id] != .sending, !isContentLocked(id) else { return false }
-        return await send(ReplyText.wire(choice: choices[index]), for: id) {
+        let spec = item(for: id)?.instructable?.reply
+        let choices = spec?.options ?? []
+        let index = pendingChoice[id] ?? (replyHasNewWords(id) ? latestSentChoice(for: id) : nil)
+        guard let index, choices.indices.contains(index), replyStates[id] != .sending, !isContentLocked(id) else {
+            return false
+        }
+        let words = ReplyText.words(typed: choiceWords[id]?[Self.replyWordsKey], choice: index,
+                                    sentWords: replySentWords(id), spec: spec)
+        if let words, let over = AnswerDrafts.wordsOver(words) {
+            replyStates[id] = .failed(reason: over)
+            return false
+        }
+        return await send(ReplyText.wire(choice: choices[index], words: words), for: id) {
             self.pendingChoice[id] = nil
+            self.setWords(id, key: Self.replyWordsKey, nil)
             self.editingReply.remove(id)
         }
+    }
+
+    /// The words sent with the latest choice reply.
+    func replySentWords(_ id: String) -> String? {
+        guard let choices = item(for: id)?.instructable?.reply?.options else { return nil }
+        return ReplyText.latestSentWords(events: details[id]?.events ?? [], choices: choices)
+    }
+
+    /// The words under the reply's sent choice differ from those sent with it.
+    func replyHasNewWords(_ id: String) -> Bool {
+        ReplyText.hasNewWords(typed: choiceWords[id]?[Self.replyWordsKey], choice: pendingChoice[id],
+                              sent: latestSentChoice(for: id), sentWords: replySentWords(id),
+                              spec: item(for: id)?.instructable?.reply)
+    }
+
+    /// Sets (nil: drops) one key's words, dropping the ask's entry once empty.
+    func setWords(_ id: String, key: String, _ text: String?) {
+        var words = choiceWords[id] ?? [:]
+        words[key] = text
+        choiceWords[id] = words.isEmpty ? nil : words
     }
 
     /// Done (the button or ⌘↩, in the detail or the queue): closes when nothing is unsent,
@@ -1255,6 +1339,7 @@ public enum LinkCheck: Equatable, Sendable {
         drafts[id] = nil
         pendingChoice[id] = nil
         answerDrafts[id] = nil
+        choiceWords[id] = nil
         answerStates[id] = nil
         editingReply.remove(id)
         editingAnswers[id] = nil
@@ -1284,7 +1369,8 @@ public enum LinkCheck: Equatable, Sendable {
             guard await sendAnswers(id) else { return }
         }
         if Flow.primaryAction(draft: drafts[id], choice: pendingChoice[id], sent: latestSentChoice(for: id),
-                              sentText: AnswerEditing.latestText(replyLines(for: id))) == .sendAndDone {
+                              sentText: AnswerEditing.latestText(replyLines(for: id)),
+                              newWords: replyHasNewWords(id)) == .sendAndDone {
             let hasText = AnswerEditing.isNewText(drafts[id] ?? "", sentText: AnswerEditing.latestText(replyLines(for: id)))
             let sent = hasText ? await sendReply(id) : await sendChoice(id)
             guard sent else { return }
@@ -1300,10 +1386,16 @@ public enum LinkCheck: Equatable, Sendable {
     /// order, leaving out locked steps (Flow.lockedPaths). `only` limits it to those paths
     /// (one question's own Send). None while the ask is closed (R5).
     public func unsentAnswers(for id: String, only: Set<String>? = nil) -> UnsentAnswers {
-        guard let drafts = answerDrafts[id], !drafts.isEmpty, let item = item(for: id), item.status == "open",
+        let drafts = answerDrafts[id] ?? [:], words = stepWords(id)
+        guard !drafts.isEmpty || !words.isEmpty, let item = item(for: id), item.status == "open",
               let nodes = nodes(for: id) else { return .none }
         let locked = Set(Flow.lockedPaths(nodes: nodes, ticks: ticks(for: id)))
-        return AnswerDrafts.unsent(drafts, nodes: nodes, locked: locked, only: only)
+        return AnswerDrafts.unsent(drafts, nodes: nodes, locked: locked, only: only, words: words)
+    }
+
+    /// The words typed under the ask's step questions, by path (the reply's left out).
+    func stepWords(_ id: String) -> [String: String] {
+        (choiceWords[id] ?? [:]).filter { $0.key != Self.replyWordsKey }
     }
 
     /// Sends the unsent answers (or only those at `only`) as one batch, then reloads the ask
@@ -1317,7 +1409,15 @@ public enum LinkCheck: Equatable, Sendable {
             answerStates[id] = .failed(reason: AnswerDrafts.failureText(QueueError.unreachable(Self.noSourceProblem)))
             return false
         }
-        let sent = answerDrafts[id] ?? [:]
+        // Words past the cap are refused here, kept, and the reason shown; nothing goes.
+        for entry in unsent.batch {
+            if case .string(let words)? = entry["picked"] == nil ? nil : entry["text"],
+               let over = AnswerDrafts.wordsOver(words) {
+                answerStates[id] = .failed(reason: over)
+                return false
+            }
+        }
+        let sent = answerDrafts[id] ?? [:], sentWords = stepWords(id)
         answerStates[id] = .sending
         let gen = generation
         do {
@@ -1334,6 +1434,7 @@ public enum LinkCheck: Equatable, Sendable {
                 for path in unsent.paths where drafts[path] == sent[path] { drafts[path] = nil }
                 answerDrafts[id] = drafts.isEmpty ? nil : drafts
             }
+            for path in unsent.paths where choiceWords[id]?[path] == sentWords[path] { setWords(id, key: path, nil) }
             if var editing = editingAnswers[id] {
                 editing.subtract(unsent.paths)
                 editingAnswers[id] = editing.isEmpty ? nil : editing
@@ -1356,7 +1457,8 @@ public enum LinkCheck: Equatable, Sendable {
         for (id, drafts) in answerDrafts {
             guard let detail = details[id] else { continue }
             let kept = AnswerDrafts.settled(drafts, nodes: DetailModel.make(
-                item: detail.item, events: detail.events, history: try? histories[id]?.get()).nodes)
+                item: detail.item, events: detail.events, history: try? histories[id]?.get()).nodes,
+                words: stepWords(id))
             next[id] = kept.isEmpty ? nil : kept
         }
         if next != answerDrafts { answerDrafts = next }
@@ -1392,7 +1494,8 @@ public enum LinkCheck: Equatable, Sendable {
 
     public func primaryAction(for id: String) -> PrimaryAction {
         Flow.primaryAction(draft: drafts[id], choice: pendingChoice[id], sent: latestSentChoice(for: id),
-                           unsentAnswers: unsentAnswers(for: id).count, sentText: AnswerEditing.latestText(replyLines(for: id)))
+                           unsentAnswers: unsentAnswers(for: id).count, sentText: AnswerEditing.latestText(replyLines(for: id)),
+                           newWords: replyHasNewWords(id))
     }
 
     public func replyLines(for id: String) -> [ReplyLine] {
@@ -1400,7 +1503,7 @@ public enum LinkCheck: Equatable, Sendable {
     }
 
     public func latestSentChoice(for id: String) -> Int? {
-        guard let choices = item(for: id)?.instructable?.reply?.choices else { return nil }
+        guard let choices = item(for: id)?.instructable?.reply?.options else { return nil }
         return ReplyText.latestSentChoice(events: details[id]?.events ?? [], choices: choices)
     }
 
@@ -1484,7 +1587,7 @@ public enum LinkCheck: Equatable, Sendable {
         for id in editingReply {
             let before = details[id]?.events ?? [], after = next[id]?.events ?? []
             guard before != after else { continue }
-            let choices = item(for: id)?.instructable?.reply?.choices ?? []
+            let choices = item(for: id)?.instructable?.reply?.options ?? []
             guard AnswerEditing.changeWentStale(before: ReplyText.lines(events: before),
                                                 after: ReplyText.lines(events: after),
                                                 draft: drafts[id], pick: pendingChoice[id],
@@ -1493,6 +1596,7 @@ public enum LinkCheck: Equatable, Sendable {
             editingReply.remove(id)
             drafts[id] = nil
             pendingChoice[id] = nil
+            setWords(id, key: Self.replyWordsKey, nil)
         }
     }
 
@@ -1572,17 +1676,19 @@ extension Store: PanelViewModel {
         var snapshot = DetailSnapshot.build(
             item: item, detail: details[id], ticks: ticks(for: id), load: load, reply: replyStates[id] ?? .idle,
             draft: drafts[id], pendingChoice: pendingChoice[id], busy: replyStates[id] == .sending, previous: previous, next: next,
-            closedBy: closedBy(item), answerDrafts: answerDrafts[id] ?? [:], answerState: answerStates[id],
+            closedBy: closedBy(item), answerDrafts: answerDrafts[id] ?? [:], choiceWords: choiceWords[id] ?? [:],
+            answerState: answerStates[id],
             doneWarning: doneWarnings.contains(id), review: review, stamp: stamp,
             history: try? histories[id]?.get(), chips: chips(id, review: review), reported: reported(id),
             addedSinceShown: addedSinceShown(id, review: review))
         snapshot.canMessage = talk.messages
+        snapshot.limits = talk.limits
         snapshot.message = messageStates[id] ?? .idle
         snapshot.canReport = canReport(id)
         if snapshot.canReport, let target = reporting[id] {
             snapshot.reportTarget = target
             snapshot.report = reportStates[id] ?? .idle
-            // Read only while the composer is open: the check reads the Keychain.
+            // Read only while the composer is open.
             snapshot.ownerKeyReady = ownerKeyApproved(sourceKey, identity.mailbox?.url)
         }
         return snapshot
@@ -1612,7 +1718,9 @@ extension Store: PanelViewModel {
             doneWarning: opened.map { doneWarnings.contains($0.id) && primaryAction(for: $0.id) == .sendAndDone } ?? false,
             hasReplyPrompt: opened?.instructable?.reply != nil,
             canMessage: opened.map { canMessage($0.id) } ?? false,
-            messageFieldFocused: textFieldFocused && opened != nil && messageFocus == opened?.id)
+            messageFieldFocused: textFieldFocused && opened != nil && messageFocus == opened?.id,
+            reportFieldFocused: textFieldFocused && opened.map { reportFocus == $0.id && reporting[$0.id] != nil } ?? false,
+            choiceWordsFocused: textFieldFocused && opened != nil && choiceFocus != nil)
     }
 
     /// The ask a key acts on: the open detail, else the selected row.
@@ -1663,6 +1771,10 @@ extension Store: PanelViewModel {
         case .sendAnswers: if let id = navigation.selectedID { sendAnswers(id) }
         case .focusMessage: if let id = navigation.selectedID, canMessage(id) { messageFocus = id }
         case .sendMessage: if let id = navigation.selectedID { sendMessage(id, text: messageDrafts[id] ?? "") }
+        case .sendReport: if let id = navigation.selectedID { sendReport(id, note: reportDrafts[id] ?? "") }
+        case .sendChoiceWords:
+            guard let id = navigation.selectedID, let key = choiceFocus else { return }
+            if key == Self.replyWordsKey { sendChoice(id) } else { sendAnswer(id, path: key) }
         }
     }
 
@@ -1678,7 +1790,7 @@ extension Store: PanelViewModel {
     public func sendReply(_ id: String) { Task { _ = await sendReply(id) } }
     public func sendChoice(_ id: String) { Task { _ = await sendChoice(id) } }
     public func sendAndDone(_ id: String) { Task { await sendAndDone(id) } }
-    public func sendAnswers(_ id: String) { Task { _ = await sendAnswers(id) } }
+    public func sendAnswers(_ id: String) { Task { _ = await sendAnswers(id, only: nil) } }
     public func sendAnswer(_ id: String, path: String) { Task { _ = await sendAnswers(id, only: [path]) } }
     public func performNoticeAction() { Task { await performNoticeAction() } }
     /// Use Version N from the inline review: on success the review ends.

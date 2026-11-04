@@ -67,6 +67,46 @@ private func event(_ seq: Int, _ text: String?, kind: String = "answer", actor: 
             == .success([#"{"step":"2","picked":["Logs","Traces"]}"#, #"{"step":"3","text":"EU / west"}"#]))
     }
 
+    /// Pond 1.4.0: the owner's words beside a single pick of a choice that takes them.
+    @Test func wordsOnWordChoice() throws {
+        let vectors = try ChoiceVectors.load()
+        let instructable = try vectors.posted("choice-post")
+        let request = try #require(vectors.cases["choice-answer-words"]).request["body"]?["answers"]
+        #expect(Answers.validate(instructable, try #require(request)) == .success(
+            [#"{"step":"2","picked":["Mix"],"text":"Staff on Monday, the rest on Wednesday"}"#]))
+        #expect(Answers.validate(instructable, .array([Answers.entry(step: "2", picked: ["Mix"], words: "Staff first")]))
+            == .success([#"{"step":"2","picked":["Mix"],"text":"Staff first"}"#]))
+        // No words, or blank ones, send the pick alone.
+        #expect(Answers.entry(step: "2", picked: ["Mix"], words: "  ") == Answers.entry(step: "2", picked: ["Mix"]))
+        #expect(Answers.validate(instructable, .array([Answers.entry(step: "2", picked: ["Mix"])]))
+            == .success([#"{"step":"2","picked":["Mix"]}"#]))
+        let long = try #require(vectors.cases["choice-answer-words-too-long"])
+        #expect(Answers.validate(instructable, try #require(long.request["body"]?["answers"]))
+            == .failure(ValidationFailure(errors: ["answers[0].text: longer than 1000 characters"])))
+        let secret: JSONValue = .array([Answers.entry(step: "2", picked: ["Mix"], words: "sk-ant-abc")])
+        #expect(Answers.validate(instructable, secret) == .failure(ValidationFailure(errors: ["answers[0].text: secret-like value"])))
+    }
+
+    @Test func wordsRefusedOnPlainChoice() throws {
+        let vectors = try ChoiceVectors.load()
+        let instructable = try vectors.posted("choice-post")
+        let plain = try #require(vectors.cases["choice-answer-words-on-plain"])
+        #expect(Answers.validate(instructable, try #require(plain.request["body"]?["answers"]))
+            == .failure(ValidationFailure(errors: ["answers[0].text: this choice takes no words"])))
+        // A question with no word choice keeps the 1.3.0 words.
+        let (shared, _) = try loadAnswerVectors()
+        let batch: JSONValue = .array([.object(["step": .string("2"), "picked": .array([.string("Logs")]),
+                                                "text": .string("x")])])
+        #expect(Answers.validate(shared, batch) == .failure(ValidationFailure(errors: ["answers[0].text: this question takes picks"])))
+    }
+
+    /// The latest answer keeps the words beside the pick.
+    @Test func latestKeepsWordsBesideThePick() {
+        let answers = Answers.latest([event(1, #"{"step":"2","id":"s2","picked":["Mix"],"text":"Staff on Monday"}"#)])
+        #expect(answers["2"]?.picked == ["Mix"])
+        #expect(answers["2"]?.text == "Staff on Monday")
+    }
+
     @Test func latestAnswerWinsBySeq() {
         let events = [
             event(5, #"{"step":"1","picked":["Prod"]}"#),

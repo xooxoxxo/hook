@@ -18,6 +18,8 @@ extension DS {
         /// Body text: the stock body style one point up, for reading.
         public static var textSize: CGFloat { NSFont.preferredFont(forTextStyle: .body).pointSize + 1 }
         public static var codeSize: CGFloat { NSFont.preferredFont(forTextStyle: .callout).pointSize }
+        /// The front matter strip: the stock caption style one point up, like the body.
+        public static var captionSize: CGFloat { NSFont.preferredFont(forTextStyle: .caption1).pointSize + 1 }
         /// The quote bar and the rule under a large heading.
         public static let quoteBar: CGFloat = 3
         public static let hairline: CGFloat = 1
@@ -102,6 +104,25 @@ extension DS {
             .hook-blocked { color: var(--blocked); font-size: 0.9em; }
             pre.plain { background: none; padding: 0; white-space: pre-wrap; overflow-wrap: anywhere;
               font-size: \(codeSize)px; }
+            .front { max-width: \(measure)px; margin: 0 auto 1.2em; font-size: \(captionSize)px;
+              line-height: 1.6; color: var(--secondary); }
+            .front summary { list-style: none; cursor: default; }
+            .front summary::-webkit-details-marker { display: none; }
+            .front-line { display: flex; align-items: baseline; gap: 0.6em; white-space: nowrap; }
+            .front-items { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+            .front-chip { background: var(--code-fill); border-radius: \(radius)px; padding: 0.05em 0.5em; }
+            .front-chip + .front-item { margin-left: 0.4em; }
+            .front-item + .front-item::before { content: "· "; }
+            .front-key { opacity: 0.75; }
+            .front-more { flex: none; }
+            .front-more::before { content: "\\25B8\\00A0"; }
+            .front[open] .front-more::before { content: "\\25BE\\00A0"; }
+            .front dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.15em 1em; margin: 0.4em 0 0; }
+            .front dt { opacity: 0.75; }
+            .front dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+            .front-raw summary { list-style: revert; }
+            .front-raw summary::-webkit-details-marker { display: revert; }
+            .front-raw pre { font-size: \(captionSize)px; margin: 0.4em 0 0; white-space: pre-wrap; }
             """
         }
     }

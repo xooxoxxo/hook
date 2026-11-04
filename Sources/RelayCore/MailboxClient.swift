@@ -52,10 +52,11 @@ final class NoRedirectDelegate: NSObject, URLSessionTaskDelegate, Sendable {
 /// The mailbox service as a `QueueSource`. The token is read from the token file
 /// on every request, so it is never kept in memory longer than one call; so is the owner key.
 public struct MailboxClient: QueueSource {
-    /// What every request says this client reads: revision histories (Pond 1.1.0). Without
-    /// it a corrected ask is served as a stub.
+    /// What every request says this client reads: revision histories (Pond 1.1.0; without it a
+    /// corrected ask is served as a stub), and from 6 choice objects (Pond 1.4.0; below 6 an ask
+    /// with one is served with labels only).
     public static let protocolHeader = "X-Hook-Protocol"
-    public static let clientProtocol = "5"
+    public static let clientProtocol = "6"
     /// The owner key's header, sent on owner acts while this Mac's key is approved.
     public static let ownerKeyHeader = "X-Hook-Owner-Key"
 
@@ -64,10 +65,12 @@ public struct MailboxClient: QueueSource {
     /// This client's last logged failure, so a Pond that stays down is logged once, not on every poll.
     private let failures = FailureLog()
     /// Read on each owner act, never stored: it returns this Mac's key only while the Pond
-    /// has approved it (`OwnerKeyVault.approvedKey`).
-    private let ownerKey: (@Sendable () -> String?)?
+    /// has approved it (`OwnerKeyVault.approvedKey`). Async: it reads the Keychain on
+    /// `KeychainQueue`, which may be waiting on a prompt.
+    private let ownerKey: (@Sendable () async -> String?)?
 
-    public init(settings: MailboxSettings, session: URLSession = .shared, ownerKey: (@Sendable () -> String?)? = nil) {
+    public init(settings: MailboxSettings, session: URLSession = .shared,
+                ownerKey: (@Sendable () async -> String?)? = nil) {
         self.settings = settings
         self.session = session
         self.ownerKey = ownerKey
@@ -373,7 +376,7 @@ public struct MailboxClient: QueueSource {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue(Self.clientProtocol, forHTTPHeaderField: Self.protocolHeader)
         // Never over plain http to another host, whatever the provider says.
-        if owner, OwnerKey.mayCarry(url), let key = ownerKey?() {
+        if owner, OwnerKey.mayCarry(url), let key = await ownerKey?() {
             request.setValue(key, forHTTPHeaderField: Self.ownerKeyHeader)
         }
         if let body {

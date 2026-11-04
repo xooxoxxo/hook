@@ -131,6 +131,61 @@ import UniformTypeIdentifiers
         #expect(!view.webView.configuration.defaultWebpagePreferences.allowsContentJavaScript)
     }
 
+    /// A Markdown file's front matter is a quiet strip above the document, never body text:
+    /// tags as chips, created and status inline, the rest behind "N more"; all escaped.
+    @Test func frontMatterBecomesTheStrip() throws {
+        let text = "---\ntags: [spec, \"<b>x</b>\"]\ncreated: 2026-11-04\nstatus: draft\nowner: me\nrelated: y\n---\n# Plan\n"
+        let html = DocumentPage.html(text: text, kind: .markdown, title: "plan.md", stylesheet: "")
+        #expect(html.contains("<pre id=\"hook-source\" hidden># Plan\n</pre>"))
+        #expect(html.contains("<details class=\"front\">"))
+        #expect(!html.contains("<details class=\"front\" open"))
+        #expect(html.contains("<span class=\"front-chip\">spec</span>"))
+        #expect(html.contains("<span class=\"front-chip\">&lt;b&gt;x&lt;/b&gt;</span>"))
+        #expect(html.contains("<span class=\"front-key\">created</span> 2026-11-04"))
+        #expect(html.contains("<span class=\"front-key\">status</span> draft"))
+        #expect(html.contains("<span class=\"front-more\">2 more</span>"))
+        #expect(html.contains("<dt>owner</dt><dd>me</dd>"))
+        // The strip sits before the document, outside what viewer.js replaces.
+        let strip = try #require(html.range(of: "class=\"front\""))
+        let main = try #require(html.range(of: "<main id=\"hook-doc\">"))
+        #expect(strip.lowerBound < main.lowerBound)
+    }
+
+    /// Only the inline keys: one line, no disclosure.
+    @Test func frontMatterWithoutMoreHasNoDisclosure() {
+        let html = DocumentPage.html(text: "---\ntags: a\nstatus: ok\n---\nbody", kind: .markdown, title: "t.md",
+                                     stylesheet: "")
+        #expect(html.contains("<div class=\"front\">"))
+        #expect(!html.contains("<details class=\"front\""))
+        #expect(!html.contains("front-more"))
+    }
+
+    @Test func malformedFrontMatterIsACollapsedRawBlock() {
+        let html = DocumentPage.html(text: "---\ntags: [a\n<oops>\n---\nbody", kind: .markdown, title: "t.md",
+                                     stylesheet: "")
+        #expect(html.contains("<details class=\"front front-raw\"><summary>\(DocumentPage.rawFrontMatterTitle)</summary>"))
+        #expect(html.contains("<pre>tags: [a\n&lt;oops&gt;</pre>"))
+        #expect(html.contains("<pre id=\"hook-source\" hidden>body</pre>"))
+    }
+
+    @Test func noFrontMatterNoStrip() {
+        for kind in [DocumentKind.markdown, .plain] {
+            let html = DocumentPage.html(text: "# Plan\n\n---\nx", kind: kind, title: "t.md", stylesheet: "")
+            #expect(!html.contains("class=\"front"), "\(kind)")
+        }
+        // A plain file keeps its text as it is, dashes and all.
+        let plain = DocumentPage.html(text: "---\ntags: a\n---\nx", kind: .plain, title: "t.txt", stylesheet: "")
+        #expect(plain.contains("<pre class=\"plain\">---\ntags: a\n---\nx</pre>"))
+        #expect(!plain.contains("class=\"front"))
+    }
+
+    @Test func theStylesheetStylesTheStrip() {
+        let css = DS.Viewer.stylesheet()
+        #expect(css.contains(".front {"))
+        #expect(css.contains(".front-line {"))
+        #expect(css.contains("white-space: nowrap"))
+    }
+
     @Test func theStylesheetHasBothAppearances() {
         let css = DS.Viewer.stylesheet()
         #expect(css.contains("prefers-color-scheme: dark"))

@@ -97,8 +97,8 @@ public struct AskRow: View, Equatable {
                 Image(systemName: DS.Symbol.draft).help("Unsent reply")
             }
             if let label = Self.reviewLabel(row) {
-                Label(label, systemImage: row.historyChanged ? DS.Symbol.historyChanged : DS.Symbol.correctedRow)
-                    .foregroundStyle(row.historyChanged ? DS.Color.error : DS.Color.warn)
+                Label(label, systemImage: Self.reviewSymbol(row))
+                    .foregroundStyle(row.historyChanged ? DS.Color.error : row.waitingForKeychain ? DS.Color.secondary : DS.Color.warn)
                     .lineLimit(1)
                     .fixedSize()
             }
@@ -134,10 +134,19 @@ public struct AskRow: View, Equatable {
         return parts.joined(separator: ". ")
     }
 
-    /// "Corrected" while a correction waits for review, "Check history" when the history failed.
+    /// "Corrected" while a correction waits for review, "Check history" when the history failed,
+    /// "Waiting for Keychain access" while the review records are still being read.
     public static func reviewLabel(_ row: AskRowModel) -> String? {
         if row.historyChanged { return "Check history" }
+        if row.waitingForKeychain { return keychainLabel }
         return row.corrected ? "Corrected" : nil
+    }
+
+    public static let keychainLabel = "Waiting for Keychain access"
+
+    static func reviewSymbol(_ row: AskRowModel) -> String {
+        if row.historyChanged { return DS.Symbol.historyChanged }
+        return row.waitingForKeychain ? DS.Symbol.locked : DS.Symbol.correctedRow
     }
 
     public static func titleHelp(_ title: String) -> String? { title.count > 70 ? line(title) : nil }

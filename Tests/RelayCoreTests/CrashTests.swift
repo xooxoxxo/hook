@@ -316,7 +316,7 @@ private func marker(pid: Int32 = 4242, version: String = "0.11.0", clean: Bool =
 
     @Test func aHandledSignatureIsRaisedOnce() {
         var handled = HandledCrashes()
-        handled.add(s.signature)
+        handled.add(s.handledKey)
         #expect(CrashDecision.decide(s, setting: .ask, target: .github, pondOffered: false, handled: handled) == .ignore)
     }
 

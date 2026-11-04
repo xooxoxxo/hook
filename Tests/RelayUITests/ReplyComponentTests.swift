@@ -1,8 +1,34 @@
 import RelayCore
+import SwiftUI
 import Testing
 @testable import RelayUI
 
 @Suite @MainActor struct ReplyComponentTests {
+    /// Direction A: the words field opens under the selected choice, only when that choice takes words.
+    @Test func fieldOnlyUnderSelectedWordChoice() {
+        let placeholders: [String?] = ["What should change?", nil, "Why?"]
+        #expect(OptionRows.fieldIndex(selected: [], placeholders: placeholders, multi: false) == nil)
+        #expect(OptionRows.fieldIndex(selected: [0], placeholders: placeholders, multi: false) == 0)
+        #expect(OptionRows.fieldIndex(selected: [1], placeholders: placeholders, multi: false) == nil)
+        #expect(OptionRows.fieldIndex(selected: [2], placeholders: placeholders, multi: false) == 2)
+        #expect(OptionRows.fieldIndex(selected: [0], placeholders: [], multi: false) == nil)
+        #expect(OptionRows.fieldIndex(selected: [0], placeholders: placeholders, multi: true) == nil)
+        #expect(OptionRows.fieldIndex(selected: [5], placeholders: placeholders, multi: false) == nil)
+    }
+
+    /// A question with a word choice is always option rows, never segments.
+    @Test func segmentedFallsBackWithWords() {
+        #expect(!AnswerDrafts.usesSegments(Question(prompt: "?", choices: [Choice("Mix", text: "What?"), "Keep"])))
+        #expect(AnswerDrafts.usesSegments(Question(prompt: "?", choices: ["Mix", "Keep"])))
+    }
+
+    @Test func choiceSendsWithNewWords() {
+        #expect(ChoiceGroup.canSend(picked: 0, latestSent: 0, sending: false, newWords: true))
+        #expect(!ChoiceGroup.canSend(picked: 0, latestSent: 0, sending: true, newWords: true))
+        #expect(ChoiceGroup.canSend(picked: nil, latestSent: 0, sending: false, newWords: true))
+        #expect(!ChoiceGroup.canSend(picked: nil, latestSent: nil, sending: false, newWords: true))
+    }
+
     @Test func captions() {
         #expect(ReplyBox.caption(.idle) == "Return to send · ⌥Return for a new line")
         #expect(ReplyBox.caption(.sending) == "Return to send · ⌥Return for a new line")
@@ -53,5 +79,23 @@ import Testing
         #expect(DetailReply<FixturePanelModel>.historyTitle(earlier: 3) == "History · 3 earlier replies")
         #expect(!ReplyBox.canSend(text: "Kestrel 2.4", state: .idle, sentText: "Kestrel 2.4"))
         #expect(ReplyBox.canSend(text: "Kestrel 2.5", state: .idle, sentText: "Kestrel 2.4"))
+    }
+}
+
+@Suite @MainActor struct QuestionWordsTests {
+    /// Words past the cap under the picked word choice keep the question's Send off.
+    @Test func sendIsOffOverTheWordsCap() {
+        let question = Question(prompt: "How?", choices: [Choice("Mix", text: "What?"), "Keep"])
+        var long = String(repeating: "a", count: 1001)
+        let words = Binding(get: { long }, set: { long = $0 })
+        let draft = Binding<AnswerDraft?>(get: { .picked(["Mix"]) }, set: { _ in })
+        let over = StepQuestion(question: question, answer: nil, draft: draft, readOnly: false,
+                                typedWords: long, words: words)
+        #expect(over.wordsOver)
+        #expect(!over.canSend)
+        let keep = StepQuestion(question: question, answer: nil, draft: Binding(get: { .picked(["Keep"]) }, set: { _ in }),
+                                readOnly: false, typedWords: long, words: words)
+        #expect(!keep.wordsOver)
+        #expect(keep.canSend)
     }
 }

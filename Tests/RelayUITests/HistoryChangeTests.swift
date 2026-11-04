@@ -6,7 +6,7 @@ import Testing
 /// Stubs, rollbacks and old Ponds on a pinned ask, and "Trust the Pond's History Again" (Task 3.10).
 @Suite @MainActor struct HistoryChangeTests {
     private func pinnedRev2(_ defaults: TestDefaults, recorder: ShellRecorder) async -> (Store, FakeQueueSource, AskDetail) {
-        let store = reviewingStore(defaults)
+        let store = await reviewingStore(defaults)
         store.shell = recorder.shell
         let two = revised("a", [idSteps(3), idSteps(4)])
         let fake = FakeQueueSource(items: [two.item], details: ["a": two.detail])
@@ -50,7 +50,7 @@ import Testing
 
     /// A rev-1 ask (never corrected), seen and pinned on a Pond that serves revisions.
     private func pinnedRev1(_ defaults: TestDefaults, recorder: ShellRecorder) async -> (Store, FakeQueueSource, AskDetail) {
-        let store = reviewingStore(defaults)
+        let store = await reviewingStore(defaults)
         store.shell = recorder.shell
         let one = revised("a", [idSteps(3)])
         let fake = FakeQueueSource(items: [one.item], details: ["a": one.detail])
@@ -159,7 +159,7 @@ import Testing
         let defaults = TestDefaults()
         defer { defaults.drop() }
         let clock = TestClock()
-        let store = reviewingStore(defaults, now: { clock.now })
+        let store = await reviewingStore(defaults, now: { clock.now })
         let two = revised("a", [idSteps(3), idSteps(4)])
         let other = revised("b", [idSteps(2, id: "b")])
         let fake = FakeQueueSource(items: [two.item, other.item], details: ["a": two.detail])
@@ -184,7 +184,7 @@ import Testing
         let defaults = TestDefaults()
         defer { defaults.drop() }
         let clock = TestClock()
-        let store = reviewingStore(defaults, now: { clock.now })
+        let store = await reviewingStore(defaults, now: { clock.now })
         let two = revised("a", [idSteps(3), idSteps(4)])
         let other = revised("b", [idSteps(2, id: "b")])
         let fake = FakeQueueSource(items: [two.item, other.item], details: ["a": two.detail])
@@ -207,7 +207,7 @@ import Testing
         let defaults = TestDefaults()
         defer { defaults.drop() }
         let recorder = ShellRecorder()
-        let store = reviewingStore(defaults)
+        let store = await reviewingStore(defaults)
         store.shell = recorder.shell
         let a = revised("a", [idSteps(3), idSteps(4)])
         let b = revised("b", [idSteps(3, id: "b"), idSteps(4, id: "b")])
@@ -235,7 +235,7 @@ import Testing
     @Test func aCorrectionAfterTheOwnerSawTheAskPostsTheCorrectedNoticeOnce() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }
-        let store = reviewingStore(defaults)
+        let store = await reviewingStore(defaults)
         let one = revised("a", [idSteps(3)])
         let fake = FakeQueueSource(items: [one.item], details: ["a": one.detail])
         await start(store, fake)

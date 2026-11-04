@@ -202,6 +202,14 @@ struct PrivacySection<Model: SettingsViewModel>: View {
                 IconButton(DS.Symbol.reveal, label: "Show in Finder",
                            help: "Show the activity log in Finder") { model.perform(.showLogInFinder) }
             }
+            SettingsRow("Diagnostics", help: GeneralHelp.diagnostics) {
+                Text(privacy.diagnostics.text).foregroundStyle(DS.Color.secondary)
+                    .lineLimit(1).truncationMode(.middle)
+            } accessory: {
+                IconButton(DS.Symbol.saveDiagnostics, label: GeneralHelp.saveDiagnosticsLabel,
+                           help: GeneralHelp.saveDiagnosticsHelp) { model.perform(.saveDiagnostics) }
+                    .disabled(privacy.diagnostics.collecting)
+            }
         }
         .environment(\.settingsSection, "Privacy")
         .disabled(model.settings.readOnly)
@@ -213,6 +221,13 @@ public enum GeneralHelp {
     public static let crashReports = "After Hook quits unexpectedly, it offers to send a redacted summary at the next launch: the Hook and macOS versions, the CPU type, the exception and Hook's own frames, and the last 40 lines of the activity log. Ask Each Time shows you exactly what goes out first. Send Automatically sends to your own Pond without asking; GitHub always waits for you to submit the issue yourself. Off sends nothing and shows nothing."
     public static let sendTo = "GitHub opens a prefilled issue in your browser for you to review and submit; before that, Hook only searches for an existing issue by the crash's signature, a short hash. My Pond files the report as a Hook bug on your Pond, without a Telegram message. It's offered once this Mac's owner key is approved."
     public static let activityLog = "Hook keeps a small activity log in ~/Library/Logs/Hook: launches and quits with their versions, the screens you open, actions by name (Done, Skip, Reply), the queue source and the Pond's version, and errors with a redacted message (for a failed Pond request, its HTTP status and route, such as asks/{id}/reply). It never records ask ids, titles, steps, replies, notes, file paths inside asks, tokens, the owner key or the Pond's address. It rolls over at 512 KB and stays under 1 MB. It stays on this Mac unless you send a crash report."
+    public static let diagnostics = "Save Diagnostics… writes one text file to attach to an issue when Hook closes "
+        + "and you can't tell why: the Hook and macOS versions, the copies of Hook on this Mac, the LaunchAgent's state, "
+        + "how the last runs ended, the end of the activity and update logs, the names of Hook's crash files, and the "
+        + "last 2 hours of system log lines about Hook. Your home folder shows as ~, your user name as <user>, and this "
+        + "Mac's name, hosts and addresses as <host>. Nothing is sent; you choose where the file goes."
+    public static let saveDiagnosticsLabel = "Save Diagnostics…"
+    public static let saveDiagnosticsHelp = "Save a redacted diagnostics file to attach to an issue"
     public static let shortcut = "Click the field, then press the new keys. Use at least one of ⌘, ⌃ or ⌥ with a letter, a digit, Space, ` or F1–F12. Esc cancels. ⊗ turns the shortcut off."
     public static let presence = "Hook marks you away when the screen locks, the displays sleep, you're connected over Screen Sharing, or you haven't touched the Mac for this long. While you're away, Hook doesn't slide the panel in or show notifications; asks still reach anything your Pond forwards them to. Hook also creates ~/.local/state/relay/away, so other tools can tell. For example, ssh can skip the 1Password agent."
     public static let login = "Hook adds a LaunchAgent so it starts when you log in."
