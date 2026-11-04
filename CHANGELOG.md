@@ -3,6 +3,16 @@
 All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## [0.13.1] - 2026-11-04
+
+### Fixed
+- On macOS 27 Hook quit the moment it checked notification permission: when Settings opened, and
+  when it offered a crash report at launch, which turned one crash into a loop on every launch. The
+  system now answers that check on a background queue, and Hook's callback no longer assumes the
+  main thread.
+<!-- hook:pond=^1.1.0 -->
+<!-- hook:mailbox-protocol=5 -->
+
 ## [0.13.0] - 2026-11-04
 
 ### Added

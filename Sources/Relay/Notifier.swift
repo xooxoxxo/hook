@@ -34,8 +34,10 @@ import UserNotifications
 
     func permission() async -> NotificationPermission {
         guard available else { return .notDetermined }
-        let raw = await withCheckedContinuation { continuation in
-            UNUserNotificationCenter.current().getNotificationSettings { current in
+        // @Sendable keeps the callback out of this class's main-actor isolation: macOS 27
+        // calls it on a background queue, and an isolated closure traps there (0.13.1).
+        let raw = await withCheckedContinuation { (continuation: CheckedContinuation<Int, Never>) in
+            UNUserNotificationCenter.current().getNotificationSettings { @Sendable current in
                 continuation.resume(returning: current.authorizationStatus.rawValue)
             }
         }
