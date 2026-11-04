@@ -10,3 +10,5 @@ __pycache__/
 .superpowers/
 dist/
 signing/
+# Rendered by scripts/build-docs-site.py; Pages builds them
+site/docs/
