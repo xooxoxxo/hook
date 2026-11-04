@@ -85,6 +85,20 @@ class AgentsDocTests(unittest.TestCase):
         for flag in ("--force", "--piece", "--harness", "--dry-run", "--json", "--smoke"):
             self.assertIn(flag, text)
 
+    def test_a_removed_agent_stays_removed(self):
+        text = read(DOCS / "agents.md")
+        commands = text.split("\n## Commands\n", 1)[1].split("\n## ", 1)[0]
+        removing = text.split("\n## Removing Hook\n", 1)[1].split("\n## ", 1)[0]
+        self.assertIn("--include-removed", commands)
+        for section in (commands, removing):
+            self.assertIn("stays removed", section)
+            self.assertIn("--harness X", section)
+
+    def test_keep_mine_is_off_for_an_edit_in_a_file_the_agent_no_longer_reads(self):
+        edited = read(DOCS / "agents.md").split("\n## Edited files\n", 1)[1].split("\n## ", 1)[0]
+        self.assertIn("AGENTS.override.md", edited)
+        self.assertIn("Keep Mine is off", edited)
+
     def test_the_fix_menu_maps_to_commands(self):
         text = read(DOCS / "agents.md")
         for words in ("Keep Mine", "Show Difference", "Use Hook's", "`relay integrations accept",

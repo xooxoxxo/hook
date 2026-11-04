@@ -9,10 +9,10 @@ private typealias Harness = IntegrationStatus.Harness
 private typealias Piece = IntegrationStatus.Piece
 
 private func piece(_ name: String, _ state: PieceState, method: String = "key", diffable: Bool = false,
-                   target: String? = "~/.config/agent/settings.json", reveal: String? = "~/.config/agent",
-                   note: String? = nil) -> Piece {
+                   keepable: Bool? = nil, target: String? = "~/.config/agent/settings.json",
+                   reveal: String? = "~/.config/agent", note: String? = nil) -> Piece {
     Piece(piece: name, method: method, state: state, target: target, key: nil, note: note, diffable: diffable,
-          reveal: reveal)
+          keepable: keepable, reveal: reveal)
 }
 
 private func harness(_ id: String, _ name: String, _ state: HarnessState, detected: Bool = true, managed: Bool = true,
@@ -169,6 +169,9 @@ private func harness(_ id: String, _ name: String, _ state: HarnessState, detect
         let plain = piece("replies", .drifted, method: "cli", diffable: false)
         #expect(AgentsPane.fixItems(plain).map(\.enabled) == [true, false, true])
         #expect(AgentsPane.fixItems(piece("skill", .foreign, method: "copy", diffable: true)).count == 3)
+        // An edit left in a file the agent no longer reads: Keep Mine stays, disabled.
+        let moved = piece("instructions", .drifted, method: "block", diffable: true, keepable: false)
+        #expect(AgentsPane.fixItems(moved).map(\.enabled) == [false, true, true])
         for state in PieceState.allCases where state != .drifted && state != .foreign {
             #expect(AgentsPane.fixItems(piece("mcp", state, diffable: true)).isEmpty, "\(state)")
         }

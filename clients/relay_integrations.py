@@ -448,6 +448,24 @@ class Manifest:
     def owned_by(self, harness: str) -> List[str]:
         return [k for k, rec in self.targets.items() if harness in (rec.get("owners") or [])]
 
+    @property
+    def removed(self) -> List[str]:
+        """The harnesses the owner removed: no sync sets them up again until Set Up
+        (`sync --harness X`) or `sync --include-removed` (a first install)."""
+        ids = self.data.get("removed")
+        return [i for i in ids if isinstance(i, str)] if isinstance(ids, list) else []
+
+    def mark_removed(self, ids: Sequence[str]) -> None:
+        known = self.removed
+        self.data["removed"] = known + [i for i in ids if i not in known]
+
+    def clear_removed(self, harness: Optional[str] = None) -> None:
+        left = [] if harness is None else [i for i in self.removed if i != harness]
+        if left:
+            self.data["removed"] = left
+        else:
+            self.data.pop("removed", None)
+
 
 @contextlib.contextmanager
 def lock(values: Values, timeout: Optional[float] = None) -> Iterator[None]:
@@ -1054,14 +1072,17 @@ def _target_label(ctx: Context, item: Item) -> str:
 
 
 def plan(table, manifest, detections, values, runner, *, mode: str, harness: Optional[str],
-         force: bool, include_new: bool, piece: Optional[str] = None, only_known: bool = False) -> List[Action]:
-    """The actions for sync, reinstall or remove. Nothing is written."""
+         force: bool, include_new: bool, piece: Optional[str] = None, only_known: bool = False,
+         include_removed: bool = False) -> List[Action]:
+    """The actions for sync, reinstall or remove. Nothing is written. A harness the owner
+    removed is left out unless it is named (Set Up) or `include_removed` (a first install)."""
     ctx = Context(table, manifest, values, runner)
     if harness is not None and harness not in ctx.by_id:
         raise UsageError(f"no harness {harness!r} in the table")
     if mode == "remove":
         return _plan_remove(ctx, harness, force)
     auto = bool(manifest.data.get("autoSetup", True)) and not only_known
+    removed = set() if include_removed else set(manifest.removed)
     actions: List[Action] = []
     claimed: Dict[str, str] = {}
     for entry in table:
@@ -1071,6 +1092,8 @@ def plan(table, manifest, detections, values, runner, *, mode: str, harness: Opt
         det = detections.get(hid)
         managed = hid in manifest.harnesses
         if not (det and det.found) and not managed:
+            continue
+        if hid in removed and harness != hid:
             continue
         if not managed and not (include_new or auto or harness == hid):
             continue
@@ -1716,6 +1739,8 @@ def _owner_phase(ctx: Context, report: Report, poster: Any, now: datetime, *, ha
         hid = entry["id"]
         if hid not in ctx.manifest.harnesses or (harness is not None and hid != harness):
             continue
+        if hid in ctx.manifest.removed and hid != harness:
+            continue
         written = set(report.changed.get(hid, []))
         for step in ros.due_steps(entry, ctx.manifest, written):
             try:
@@ -1799,7 +1824,12 @@ def _drift_answers(ctx: Context, report: Report, detections: Dict[str, Detection
         if not items or items[0].state not in ("drifted", "foreign") or here != row["disk"]:
             row["done"] = "changed"
             continue
-        if choice["choice"] == ros.KEEP:
+        if choice["choice"] == ros.KEEP and items[0].moved_item is not None:
+            report.results.append({"harness": hid, "piece": piece, "action": "keep",
+                                   "target": _target_label(ctx, items[0]), "outcome": "left",
+                                   "note": _moved_refusal(ctx, items[0])})
+            row["done"] = "moved"
+        elif choice["choice"] == ros.KEEP:
             for done in _accept(ctx, hid, piece, now):
                 report.results.append({"harness": hid, "piece": done["piece"], "action": "accept",
                                        "target": done["target"], "outcome": "kept", "note": "your choice in Hook"})
@@ -1845,9 +1875,10 @@ def _piece_json(ctx: Context, item: Item) -> Dict[str, Any]:
                 reveal = ctx.tilde(cand)
                 break
     method = item.method
+    edited = item.state in ("drifted", "foreign")
     return {"piece": item.piece, "method": method, "state": _shown(state), "target": target, "key": key,
-            "note": item.note, "diffable": item.state in ("drifted", "foreign") and method in DIFFABLE,
-            "reveal": reveal}
+            "note": item.note, "diffable": edited and method in DIFFABLE,
+            "keepable": edited and item.moved_item is None, "reveal": reveal}
 
 
 def _changes(ctx: Context, hid: str) -> List[Dict[str, str]]:
@@ -1873,6 +1904,7 @@ def status(table, manifest, detections, values, runner, *, smoke: bool) -> Dict[
     ctx = Context(table, manifest, values, runner)
     harnesses = []
     asks = manifest.data.get("asks") or {}
+    removed = set(manifest.removed)
     for entry in table:
         hid = entry["id"]
         det = detections.get(hid) or Detection(hid, False, [])
@@ -1888,7 +1920,8 @@ def status(table, manifest, detections, values, runner, *, smoke: bool) -> Dict[
         state = _worst(states) if (det.found or managed) else "not-set-up"
         if not managed and det.found and state == "installed":
             state = "not-set-up"
-        h = {"id": hid, "name": entry["name"], "detected": det.found, "managed": managed, "state": state,
+        h = {"id": hid, "name": entry["name"], "detected": det.found, "managed": managed,
+             "removed": hid in removed, "state": state,
              "verified": entry.get("verified"), "pieces": pieces, "ownerSteps": steps, "changes": _changes(ctx, hid)}
         if smoke:
             h["smoke"] = _smoke(ctx, entry, items)
@@ -1902,7 +1935,7 @@ def status(table, manifest, detections, values, runner, *, smoke: bool) -> Dict[
         "autoSetup": bool(manifest.data.get("autoSetup", True)), "lastSync": manifest.data.get("lastSync"),
         "linkRoot": manifest.data.get("linkRoot") or tilde(values.link_root, values.home),
         "harnesses": harnesses,
-        "newlyDetected": [h["id"] for h in harnesses if h["detected"] and not h["managed"]],
+        "newlyDetected": [h["id"] for h in harnesses if h["detected"] and not h["managed"] and not h["removed"]],
         "migrations": [{k: m.get(k) for k in ("id", "state", "askId", "path", "backup", "note")}
                        for m in manifest.data.get("migrations") or [] if isinstance(m, dict)],
         "errors": errors,
@@ -1941,10 +1974,22 @@ def _select(ctx: Context, hid: str, piece: Optional[str]) -> List[Item]:
     return out
 
 
+def _moved_refusal(ctx: Context, item: Item) -> str:
+    """Why Keep Mine can't keep an edit Hook's piece has moved away from."""
+    was = ctx.tilde((ctx.manifest.targets.get(item.moved_from) or {}).get("path"))
+    name = (ctx.by_id.get(item.harness) or {}).get("name", item.harness)
+    return (f"{item.harness} {item.piece}: {name} reads {ctx.tilde(item.path)} now, not {was}, so an edit kept in "
+            f"{was} would do nothing; use Hook's (relay integrations reinstall --force --harness {item.harness} "
+            f"--piece {item.piece}) to move Hook's {item.piece} there, or take your edit out of {was}")
+
+
 def _accept(ctx: Context, hid: str, piece: Optional[str], now: datetime) -> List[Dict[str, Any]]:
     items = [it for it in _select(ctx, hid, piece) if it.state in ("drifted", "foreign")]
     if not items:
         raise UsageError(f"{hid}{' ' + piece if piece else ''}: not edited, so there is nothing to keep")
+    moved = [it for it in items if it.moved_item is not None]
+    if moved:
+        raise UsageError(_moved_refusal(ctx, moved[0]))
     done = []
     for item in items:
         here = item.disk if item.disk is not None else ABSENT
@@ -2057,6 +2102,8 @@ def _parser(out: Any = None) -> argparse.ArgumentParser:
     s.add_argument("--json", action="store_true")
     g = s.add_mutually_exclusive_group()
     g.add_argument("--include-new", action="store_true")
+    g.add_argument("--include-removed", action="store_true",
+                   help="also set up the agents you removed Hook from (a first install)")
     g.add_argument("--only-known", action="store_true")
     s.add_argument("--if-changed", action="store_true")
     s.add_argument("--no-asks", action="store_true")
@@ -2096,7 +2143,8 @@ def _human_status(st: Dict[str, Any], out) -> None:
     for h in st["harnesses"]:
         if not h["detected"] and not h["managed"]:
             continue
-        print(f"{h['name']}: {h['state']}{'' if h['managed'] else ' (not set up)'}", file=out)
+        why = "" if h["managed"] else " (removed by you)" if h.get("removed") else " (not set up)"
+        print(f"{h['name']}: {h['state']}{why}", file=out)
         for p in h["pieces"]:
             where = p["target"] or ""
             if p["key"]:
@@ -2319,19 +2367,33 @@ def _cmd_write(args, table, manifest, values, run, when, out, err, client_factor
             ros.refresh(manifest, client_factory)
         if mode == "sync":
             _drift_answers(ctx, report, detections, when)
+    include_removed = bool(getattr(args, "include_removed", False))
     if args.cmd == "remove":
         actions = plan(table, manifest, detections, values, run, mode="remove", harness=args.harness,
                        force=args.force, include_new=False)
+        # What the owner removed stays removed: the ids set up now, or found, for --all.
+        gone = [args.harness] if args.harness else [
+            e["id"] for e in table
+            if e["id"] in manifest.harnesses or getattr(detections.get(e["id"]), "found", False)]
     else:
         actions = plan(table, manifest, detections, values, run, mode=mode, harness=args.harness,
-                       force=getattr(args, "force", False), include_new=getattr(args, "include_new", False),
-                       piece=piece, only_known=getattr(args, "only_known", False))
+                       force=getattr(args, "force", False),
+                       include_new=getattr(args, "include_new", False) or include_removed,
+                       piece=piece, only_known=getattr(args, "only_known", False), include_removed=include_removed)
     Applier(ctx, report, when).run(actions)
+    if not args.dry_run:
+        if args.cmd == "remove":
+            manifest.mark_removed(gone)
+        elif include_removed:
+            manifest.clear_removed()
+        elif args.harness:
+            manifest.clear_removed(args.harness)
     poster = None
     if asks_on:
         import relay_owner_steps as ros
         poster = ros.Poster(client_factory, no_asks=no_asks)
-    if mode in ("sync", "reinstall") and args.harness in (None, MIGRATE_HID):
+    if mode in ("sync", "reinstall") and args.harness in (None, MIGRATE_HID) \
+            and MIGRATE_HID not in manifest.removed:
         _migrate(ctx, report, poster, when, dry_run=args.dry_run)
     if not args.dry_run:
         if args.cmd == "remove":

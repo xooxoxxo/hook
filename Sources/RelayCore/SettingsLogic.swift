@@ -168,10 +168,10 @@ public struct AgentsState: Equatable, Sendable {
     }
 
     /// The setup window's agents page is done: the status is read and no detected harness is
-    /// still "Not set up".
+    /// still "Not set up", apart from those the owner removed Hook from.
     public var allSetUp: Bool {
         guard let status else { return false }
-        return !status.harnesses.contains { $0.detected && $0.state == .notSetUp }
+        return !status.harnesses.contains { $0.detected && $0.state == .notSetUp && !$0.removed }
     }
 
     /// The harnesses on this Mac (detected, or set up by Hook): Claude Code first, then by name.

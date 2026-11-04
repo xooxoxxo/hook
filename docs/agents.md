@@ -15,7 +15,7 @@ Every config names a stable path: `~/.local/share/hook/current/…`, `~/.local/s
 
 ## When it runs
 
-- **Install and update.** `install.sh` ends with `relay integrations sync`. A first install sets up every agent it finds.
+- **Install and update.** `install.sh` ends with `relay integrations sync`. A first install sets up every agent it finds, including one you removed Hook from before (`--include-removed`).
 - **The app.** 30 s after launch when Hook, the agent table or the install changed since the last sync, and once a day, to find agents installed since.
 - **New agents.** Set up automatically while Settings › Agents › Set up new agents automatically is on (the default; `relay integrations set auto-setup off`). Off, Hook tells you it found one and Set Up adds it.
 - **By hand.** Settings › Agents › Reinstall All, Set Up or Update on one agent, or the commands [below](#commands).
@@ -54,11 +54,11 @@ Where the agent's command isn't installed, Hook writes the same key into its con
 | Command | Does |
 |---|---|
 | `relay integrations status [--harness X] [--smoke]` | Each agent found and each piece: installed, outdated (Update ready), drifted or foreign (Edited by you), needs-owner or blocked (Needs you), not-set-up. It reads files, the manifest and the asks' last known states; `--smoke` also runs the agents' own checks, such as `claude plugin list` |
-| `relay integrations sync [--harness X] [--include-new\|--only-known] [--if-changed] [--no-asks]` | Installs what's missing and updates what's outdated, leaves edited and blocked items alone, and posts your steps. It never prompts. `--include-new` also sets up new agents while automatic setup is off, `--only-known` only the ones Hook already set up; `--if-changed` only prints the status when nothing changed in the last 24 h; `--no-asks` posts nothing yet |
+| `relay integrations sync [--harness X] [--include-new\|--include-removed\|--only-known] [--if-changed] [--no-asks]` | Installs what's missing and updates what's outdated, leaves edited and blocked items alone, and posts your steps. It never prompts. `--include-new` also sets up new agents while automatic setup is off, `--only-known` only the ones Hook already set up; an agent you removed Hook from stays removed unless you name it with `--harness X` (Set Up) or pass `--include-removed` (what a first install does); `--if-changed` only prints the status when nothing changed in the last 24 h; `--no-asks` posts nothing yet |
 | `relay integrations reinstall [--harness X [--piece P]] [--force]` | Writes everything again, even what looks current. Edited items need `--force`, which saves a `.bak` first |
 | `relay integrations accept --harness X [--piece P]` | Keeps your edit: the piece stops showing as edited until Hook's own text changes or you edit it again |
 | `relay integrations diff --harness X [--piece P]` | Prints your edit against Hook's text, as a unified diff, to stdout. For files, blocks, keys and folders only |
-| `relay integrations remove (--harness X \| --all) [--force]` | Removes what the manifest records, with the agent's own remove command where it has one. Edited items stay unless `--force` |
+| `relay integrations remove (--harness X \| --all) [--force]` | Removes what the manifest records, with the agent's own remove command where it has one. Edited items stay unless `--force`. The agent stays removed: no sync, the app's included, sets it up again until `sync --harness X` (Set Up) |
 | `relay integrations migrate claude-md [--choose CHOICE] [--again]` | Claude Code's CLAUDE.md section: see [Claude Code](claude-code.md#moving-from-the-setup-before-013) |
 | `relay integrations set auto-setup on\|off` | Settings › Agents › Set up new agents automatically |
 
@@ -76,6 +76,8 @@ In Settings › Agents, an edited piece has a Fix… menu:
 | Show Difference | `relay integrations diff --harness X --piece P` |
 | Use Hook's | `relay integrations reinstall --force --harness X --piece P` |
 
+Codex reads `AGENTS.override.md` instead of `AGENTS.md` once the override has text, so Hook moves its block there. If you had edited Hook's block in `AGENTS.md`, it stays put and Codex no longer reads it: Keep Mine is off for that piece, because the edit would do nothing there. Use Hook's moves the block (with a `.bak`), or take your edit out of `AGENTS.md` and the next sync moves it.
+
 A file that doesn't parse is **blocked**: Hook leaves its bytes untouched and reports it until you fix it.
 
 ## The manifest and backups
@@ -87,6 +89,8 @@ Before Hook changes a file it didn't create, it saves `<file>.bak` next to it (o
 ## Removing Hook
 
 `install.sh --uninstall` runs `relay integrations remove --all` first. A key or block is taken out of a shared file and the rest of the file is left as it was; a shared skill copy goes when the last agent using it does. What you edited stays and is listed; `relay integrations remove --all --force` removes that too. Claude Code's old CLAUDE.md section isn't put back; the uninstaller names its `.bak`.
+
+An agent you remove Hook from, with `remove --harness X` or `remove --all`, stays removed: the manifest lists it, and neither the app's syncs nor Reinstall All set it up again, even with Set up new agents automatically on. It isn't offered as new either. Settings › Agents › Set Up, or `relay integrations sync --harness X`, brings it back. Installing Hook again after `--uninstall` sets up every agent it finds.
 
 ## Adding an agent
 

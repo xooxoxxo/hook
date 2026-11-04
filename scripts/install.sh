@@ -696,10 +696,12 @@ fi
 # --- 6. start and check /health, then 7. the agent integrations ---------------------
 # The sync posts owner steps to the running app; without it (not started, or not answering)
 # it runs with --no-asks, and the app's own sync posts them later. A first install sets up
-# every agent it finds (--include-new); an update leaves that to the manifest's autoSetup.
+# every agent it finds, even one the owner removed Hook from before an uninstall
+# (--include-removed); an update leaves new agents to the manifest's autoSetup, and removed
+# ones removed.
 
 new_agents=""
-[ "$first_install" -eq 0 ] || new_agents="--include-new"
+[ "$first_install" -eq 0 ] || new_agents="--include-removed"
 
 if [ "$SKIP_LAUNCH" = "1" ]; then
   echo "start: skipped (RELAY_SKIP_LAUNCH=1)"

@@ -491,12 +491,13 @@ enum AgentsPane {
         let enabled: Bool
     }
 
-    /// Keep Mine, Show Difference (disabled when there is no text to compare) and Use Hook's…,
-    /// for a piece marked Edited by you; nothing for any other.
+    /// Keep Mine (disabled when the edit is in a file the agent no longer reads), Show Difference
+    /// (disabled when there is no text to compare) and Use Hook's…, for a piece marked Edited by
+    /// you; nothing for any other.
     static func fixItems(_ piece: IntegrationStatus.Piece) -> [FixItem] {
         let fixes = piece.fixes
         guard !fixes.isEmpty else { return [] }
-        return [FixItem(fix: .keepMine, title: "Keep Mine", enabled: true),
+        return [FixItem(fix: .keepMine, title: "Keep Mine", enabled: fixes.contains(.keepMine)),
                 FixItem(fix: .showDifference, title: "Show Difference", enabled: fixes.contains(.showDifference)),
                 FixItem(fix: .useHooks, title: "Use Hook's…", enabled: true)]
     }

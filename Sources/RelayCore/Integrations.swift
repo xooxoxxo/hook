@@ -41,9 +41,12 @@ public struct IntegrationStatus: Decodable, Equatable, Sendable {
         public var pieces: [Piece]
         public var ownerSteps: [OwnerStep]
         public var changes: [Change]
+        /// The owner removed Hook from it: no scheduled sync sets it up again, and it is never
+        /// offered as new. Set Up (`sync --harness X`) brings it back.
+        public var removed: Bool
 
         public init(id: String, name: String, detected: Bool, managed: Bool, state: HarnessState, verified: String,
-                    pieces: [Piece], ownerSteps: [OwnerStep], changes: [Change]) {
+                    pieces: [Piece], ownerSteps: [OwnerStep], changes: [Change], removed: Bool = false) {
             self.id = id
             self.name = name
             self.detected = detected
@@ -53,10 +56,11 @@ public struct IntegrationStatus: Decodable, Equatable, Sendable {
             self.pieces = pieces
             self.ownerSteps = ownerSteps
             self.changes = changes
+            self.removed = removed
         }
 
         enum CodingKeys: String, CodingKey {
-            case id, name, detected, managed, state, verified, pieces, ownerSteps, changes
+            case id, name, detected, managed, state, verified, pieces, ownerSteps, changes, removed
         }
 
         public init(from decoder: any Decoder) throws {
@@ -70,6 +74,7 @@ public struct IntegrationStatus: Decodable, Equatable, Sendable {
             pieces = try c.decode([Piece].self, forKey: .pieces)
             ownerSteps = try c.decodeIfPresent([OwnerStep].self, forKey: .ownerSteps) ?? []
             changes = try c.decodeIfPresent([Change].self, forKey: .changes) ?? []
+            removed = try c.decodeIfPresent(Bool.self, forKey: .removed) ?? false
         }
     }
 
@@ -86,11 +91,15 @@ public struct IntegrationStatus: Decodable, Equatable, Sendable {
         public var note: String?
         /// Show Difference can compare Hook's text with the file (block, key, file and copy pieces).
         public var diffable: Bool
+        /// Keep Mine can keep the edit. False when Hook's piece moved to a file the agent reads
+        /// instead (Codex's AGENTS.override.md), so the edit is in a file it no longer reads.
+        public var keepable: Bool
         /// The path the folder button reveals, nil when nothing there exists yet.
         public var reveal: String?
 
+        /// `keepable` nil: an edited piece can be kept.
         public init(piece: String, method: String, state: PieceState, target: String?, key: String?, note: String?,
-                    diffable: Bool, reveal: String?) {
+                    diffable: Bool, keepable: Bool? = nil, reveal: String?) {
             self.piece = piece
             self.method = method
             self.state = state
@@ -98,8 +107,28 @@ public struct IntegrationStatus: Decodable, Equatable, Sendable {
             self.key = key
             self.note = note
             self.diffable = diffable
+            self.keepable = keepable ?? Self.edited(state)
             self.reveal = reveal
         }
+
+        enum CodingKeys: String, CodingKey {
+            case piece, method, state, target, key, note, diffable, keepable, reveal
+        }
+
+        public init(from decoder: any Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            piece = try c.decode(String.self, forKey: .piece)
+            method = try c.decode(String.self, forKey: .method)
+            state = try c.decode(PieceState.self, forKey: .state)
+            target = try c.decodeIfPresent(String.self, forKey: .target)
+            key = try c.decodeIfPresent(String.self, forKey: .key)
+            note = try c.decodeIfPresent(String.self, forKey: .note)
+            diffable = try c.decode(Bool.self, forKey: .diffable)
+            keepable = try c.decodeIfPresent(Bool.self, forKey: .keepable) ?? Self.edited(state)
+            reveal = try c.decodeIfPresent(String.self, forKey: .reveal)
+        }
+
+        static func edited(_ state: PieceState) -> Bool { state == .drifted || state == .foreign }
     }
 
     /// A step only the owner can do, posted as an ask.
@@ -247,8 +276,8 @@ extension IntegrationStatus.Harness {
 
 extension IntegrationStatus.Piece {
     public var fixes: [PieceFix] {
-        guard state == .drifted || state == .foreign else { return [] }
-        return diffable ? [.keepMine, .showDifference, .useHooks] : [.keepMine, .useHooks]
+        guard Self.edited(state) else { return [] }
+        return (keepable ? [.keepMine] : []) + (diffable ? [.showDifference] : []) + [.useHooks]
     }
 
     public func label(harness name: String) -> String { state.label(harness: name) }

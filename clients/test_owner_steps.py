@@ -235,8 +235,11 @@ class PostingTest(Base):
 
 
 class DriftAskTest(unittest.TestCase):
+    def make_table(self):
+        return copy.deepcopy(synthetic_table())
+
     def setUp(self):
-        self.w = World(copy.deepcopy(synthetic_table()))
+        self.w = World(self.make_table())
         self.w.rules_from_table()
         self.home = self.w.home
         self.w.add_cli("alpha")
@@ -336,6 +339,30 @@ class DriftAskTest(unittest.TestCase):
         self.sync()
         self.assertTrue(any(t.startswith("Choose what") for t in self.hub.titles()))
 
+
+
+class MovedDriftAskTest(DriftAskTest):
+    """Keep mine on an edit left in a file the agent no longer reads (a `prefer` file filled up)
+    keeps nothing: the edit stays where it is and the piece stays Edited by you."""
+
+    def make_table(self):
+        table = super().make_table()
+        table[0]["pieces"]["instructions"][0]["prefer"] = ["{{harness_home}}/AGENTS.override.md"]
+        return table
+
+    def test_keep_mine_on_a_moved_edit_keeps_nothing(self):
+        text = self.agents.read_text().replace("send ONE instructable", "send one instructable")
+        self.agents.write_text(text)
+        override = write(self.home / ".alpha" / "AGENTS.override.md", "# Override\n")
+        self.sync()
+        post = self.drift()
+        self.assertEqual(len(post["instructable"]["steps"]), 1)
+        self.hub.answer(post["id"], "1", "Keep mine")
+        out = self.sync()
+        self.assertIn("reinstall --force", out)
+        self.assertEqual(self.agents.read_text(), text)
+        self.assertEqual(override.read_text(), "# Override\n")
+        self.assertEqual(self.w.piece("alpha", "instructions")["state"], "drifted")
 
 if __name__ == "__main__":
     unittest.main()

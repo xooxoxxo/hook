@@ -25,10 +25,10 @@ private func piece(_ harness: IntegrationStatus.Harness, _ name: String) throws 
     try #require(harness.pieces.first { $0.piece == name })
 }
 
-private func makePiece(_ state: PieceState, method: String = "block", diffable: Bool = true,
+private func makePiece(_ state: PieceState, method: String = "block", diffable: Bool = true, keepable: Bool? = nil,
                        target: String? = "~/.codex/AGENTS.md", reveal: String? = nil) -> IntegrationStatus.Piece {
     IntegrationStatus.Piece(piece: "instructions", method: method, state: state, target: target, key: nil, note: nil,
-                            diffable: diffable, reveal: reveal)
+                            diffable: diffable, keepable: keepable, reveal: reveal)
 }
 
 private func makeHarness(_ state: HarnessState, pieces: [IntegrationStatus.Piece] = [],
@@ -63,6 +63,30 @@ private func makeHarness(_ state: HarnessState, pieces: [IntegrationStatus.Piece
         let zed = try harness(status, "zed")
         #expect(try piece(zed, "replies").target == nil)
         #expect(try piece(zed, "replies").reveal == nil)
+        #expect(status.harnesses.allSatisfy { !$0.removed })
+        #expect(try piece(harness(status, "opencode"), "mcp").keepable)
+        #expect(!mcp.keepable)
+    }
+
+    /// A CLI from before `keepable` and `removed`: an edited piece can be kept, nothing is removed.
+    @Test func theKeysAddedLaterHaveDefaults() throws {
+        let json = #"""
+        {"schema": 1, "hookVersion": "0.13.0", "autoSetup": true, "harnesses": [
+          {"id": "codex", "name": "Codex", "detected": true, "managed": true, "state": "drifted",
+           "pieces": [{"piece": "instructions", "method": "block", "state": "drifted", "target": "~/.codex/AGENTS.md",
+                       "key": null, "note": null, "diffable": true, "reveal": null},
+                      {"piece": "mcp", "method": "cli", "state": "installed", "target": null,
+                       "key": null, "note": null, "diffable": false, "reveal": null}]},
+          {"id": "zed", "name": "Zed", "detected": true, "managed": false, "removed": true, "state": "not-set-up",
+           "pieces": []}],
+         "newlyDetected": [], "migrations": [], "errors": []}
+        """#
+        let status = try IntegrationStatus.decode(Data(json.utf8))
+        let codex = try harness(status, "codex")
+        #expect(!codex.removed)
+        #expect(try piece(codex, "instructions").keepable)
+        #expect(try !piece(codex, "mcp").keepable)
+        #expect(try harness(status, "zed").removed)
     }
 
     @Test func everyStateIsInTheFixture() throws {
@@ -223,6 +247,15 @@ private func makeHarness(_ state: HarnessState, pieces: [IntegrationStatus.Piece
     @Test func anEditedPieceOffersAllThree() {
         #expect(makePiece(.drifted).fixes == [.keepMine, .showDifference, .useHooks])
         #expect(makePiece(.foreign).fixes == [.keepMine, .showDifference, .useHooks])
+    }
+
+    /// Hook's piece moved to a file the agent reads instead (Codex's AGENTS.override.md): an
+    /// edit left in the old file can't be kept, only replaced.
+    @Test func keepMineNeedsAKeepablePiece() {
+        #expect(makePiece(.drifted, keepable: false).fixes == [.showDifference, .useHooks])
+        #expect(makePiece(.drifted, diffable: false, keepable: false).fixes == [.useHooks])
+        #expect(makePiece(.drifted).keepable)
+        #expect(!makePiece(.installed).keepable)
     }
 
     @Test func showDifferenceNeedsADiffablePiece() {

@@ -499,6 +499,85 @@ class RemoveTest(Base):
         self.assertFalse(config.exists() and "relay" in config.read_text())
 
 
+class RemovedHarnessTest(Base):
+    """What the owner removed stays removed: a plain sync (the app's daily one), --include-new,
+    --if-changed and Reinstall All leave it; Set Up (sync --harness X) brings it back."""
+
+    def alpha_set_up(self):
+        config = self.home / ".alpha" / "config.json"
+        return config.exists() and "relay" in config.read_text()
+
+    def test_a_removed_harness_is_not_set_up_again(self):
+        self.sync()
+        rc, out, err = self.w.run("remove", "--harness", "alpha")
+        self.assertEqual(rc, 0, out + err)
+        self.assertFalse(self.alpha_set_up())
+        self.assertEqual(self.w.manifest()["removed"], ["alpha"])
+        self.w.clear_calls()
+        for argv in (("sync",), ("sync", "--include-new"), ("reinstall",), ("sync", "--if-changed")):
+            rc, out, err = self.w.run(*argv)
+            self.assertEqual(rc, 0, out + err)
+            self.assertFalse(self.alpha_set_up(), argv)
+            if "--if-changed" in argv:                                     # the status, as it is
+                self.assertIn("Alpha: not-set-up (removed by you)", out)
+            else:
+                self.assertNotIn("alpha", out, argv)
+        self.assertEqual(self.w.calls(), [])
+        h = self.w.harness("alpha")
+        self.assertEqual((h["detected"], h["managed"], h["removed"], h["state"]), (True, False, True, "not-set-up"))
+        st = self.w.status()
+        self.assertNotIn("alpha", st["newlyDetected"])
+        self.assertEqual(self.w.harness("beta")["removed"], False)
+        self.w.run("set", "auto-setup", "off")
+        self.assertNotIn("alpha", self.w.status()["newlyDetected"])     # no Notice for it either
+        rc, out, err = self.w.run("sync", "--harness", "alpha", "--dry-run")
+        self.assertEqual(self.w.manifest()["removed"], ["alpha"])          # a dry run keeps it removed
+        self.sync("--harness", "alpha")                                    # Set Up
+        self.assertTrue(self.alpha_set_up())
+        self.assertNotIn("removed", self.w.manifest())
+        self.assertEqual(self.w.harness("alpha")["removed"], False)
+        self.assertEqual(self.state("alpha", "mcp"), "installed")
+
+    def test_remove_all_is_not_undone_by_the_apps_launch_sync(self):
+        self.sync(now=NOW)
+        rc, out, err = self.w.run("remove", "--all", now=NOW)
+        self.assertEqual(rc, 0, out + err)
+        self.assertEqual(self.w.manifest()["removed"], ["alpha", "beta", "gamma"])
+        snap = self.w.snapshot(skip=[".config"])
+        for argv in (("sync", "--if-changed", "--include-new"), ("sync",), ("sync", "--include-new")):
+            rc, out, err = self.w.run(*argv, now=NOW + timedelta(minutes=1))
+            self.assertEqual(rc, 0, out + err)
+        self.assertEqual(self.w.snapshot(skip=[".config"]), snap)
+        self.assertEqual(self.w.manifest()["harnesses"], {})
+        self.assertEqual(self.w.status()["newlyDetected"], [])
+        rc, out, err = self.w.run("sync", "--include-removed")             # a first install
+        self.assertEqual(rc, 0, out + err)
+        self.assertTrue(self.alpha_set_up())
+        self.assertEqual(sorted(self.w.manifest()["harnesses"]), ["alpha", "beta", "gamma"])
+        self.assertNotIn("removed", self.w.manifest())
+
+    def test_a_removed_harness_with_an_edit_left_is_not_topped_up(self):
+        self.sync()
+        rules = self.home / ".beta" / "rules" / "hook.md"
+        rules.write_text("mine\n")
+        rc, out, err = self.w.run("remove", "--harness", "beta")
+        self.assertEqual(rc, 0, out + err)
+        settings = (self.home / ".beta" / "settings.json").read_text()
+        self.assertNotIn('"relay"', settings)
+        self.sync()
+        self.assertEqual((self.home / ".beta" / "settings.json").read_text(), settings)
+        self.assertEqual(rules.read_text(), "mine\n")
+        h = self.w.harness("beta")
+        self.assertEqual((h["managed"], h["removed"]), (True, True))
+        self.assertEqual(self.state("beta", "instructions"), "drifted")
+
+    def test_a_dry_run_remove_records_nothing(self):
+        self.sync()
+        rc, out, err = self.w.run("remove", "--harness", "alpha", "--dry-run")
+        self.assertEqual(rc, 0, out + err)
+        self.assertNotIn("removed", self.w.manifest())
+
+
 class StatusTest(Base):
     def test_status_shape(self):
         self.sync(now=NOW)
@@ -510,10 +589,11 @@ class StatusTest(Base):
         self.assertEqual(st["linkRoot"], "~/.local/share/hook/current")
         self.assertEqual([h["id"] for h in st["harnesses"]], ["alpha", "beta", "gamma"])
         h = st["harnesses"][1]
-        self.assertEqual(set(h), {"id", "name", "detected", "managed", "state", "verified", "pieces",
+        self.assertEqual(set(h), {"id", "name", "detected", "managed", "removed", "state", "verified", "pieces",
                                   "ownerSteps", "changes"})
         for p in h["pieces"]:
-            self.assertEqual(set(p), {"piece", "method", "state", "target", "key", "note", "diffable", "reveal"})
+            self.assertEqual(set(p), {"piece", "method", "state", "target", "key", "note", "diffable", "keepable",
+                                      "reveal"})
         mcp = h["pieces"][0]
         self.assertEqual((mcp["method"], mcp["target"], mcp["key"]), ("key", "~/.beta/settings.json", "mcpServers.relay"))
         self.assertIn({"path": "~/.beta/hooks.json", "what": "key hooks.UserPromptSubmit"}, h["changes"])
@@ -686,6 +766,49 @@ class PreferredFileTest(Base):
         self.assertIn("hook:begin id=instructions", self.override.read_text())
         self.assertTrue(any(p.name.startswith("AGENTS.md.bak") for p in self.agents.parent.iterdir()))
         self.assertEqual(self.state("alpha", "instructions"), "installed")
+
+    def edit_then_override(self):
+        self.sync()
+        text = self.agents.read_text().replace("<!-- hook:end -->", "My own line.\n<!-- hook:end -->")
+        self.agents.write_text(text)
+        write(self.override, self.OVERRIDE)
+        return text
+
+    def test_keep_mine_is_refused_for_an_edit_left_in_the_file_the_agent_no_longer_reads(self):
+        text = self.edit_then_override()
+        piece = self.w.piece("alpha", "instructions")
+        self.assertEqual((piece["state"], piece["diffable"], piece["keepable"]), ("drifted", True, False))
+        before = self.w.manifest()
+        for argv in (("--piece", "instructions"), ()):
+            rc, out, err = self.w.run("accept", "--harness", "alpha", *argv)
+            self.assertEqual(rc, 1, out + err)
+            self.assertIn("~/.alpha/AGENTS.override.md", err)
+            self.assertIn("~/.alpha/AGENTS.md", err)
+            self.assertIn("reinstall --force --harness alpha --piece instructions", err)
+            self.assertEqual(self.w.manifest(), before)
+        self.assertEqual(self.state("alpha", "instructions"), "drifted")
+        self.assertNotEqual(self.w.harness("alpha")["state"], "installed")
+        self.sync()
+        self.assertEqual(self.agents.read_text(), text)
+        self.assertEqual(self.override.read_text(), self.OVERRIDE)
+        self.assertEqual(self.state("alpha", "instructions"), "drifted")
+        rc, out, err = self.w.run("remove", "--all")
+        self.assertEqual(rc, 0, out + err)
+        self.assertIn("alpha instructions: left ~/.alpha/AGENTS.md", out)
+        self.assertEqual(self.agents.read_text(), text)
+        self.assertEqual(self.override.read_text(), self.OVERRIDE)
+        self.assertTrue(any("/.alpha/AGENTS.md#" in k for k in self.w.manifest()["targets"]))
+
+    def test_an_edit_in_the_file_the_agent_reads_can_be_kept(self):
+        self.sync()
+        text = self.agents.read_text().replace("<!-- hook:end -->", "My own line.\n<!-- hook:end -->")
+        self.agents.write_text(text)
+        piece = self.w.piece("alpha", "instructions")
+        self.assertEqual((piece["state"], piece["keepable"]), ("drifted", True))
+        rc, out, err = self.w.run("accept", "--harness", "alpha", "--piece", "instructions")
+        self.assertEqual(rc, 0, out + err)
+        self.assertEqual(self.state("alpha", "instructions"), "accepted")
+        self.assertEqual(self.w.piece("alpha", "instructions")["keepable"], False)
 
     def test_an_empty_override_changes_nothing(self):
         self.sync()

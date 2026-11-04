@@ -11,17 +11,18 @@
       "name": "Claude Code",
       "detected": true,
       "managed": true,
+      "removed": false,
       "state": "installed",
       "verified": "pending",
       "pieces": [
         {"piece": "mcp", "method": "cli", "state": "installed", "target": "~/.claude.json", "key": "mcpServers.relay",
-         "note": null, "diffable": false, "reveal": "~/.claude.json"},
+         "note": null, "diffable": false, "keepable": false, "reveal": "~/.claude.json"},
         {"piece": "skill", "method": "plugin", "state": "installed", "target": "~/.local/share/hook/plugins/claude-code",
-         "key": null, "note": null, "diffable": false, "reveal": "~/.local/share/hook/plugins/claude-code"},
+         "key": null, "note": null, "diffable": false, "keepable": false, "reveal": "~/.local/share/hook/plugins/claude-code"},
         {"piece": "instructions", "method": "file", "state": "accepted", "target": "~/.claude/rules/hook.md",
-         "key": null, "note": "your edit is kept", "diffable": false, "reveal": "~/.claude/rules/hook.md"},
+         "key": null, "note": "your edit is kept", "diffable": false, "keepable": false, "reveal": "~/.claude/rules/hook.md"},
         {"piece": "replies", "method": "plugin", "state": "installed", "target": "~/.local/share/hook/plugins/claude-code",
-         "key": null, "note": null, "diffable": false, "reveal": "~/.local/share/hook/plugins/claude-code"}
+         "key": null, "note": null, "diffable": false, "keepable": false, "reveal": "~/.local/share/hook/plugins/claude-code"}
       ],
       "ownerSteps": [],
       "changes": [
@@ -34,17 +35,18 @@
       "name": "Codex",
       "detected": true,
       "managed": true,
+      "removed": false,
       "state": "needs-owner",
       "verified": "pending",
       "pieces": [
         {"piece": "mcp", "method": "cli", "state": "installed", "target": "~/.codex/config.toml", "key": "mcp_servers.relay",
-         "note": null, "diffable": false, "reveal": "~/.codex/config.toml"},
+         "note": null, "diffable": false, "keepable": false, "reveal": "~/.codex/config.toml"},
         {"piece": "skill", "method": "copy", "state": "installed", "target": "~/.agents/skills/instructables",
-         "key": null, "note": null, "diffable": false, "reveal": "~/.agents/skills/instructables"},
+         "key": null, "note": null, "diffable": false, "keepable": false, "reveal": "~/.agents/skills/instructables"},
         {"piece": "instructions", "method": "block", "state": "installed", "target": "~/.codex/AGENTS.md",
-         "key": null, "note": null, "diffable": false, "reveal": "~/.codex/AGENTS.md"},
+         "key": null, "note": null, "diffable": false, "keepable": false, "reveal": "~/.codex/AGENTS.md"},
         {"piece": "replies", "method": "key", "state": "needs-owner", "target": "~/.codex/hooks.json",
-         "key": "hooks.UserPromptSubmit", "note": "only you can do this step", "diffable": false,
+         "key": "hooks.UserPromptSubmit", "note": "only you can do this step", "diffable": false, "keepable": false,
          "reveal": "~/.codex/hooks.json"}
       ],
       "ownerSteps": [
@@ -58,17 +60,18 @@
       "name": "Cursor",
       "detected": true,
       "managed": false,
+      "removed": false,
       "state": "not-set-up",
       "verified": "pending",
       "pieces": [
         {"piece": "mcp", "method": "plugin", "state": "not-set-up", "target": "~/.cursor/plugins/local/hook",
-         "key": null, "note": null, "diffable": false, "reveal": "~/.cursor"},
+         "key": null, "note": null, "diffable": false, "keepable": false, "reveal": "~/.cursor"},
         {"piece": "skill", "method": "plugin", "state": "not-set-up", "target": "~/.cursor/plugins/local/hook",
-         "key": null, "note": null, "diffable": false, "reveal": "~/.cursor"},
+         "key": null, "note": null, "diffable": false, "keepable": false, "reveal": "~/.cursor"},
         {"piece": "instructions", "method": "plugin", "state": "not-set-up", "target": "~/.cursor/plugins/local/hook",
-         "key": null, "note": null, "diffable": false, "reveal": "~/.cursor"},
+         "key": null, "note": null, "diffable": false, "keepable": false, "reveal": "~/.cursor"},
         {"piece": "replies", "method": "plugin", "state": "not-set-up", "target": "~/.cursor/plugins/local/hook",
-         "key": null, "note": null, "diffable": false, "reveal": null}
+         "key": null, "note": null, "diffable": false, "keepable": false, "reveal": null}
       ],
       "ownerSteps": [],
       "changes": []
@@ -78,17 +81,18 @@
       "name": "Gemini CLI",
       "detected": true,
       "managed": true,
+      "removed": false,
       "state": "outdated",
       "verified": "pending",
       "pieces": [
         {"piece": "mcp", "method": "plugin", "state": "outdated", "target": "~/.local/share/hook/plugins/gemini-cli",
-         "key": null, "note": null, "diffable": false, "reveal": "~/.local/share/hook/plugins/gemini-cli"},
+         "key": null, "note": null, "diffable": false, "keepable": false, "reveal": "~/.local/share/hook/plugins/gemini-cli"},
         {"piece": "skill", "method": "plugin", "state": "outdated", "target": "~/.local/share/hook/plugins/gemini-cli",
-         "key": null, "note": null, "diffable": false, "reveal": "~/.local/share/hook/plugins/gemini-cli"},
+         "key": null, "note": null, "diffable": false, "keepable": false, "reveal": "~/.local/share/hook/plugins/gemini-cli"},
         {"piece": "instructions", "method": "plugin", "state": "installed", "target": "~/.local/share/hook/plugins/gemini-cli",
-         "key": null, "note": null, "diffable": false, "reveal": "~/.local/share/hook/plugins/gemini-cli"},
+         "key": null, "note": null, "diffable": false, "keepable": false, "reveal": "~/.local/share/hook/plugins/gemini-cli"},
         {"piece": "replies", "method": "plugin", "state": "installed", "target": "~/.local/share/hook/plugins/gemini-cli",
-         "key": null, "note": null, "diffable": false, "reveal": "~/.local/share/hook/plugins/gemini-cli"}
+         "key": null, "note": null, "diffable": false, "keepable": false, "reveal": "~/.local/share/hook/plugins/gemini-cli"}
       ],
       "ownerSteps": [],
       "changes": [{"path": "~/.local/share/hook/plugins/gemini-cli", "what": "plugin"}]
@@ -98,18 +102,19 @@
       "name": "OpenCode",
       "detected": true,
       "managed": true,
+      "removed": false,
       "state": "drifted",
       "verified": "pending",
       "pieces": [
         {"piece": "mcp", "method": "key", "state": "drifted", "target": "~/.config/opencode/opencode.json", "key": "mcp.relay",
-         "note": "edited by you", "diffable": true, "reveal": "~/.config/opencode/opencode.json"},
+         "note": "edited by you", "diffable": true, "keepable": true, "reveal": "~/.config/opencode/opencode.json"},
         {"piece": "skill", "method": "copy", "state": "foreign", "target": "~/.agents/skills/instructables",
-         "key": null, "note": "~/.agents/skills/instructables is there and is not Hook's", "diffable": true,
+         "key": null, "note": "~/.agents/skills/instructables is there and is not Hook's", "diffable": true, "keepable": true,
          "reveal": "~/.agents/skills/instructables"},
         {"piece": "instructions", "method": "key", "state": "installed", "target": "~/.config/opencode/opencode.json",
-         "key": "instructions", "note": null, "diffable": false, "reveal": "~/.config/opencode/opencode.json"},
+         "key": "instructions", "note": null, "diffable": false, "keepable": false, "reveal": "~/.config/opencode/opencode.json"},
         {"piece": "replies", "method": "cli", "state": "drifted", "target": "~/.config/opencode/plugins/hook.ts",
-         "key": null, "note": "edited by you", "diffable": false, "reveal": "~/.config/opencode/plugins"}
+         "key": null, "note": "edited by you", "diffable": false, "keepable": true, "reveal": "~/.config/opencode/plugins"}
       ],
       "ownerSteps": [],
       "changes": [{"path": "~/.config/opencode/opencode.json", "what": "key mcp.relay"}],
@@ -120,18 +125,19 @@
       "name": "Zed",
       "detected": true,
       "managed": true,
+      "removed": false,
       "state": "blocked",
       "verified": "pending",
       "pieces": [
         {"piece": "mcp", "method": "key", "state": "blocked", "target": "~/.config/zed/settings.json",
-         "key": "context_servers.relay", "note": "~/.config/zed/settings.json doesn't parse", "diffable": false,
+         "key": "context_servers.relay", "note": "~/.config/zed/settings.json doesn't parse", "diffable": false, "keepable": false,
          "reveal": "~/.config/zed/settings.json"},
         {"piece": "skill", "method": "copy", "state": "installed", "target": "~/.agents/skills/instructables",
-         "key": null, "note": null, "diffable": false, "reveal": "~/.agents/skills/instructables"},
+         "key": null, "note": null, "diffable": false, "keepable": false, "reveal": "~/.agents/skills/instructables"},
         {"piece": "instructions", "method": "block", "state": "installed", "target": "~/.config/zed/AGENTS.md",
-         "key": null, "note": null, "diffable": false, "reveal": "~/.config/zed/AGENTS.md"},
+         "key": null, "note": null, "diffable": false, "keepable": false, "reveal": "~/.config/zed/AGENTS.md"},
         {"piece": "replies", "method": "none", "state": "none", "target": null, "key": null,
-         "note": "Zed has no per-prompt hook", "diffable": false, "reveal": null}
+         "note": "Zed has no per-prompt hook", "diffable": false, "keepable": false, "reveal": null}
       ],
       "ownerSteps": [],
       "changes": [{"path": "~/.config/zed/AGENTS.md", "what": "block instructions"}]
@@ -141,17 +147,18 @@
       "name": "Warp",
       "detected": false,
       "managed": false,
+      "removed": false,
       "state": "not-set-up",
       "verified": "docs-only",
       "pieces": [
         {"piece": "mcp", "method": "key", "state": "not-set-up", "target": "~/.warp/mcp.json", "key": "mcpServers.relay",
-         "note": null, "diffable": false, "reveal": null},
+         "note": null, "diffable": false, "keepable": false, "reveal": null},
         {"piece": "skill", "method": "copy", "state": "not-set-up", "target": "~/.agents/skills/instructables",
-         "key": null, "note": null, "diffable": false, "reveal": null},
+         "key": null, "note": null, "diffable": false, "keepable": false, "reveal": null},
         {"piece": "instructions", "method": "owner", "state": "not-set-up", "target": null, "key": null,
-         "note": null, "diffable": false, "reveal": null},
+         "note": null, "diffable": false, "keepable": false, "reveal": null},
         {"piece": "replies", "method": "none", "state": "none", "target": null, "key": null,
-         "note": "Warp has no per-prompt hook", "diffable": false, "reveal": null}
+         "note": "Warp has no per-prompt hook", "diffable": false, "keepable": false, "reveal": null}
       ],
       "ownerSteps": [],
       "changes": []

@@ -418,7 +418,8 @@ old_clone() {   # old_clone <dir>: a clean clone of Hook as an older install lef
 # 24. A fresh install from the release: the app comes from the release (nothing is built),
 #     the CLI, alias and repoPath go through ~/.local/share/hook/current, and the
 #     integrations sync sets up the agents it finds (here Claude Code and Codex, fakes):
-#     without the app running, with --no-asks, and on a first install with --include-new.
+#     without the app running, with --no-asks, and on a first install with --include-removed
+#     (every agent it finds, even one the owner removed Hook from before an uninstall).
 P="$T/p-home"
 mkdir -p "$P/.claude"
 printf '{\n  "theme": "dark",\n  "hooks": {"Stop": [{"hooks": [{"type": "command", "command": "say done"}]}]}\n}\n' \
@@ -432,7 +433,7 @@ grep -q "app: installed $P/Applications/Hook.app" "$OUT" || { cat "$OUT"; fail "
 [ "$(readlink "$P/.local/bin/relay")" = "$HC/bin/relay" ] || fail "CLI link is $(readlink "$P/.local/bin/relay")"
 [ "$(readlink "$P/.local/bin/hook")" = "$HC/bin/relay" ] || fail "hook alias is $(readlink "$P/.local/bin/hook")"
 [ ! -e "$P/.claude/skills/instructables" ] || fail "install linked a skill into ~/.claude/skills"
-grep -qx 'integrations: sync --include-new --no-asks' "$OUT" || { cat "$OUT"; fail "the integrations sync did not run with --include-new --no-asks"; }
+grep -qx 'integrations: sync --include-removed --no-asks' "$OUT" || { cat "$OUT"; fail "the integrations sync did not run with --include-removed --no-asks"; }
 [ -f "$P/.config/relay/integrations.json" ] || { cat "$OUT"; fail "the sync wrote no manifest"; }
 [ "$(manifest_key "$P" linkRoot)" = "~/.local/share/hook/current" ] || fail "manifest linkRoot is $(manifest_key "$P" linkRoot)"
 [ -f "$P/.local/share/hook/plugins/claude/.claude-plugin/marketplace.json" ] \
@@ -472,6 +473,10 @@ fi
   || fail "--uninstall left Hook's instructions or skill"
 [ ! -e "$P/.local/share/hook/plugins" ] || fail "--uninstall kept the rendered plugins"
 [ "$(manifest_key "$P" harnesses)" = "{}" ] || fail "the manifest still has harnesses: $(manifest_key "$P" harnesses)"
+case "$(manifest_key "$P" removed)" in
+  *"'claude-code'"*"'codex'"*) ;;
+  *) fail "the manifest doesn't record the agents Hook was removed from: $(manifest_key "$P" removed)" ;;
+esac
 grep -q "config: $P/.config/relay/config.json" "$OUT" || fail "--uninstall did not list the kept config"
 ok "prebuilt --uninstall removes the integrations first"
 
@@ -482,6 +487,16 @@ cp -R "$(cd "$HC" && pwd -P)" "$T/stray-$VERSION"
 prun "$P" "$T/stray-$VERSION/scripts/install.sh" --prebuilt && fail "--prebuilt ran from a folder current doesn't link to"
 grep -q 'does not link to' "$OUT" || { cat "$OUT"; fail "no reason for refusing a stray payload"; }
 ok "--prebuilt needs current"
+
+# 26b. Installing again after --uninstall is a first install: it sets up the agents the
+#      uninstall removed Hook from (sync --include-removed) and forgets that they were removed.
+: > "$FAKE_LOG"
+prun "$P" bash "$REPO/scripts/get.sh" --local || { cat "$OUT"; fail "an install after --uninstall exited non-zero"; }
+grep -qx 'integrations: sync --include-removed --no-asks' "$OUT" || { cat "$OUT"; fail "the install after --uninstall did not sync with --include-removed"; }
+called codex mcp add relay -- python3 "$HC/mcp/relay_mcp.py" || { calls; fail "the install after --uninstall did not set up Codex again"; }
+[ -f "$P/.claude/rules/hook.md" ] && [ -f "$P/.codex/AGENTS.md" ] || fail "the install after --uninstall did not install the instructions"
+[ "$(manifest_key "$P" removed)" = "None" ] || fail "the manifest still lists removed agents: $(manifest_key "$P" removed)"
+ok "an install after --uninstall sets the agents up again"
 
 # 27. Migration: an install from an older clone (~/relay) moves its links, MCP server and
 #     repoPath to current, and the clone stays, named as no longer used.
@@ -591,7 +606,7 @@ prun "$DV" env HOOK_DEV=1 "$DV/dev/scripts/install.sh" || { cat "$OUT"; fail "a 
 [ -f "$DV/dev/build/integration/bundle.json" ] || { cat "$OUT"; fail "the developer clone built no build/integration/bundle.json"; }
 python3 -c 'import json,sys; sys.exit(0 if json.load(open(sys.argv[1]))["version"] == sys.argv[2] else 1)' \
   "$DV/dev/build/integration/bundle.json" "$VERSION" || fail "the clone's bundle is not stamped $VERSION"
-grep -qx 'integrations: sync --include-new --no-asks' "$OUT" || { cat "$OUT"; fail "the developer clone did not sync"; }
+grep -qx 'integrations: sync --include-removed --no-asks' "$OUT" || { cat "$OUT"; fail "the developer clone did not sync"; }
 [ "$(manifest_key "$DV" linkRoot)" = "~/dev" ] || fail "manifest linkRoot is $(manifest_key "$DV" linkRoot), not the clone"
 called claude mcp add-json --scope user relay "$(mcp_json "$DV/dev")" || { calls; fail "the MCP server does not run from the clone"; }
 [ -f "$DV/.local/share/hook/plugins/claude/.claude-plugin/plugin.json" ] || fail "the clone's install rendered no plugin"

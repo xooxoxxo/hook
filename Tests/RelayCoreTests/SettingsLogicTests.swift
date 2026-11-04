@@ -151,6 +151,12 @@ private func screen(_ id: String, primary: Bool) -> DockScreen {
         var open = done
         open.harnesses.append(entry("d", detected: true, .notSetUp))
         #expect(!AgentsState(status: open).allSetUp)
+        // One the owner removed Hook from stays removed: it doesn't keep the page open.
+        var removed = done
+        var gone = entry("e", detected: true, .notSetUp)
+        gone.removed = true
+        removed.harnesses.append(gone)
+        #expect(AgentsState(status: removed).allSetUp)
     }
 
     @Test func shortcutProblemsHaveTheSpecTexts() {
