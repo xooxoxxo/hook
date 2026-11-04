@@ -176,7 +176,11 @@ extension AppModel: SettingsViewModel {
         case .refreshAgents:
             Task { @MainActor in await refreshAgents() }
         case .integration(let command):
-            Task { @MainActor in _ = await runIntegration(command) }
+            Task { @MainActor in
+                if case .success = await runIntegration(command), let next = command.followUp {
+                    await runIntegration(next)
+                }
+            }
         case .agentAction(let action):
             switch action {
             case .openAsk(let id):

@@ -301,6 +301,15 @@ private func makeHarness(_ state: HarnessState, pieces: [IntegrationStatus.Piece
                 == ["migrate", "claude-md", "--choose", "Keep CLAUDE.md as is", "--json"])
     }
 
+    /// Turning automatic setup on sets up the agents found so far right away, not at the next
+    /// daily sync; turning it off, or any other command, runs nothing after.
+    @Test func turningAutoSetupOnSyncsAtOnce() {
+        #expect(IntegrationCommand.setAutoSetup(true).followUp == .sync(ifChanged: false, includeNew: true, harness: nil))
+        #expect(IntegrationCommand.setAutoSetup(false).followUp == nil)
+        #expect(IntegrationCommand.status.followUp == nil)
+        #expect(IntegrationCommand.sync(ifChanged: false, includeNew: true, harness: nil).followUp == nil)
+    }
+
     @Test func everyCommandEndsWithJSON() {
         let all: [IntegrationCommand] = [
             .status, .sync(ifChanged: true, includeNew: false, harness: "a"), .reinstall(harness: "a", piece: "b", force: true),

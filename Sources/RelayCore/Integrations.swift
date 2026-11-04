@@ -323,6 +323,12 @@ public enum IntegrationCommand: Equatable, Sendable {
         return words + ["--json"]
     }
 
+    /// What runs right after this command succeeds: turning automatic setup on sets up the
+    /// agents found so far at once (a sync with `--include-new`), not at the next daily sync.
+    public var followUp: IntegrationCommand? {
+        self == .setAutoSetup(true) ? .sync(ifChanged: false, includeNew: true, harness: nil) : nil
+    }
+
     /// Keep Mine is `accept`, Show Difference is `diff`, Use Hook's is `reinstall --force`.
     public static func fix(_ fix: PieceFix, harness: String, piece: String) -> IntegrationCommand {
         switch fix {
