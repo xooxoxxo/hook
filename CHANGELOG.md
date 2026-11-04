@@ -3,6 +3,39 @@
 All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## [Unreleased]
+
+### Added
+- A choice that needs words (an instructable choice `{"label": "Mix", "text": "What should change?"}`)
+  gets its own text box right under the selected row. Send delivers the choice and the words
+  together, as `choice: Mix · <words>`. Needs Pond 1.4.0; plain string choices are unchanged.
+- Messages and problem reports take up to 8000 characters on Pond 1.4.0 (Telegram splits past
+  4096). The counter shows past 80 % of the limit, and a paste over it is kept and says how much
+  to trim. An older Pond keeps 1000 and 300.
+- Markdown front matter shows as one quiet strip above the document: tags as chips, created and
+  status inline, the other keys behind "N more". Malformed front matter stays collapsed and raw.
+- Every quit logs its cause. A quit you didn't ask for (not a logout or an update) shows the crash
+  bar at the next launch, "Hook was closed: <cause>", and offers to send the log.
+- Settings › General › Privacy › Save Diagnostics… writes one redacted file to attach to an issue.
+- MetricKit's crash, hang, CPU and disk-write diagnostics go to hook.log.
+
+### Changed
+- Report a problem sits at the bottom right of an expanded step and opens inline in the step; the
+  step header is title and chevron again.
+- The "?" help buttons are small outlined glyphs, centred on their label's line.
+- `relay integrations migrate claude-md --dry-run` prints the change it would make. docs/using.md
+  and docs/security.md are up to date (This Mac mode does check GitHub for updates and issues).
+
+### Fixed
+- After an update Hook no longer freezes at launch behind the Keychain prompt. No Keychain call
+  runs on the main thread: the panel, the local server and the queue come up at once, and asks
+  stay locked as "Waiting for Keychain access" until you answer the prompt.
+- The panel's Send for step answers sent nothing.
+- The current step's badge in dark mode, a Done in the first seconds after launch, stale retries
+  after a 409, and the queue rebuilding every requirement on each change.
+<!-- hook:pond=^1.1.0 -->
+<!-- hook:mailbox-protocol=5 -->
+
 ## [0.13.1] - 2026-11-04
 
 ### Fixed
