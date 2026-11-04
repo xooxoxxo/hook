@@ -378,5 +378,68 @@ class InvokedNameTest(unittest.TestCase):
         self.assertEqual((code, err.getvalue()), (2, "hook: No Hook config; run scripts/install.sh\n"))
 
 
+class IntegrationsCommandTest(unittest.TestCase):
+    """`relay integrations …` (and `hook integrations …`) hand their argv and env to
+    relay_integrations.main and return its exit code; nothing loads it before."""
+
+    def run_main(self, argv, env, prog=None):
+        out, err = io.StringIO(), io.StringIO()
+        code = relay_cli.main(list(argv), stdin=io.StringIO(""), stdout=out, stderr=err, env=env, prog=prog)
+        return code, out, err
+
+    def test_argv_env_and_exit_code_pass_through(self):
+        import relay_integrations
+        env = {"HOME": "/nonexistent/relay-test/home", "RELAY_EDIT_KEY_DIR": NO_KEYS}
+        cases = [
+            ("relay", ["integrations", "status", "--json"], 0),
+            ("hook", ["integrations", "sync", "--dry-run"], 4),
+            ("relay", ["integrations", "accept", "--harness", "codex", "--piece", "instructions"], 0),
+            ("relay", ["integrations", "diff", "--harness", "zed"], 1),
+            ("relay", ["integrations", "reinstall", "--force", "--harness", "zed", "--piece", "mcp"], 2),
+            ("relay", ["integrations", "migrate", "claude-md", "--choose", "Apply"], 0),
+        ]
+        for prog, argv, code in cases:
+            with self.subTest(argv=argv), mock.patch.object(relay_integrations, "main", return_value=code) as main:
+                got, out, err = self.run_main(argv, env, prog)
+                self.assertEqual(got, code)
+                main.assert_called_once_with(argv[1:], env=env, out=out, err=err)
+
+    def test_relay_post_does_not_load_the_installer(self):
+        code = ("import sys, relay_cli; relay_cli.main(['--version']); "
+                "print('relay_integrations' in sys.modules, 'relay_hook' in sys.modules)")
+        done = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=30,
+                              cwd=str(Path(__file__).resolve().parent))
+        self.assertEqual(done.stdout.splitlines()[-1], "False False", done.stderr)
+
+    def test_help_lists_integrations_and_hook(self):
+        code, out, err = self.run_main(["--help"], {"RELAY_EDIT_KEY_DIR": NO_KEYS})
+        self.assertEqual(code, 0)
+        text = flat(out.getvalue())
+        self.assertIn("integrations", text)
+        self.assertIn("hook replies --format", text)
+        for word in ("status", "sync", "accept", "diff", "remove"):
+            self.assertIn(word, text)
+
+    def test_an_unknown_subcommand_exits_1_with_usage(self):
+        with tempfile.TemporaryDirectory() as home:
+            env = {"HOME": home, "PATH": "/usr/bin:/bin", "HOOK_BIN_DIRS": "", "RELAY_EDIT_KEY_DIR": NO_KEYS}
+            for argv in (["integrations", "bogus"], ["integrations"], ["integrations", "status", "--bogus"]):
+                with self.subTest(argv=argv):
+                    code, out, err = self.run_main(argv, env)
+                    self.assertEqual((code, out.getvalue()), (1, ""))
+                    self.assertIn("usage: relay integrations", err.getvalue())
+            self.assertEqual(os.listdir(home), [])          # nothing written for a usage error
+
+    def test_integrations_help(self):
+        with tempfile.TemporaryDirectory() as home:
+            code, out, err = self.run_main(["integrations", "--help"], {"HOME": home})
+            self.assertEqual(code, 0)
+            text = flat(out.getvalue())
+            for word in ("status", "sync", "reinstall", "accept", "diff", "remove", "migrate", "set"):
+                self.assertIn(word, text)
+            self.assertIn("Keep Mine", text)
+            self.assertIn("Show Difference", text)
+
+
 if __name__ == "__main__":
     unittest.main()

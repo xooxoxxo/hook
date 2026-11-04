@@ -5,6 +5,7 @@ fixture text uses ~/.claude/my-tools/ask.py, never real names. Standard library 
 from __future__ import annotations
 
 import copy
+import io
 import json
 import os
 import subprocess
@@ -419,6 +420,22 @@ class ClaudeMdTest(Base):
         self.assertEqual(self.md().read_text(), BEFORE + PROPOSED + AFTER)
         rc, out, err = self.w.run("migrate", "claude-md", "--choose", "Maybe")
         self.assertEqual(rc, 1)
+
+    def test_relay_integrations_migrate_choose_calls_apply_choice(self):
+        import relay_cli
+        from unittest import mock
+        self.propose()
+        out, err = io.StringIO(), io.StringIO()
+        with mock.patch.object(mc, "apply_choice", wraps=mc.apply_choice) as apply:
+            code = relay_cli.main(["integrations", "migrate", "claude-md", "--choose", "Apply",
+                                   "--link-root", str(self.w.link_root)],
+                                  stdin=io.StringIO(""), stdout=out, stderr=err,
+                                  # No Hook config in this HOME, so the ask waits; never this Mac's keys.
+                                  env=self.w.env(RELAY_EDIT_KEY_DIR=str(self.w.root / "edit-keys")))
+        self.assertEqual(code, 0, out.getvalue() + err.getvalue())
+        self.assertEqual(apply.call_count, 1)
+        self.assertEqual(apply.call_args[0][2], "Apply")
+        self.assertEqual(self.md().read_text(), BEFORE + PROPOSED + AFTER)
 
     def test_an_unanswered_closed_ask_counts_as_keep(self):
         post = self.propose()

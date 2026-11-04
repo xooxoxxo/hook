@@ -1972,13 +1972,19 @@ class _Parser(argparse.ArgumentParser):
         raise UsageError(message)
 
 
-def _parser() -> argparse.ArgumentParser:
+def _parser(out: Any = None) -> argparse.ArgumentParser:
+    """The command line; --help goes to `out` (stdout when None)."""
+    class Parser(_Parser):
+        def _print_message(self, message: str, file: Any = None) -> None:
+            if message:
+                ((out or sys.stdout) if file in (None, sys.stdout) else file).write(message)
+
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--link-root", type=Path, help=argparse.SUPPRESS)
     common.add_argument("--bundle", type=Path, help=argparse.SUPPRESS)
     common.add_argument("--home", type=Path, help=argparse.SUPPRESS)
-    p = _Parser(prog="relay integrations", description="Install Hook into every agent harness on this Mac.")
-    sub = p.add_subparsers(dest="cmd", parser_class=_Parser)
+    p = Parser(prog="relay integrations", description="Install Hook into every agent harness on this Mac.")
+    sub = p.add_subparsers(dest="cmd", parser_class=Parser)
     sub.required = True
     s = sub.add_parser("status", parents=[common], help="each harness and piece, and its state")
     s.add_argument("--harness")
@@ -2072,9 +2078,11 @@ def main(argv: Optional[List[str]] = None, *, env=None, runner=None, client_fact
     out = out or sys.stdout
     err = err or sys.stderr
     env = dict(os.environ if env is None else env)
+    parser = _parser(out)
     try:
-        args = _parser().parse_args(argv)
+        args = parser.parse_args(argv)
     except UsageError as exc:
+        err.write(parser.format_usage())
         print(f"relay integrations: {exc}", file=err)
         return 1
     except SystemExit as exc:                         # --help

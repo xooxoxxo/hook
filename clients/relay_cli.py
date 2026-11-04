@@ -1,5 +1,5 @@
 """The `relay` command (also linked as `hook`): post an instructable, check on it, list, resolve, read replies;
-`relay hook replies` for harness hooks (relay_hook).
+`relay hook replies` for harness hooks (relay_hook) and `relay integrations` (relay_integrations).
 
 Exit codes: 0 ok, 1 refused / not found / bad input, 2 no config or Hook unreachable,
 3 `wait` saw no owner answer before its timeout.
@@ -101,6 +101,9 @@ def _parser(out: Any, err: Any, prog: str = "relay") -> argparse.ArgumentParser:
         cmd.add_argument("note", nargs="?")
     sub.add_parser("hook", add_help=False,
                    help="for agent harness hooks: `hook replies --format FORMAT` (always exits 0)")
+    sub.add_parser("integrations", add_help=False,
+                   help="install Hook into the agent harnesses on this Mac: status, sync, reinstall, "
+                        "accept, diff, remove, migrate, set")
     replies = sub.add_parser("replies", help="new owner answers")
     replies.add_argument("--new", action="store_true", help="remember what was shown")
     replies.add_argument("--hook", action="store_true",
@@ -452,6 +455,10 @@ def main(argv: Optional[List[str]] = None, *, stdin: Any = None, stdout: Any = N
         # A harness's hook: argument errors, failures and all exit 0 (relay_hook).
         import relay_hook
         return relay_hook.run(argv[1:], stdin=stdin, out=out, err=err, client_factory=factory, env=env)
+    if argv[:1] == ["integrations"]:
+        # Imported here, not at load, so `relay post` starts as fast as before.
+        import relay_integrations
+        return relay_integrations.main(argv[1:], env=env, out=out, err=err)
     parser = _parser(out, err, prog)
     try:
         args = parser.parse_args(argv)
