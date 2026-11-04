@@ -36,8 +36,25 @@ and versions follow Semantic Versioning.
   setup window's agents page lists them too.
 - The skill and the instructions tell agents without a per-prompt hook to call `relay_list` at
   the start of a session and `relay_status {id}` before waiting.
+- Required steps before Done (needs Pond 1.3.0):
+  - The keys: `required: true` on a step or sub-step, and the ask-level `done` list of
+    `steps`, `reply` and `message`. `relay post`, `relay_post` and `relay amend` refuse them on
+    an older Pond and in This Mac mode, and lint the ones nothing could finish
+    (`clients/lint-vectors.json` gains `required-*` and `done-*` cases).
+  - Done stays disabled until every required item is finished; Skip always works.
+  - Required items are marked by a badge on the step number and a tinted row, which clear the
+    moment the item is finished.
+  - Telegram shows no Done button while something is left.
+  - `relay status` prints "Left before Done: step 2, the reply, a message" or "Ready for Done",
+    and `--json` and `relay_status` carry `requirements`.
+  - The skill explains when to use `required` (finishing) and when `blocking` (order). See
+    [docs/instructables.md](docs/instructables.md#before-done).
 
 ### Changed
+- `relay amend` and `relay_amend` now run the same lint and Pond-version check as
+  `relay post` on the corrected instructable, before anything is sent.
+- `ownerEvents` in `relay status --json` and `relay_status` lists only the owner's acts, so the
+  Pond's `progress` events (the owner's ticks) never show there.
 - Claude Code moves to the Hook plugin (`hook@hook`, carrying the skill and the replies hook)
   and the rules file `~/.claude/rules/hook.md`. They replace the CLAUDE.md section you pasted
   and the replies hook in `~/.claude/settings.json`, which the first sync removes once the

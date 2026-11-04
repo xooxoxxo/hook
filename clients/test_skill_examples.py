@@ -18,6 +18,9 @@ SCHEMA = json.loads((ROOT / "schema" / "instructable.v1.json").read_text("utf-8"
 FENCE = re.compile(r"^ *```json\n(.*?)^ *```", re.DOTALL | re.MULTILINE)   # list items indent theirs
 FULL_EXAMPLES_BEFORE = 1       # the Slack channel ask; the correction example makes 2
 HOOK_NEEDS = "1.1.0"           # the lowest Pond the Hook release needs (PondCompat.required ^1.1.0)
+# Keys an example may use although they're above that floor (RD 35): the skill's Pond-version
+# paragraph must name each of them, so a session knows to post again without them.
+GATED_KEYS = {"required", "done"}
 
 TYPES = {"string": str, "boolean": bool, "integer": int, "array": list, "object": dict}
 
@@ -110,8 +113,33 @@ class SkillExampleTest(unittest.TestCase):
         floor = relay_semver.parse_version(HOOK_NEEDS)
         for instructable in full + steps:
             for key, needs in rc.keys_needing_pond(instructable).items():
+                if key in GATED_KEYS:
+                    continue
                 with self.subTest(title=instructable["title"], key=key):
                     self.assertTrue(relay_semver.at_least(floor, needs), needs)
+
+    def test_every_gated_key_an_example_uses_is_named_in_the_pond_version_paragraph(self):
+        paragraph = SKILL.split("- **Pond version.**", 1)[1].split("\n- **", 1)[0]
+        full, steps = examples()
+        used = {key for ins in full + steps for key in rc.keys_needing_pond(ins)} & GATED_KEYS
+        self.assertEqual(used, GATED_KEYS, "the required-before-Done example is missing")
+        for key in used:
+            with self.subTest(key=key):
+                self.assertIn(f"`{key}`", paragraph)
+        self.assertIn(rc.REQUIREMENTS_POND, paragraph)
+
+    def test_the_required_example_has_a_required_step_and_waits_for_a_message(self):
+        full, _ = examples()
+        ask = next(ins for ins in full if ins["title"] == "Rotate the staging deploy key")
+        self.assertTrue(any(s.get("required") is True for s in ask["steps"]))
+        self.assertEqual(ask["done"], ["message"])
+        self.assertEqual(relay_lint.lint_details(ask), [])
+
+    def test_the_skill_tells_required_from_blocking(self):
+        text = " ".join(SKILL.split())
+        self.assertIn("**`blocking` is about order**", text)
+        self.assertIn("**`required` is about finishing**", text)
+        self.assertIn("Skip always stays", text)
 
     def test_no_example_leaves_a_value_to_copy_in_do(self):
         for text in (SKILL, DOCS):

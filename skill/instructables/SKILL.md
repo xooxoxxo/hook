@@ -71,6 +71,37 @@ on you" line in chat alone gets lost.
   question. Use the ask-level `reply` only for one overall answer.
 - **blocking** and **warning**: `blocking: true` marks a step the next steps can't start without; the owner can't open later steps until it is done. Use it only when later steps fail without it, and put the reason in `warning` (≤ 300 chars). `warning` alone shows a caution box. Neither goes on `verify`.
 - **optional**: `optional: true` marks a step the owner may finish without doing or answering, e.g. a feedback question or a nice-to-have; it can't also be blocking. On a step with sub-steps it makes every sub-step optional, so none of them may be blocking.
+- **required** and **done**: `required: true` keeps the owner's Done off until that step is
+  finished: ticked, answered (a question), or every sub-step finished (a parent). `done` on the ask
+  lists what else must happen first: `"steps"` (every non-optional step), `"reply"` (the reply
+  prompt answered), `"message"` (the owner sent the session a message). **`blocking` is about order**
+  (later steps wait for it). **`required` is about finishing** (the ask isn't done without it). Use
+  `required` when closing the ask without that step would leave the work broken or leave you without
+  something you need, e.g. "run this and tell me what it printed" (a required question, or
+  `done: ["message"]`). Don't mark every step: an ask where nothing is optional and nothing is
+  required already reads as "do all of it". Skip always stays, so plan for a skipped ask. Not on
+  `verify`, never with `optional`. A step whose sub-steps are all optional has nothing to finish.
+
+  ```json
+  {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "why": "The old key showed up in a CI log, so staging deploys need a new one.",
+    "steps": [
+      {"do": "Open the staging deploy keys page", "where": "Browser",
+       "url": "https://deploy.example.com/staging/keys"},
+      {"do": "Copy the new public key, then paste it under Add key and click Save", "where": "Mac terminal",
+       "code": "pbcopy < ~/.ssh/staging_deploy.pub", "lang": "bash", "expect": "The new key is listed"},
+      {"do": "Delete the old key", "where": "Browser", "required": true,
+       "expect": "Only the new key is listed"},
+      {"do": "Run this and send me what it prints, in Messages", "where": "Mac terminal",
+       "code": "ssh -T -i ~/.ssh/staging_deploy git@deploy.example.com", "lang": "bash"}
+    ],
+    "done": ["message"]
+  }
+  ```
+
+  Done turns on once step 3 is ticked and the owner has sent a message; Skip works all along.
 - **file**: When the owner should read a document, write it as a Markdown file and point to it with `file` (or a link with `path`); Hook opens it rendered. Keep `do` to one action and `detail` to a few lines; never paste a whole document into an ask. `file` and `path` are absolute paths on the owner's Mac (`/…` or `~/…`), not on `verify`.
 - **id**: a stable name for a step or sub-step (`a-z`, `0-9`, `.` and `-`, at most 24 characters,
   unique in the ask), never on `verify`. Give ids on every step or on none; without them the Pond
@@ -83,7 +114,9 @@ on you" line in chat alone gets lost.
   question in `reply`, the warning in `detail`, drop `optional`, name the file in `detail`, leave the
   ids out), or, if the ask needs the key, ask the owner to update the Pond (Hook › Update Pond…) and
   post once it is updated. In This Mac mode the answer is "Hook's This Mac queue (Pond V) can't take
-  `<key>` yet.": post without the key.
+  `<key>` yet.": post without the key. `required` and `done` need 1.3.0 (This Mac takes neither).
+  When refused, post again without them and say in the step's `warning` that it must be done
+  before Done.
 - **detail**: longer instructions for one step (at most 1500 chars, line breaks
   allowed), shown as wrapped text under `do`.
 - **code**: the exact command or text to paste. Make it complete, with nothing for

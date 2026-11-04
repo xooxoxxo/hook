@@ -16,10 +16,11 @@ Every request carries `Authorization: Bearer <content of tokenFile>` and `X-Hook
 | `GET /asks` | `relay list --kind`, `relay_list {kind}` (Pond 1.2.0) | adds `kind=ask` or `kind=bug` | 200 `{items}` of that kind; an older Pond ignores `kind`, so the client filters too |
 | `GET /asks` | app (Closed today) | `status=done` or `status=dismissed`, `days=14` | 200 `{items}`; Hook keeps those whose `completedAt` falls in its window |
 | `GET /asks/{id}` | app, CLI (including `relay wait`), MCP server | none | 200 `{item, events}`, or 404 |
-| `POST /asks/{id}/resolve` | app (Done, Skip), CLI and MCP (`done`, `skip`) | `{verdict, actor, note?}`: `verdict` is `done` or `declined`; `actor` is `owner` from the app and `session` from the CLI and MCP server | 200 `{item}` |
+| `POST /asks/{id}/resolve` | app (Done, Skip), CLI and MCP (`done`, `skip`) | `{verdict, actor, note?}`: `verdict` is `done` or `declined`; `actor` is `owner` from the app and `session` from the CLI and MCP server | 200 `{item}`; from Pond 1.3.0, an owner Done (`verdict: done`, `actor: owner`) on an ask with something left before Done answers 409 `{"error": "requirements_unmet", "left": [{"kind": "step", "id": "s2", "path": "2"}, {"kind": "reply"}, {"kind": "message"}], "details": ["step 2", "the reply", "a message"]}`, after the revision check (`ask was corrected` comes first). Skip and the session's Done are never refused this way |
 | `POST /asks/{id}/reopen` | app (Reopen in Closed today) | `{actor}`: always `owner` | 200 `{item}`, or 404 |
 | `POST /asks/{id}/reply` | app (Reply, reply choices) | `{text}` | 200 `{item}` |
 | `POST /asks/{id}/reply` with `kind: "message"` | app (the Messages section; Pond 1.2.0; the owner key when this Mac has one) | `{text, kind: "message"}`: the text as typed, multi-line, at most 1,000 characters | 200 `{item}`; 400 `invalid message` (`text: secret-like value`, `text: too long`) or `missing text`; 409 `ask is closed` or `too many messages` (50 per ask) |
+| `POST /asks/{id}/progress` | app (ticks on an ask with requirements; Pond 1.3.0; the owner key when this Mac has one) | `{"tick": [ids], "untick": [ids], rev, hash}`: step ids only, at most 60, the two lists disjoint | 200 `{item}` with `requirements`; 409 `ask is closed` or `ask was corrected`; 400 `invalid progress` (`tick: must be a list of step ids`, `tick[2]: unknown step`, `untick[0]: also in tick`, `tick: more than 60 ids`). A delta that changes nothing stores nothing |
 | `POST /asks/{id}/answers` | app (Send answers) | `{"answers": [...]}`: 1 to 20 of `{"step": "3.2", "picked": ["Staging"]}` or `{"step": "4", "text": "..."}` | 200 `{item}`; 409 when the ask is closed |
 | `GET /events` | `relay replies` | `after=<seq>`, `limit=1000` | 200 `{events, next, epoch?}`: events with `seq > after`, ascending; `next` is the last seq returned, or `after` |
 | `GET /version` | app (on connect, then at most every 30 minutes; Settings › Queue › Check), `relay post` and `relay_post` (before an instructable with a key that needs a newer Pond; cached for 5 minutes), `relay amend` | none | 200 `{"service": "pond", "version": "1.1.0", "protocol": 5}`; a 404 is protocol 1 ([below](#pond-versions)) |
@@ -40,6 +41,7 @@ Every request carries `Authorization: Bearer <content of tokenFile>` and `X-Hook
 | 1.0.0 | everything up to the old protocol level 4: asks, events, resolve, reply, reopen, step `question` and `POST /asks/{id}/answers`, the `blocking`, `warning` and `optional` step keys, and file links (`file`, a link's `path`) |
 | 1.1.0 | step `id`s, revisions and corrections (`amend`, `accept`), and the owner key (`/owner`, `X-Hook-Owner-Key`) |
 | 1.2.0 | bug reports (`POST /asks` with `kind: "bug"`, `GET /asks?kind=`) and messages to the posting session (the `message` reply kind). This Hook works without them on 1.1.0: a crash report goes out as a plain ask, and the Messages section is hidden |
+| 1.3.0 | required before Done: the `required` step key and the ask-level `done` list, `POST /asks/{id}/progress`, `requirements` on an item, `progress` events, and the 409 `requirements_unmet` on an owner Done. `protocol` stays 5. `relay post`, `relay_post` and `relay amend` refuse the two keys on an older Pond; This Hook still works with 1.1.0 and 1.2.0, and keeps Done off on an ask that carries requirements whatever the Pond's version |
 
 A Pond 1.x still answers `protocol` (5 for 1.1.0) for Hook 0.9.x, which reads only that. Hook reads `version` first:
 
@@ -50,7 +52,7 @@ A Pond 1.x still answers `protocol` (5 for 1.1.0) for Hook 0.9.x, which reads on
 | 404 (no such route) | protocol 1: an older Pond, so the Notice and the update check apply |
 | 200 with neither | to the app, a failed check: no Notice, and Settings shows "Couldn't check"; to the CLI and MCP server, unknown: they post as before and let the Pond validate |
 
-In This Mac mode the app answers `GET /version` itself as Pond 1.0.0 ([Local API](local-api.md)): it has no corrections or owner key yet.
+In This Mac mode the app answers `GET /version` itself as Pond 1.0.0 ([Local API](local-api.md)): it has no corrections, owner key or requirements yet.
 
 How a version compares with the range:
 
@@ -127,6 +129,7 @@ Hook reads these item keys and ignores the rest.
 | `completedAt` | When the ask was closed; null while it is open |
 | `payload.instructable` | The instructable as posted (see the [format](instructables.md)) |
 | `kind`, `bug` | Pond 1.2.0, on a bug report only: `kind: "bug"` and `bug: {signature, count, firstSeen, lastSeen}`. A plain ask has neither |
+| `requirements` | Pond 1.3.0: `{"left": [{"kind": "step", "id", "path"}, {"kind": "reply"}, {"kind": "message"}], "ready": bool}`, what the owner must still finish before their Done. Only on `GET /asks/{id}` and the answers that carry one item (resolve, reply, answers, progress, accept, problems, reopen), never on `GET /asks`, and absent on an ask without requirements |
 
 Without `payload.instructable`, an item is shown from `payload.why`, `payload.cmd`, `payload.link` and the text of its `steps` events.
 
@@ -139,6 +142,7 @@ An event is `{seq, itemId, kind, actor, text, at}`; `seq` is an integer that onl
 - `answer` (actor `owner`): the answer to one step's question. Its `text` is compact JSON with `step` first: `{"step":"3.2","picked":["Staging"]}` for a choice question (picks in the order of the choices), `{"step":"4","text":"Use the EU region"}` for a free-text one. A step path is `"3"` or `"3.2"`, 1-based.
 - An ask closed by an agent has actor `session`.
 - `reopened` (actor `owner`): the ask is open again, and no client shows it closed until a later `resolved` or `declined`.
+- `progress` (actor `owner`, Pond 1.3.0): the owner's ticks on an ask with requirements, its `text` the compact JSON `{"tick":[ids],"untick":[ids]}`, step ids only. It is bookkeeping for the Done gate: no client shows it, and it never appears in `ownerEvents`, `relay replies` or `relay wait`.
 
 ## Timestamps
 

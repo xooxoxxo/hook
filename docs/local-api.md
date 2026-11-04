@@ -28,6 +28,8 @@ Before checking anything else, Hook answers 403 `forbidden` to:
 
 The body format and the `project` rule are in [Instructable format](instructables.md).
 
+This Mac's queue takes no requirements before Done (Pond 1.3.0's `required` step key and `done` list). `relay post` and `relay_post` refuse them before posting ("Hook's This Mac queue (Pond 1.0.0) can't take `required` yet."), and `POST /asks` answers 400 `invalid instructable` for either one, as an unknown key. Post without them, and say in the step's `warning` that it must be done before Done.
+
 ## Owner answers
 
 Only the app records owner answers: replies, Done and Skip, and per-step answers to questions. The API has no reply or answers route and refuses actor `owner`. `GET /asks/{id}` and `GET /events` include the `answer` events the app records (shape in [Pond protocol](mailbox-protocol.md#events)).

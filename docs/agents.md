@@ -106,7 +106,7 @@ An agent is a data change: an entry in `integration/harnesses.json`, checked aga
 ## MCP tools
 
 - `relay_post {project, instructable}` returns `{id, deduped, openUrl}`.
-- `relay_status {id}` returns `status`, `resolvedBy` (`owner`, `session` or null), `ownerEvents` and `messages` ([below](#messages-and-bug-reports)).
+- `relay_status {id}` returns `status`, `resolvedBy` (`owner`, `session` or null), `ownerEvents`, `messages` ([below](#messages-and-bug-reports)) and `requirements` (`{left, ready}` or null: what the owner must finish before Done, [Before Done](instructables.md#before-done)).
 - `relay_list {kind?}` returns every open ask, each with its `kind` (`ask` or `bug`); `kind` lists only one of them, and a bug also carries `count`.
 - `relay_amend {id, reason, instructable, baseRev?}` corrects an open ask this Mac posted and returns `{id, rev, hash, changed, added, removed, moved, top, openUrl}` ([below](#correcting-an-ask)).
 
@@ -119,7 +119,7 @@ Commands start Hook if it isn't running, except `relay replies --hook`, `relay h
 | Command | Prints |
 |---|---|
 | `relay post <project> --json -` or `--json <file>` | `posted <id>` or `deduped <id>`, then `open <url>`. Refused: `refused: <error>` and one line per field error on stderr |
-| `relay status <id> [--json]` | `<status> (by owner\|by session) · <project> · <title>`, then one line per owner event |
+| `relay status <id> [--json]` | `<status> (by owner\|by session) · <project> · <title>`, then one line per owner event; on an ask with requirements, `Left before Done: step 2, the reply, a message` or `Ready for Done` |
 | `relay list [--json] [--kind ask\|bug]` | One line per open ask: `<id> <urgency> <project> · <title>`; a bug report reads `<id> bug ×<count> Hook · <title>` |
 | `relay done <id> [note]`, `relay skip <id> [note]` | `done <id>` / `skipped <id>`, or `already <status> (by <actor>) <id>` |
 | `relay replies [--new] [--hook]` | One line per new owner answer |
@@ -127,7 +127,7 @@ Commands start Hook if it isn't running, except `relay replies --hook`, `relay h
 | `relay amend <id> --reason TEXT [--base REV] [--json FILE\|-]` | `corrected <id> → version N (changed: step 2; added: step 4). The owner must review it in Hook before acting.` See [below](#correcting-an-ask) |
 | `relay --version` | `relay 0.12.0` (`hook --version` prints `hook 0.12.0`) |
 
-`relay post` and `relay_post` check the Pond's version (`GET /version`, cached for 5 minutes) before posting an instructable that uses `question`, `blocking`, `warning`, `optional`, `file` or a link's `path` (Pond 1.0.0 or newer) or step `id`s (1.1.0 or newer). Pond versions follow semver, so a newer minor or patch Pond never stops a key working ([Pond versions](mailbox-protocol.md#pond-versions)). A Pond too old for a key makes them refuse with ``Your Pond (V) is older than `<key>` needs (Pond N or newer). Update the Pond, or leave the key out.`` and exit 1; nothing is posted. In This Mac mode the refusal is ``Hook's This Mac queue (Pond V) can't take `<key>` yet.`` A Pond without `/version` counts as protocol 1, too old for any of these keys; one whose answer can't be read is unknown, and the instructable is posted for the Pond to validate. See [Instructable format](instructables.md#validation).
+`relay post` and `relay_post` check the Pond's version (`GET /version`, cached for 5 minutes) before posting an instructable that uses `question`, `blocking`, `warning`, `optional`, `file` or a link's `path` (Pond 1.0.0 or newer) or step `id`s (1.1.0 or newer), or `required` or `done` (1.3.0 or newer). `relay amend` checks the corrected instructable the same way, after the lint. Pond versions follow semver, so a newer minor or patch Pond never stops a key working ([Pond versions](mailbox-protocol.md#pond-versions)). A Pond too old for a key makes them refuse with ``Your Pond (V) is older than `<key>` needs (Pond N or newer). Update the Pond, or leave the key out.`` and exit 1; nothing is posted. In This Mac mode the refusal is ``Hook's This Mac queue (Pond V) can't take `<key>` yet.`` A Pond without `/version` counts as protocol 1, too old for any of these keys; one whose answer can't be read is unknown, and the instructable is posted for the Pond to validate. See [Instructable format](instructables.md#validation).
 
 Exit codes of these commands: 0 success, 1 refused or not found, 2 no config or Hook unreachable, 3 `relay wait` timed out.
 
