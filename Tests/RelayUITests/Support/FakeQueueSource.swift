@@ -26,6 +26,8 @@ actor FakeQueueSource: QueueSource {
     private(set) var bugs: [(project: String, signature: String, instructable: Data)] = []
     /// Every message sent, per ask, verbatim.
     private(set) var messages: [String: [String]] = [:]
+    /// Every progress delta sent (Pond 1.3.0), in order.
+    private(set) var progresses: [(id: String, tick: [String], untick: [String], stamp: RevisionStamp?)] = []
     /// What `post` answers (nil: posting isn't faked) and what `postBug` answers.
     private var postAnswer: PostResult?
     private var bugAnswer: BugPostResult = .filed(id: "bug-1")
@@ -194,6 +196,14 @@ actor FakeQueueSource: QueueSource {
                                    at: "2026-10-16T09:40:00+00:00", rev: 1, auth: "token"))
         details[id] = detail
         messages[id, default: []].append(text)
+        return item
+    }
+
+    /// Records the delta ("progress a"); answers the item unchanged.
+    func progress(_ id: String, tick: [String], untick: [String], stamp: RevisionStamp?) async throws -> WireItem {
+        try record("progress \(id)")
+        progresses.append((id, tick, untick, stamp))
+        guard let item = (items + closedItems).first(where: { $0.id == id }) else { throw QueueError.notFound }
         return item
     }
 

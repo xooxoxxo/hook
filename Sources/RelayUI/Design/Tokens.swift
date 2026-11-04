@@ -477,6 +477,9 @@ public enum DS {
         public static let lastCallRefresh: TimeInterval = 30
         /// How long a detail fetch, or the first list after a swap, waits before "Couldn't load" or "Still trying…".
         public static let detailLoadTimeout: TimeInterval = 10
+        /// How long tick changes on an ask with requirements wait before they go to the Pond, so
+        /// a run of ticks goes as one progress call.
+        public static let progressDebounce: TimeInterval = 0.5
     }
 
     /// The animation to use: `animation`, or `Motion.reduced` under Reduce Motion.

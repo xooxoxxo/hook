@@ -23,6 +23,8 @@ public enum QueueContextMenu {
 
     public static let resumeTitle = "Resume Session"
     public static let copyResumeTitle = "Copy Resume Command"
+    /// Why Done is dimmed on an ask with requirements that aren't met (RD 23).
+    public static let doneBlockedReason = "Open it and finish the marked items first"
 
     /// `localHost` is this Mac's host name, read once by the app (`HostName.current`) and
     /// passed in, never looked up per row; Resume Session is enabled only for a session on it.
@@ -31,7 +33,8 @@ public enum QueueContextMenu {
                                talk: SessionTalk = .none) -> [ContextMenuEntry] {
         var entries: [ContextMenuEntry] = [.item(title: "Open", command: .open, shortcut: "↩")]
         if row.isOpen {
-            entries.append(.item(title: "Done", command: .done, shortcut: "⌘↩"))
+            entries.append(row.doneBlocked ? .disabled(title: "Done", reason: doneBlockedReason)
+                                           : .item(title: "Done", command: .done, shortcut: "⌘↩"))
             entries.append(.item(title: "Skip", command: .skip, shortcut: "⌘⌫"))
             if talk.reports || talk.messages { entries.append(.separator) }
             if talk.reports { entries.append(.item(title: ProblemReport.menuTitle, command: .reportProblem, shortcut: nil)) }

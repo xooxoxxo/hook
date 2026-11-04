@@ -299,20 +299,24 @@ public struct WireItem: Codable, Sendable, Equatable, Identifiable {
     public var completedAt: String? = nil
     /// The current revision (Pond 1.1.0); nil from an older Pond or This Mac mode.
     public var revision: ServedRevision? = nil
+    /// What the owner's Done still waits for (Pond 1.3.0), on `GET /asks/{id}` and the routes that
+    /// answer one item; nil on an ask without requirements, from `GET /asks`, or an older Pond.
+    public var requirements: PondRequirements? = nil
 
     enum CodingKeys: String, CodingKey {
-        case id, title, status, projectId, created, updated, payload, completedAt, revision
+        case id, title, status, projectId, created, updated, payload, completedAt, revision, requirements
     }
 
     public init(id: String, title: String, status: String, projectId: String? = nil, created: String, updated: String,
-                payload: Payload, completedAt: String? = nil, revision: ServedRevision? = nil) {
+                payload: Payload, completedAt: String? = nil, revision: ServedRevision? = nil,
+                requirements: PondRequirements? = nil) {
         self.id = id; self.title = title; self.status = status; self.projectId = projectId
         self.created = created; self.updated = updated; self.payload = payload; self.completedAt = completedAt
-        self.revision = revision
+        self.revision = revision; self.requirements = requirements
     }
 
-    /// As the synthesized decoder did, plus a lenient `revision`: a malformed one is nil,
-    /// so the ask reads as one from an older Pond rather than failing the list.
+    /// As the synthesized decoder did, plus a lenient `revision` and `requirements`: a malformed
+    /// one is nil, so the ask reads as one from an older Pond rather than failing the list.
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id)
@@ -324,6 +328,7 @@ public struct WireItem: Codable, Sendable, Equatable, Identifiable {
         payload = try c.decode(Payload.self, forKey: .payload)
         completedAt = try c.decodeIfPresent(String.self, forKey: .completedAt)
         revision = (try? c.decodeIfPresent(ServedRevision.self, forKey: .revision)) ?? nil
+        requirements = (try? c.decodeIfPresent(PondRequirements.self, forKey: .requirements)) ?? nil
     }
 
     public var instructable: Instructable? { payload.instructable }

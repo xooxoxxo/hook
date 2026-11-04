@@ -69,6 +69,9 @@ public enum PanelNotice: Equatable, Sendable {
     case crashReport(message: String)
     /// Harnesses found while "Set up new agents automatically" is off (`IntegrationNotice`).
     case newAgents(ids: [String], names: [String])
+    /// The Pond refused the owner's Done with 409 requirements_unmet (Pond 1.3.0). It names no
+    /// item (pick 1); Show opens the ask, whose marks say what's left.
+    case doneRefused(id: String, title: String)
 
     /// The open ask this Notice is about, when it belongs to that ask's detail: it goes when
     /// the owner leaves the ask and never shows on the queue.
@@ -96,7 +99,7 @@ public enum PanelNotice: Equatable, Sendable {
              .mailboxUpdateFailed, .mailboxUpdateCommandInvalid, .ownerKeyRefused, .historyChanged, .acceptFailed,
              .reviewRecordsChanged, .reviewRecordsUnreadable: return .error
         case .settingsReloaded, .sessionClosed, .noLongerOpen, .offlineCached, .updating, .hookOlder,
-             .mailboxUpToDate, .corrected, .doneHeldBack, .crashReport, .newAgents: return .info
+             .mailboxUpToDate, .corrected, .doneHeldBack, .crashReport, .newAgents, .doneRefused: return .info
         }
     }
 
@@ -147,6 +150,9 @@ public enum PanelNotice: Equatable, Sendable {
                 + "Allow Hook when macOS asks, or reset the review records."
         case .doneHeldBack(_, let title):
             return "Done was held back: “\(Sanitize.revealLine(title))” was corrected."
+        case .doneRefused(_, let title):
+            return "“\(Sanitize.revealLine(title))” isn't finished yet: the Pond still waits for a marked item. "
+                + "Finish it, or Skip."
         case .crashReport(let message):
             return message
         case .newAgents(_, let names):
@@ -169,6 +175,7 @@ public enum PanelNotice: Equatable, Sendable {
         case .corrected: return "Review Changes"
         case .historyChanged: return "Trust the Pond's History Again…"
         case .newAgents: return "Open Settings"
+        case .doneRefused: return "Show"
         case .reviewRecordsUnreadable: return "Reset Review Records…"
         case .storeFailed, .settingsReloaded, .updating, .resumeFailed, .mailboxUpToDate, .mailboxUpdateFailed,
              .mailboxUpdateCommandInvalid, .ownerKeyRefused, .reviewRecordsChanged,

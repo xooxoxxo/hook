@@ -255,6 +255,9 @@ public struct AskRowModel: Equatable, Sendable, Identifiable {
     public var corrected = false
     /// The ask's history failed its checks (ReviewState.historyChanged): "Check history".
     public var historyChanged = false
+    /// The ask has requirements and its cached detail isn't ready for Done, or there is no
+    /// cached detail: the queue's Done (⌘↩, the context menu) is off (RD 23).
+    public var doneBlocked = false
 
     public var isOpen: Bool { closed == nil }
 

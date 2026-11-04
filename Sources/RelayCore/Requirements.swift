@@ -55,6 +55,34 @@ public struct RequirementState: Equatable, Sendable {
     public var marksMessages: Bool { left.contains(.message) }
 }
 
+/// Tick changes not yet sent to the Pond, as step ids (Pond 1.3.0). A tick and an untick of
+/// the same id cancel out, so a tick then an untick sends nothing.
+public struct ProgressDelta: Equatable, Sendable {
+    public var tick: Set<String>
+    public var untick: Set<String>
+
+    public init(tick: Set<String> = [], untick: Set<String> = []) {
+        self.tick = tick
+        self.untick = untick
+    }
+
+    public var isEmpty: Bool { tick.isEmpty && untick.isEmpty }
+
+    public mutating func add(tick ticked: [String], untick unticked: [String]) {
+        for id in ticked {
+            if untick.remove(id) == nil { tick.insert(id) }
+        }
+        for id in unticked {
+            if tick.remove(id) == nil { untick.insert(id) }
+        }
+    }
+
+    /// `later` applied on top of this one (a failed send put back under the ticks made since).
+    public mutating func add(_ later: ProgressDelta) {
+        add(tick: later.tick.sorted(), untick: later.untick.sorted())
+    }
+}
+
 /// The rules for "required before Done" (Pond 1.3.0), the twin of the Pond's
 /// `mailbox/requirements.py`. Hook checks them against its own ticks and the ask's events; the
 /// Pond stays authoritative and refuses an owner Done with 409 `requirements_unmet`.

@@ -120,6 +120,7 @@ private enum Contrast {
         #expect(DS.Timing.holdTick == 1)
         #expect(DS.Timing.lastCallRefresh == 30)
         #expect(DS.Timing.detailLoadTimeout == 10)
+        #expect(DS.Timing.progressDebounce == 0.5)
     }
 
     @Test func controlSizes() {

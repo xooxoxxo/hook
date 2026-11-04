@@ -159,6 +159,13 @@ public enum LinkCheck: Equatable, Sendable {
     private(set) var stepTreeBuilds = 0
     /// Leaves ticked this session, in order, per ask (for ⇧⌘T).
     private var tickHistory: [String: [String]] = [:]
+    /// Tick changes on asks with requirements not yet sent to the Pond (Pond 1.3.0), per ask.
+    /// Memory only: a failed send waits here for the next tick, refresh or Done.
+    var progressOutbox: [String: ProgressDelta] = [:]
+    /// The running debounce per ask; a newer tick restarts it.
+    var progressTimers: [String: Task<Void, Never>] = [:]
+    /// The progress send in flight per ask, so Done's flush waits for it.
+    var progressSends: [String: (token: UUID, task: Task<Void, Never>)] = [:]
     /// Set by AppDelegate: the config note, presence and quit-time sends, for the status bar.
     @Published public var configNote: String?
     /// config.json's problem, from AppModel; the status bar shows it ("config.json has an error").
@@ -372,6 +379,7 @@ public enum LinkCheck: Equatable, Sendable {
         details = [:]
         tickCache = [:]
         tickHistory = [:]
+        resetProgress()
         expandedDone = [:]
         expandedTodo = [:]
         editingReply = []
@@ -809,7 +817,10 @@ public enum LinkCheck: Equatable, Sendable {
     private func setTicks(_ ticks: Set<String>, for id: String, nodes: [DetailModel.Node]) {
         // The detail reads ticks too, and an ask outside the filter changes no queue row.
         objectWillChange.send()
+        let before = self.ticks(for: id)
         let leaves = ticks.intersection(Flow.items(of: nodes).map(\.path))
+        let delta = Requirements.delta(nodes: nodes, before: before, after: leaves)
+        queueProgress(id, tick: delta.tick, untick: delta.untick)
         tickCache[id] = item(for: id).map { (StepSource($0), leaves) }
         TickStore.save(defaults, sourceKey: sourceKey, id: id, ticks: leaves, nodes: nodes)
         clearChips(id, ticked: Set(Flow.items(of: nodes).filter { leaves.contains($0.path) }.compactMap(\.stepID)))
@@ -834,10 +845,11 @@ public enum LinkCheck: Equatable, Sendable {
 
     /// Done or Skip, held 10 s for Undo. In the detail, `afterClose` decides whether
     /// the next ask opens; from the list, the next row is selected.
-    /// While the ask is locked for review only Skip goes through: Done is refused here.
+    /// While the ask is locked for review only Skip goes through: Done is refused here, and so
+    /// is a Done while the ask's requirements aren't met (the button, ⌘↩ and the context menu).
     public func close(_ id: String, _ verdict: Verdict) {
         guard source != nil else { return }
-        if verdict == .done, isContentLocked(id) { return }
+        if verdict == .done, isContentLocked(id) || !requirementsMet(id) { return }
         HookLog.action(verdict == .done ? .done : .skip)
         reviewing[id] = nil
         let order = visibleOrder
@@ -948,6 +960,8 @@ public enum LinkCheck: Equatable, Sendable {
             break
         case .newAgents:
             shell.openSettings(.agents)
+        case .doneRefused(let id, _):
+            if navigation.selectedID != id { open(id) }
         }
         onNoticeCleared?(current)
     }
@@ -1110,8 +1124,13 @@ public enum LinkCheck: Equatable, Sendable {
     /// the send has come back; on failure it reappears and a Notice says why.
     private func send(_ close: PendingClose, via source: any QueueSource, generation gen: Int) async {
         do {
-            // A local acceptance the Pond hasn't heard of goes first, or the Done would be refused.
-            if close.verdict == .done { try await sendPendingAccept(close.id, via: source) }
+            // Ticks the Pond hasn't heard of go first (Pond 1.3.0), then a local acceptance the
+            // Pond hasn't heard of, or the Done would be refused.
+            if close.verdict == .done {
+                await flushProgress(close.id)
+                guard gen == generation else { return }
+                try await sendPendingAccept(close.id, via: source)
+            }
             try await withAcceptRecovery(close.id, via: source) {
                 _ = try await source.resolve(close.id, verdict: close.verdict, note: close.note, stamp: close.stamp)
             }
@@ -1130,6 +1149,10 @@ public enum LinkCheck: Equatable, Sendable {
             publishState()
             failedCloses[close.id] = close
             if ownerKeyRefused(error) { return }
+            if case QueueError.requirementsUnmet(let left)? = error as? QueueError {
+                await doneRefused(close, left: left, via: source, generation: gen)
+                return
+            }
             post(.actionFailed(verdict: close.verdict, id: close.id, title: close.title, reason: Self.failureReason(error)))
         }
     }
@@ -1207,7 +1230,7 @@ public enum LinkCheck: Equatable, Sendable {
     /// else shows the bar's warning; it never sends or drops an answer silently. From the
     /// queue, the ask opens first so the warning is on screen.
     public func warnUnsent(_ id: String) {
-        guard !isContentLocked(id) else { return }
+        guard !isContentLocked(id), doneAllowed(id) else { return }
         guard primaryAction(for: id) == .sendAndDone else {
             close(id, .done)
             return
@@ -1224,8 +1247,10 @@ public enum LinkCheck: Equatable, Sendable {
 
     /// Discard & Done: drops the unsent reply text, pick and step answers (and any Change in
     /// progress), then closes. Nothing is sent.
+    /// Refused while the ask's requirements aren't met without the drafts: nothing is dropped.
     public func discardAndDone(_ id: String) {
-        guard answerStates[id] != .sending, replyStates[id] != .sending, !isContentLocked(id) else { return }
+        guard answerStates[id] != .sending, replyStates[id] != .sending, !isContentLocked(id),
+              requirementsMet(id) else { return }
         doneWarnings.remove(id)
         drafts[id] = nil
         pendingChoice[id] = nil
@@ -1246,8 +1271,10 @@ public enum LinkCheck: Equatable, Sendable {
     /// Send & Done in the warning: send first and close only when every send worked.
     /// Order: the step answers, then the reply draft or pick, then Done; the first failure stops it
     /// and leaves the warning up, with the failure in place of its caption.
+    /// On an ask with requirements, only when the sends would finish what's left (RD 22); once
+    /// sent, a requirement still left ends the warning and Done stays off.
     public func sendAndDone(_ id: String) async {
-        guard !isContentLocked(id) else { return }
+        guard !isContentLocked(id), doneAllowed(id) else { return }
         guard primaryAction(for: id) == .sendAndDone else {
             close(id, .done)
             return
@@ -1261,6 +1288,10 @@ public enum LinkCheck: Equatable, Sendable {
             let hasText = AnswerEditing.isNewText(drafts[id] ?? "", sentText: AnswerEditing.latestText(replyLines(for: id)))
             let sent = hasText ? await sendReply(id) : await sendChoice(id)
             guard sent else { return }
+        }
+        guard requirementsMet(id) else {
+            doneWarnings.remove(id)
+            return
         }
         close(id, .done)
     }
@@ -1444,6 +1475,7 @@ public enum LinkCheck: Equatable, Sendable {
         dropStaleReplyChanges(next)
         if next != details { details = next }
         loaded.forEach(rerender)
+        loaded.forEach(catchUpProgress)
         if let selected = navigation.selectedID, loaded.contains(selected) { noticeReview(selected) }
     }
 
@@ -1503,6 +1535,7 @@ public enum LinkCheck: Equatable, Sendable {
             ticks: { self.ticks($0.id, item: $0) }, answered: { self.answered($0.id) },
             hasDraft: { self.draftsWithText.contains($0) },
             closedBy: { self.closedBy($0) }, review: { self.reviewState($0.id) },
+            doneBlocked: { !self.doneAllowed($0.id) },
             sourceKey: sourceKey, loadedOnce: loadedOnce, reachable: reachable, problem: listProblem,
             waitedTenSeconds: swappedAt.map { now().timeIntervalSince($0) >= DS.Timing.detailLoadTimeout } ?? false,
             manualRefreshing: manualRefreshing, updated: lastListAt.map { ClockText.time($0) } ?? "")
@@ -1601,10 +1634,12 @@ extension Store: PanelViewModel {
         case .showOnlyProject:
             if let id = target, let project = item(for: id)?.projectId, !project.isEmpty { setFilter(project) }
         case .openSelection: if let id = listSelection { open(id) }
-        case .done: if let id = target { close(id, .done) }   // KeyMap sends .warnUnsent when anything is unsent
-        case .sendAndDone: if let id = target { sendAndDone(id) }
-        case .warnUnsent: if let id = target { warnUnsent(id) }
-        case .discardAndDone: if let id = target { discardAndDone(id) }
+        // ⌘↩ while Done is off (requirements not met) beeps, as a refused click does.
+        case .done:   // KeyMap sends .warnUnsent when anything is unsent
+            if let id = target { if doneAllowed(id) { close(id, .done) } else { shell.beep() } }
+        case .sendAndDone: if let id = target { if doneAllowed(id) { sendAndDone(id) } else { shell.beep() } }
+        case .warnUnsent: if let id = target { if doneAllowed(id) { warnUnsent(id) } else { shell.beep() } }
+        case .discardAndDone: if let id = target { if requirementsMet(id) { discardAndDone(id) } else { shell.beep() } }
         case .cancelDoneWarning: if let id = navigation.selectedID { cancelDoneWarning(id) }
         case .skip: if let id = target { close(id, .declined) }
         case .reopen: if let id = target { reopen(id) }

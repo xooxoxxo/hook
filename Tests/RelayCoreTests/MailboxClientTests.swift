@@ -840,3 +840,137 @@ private struct MessageVectors {
         #expect(lines == [#"error type=Pond status=502 route=asks message="HTTP 502""#])
     }
 }
+
+/// Fixtures/requirements-vectors.json: the Pond 1.3.0 requirement cases, recorded from a running
+/// Pond over loopback. Ids show as `{ask1}`, `{ask2}`, … and timestamps as `{time}`.
+private struct RequirementVectors {
+    let cases: [String: (request: JSONValue, status: Int, response: String)]
+
+    static func load() throws -> RequirementVectors {
+        let url = try #require(Bundle.module.url(forResource: "requirements-vectors", withExtension: "json",
+                                                 subdirectory: "Fixtures"))
+        let root = try JSONValue.parse(try Data(contentsOf: url))
+        guard root["pond"] == .string("1.3.0"), case .array(let cases)? = root["cases"] else {
+            throw QueueError.notSupported
+        }
+        var out: [String: (JSONValue, Int, String)] = [:]
+        for entry in cases {
+            guard let name = entry["name"]?.stringValue, let request = entry["request"],
+                  case .int(let status)? = entry["response"]?["status"], let body = entry["response"]?["body"]
+            else { continue }
+            var text = String(decoding: body.data(), as: UTF8.self)
+                .replacingOccurrences(of: "{time}", with: "2026-11-04T09:00:00+00:00")
+            for n in 1...3 { text = text.replacingOccurrences(of: "{ask\(n)}", with: askID) }
+            out[name] = (request, status, text)
+        }
+        return RequirementVectors(cases: out)
+    }
+}
+
+@Suite struct MailboxClientRequirementsTests {
+    @Test func everyVectorIsInTheFixture() throws {
+        let names = Set(try RequirementVectors.load().cases.keys)
+        for name in ["requirements-post", "requirements-detail-left", "requirements-list", "requirements-progress-tick",
+                     "requirements-progress-noop", "requirements-progress-invalid", "requirements-done-unmet",
+                     "requirements-reply", "requirements-message", "requirements-detail-ready",
+                     "requirements-done-owner", "requirements-progress-closed", "requirements-done-session",
+                     "requirements-skip-owner"] {
+            #expect(names.contains(name), "\(name)")
+        }
+    }
+
+    @Test func everyItemVectorDecodesAndCarriesRequirementsOnlyWhereThePondSendsThem() throws {
+        let vectors = try RequirementVectors.load()
+        for (name, vector) in vectors.cases where vector.status < 300 {
+            let data = Data(vector.response.utf8)
+            let root = try JSONValue.parse(data)
+            if root["items"] != nil {
+                let items = try JSONDecoder().decode(ListResponse.self, from: data).items
+                // GET /asks never carries requirements (RD 15).
+                #expect(items.allSatisfy { $0.requirements == nil }, "\(name)")
+            } else if root["events"] != nil {
+                let detail = try JSONDecoder().decode(AskDetail.self, from: data)
+                #expect((detail.item.requirements != nil) == (root["item"]?["requirements"] != nil), "\(name)")
+            } else {
+                let item = try JSONDecoder().decode(ItemResponse.self, from: data).item
+                #expect((item.requirements != nil) == (root["item"]?["requirements"] != nil), "\(name)")
+            }
+        }
+        let left = try JSONDecoder().decode(AskDetail.self, from: Data(try #require(vectors.cases["requirements-detail-left"]).response.utf8))
+        #expect(left.item.requirements?.ready == false)
+        #expect(left.item.requirements?.left.contains(PondRequirement(kind: "step", id: "s2", path: "2")) == true)
+        #expect(left.item.instructable?.done == ["reply", "message"])
+        #expect(left.item.instructable?.steps[1].required == true)
+        let ready = try JSONDecoder().decode(AskDetail.self, from: Data(try #require(vectors.cases["requirements-detail-ready"]).response.utf8))
+        #expect(ready.item.requirements == PondRequirements(left: [], ready: true))
+    }
+
+    @Test func aMalformedRequirementsIsNil() throws {
+        let body = itemJSON.dropLast() + #","requirements":{"left":"step 2","ready":"no"}}"#
+        let item = try JSONDecoder().decode(WireItem.self, from: Data(body.utf8))
+        #expect(item.requirements == nil)
+        #expect(item.id == askID)
+    }
+
+    @Test func progressSendsIdsOnlyWithTheOwnerKeyAndTheStamp() async throws {
+        let vectors = try RequirementVectors.load()
+        let tick = try #require(vectors.cases["requirements-progress-tick"])
+        let (client, host) = try makeClient(ownerKey: { ownerKeyValue }) { _, _ in (tick.status, tick.response) }
+        let item = try await client.progress(askID, tick: ["s2"], untick: [], stamp: RevisionStamp(rev: 1, hash: "abc"))
+        #expect(item.requirements?.ready == false)
+        let sent = try #require(MailboxStubRegistry.shared.last(host))
+        #expect(sent.request.httpMethod == "POST")
+        #expect(sent.request.url?.path() == "/asks/\(askID)/progress")
+        #expect(sentHeader(host, "X-Hook-Owner-Key") == ownerKeyValue)
+        #expect(try sentBody(host) == .object(["tick": .array([.string("s2")]), "untick": .array([]),
+                                               "rev": .int(1), "hash": .string("abc")]))
+        // The vector's own request carries exactly those keys (its hash left out).
+        #expect(tick.request["body"]?["tick"] == .array([.string("s2")]))
+    }
+
+    @Test func anInvalidProgressIsRejectedWithItsDetails() async throws {
+        let vectors = try RequirementVectors.load()
+        let invalid = try #require(vectors.cases["requirements-progress-invalid"])
+        let (client, _) = try makeClient { _, _ in (invalid.status, invalid.response) }
+        do {
+            _ = try await client.progress(askID, tick: ["s9"], untick: [], stamp: nil)
+            Issue.record("should be refused")
+        } catch QueueError.rejected(let status, let error, _) {
+            #expect(status == 400)
+            #expect(error == "invalid progress")
+        }
+    }
+
+    @Test func theOwnersDoneWhileSomethingIsLeftIsRequirementsUnmet() async throws {
+        let vectors = try RequirementVectors.load()
+        let unmet = try #require(vectors.cases["requirements-done-unmet"])
+        let (client, _) = try makeClient(ownerKey: { ownerKeyValue }) { _, _ in (unmet.status, unmet.response) }
+        do {
+            _ = try await client.resolve(askID, verdict: .done, note: nil, stamp: RevisionStamp(rev: 1, hash: "abc"))
+            Issue.record("should be refused")
+        } catch QueueError.requirementsUnmet(let left) {
+            #expect(left == [PondRequirement(kind: "reply"), PondRequirement(kind: "message")])
+        }
+        #expect(MailboxClient.logged(.requirementsUnmet(left: [])) == (409, "requirements_unmet"))
+        #expect(QueueError.requirementsUnmet(left: []).errorDescription?.contains("requirements_unmet") == false)
+    }
+
+    @Test func aSessionDoneAndAnOwnerSkipStillClose() async throws {
+        let vectors = try RequirementVectors.load()
+        let skip = try #require(vectors.cases["requirements-skip-owner"])
+        let (client, _) = try makeClient { _, _ in (skip.status, skip.response) }
+        let item = try await client.resolve(askID, verdict: .declined, note: nil, stamp: nil)
+        #expect(item.status == "dismissed")
+    }
+
+    @Test func theFailureIsLoggedWithItsOwnPhrase() async throws {
+        let dir = FileManager.default.temporaryDirectory.appending(path: "hook-log-pond-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let log = RollingLog(directory: dir, now: { Date(timeIntervalSince1970: 1_793_700_000) })
+        let body = #"{"error":"requirements_unmet","left":[{"kind":"message"}],"details":["a message"]}"#
+        let (client, _) = try makeClient { _, _ in (409, body) }
+        await HookLog.withLog(log) { _ = try? await client.resolve(askID, verdict: .done, note: nil, stamp: nil) }
+        let lines = log.tail(50).map { String($0.drop(while: { $0 != " " }).dropFirst()) }
+        #expect(lines == [#"error type=Pond status=409 route=asks/{id}/resolve message="requirements_unmet""#])
+    }
+}

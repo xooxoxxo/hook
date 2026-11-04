@@ -26,6 +26,8 @@ public struct PanelShellActions: Sendable {
     public var confirmPresence: @MainActor @Sendable (String) async -> Bool = { _ in false }
     /// Whether the panel is on screen, so only a screen the owner sees is logged.
     public var isShown: @MainActor @Sendable () -> Bool = { true }
+    /// A refused key (⌘↩ while Done is off): the system beep.
+    public var beep: @MainActor @Sendable () -> Void = {}
 
     public init(hide: @escaping @MainActor @Sendable () -> Void, setUp: @escaping @MainActor @Sendable () -> Void,
                 quit: @escaping @MainActor @Sendable () -> Void, dock: @escaping @MainActor @Sendable (SidebarEdge) -> Void,

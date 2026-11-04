@@ -90,3 +90,18 @@ private func content(_ key: String = "mailbox:m#p", loadedOnce: Bool = true, rea
         #expect(DetailLoadState.resolve(hasModel: false, requestedAt: nil, now: t0, failed: false, timeout: 10) == .loading)
     }
 }
+
+/// A Done the Pond refused with 409 requirements_unmet (RD 28): no items named, Show opens the ask.
+@Suite struct DoneRefusedNoticeTests {
+    @Test func theNoticeNamesTheAskAndNoItems() {
+        let notice = PanelNotice.doneRefused(id: "a", title: "Rotate the staging deploy key\u{202E}")
+        #expect(notice.text == "“Rotate the staging deploy key⟨U+202E⟩” isn't finished yet: the Pond still waits for a "
+            + "marked item. Finish it, or Skip.")
+        #expect(notice.kind == .info)
+        #expect(notice.actionTitle == "Show")
+        #expect(notice.detailAskID == nil)
+        #expect(notice.showsOnQueue)
+        #expect(!notice.isTransient)
+        #expect(!notice.text.contains("Required"))
+    }
+}

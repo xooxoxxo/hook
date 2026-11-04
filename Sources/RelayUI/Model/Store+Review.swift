@@ -380,6 +380,7 @@ extension Store {
         pond = version
         let ids = Set(listed.map(\.id)).union(details.keys).union(recentlyClosed.map(\.id))
         holdingQueue { ids.forEach(rerender) }
+        progressSupportChanged()
     }
 
     /// After a good list: the records of this source's asks still listed, in Recently closed or

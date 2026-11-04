@@ -164,3 +164,22 @@ import Testing
         #expect(SessionTalk.make(sourceKey: pond, pond: .legacy(protocol: 4)) == .none)
     }
 }
+
+/// Done from the queue on an ask whose requirements aren't met (or whose detail isn't cached) is
+/// dimmed with why (RD 23); Skip is never affected.
+@Suite struct ContextMenuDoneBlockedTests {
+    @Test func aBlockedDoneIsDisabledWithItsReason() {
+        var row = AskRowModel(id: "a1", title: "Rotate the staging deploy key", project: "", urgency: .today,
+                              created: "2026-11-04T08:00:00+00:00", summary: .steps(done: 0, total: 2))
+        row.doneBlocked = true
+        let entries = QueueContextMenu.entries(for: row, filter: nil, localHost: nil)
+        #expect(entries.prefix(3) == [
+            .item(title: "Open", command: .open, shortcut: "↩"),
+            .disabled(title: "Done", reason: "Open it and finish the marked items first"),
+            .item(title: "Skip", command: .skip, shortcut: "⌘⌫"),
+        ])
+        row.doneBlocked = false
+        #expect(QueueContextMenu.entries(for: row, filter: nil, localHost: nil).contains(
+            .item(title: "Done", command: .done, shortcut: "⌘↩")))
+    }
+}

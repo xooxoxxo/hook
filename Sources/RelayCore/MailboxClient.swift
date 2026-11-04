@@ -32,6 +32,8 @@ struct ErrorBody: Decodable {
     let rev: Int?
     let hash: String?
     let acceptedRev: Int?
+    /// With "requirements_unmet" (Pond 1.3.0): what the owner's Done still waits for.
+    let left: [PondRequirement]?
 }
 
 struct RequireResponse: Decodable {
@@ -134,6 +136,17 @@ public struct MailboxClient: QueueSource {
     public func message(_ id: String, text: String) async throws -> WireItem {
         let response: ItemResponse = try await send("POST", "asks/\(id)/reply",
                                                     body: Self.encode(["text": text, "kind": "message"]), owner: true)
+        return response.item
+    }
+
+    /// The owner's tick changes as step ids (Pond 1.3.0), with the owner key and the revision
+    /// shown, like answers. Only ids go: never a step's text.
+    public func progress(_ id: String, tick: [String], untick: [String], stamp: RevisionStamp?) async throws -> WireItem {
+        var body: [String: JSONValue] = ["tick": .array(tick.map(JSONValue.string)),
+                                         "untick": .array(untick.map(JSONValue.string))]
+        Self.add(stamp, to: &body)
+        let response: ItemResponse = try await send("POST", "asks/\(id)/progress", body: JSONValue.object(body).data(),
+                                                    owner: true)
         return response.item
     }
 
@@ -320,6 +333,7 @@ public struct MailboxClient: QueueSource {
         case .corrected: return (409, "ask was corrected")
         case .ownerKeyRefused: return (403, "unknown owner key")
         case .askClosed: return (409, "ask is closed")
+        case .requirementsUnmet: return (409, "requirements_unmet")
         case .storeFailed: return (nil, "store failed")
         case .rejected(let status, let text, _):
             let phrase = text.range(of: "^[a-z][a-z ]{0,59}$", options: .regularExpression) != nil
@@ -399,6 +413,9 @@ public struct MailboxClient: QueueSource {
             let body = try? JSONDecoder().decode(ErrorBody.self, from: data)
             if http.statusCode == 409, body?.error == "ask was corrected", let rev = body?.rev, let hash = body?.hash {
                 throw QueueError.corrected(rev: rev, hash: hash, acceptedRev: body?.acceptedRev)
+            }
+            if http.statusCode == 409, body?.error == "requirements_unmet" {
+                throw QueueError.requirementsUnmet(left: body?.left ?? [])
             }
             if http.statusCode == 403, body?.error == "unknown owner key" {
                 throw QueueError.ownerKeyRefused

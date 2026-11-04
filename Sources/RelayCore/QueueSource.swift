@@ -52,6 +52,12 @@ public protocol QueueSource: Sendable {
     /// A message to the posting session: `POST /asks/{id}/reply` with `kind: "message"`,
     /// owner-signed when enrolled. It answers, closes and changes nothing.
     func message(_ id: String, text: String) async throws -> WireItem
+
+    // Pond 1.3.0.
+
+    /// This Mac's tick changes on an ask with requirements, as step ids: `POST /asks/{id}/progress`,
+    /// bound to the revision shown. A delta, so two Macs' ticks merge (RD 13).
+    func progress(_ id: String, tick: [String], untick: [String], stamp: RevisionStamp?) async throws -> WireItem
 }
 
 extension QueueSource {
@@ -87,6 +93,10 @@ extension QueueSource {
     }
 
     public func message(_ id: String, text: String) async throws -> WireItem { throw QueueError.notSupported }
+
+    public func progress(_ id: String, tick: [String], untick: [String], stamp: RevisionStamp?) async throws -> WireItem {
+        throw QueueError.notSupported
+    }
 }
 
 /// What a crash report sent to the Pond became.
@@ -157,6 +167,9 @@ public enum QueueError: Error, Sendable, Equatable, LocalizedError {
     case corrected(rev: Int, hash: String, acceptedRev: Int?)
     /// The Pond doesn't know this Mac's owner key, or it was revoked (403 "unknown owner key").
     case ownerKeyRefused
+    /// The owner's Done while the ask still waits for something (Pond 1.3.0, 409
+    /// "requirements_unmet"): `left` is what the Pond still waits for.
+    case requirementsUnmet(left: [PondRequirement])
 
     /// What a source without a Pond 1.1.0 route answers.
     public static let notSupported = QueueError.rejected(status: 501, error: "not supported", details: [])
@@ -179,6 +192,8 @@ public enum QueueError: Error, Sendable, Equatable, LocalizedError {
             return "This ask was corrected. Review the change before acting on it."
         case .ownerKeyRefused:
             return "The Pond no longer accepts this Mac's owner key."
+        case .requirementsUnmet:
+            return "This ask isn't finished yet: the Pond still waits for a marked item."
         }
     }
 }

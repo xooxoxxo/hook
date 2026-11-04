@@ -432,6 +432,8 @@ import RelayUI
         store.shell.updateMailbox = { [weak self] in self?.mailbox.updateMailbox() }
         store.shell.isShown = { [weak self] in self?.panel?.isShown ?? false }
         store.shell.checkForUpdates = { [weak self] in self?.checkForUpdatesNow() }
+        // ⌘↩ while Done is off (an ask's requirements aren't met).
+        store.shell.beep = { NSSound.beep() }
         // Report a Problem's Set Up Owner Key…: Settings › Queue, and the setup starts there.
         store.shell.setUpOwnerKey = { [weak self] in
             self?.showSettings(tab: .queue)

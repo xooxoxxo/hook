@@ -37,6 +37,7 @@ public struct QueueSnapshot: Equatable, Sendable {
                              ticks: (WireItem) -> Set<String>, answered: (WireItem) -> Set<String>?,
                              hasDraft: (String) -> Bool, closedBy: (WireItem) -> String?,
                              review: (WireItem) -> ReviewState = { _ in .legacy },
+                             doneBlocked: (WireItem) -> Bool = { _ in false },
                              sourceKey: String, loadedOnce: Bool, reachable: Bool, problem: String?, waitedTenSeconds: Bool,
                              manualRefreshing: Bool, updated: String) -> QueueSnapshot {
         var rows: [String: AskRowModel] = [:]
@@ -45,7 +46,7 @@ public struct QueueSnapshot: Equatable, Sendable {
             for item in section.items {
                 shownCount += 1
                 rows[item.id] = row(item, ticked: ticks(item), answered: answered(item), hasDraft: hasDraft(item.id),
-                                    closedBy: nil, review: review(item))
+                                    closedBy: nil, review: review(item), doneBlocked: doneBlocked(item))
             }
         }
         let closedRows = shownClosed.map {
@@ -65,19 +66,22 @@ public struct QueueSnapshot: Equatable, Sendable {
 
     /// One row; a non-open item gets its ClosedInfo, with `closedBy` the closing actor when known.
     /// `answered`: the answered step paths, when the ask's detail is cached (QueueLayout.summary).
+    /// `doneBlocked`: the queue's Done is off for this ask (`AskRowModel.doneBlocked`).
     public static func row(_ item: WireItem, ticked: Set<String>, answered: Set<String>? = nil, hasDraft: Bool,
-                           closedBy: String?, review: ReviewState = .legacy) -> AskRowModel {
+                           closedBy: String?, review: ReviewState = .legacy, doneBlocked: Bool = false) -> AskRowModel {
         let isClosed = item.status != "open"
         let summary = QueueLayout.summary(for: item, ticked: ticked, answered: answered)
         let ins = item.instructable
         let origin = AskOrigin(from: ins?.from)
-        return AskRowModel(
+        var row = AskRowModel(
             id: item.id, title: item.title, project: item.projectId ?? "", urgency: Urgency(raw: item.urgency),
             created: item.created, summary: summary,
             subline: SubLine.text(summary, choices: ins?.reply?.choices?.count ?? 0, places: ins.map(SubLine.places) ?? []),
             hasDraft: hasDraft,
             closed: isClosed ? ClosedInfo(status: item.status, closedBy: closedBy, completedAt: item.completedAt) : nil,
             resumeCommand: origin?.resumeCommand, origin: origin, review: review)
+        row.doneBlocked = !isClosed && doneBlocked
+        return row
     }
 
     static func hasText(_ text: String?) -> Bool {
@@ -147,6 +151,14 @@ public struct DetailSnapshot: Equatable, Sendable {
     public var canMessage = false
     /// While a correction is pending: how many steps it adds to the version shown.
     public var addedSinceShown = 0
+    /// What the ask needs before Done and what's left (Pond 1.3.0); `.none` without requirements,
+    /// before the detail loads, or once closed. The rows' marks read `marks(path)`.
+    public var requirements: RequirementState = .none
+    /// Done may be pressed (`Requirements.doneAvailable`): nothing is left, or only what the
+    /// unsent drafts finish. Always true on an ask without requirements.
+    public var doneEnabled = true
+    /// The warning's Discard & Done may be pressed: nothing is left without the drafts.
+    public var discardEnabled = true
     /// The bar that replaces the action bar while the ask is locked and not under review.
     public var lockBar: ReviewLockBar? { ReviewLockBar.make(review) }
 
@@ -171,7 +183,12 @@ public struct DetailSnapshot: Equatable, Sendable {
         let answered = model.map { Set(Flow.flattened($0.nodes).compactMap { $0.answer?.step }) }
         let kind = isOpen ? Flow.unsentKind(draft: draft, choice: pendingChoice, sent: latest, unsentAnswers: unsent.count,
                                             sentText: AnswerEditing.latestText(replies)) : nil
-        return DetailSnapshot(
+        // Requirements (Pond 1.3.0): without a detail, an ask that declares them keeps Done off.
+        let declared = isOpen && Requirements.declared(item.instructable)
+        let requirements = declared ? model.map { Requirements.state($0, ticks: ticks) } ?? .none : .none
+        let replyUnsent = Flow.unsentKind(draft: draft, choice: pendingChoice, sent: latest,
+                                          sentText: AnswerEditing.latestText(replies)) == .reply
+        var snapshot = DetailSnapshot(
             id: item.id,
             row: QueueSnapshot.row(item, ticked: ticks, answered: answered, hasDraft: QueueSnapshot.hasText(draft),
                                    closedBy: model?.closedBy ?? closedBy, review: review),
@@ -185,9 +202,14 @@ public struct DetailSnapshot: Equatable, Sendable {
             closedText: isOpen ? nil : ClosedText.detail(status: item.status, closedBy: model?.closedBy ?? closedBy,
                                                         closedAt: model?.closedAt ?? item.completedAt),
             answerDrafts: answerDrafts, unsent: unsent, answerState: answerState,
-            unansweredCaption: isOpen ? AnswerDrafts.unansweredCaption(
+            unansweredCaption: isOpen && !declared ? AnswerDrafts.unansweredCaption(
                 AnswerDrafts.uncovered(unanswered: model?.unanswered ?? [], unsent: unsent)) : nil,
             unsentKind: kind, doneWarning: doneWarning && kind != nil, review: review, stamp: stamp,
             changedSteps: chips, reported: reported, messages: messages, addedSinceShown: addedSinceShown)
+        snapshot.requirements = requirements
+        snapshot.doneEnabled = !declared
+            || (model != nil && Requirements.doneAvailable(requirements, unsent: unsent, replyUnsent: replyUnsent))
+        snapshot.discardEnabled = !declared || (model != nil && requirements.ready)
+        return snapshot
     }
 }
