@@ -12,57 +12,70 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="icon" href="img/brand/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="img/brand/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="img/brand/apple-touch-icon.png">
+<meta property="og:image" content="https://xooxoxxo.github.io/hook/img/brand/hook-tile-512.png">
 <script src="site.js"></script>
 <style>
 /* Hook homepage. The hero is the guide's booklet title (a giant wordmark over a heavy
    rule); everything after it is the calm "menu bar" layout: big screenshots, feature
    rows, agent tiles and an install card. Motion lives at the end of this sheet. */
 :root {
-  --bg: #F6F7FA;
+  --bg: #F9F7FC;
   --paper: #FFFFFF;
-  --ink: #1B1C22;
-  --ink-2: #4A4C58;
-  --muted: #6C6E7B;
-  --line: #E3E4EA;
-  --rule: #1B1C22;
-  --surface: #EEEFF4;
-  --accent: #4C4CC4;
+  --ink: #1E1527;
+  --ink-2: #4D4458;
+  --muted: #6C6378;
+  --line: #E9E3F0;
+  --rule: #1E1527;
+  --surface: #F2EDF8;
+  --accent: #7412BE;
   --accent-ink: #FFFFFF;
-  --accent-soft: #EDEDFB;
-  --code-bg: #17171B;
+  --accent-soft: #F1E5FB;
+  --magenta: #C20E84;
+  --lime: #D8F80A;
+  --lime-soft: #ECFBA0;
+  --ray: rgba(140, 20, 190, .07);
+  --dot: rgba(194, 14, 132, .16);
+  --card-shadow: 0 1px 2px rgba(60, 20, 90, .05), 0 10px 30px rgba(60, 20, 90, .06);
+  --code-bg: #1A1022;
   --code-ink: #EBEBF0;
   --code-muted: #8C8C99;
   --menubar: rgba(232, 233, 238, .92);
   --menubar-ink: #2B2B2F;
-  --badge: #F2392F;
   --shadow: rgba(17, 19, 24, .12);
-  --nav-bg: rgba(246, 247, 250, .82);
+  --nav-bg: rgba(249, 247, 252, .82);
   --show-light: block;
   --show-dark: none;
   --display: "Bricolage Grotesque", -apple-system, "Helvetica Neue", Arial, sans-serif;
   --body: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --radius: 14px;
+  --radius: 20px;
   --wrap: 1120px;
   --ease: cubic-bezier(.2, .7, .2, 1);
   --dur: 560ms;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #111216; --paper: #1A1B21; --ink: #ECEDF3; --ink-2: #B5B7C3; --muted: #8D8F9C;
-    --line: #2B2D36; --rule: #ECEDF3; --surface: #20212A; --accent: #A3A3F5; --accent-ink: #14142E;
-    --accent-soft: #272850; --code-bg: #0A0A0D; --code-ink: #E6E6EE; --code-muted: #7E7E8C;
-    --menubar: rgba(38, 39, 46, .92); --menubar-ink: #E4E4EA; --badge: #FF453A;
-    --shadow: rgba(0, 0, 0, .5); --nav-bg: rgba(17, 18, 22, .82);
+    --bg: #130F18; --paper: #1B1622; --ink: #F0ECF5; --ink-2: #BDB4C9; --muted: #958BA3;
+    --line: #2F2739; --rule: #F0ECF5; --surface: #231C2C; --accent: #D49CFF; --accent-ink: #1E0A30;
+    --accent-soft: #33204A; --magenta: #FF6BC8; --lime: #D8F80A; --lime-soft: #3B4512;
+    --ray: rgba(212, 156, 255, .06); --dot: rgba(255, 107, 200, .13);
+    --card-shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 30px rgba(0, 0, 0, .25); --code-bg: #0C0810; --code-ink: #E6E6EE; --code-muted: #7E7E8C;
+    --menubar: rgba(38, 39, 46, .92); --menubar-ink: #E4E4EA;
+    --shadow: rgba(0, 0, 0, .5); --nav-bg: rgba(19, 15, 24, .82);
     --show-light: none; --show-dark: block; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #111216; --paper: #1A1B21; --ink: #ECEDF3; --ink-2: #B5B7C3; --muted: #8D8F9C;
-  --line: #2B2D36; --rule: #ECEDF3; --surface: #20212A; --accent: #A3A3F5; --accent-ink: #14142E;
-  --accent-soft: #272850; --code-bg: #0A0A0D; --code-ink: #E6E6EE; --code-muted: #7E7E8C;
-  --menubar: rgba(38, 39, 46, .92); --menubar-ink: #E4E4EA; --badge: #FF453A;
-  --shadow: rgba(0, 0, 0, .5); --nav-bg: rgba(17, 18, 22, .82);
+  --bg: #130F18; --paper: #1B1622; --ink: #F0ECF5; --ink-2: #BDB4C9; --muted: #958BA3;
+  --line: #2F2739; --rule: #F0ECF5; --surface: #231C2C; --accent: #D49CFF; --accent-ink: #1E0A30;
+  --accent-soft: #33204A; --magenta: #FF6BC8; --lime: #D8F80A; --lime-soft: #3B4512;
+  --ray: rgba(212, 156, 255, .06); --dot: rgba(255, 107, 200, .13);
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 30px rgba(0, 0, 0, .25); --code-bg: #0C0810; --code-ink: #E6E6EE; --code-muted: #7E7E8C;
+  --menubar: rgba(38, 39, 46, .92); --menubar-ink: #E4E4EA;
+  --shadow: rgba(0, 0, 0, .5); --nav-bg: rgba(19, 15, 24, .82);
   --show-light: none; --show-dark: block; color-scheme: dark;
 }
 
@@ -102,6 +115,12 @@ section[id] { scroll-margin-top: 72px; }
 .nav nav a:hover { color: var(--ink); }
 .nav a.gh { text-decoration: none; font: 500 12px/1 var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--ink); border: 1px solid var(--line); background: var(--paper); padding: 8px 12px; border-radius: 8px; }
 
+/* Logo: the app-icon tile leads the wordmark */
+.wordmark { display: inline-flex; align-items: center; gap: 10px; }
+.wordmark .tile { width: 32px; height: 32px; filter: drop-shadow(0 1px 2px rgba(17, 19, 24, .25)); }
+.foot .wordmark .tile { width: 24px; height: 24px; }
+.lockup { display: flex; align-items: center; gap: clamp(14px, 2.4vw, 32px); min-width: 0; }
+.hero-tile { flex: none; width: clamp(92px, 19vw, 236px); height: auto; filter: drop-shadow(0 10px 18px rgba(17, 19, 24, .22)); }
 /* Hero: the booklet title */
 .hero { padding-top: 40px; padding-bottom: 96px; display: grid; gap: 30px; }
 .meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 18px; font: 500 12px/1.3 var(--mono); text-transform: uppercase; letter-spacing: .07em; color: var(--ink); border-bottom: 3px solid var(--rule); padding-bottom: 12px; }
@@ -132,10 +151,11 @@ h3 { font: 650 19px/1.3 var(--body); letter-spacing: -0.01em; }
 .stage-band { padding-block: 0 104px; }
 .desk { background: var(--surface); border: 1px solid var(--line); border-radius: 24px; overflow: hidden; }
 .menubar { display: flex; align-items: center; justify-content: flex-end; gap: 18px; background: var(--menubar); border-bottom: 1px solid var(--line); padding: 8px 22px; font: 500 13px/1 var(--body); color: var(--menubar-ink); font-variant-numeric: tabular-nums; }
-.mb-hook { position: relative; display: inline-flex; width: 22px; height: 16px; }
-.mb-hook svg { width: 18px; height: 16px; }
-.mb-hook path, .mb-hook circle { stroke: var(--menubar-ink); stroke-width: 1.6; fill: none; stroke-linecap: round; stroke-linejoin: round; }
-.mb-badge { position: absolute; right: -4px; top: -5px; width: 13px; height: 13px; border-radius: 50%; background: var(--badge); color: #FFFFFF; font: 700 9px/13px var(--body); text-align: center; }
+/* The app's template glyphs: the outline hook, and the fish on the hook for a new ask */
+.mb-hook { position: relative; display: inline-flex; width: 20px; height: 18px; color: var(--menubar-ink); }
+.mb-hook svg { position: absolute; left: 2px; top: 0; width: 16px; height: 18px; }
+.mb-idle { opacity: 0; }
+.mb-idle path, .mb-idle circle { stroke: currentColor; stroke-width: 1.5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
 .desk-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 400px); gap: 48px; align-items: center; padding: 0 clamp(20px, 5vw, 64px) 0 clamp(20px, 5vw, 64px); }
 .desk-text { display: grid; gap: 14px; padding-block: 48px; }
 .desk-text p { color: var(--ink-2); font-size: 17px; max-width: 40ch; }
@@ -241,6 +261,31 @@ footer { padding-block: 40px 56px; }
   .desk { border-radius: 18px; }
 }
 
+/* The brand: softer, rounder cards, and the sunburst and halftone in the hero only */
+.trip li, .card, .agents li, .docs a.doc, .lead-doc { border-color: transparent; box-shadow: var(--card-shadow); }
+.trip li, .card { background: var(--paper); }
+.band.alt .trip li, .band.alt .card, .band.alt .agents li { background: var(--bg); }
+.agents li, .docs a.doc, .lead-doc { border-radius: 16px; }
+.lead-doc .main::after { border-radius: 16px; }
+.mono { border-radius: 11px; background: var(--accent-soft); color: var(--accent); }
+.install { border-radius: 28px; border-color: transparent; box-shadow: var(--card-shadow); }
+.desk, .shot { border-radius: 28px; }
+.desk { border-color: transparent; }
+.btn { border-radius: 999px; padding-inline: 22px; }
+.cmd { border-radius: 16px; }
+.thesis mark { background: var(--lime-soft); border-radius: 6px; }
+.card.accent { background: var(--accent-soft); }
+.head h2::before { border-top: 0; height: 4px; border-radius: 4px; background: linear-gradient(90deg, var(--accent), var(--magenta)); }
+.meta { border-bottom-color: transparent; border-image: linear-gradient(90deg, var(--accent), var(--magenta) 60%, var(--lime)) 1; }
+.hero { position: relative; isolation: isolate; }
+.hero::before { content: ""; position: absolute; z-index: -1; inset: -80px calc(50% - 50vw) 0; pointer-events: none;
+  background:
+    radial-gradient(circle, var(--dot) 1.4px, transparent 1.9px) 0 0 / 11px 11px,
+    repeating-conic-gradient(from 0deg at 78% 34%, var(--ray) 0deg 7deg, transparent 7deg 18deg);
+  -webkit-mask: radial-gradient(70% 80% at 78% 34%, #000 0%, rgba(0, 0, 0, .55) 45%, transparent 78%);
+  mask: radial-gradient(70% 80% at 78% 34%, #000 0%, rgba(0, 0, 0, .55) 45%, transparent 78%); }
+@media (max-width: 620px) { .hero::before { inset: -60px calc(50% - 50vw) 0; } }
+
 /* Motion. Only when site.js has added .motion (JS on, motion allowed): content is
    visible by default, and these rules hide it until it is revealed. */
 @media (prefers-reduced-motion: no-preference) {
@@ -254,13 +299,15 @@ footer { padding-block: 40px 56px; }
   .motion .giant .ch { display: inline-block; opacity: 0; transform: translateY(.22em); transition: opacity 640ms var(--ease), transform 720ms var(--ease); transition-delay: calc(var(--i) * 70ms); }
   .motion.loaded .giant .ch { opacity: 1; transform: none; }
 
-  /* The panel drops down from under the menu bar, and the badge pops */
+  /* The panel drops down from under the menu bar, and the fish pops onto the hook */
   .motion .desk.rv { transform: translateY(24px); }
   .motion .desk .panel-shot { transform: translateY(-28px); opacity: 0; transition: transform 700ms var(--ease) 180ms, opacity 500ms var(--ease) 180ms; }
   .motion .desk .desk-text { opacity: 0; transform: translateY(12px); transition: opacity var(--dur) var(--ease) 120ms, transform var(--dur) var(--ease) 120ms; }
-  .motion .desk .mb-badge { transform: scale(0); transition: transform 420ms cubic-bezier(.3, 1.6, .5, 1) 620ms; }
+  .motion .desk .mb-new { transform: scale(0); transition: transform 420ms cubic-bezier(.3, 1.6, .5, 1) 620ms; }
+  .motion .desk .mb-idle { opacity: 1; transition: opacity 120ms linear 620ms; }
   .motion .desk.in .panel-shot, .motion .desk.in .desk-text { opacity: 1; transform: none; }
-  .motion .desk.in .mb-badge { transform: none; }
+  .motion .desk.in .mb-new { transform: none; }
+  .motion .desk.in .mb-idle { opacity: 0; }
 
   /* Feature rows: the frame comes first, then the screenshot rises inside it, then the text */
   .motion .shot.rv img { transform: translateY(36px); transition: transform 760ms var(--ease) 120ms; }
@@ -278,11 +325,11 @@ footer { padding-block: 40px 56px; }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { transition: none !important; animation: none !important; }
-  .h-in, .rv, .ch, .panel-shot, .desk-text, .mb-badge, .shot img { opacity: 1 !important; transform: none !important; }
+  .h-in, .rv, .ch, .panel-shot, .desk-text, .mb-new, .shot img { opacity: 1 !important; transform: none !important; }
 }
 @media print {
   .nav { position: static; }
-  .h-in, .rv, .ch, .panel-shot, .desk-text, .mb-badge, .shot img { opacity: 1 !important; transform: none !important; }
+  .h-in, .rv, .ch, .panel-shot, .desk-text, .mb-new, .shot img { opacity: 1 !important; transform: none !important; }
 }
 </style>
 </head>
@@ -291,7 +338,7 @@ footer { padding-block: 40px 56px; }
 <header class="nav">
   <div class="wrap">
     <!-- logo slot -->
-    <a class="wordmark" href="#top" aria-label="Hook, home">Hook</a>
+    <a class="wordmark" href="#top" aria-label="Hook, home"><img class="tile" src="img/brand/hook-tile-128.png" width="32" height="32" alt="">Hook</a>
     <nav aria-label="Sections">
       <a href="#how">How it works</a><a href="#features">Features</a><a href="#agents">Agents</a><a href="#install">Install</a><a href="#docs">Docs</a>
     </nav>
@@ -302,7 +349,7 @@ footer { padding-block: 40px 56px; }
 <main>
   <section class="hero wrap" id="top" aria-labelledby="t-hero">
     <div class="meta h-in"><span>A menu-bar app for macOS</span><span>Public beta · 0.13</span><span>macOS 14 and later</span></div>
-    <h1 class="giant" id="t-hero" data-letters>Hook</h1>
+    <div class="lockup"><img class="hero-tile h-in" style="--d: 120ms" src="img/brand/hook-tile-512.png" srcset="img/brand/hook-tile-256.png 256w, img/brand/hook-tile-512.png 512w" sizes="(max-width: 1242px) 19vw, 236px" width="512" height="512" alt="The Hook app icon: a chrome fishing hook with a smiling lime worm, on a purple sunburst"><h1 class="giant" id="t-hero" data-letters>Hook</h1></div>
     <div class="hero-split">
       <p class="thesis h-in" style="--d: 260ms">An inbox in your menu bar for <mark>what your coding agents need from you.</mark></p>
       <div class="hero-text">
@@ -320,7 +367,7 @@ footer { padding-block: 40px 56px; }
     <div class="wrap">
       <figure class="desk rv">
         <div class="menubar" aria-hidden="true">
-          <span class="mb-hook"><svg viewBox="0 0 18 16"><path d="M1.6 4.2l1.5 1.5 2.8-2.9M8.4 4.4h8"/><circle cx="3.6" cy="11.2" r="2.1"/><path d="M8.4 11.2h8"/></svg><span class="mb-badge">4</span></span>
+          <span class="mb-hook"><svg class="mb-idle" viewBox="0 0 16 18"><path d="M8 .4v2.1"/><circle cx="8" cy="4.4" r="1.75"/><path d="M7.4 6.3 5.3 11.6C4.4 14.5 6.3 17.1 9 16.6c2.4-.4 3.5-2.5 3.2-5.6l-.1-1.7-2 2.3"/></svg><svg class="mb-new" viewBox="0 0 16 18"><mask id="mb-face"><rect width="16" height="18" fill="#fff"/><circle cx="8" cy="4.3" r="3.2"/><circle cx="4.6" cy="11.4" r="1.9"/><circle cx="11.4" cy="11.4" r="1.9"/><path d="M5.4 8Q8 10.3 10.6 8" stroke="#000" stroke-width="1" fill="none" stroke-linecap="round"/></mask><path d="M.6 18C.6 12.4 2.8 7.6 6 6.4h4c3.2 1.2 5.4 6 5.4 11.6z" fill="currentColor" mask="url(#mb-face)"/><circle cx="4.9" cy="11.1" r=".85" fill="currentColor"/><circle cx="11.1" cy="11.1" r=".85" fill="currentColor"/><g fill="none" stroke="currentColor" stroke-linecap="round"><path d="M8 0v2.4" stroke-width="1.6"/><circle cx="8" cy="4.3" r="1.85" stroke-width="2.3"/></g></svg></span>
           <span>Wed 4 Nov 09:41</span>
         </div>
         <div class="desk-body">
@@ -345,7 +392,7 @@ footer { padding-block: 40px 56px; }
       </div>
       <ol class="trip" data-stagger="110">
         <li><span class="ico" aria-hidden="true"><svg viewBox="0 0 22 22"><path d="M4 6l4.5 4.5L4 15M11.5 16H18"/></svg></span><h3>A session asks</h3><p>It posts numbered steps, exact commands and what you should see, then keeps working.</p></li>
-        <li><span class="ico" aria-hidden="true"><svg viewBox="0 0 22 22"><path d="M3.5 6.5l2 2 3.5-3.5M12 7h6.5M3.5 14.5l2 2 3.5-3.5M12 15h6.5"/></svg></span><h3>You follow the steps</h3><p>A badge appears in the menu bar. Tick each step, copy each command, answer any question.</p></li>
+        <li><span class="ico" aria-hidden="true"><svg viewBox="0 0 22 22"><path d="M3.5 6.5l2 2 3.5-3.5M12 7h6.5M3.5 14.5l2 2 3.5-3.5M12 15h6.5"/></svg></span><h3>You follow the steps</h3><p>The menu-bar icon shows it's waiting. Tick each step, copy each command, answer any question.</p></li>
         <li><span class="ico" aria-hidden="true"><svg viewBox="0 0 22 22"><path d="M18 4.5v5.5a3 3 0 0 1-3 3H5M9 9l-4 4 4 4"/></svg></span><h3>Your answer goes back</h3><p>Done, Skip or your reply reaches the session that asked, through <code>relay wait</code> or before its next prompt.</p></li>
       </ol>
       <div class="modes" data-stagger="90">
@@ -491,7 +538,7 @@ footer { padding-block: 40px 56px; }
 <footer>
   <div class="wrap">
     <div class="foot">
-      <span class="wordmark">Hook</span>
+      <span class="wordmark"><img class="tile" src="img/brand/hook-tile-128.png" width="24" height="24" alt="">Hook</span>
       <span>0.13.0 · public beta</span>
       <span>MIT License</span>
       <a href="https://github.com/xooxoxxo/hook">github.com/xooxoxxo/hook</a>
