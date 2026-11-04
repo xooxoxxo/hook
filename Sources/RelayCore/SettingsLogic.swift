@@ -295,13 +295,16 @@ public struct PrivacyLine: Equatable, Sendable {
     /// My Pond is offered: a Pond is the source and this Mac's owner key is approved.
     public var pondOffered: Bool
     public var logSize: Int
+    /// Save Diagnostics…: collecting, saved, or why it failed.
+    public var diagnostics: DiagnosticsState
 
     public init(reports: CrashReportsSetting = .ask, target: CrashTarget = .github, pondOffered: Bool = false,
-                logSize: Int = 0) {
+                logSize: Int = 0, diagnostics: DiagnosticsState = .idle) {
         self.reports = reports
         self.target = target
         self.pondOffered = pondOffered
         self.logSize = logSize
+        self.diagnostics = diagnostics
     }
 
     public static func make(config: RelayConfig?, ownerKey: OwnerKeyState, logSize: Int) -> PrivacyLine {
@@ -325,6 +328,27 @@ public struct PrivacyLine: Equatable, Sendable {
     }
 }
 
+/// Settings › General › Privacy › Diagnostics: the row's text after Save Diagnostics….
+public enum DiagnosticsState: Equatable, Sendable {
+    case idle
+    /// The system log read can take a while (it stops after 30 s).
+    case collecting
+    /// The file's name, as saved.
+    case saved(String)
+    case failed(String)
+
+    public var text: String {
+        switch self {
+        case .idle: return "For an issue report"
+        case .collecting: return "Collecting…"
+        case .saved(let name): return "Saved " + name
+        case .failed(let why): return "Couldn't save: " + why
+        }
+    }
+
+    public var collecting: Bool { self == .collecting }
+}
+
 /// What a Settings or Welcome control asks the app to do.
 public enum SettingsAction: Equatable {
     case showConfigInFinder, showQueueInFinder, chooseTokenFile, chooseRepoFolder
@@ -343,6 +367,8 @@ public enum SettingsAction: Equatable {
     case checkForUpdates
     /// Settings › General › Privacy › Activity log: reveal hook.log in Finder.
     case showLogInFinder
+    /// Settings › General › Privacy › Diagnostics: Save Diagnostics… (a save panel, then the file).
+    case saveDiagnostics
 }
 
 extension ShortcutProblem {

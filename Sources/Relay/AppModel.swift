@@ -67,6 +67,8 @@ final class ServerRouting: Sendable {
     /// Re-reads `permission` whenever Hook becomes active; set once by `watchPermission()`.
     var permissionObserver: (any NSObjectProtocol)?
     var loginError: String?
+    /// Save Diagnostics…'s row text.
+    var diagnosticsState: DiagnosticsState = .idle
     /// `relay integrations`, run in the login shell, one command at a time.
     lazy var integrations = IntegrationsRunner { [weak self] in
         self?.config?.repoPath?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty

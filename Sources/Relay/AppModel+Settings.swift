@@ -1,4 +1,5 @@
 import AppKit
+import SystemConfiguration
 import RelayCore
 import RelayUI
 import SwiftUI
@@ -64,6 +65,7 @@ extension AppModel: SettingsViewModel {
                 .line(home: home.path),
             privacy: PrivacyLine.make(config: config, ownerKey: ownerKeyState, logSize: HookLog.size),
             now: settings.now)
+        next.privacy.diagnostics = diagnosticsState
         guard next != settings else { return }
         next.now = Date()
         settings = next
@@ -105,6 +107,8 @@ extension AppModel: SettingsViewModel {
             } else {
                 NSWorkspace.shared.open(HookLog.directory)
             }
+        case .saveDiagnostics:
+            saveDiagnostics()
         case .showQueueInFinder:
             let queue = dataDirectory.appending(path: "queue.json")
             if FileManager.default.fileExists(atPath: queue.path) {
@@ -396,4 +400,36 @@ extension AppModel: SettingsViewModel {
 
 extension String {
     var nilIfEmpty: String? { isEmpty ? nil : self }
+}
+
+extension AppModel {
+    /// Save Diagnostics…: a save panel, then the parts collected off the main actor (the system
+    /// log read stops after 30 s), redacted into one text file, shown in Finder.
+    func saveDiagnostics() {
+        guard !diagnosticsState.collecting else { return }
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = DiagnosticsReport.fileName(now: Date())
+        panel.allowedContentTypes = [.plainText]
+        panel.canCreateDirectories = true
+        panel.message = "A redacted text file to attach to an issue. Nothing is sent."
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        diagnosticsState = .collecting
+        refreshSettings()
+        let data = dataDirectory, home = Self.home.path
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
+        let bundleID = Bundle.main.bundleIdentifier ?? LaunchAgent.label
+        Task { @MainActor [weak self] in
+            let parts = await DiagnosticsCollector.parts(dataDirectory: data, home: home, bundleID: bundleID,
+                                                         label: LaunchAgent.label, version: version)
+            let text = DiagnosticsReport.text(parts, now: Date(), home: home, user: NSUserName(), hosts: [HostName.current, SCDynamicStoreCopyComputerName(nil, nil) as String?].compactMap { $0 })
+            do {
+                try Data(text.utf8).write(to: url, options: .atomic)
+                self?.diagnosticsState = .saved(url.lastPathComponent)
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+            } catch {
+                self?.diagnosticsState = .failed(error.localizedDescription)
+            }
+            self?.refreshSettings()
+        }
+    }
 }

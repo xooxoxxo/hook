@@ -471,6 +471,8 @@ public enum DS {
         public static let agentNone = "minus.circle"
         /// Settings' same-line icon buttons: Show in Finder, Check for Updates…, open an app
         /// or a System Settings pane, and show an ask.
+        /// Save Diagnostics… in Settings › General › Privacy.
+        public static let saveDiagnostics = "square.and.arrow.down"
         public static let reveal = "folder"
         public static let update = "arrow.down.circle"
         public static let openApp = "arrow.up.forward.app"

@@ -6,7 +6,8 @@ What Hook records about itself, what a crash report holds, and where it can go. 
 
 - **Where:** `~/Library/Logs/Hook/hook.log`. Settings › General › Privacy › Activity log shows its size, with a Finder button. Each line is also mirrored to the system log (subsystem `Hook`).
 - **What it records:** one line per typed event, so free text can't slip in:
-  - launch and quit, with the Hook and macOS versions and the CPU type, and whether the quit was clean;
+  - launch and quit, with the Hook and macOS versions and the CPU type, whether the quit was clean, and its cause: your Quit command, the updater, the installer, a second copy, logout, restart or shutdown, a SIGTERM or SIGHUP with the sending process's id and name, another app's quit request, or Hook's own code;
+  - MetricKit's diagnostics for Hook, one line each: crashes, hangs, CPU and disk-write exceptions, with numbers and the version only;
   - screens you open: the queue, an ask (never which one), each Settings tab, Welcome, About and the crash sheet;
   - actions by name only: Done, Skip, Reply, Answer, Report, Message, Copy, Open, Tick, Accept, Undo, Update and Send crash report;
   - the queue source (This Mac or Pond) and the Pond's version;
@@ -18,11 +19,16 @@ What Hook records about itself, what a crash report holds, and where it can go. 
 - **Size:** at 512 KB it rolls to `hook.1.log`, so the two files stay under 1 MB. Each line is written at once, so the last lines survive a crash.
 - **It stays on this Mac** unless you send a crash report. The updater keeps its own log next to it, `update.log`.
 
+## Save Diagnostics
+
+Settings › General › Privacy › **Save Diagnostics…** writes one text file wherever you choose, to attach to an issue: the Hook and macOS versions, the copies of Hook that LaunchServices and Spotlight know, the LaunchAgent's state, last exit code and run count, `run-state.json` and `launches.json`, the last 300 lines of the activity log and 100 of `update.log`, the names, dates and sizes of Hook's crash files, and the last 2 hours of system log lines from runningboardd, launchd and loginwindow that name Hook. It is redacted like a crash report, and this Mac's names show as `<host>`. Nothing is sent.
+
 ## Crash data
 
-- **The run marker.** At launch Hook writes `run-state.json` (its process id, version and start time) in `~/Library/Application Support/Relay/`, and marks it clean when it quits normally. A marker that isn't clean at the next launch means the last run ended badly.
+- **The run marker.** At launch Hook writes `run-state.json` (its process id, version and start time) in `~/Library/Application Support/Relay/`, and marks it clean, with the quit's cause and time, when it quits through macOS's normal path. A marker that isn't clean at the next launch means the last run ended badly. A clean one whose cause wasn't yours, a logout or shutdown, the updater or the installer means something else closed Hook: the next launch offers it like a crash, as **Hook was closed: <cause>**. The installer and updater leave `quit-request.json` there just before they quit Hook, so their quits never count.
+- **The launch guards.** `launches.json` keeps the last few starts and whether each lived 15 seconds. When the last three each ended sooner, Hook starts without the crash offer, the update check and the agents sync, and says so. `crash-offer.json` records a crash as it is offered; if Hook ends within 20 seconds of offering it, that crash isn't offered again.
 - **The crash file.** macOS writes a crash report (`Hook-….ips`) to `~/Library/Logs/DiagnosticReports/`. Hook reads only the newest one after the last run's start, and from it only the exception type, the signal, the termination reason and the crashed thread's top frames in Hook's own code. Without one (a hang, a force quit, a kill), the report carries only the log. The `.ips` itself is never attached or sent; **Show in Finder** in the sheet shows it to you.
-- **The signature** is 12 hex characters: a SHA-256 over the exception and Hook's top three frames. It names the crash without describing it. Each signature is raised once: Not Now or a send remembers it.
+- **The signature** is 12 hex characters: a SHA-256 over the exception and Hook's top three frames. It names the crash without describing it. Each crash is raised once: Not Now or a send remembers it. A run without a crash file (a kill, or something closed Hook) is remembered by itself, so the next one is raised too.
 
 ## What a report contains
 

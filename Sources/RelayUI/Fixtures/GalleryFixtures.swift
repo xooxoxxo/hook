@@ -19,6 +19,12 @@ public enum GalleryFixtures {
     public static let hang = CrashSummary(report: nil, hookVersion: "0.12.0", macOS: "15.6.0", cpu: "arm64",
                                           when: now.addingTimeInterval(-3 * 3600))
 
+    /// A last run something else closed: a SIGTERM from launchd.
+    public static let closedRun = CrashSummary(report: nil, hookVersion: "0.14.0", macOS: "15.6.0", cpu: "arm64",
+                                            when: now.addingTimeInterval(-2 * 3600),
+                                            closed: .signal("TERM", pid: 1, process: "launchd"),
+                                            run: now.addingTimeInterval(-5 * 3600))
+
     /// The activity log lines a report carries, already redacted as the log writes them.
     public static let crashLog: [String] = [
         "2026-10-15T22:13:58Z launch hook=0.12.0 macos=15.6.0 cpu=arm64",

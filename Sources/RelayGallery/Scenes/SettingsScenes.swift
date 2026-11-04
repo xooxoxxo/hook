@@ -48,6 +48,17 @@ let settingsRules: [AlignmentRule] = [.sameTrailingPerGroup(.settingsTrailing, t
             return GeneralTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(
                 config: config, ownerKey: .notSetUp, logSize: 2_048)))
         },
+        // Save Diagnostics… on the Privacy row's line: collecting (the button waits), then saved.
+        settingsScene("settings-privacy-diagnostics-collecting", tab: .general) {
+            var snapshot = SettingsFixtures.snapshot()
+            snapshot.privacy.diagnostics = .collecting
+            return GeneralTab(model: FixtureSettingsModel(settings: snapshot))
+        },
+        settingsScene("settings-privacy-diagnostics-saved", tab: .general) {
+            var snapshot = SettingsFixtures.snapshot()
+            snapshot.privacy.diagnostics = .saved("hook-diagnostics-2026-10-16-0940.txt")
+            return GeneralTab(model: FixtureSettingsModel(settings: snapshot))
+        },
         settingsScene("settings-readonly", tab: .general) {
             GeneralTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(readOnly: true)))
         },

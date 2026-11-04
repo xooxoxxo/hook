@@ -293,7 +293,7 @@ public struct RollingLog: Sendable {
         return Int(info.st_size)
     }
 
-    static func oneLine(_ s: String) -> String {
+    public static func oneLine(_ s: String) -> String {
         s.replacingOccurrences(of: "\r\n", with: " ")
             .replacingOccurrences(of: "\n", with: " ")
             .replacingOccurrences(of: "\r", with: " ")

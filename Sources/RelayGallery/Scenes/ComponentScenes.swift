@@ -239,6 +239,7 @@ let longProject = "Quarterly planning for the public launch of the pricing page"
         Sample("StatusBar · config.json read-only") { status(inputs(), readOnlyProfiles) },
         Sample("CrashBar · report ready") { CrashBar(offer: galleryCrashOffer, onNotNow: {}, onReview: {}) },
         Sample("CrashBar · log only") { CrashBar(offer: galleryHangOffer, onNotNow: {}, onReview: {}) },
+        Sample("CrashBar · closed") { CrashBar(offer: galleryClosedOffer, onNotNow: {}, onReview: {}) },
         Sample("StatusDetails · updated") { details(readyStatus, updated: "10:42") },
         Sample("StatusDetails · offline") { details(offlineStatus(loadedOnce: true), updated: "09:22") },
         Sample("StatusDetails · config error") { details(configError) },
