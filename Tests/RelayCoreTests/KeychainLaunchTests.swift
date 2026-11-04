@@ -63,5 +63,11 @@ import Testing
         let history = VerifiedHistory(bodies: [1: body, 2: body], stamps: [1: one, 2: two], current: two,
                                       acceptedOnPond: 2, reasons: [:])
         #expect(ReviewGate.renderedStamp(.waitingForKeychain(current: two), history: history) == one)
+        #expect(ReviewGate.renderedStamp(.waitingForKeychain(current: nil), history: nil) == nil)
+    }
+
+    @Test func aLegacyAskWaitingIsLockedToo() {
+        #expect(ReviewState.waitingForKeychain(current: nil).isLocked)
+        #expect(ReviewLockBar.make(.waitingForKeychain(current: nil))?.title == "Waiting for Keychain access")
     }
 }

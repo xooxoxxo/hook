@@ -13,10 +13,12 @@ public enum ReviewState: Equatable, Sendable {
     case pending(shown: RevisionStamp?, current: RevisionStamp, baseline: Int?)
     /// The history failed its checks, or went back on what this Mac pinned.
     case historyChanged(HistoryProblem)
-    /// A correction while the review records are still being read: the Keychain may be waiting
-    /// on its password prompt, so whether this Mac accepted `current` isn't known yet. Locked,
-    /// with nothing to review until the records are in (the Store maps `pending` to it).
-    case waitingForKeychain(current: RevisionStamp)
+    /// The review records are still being read (the Keychain may be waiting on its password
+    /// prompt), so neither this Mac's acceptance nor its pins are known yet: fail closed. Every
+    /// ask that has a history (`current`, its current revision) or could have one (a Pond's
+    /// ask without one, `current` nil) is locked, with nothing to review, until the records
+    /// are in and the gate runs again (`Store.reviewState`).
+    case waitingForKeychain(current: RevisionStamp?)
 
     /// No copy, link, file, Done, answer, reply or tick; Skip still works.
     public var isLocked: Bool {

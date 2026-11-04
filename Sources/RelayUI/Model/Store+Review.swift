@@ -290,6 +290,8 @@ extension Store {
     func render(_ item: WireItem) -> WireItem {
         let state = reviewState(item.id)
         if case .legacy = state { return item }
+        // An ask without a history, locked while the records are read: its own payload, locked.
+        if case .waitingForKeychain(nil) = state { return item }
         var out = item
         out.revision = nil
         let history = try? histories[item.id]?.get()
@@ -335,13 +337,21 @@ extension Store {
 
     // MARK: The gate
 
-    /// While the records are still being read, a correction is `waitingForKeychain`, not
-    /// `pending`: this Mac may have accepted it already.
+    /// While the records are still being read the gate fails closed (`waitingForKeychain`):
+    /// without the pins a swapped or rolled-back revision can't be told apart, and without the
+    /// acceptances a correction can't be either. Locked: every ask with a history, and on a
+    /// Pond every ask without one (it may have lost a revision this Mac pinned). Only This
+    /// Mac's own queue, which serves no revisions, stays open. A history that already failed
+    /// its own checks stays `historyChanged`.
     public func reviewState(_ id: String) -> ReviewState {
         let state = ReviewGate.resolve(record: record(id), history: histories[id], pond: pond,
                                        served: served[id]?.payload.instructable)
-        if reviewsLoading, case .pending(_, let current, _) = state { return .waitingForKeychain(current: current) }
-        return state
+        guard reviewsLoading else { return state }
+        switch state {
+        case .pending(_, let current, _), .current(let current): return .waitingForKeychain(current: current)
+        case .legacy: return identity.mailbox == nil ? .legacy : .waitingForKeychain(current: nil)
+        case .historyChanged, .waitingForKeychain: return state
+        }
     }
 
     /// The revision the card and detail render; nil for a legacy ask or a failed history.
@@ -574,7 +584,8 @@ extension Store {
 
     /// Report is offered on an open ask in the queue, from a Pond; never on This Mac or a closed ask.
     func canReport(_ id: String) -> Bool {
-        talk.reports && items.contains { $0.id == id } && item(for: id)?.status == "open"
+        // Not while the records are read: the version a report names isn't settled yet.
+        talk.reports && !reviewsLoading && items.contains { $0.id == id } && item(for: id)?.status == "open"
     }
 
     /// Opens the inline report field on `path`; nil (the queue row's Report a Problem…) picks the
