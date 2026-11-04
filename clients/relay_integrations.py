@@ -8,6 +8,7 @@ report drift, and remove exactly what Hook wrote. Standard library only (Python 
     relay_integrations.py accept   --harness X [--piece P] [--json]       (Keep Mine)
     relay_integrations.py diff     --harness X [--piece P] [--json]       (Show Difference)
     relay_integrations.py remove   (--harness X | --all) [--force] [--dry-run] [--json]
+    relay_integrations.py migrate claude-md [--choose CHOICE] [--again] [--dry-run] [--json]
     relay_integrations.py set auto-setup on|off
     hidden: --link-root DIR, --bundle DIR, --home DIR
 
@@ -16,6 +17,9 @@ and how to install each piece (mcp, skill, instructions, replies). This module h
 harness-specific code. Everything Hook writes is recorded in ~/.config/relay/integrations.json
 (the manifest) with its sha, so a later run can tell installed, outdated (Hook's content
 changed), drifted (the user changed it) and foreign (not Hook's) apart.
+
+Owner-only steps and the edited files a sync leaves alone reach the owner as instructables
+(relay_owner_steps); Claude Code's pre-0.13 setup moves to the plugin (relay_migrate_claude).
 
 Under ~/.config/relay this opens only integrations.json and integrations.lock. Reports, logs
 and JSON output name paths and key paths, never values from a harness config.
@@ -899,7 +903,7 @@ class Context:
                 item.state = "not-set-up"
             elif item.legacy:
                 item.state, item.replace, item.note = "not-set-up", True, "replaces an earlier Hook link"
-            elif disk == item.content:
+            elif disk == item.content or self._cli_same(item):
                 item.state, item.adopt = "not-set-up", True
             elif self._earlier_hook(item):
                 item.state, item.replace = "not-set-up", True
@@ -924,6 +928,20 @@ class Context:
                 item.state = "installed"
         if item.failed and item.state in ("not-set-up", "outdated"):
             item.note = item.failed
+
+    def _cli_same(self, item: Item) -> bool:
+        """A command's `writes` location already holds exactly the JSON its add would pass
+        (Claude Code's add-json): adopt it instead of removing and adding it again. Empty
+        keys the harness adds on its own (env: {}) don't count."""
+        if item.method != "cli" or not isinstance((item.payload or {}).get("found"), dict):
+            return False
+        found = {k: v for k, v in item.payload["found"].items() if v not in ({}, [], "", None)}
+        for arg in (item.alt or {}).get("add") or []:
+            if isinstance(arg, dict):
+                want = _render_value(arg["json"], item.ph)
+                if isinstance(want, dict) and found == {k: v for k, v in want.items() if v not in ({}, [], "", None)}:
+                    return True
+        return False
 
     def _earlier_hook(self, item: Item) -> bool:
         """No record, but what is there is from an earlier Hook setup."""
@@ -994,7 +1012,7 @@ class Action:
 WRITES = ("install", "update", "replace", "force", "adopt", "own")
 VERBS = {"install": "install", "update": "update", "replace": "replace", "force": "overwrite (with a .bak)",
          "adopt": "record", "own": "share", "skip": "skip", "remove": "remove", "disown": "release",
-         "keep": "leave"}
+         "keep": "leave", "migrate": "migrate"}
 
 
 def _target_label(ctx: Context, item: Item) -> str:
@@ -1371,7 +1389,10 @@ class Applier:
         rec = dict(item.record or {})
         force = kind == "force"
         if kind == "adopt":
-            return {"sha": item.disk, "backup": rec.get("backup"), "created": False, "dirs": []}
+            adopted = {"sha": item.disk, "backup": rec.get("backup"), "created": False, "dirs": []}
+            if item.method == "cli":
+                adopted["remove"] = item.payload["remove"]
+            return adopted
         m = item.method
         if m == "file":
             return self._write_file(item, rec, force)
@@ -1648,6 +1669,46 @@ def _owner_phase(ctx: Context, report: Report, poster: Any, now: datetime, *, ha
     report.errors.extend(poster.errors)
 
 
+MIGRATE_HID = "claude-code"
+
+
+def _migrate(ctx: Context, report: Report, poster: Any, now: datetime, *, dry_run: bool, again: bool = False,
+             choice: Optional[str] = None) -> None:
+    """The Claude Code migration, after its entry applied (relay_migrate_claude)."""
+    import relay_migrate_claude as mc
+    if MIGRATE_HID not in ctx.by_id or MIGRATE_HID not in ctx.manifest.harnesses:
+        return
+    outcome = next((r["outcome"] for r in report.results if r["harness"] == MIGRATE_HID and r["piece"] == "mcp"
+                    and r["action"] in ("replace", "adopt")), None)
+    try:
+        items = mc.migrate(ctx.values, ctx.manifest, ctx.runner, None, now, dry_run=dry_run, again=again,
+                           choice=choice, poster=poster, mcp_outcome=outcome)
+    except (OSError, ed.EditError) as exc:
+        note = _os_note(exc, ctx.values.home) if isinstance(exc, OSError) else str(exc)
+        report.failed += 1
+        report.results.append({"harness": MIGRATE_HID, "piece": "migrate", "action": "migrate", "target": "~/.claude",
+                               "outcome": "failed", "note": note})
+        return
+    for it in items:
+        state = it["state"]
+        if dry_run:
+            what = state[len("would "):] if state.startswith("would ") else state
+            note = f"{what}: {it['note']}" if it.get("note") else what
+            report.results.append({"harness": MIGRATE_HID, "piece": it["id"], "action": "migrate",
+                                   "target": it["path"], "outcome": "would", "note": note})
+        else:
+            report.results.append({"harness": MIGRATE_HID, "piece": it["id"], "action": "migrate",
+                                   "target": it["path"], "outcome": state, "note": it.get("note")})
+
+
+def _migration_backups(manifest: Manifest, report: Report, values: Values) -> None:
+    """Uninstall never undoes the migration; it says where the originals are."""
+    import relay_migrate_claude as mc
+    for path, backup in mc.backups(manifest):
+        report.results.append({"harness": MIGRATE_HID, "piece": "migrate", "action": "keep", "target": path,
+                               "outcome": "left", "note": f"Hook's earlier change stays; your original is {backup}"})
+
+
 def _drift_answers(ctx: Context, report: Report, detections: Dict[str, Detection], now: datetime) -> None:
     """Carry out the owner's answers to the drift ask: Keep mine is `accept`, Use Hook's is
     `reinstall --force --piece` (owner pick 6, rule 17). An item that changed since is left
@@ -1768,7 +1829,9 @@ def status(table, manifest, detections, values, runner, *, smoke: bool) -> Dict[
         "linkRoot": manifest.data.get("linkRoot") or tilde(values.link_root, values.home),
         "harnesses": harnesses,
         "newlyDetected": [h["id"] for h in harnesses if h["detected"] and not h["managed"]],
-        "migrations": manifest.data.get("migrations") or [], "errors": errors,
+        "migrations": [{k: m.get(k) for k in ("id", "state", "askId", "path", "backup", "note")}
+                       for m in manifest.data.get("migrations") or [] if isinstance(m, dict)],
+        "errors": errors,
     }
 
 
@@ -1933,6 +1996,12 @@ def _parser() -> argparse.ArgumentParser:
     s.add_argument("--force", action="store_true")
     s.add_argument("--dry-run", action="store_true")
     s.add_argument("--json", action="store_true")
+    s = sub.add_parser("migrate", parents=[common], help="move Claude Code's old Hook setup (CLAUDE.md asks first)")
+    s.add_argument("what", choices=["claude-md"])
+    s.add_argument("--choose", help="Apply | Remove the whole section | Keep CLAUDE.md as is")
+    s.add_argument("--again", action="store_true", help="propose again after Keep")
+    s.add_argument("--dry-run", action="store_true")
+    s.add_argument("--json", action="store_true")
     s = sub.add_parser("set", parents=[common], help="a setting")
     s.add_argument("name", choices=["auto-setup"])
     s.add_argument("value", choices=["on", "off"])
@@ -2049,6 +2118,31 @@ def _cmd_diff(args, table, manifest, values, run, out, err) -> int:
     return 0
 
 
+def _cmd_migrate(args, table, manifest, values, run, when, out, client_factory) -> int:
+    import relay_migrate_claude as mc
+    import relay_owner_steps as ros
+    if args.choose is not None and args.choose not in mc.CHOICES:
+        raise UsageError(f"--choose one of: {', '.join(mc.CHOICES)}")
+    ctx = Context(table, manifest, values, run)
+    if MIGRATE_HID not in manifest.harnesses:
+        raise UsageError("Claude Code isn't set up by Hook yet; run sync first")
+    report = Report(dry_run=args.dry_run)
+    poster = None if args.dry_run else ros.Poster(client_factory, no_asks=False)
+    if not args.dry_run:
+        ros.refresh(manifest, client_factory)
+    _migrate(ctx, report, poster, when, dry_run=args.dry_run, again=args.again, choice=args.choose)
+    if not args.dry_run:
+        report.errors.extend(poster.errors)
+        manifest.save()
+    code = 4 if report.failed else 0
+    if args.json:
+        print(json.dumps({"dryRun": report.dry_run, "results": report.results, "errors": report.errors,
+                          "exit": code}, indent=2), file=out)
+    else:
+        _human_report(report, out)
+    return code
+
+
 def _table_sha(values: Values) -> str:
     return _sha((values.bundle / "harnesses.json").read_bytes())
 
@@ -2059,6 +2153,8 @@ def _cmd_write(args, table, manifest, values, run, when, out, err, client_factor
         manifest.save()
         print(f"auto-setup {args.value}", file=out)
         return 0
+    if args.cmd == "migrate":
+        return _cmd_migrate(args, table, manifest, values, run, when, out, client_factory)
     if args.cmd == "accept":
         ctx = Context(table, manifest, values, run)
         done = _accept(ctx, args.harness, args.piece, when)
@@ -2111,9 +2207,17 @@ def _cmd_write(args, table, manifest, values, run, when, out, err, client_factor
                        force=getattr(args, "force", False), include_new=getattr(args, "include_new", False),
                        piece=piece, only_known=getattr(args, "only_known", False))
     Applier(ctx, report, when).run(actions)
+    poster = None
+    if asks_on:
+        import relay_owner_steps as ros
+        poster = ros.Poster(client_factory, no_asks=no_asks)
+    if mode in ("sync", "reinstall") and args.harness in (None, MIGRATE_HID):
+        _migrate(ctx, report, poster, when, dry_run=args.dry_run)
     if not args.dry_run:
         if args.cmd == "remove":
             manifest.data["dirs"] = _rmdirs(manifest.data.get("dirs") or [])
+            if args.all or args.harness == MIGRATE_HID:
+                _migration_backups(manifest, report, values)
             if args.harness:
                 asks = manifest.data.get("asks") or {}
                 for sid in [k for k, a in asks.items() if isinstance(a, dict) and a.get("harness") == args.harness]:
@@ -2126,8 +2230,6 @@ def _cmd_write(args, table, manifest, values, run, when, out, err, client_factor
                 for k in ("hookVersion", "tableSha", "linkRoot", "lastSync"):
                     manifest.data.pop(k, None)
         else:
-            import relay_owner_steps as ros
-            poster = ros.Poster(client_factory, no_asks=no_asks)
             _owner_phase(ctx, report, poster, when, harness=args.harness, drift=mode == "sync")
             manifest.data.update({"hookVersion": values.version, "tableSha": _table_sha(values),
                                   "linkRoot": tilde(values.link_root, values.home), "lastSync": _iso(when)})

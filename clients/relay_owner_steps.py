@@ -24,7 +24,7 @@ import json
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Set
+from typing import Any, Callable, Dict, List, Mapping, Optional, Set, Tuple
 
 import relay_bundle as rb
 import relay_client
@@ -206,10 +206,12 @@ def post_due(steps: List[Dict[str, Any]], manifest: Any, client_factory: Optiona
 
 # --- reading answers -----------------------------------------------------------------------
 
-def _owner_answers(detail: Dict[str, Any], local: bool, ignore_seq: int) -> Dict[str, str]:
-    """{step path: the first pick} of the owner's current answers. On a Pond only an answer
-    signed with the owner's key counts; in This Mac mode only the app records answers."""
+def _owner_answers(detail: Dict[str, Any], local: bool, ignore_seq: int) -> Tuple[Dict[str, str], int]:
+    """({step path: the first pick} of the owner's current answers, the highest seq among
+    them). On a Pond only an answer signed with the owner's key counts; in This Mac mode only
+    the app records answers."""
     out: Dict[str, str] = {}
+    top = 0
     for path, value in relay_client.answers_with_state(detail).items():
         if not (local or relay_client.is_verified(value)) or value.get("stale"):
             continue
@@ -222,12 +224,17 @@ def _owner_answers(detail: Dict[str, Any], local: bool, ignore_seq: int) -> Dict
         picked = value.get("picked")
         if isinstance(picked, list) and picked:
             out[path] = str(picked[0])
-    return out
+            top = max(top, seq)
+    return out, top
 
 
 def waiting(manifest: Any) -> bool:
-    """True while an ask Hook posted waits on the owner (so a sync should read it)."""
-    return bool(_records(manifest))
+    """True while an ask waits on the owner (a sync should read it) or waits to be posted."""
+    if _records(manifest):
+        return True
+    recs = [r for r in (manifest.data.get("asks") or {}).values() if isinstance(r, dict)]
+    recs += [m for m in manifest.data.get("migrations") or [] if isinstance(m, dict)]
+    return any(r.get("state") == "pending" or (r.get("state") == "proposed" and not r.get("askId")) for r in recs)
 
 
 def _records(manifest: Any) -> List[Dict[str, Any]]:
@@ -272,9 +279,11 @@ def refresh(manifest: Any, client_factory: Optional[Callable[..., Any]], budget_
         except relay_client.RelayError:
             return
         item = detail.get("item") if isinstance(detail, dict) and isinstance(detail.get("item"), dict) else {}
-        answers = _owner_answers(detail, local, int(rec.get("ignoreSeq") or 0))
+        ignore = int(rec.get("ignoreSeq") or 0) if rec.get("ignoreFor") == rec["askId"] else 0
+        answers, top = _owner_answers(detail, local, ignore)
         if answers:
             rec["answers"] = answers
+            rec["answerSeq"] = top
         status = item.get("status")
         if status == "resolved":
             _closed(rec, "done", None)

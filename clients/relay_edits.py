@@ -17,6 +17,7 @@ commas). Edits splice text into the file and never re-dump it:
     json_delete(text, path, *, prune=0) -> text
     json_append(text, path, element, match) -> text           # unchanged if an element matches
     json_remove_matching(text, path, match, *, prune=0) -> text
+    json_remove_nested(text, path, inner, match) -> text      # path[*].inner items
     json_missing_containers(text, path, *, append=False) -> int
 
 A splice can't tell on its own whether an empty object it leaves behind was the user's or
@@ -529,6 +530,63 @@ def json_remove_matching(text: str, path: Sequence[str], match: Callable[[Any], 
         _verify(body, new, path, (None, None))
     else:
         _verify(body, new, path, (True, kept))
+    return (bom + new) if new else ""
+
+
+def _nested_hits(node: _Node, inner: str, match: Callable[[Any], bool]) -> Tuple[Optional[_Item], List[int]]:
+    """(the element's `inner` member, the indexes of its matching items) for one element."""
+    if node.kind != "object":
+        return None, []
+    it = _member(node, inner)
+    if it is None or it.node.kind != "array":
+        return None, []
+    return it, [k for k, sub in enumerate(it.node.items) if match(_py(sub.node))]
+
+
+def json_remove_nested(text: str, path: Sequence[str], inner: str, match: Callable[[Any], bool]) -> str:
+    """In the array at path, remove the items of each element's `inner` array that match; an
+    element left with an empty `inner` array goes too, and the key at path goes when this
+    emptied its array. Claude Code's hooks.UserPromptSubmit[*].hooks is the case."""
+    if not path:
+        raise EditError("an empty path")
+    bom, body = _split_bom(text)
+    if not body.strip():
+        return text
+    node = _array(body, path)
+    if node is None:
+        return text
+
+    def expected(value: List[Any]) -> List[Any]:
+        out = []
+        for el in value:
+            if isinstance(el, dict) and isinstance(el.get(inner), list) and any(match(h) for h in el[inner]):
+                kept = [h for h in el[inner] if not match(h)]
+                if kept:
+                    out.append(dict(el, **{inner: kept}))
+                continue
+            out.append(el)
+        return out
+
+    before = [_py(it.node) for it in node.items]
+    new = body
+    for i in range(len(node.items) - 1, -1, -1):
+        member, hits = _nested_hits(_array(new, path).items[i].node, inner, match)
+        if not hits:
+            continue
+        if len(hits) == len(member.node.items):
+            new = _remove(new, _array(new, path), i)
+            continue
+        for k in reversed(hits):
+            member, _ = _nested_hits(_array(new, path).items[i].node, inner, match)
+            new = _remove(new, member.node, k)
+    if new == body:
+        return text
+    want = expected(before)
+    if not want:
+        new = _delete_body(new, path, 0)
+        _verify(body, new, path, (False, None))
+    else:
+        _verify(body, new, path, (True, want))
     return (bom + new) if new else ""
 
 

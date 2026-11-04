@@ -47,6 +47,8 @@ LAYOUT = [
     "files/opencode-hook.ts",
     "files/amp-hook.ts",
     "files/pi-hook.ts",
+    "legacy/claude-md-sections/v0.2.0.md",
+    "legacy/claude-md-sections/v0.8.0.md",
 ]
 
 VALUES = {

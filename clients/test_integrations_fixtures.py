@@ -3,8 +3,10 @@ sync, the golden edited files, a second sync that changes nothing, an edit that 
 drift, remove back to the original bytes, and a broken config that blocks. Each entry runs
 with no harness CLI and, when it uses one, with fake CLIs on PATH.
 
-Goldens live in fixtures/harness-homes/<id>/after*/ with the temp HOME written as /HOME.
-Regenerate them with HOOK_UPDATE_GOLDEN=1 and read every diff. Standard library only."""
+Goldens live in fixtures/harness-homes/<id>/after*/ with the temp HOME written as /HOME. A
+variant whose migration (the Claude Code one) changed files that uninstall never puts back has
+removed*/ too: those files as they are after remove, and a .gone list of the ones that are
+gone. Regenerate them with HOOK_UPDATE_GOLDEN=1 and read every diff. Standard library only."""
 from __future__ import annotations
 
 import json
@@ -68,6 +70,7 @@ class Cycle:
         self.before = HOMES / hid / variant
         suffix = variant[len("before"):]
         self.golden = HOMES / hid / ("after" + suffix + ("-cli" if with_cli else ""))
+        self.removed = HOMES / hid / ("removed" + suffix + ("-cli" if with_cli else ""))
         self.w = World(TABLE)
         self.w.rules_from_table()
         if with_cli:
@@ -219,10 +222,45 @@ class Cycle:
         self.t.assertEqual(self.w.harness(self.hid)["state"] in ("installed", "needs-owner", "not-set-up"), True,
                            self.w.harness(self.hid))
 
+    def after_remove(self) -> Dict[str, bytes]:
+        """before/, with what a migration changed for good (removed*/) laid over it."""
+        expected = files(self.before)
+        if self.removed.is_dir():
+            home = str(self.w.home).encode()
+            for rel, data in files(self.removed).items():
+                if rel != ".gone":
+                    expected[rel] = data.replace(b"/HOME", home)
+            gone = self.removed / ".gone"
+            for rel in (gone.read_text("utf-8").split() if gone.is_file() else []):
+                expected.pop(rel, None)
+        return expected
+
+    def capture_removed(self) -> None:
+        """HOOK_UPDATE_GOLDEN: write removed*/ for a variant whose migration changed files."""
+        if self.removed.exists():
+            shutil.rmtree(self.removed)
+        if not self.w.manifest().get("migrations"):
+            return
+        rc, out, err = self.run("remove", "--harness", self.hid)
+        self.t.assertEqual(rc, 0, out + err)
+        before, now = files(self.before), files(self.w.home, SKIP)
+        home = str(self.w.home).encode()
+        changed = {rel: data.replace(home, b"/HOME") for rel, data in now.items()
+                   if rel in before and before[rel] != data}
+        gone = sorted(rel for rel in before if rel not in now)
+        if not changed and not gone:
+            return
+        for rel, data in changed.items():
+            path = self.removed / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+        self.removed.mkdir(parents=True, exist_ok=True)
+        (self.removed / ".gone").write_text("".join(g + "\n" for g in gone), "utf-8")
+
     def step_remove(self) -> None:
         rc, out, err = self.run("remove", "--harness", self.hid)
         self.t.assertEqual(rc, 0, out + err)
-        before = files(self.before)
+        before = self.after_remove()
         now = files(self.w.home, SKIP)
         for rel, data in before.items():
             self.t.assertIn(rel, now, f"{rel} is gone after remove")
@@ -266,6 +304,7 @@ class Cycle:
             self.sync()
             self.step_golden()
             if UPDATE:
+                self.capture_removed()
                 return
             self.step_idempotent()
             if self.hid not in self.w.manifest()["harnesses"]:

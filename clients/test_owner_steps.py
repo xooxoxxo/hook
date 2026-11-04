@@ -171,6 +171,14 @@ class PostingTest(Base):
         self.sync()
         self.assertEqual(len(self.hub.posts), 3)
 
+    def test_if_changed_still_reads_and_posts_asks(self):
+        self.sync("--no-asks")
+        self.sync("--if-changed")                       # a recent sync, but asks wait to be posted
+        self.assertEqual(sorted(self.hub.titles()), sorted([TRUST, RELOAD, WARP]))
+        self.hub.close(self.asks()["warp-rule"]["askId"])
+        self.sync("--if-changed")                       # open asks: read them
+        self.assertEqual(self.asks()["warp-rule"]["state"], "done")
+
     def test_unreachable_hook_records_pending_and_exits_0(self):
         self.hub.unreachable = True
         out = self.sync()

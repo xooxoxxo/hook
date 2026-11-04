@@ -179,6 +179,35 @@ class JSONCTests(unittest.TestCase):
         new = ed.json_remove_matching(old, ["x"], is_hook_replies)
         self.assertEqual(ed.loads_jsonc(new), {"x": [{"command": "a"}, {"command": "b"}]})
 
+    def test_remove_nested_drops_inner_matches_and_empty_groups(self):
+        old = ('{\n  // mine\n  "hooks": {\n    "PreToolUse": [{"hooks": [{"command": "relay replies --new --hook"}]}],\n'
+               '    "UserPromptSubmit": [\n'
+               '      {"hooks": [{"type": "command", "command": "relay replies --new --hook", "timeout": 5}]},\n'
+               '      {"matcher": "x", "hooks": [\n'
+               '        {"command": "mine.sh"},\n'
+               '        {"command": "hook replies --new --hook"}\n'
+               '      ]},\n'
+               '    ],\n  },\n  "model": "opus"\n}\n')
+        legacy = lambda h: "replies --new" in str(h.get("command", ""))   # noqa: E731
+        path = ["hooks", "UserPromptSubmit"]
+        new = ed.json_remove_nested(old, path, "hooks", legacy)
+        self.assertEqual(ed.json_get(new, path), (True, [{"matcher": "x", "hooks": [{"command": "mine.sh"}]}]))
+        self.assertTrue(new.startswith('{\n  // mine\n  "hooks": {\n    "PreToolUse": [{"hooks": [{"command": "relay replies'))
+        self.assertTrue(new.endswith('    ],\n  },\n  "model": "opus"\n}\n'))
+        self.assertEqual(ed.json_remove_nested(new, path, "hooks", legacy), new)
+
+    def test_remove_nested_drops_the_key_it_emptied_only(self):
+        legacy = lambda h: "replies --new" in str(h.get("command", ""))   # noqa: E731
+        path = ["hooks", "UserPromptSubmit"]
+        old = '{\n  "hooks": {\n    "UserPromptSubmit": [\n      {"hooks": [{"command": "relay replies --new"}]}\n    ]\n  }\n}\n'
+        self.assertEqual(ed.json_remove_nested(old, path, "hooks", legacy), '{\n  "hooks": {}\n}\n')
+        empty = '{\n  "hooks": {\n    "UserPromptSubmit": []\n  }\n}\n'
+        self.assertEqual(ed.json_remove_nested(empty, path, "hooks", legacy), empty)
+        self.assertEqual(ed.json_remove_nested("", path, "hooks", legacy), "")
+        self.assertEqual(ed.json_remove_nested('{"a": 1}', path, "hooks", legacy), '{"a": 1}')
+        with self.assertRaises(ed.ParseError):
+            ed.json_remove_nested('{"hooks": ', path, "hooks", legacy)
+
     def test_append_refuses_a_non_array(self):
         with self.assertRaises(ed.EditError):
             ed.json_append('{"x": {}}', ["x"], 1, lambda e: False)

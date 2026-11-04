@@ -8,7 +8,8 @@
       "args": ["-y", "@modelcontextprotocol/server-github"],
       "env": {"GITHUB_TOKEN": "sk-test-not-a-secret"}
     },
-    "files": {"command": "uvx", "args": ["mcp-files"]}
+    "files": {"command": "uvx", "args": ["mcp-files"]},
+    "relay": {"type": "stdio", "command": "python3", "args": ["/Users/me/src/hook/mcp/relay_mcp.py"], "env": {}}
   },
   "projects": {
     "/Users/me/work/app": {"allowedTools": [], "hasTrustDialogAccepted": true}

@@ -14,6 +14,7 @@ The built layout (support/integration/ in a release zip, build/integration/ in a
     skills/instructables/             the skill, with metadata.version in its frontmatter
     plugins/<id>/                     plugin templates with {{placeholders}}; render.json names extra copies
     files/                            templates for single files Hook owns
+    legacy/claude-md-sections/        every released CLAUDE.md section text, for the migration
 
 Templates are filled per machine by render_text and render_tree. In .json, .ts and .js files a
 value is JSON-escaped; in .md and .mdc files it goes in raw. Standard library only (Python 3.9).
@@ -318,6 +319,8 @@ def build(src: Path, skill: Path, table: Path, out: Path, version: str) -> Dict[
         for part in ("plugins", "files"):
             _copy_tree(src / part, tmp / part)
             _check_templates(tmp / part)
+        if (src / "legacy").is_dir():
+            _copy_tree(src / "legacy", tmp / "legacy")      # earlier Hook texts, copied as they are
         for plugin in sorted(p.name for p in (tmp / "plugins").iterdir() if p.is_dir()):
             for rel, source in plugin_extras(tmp, plugin).items():
                 if not source.exists():
