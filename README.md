@@ -5,6 +5,8 @@ Hook (formerly Relay) is a macOS menu-bar inbox for your coding agents: Claude C
 [![CI](https://github.com/xooxoxxo/hook/actions/workflows/ci.yml/badge.svg)](https://github.com/xooxoxxo/hook/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
+Homepage and product guide: [xooxoxxo.github.io/hook](https://xooxoxxo.github.io/hook/)
+
 <!-- screenshot: docs/assets/sidebar.png -->
 
 How an ask goes:

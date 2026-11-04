@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hook for macOS</title>
+<meta name="description" content="Hook is a macOS menu-bar inbox for your coding agents. When a session needs a key, a decision or a manual step, it lands here as a checklist you tick off.">
+<meta name="color-scheme" content="light dark">
+<meta property="og:title" content="Hook for macOS">
+<meta property="og:description" content="An inbox in your menu bar for what your coding agents need from you.">
+<meta property="og:url" content="https://xooxoxxo.github.io/hook/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="site.js"></script>
+<style>
+/* Hook homepage. The hero is the guide's booklet title (a giant wordmark over a heavy
+   rule); everything after it is the calm "menu bar" layout: big screenshots, feature
+   rows, agent tiles and an install card. Motion lives at the end of this sheet. */
+:root {
+  --bg: #F6F7FA;
+  --paper: #FFFFFF;
+  --ink: #1B1C22;
+  --ink-2: #4A4C58;
+  --muted: #6C6E7B;
+  --line: #E3E4EA;
+  --rule: #1B1C22;
+  --surface: #EEEFF4;
+  --accent: #4C4CC4;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #EDEDFB;
+  --code-bg: #17171B;
+  --code-ink: #EBEBF0;
+  --code-muted: #8C8C99;
+  --menubar: rgba(232, 233, 238, .92);
+  --menubar-ink: #2B2B2F;
+  --badge: #F2392F;
+  --shadow: rgba(17, 19, 24, .12);
+  --nav-bg: rgba(246, 247, 250, .82);
+  --show-light: block;
+  --show-dark: none;
+  --display: "Bricolage Grotesque", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --body: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --radius: 14px;
+  --wrap: 1120px;
+  --ease: cubic-bezier(.2, .7, .2, 1);
+  --dur: 560ms;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111216; --paper: #1A1B21; --ink: #ECEDF3; --ink-2: #B5B7C3; --muted: #8D8F9C;
+    --line: #2B2D36; --rule: #ECEDF3; --surface: #20212A; --accent: #A3A3F5; --accent-ink: #14142E;
+    --accent-soft: #272850; --code-bg: #0A0A0D; --code-ink: #E6E6EE; --code-muted: #7E7E8C;
+    --menubar: rgba(38, 39, 46, .92); --menubar-ink: #E4E4EA; --badge: #FF453A;
+    --shadow: rgba(0, 0, 0, .5); --nav-bg: rgba(17, 18, 22, .82);
+    --show-light: none; --show-dark: block; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111216; --paper: #1A1B21; --ink: #ECEDF3; --ink-2: #B5B7C3; --muted: #8D8F9C;
+  --line: #2B2D36; --rule: #ECEDF3; --surface: #20212A; --accent: #A3A3F5; --accent-ink: #14142E;
+  --accent-soft: #272850; --code-bg: #0A0A0D; --code-ink: #E6E6EE; --code-muted: #7E7E8C;
+  --menubar: rgba(38, 39, 46, .92); --menubar-ink: #E4E4EA; --badge: #FF453A;
+  --shadow: rgba(0, 0, 0, .5); --nav-bg: rgba(17, 18, 22, .82);
+  --show-light: none; --show-dark: block; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.6 var(--body);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+}
+h1, h2, h3 { margin: 0; color: var(--ink); text-wrap: balance; }
+p, ul, ol, figure { margin: 0; }
+ul, ol { padding: 0; }
+figure { min-width: 0; }
+img { display: block; }
+a { color: var(--accent); text-underline-offset: 2px; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+code { font-family: var(--mono); font-size: .88em; overflow-wrap: anywhere; }
+.l { display: var(--show-light); }
+.d { display: var(--show-dark); }
+section[id] { scroll-margin-top: 72px; }
+
+.wrap { max-width: var(--wrap); margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.band { padding-block: 104px; }
+.band.alt { background: var(--paper); border-block: 1px solid var(--line); }
+
+/* Nav */
+.nav { position: sticky; top: 0; z-index: 10; background: var(--nav-bg); -webkit-backdrop-filter: saturate(1.4) blur(14px); backdrop-filter: saturate(1.4) blur(14px); border-bottom: 1px solid transparent; transition: border-color .3s ease; }
+.nav.scrolled { border-bottom-color: var(--line); }
+.nav .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 24px; padding-block: 14px; }
+.wordmark { font: 800 24px/1 var(--display); letter-spacing: -0.04em; color: var(--ink); text-decoration: none; }
+.nav nav { display: flex; flex-wrap: wrap; gap: 4px 22px; margin-left: auto; align-items: center; }
+.nav nav a { color: var(--ink-2); text-decoration: none; font-size: 14.5px; }
+.nav nav a:hover { color: var(--ink); }
+.nav a.gh { text-decoration: none; font: 500 12px/1 var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--ink); border: 1px solid var(--line); background: var(--paper); padding: 8px 12px; border-radius: 8px; }
+
+/* Hero: the booklet title */
+.hero { padding-top: 40px; padding-bottom: 96px; display: grid; gap: 30px; }
+.meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 18px; font: 500 12px/1.3 var(--mono); text-transform: uppercase; letter-spacing: .07em; color: var(--ink); border-bottom: 3px solid var(--rule); padding-bottom: 12px; }
+.giant { font: 800 clamp(108px, 24vw, 300px)/.8 var(--display); letter-spacing: -0.06em; margin-left: -0.04em; padding-block: .04em; }
+.hero-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 56px; align-items: start; }
+.thesis { font: 650 clamp(24px, 2.8vw, 34px)/1.18 var(--body); letter-spacing: -0.016em; max-width: 22ch; }
+.thesis mark { background: var(--accent-soft); color: inherit; padding: 0 .12em; border-radius: 3px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.hero-text { display: grid; gap: 22px; min-width: 0; }
+.lead { font-size: 17.5px; color: var(--ink-2); max-width: 54ch; }
+.cmd { display: flex; align-items: stretch; background: var(--code-bg); border-radius: 12px; overflow: hidden; min-width: 0; }
+.cmd pre { margin: 0; padding: 15px 16px; font: 13px/1.5 var(--mono); color: var(--code-ink); overflow-x: auto; white-space: pre; flex: 1; min-width: 0; }
+.cmd pre::before { content: "$ "; color: var(--code-muted); }
+.copy { flex: none; border: 0; border-left: 1px solid rgba(255, 255, 255, .12); background: transparent; color: var(--code-ink); font: 500 12px/1 var(--mono); letter-spacing: .05em; text-transform: uppercase; padding: 0 18px; cursor: pointer; transition: background-color .2s ease; }
+.copy:hover { background: rgba(255, 255, 255, .08); }
+.hero-links { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.btn { display: inline-flex; align-items: center; gap: 8px; font: 600 14.5px/1 var(--body); padding: 12px 18px; border-radius: 10px; text-decoration: none; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); }
+.btn.ghost { color: var(--ink); border: 1px solid var(--line); background: var(--paper); }
+
+/* Section heads: one headline under a short heavy rule, at most one line under it */
+.head { display: grid; gap: 14px; margin-bottom: 48px; }
+.head h2::before { content: ""; display: block; width: 36px; border-top: 3px solid var(--rule); margin-bottom: 18px; }
+h2 { font: 750 clamp(30px, 4vw, 46px)/1.06 var(--display); letter-spacing: -0.03em; max-width: 20ch; }
+h3 { font: 650 19px/1.3 var(--body); letter-spacing: -0.01em; }
+.head p { color: var(--ink-2); max-width: 58ch; font-size: 17px; }
+
+/* The panel on a desk, under a menu bar */
+.stage-band { padding-block: 0 104px; }
+.desk { background: var(--surface); border: 1px solid var(--line); border-radius: 24px; overflow: hidden; }
+.menubar { display: flex; align-items: center; justify-content: flex-end; gap: 18px; background: var(--menubar); border-bottom: 1px solid var(--line); padding: 8px 22px; font: 500 13px/1 var(--body); color: var(--menubar-ink); font-variant-numeric: tabular-nums; }
+.mb-hook { position: relative; display: inline-flex; width: 22px; height: 16px; }
+.mb-hook svg { width: 18px; height: 16px; }
+.mb-hook path, .mb-hook circle { stroke: var(--menubar-ink); stroke-width: 1.6; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.mb-badge { position: absolute; right: -4px; top: -5px; width: 13px; height: 13px; border-radius: 50%; background: var(--badge); color: #FFFFFF; font: 700 9px/13px var(--body); text-align: center; }
+.desk-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 400px); gap: 48px; align-items: center; padding: 0 clamp(20px, 5vw, 64px) 0 clamp(20px, 5vw, 64px); }
+.desk-text { display: grid; gap: 14px; padding-block: 48px; }
+.desk-text p { color: var(--ink-2); font-size: 17px; max-width: 40ch; }
+.panel-shot { margin-block: 14px 48px; border-radius: 16px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 2px 4px var(--shadow), 0 30px 70px var(--shadow); }
+.panel-shot img { width: 100%; height: auto; }
+
+/* How it works */
+.trip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+.trip li { list-style: none; background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); padding: 26px 24px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.trip p { color: var(--ink-2); }
+.ico { width: 40px; height: 40px; border-radius: 10px; background: var(--accent-soft); display: grid; place-items: center; margin-bottom: 6px; }
+.ico svg { width: 22px; height: 22px; fill: none; stroke: var(--accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.modes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 32px; }
+.modes div { padding: 4px 0 0 18px; border-left: 2px solid var(--line); display: grid; gap: 4px; align-content: start; min-width: 0; }
+.modes p { color: var(--ink-2); font-size: 15px; }
+
+/* Feature rows */
+.rows { display: grid; gap: 104px; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 64px; align-items: center; }
+.row:nth-child(even) .shot { order: 2; }
+.row-text { display: grid; gap: 14px; min-width: 0; }
+.row-text h3 { font: 750 clamp(24px, 2.6vw, 32px)/1.12 var(--display); letter-spacing: -0.025em; }
+.row-text p { color: var(--ink-2); font-size: 16.5px; max-width: 46ch; }
+.shot { background: var(--surface); border-radius: 20px; padding: 32px 32px 0; height: 520px; overflow: hidden; display: grid; justify-items: center; align-content: start; min-width: 0; }
+.shot img { width: 100%; max-width: 360px; height: auto; border-radius: 12px 12px 0 0; box-shadow: 0 20px 50px var(--shadow); }
+.shot.wide img { max-width: 520px; }
+.shot.fit { padding-bottom: 32px; align-content: center; }
+.shot.fit img { border-radius: 12px; }
+
+/* Agents */
+.agents { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 12px; }
+.agents li { list-style: none; display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 2px 12px; align-items: center; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; min-width: 0; }
+.mono { grid-row: span 2; width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; font: 700 12px/1 var(--body); color: var(--ink); background: var(--surface); letter-spacing: .02em; }
+.agents b { font-weight: 650; font-size: 15px; }
+.mark { white-space: nowrap; font: 500 10.5px/1.2 var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-top: 20px; font: 500 12px/1.5 var(--mono); color: var(--muted); }
+.legend b { color: var(--ink-2); font-weight: 600; }
+
+/* Install */
+.install { background: var(--paper); border: 1px solid var(--line); border-radius: 20px; padding: clamp(22px, 4vw, 44px); display: grid; gap: 32px; }
+.facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px; }
+.facts div { display: grid; gap: 6px; align-content: start; min-width: 0; }
+.facts .k { font: 500 11.5px/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.facts p { color: var(--ink-2); font-size: 15px; }
+.facts code { color: var(--ink); }
+.note { font-size: 14.5px; color: var(--ink-2); border-top: 1px solid var(--line); padding-top: 20px; }
+.note b { color: var(--ink); }
+
+/* Beta */
+.beta { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+.card { background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); padding: 26px 24px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.card p { color: var(--ink-2); font-size: 15px; }
+.card.accent { background: var(--accent-soft); border-color: transparent; }
+
+/* Docs */
+.docs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.docs > * { min-width: 0; }
+.docs a.doc, .lead-doc { display: grid; gap: 4px; padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); text-decoration: none; color: var(--ink); height: 100%; }
+.docs a.doc span { color: var(--muted); font-size: 14px; }
+.docs a.doc:hover { border-color: var(--accent); }
+.lead-doc { grid-column: span 2; position: relative; background: var(--ink); border-color: var(--ink); color: var(--paper); align-content: start; }
+.lead-doc a { color: var(--paper); text-decoration: none; }
+.lead-doc .main::after { content: ""; position: absolute; inset: 0; border-radius: 12px; }
+.lead-doc span { opacity: .75; font-size: 14px; }
+.lead-doc .pdf { position: absolute; z-index: 1; right: 14px; top: 14px; font: 500 11.5px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; border: 1px solid currentColor; border-radius: 6px; padding: 6px 8px; opacity: .85; }
+.lead-doc .pdf:hover { opacity: 1; }
+
+/* Footer */
+footer { padding-block: 40px 56px; }
+.foot { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: baseline; border-top: 1px solid var(--line); padding-top: 22px; font: 500 12.5px/1.5 var(--mono); color: var(--muted); }
+.foot .wordmark { font-size: 20px; margin-right: 8px; }
+.foot a { color: var(--ink-2); }
+
+@media (max-width: 960px) {
+  .hero-split, .row { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+  .row { gap: 36px; }
+  .row:nth-child(even) .shot { order: 0; }
+  .desk-body { grid-template-columns: minmax(0, 1fr); gap: 0; justify-items: center; }
+  .desk-text { padding-block: 36px 24px; justify-self: stretch; }
+  .panel-shot { width: 100%; max-width: 400px; margin-block: 0 28px; }
+  .trip, .beta { grid-template-columns: minmax(0, 1fr); }
+  .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .docs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 720px) {
+  .nav { position: static; }
+}
+@media (max-width: 620px) {
+  .band { padding-block: 72px; }
+  .stage-band { padding-block: 0 72px; }
+  .hero { padding-top: 24px; padding-bottom: 64px; gap: 24px; }
+  .rows { gap: 72px; }
+  .modes, .facts, .docs { grid-template-columns: minmax(0, 1fr); }
+  .lead-doc { grid-column: auto; }
+  .shot { height: 420px; padding: 20px 20px 0; border-radius: 16px; }
+  .shot.fit { padding-bottom: 20px; }
+  .nav a.gh { margin-left: auto; }
+  .nav nav { order: 3; margin-left: 0; width: 100%; gap: 4px 18px; }
+  .agents { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .agents li { grid-template-columns: minmax(0, 1fr); }
+  .mono { display: none; }
+  .menubar { padding-inline: 14px; }
+  .desk { border-radius: 18px; }
+}
+
+/* Motion. Only when site.js has added .motion (JS on, motion allowed): content is
+   visible by default, and these rules hide it until it is revealed. */
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+
+  .motion .h-in, .motion .rv { opacity: 0; transform: translateY(16px); }
+  .motion .h-in, .motion .rv { transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease); transition-delay: var(--d, 0ms); }
+  .motion.loaded .h-in, .motion .rv.in { opacity: 1; transform: none; }
+
+  /* The wordmark: letters rise in one after another */
+  .motion .giant .ch { display: inline-block; opacity: 0; transform: translateY(.22em); transition: opacity 640ms var(--ease), transform 720ms var(--ease); transition-delay: calc(var(--i) * 70ms); }
+  .motion.loaded .giant .ch { opacity: 1; transform: none; }
+
+  /* The panel drops down from under the menu bar, and the badge pops */
+  .motion .desk.rv { transform: translateY(24px); }
+  .motion .desk .panel-shot { transform: translateY(-28px); opacity: 0; transition: transform 700ms var(--ease) 180ms, opacity 500ms var(--ease) 180ms; }
+  .motion .desk .desk-text { opacity: 0; transform: translateY(12px); transition: opacity var(--dur) var(--ease) 120ms, transform var(--dur) var(--ease) 120ms; }
+  .motion .desk .mb-badge { transform: scale(0); transition: transform 420ms cubic-bezier(.3, 1.6, .5, 1) 620ms; }
+  .motion .desk.in .panel-shot, .motion .desk.in .desk-text { opacity: 1; transform: none; }
+  .motion .desk.in .mb-badge { transform: none; }
+
+  /* Feature rows: the frame comes first, then the screenshot rises inside it, then the text */
+  .motion .shot.rv img { transform: translateY(36px); transition: transform 760ms var(--ease) 120ms; }
+  .motion .shot.rv.in img { transform: none; }
+  .motion .row-text.rv { --d: 140ms; }
+
+  /* Hover lifts */
+  .btn, .nav a.gh, .agents li, .docs a.doc, .lead-doc, .trip li, .card { transition: transform 220ms var(--ease), box-shadow 220ms var(--ease), border-color 220ms ease, background-color 220ms ease; }
+  .motion .agents li.rv, .motion .docs > .rv, .motion .trip li.rv, .motion .beta > .rv { transition: opacity var(--dur) var(--ease) var(--d, 0ms), transform var(--dur) var(--ease) var(--d, 0ms), box-shadow 220ms var(--ease), border-color 220ms ease; }
+  .btn:hover, .nav a.gh:hover { transform: translateY(-1px); box-shadow: 0 6px 18px var(--shadow); }
+  .agents li:hover, .motion .agents li.rv.in:hover, .docs a.doc:hover, .motion .docs > .rv.in:hover { transform: translateY(-3px); box-shadow: 0 10px 24px var(--shadow); }
+  .lead-doc:hover { box-shadow: 0 10px 24px var(--shadow); }
+  .btn:active, .nav a.gh:active { transform: none; box-shadow: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+  .h-in, .rv, .ch, .panel-shot, .desk-text, .mb-badge, .shot img { opacity: 1 !important; transform: none !important; }
+}
+@media print {
+  .nav { position: static; }
+  .h-in, .rv, .ch, .panel-shot, .desk-text, .mb-badge, .shot img { opacity: 1 !important; transform: none !important; }
+}
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap">
+    <!-- logo slot -->
+    <a class="wordmark" href="#top" aria-label="Hook, home">Hook</a>
+    <nav aria-label="Sections">
+      <a href="#how">How it works</a><a href="#features">Features</a><a href="#agents">Agents</a><a href="#install">Install</a><a href="#docs">Docs</a>
+    </nav>
+    <a class="gh" href="https://github.com/xooxoxxo/hook">GitHub</a>
+  </div>
+</header>
+
+<main>
+  <section class="hero wrap" id="top" aria-labelledby="t-hero">
+    <div class="meta h-in"><span>A menu-bar app for macOS</span><span>Public beta · 0.13</span><span>macOS 14 and later</span></div>
+    <h1 class="giant" id="t-hero" data-letters>Hook</h1>
+    <div class="hero-split">
+      <p class="thesis h-in" style="--d: 260ms">An inbox in your menu bar for <mark>what your coding agents need from you.</mark></p>
+      <div class="hero-text">
+        <p class="lead h-in" style="--d: 360ms">When a Claude Code, Codex or Cursor session needs a key, a decision or a manual step, it lands in Hook as a checklist: numbered steps, exact commands with a Copy button, and what you should see. You tick it off, press Done or reply, and the session that asked carries on with your answer. It runs entirely on your Mac by default.</p>
+        <div class="cmd h-in" style="--d: 440ms"><pre id="cmd-hero">curl -fsSL https://raw.githubusercontent.com/xooxoxxo/hook/main/scripts/get.sh | bash</pre><button class="copy" type="button" data-copy="cmd-hero">Copy</button></div>
+        <div class="hero-links h-in" style="--d: 520ms">
+          <a class="btn primary" href="#install">Install Hook</a>
+          <a class="btn ghost" href="guide.html">Read the guide</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="stage-band" aria-labelledby="t-panel">
+    <div class="wrap">
+      <figure class="desk rv">
+        <div class="menubar" aria-hidden="true">
+          <span class="mb-hook"><svg viewBox="0 0 18 16"><path d="M1.6 4.2l1.5 1.5 2.8-2.9M8.4 4.4h8"/><circle cx="3.6" cy="11.2" r="2.1"/><path d="M8.4 11.2h8"/></svg><span class="mb-badge">4</span></span>
+          <span>Wed 4 Nov 09:41</span>
+        </div>
+        <div class="desk-body">
+          <figcaption class="desk-text">
+            <h2 id="t-panel">One queue for every agent</h2>
+            <p>The panel docks to the edge of your display. ⌃⌥⌘R opens it from any app.</p>
+          </figcaption>
+          <div class="panel-shot">
+            <img class="l" src="img/queue-light.png" width="760" height="1142" alt="The Hook panel: a queue of asks grouped by project, with Now and Today urgency, and the Pond status at the bottom">
+            <img class="d" src="img/queue-dark.png" width="760" height="1142" alt="">
+          </div>
+        </div>
+      </figure>
+    </div>
+  </section>
+
+  <section class="band alt" id="how" aria-labelledby="t-how">
+    <div class="wrap">
+      <div class="head rv">
+        <h2 id="t-how">One round trip per ask</h2>
+        <p>Each ask goes from the agent to you and back. Nothing scrolls away.</p>
+      </div>
+      <ol class="trip" data-stagger="110">
+        <li><span class="ico" aria-hidden="true"><svg viewBox="0 0 22 22"><path d="M4 6l4.5 4.5L4 15M11.5 16H18"/></svg></span><h3>A session asks</h3><p>It posts numbered steps, exact commands and what you should see, then keeps working.</p></li>
+        <li><span class="ico" aria-hidden="true"><svg viewBox="0 0 22 22"><path d="M3.5 6.5l2 2 3.5-3.5M12 7h6.5M3.5 14.5l2 2 3.5-3.5M12 15h6.5"/></svg></span><h3>You follow the steps</h3><p>A badge appears in the menu bar. Tick each step, copy each command, answer any question.</p></li>
+        <li><span class="ico" aria-hidden="true"><svg viewBox="0 0 22 22"><path d="M18 4.5v5.5a3 3 0 0 1-3 3H5M9 9l-4 4 4 4"/></svg></span><h3>Your answer goes back</h3><p>Done, Skip or your reply reaches the session that asked, through <code>relay wait</code> or before its next prompt.</p></li>
+      </ol>
+      <div class="modes" data-stagger="90">
+        <div><h3>This Mac only</h3><p>The default. The queue is served only on 127.0.0.1, and asks never leave the Mac.</p></div>
+        <div><h3>Pond</h3><p>A small server you run holds the queue, so asks reach you on Telegram when you're away. Reports, messages, corrections and required steps need one. Hook doesn't ship a Pond server.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="features" aria-labelledby="t-feat">
+    <div class="wrap">
+      <div class="head rv">
+        <h2 id="t-feat">Built for the moments only you can handle</h2>
+      </div>
+      <div class="rows">
+        <article class="row">
+          <figure class="shot rv"><img class="l" src="img/ask-steps-light.png" width="760" height="2078" alt="An ask with numbered steps, a sub-step list, a link and a sent reply" loading="lazy"><img class="d" src="img/ask-steps-dark.png" width="760" height="2078" alt="" loading="lazy"></figure>
+          <div class="row-text rv">
+            <h3>Steps you can follow without thinking</h3>
+            <p>Every ask says what to do and where, with the exact command and what you should see. Copy never adds a trailing newline, so a paste never runs by itself.</p>
+          </div>
+        </article>
+        <article class="row">
+          <figure class="shot rv"><img class="l" src="img/ask-required-light.png" width="760" height="1976" alt="An ask with required steps marked and Done turned off" loading="lazy"><img class="d" src="img/ask-required-dark.png" width="760" height="1976" alt="" loading="lazy"></figure>
+          <div class="row-text rv">
+            <h3>Required steps come first</h3>
+            <p>An ask can mark the steps it can't do without. Done stays off until they're finished. Skip always works.</p>
+          </div>
+        </article>
+        <article class="row">
+          <figure class="shot rv"><img class="l" src="img/ask-messages-light.png" width="760" height="1264" alt="The Messages section of an ask, with a short exchange and a Report button on the current step" loading="lazy"><img class="d" src="img/ask-messages-dark.png" width="760" height="1264" alt="" loading="lazy"></figure>
+          <div class="row-text rv">
+            <h3>Report a problem, or just say something</h3>
+            <p>A wrong step goes back as a quoted report, never as an instruction. A message is like typing in the session's chat, without opening its terminal.</p>
+          </div>
+        </article>
+        <article class="row">
+          <figure class="shot rv"><img class="l" src="img/ask-review-light.png" width="760" height="2360" alt="Reviewing a corrected ask: the session's reasons and a diff of changed commands with flags" loading="lazy"><img class="d" src="img/ask-review-dark.png" width="760" height="2360" alt="" loading="lazy"></figure>
+          <div class="row-text rv">
+            <h3>A changed ask waits for your review</h3>
+            <p>Hook locks a corrected ask and shows one diff with the session's reasons. Accepting a changed command asks for Touch ID.</p>
+          </div>
+        </article>
+        <article class="row">
+          <figure class="shot wide fit rv"><img class="l" src="img/settings-agents-light.png" width="1200" height="1240" alt="Settings, Agents: the agents on this Mac and what Hook set up in Claude Code" loading="lazy"><img class="d" src="img/settings-agents-dark.png" width="1200" height="1240" alt="" loading="lazy"></figure>
+          <div class="row-text rv">
+            <h3>One install sets up every agent, and keeps it updated</h3>
+            <p>Its MCP server, skill, instructions and replies hook, each the agent's own way. A file you edited is never overwritten without asking.</p>
+          </div>
+        </article>
+        <article class="row">
+          <figure class="shot fit rv"><img class="l" src="img/crash-sheet-light.png" width="760" height="924" alt="Send a Crash Report: the exact redacted text, and Open Issue on GitHub" loading="lazy"><img class="d" src="img/crash-sheet-dark.png" width="760" height="924" alt="" loading="lazy"></figure>
+          <div class="row-text rv">
+            <h3>You see the crash report before anyone else</h3>
+            <p>The next launch shows it redacted, exactly as it would be sent. You submit the GitHub issue yourself, or choose Not Now and nothing leaves.</p>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="band alt" id="agents" aria-labelledby="t-agents">
+    <div class="wrap">
+      <div class="head rv">
+        <h2 id="t-agents">Works with the agents you already use</h2>
+        <p>Eighteen coding agents get Hook's tools from one install.</p>
+      </div>
+      <ul class="agents" data-stagger="28">
+        <li data-verified="pending"><span class="mono" aria-hidden="true">CC</span><b>Claude Code</b><span class="mark">Mac test pending</span></li>
+        <li data-verified="pending"><span class="mono" aria-hidden="true">CX</span><b>Codex</b><span class="mark">Mac test pending</span></li>
+        <li data-verified="pending"><span class="mono" aria-hidden="true">GE</span><b>Gemini CLI</b><span class="mark">Mac test pending</span></li>
+        <li data-verified="docs-only"><span class="mono" aria-hidden="true">AG</span><b>Antigravity CLI</b><span class="mark">From docs</span></li>
+        <li data-verified="pending"><span class="mono" aria-hidden="true">CP</span><b>Copilot CLI</b><span class="mark">Mac test pending</span></li>
+        <li data-verified="docs-only"><span class="mono" aria-hidden="true">VS</span><b>VS Code Copilot</b><span class="mark">From docs</span></li>
+        <li data-verified="pending"><span class="mono" aria-hidden="true">CU</span><b>Cursor</b><span class="mark">Mac test pending</span></li>
+        <li data-verified="pending"><span class="mono" aria-hidden="true">OC</span><b>OpenCode</b><span class="mark">Mac test pending</span></li>
+        <li data-verified="pending"><span class="mono" aria-hidden="true">ZD</span><b>Zed</b><span class="mark">Mac test pending</span></li>
+        <li data-verified="pending"><span class="mono" aria-hidden="true">PI</span><b>pi</b><span class="mark">Mac test pending</span></li>
+        <li data-verified="docs-only"><span class="mono" aria-hidden="true">DV</span><b>Devin</b><span class="mark">From docs</span></li>
+        <li data-verified="docs-only"><span class="mono" aria-hidden="true">FD</span><b>Factory Droid</b><span class="mark">From docs</span></li>
+        <li data-verified="docs-only"><span class="mono" aria-hidden="true">KI</span><b>Kiro</b><span class="mark">From docs</span></li>
+        <li data-verified="docs-only"><span class="mono" aria-hidden="true">AM</span><b>Amp</b><span class="mark">From docs</span></li>
+        <li data-verified="docs-only"><span class="mono" aria-hidden="true">CL</span><b>Cline</b><span class="mark">From docs</span></li>
+        <li data-verified="docs-only"><span class="mono" aria-hidden="true">GO</span><b>Goose</b><span class="mark">From docs</span></li>
+        <li data-verified="docs-only"><span class="mono" aria-hidden="true">JU</span><b>Junie</b><span class="mark">From docs</span></li>
+        <li data-verified="docs-only"><span class="mono" aria-hidden="true">WA</span><b>Warp</b><span class="mark">From docs</span></li>
+      </ul>
+      <p class="legend rv"><span><b>Mac test pending</b> set up from the agent's CLI; to be tested on a Mac</span><span><b>From docs</b> follows the agent's docs and Hook's fixture tests</span></p>
+    </div>
+  </section>
+
+  <section class="band" id="install" aria-labelledby="t-install">
+    <div class="wrap">
+      <div class="head rv">
+        <h2 id="t-install">Install in one line</h2>
+        <p>Nothing is compiled on your Mac. The script checks the release against its checksums, installs Hook and the <code>relay</code> command, and sets up your agents.</p>
+      </div>
+      <div class="install rv">
+        <div class="cmd"><pre id="cmd-install">curl -fsSL https://raw.githubusercontent.com/xooxoxxo/hook/main/scripts/get.sh | bash</pre><button class="copy" type="button" data-copy="cmd-install">Copy</button></div>
+        <div class="facts">
+          <div><span class="k">Requires</span><p>macOS 14 or later. Python 3.9 or later, for the command and MCP server.</p></div>
+          <div><span class="k">Updates</span><p>Hook checks GitHub daily, offers each release in its menu and installs it in the background. Your settings are kept.</p></div>
+          <div><span class="k">Uninstall</span><p><code>~/.local/share/hook/current/scripts/install.sh --uninstall</code></p></div>
+          <div><span class="k">Release zip</span><p><a href="https://github.com/xooxoxxo/hook/releases/latest">Latest release on GitHub</a>, with <code>SHA256SUMS</code>.</p></div>
+        </div>
+        <p class="note"><b>Use the command rather than the zip.</b> Releases aren't notarized yet, so macOS blocks a zip downloaded in a browser. After installing, open Settings › Queue and press Send a Test Ask.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band alt" id="beta" aria-labelledby="t-beta">
+    <div class="wrap">
+      <div class="head rv">
+        <h2 id="t-beta">It's a beta. Tell us what breaks.</h2>
+        <p>Hook is at 0.13 and changes quickly. Releases aren't notarized yet, and most agent setups still wait for their test on a real Mac.</p>
+      </div>
+      <div class="beta" data-stagger="110">
+        <div class="card"><h3>Report a bug</h3><p>Open an <a href="https://github.com/xooxoxxo/hook/issues">issue on GitHub</a> with what you did, what you saw and the output of <code>relay --version</code>. Security issues go privately through the repository's Security tab.</p></div>
+        <div class="card"><h3>If Hook crashes</h3><p>The next launch offers Review…: the redacted report in full, then a prefilled GitHub issue for you to submit, or the open one for the same crash.</p></div>
+        <div class="card accent"><h3>What we collect: nothing, unless you send it</h3><p>No analytics and no crash-reporting service. The activity log stays on your Mac. Hook asks GitHub once a day for a new release, and sends a 12-character crash hash when it looks for an existing issue.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="docs" aria-labelledby="t-docs">
+    <div class="wrap">
+      <div class="head rv">
+        <h2 id="t-docs">Learn the rest</h2>
+      </div>
+      <div class="docs" data-stagger="45">
+        <div class="lead-doc"><a class="main" href="guide.html"><b>The Hook product guide</b></a><span>The whole app in 14 printable pages</span><a class="pdf" href="guide.pdf">PDF</a></div>
+        <a class="doc" href="https://github.com/xooxoxxo/hook/blob/main/docs/install.md"><b>Install</b><span>Install, update, uninstall</span></a>
+        <a class="doc" href="https://github.com/xooxoxxo/hook/blob/main/docs/using.md"><b>Using Hook</b><span>The panel, keys, Settings</span></a>
+        <a class="doc" href="https://github.com/xooxoxxo/hook/blob/main/docs/agents.md"><b>Agents</b><span>What Hook sets up</span></a>
+        <a class="doc" href="https://github.com/xooxoxxo/hook/blob/main/docs/instructables.md"><b>Writing an ask</b><span>The instructable format</span></a>
+        <a class="doc" href="https://github.com/xooxoxxo/hook/blob/main/docs/privacy.md"><b>Privacy</b><span>The log and crash reports</span></a>
+        <a class="doc" href="https://github.com/xooxoxxo/hook/tree/main/docs"><b>All docs</b><span>The docs folder on GitHub</span></a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <span class="wordmark">Hook</span>
+      <span>0.13.0 · public beta</span>
+      <span>MIT License</span>
+      <a href="https://github.com/xooxoxxo/hook">github.com/xooxoxxo/hook</a>
+      <span>Formerly Relay</span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
