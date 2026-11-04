@@ -42,8 +42,17 @@ public struct IPSReport: Equatable, Sendable {
     /// Every app frame has a symbol.
     public var symbolicated: Bool { !appFrames.isEmpty && appFrames.allSatisfy { $0.symbol != nil } }
 
-    /// A JSON header line, then the JSON body.
+    /// A report bigger than this isn't read: real ones are a few hundred KB.
+    public static let maxBytes = 8 * 1024 * 1024
+    /// JSON nested deeper than this isn't parsed; a real report nests about 8 deep.
+    public static let maxDepth = 64
+    /// Only this many of the crashed thread's frames are looked at.
+    static let frameScanLimit = 512
+
+    /// A JSON header line, then the JSON body. Anything that doesn't fit throws, whatever
+    /// shape a newer macOS gives it: a report is never trusted to be well formed.
     public static func parse(_ data: Data, binary: String = "Hook") throws -> IPSReport {
+        guard data.count <= maxBytes, nestingDepth(data) <= maxDepth else { throw ParseError.notIPS }
         guard let newline = data.firstIndex(of: UInt8(ascii: "\n")) else { throw ParseError.notIPS }
         let header = data[data.startIndex..<newline]
         let rest = data[data.index(after: newline)...]
@@ -61,22 +70,51 @@ public struct IPSReport: Equatable, Sendable {
             if let index = body["faultingThread"] as? Int, threads.indices.contains(index) { return threads[index] }
             return threads.first { $0["triggered"] as? Bool == true }
         }()
-        let frames = ((crashed?["frames"] as? [[String: Any]]) ?? []).compactMap { frame -> Frame? in
+        let frames = ((crashed?["frames"] as? [Any]) ?? []).prefix(frameScanLimit).compactMap { item -> Frame? in
+            guard let frame = item as? [String: Any] else { return nil }
             guard let image = frame["imageIndex"] as? Int, own.contains(image) else { return nil }
             let symbol = (frame["symbol"] as? String).flatMap { $0.isEmpty ? nil : $0 }
-            return Frame(symbol: symbol, offset: frame["symbolLocation"] as? Int,
+            return Frame(symbol: symbol.map { String($0.prefix(512)) }, offset: frame["symbolLocation"] as? Int,
                          imageOffset: (frame["imageOffset"] as? Int) ?? 0)
         }
 
-        return IPSReport(exception: type, signal: exception["signal"] as? String,
+        return IPSReport(exception: String(type.prefix(128)), signal: (exception["signal"] as? String).map { String($0.prefix(64)) },
                          termination: termination(body["termination"] as? [String: Any]),
                          appFrames: Array(frames.prefix(frameLimit)))
     }
 
+    /// The deepest `[` / `{` nesting outside strings, counted in one pass with no recursion.
+    static func nestingDepth(_ data: Data) -> Int {
+        var depth = 0, deepest = 0, inString = false, escaped = false
+        for byte in data {
+            if inString {
+                if escaped { escaped = false } else if byte == UInt8(ascii: "\\") { escaped = true }
+                else if byte == UInt8(ascii: "\"") { inString = false }
+                continue
+            }
+            switch byte {
+            case UInt8(ascii: "\""): inString = true
+            case UInt8(ascii: "["), UInt8(ascii: "{"):
+                depth += 1
+                if depth > deepest { deepest = depth }
+            case UInt8(ascii: "]"), UInt8(ascii: "}"): depth = max(0, depth - 1)
+            default: break
+            }
+        }
+        return deepest
+    }
+
+    /// The report at `url`, when it is a file under `maxBytes` that parses; nil otherwise.
+    public static func read(_ url: URL, binary: String = "Hook") -> IPSReport? {
+        guard let size = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.size] as? NSNumber,
+              size.intValue <= maxBytes, let data = try? Data(contentsOf: url) else { return nil }
+        return try? parse(data, binary: binary)
+    }
+
     private static func termination(_ t: [String: Any]?) -> String? {
         guard let t else { return nil }
-        if let indicator = t["indicator"] as? String, !indicator.isEmpty { return indicator }
-        guard let namespace = t["namespace"] as? String else { return nil }
+        if let indicator = t["indicator"] as? String, !indicator.isEmpty { return String(indicator.prefix(200)) }
+        guard let namespace = (t["namespace"] as? String).map({ String($0.prefix(64)) }) else { return nil }
         if let code = t["code"] as? Int { return "\(namespace) \(code)" }
         return namespace
     }

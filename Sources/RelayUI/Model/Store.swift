@@ -210,7 +210,7 @@ public enum LinkCheck: Equatable, Sendable {
     @Published public internal(set) var updating = false
     /// The last run crashed: the docked bar, until Not Now or a send (Store+Crash).
     @Published public internal(set) var crashOffer: CrashOffer?
-    /// Called with the signature once a crash is answered, so it isn't raised again.
+    /// Called with the crash's `handledKey` once it is answered, so it isn't raised again.
     public var onCrashHandled: (@MainActor (String) -> Void)?
     /// The send sheet (Review…), until it is sent or cancelled.
     @Published public internal(set) var crashSheet: CrashSheetModel?

@@ -11,7 +11,7 @@ enum MainMenu {
         let app = NSMenu(title: "Hook")
         app.addItem(entry("Settings…", settings, ",", target: target))
         app.addItem(.separator())
-        app.addItem(entry("Quit Hook", #selector(NSApplication.terminate(_:)), "q", target: NSApp))
+        app.addItem(entry("Quit Hook", #selector(QuitCommand.quit(_:)), "q", target: QuitCommand.shared))
         #if DEBUG
         // Debug builds only: crash on purpose, to try the next launch's crash bar and report.
         app.addItem(.separator())
@@ -46,6 +46,15 @@ enum MainMenu {
         let holder = NSMenuItem(title: menu.title, action: nil, keyEquivalent: "")
         holder.submenu = menu
         return holder
+    }
+}
+
+/// The target of Quit Hook (⌘Q in Settings and Welcome): the owner's own quit.
+@MainActor final class QuitCommand: NSObject {
+    static let shared = QuitCommand()
+
+    @objc func quit(_ sender: Any?) {
+        QuitTracker.shared.terminate(.user("menu"))
     }
 }
 

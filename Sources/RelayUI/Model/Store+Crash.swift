@@ -10,12 +10,12 @@ extension Store {
         crashOffer = offer
     }
 
-    /// Not Now: the bar goes, and the signature is handled so it isn't raised again.
+    /// Not Now: the bar goes, and the crash is handled (`handledKey`) so it isn't raised again.
     public func dismissCrash() {
         guard let offer = crashOffer else { return }
         crashOffer = nil
         crashSheet = nil
-        onCrashHandled?(offer.summary.signature)
+        onCrashHandled?(offer.summary.handledKey)
     }
 
     /// Review…: the sheet with exactly what a send delivers, to Settings › Privacy's target.
@@ -178,8 +178,8 @@ extension Store {
 
     /// Sent: the bar goes, the crash is handled, and a Notice says what happened.
     func finishCrash(_ summary: CrashSummary, message: String) {
-        if crashOffer?.summary.signature == summary.signature { crashOffer = nil }
-        onCrashHandled?(summary.signature)
+        if crashOffer?.summary.handledKey == summary.handledKey { crashOffer = nil }
+        onCrashHandled?(summary.handledKey)
         post(.crashReport(message: message))
     }
 

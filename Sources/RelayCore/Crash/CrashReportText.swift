@@ -31,6 +31,9 @@ public enum CrashReportText {
                 }
                 lines.append(i == 0 ? row("Frames", text) : indent + text)
             }
+        } else if let closed = s.closed {
+            lines.append(row("Exception", "none: Hook was closed, not crashed"))
+            lines.append(row("Closed by", closed.text))
         } else {
             lines.append(row("Exception", "none: no crash report (a hang, a force quit or a kill)"))
         }
