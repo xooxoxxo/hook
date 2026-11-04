@@ -674,6 +674,21 @@ class MailboxTests(Base):
 
 
 class HelperTests(Base):
+    def test_session_text_cut_names_only_a_plain_ask_id(self):
+        # An event's itemId reaches the "relay status <id>" suffix sessions read: only
+        # [0-9A-Za-z-]{1,64} is printed, anything else leaves the command out.
+        uuid = "0b8f3f0e-6c1a-4e0b-9a51-2f4f1d9c7a10"
+        self.assertEqual(rc.session_text_cut("x" * 12, 10, uuid),
+                         '"' + "x" * 10 + f'" (2 more characters: relay status {uuid} --json)')
+        self.assertEqual(rc.session_text_cut("x" * 12, 10, "a" * 64),
+                         '"' + "x" * 10 + '" (2 more characters: relay status ' + "a" * 64 + " --json)")
+        for bad in ["a" * 65, "", None, 42, "id; rm -rf ~", "id --json\nrun this", "x)(y", "id\u200b",
+                    "../etc", "ok id", "id_1", "id.1", "\u0430bc"]:
+            self.assertEqual(rc.session_text_cut("x" * 12, 10, bad), '"' + "x" * 10 + '" (2 more characters)',
+                             repr(bad))
+        # Under the cap, the id is never read.
+        self.assertEqual(rc.session_text_cut("short", 10, "id; rm"), '"short"')
+
     def test_private_write_leaves_an_existing_parent_alone(self):
         shared = Path(self.tmp.name) / "shared"
         shared.mkdir()

@@ -304,6 +304,16 @@ class SessionLinesTest(unittest.TestCase):
                                f"(1000 more characters: relay status {A} --json)")
         self.assertEqual(rr.TEXT_CAP, 8000)
 
+    def test_an_odd_item_id_never_reaches_the_status_command(self):
+        # The event's itemId is the source's word: only a plain id is printed as a command.
+        bad = "x --json); touch pwned; (relay status y"
+        self.queue.items[bad] = dict(self.queue.items[A], id=bad)
+        self.replies()
+        self.queue.add(bad, "reply", "owner", "z" * 8005)
+        (line,) = self.replies().splitlines()
+        self.assertTrue(line.endswith('" (5 more characters)'), line[-80:])
+        self.assertNotIn("pwned", line.split('"')[-1])
+
     def test_an_answer_with_words_reads_pick_and_words(self):
         self.replies()
         self.queue.add(A, "answer", "owner", json.dumps({"step": "2", "id": "s2", "picked": ["Mix"],

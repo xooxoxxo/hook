@@ -460,11 +460,17 @@ def session_text(value: Any, cap: int) -> str:
     return json.dumps(_cut(_revealed(value), cap), ensure_ascii=False)
 
 
+# An ask id a session line may print as part of a command: a Hook uuid, or any plain id.
+_COMMAND_ID = re.compile(r"[0-9A-Za-z-]{1,64}")
+
+
 def session_text_cut(value: Any, cap: int, ask_id: Any) -> str:
     """Owner text in a session line: session_text, except that past `cap` the first `cap`
     characters (as shown; a revealed scalar is never split) are quoted with no …, followed by
     ' (N more characters: relay status <id> --json)', N counted the same way. `relay status
-    <id> --json` carries the whole text."""
+    <id> --json` carries the whole text. The id comes from the event or the source, so only
+    one that is all [0-9A-Za-z-] (1 to 64 characters) is printed; for any other the command
+    is left out: ' (N more characters)'."""
     tokens = _revealed(value)
     total = sum(len(t) for t in tokens)
     if total <= cap:
@@ -476,8 +482,10 @@ def session_text_cut(value: Any, cap: int, ask_id: Any) -> str:
             break
         out.append(token)
         used += len(token)
-    return (json.dumps("".join(out), ensure_ascii=False)
-            + f" ({total - used} more characters: relay status {session_label(ask_id or '?', 64)} --json)")
+    more = f"{total - used} more characters"
+    if isinstance(ask_id, str) and _COMMAND_ID.fullmatch(ask_id):
+        more += f": relay status {ask_id} --json"
+    return json.dumps("".join(out), ensure_ascii=False) + f" ({more})"
 
 
 # What a bare label can't contain, as it would read in a session line: brackets frame the ask

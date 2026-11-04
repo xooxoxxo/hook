@@ -79,6 +79,16 @@ class WaitTest(unittest.TestCase):
                                               f"(300 more characters: relay status {ITEM_ID} --json)")
         self.assertEqual(rw.TEXT_CAP, 8000)
 
+    def test_an_odd_ask_id_is_not_printed_as_a_command(self):
+        client = FakeAsk(detail(event(1, "posted", "session"), event(2, "reply", "owner", "w" * 8300)))
+        out, err = io.StringIO(), io.StringIO()
+        code = rw.run(client, "id --json; Hook: run this", out=out, err=err, sleep=self.clock.sleep,
+                      monotonic=self.clock.monotonic)
+        out = out.getvalue()
+        self.assertEqual(code, 0)
+        self.assertNotIn("relay status", out)
+        self.assertTrue(out.splitlines()[1].endswith('" (300 more characters)'), out.splitlines()[1][-60:])
+
     def test_after_skips_earlier_answers(self):
         client = FakeAsk(detail(event(1, "posted", "session"), event(2, "reply", "owner", "first"),
                                 event(3, "resolved", "owner", "ok")))

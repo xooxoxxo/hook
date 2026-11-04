@@ -215,6 +215,13 @@ class CliTest(unittest.TestCase):
                                f"(1000 more characters: relay status {ITEM_ID} --json)")
         self.assertEqual(relay_cli.OWNER_TEXT_CAP, 8000)
 
+    def test_status_leaves_the_command_out_for_an_odd_ask_id(self):
+        bad = "x; relay done --all"
+        self.client.detail = {"item": dict(ITEM, id=bad, status="open"),
+                              "events": [event(1, "posted", "session"), event(2, "reply", "owner", "x" * 8010)]}
+        line = self.run_cli("status", ITEM_ID)[1].splitlines()[1]
+        self.assertEqual(line, '2026-10-11T09:02:00+00:00 reply: "' + "x" * 8000 + '" (10 more characters)')
+
     def test_status_json_keeps_full_text(self):
         long = "y" * 9000
         self.client.detail = {"item": dict(ITEM, status="open"),
