@@ -437,6 +437,36 @@ class RemoveTest(Base):
         edited = [p for p in rules.parent.iterdir() if p.name.startswith("hook.md.bak")]
         self.assertEqual([p.read_text() for p in edited], ["Hook's text, edited\n"])
 
+    def test_remove_all_keeps_records_it_left_or_failed_to_remove(self):
+        self.sync()
+        rules = self.home / ".beta" / "rules" / "hook.md"
+        rules.write_text("mine\n")
+        self.w.config["fail"] = ["alpha"]
+        self.w.save_config()
+        rc, out, err = self.w.run("remove", "--all")
+        self.assertEqual(rc, 4, out + err)
+        self.assertIn("left ~/.beta/rules/hook.md", out)
+        self.assertEqual(rules.read_text(), "mine\n")
+        m = self.w.manifest()
+        self.assertEqual(sorted(m["harnesses"]), ["alpha", "beta"])
+        self.assertEqual(sorted(r.get("piece") for r in m["targets"].values()), ["instructions", "mcp"])
+        self.assertEqual(self.w.harness("beta")["managed"], True)
+        self.assertEqual(self.state("beta", "instructions"), "drifted")
+        self.assertEqual(self.state("alpha", "mcp"), "installed")
+        self.assertEqual(self.w.harness("gamma")["managed"], False)
+        self.w.config["fail"] = []
+        self.w.save_config()
+        baks = self.w.baks()
+        self.sync()
+        self.assertEqual(rules.read_text(), "mine\n")
+        self.assertEqual(self.state("beta", "instructions"), "drifted")
+        self.assertEqual([b for b in self.w.baks() if b not in baks and "rules" in b], [])
+        rc, out, err = self.w.run("remove", "--all")
+        self.assertEqual(rc, 0, out + err)
+        self.assertEqual(sorted(self.w.manifest()["harnesses"]), ["beta"])
+        config = self.home / ".alpha" / "config.json"
+        self.assertFalse(config.exists() and "relay" in config.read_text())
+
 
 class StatusTest(Base):
     def test_status_shape(self):
@@ -538,6 +568,24 @@ class PluginTest(unittest.TestCase):
         rc, out, err = self.w.run("remove", "--harness", "claude-code", "--force")
         self.assertEqual(rc, 0, out + err)
         self.assertFalse(plug.exists())
+
+    def test_remove_all_keeps_the_plugin_folder_when_the_uninstall_fails(self):
+        rc, out, err = self.w.run("sync")
+        self.assertEqual(rc, 0, out + err)
+        plugins = self.w.home / ".local" / "share" / "hook" / "plugins"
+        self.w.config["fail"] = ["claude"]
+        self.w.save_config()
+        rc, out, err = self.w.run("remove", "--all")
+        self.assertEqual(rc, 4, out + err)
+        self.assertTrue((plugins / "claude" / ".claude-plugin" / "plugin.json").is_file())
+        self.assertIn("claude-code", self.w.manifest()["harnesses"])
+        self.assertTrue(self.w.harness("claude-code")["managed"])
+        self.w.config["fail"] = []
+        self.w.save_config()
+        rc, out, err = self.w.run("remove", "--all")
+        self.assertEqual(rc, 0, out + err)
+        self.assertFalse(plugins.exists())
+        self.assertEqual(self.w.manifest()["harnesses"], {})
 
 
 if __name__ == "__main__":

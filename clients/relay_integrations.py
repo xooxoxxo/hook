@@ -2163,6 +2163,37 @@ def _table_sha(values: Values) -> str:
     return _sha((values.bundle / "harnesses.json").read_bytes())
 
 
+def _forget_removed(manifest: Manifest, values: Values, harness: Optional[str]) -> None:
+    """After a remove, drop what is gone and keep what Hook left or failed to remove: their
+    records (for status, a later remove, and drift), their harnesses and their asks. With no
+    harness (remove --all), also the harnesses that own nothing now and the rendered plugin
+    folders no record holds."""
+    import relay_owner_steps as ros
+    everything = harness is None
+    kept = manifest.targets
+    owners = {o for rec in kept.values() for o in rec.get("owners") or []}
+    if everything:
+        for hid in [h for h in manifest.harnesses if h not in owners]:
+            del manifest.harnesses[hid]
+        held = [Path(rec["path"]) for rec in kept.values() if rec.get("path")]
+        if values.plugins.is_dir():
+            for child in values.plugins.iterdir():
+                if not any(p == child or child in p.parents for p in held):
+                    _remove_path(child)
+            _rmdirs([str(values.plugins)])
+        for k in ("hookVersion", "tableSha", "linkRoot", "lastSync"):
+            manifest.data.pop(k, None)
+    asks = manifest.data.get("asks") or {}
+    for sid, ask in list(asks.items()):
+        if not isinstance(ask, dict):
+            continue
+        if sid == ros.DRIFT:
+            if everything and not any(r.get("key") in kept for r in ask.get("items") or []):
+                del asks[sid]
+        elif (everything or ask.get("harness") == harness) and ask.get("harness") not in manifest.harnesses:
+            del asks[sid]
+
+
 def _cmd_write(args, table, manifest, values, run, when, out, err, client_factory=None) -> int:
     if args.cmd == "set":
         manifest.data["autoSetup"] = args.value == "on"
@@ -2234,17 +2265,8 @@ def _cmd_write(args, table, manifest, values, run, when, out, err, client_factor
             manifest.data["dirs"] = _rmdirs(manifest.data.get("dirs") or [])
             if args.all or args.harness == MIGRATE_HID:
                 _migration_backups(manifest, report, values)
-            if args.harness:
-                asks = manifest.data.get("asks") or {}
-                for sid in [k for k, a in asks.items() if isinstance(a, dict) and a.get("harness") == args.harness]:
-                    del asks[sid]
-            if args.all:
-                shutil.rmtree(values.plugins, ignore_errors=True)
-                manifest.data["harnesses"] = {}
-                manifest.data["targets"] = {}
-                manifest.data["asks"] = {}
-                for k in ("hookVersion", "tableSha", "linkRoot", "lastSync"):
-                    manifest.data.pop(k, None)
+            if args.harness or args.all:
+                _forget_removed(manifest, values, None if args.all else args.harness)
         else:
             _owner_phase(ctx, report, poster, when, harness=args.harness, drift=mode == "sync")
             manifest.data.update({"hookVersion": values.version, "tableSha": _table_sha(values),
