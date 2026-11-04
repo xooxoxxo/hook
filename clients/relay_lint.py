@@ -6,6 +6,8 @@ lint_instructable() finds them; `relay post` and `relay_post` refuse an ask that
 with the same output as a validation error, so the session moves each value into a
 sub-step's `code` (or a page into `url`) and posts again. lint_requirements() adds the
 `required` and `done` (Pond 1.3.0) that nothing could ever finish, worded as guidance.
+lint_choice_labels() flags a string choice that asks for words in its label ("Mix (reply
+what)"): from Pond 1.4.0 such a choice is {"label", "text"} with its own field.
 
 The rules live here and nowhere else in Hook. Other clients copy this file's functions and
 test them against clients/lint-vectors.json. Stdlib only, Python 3.9+.
@@ -214,10 +216,53 @@ def lint_requirements(doc: Any) -> List[Tuple[str, str]]:
     return problems
 
 
+# A string choice that asks for the owner's words in its label (Pond 1.4.0 has a field for them).
+_REPLY_LABEL = re.compile(r"\(\s*reply\b[^)]*\)", re.IGNORECASE)
+
+
+def _choice_lists(doc: Dict[str, Any]) -> List[Tuple[str, List[Any]]]:
+    """(path, choices) for each question (each step, then its sub-steps) and the reply."""
+    found: List[Tuple[str, List[Any]]] = []
+
+    def add(path: str, holder: Any) -> None:
+        if isinstance(holder, dict) and isinstance(holder.get("choices"), list):
+            found.append((f"{path}.choices", holder["choices"]))
+
+    steps = doc.get("steps") if isinstance(doc.get("steps"), list) else []
+    for i, step in enumerate(steps):
+        if not isinstance(step, dict):
+            continue
+        add(f"steps[{i}].question", step.get("question"))
+        subs = step.get("substeps") if isinstance(step.get("substeps"), list) else []
+        for j, sub in enumerate(subs):
+            if isinstance(sub, dict):
+                add(f"steps[{i}].substeps[{j}].question", sub.get("question"))
+    add("reply", doc.get("reply"))
+    return found
+
+
+def lint_choice_labels(doc: Any) -> List[Tuple[str, str]]:
+    """(path, message) for each string choice whose label asks for words ("Mix (reply what)",
+    "Changes (reply)"): from Pond 1.4.0 such a choice is {"label", "text"}, and on an older Pond
+    the prompt says what to write. Questions in document order, then the reply."""
+    problems: List[Tuple[str, str]] = []
+    if not isinstance(doc, dict):
+        return problems
+    for path, choices in _choice_lists(doc):
+        for i, choice in enumerate(choices):
+            if not isinstance(choice, str) or not _REPLY_LABEL.search(choice):
+                continue
+            label = " ".join(_REPLY_LABEL.sub(" ", choice).split()) or "…"
+            suggestion = json.dumps({"label": label, "text": "…"}, ensure_ascii=False)
+            problems.append((f"{path}[{i}]", f"{json.dumps(choice, ensure_ascii=False)} asks for words: "
+                                             f"make it {suggestion} (Pond 1.4.0), or say what to write in the prompt"))
+    return problems
+
+
 def lint_instructable(doc: Any) -> List[Tuple[str, str]]:
     """(path, message) for each `do` (step, sub-step, verify) that holds a value the owner
-    would have to retype, then lint_requirements' pairs. A step shares its sub-steps' code
-    and url, and they share its."""
+    would have to retype, then lint_requirements' pairs, then lint_choice_labels'. A step
+    shares its sub-steps' code and url, and they share its."""
     problems: List[Tuple[str, str]] = []
     if not isinstance(doc, dict):
         return problems
@@ -239,7 +284,7 @@ def lint_instructable(doc: Any) -> List[Tuple[str, str]]:
         values = lint_do(verify.get("do"), _strings(verify, "code"), _strings(verify, "url"))
         if values:
             problems.append(("verify.do", _message(values, verify=True)))
-    return problems + lint_requirements(doc)
+    return problems + lint_requirements(doc) + lint_choice_labels(doc)
 
 
 def lint_details(doc: Any) -> List[str]:

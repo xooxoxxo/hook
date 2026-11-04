@@ -206,6 +206,22 @@ class CliTest(unittest.TestCase):
         self.assertEqual((data["status"], data["resolvedBy"]), ("done", "owner"))
         self.assertEqual(data["ownerEvents"], [{"kind": "resolved", "text": "ok", "at": "2026-10-11T09:02:00+00:00"}])
 
+    def test_status_cuts_long_owner_text_and_json_keeps_it(self):
+        long = "x" * 9000
+        self.client.detail = {"item": dict(ITEM, status="open"),
+                              "events": [event(1, "posted", "session"), event(2, "reply", "owner", long)]}
+        line = self.run_cli("status", ITEM_ID)[1].splitlines()[1]
+        self.assertEqual(line, '2026-10-11T09:02:00+00:00 reply: "' + "x" * 8000 + '" '
+                               f"(1000 more characters: relay status {ITEM_ID} --json)")
+        self.assertEqual(relay_cli.OWNER_TEXT_CAP, 8000)
+
+    def test_status_json_keeps_full_text(self):
+        long = "y" * 9000
+        self.client.detail = {"item": dict(ITEM, status="open"),
+                              "events": [event(1, "posted", "session"), event(2, "reply", "owner", long)]}
+        data = json.loads(self.run_cli("status", ITEM_ID, "--json")[1])
+        self.assertEqual(data["ownerEvents"][0]["text"], long)
+
     def test_status_lists_a_reopen(self):
         self.client.detail = {"item": dict(ITEM, status="open"), "events": [
             event(1, "posted", "session"), event(2, "resolved", "owner"), event(3, "reopened", "owner")]}

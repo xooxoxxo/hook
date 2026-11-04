@@ -54,6 +54,9 @@ KEY_MIN_POND = (("id", "1.1.0"), ("optional", "1.0.0"), ("file", "1.0.0"), ("blo
                 ("warning", "1.0.0"), ("question", "1.0.0"), ("required", "1.3.0"))
 LINK_PATH_KEY, LINK_PATH_POND = "links[].path", "1.0.0"   # a link's `path` (a local file)
 TOP_KEY_MIN_POND = (("done", "1.3.0"),)                    # ask-level keys
+# A choice with the owner's words, {"label", "text"}, in a question or the reply (Pond 1.4.0).
+# This Mac's queue stays Pond 1.0.0, so it refuses it.
+CHOICE_KEY, CHOICE_POND = "choices[].text", "1.4.0"
 # Required before Done: `required` on a step, `done` on the ask, and `requirements` on an item.
 # This Mac's queue stays Pond 1.0.0, so it refuses both keys.
 REQUIREMENTS_POND = "1.3.0"
@@ -62,7 +65,8 @@ PROTOCOL_CACHE_S = 300.0
 # Per process: source -> (when checked, (effective version, legacy protocol or None) or None).
 _ponds: Dict[str, Tuple[float, Optional[Tuple[relay_semver.Version, Optional[int]]]]] = {}
 # Sent on every request: this client reads revision histories (it is not the Pond version it needs).
-PROTOCOL_HEADER, CLIENT_PROTOCOL = "X-Hook-Protocol", "5"
+# 6: this client reads choice objects ({"label", "text"}); below 6 a Pond 1.4.0 serves labels only.
+PROTOCOL_HEADER, CLIENT_PROTOCOL = "X-Hook-Protocol", "6"
 EDIT_KEY_DIR = "~/.local/state/relay/edit-keys"
 PENDING_MAX_AGE_S = 24 * 3600   # a retry within this reuses the pending edit key
 _ASK_ID = re.compile(r"[0-9A-Za-z][0-9A-Za-z-]{0,63}")
@@ -155,7 +159,9 @@ class PondTooOld(Refused):
         if local:
             message = f"Hook's This Mac queue (Pond {version}) can't take `{key}` yet."
         else:
-            tail = ("close this ask and post a new one." if key == "amend" else "leave the key out.")
+            tail = ("close this ask and post a new one." if key == "amend"
+                    else "use plain string choices and say what to write in the prompt." if key == CHOICE_KEY
+                    else "leave the key out.")
             message = (f"Your Pond ({version}) is older than `{key}` needs (Pond {needs} or newer). "
                        f"Update the Pond, or {tail}")
         super().__init__(0, message)
@@ -196,10 +202,19 @@ def _version_key(minimum: str) -> relay_semver.Version:
     return v
 
 
+def _has_choice_object(holder: Any) -> bool:
+    """A question or reply whose `choices` holds an object (a choice with the owner's words)."""
+    choices = holder.get("choices") if isinstance(holder, dict) else None
+    return isinstance(choices, list) and any(isinstance(choice, dict) for choice in choices)
+
+
 def keys_needing_pond(instructable: Any) -> Dict[str, str]:
     """{key: first Pond version} for the gated keys of steps and sub-steps (not verify),
-    plus LINK_PATH_KEY when a link carries `path` and the gated ask-level keys (`done`)."""
+    plus LINK_PATH_KEY when a link carries `path`, CHOICE_KEY when a question's or the reply's
+    choices hold an object, and the gated ask-level keys (`done`)."""
     found: Dict[str, str] = {}
+    if isinstance(instructable, dict) and _has_choice_object(instructable.get("reply")):
+        found[CHOICE_KEY] = CHOICE_POND
     for key, needs in TOP_KEY_MIN_POND:
         if isinstance(instructable, dict) and key in instructable:
             found[key] = needs
@@ -213,6 +228,8 @@ def keys_needing_pond(instructable: Any) -> Dict[str, str]:
         for key, needs in KEY_MIN_POND:
             if key in step:
                 found[key] = needs
+        if _has_choice_object(step.get("question")):
+            found[CHOICE_KEY] = CHOICE_POND
         subs = step.get("substeps")
         if isinstance(subs, list):
             stack.extend(s for s in subs if isinstance(s, dict))
@@ -441,6 +458,26 @@ def session_text(value: Any, cap: int) -> str:
     cut to `cap` characters, always double-quoted with " and \\ escaped, so it can't pass for
     a line of its own."""
     return json.dumps(_cut(_revealed(value), cap), ensure_ascii=False)
+
+
+def session_text_cut(value: Any, cap: int, ask_id: Any) -> str:
+    """Owner text in a session line: session_text, except that past `cap` the first `cap`
+    characters (as shown; a revealed scalar is never split) are quoted with no …, followed by
+    ' (N more characters: relay status <id> --json)', N counted the same way. `relay status
+    <id> --json` carries the whole text."""
+    tokens = _revealed(value)
+    total = sum(len(t) for t in tokens)
+    if total <= cap:
+        return json.dumps("".join(tokens), ensure_ascii=False)
+    out: List[str] = []
+    used = 0
+    for token in tokens:
+        if used + len(token) > cap:
+            break
+        out.append(token)
+        used += len(token)
+    return (json.dumps("".join(out), ensure_ascii=False)
+            + f" ({total - used} more characters: relay status {session_label(ask_id or '?', 64)} --json)")
 
 
 # What a bare label can't contain, as it would read in a session line: brackets frame the ask
@@ -814,9 +851,12 @@ def open_questions(detail: Any, given: Optional[Dict[str, Dict[str, Any]]] = Non
 
 
 def answer_value(answer: Dict[str, Any]) -> str:
-    """An answer as one terminal line: picks joined with ', ', or the text."""
+    """An answer as one terminal line: picks joined with ', ', or the text. A pick with the
+    owner's words (Pond 1.4.0) reads 'Mix · <words>'."""
     if isinstance(answer.get("picked"), list):
-        return one_line(", ".join(str(p) for p in answer["picked"]))
+        picks = ", ".join(str(p) for p in answer["picked"])
+        words = answer.get("text")
+        return one_line(picks + (" \u00b7 " + str(words) if isinstance(words, str) and words else ""))
     return one_line(str(answer.get("text") or ""))
 
 
@@ -967,7 +1007,7 @@ class Client:
         pond = self.pond_info()
         if pond is None:
             return
-        order = [k for k, _ in KEY_MIN_POND] + [LINK_PATH_KEY] + [k for k, _ in TOP_KEY_MIN_POND]
+        order = [k for k, _ in KEY_MIN_POND] + [LINK_PATH_KEY] + [k for k, _ in TOP_KEY_MIN_POND] + [CHOICE_KEY]
         for key, needs in sorted(needed.items(), key=lambda kv: (_version_key(kv[1]), -order.index(kv[0])),
                                  reverse=True):
             if not relay_semver.at_least(pond[0], needs):

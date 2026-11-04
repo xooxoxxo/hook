@@ -359,6 +359,13 @@ class KindAndMessagesTest(StubServerCase):
             for word in FORBIDDEN:
                 self.assertNotIn(word, tool["description"].lower())
 
+    def test_mcp_post_description_names_choice_objects(self):
+        tools = {t["name"]: t for t in relay_mcp.tool_list()}
+        description = tools["relay_post"]["description"]
+        self.assertIn('{"label", "text"}', description)
+        self.assertIn("Pond 1.4.0", description)
+        self.assertIn("(reply", description)   # never "(reply …)" in a label
+
     def test_bugs_come_with_their_count(self):
         s = Session.mailbox(self.tmp.name, self.url)
         try:

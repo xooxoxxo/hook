@@ -23,14 +23,15 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from relay_client import (OWNER_LABELS, EditKeys, NotFound, RelayError, answer_value, check_trusted_dir,
                           check_trusted_file, config_dir, ensure_private_dir, event_rev, message_line, parse_answer,
-                          private_write, session_label, session_text)
+                          private_write, session_label, session_text, session_text_cut)
 
 CURSOR_FILE = "replies-cursor.json"
 HOOK_BUDGET_S = 2.0
 HOOK_STDIN_LIMIT = 1024 * 1024
 HOOK_STDIN_WAIT_S = 0.5
 PAGE = 1000
-TEXT_CAP = 300
+# Owner text per event; past it the line says how much more `relay status <id> --json` has.
+TEXT_CAP = 8000
 UUID = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
 POSTER_ONLY = ("problem", "accepted", "message")   # in hook mode, only for the session that posted the ask
 
@@ -250,14 +251,16 @@ def _where(client: Any, item_id: str, cache: Dict[str, str], deadline: Optional[
 
 
 def _verdict(event: Dict[str, Any], label: str, body: Optional[Dict[str, Any]]) -> str:
-    """The part after the em dash: `<label>: "<text>"`, every value through session_text."""
+    """The part after the em dash: `<label>: "<text>"`, every value through session_text, owner
+    text cut at TEXT_CAP with the rest named (session_text_cut)."""
+    ask = event.get("itemId")
     kind = event.get("kind")
     if kind == "answer":
         if body is None:
             text = event.get("text") or ""
-            return f"answer: {session_text(text, TEXT_CAP)}" if text else "answer"
+            return f"answer: {session_text_cut(text, TEXT_CAP, ask)}" if text else "answer"
         return (f"answer {session_label(body['step'], 20)} (version {event_rev(event)}): "
-                f"{session_text(answer_value(body), TEXT_CAP)}")
+                f"{session_text_cut(answer_value(body), TEXT_CAP, ask)}")
     if kind == "problem":
         try:
             report = json.loads(event.get("text") or "")
@@ -265,13 +268,13 @@ def _verdict(event: Dict[str, Any], label: str, body: Optional[Dict[str, Any]]) 
             report = None
         report = report if isinstance(report, dict) else {}
         return (f"owner problem on step {session_label(report.get('step') or '?', 20)} "
-                f"(version {event_rev(event)}), quoted: {session_text(report.get('note'), TEXT_CAP)}")
+                f"(version {event_rev(event)}), quoted: {session_text_cut(report.get('note'), TEXT_CAP, ask)}")
     if kind == "accepted":
         return f"accepted version {event_rev(event)}"
     if kind == "message":
-        return message_line(event, session_text(event.get("text") or "", TEXT_CAP))
+        return message_line(event, session_text_cut(event.get("text") or "", TEXT_CAP, ask))
     text = event.get("text") or ""
-    return f"{label}: {session_text(text, TEXT_CAP)}" if text else label
+    return f"{label}: {session_text_cut(text, TEXT_CAP, ask)}" if text else label
 
 
 def _posted_by(client: Any, item_id: str, session_id: Optional[str], cache: Dict[str, bool]) -> bool:

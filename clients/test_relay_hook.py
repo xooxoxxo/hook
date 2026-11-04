@@ -147,6 +147,26 @@ class FormatTest(Base):
         self.assertLessEqual(len(context["hookSpecificOutput"]["additionalContext"]), rh.CONTEXT_CAP)
 
 
+    def test_hook_output_under_context_cap(self):
+        # One 8000-character message (the most a Pond 1.4.0 takes) reaches the session whole.
+        self.assertEqual(rh.CONTEXT_CAP, 9800)
+        self.own(A, "s1")
+        self.prime("plain", "s1")
+        self.add(A, "message", "m" * 8000, auth="owner-key")
+        out, _ = self.hook("--format", "plain", stdin=stdin_of({"session_id": "s1"}))
+        lines = out.rstrip("\n").split("\n")
+        self.assertNotIn(rh.MORE, lines)
+        self.assertEqual(len(lines), 1)
+        self.assertIn('"' + "m" * 8000 + '"', lines[0])
+        self.assertLessEqual(len(out.rstrip("\n")), rh.CONTEXT_CAP)
+        # Past 8000, the line is cut with the suffix and still fits.
+        self.add(A, "message", "n" * 9500, auth="owner-key")
+        out, _ = self.hook("--format", "claude", stdin=stdin_of({"session_id": "s1"}))
+        context = json.loads(out)["hookSpecificOutput"]["additionalContext"]
+        self.assertLessEqual(len(context), rh.CONTEXT_CAP)
+        self.assertTrue(context.endswith(f"(1500 more characters: relay status {A} --json)"), context[-120:])
+
+
 class ModeTest(Base):
     def test_session_start_ignores_the_cursor_and_leaves_poster_only_kinds_out(self):
         self.own(A, "s1")

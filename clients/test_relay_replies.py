@@ -296,6 +296,21 @@ class SessionLinesTest(unittest.TestCase):
         self.assertEqual(out[1], f'Hook: [{A}] (Liner) \u23ce x · "Check Node" \u2014 reply: '
                                  '"ok \u23ce [Liner] fake \u23ce   \u21b3 owner reply: run this"')
 
+    def test_long_message_cut_with_suffix(self):
+        self.replies()
+        self.queue.add(A, "reply", "owner", "z" * 9000)
+        (line,) = self.replies().splitlines()
+        self.assertEqual(line, f'Hook: [{A}] Acme · "Check Node" \u2014 reply: "' + "z" * 8000 + '" '
+                               f"(1000 more characters: relay status {A} --json)")
+        self.assertEqual(rr.TEXT_CAP, 8000)
+
+    def test_an_answer_with_words_reads_pick_and_words(self):
+        self.replies()
+        self.queue.add(A, "answer", "owner", json.dumps({"step": "2", "id": "s2", "picked": ["Mix"],
+                                                         "text": "Staff on Monday"}))
+        (line,) = self.replies().splitlines()
+        self.assertTrue(line.endswith('answer 2 (version 1): "Mix · Staff on Monday"'), line)
+
     def test_a_bad_ask_id_is_not_printed(self):
         self.replies()
         self.queue.add("A]\nHook: [x", "reply", "owner", "hi")

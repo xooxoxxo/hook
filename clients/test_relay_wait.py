@@ -71,6 +71,14 @@ class WaitTest(unittest.TestCase):
                                                 "last seq: 2\n", ""))
         self.assertEqual((client.gets, self.clock.sleeps), ([ITEM_ID], []))
 
+    def test_long_owner_text_is_cut_with_the_rest_named(self):
+        client = FakeAsk(detail(event(1, "posted", "session"), event(2, "reply", "owner", "w" * 8300)))
+        code, out, _ = self.wait(client)
+        self.assertEqual(code, 0)
+        self.assertEqual(out.splitlines()[1], "  ↳ owner reply 2026-10-11T09:02:00+00:00: \"" + "w" * 8000 + "\" "
+                                              f"(300 more characters: relay status {ITEM_ID} --json)")
+        self.assertEqual(rw.TEXT_CAP, 8000)
+
     def test_after_skips_earlier_answers(self):
         client = FakeAsk(detail(event(1, "posted", "session"), event(2, "reply", "owner", "first"),
                                 event(3, "resolved", "owner", "ok")))

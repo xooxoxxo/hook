@@ -20,7 +20,8 @@ import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from relay_client import (RelayError, Refused, Unreachable, answer_value, event_rev, instructable_of, message_line,
-                          open_questions, parse_answer, questions, revision_hash_of, session_label, session_text)
+                          open_questions, parse_answer, questions, revision_hash_of, session_label, session_text,
+                          session_text_cut)
 
 DEFAULT_TIMEOUT_S = 28800.0       # 8 h
 LOCAL_INTERVAL_S = 2.0            # 127.0.0.1 is cheap to poll
@@ -30,7 +31,7 @@ TIMEOUT_EXIT = 3
 SETTLE_S = 10.0                   # after an answer, wait this long for the next one
 SETTLE_INTERVAL_S = 2.0           # poll at least this often while settling
 OWNER_KINDS = ("reply", "resolved", "declined", "reopened", "answer", "problem", "message")
-TEXT_CAP = 300
+TEXT_CAP = 8000                   # owner text per event; past it the line names the rest
 
 
 def _seq(event: Dict[str, Any]) -> int:
@@ -46,14 +47,14 @@ def owner_answers(events: List[Any], after: int) -> List[Dict[str, Any]]:
             and e.get("kind") in OWNER_KINDS and _seq(e) > after]
 
 
-def _problem_line(event: Dict[str, Any]) -> str:
+def _problem_line(event: Dict[str, Any], ask_id: str) -> str:
     try:
         body = json.loads(event.get("text") or "")
     except (TypeError, ValueError):
         body = None
     body = body if isinstance(body, dict) else {}
     return (f"  ↳ owner problem on step {session_label(body.get('step') or '?', 20)} "
-            f"(version {event_rev(event)}), quoted: {session_text(body.get('note'), TEXT_CAP)}")
+            f"(version {event_rev(event)}), quoted: {session_text_cut(body.get('note'), TEXT_CAP, ask_id)}")
 
 
 def _foreign_versions(detail: Dict[str, Any], ask_id: str, edit_keys: Any) -> List[str]:
@@ -91,17 +92,17 @@ def format_answer(detail: Dict[str, Any], ask_id: str, answers: List[Dict[str, A
             if body is not None:
                 value = answer_value(body)
                 head = f"  ↳ owner answer {session_label(body['step'], 20)} (version {event_rev(event)})"
-                lines.append(f"{head}: {session_text(value, TEXT_CAP)}" if value else head)
+                lines.append(f"{head}: {session_text_cut(value, TEXT_CAP, ask_id)}" if value else head)
                 continue
         if event.get("kind") == "problem":
-            lines.append(_problem_line(event))
+            lines.append(_problem_line(event, ask_id))
             continue
         if event.get("kind") == "message":
-            lines.append("  ↳ " + message_line(event, session_text(event.get("text") or "", TEXT_CAP)))
+            lines.append("  ↳ " + message_line(event, session_text_cut(event.get("text") or "", TEXT_CAP, ask_id)))
             continue
         text = event.get("text") or ""
         head = f"  ↳ owner {event.get('kind')} {session_label(event.get('at') or '', 40)}"
-        lines.append(head + (f": {session_text(text, TEXT_CAP)}" if text else ""))
+        lines.append(head + (f": {session_text_cut(text, TEXT_CAP, ask_id)}" if text else ""))
     lines.extend(_foreign_versions(detail, ask_id, edit_keys))
     asked = questions(instructable_of(detail))
     if asked:

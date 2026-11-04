@@ -24,9 +24,9 @@ if _CLIENTS not in sys.path:
     sys.path.insert(0, _CLIENTS)
 
 import relay_client  # noqa: E402
-from relay_cli import (AMEND_SENTENCE, BLOCKING_SENTENCE, FILES_SENTENCE, OPTIONAL_SENTENCE,  # noqa: E402
-                       QUESTIONS_SENTENCE, REQUIRED_SENTENCE, SUBSTEPS_SENTENCE, answers_json, bug_count,
-                       is_editable, owner_events_json, resolved_by, revision_json)
+from relay_cli import (AMEND_SENTENCE, BLOCKING_SENTENCE, CHOICE_SENTENCE, FILES_SENTENCE,  # noqa: E402
+                       OPTIONAL_SENTENCE, QUESTIONS_SENTENCE, REQUIRED_SENTENCE, SUBSTEPS_SENTENCE, answers_json,
+                       bug_count, is_editable, owner_events_json, resolved_by, revision_json)
 
 SERVER_INFO = {"name": "relay", "version": relay_client.VERSION}
 LEGACY_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26"]
@@ -221,7 +221,7 @@ def tool_list() -> list:
                             "title is already open; editable means you can correct it with relay_amend. "
                             "Never include a secret value. " + SUBSTEPS_SENTENCE + " "
                             + QUESTIONS_SENTENCE + " " + BLOCKING_SENTENCE + " " + OPTIONAL_SENTENCE + " "
-                            + REQUIRED_SENTENCE + " " + FILES_SENTENCE),
+                            + REQUIRED_SENTENCE + " " + CHOICE_SENTENCE + " " + FILES_SENTENCE),
             "inputSchema": post_input_schema(),
         },
         {

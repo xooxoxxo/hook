@@ -33,7 +33,7 @@ An ask is a `project` plus an instructable: a JSON object with a title and numbe
 | `urgency` | `now`, `today` (default) or `whenever` |
 | `steps` | Required, 1–20 Steps |
 | `verify` | One Step without `substeps` or `question` |
-| `reply` | `prompt` ≤ 300, `choices` 0–6 strings of ≤ 60 |
+| `reply` | `prompt` ≤ 300, `choices` 0–6 strings of ≤ 60, or [choices with words](#choices-with-words) |
 | `done` | What must happen before the owner's Done turns on ([Before Done](#before-done)): a list of 1–3 distinct `"steps"` (every step that isn't optional is finished), `"reply"` (the reply prompt answered; needs `reply`) and `"message"` (the owner sent the session a message). Leave it out for none. Needs Pond 1.3.0 |
 | `links` | 0–10 `{label ≤ 60, url}` or `{label ≤ 60, path}`: exactly one of `url` (http(s)) and `path` (a local document, like a Step's `file`) |
 | `from` | `{session, host, cwd}`, filled in by the poster |
@@ -63,12 +63,32 @@ A **Question** is a JSON object with these keys:
 | Key | Rule |
 |---|---|
 | `prompt` | Required, ≤ 300, line breaks allowed |
-| `choices` | 0–6 distinct strings of ≤ 60, one line each; none or `[]` asks for free text |
+| `choices` | 0–6 distinct strings of ≤ 60, one line each, or [choices with words](#choices-with-words); none or `[]` asks for free text |
 | `multi` | `true` allows several picks and needs at least 2 choices |
 
 The owner answers questions one step at a time and can send some answers before the rest. The ask stays open until Done or Skip, and Done is allowed with questions unanswered, unless the ask marks them required (see [Before Done](#before-done)). An `optional` question can also be ticked done without an answer. Each answer is an `answer` event (see [Pond protocol](mailbox-protocol.md)).
 
 `project` is required: one line, at most 60 characters.
+
+## Choices with words
+
+A choice that needs the owner's words is an object (Pond 1.4.0):
+
+```json
+{"do": "Pick the rota change", "where": "Hook",
+ "question": {"prompt": "How should the night rota change?",
+              "choices": ["Keep it", {"label": "Mix", "text": "What should change?"}]}}
+```
+
+- `label` follows the string rules (1–60 characters, one line, distinct in the list); `text` is the placeholder of the field Hook opens under the choice once it's picked (1–100 characters, one line). Both are required, and no other key is allowed: a choice without words is a plain string.
+- Not in a `multi` question: `steps[0].question.choices[1]: a choice with text can't be in a multi question`.
+- The words are optional when the owner sends. A reply arrives as `choice: Mix · <words>` (U+00B7 with a space on each side), or `choice: Mix` without words. A step answer keeps its `picked` and adds `text` beside it, `{"step":"2","id":"s2","picked":["Mix"],"text":"<words>"}`, and sessions read it as `answer 2 (version 1): "Mix · <words>"`. Words are capped at 1000 characters.
+- Never write the request into a label ("Mix (reply what)", "Changes (reply)"): the owner would have to type the words in Messages. `relay post` and `relay_post` refuse such a label with what to do: `reply.choices[1]: "Mix (reply what)" asks for words: make it {"label": "Mix", "text": "…"} (Pond 1.4.0), or say what to write in the prompt`. Rules: `lint_choice_labels` in [`clients/relay_lint.py`](../clients/relay_lint.py).
+- On an older Pond, or in This Mac mode, `relay post` refuses the object before posting: "Your Pond (1.3.0) is older than `choices[].text` needs (Pond 1.4.0 or newer). Update the Pond, or use plain string choices and say what to write in the prompt." Post plain strings and say in the prompt what to write, and where.
+
+## Long text
+
+On Pond 1.4.0 the owner's messages and problem reports take up to 8000 characters (1000 and 300 before), and a problem report keeps its lines. Sessions see each owner text cut at 8000 characters, followed by ` (N more characters: relay status <id> --json)`; `relay status <id> --json` and `relay_status` always carry the whole text.
 
 ## Before Done
 
@@ -109,7 +129,7 @@ Not `{"do": "Tap Add reader. Kind Ollama, Name studio, URL http://192.0.2.7:1143
 - `required` must be `true` or `false`, and is refused on `verify`, beside `optional` (`steps[2].required: can't be required and optional`), inside an optional step (`steps[2].substeps[0].required: can't be required inside an optional step`) and on a step with nothing to finish (`steps[2].required: has nothing to finish (every sub-step is optional)`). `done` must be a list of 1 to 3 distinct known values (`done: must be a list of 1 to 3 of steps, reply, message`, `done[1]: duplicate`); `"reply"` needs a `reply` (`done[0]: reply needs a reply prompt`) and `"steps"` a step that isn't optional. `relay post`, `relay_post` and `relay amend` catch the last four before sending, with what to do: `steps[2].required: can't go with optional: drop one of them`, `done: "reply" needs a reply prompt: add reply, or drop it from done`. Rules: `lint_requirements` in [`clients/relay_lint.py`](../clients/relay_lint.py), in the same shared vectors.
 - `file` and a link's `path` must be absolute: `steps[0].file: must be an absolute path`. A link needs exactly one of `url` and `path`: `links[0]: needs url or path, not both`. `file` is refused on `verify`.
 - `id` must match `[a-z0-9][a-z0-9.-]{0,23}` and not read as a step number, once per ask, on every step and sub-step or none: `steps[1].id: duplicate`, `steps[0].id: must not look like a step number`.
-- Pond version: `question`, `blocking`, `warning`, `optional`, `file` and a link's `path` need Pond 1.0.0 or newer, `id` needs 1.1.0, and `required` and `done` need 1.3.0 ([Pond versions](mailbox-protocol.md#pond-versions)). `relay post`, `relay_post` and (for the corrected instructable) `relay amend` ask `GET /version` first (cached for 5 minutes per process) and refuse before posting when the Pond is older: "Your Pond (1.0.0) is older than `id` needs (Pond 1.1.0 or newer). Update the Pond, or leave the key out." In This Mac mode the app is the server, so the refusal is "Hook's This Mac queue (Pond 1.0.0) can't take `id` yet." A Pond without `/version` counts as protocol 1, too old for any of them. One whose answer has neither a semver `version` nor an integer `protocol` is unknown: the instructable is posted and the Pond validates it. An instructable without these keys posts with no extra call.
+- Pond version: `question`, `blocking`, `warning`, `optional`, `file` and a link's `path` need Pond 1.0.0 or newer, `id` needs 1.1.0, `required` and `done` need 1.3.0, and a choice object (`choices[].text`) needs 1.4.0 ([Pond versions](mailbox-protocol.md#pond-versions)). `relay post`, `relay_post` and (for the corrected instructable) `relay amend` ask `GET /version` first (cached for 5 minutes per process) and refuse before posting when the Pond is older: "Your Pond (1.0.0) is older than `id` needs (Pond 1.1.0 or newer). Update the Pond, or leave the key out." In This Mac mode the app is the server, so the refusal is "Hook's This Mac queue (Pond 1.0.0) can't take `id` yet." A Pond without `/version` counts as protocol 1, too old for any of them. One whose answer has neither a semver `version` nor an integer `protocol` is unknown: the instructable is posted and the Pond validates it. An instructable without these keys posts with no extra call.
 - A step's errors come in this order: its text keys (`do`, `where`, `code`, `lang`, `expect`, `detail`), `url`, `file`, `blocking`, `optional`, `required`, `warning`, `question`, `substeps`.
 - The Pond's errors name field paths only (`steps[2].url: must be http(s)`), never values.
 - The JSON Schema is [`schema/instructable.v1.json`](../schema/instructable.v1.json).

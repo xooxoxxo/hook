@@ -27,7 +27,12 @@
           "type": "array",
           "minItems": 0,
           "maxItems": 6,
-          "items": { "type": "string", "maxLength": 60 }
+          "items": {
+            "oneOf": [
+              { "type": "string", "maxLength": 60 },
+              { "$ref": "#/$defs/wordChoice" }
+            ]
+          }
         }
       }
     },
@@ -68,6 +73,16 @@
   },
   "$defs": {
     "httpUrl": { "type": "string", "pattern": "^https?://" },
+    "wordChoice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "text"],
+      "description": "A choice that needs the owner's words; needs Pond 1.4.0. Picking it opens a field whose placeholder is text; the answer arrives as \"choice: <label> · <words>\" (a reply) or \"<label> · <words>\" (a step answer). Labels stay distinct; never in a multi question. Below Pond 1.4.0, use a plain string and say in the prompt what to write.",
+      "properties": {
+        "label": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "text": { "type": "string", "minLength": 1, "maxLength": 100 }
+      }
+    },
     "localPath": { "type": "string", "maxLength": 500, "pattern": "^(/|~/)[^\\n\\t]*$", "description": "An absolute path on the owner's Mac (/... or ~/...), one line." },
     "question": {
       "type": "object",
@@ -81,7 +96,12 @@
           "minItems": 0,
           "maxItems": 6,
           "uniqueItems": true,
-          "items": { "type": "string", "minLength": 1, "maxLength": 60 }
+          "items": {
+            "oneOf": [
+              { "type": "string", "minLength": 1, "maxLength": 60 },
+              { "$ref": "#/$defs/wordChoice" }
+            ]
+          }
         },
         "multi": { "type": "boolean", "default": false }
       }

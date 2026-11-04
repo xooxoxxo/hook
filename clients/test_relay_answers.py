@@ -35,6 +35,11 @@ class HelpersTest(unittest.TestCase):
         self.assertEqual(rc.answer_value({"picked": ["Logs", "Traces"]}), "Logs, Traces")
         self.assertEqual(rc.answer_value({"text": "one\ntwo"}), "one ⏎ two")
 
+    def test_answer_line_with_words(self):
+        # Pond 1.4.0: the owner's words beside a pick of a word choice.
+        self.assertEqual(rc.answer_value({"picked": ["Mix"], "text": "Staff on Monday"}), "Mix · Staff on Monday")
+        self.assertEqual(rc.answer_value({"picked": ["Mix"], "text": "two\nlines"}), "Mix · two ⏎ lines")
+
     def test_unanswered_in_document_order(self):
         events = [answer(2, "3", text="EU"), answer(3, "1", ["Staging"])]
         self.assertEqual(rc.unanswered(INSTRUCTABLE, events), ["2", "4", "4.2"])

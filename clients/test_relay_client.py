@@ -500,6 +500,50 @@ class PondGateTests(Base):
             self.assertEqual(ctx.exception.error, f"Hook's This Mac queue (Pond 1.0.0) can't take `{key}` yet.")
             self.assertEqual(local.sent("/asks"), [])
 
+    # A choice with the owner's words (Pond 1.4.0): {"label", "text"}.
+    CHOICE = {"v": 1, "title": "Plan the rota", "steps": [
+        {"do": "Pick the change", "question": {"prompt": "How?", "choices": [
+            "Keep", {"label": "Mix", "text": "What should change?"}]}}]}
+    CHOICE_REPLY = {"v": 1, "title": "Plan the rota", "steps": [{"do": "Read the plan"}],
+                    "reply": {"prompt": "Ship?", "choices": [{"label": "Yes", "text": "Anything to add?"}, "No"]}}
+
+    def test_keys_needing_pond_finds_choice_objects(self):
+        self.assertEqual(rc.CHOICE_KEY, "choices[].text")
+        self.assertEqual(rc.CHOICE_POND, "1.4.0")
+        self.assertEqual(rc.keys_needing_pond(self.CHOICE), {"question": "1.0.0", "choices[].text": "1.4.0"})
+        self.assertEqual(rc.keys_needing_pond(self.CHOICE_REPLY), {"choices[].text": "1.4.0"})
+        sub = {"v": 1, "title": "x", "steps": [{"do": "a", "substeps": [
+            {"do": "b", "question": {"prompt": "?", "choices": [{"label": "Mix", "text": "What?"}]}}]}]}
+        self.assertEqual(rc.keys_needing_pond(sub), {"question": "1.0.0", "choices[].text": "1.4.0"})
+        plain = {"v": 1, "title": "x", "steps": [{"do": "a", "question": {"prompt": "?", "choices": ["A", "B"]}}],
+                 "reply": {"prompt": "?", "choices": ["Yes"]}}
+        self.assertEqual(rc.keys_needing_pond(plain), {"question": "1.0.0"})
+
+    def test_post_refuses_choice_object_below_140(self):
+        self.pond("1.3.0")
+        words = ("Your Pond (1.3.0) is older than `choices[].text` needs (Pond 1.4.0 or newer). "
+                 "Update the Pond, or use plain string choices and say what to write in the prompt.")
+        self.assertEqual(self.refused(self.CHOICE), words)
+        self.assertEqual(self.refused(self.CHOICE_REPLY), words)
+        for version in ("1.4.0", "1.5.2"):
+            self.pond(version)
+            self.assertEqual(self.client().post("Acme", self.CHOICE)["item"]["id"], ITEM_ID)
+            self.assertEqual(self.client().post("Acme", self.CHOICE_REPLY)["item"]["id"], ITEM_ID)
+
+    def test_local_refuses_choice_object(self):
+        local = self.local_http("1.0.0", 4)
+        with self.assertRaises(rc.PondTooOld) as ctx:
+            self.local(local).post("Acme", self.CHOICE_REPLY)
+        self.assertEqual(ctx.exception.error, "Hook's This Mac queue (Pond 1.0.0) can't take `choices[].text` yet.")
+        self.assertEqual(local.sent("/asks"), [])
+
+    def test_sends_protocol_6(self):
+        self.assertEqual(rc.CLIENT_PROTOCOL, "6")
+        self.pond("1.4.0")
+        self.client().post("Acme", self.CHOICE)
+        for req in self.http.requests:
+            self.assertEqual(req.get_header("X-hook-protocol"), "6", req.full_url)
+
     def local_http(self, version, protocol):
         local = FakeHTTP()
         local.routes[("GET", "/version")] = (200, {"service": "hook", "version": version, "protocol": protocol})

@@ -71,6 +71,28 @@ class VectorTests(unittest.TestCase):
                 got = [list(p) for p in relay_lint.lint_requirements(case["instructable"])]
                 self.assertEqual(got, [p for p in case["expect"] if not p[0].endswith(".do")])
 
+    def test_lint_vectors(self):
+        # Pond 1.4.0: a string choice that asks for words in its label ("Mix (reply what)").
+        cases = {c["name"]: c for c in CASES if c["name"].startswith("choice-")}
+        self.assertLessEqual({"choice-reply-label", "choice-reply-label-question", "choice-reply-word-plain",
+                              "choice-object-ok"}, set(cases))
+        self.assertEqual(cases["choice-reply-label"]["expect"], [[
+            "reply.choices[1]",
+            '"Mix (reply what)" asks for words: make it {"label": "Mix", "text": "…"} (Pond 1.4.0), '
+            "or say what to write in the prompt"]])
+        for name, case in cases.items():
+            with self.subTest(name):
+                got = [list(p) for p in relay_lint.lint_choice_labels(case["instructable"])]
+                self.assertEqual(got, [p for p in case["expect"] if ".choices[" in p[0]])
+
+    def test_choice_pairs_come_after_the_requirements(self):
+        doc = {"v": 1, "title": "x", "done": ["reply"], "steps": [
+            {"do": "Go", "question": {"prompt": "How?", "choices": ["Keep", "Changes (reply)"]}}]}
+        self.assertEqual([p[0] for p in relay_lint.lint_instructable(doc)], ["done", "steps[0].question.choices[1]"])
+        self.assertEqual(relay_lint.lint_choice_labels(doc)[0][1],
+                         '"Changes (reply)" asks for words: make it {"label": "Changes", "text": "…"} (Pond 1.4.0), '
+                         "or say what to write in the prompt")
+
     def test_requirement_pairs_come_after_the_values_to_copy(self):
         doc = {"v": 1, "title": "x", "done": ["reply"],
                "steps": [{"do": "Go", "required": True, "optional": True}, {"do": "Open https://example.com/a"}]}

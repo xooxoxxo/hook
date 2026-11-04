@@ -1606,6 +1606,136 @@
     "done": "reply"
    },
    "expect": []
+  },
+  {
+   "name": "choice-reply-label",
+   "instructable": {
+    "v": 1,
+    "title": "Roll out the change",
+    "steps": [
+     {
+      "do": "Read the plan"
+     }
+    ],
+    "reply": {
+     "prompt": "How should it roll out?",
+     "choices": [
+      "All at once",
+      "Mix (reply what)"
+     ]
+    }
+   },
+   "expect": [
+    [
+     "reply.choices[1]",
+     "\"Mix (reply what)\" asks for words: make it {\"label\": \"Mix\", \"text\": \"…\"} (Pond 1.4.0), or say what to write in the prompt"
+    ]
+   ]
+  },
+  {
+   "name": "choice-reply-label-question",
+   "instructable": {
+    "v": 1,
+    "title": "Review the draft",
+    "steps": [
+     {
+      "do": "Read the draft"
+     },
+     {
+      "do": "Give your verdict",
+      "question": {
+       "prompt": "Ship it?",
+       "choices": [
+        "Ship",
+        "Changes (reply)"
+       ]
+      }
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[1].question.choices[1]",
+     "\"Changes (reply)\" asks for words: make it {\"label\": \"Changes\", \"text\": \"…\"} (Pond 1.4.0), or say what to write in the prompt"
+    ]
+   ]
+  },
+  {
+   "name": "choice-reply-label-substep",
+   "instructable": {
+    "v": 1,
+    "title": "Review the draft",
+    "steps": [
+     {
+      "do": "Review",
+      "substeps": [
+       {
+        "do": "Read it"
+       },
+       {
+        "do": "Give your verdict",
+        "question": {
+         "prompt": "Ship it?",
+         "choices": [
+          "Ship",
+          "Changes ( Reply: what )"
+         ]
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].substeps[1].question.choices[1]",
+     "\"Changes ( Reply: what )\" asks for words: make it {\"label\": \"Changes\", \"text\": \"…\"} (Pond 1.4.0), or say what to write in the prompt"
+    ]
+   ]
+  },
+  {
+   "name": "choice-reply-word-plain",
+   "instructable": {
+    "v": 1,
+    "title": "Review the draft",
+    "steps": [
+     {
+      "do": "Read the draft"
+     }
+    ],
+    "reply": {
+     "prompt": "Ship it?",
+     "choices": [
+      "Ship",
+      "Reply later",
+      "Changes (replying is slow)x"
+     ]
+    }
+   },
+   "expect": []
+  },
+  {
+   "name": "choice-object-ok",
+   "instructable": {
+    "v": 1,
+    "title": "Roll out the change",
+    "steps": [
+     {
+      "do": "Read the plan"
+     }
+    ],
+    "reply": {
+     "prompt": "How should it roll out?",
+     "choices": [
+      "All at once",
+      {
+       "label": "Mix",
+       "text": "What should change?"
+      }
+     ]
+    }
+   },
+   "expect": []
   }
  ]
 }

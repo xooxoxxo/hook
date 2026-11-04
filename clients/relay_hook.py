@@ -37,7 +37,9 @@ from relay_client import RelayError
 FORMATS = ("claude", "gemini", "kiro", "cursor", "copilot", "plain")
 WHENS = ("prompt", "session-start")
 SESSION_START = {"cursor", "copilot"}                       # default --when per format
-CONTEXT_CAP = 8000
+# Under Claude Code's 10 000-character hook output, and room for one whole 8000-character
+# owner text (relay_replies.TEXT_CAP) with its line.
+CONTEXT_CAP = 9800
 MORE = "… more in relay list"
 PROBE_OK = "hook replies: ok"
 SESSION_KEYS = ("session_id", "sessionId", "conversation_id")
