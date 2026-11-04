@@ -1,0 +1,779 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hook Product Guide</title>
+<meta name="description" content="The Hook product guide: the whole macOS menu-bar app for coding-agent asks, in 14 printable pages.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: a printed booklet. One paper sheet on a desk; each .page is exactly one
+   A4 page in print. The body speaks the app's own calm macOS language; headings use
+   a manual's structure: a mono label line, a heavy rule and a numbered section.
+   A paper document, so one light theme. */
+:root {
+  color-scheme: light;
+  --desk: #E8EAEF;
+  --paper: #FFFFFF;
+  --ink: #1B1C22;
+  --ink-2: #4A4C58;
+  --muted: #80828F;
+  --line: #E3E4EA;
+  --rule: #1B1C22;
+  --surface: #F4F5F8;
+  --accent: #4C4CC4;
+  --accent-soft: #EDEDFB;
+  --now: #D63E44;
+  --today: #CF7A16;
+  --code-bg: #17171B;
+  --code-ink: #EBEBF0;
+  --code-muted: #8C8C99;
+  --display: "Bricolage Grotesque", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --body: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --radius: 10px;
+  --h1: 120px;
+  --h2: 34px;
+  --thesis: 27px;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--desk);
+  color: var(--ink);
+  font: 15px/1.55 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 56px;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3 { margin: 0; color: var(--ink); text-wrap: balance; }
+p, ul, ol, dl, figure { margin: 0; }
+p { orphans: 3; widows: 3; }
+code { font-family: var(--mono); font-size: .88em; overflow-wrap: anywhere; }
+a { color: var(--accent); }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+mark { background: var(--accent-soft); color: inherit; padding: 0 .12em; border-radius: 3px; }
+
+/* The sheet and its pages */
+.sheet { max-width: 820px; margin: 0 auto; background: var(--paper); box-shadow: 0 1px 2px rgba(17, 19, 24, .06), 0 16px 48px rgba(17, 19, 24, .10); }
+.page { padding: 60px 64px; display: grid; gap: 44px; align-content: start; min-width: 0; }
+.page + .page { border-top: 1px solid var(--line); }
+.blk { display: grid; gap: 22px; min-width: 0; }
+.prose { display: grid; gap: 14px; }
+.prose p, .intro { max-width: 64ch; }
+.ink-2 { color: var(--ink-2); }
+
+/* Headings: label line, heavy rule, section number */
+.sec-head { display: grid; grid-template-columns: 64px minmax(0, 1fr); column-gap: 18px; row-gap: 8px; border-top: 3px solid var(--rule); padding-top: 14px; }
+.sec-num { grid-row: 1 / span 2; font: 800 44px/.9 var(--display); letter-spacing: -0.04em; font-variant-numeric: tabular-nums; color: var(--ink); }
+.eyebrow { font: 500 11.5px/1.2 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--ink); }
+h2 { font: 750 var(--h2)/1.1 var(--display); letter-spacing: -0.025em; }
+h3 { font: 650 16.5px/1.3 var(--body); letter-spacing: -0.005em; }
+
+/* Cover */
+.cover { gap: 34px; }
+.cover-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 18px; font: 500 12px/1.3 var(--mono); text-transform: uppercase; letter-spacing: .07em; color: var(--ink); border-bottom: 3px solid var(--rule); padding-bottom: 12px; }
+h1 { font: 800 var(--h1)/.82 var(--display); letter-spacing: -0.055em; }
+.cover-split { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 40px; align-items: start; }
+.cover-text { display: grid; gap: 22px; padding-top: 4px; min-width: 0; }
+.thesis { font: 650 var(--thesis)/1.22 var(--body); letter-spacing: -0.012em; color: var(--ink); max-width: 22ch; text-wrap: balance; }
+.lead { font-size: 16.5px; line-height: 1.55; color: var(--ink-2); max-width: 46ch; }
+.cover-facts { display: grid; gap: 10px; padding: 8px 0 0; border-top: 1px solid var(--line); }
+.cover-facts li { list-style: none; display: grid; grid-template-columns: 22px 1fr; gap: 8px; color: var(--ink-2); font-size: 14px; }
+.tick { width: 16px; height: 16px; margin-top: 3px; }
+.tick path { stroke: var(--accent); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Figures */
+figure { display: grid; gap: 10px; min-width: 0; }
+figcaption { font-size: 12.5px; line-height: 1.45; color: var(--muted); }
+.shot { display: block; width: 100%; height: auto; border-radius: 12px; border: 1px solid var(--line); box-shadow: 0 10px 28px rgba(17, 19, 24, .10); }
+.shot-narrow { max-width: 300px; }
+
+/* The app, drawn as it looks on a Mac */
+.app {
+  --a-bg: #DEDEE0; --a-card: #F7F7F8; --a-head: #F9F9FA; --a-ink: #1D1D1F; --a-2: #6E6E73; --a-3: #9E9EA3;
+  --a-line: #D9D9DE; --a-blue: #0A7CFF; --a-sel: #D3E3F6; --a-green: #2FB84F; --a-red: #F2392F; --a-orange: #F59B00; --a-pond: #1F8A3B;
+  --a-code: #D6D9DF;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  color: var(--a-ink);
+  -webkit-font-smoothing: antialiased;
+}
+.menubar { display: flex; align-items: center; justify-content: flex-end; gap: 16px; background: #E4E4E8; border-radius: 9px; padding: 6px 12px; font-size: 12.5px; font-weight: 500; color: #2B2B2F; }
+.mb-hook { position: relative; display: inline-flex; width: 22px; height: 16px; }
+.mb-hook svg { width: 18px; height: 16px; }
+.mb-hook path, .mb-hook circle { stroke: #2B2B2F; stroke-width: 1.6; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.mb-badge { position: absolute; right: -3px; top: -4px; width: 12px; height: 12px; border-radius: 50%; background: var(--a-red); color: #FFFFFF; font: 700 8.5px/12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; text-align: center; }
+.mb-time { font-variant-numeric: tabular-nums; }
+.panel { background: var(--a-bg); border: 1px solid #CDCDD2; border-radius: 13px; box-shadow: 0 12px 32px rgba(0, 0, 0, .14); font-size: 12px; width: 100%; max-width: 320px; overflow: hidden; }
+.p-head { display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: var(--a-head); border-bottom: 1px solid var(--a-line); }
+.p-head b { font-size: 13.5px; font-weight: 650; margin-right: auto; }
+.p-icon { width: 13px; height: 13px; flex: none; }
+.p-icon path, .p-icon circle { stroke: var(--a-2); stroke-width: 1.5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.p-list { padding: 4px 8px 6px; }
+.group { display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; color: var(--a-2); padding: 9px 4px 5px; }
+.card { background: var(--a-card); border-radius: 8px; padding: 8px 10px; display: grid; gap: 3px; margin-bottom: 6px; box-shadow: 0 0 0 .5px rgba(0, 0, 0, .10); }
+.card.sel { background: var(--a-sel); box-shadow: 0 0 0 1.5px var(--a-blue); }
+.card-top { display: flex; align-items: center; gap: 6px; color: var(--a-2); font-size: 11px; }
+.card-top .age { margin-left: auto; color: var(--a-2); font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: 3px; }
+.card-title { font-weight: 650; font-size: 12.5px; line-height: 1.3; }
+.card-sub { color: var(--a-2); font-size: 11px; display: flex; align-items: center; gap: 8px; }
+.bar { margin-left: auto; width: 44px; height: 3px; border-radius: 2px; background: #D4D4D8; overflow: hidden; }
+.bar i { display: block; height: 100%; width: 28%; background: var(--a-blue); }
+.mb { display: inline-block; width: 16px; height: 16px; border-radius: 4px; color: #FFFFFF; font: 700 7.5px/16px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; text-align: center; letter-spacing: .02em; flex: none; }
+.c-brown { background: #A3845F; } .c-green { background: #34C759; } .c-purple { background: #AF52DE; }
+.urg { display: inline-flex; align-items: center; gap: 3px; font-weight: 500; }
+.urg i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.urg.now { color: var(--a-red); } .urg.now i { background: var(--a-red); }
+.urg.today { color: var(--a-orange); } .urg.today i { background: var(--a-orange); }
+.p-status { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--a-head); border-top: 1px solid var(--a-line); font-size: 11.5px; }
+.p-status .pond { color: var(--a-pond); font-weight: 500; }
+.p-status .p-icon { margin-left: auto; }
+
+/* An open ask */
+.detail { max-width: 340px; }
+.d-head { display: flex; align-items: center; gap: 6px; padding: 9px 12px; background: var(--a-head); border-bottom: 1px solid var(--a-line); color: var(--a-2); font-size: 11.5px; }
+.d-head .p-icon:first-child { margin-right: 2px; }
+.d-head .sp { margin-left: auto; }
+.d-body { padding: 12px 14px 12px; display: grid; gap: 9px; }
+.d-title { font-size: 15px; font-weight: 650; line-height: 1.25; }
+.d-why { color: var(--a-2); font-size: 12px; line-height: 1.4; }
+.d-sec { display: flex; justify-content: space-between; align-items: baseline; font-weight: 650; font-size: 12.5px; padding-top: 4px; }
+.d-sec span { font-weight: 400; color: var(--a-2); font-size: 11px; }
+.steps-box { background: var(--a-card); border-radius: 9px; box-shadow: 0 0 0 .5px rgba(0, 0, 0, .10); padding: 3px 0; }
+.st { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 9px; align-items: start; padding: 8px 10px; margin: 0 4px; border-radius: 7px; position: relative; }
+.st + .st::before { content: ""; position: absolute; left: 34px; right: -4px; top: 0; border-top: 1px solid var(--a-line); }
+.st.cur { background: var(--a-sel); box-shadow: 0 0 0 1.2px var(--a-blue); }
+.st.req { background: var(--a-sel); }
+.st.cur + .st::before, .st.req + .st::before { display: none; }
+.num { width: 18px; height: 18px; border-radius: 50%; border: 1.3px solid var(--a-2); color: var(--a-2); font-size: 10px; font-weight: 500; display: inline-flex; align-items: center; justify-content: center; position: relative; background: transparent; }
+.num.ok { background: var(--a-green); border-color: var(--a-green); color: #FFFFFF; font-size: 10px; }
+.num.on { background: var(--a-blue); border-color: var(--a-blue); color: #FFFFFF; }
+.num.must::after { content: ""; position: absolute; right: -3px; top: -3px; width: 6px; height: 6px; border-radius: 50%; background: var(--a-blue); box-shadow: 0 0 0 1.5px var(--a-card); }
+.st-t { font-size: 12px; line-height: 1.35; min-width: 0; }
+.st.done .st-t { color: var(--a-2); }
+.st.cur .st-t b { font-weight: 650; }
+.st-where { color: var(--a-2); font-size: 10.5px; display: block; }
+.st-end { color: var(--a-3); font-size: 11px; }
+.code { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-top: 6px; background: var(--a-code); border-radius: 6px; padding: 7px 7px 7px 9px; }
+.code code { font: 11px/1.4 ui-monospace, "SF Mono", Menlo, monospace; color: var(--a-ink); overflow-wrap: anywhere; }
+.btn-s { font-size: 10px; font-weight: 500; color: var(--a-ink); background: #FFFFFF; border-radius: 5px; padding: 2px 7px; box-shadow: 0 0 0 .5px rgba(0, 0, 0, .18); white-space: nowrap; }
+.expect { color: var(--a-2); font-size: 10.5px; margin-top: 5px; }
+.reply-box { background: var(--a-card); border-radius: 8px; box-shadow: 0 0 0 .5px rgba(0, 0, 0, .10); padding: 7px 9px; display: flex; gap: 8px; align-items: center; font-size: 12px; }
+.reply-box .f { flex: 1; color: var(--a-ink); }
+.d-from { color: var(--a-2); font-size: 11.5px; display: flex; justify-content: space-between; }
+.d-bar { display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--a-line); padding: 9px 12px; background: var(--a-head); }
+.btn { font-size: 11.5px; font-weight: 500; border-radius: 6px; padding: 4px 18px; background: #E3E3E6; }
+.btn.primary { background: var(--a-blue); color: #FFFFFF; }
+.btn.off { background: #9CC6F7; color: #FFFFFF; }
+
+/* Diagram */
+.diagram-wrap { overflow-x: auto; }
+.diagram { width: 100%; min-width: 520px; height: auto; display: block; }
+.d-box { fill: var(--paper); stroke: var(--ink-2); stroke-width: 1.2; }
+.d-hero { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 2; }
+.d-life { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 5; fill: none; opacity: .7; }
+.d-msg { stroke: var(--ink-2); stroke-width: 1.3; fill: none; }
+.d-msg.opt { stroke: var(--accent); stroke-dasharray: 5 4; }
+.d-head-mark { fill: var(--ink-2); }
+.d-head-acc { fill: var(--accent); }
+.diagram text { font-family: var(--body); fill: var(--ink); text-anchor: middle; }
+.diagram .d-name { font-size: 14px; font-weight: 650; }
+.diagram .d-sub { font-size: 11.5px; fill: var(--muted); }
+.diagram .d-label { font-size: 13px; font-weight: 600; }
+.diagram .d-label.acc { fill: var(--accent); }
+.diagram .d-label-sub { font-size: 11.5px; fill: var(--muted); }
+.diagram .d-note { font-size: 11.5px; fill: var(--muted); text-anchor: start; font-style: italic; }
+
+/* Lists, boxes, tables, keys, code */
+.points { display: grid; gap: 14px; padding: 0; }
+.points li { list-style: none; display: grid; gap: 3px; padding-left: 16px; border-left: 2px solid var(--line); }
+.points b { font-weight: 650; }
+.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.box { border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; display: grid; gap: 6px; align-content: start; background: var(--paper); min-width: 0; }
+.box p { color: var(--ink-2); font-size: 14px; }
+.tbl-wrap { overflow-x: auto; }
+.tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tbl th { text-align: left; font: 500 11px/1.2 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--ink); padding: 0 14px 9px 0; border-bottom: 1.5px solid var(--rule); }
+.tbl td { padding: 10px 14px 10px 0; border-bottom: 1px solid var(--line); vertical-align: top; color: var(--ink-2); }
+.tbl td:first-child { color: var(--ink); white-space: nowrap; }
+.tbl tr:last-child td { border-bottom: 0; }
+.tbl.dense { font-size: 12.5px; }
+.tbl.dense td { padding: 6px 12px 6px 0; }
+.tbl.dense td:first-child { font-weight: 600; }
+.state { font: 500 10.5px/1 var(--mono); letter-spacing: .04em; text-transform: uppercase; padding: 3px 6px; border-radius: 4px; white-space: nowrap; }
+.state.pending { color: var(--ink-2); background: var(--surface); }
+.state.docs { color: var(--muted); border: 1px dashed var(--line); }
+.state.machine { color: var(--accent); background: var(--accent-soft); }
+kbd { font: 500 12px/1 var(--mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 3px 6px; background: var(--surface); color: var(--ink); white-space: nowrap; }
+.codeblock { background: var(--code-bg); color: var(--code-ink); border-radius: var(--radius); padding: 16px 18px; font: 12.5px/1.65 var(--mono); overflow-x: auto; white-space: pre; margin: 0; }
+.codeblock .cm { color: var(--code-muted); }
+.steps { counter-reset: s; padding: 0; display: grid; gap: 12px; }
+.steps li { list-style: none; counter-increment: s; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; color: var(--ink-2); }
+.steps li::before { content: counter(s); width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--accent); color: var(--accent); font: 650 12px/21px var(--body); text-align: center; }
+
+/* Anatomy */
+.anatomy { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 36px; align-items: start; }
+.anatomy.wide-fig { grid-template-columns: 300px minmax(0, 1fr); }
+.fields { display: grid; gap: 13px; }
+.fields > div { display: grid; grid-template-columns: 78px minmax(0, 1fr); gap: 12px; align-items: baseline; }
+.fields dt { font: 600 12.5px/1.3 var(--mono); color: var(--ink); }
+.fields dd { margin: 0; color: var(--ink-2); font-size: 14px; }
+.u { font: 600 11.5px/1 var(--body); padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
+.u.now { color: var(--now); background: rgba(214, 62, 68, .12); }
+.u.today { color: var(--today); background: rgba(207, 122, 22, .13); }
+.u.whenever { color: var(--muted); background: var(--surface); }
+.note { border-radius: var(--radius); background: var(--surface); padding: 14px 16px; color: var(--ink-2); font-size: 14px; display: block; }
+.note > b:first-child { color: var(--ink); display: block; margin-bottom: 4px; }
+.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; align-items: start; }
+
+.colophon { display: flex; flex-wrap: wrap; gap: 6px 18px; font: 500 11.5px/1.4 var(--mono); color: var(--ink-2); border-top: 3px solid var(--rule); padding-top: 14px; }
+
+/* Narrow screens */
+@media (max-width: 720px) {
+  body { padding-block: 16px 40px; }
+  .page { padding: 36px 22px; gap: 36px; }
+  .cover-split, .anatomy, .anatomy.wide-fig, .two, .pair { grid-template-columns: 1fr; }
+  :root { --h1: 84px; --h2: 27px; --thesis: 23px; }
+  .sec-head { grid-template-columns: 44px minmax(0, 1fr); }
+  .sec-num { font-size: 32px; }
+  .panel, .detail { max-width: 100%; }
+  .fields > div { grid-template-columns: 64px minmax(0, 1fr); }
+  .shot-narrow { max-width: 100%; }
+}
+
+/* Print: A4, exactly one .page per sheet */
+@page { size: A4; margin: 14mm 15mm 14mm; }
+@media print {
+  body { padding: 0; background: #FFFFFF; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: 13px; }
+  .sheet { max-width: none; box-shadow: none; }
+  .panel, .shot { box-shadow: none; }
+  .cover-split { gap: 48px; }
+  .page { padding: 0; gap: 26px; }
+  .blk { gap: 16px; }
+  .page + .page { border-top: 0; break-before: page; }
+  .sec-head, h2, h3 { break-after: avoid; }
+  .blk, figure, .box, .note, .codeblock, .panel, .tbl tr, .points li, .steps li, .fields > div { break-inside: avoid; }
+  .tbl { font-size: 12.5px; }
+  .tbl td { padding: 7px 12px 7px 0; }
+  .tbl.dense { font-size: 11.5px; }
+  .tbl.dense td { padding: 4.5px 10px 4.5px 0; }
+  .shot-print-s { max-height: 118mm; width: auto; max-width: 100%; }
+  .shot-print-m { max-height: 112mm; width: auto; max-width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+/* Site bar: back to the homepage and the PDF. Screen only. */
+.sitebar { max-width: 820px; margin: 0 auto 16px; display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: baseline; font: 500 12.5px/1.4 var(--mono); }
+.sitebar a { color: var(--ink-2); text-decoration: none; }
+.sitebar a:hover { color: var(--accent); }
+.sitebar .home { font: 800 20px/1 var(--display); letter-spacing: -0.04em; color: var(--ink); margin-right: auto; }
+.colophon a { color: inherit; }
+@media print { .sitebar { display: none; } }
+</style>
+</head>
+<body>
+
+<nav class="sitebar" aria-label="Site">
+  <a class="home" href="./">Hook</a>
+  <a href="guide.pdf">Download PDF</a>
+  <a href="https://github.com/xooxoxxo/hook">GitHub</a>
+</nav>
+
+<main class="sheet">
+
+  <!-- Page 1: cover -->
+  <section class="page cover" aria-labelledby="t-cover">
+    <div class="cover-meta"><span>Product guide</span><span>Hook 0.13 · public beta</span><span>macOS 14 and later</span></div>
+    <h1 id="t-cover">Hook</h1>
+    <div class="cover-split">
+      <div class="cover-text">
+        <p class="thesis">Everything your coding agents need from you, in <mark>one calm queue</mark> on your Mac.</p>
+        <p class="lead">When a session needs a key, a decision or a manual step, it lands in Hook as numbered steps with exact commands and a Copy button. You follow them, press Done or reply, and the session that asked carries on with your answer.</p>
+        <ul class="cover-facts">
+          <li><svg class="tick" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3L13 4.5"/></svg><span>One queue for Claude Code, Codex, Cursor and 15 more agents</span></li>
+          <li><svg class="tick" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3L13 4.5"/></svg><span>Steps you can follow without stopping to think</span></li>
+          <li><svg class="tick" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3L13 4.5"/></svg><span>Your answer goes back to the session by itself</span></li>
+        </ul>
+      </div>
+      <figure>
+        <div class="menubar app" aria-hidden="true">
+          <span class="mb-hook"><svg viewBox="0 0 18 16"><path d="M1.6 4.2l1.5 1.5 2.8-2.9M8.4 4.4h8"/><circle cx="3.6" cy="11.2" r="2.1"/><path d="M8.4 11.2h8"/></svg><span class="mb-badge">4</span></span>
+          <span class="mb-time">Wed 4 Nov 09:41</span>
+        </div>
+        <div class="panel app" aria-label="The Hook panel with four open asks">
+          <div class="p-head"><b>Queue</b>
+            <svg class="p-icon" viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="5.6"/><path d="M4.4 5.6h5.2M5.2 7.3h3.6M6.1 9h1.8"/></svg>
+            <svg class="p-icon" viewBox="0 0 14 14" aria-hidden="true"><path d="M11.6 7a4.6 4.6 0 1 1-1.5-3.4M11.8 1.8v3h-3"/></svg>
+            <svg class="p-icon" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 3l8 8M11 3l-8 8"/></svg>
+          </div>
+          <div class="p-list">
+            <div class="group"><span>Acme</span><span>3</span></div>
+            <div class="card">
+              <div class="card-top"><span class="mb c-brown">AC</span>Acme<span class="age"><span class="urg now"><i></i>Now</span> · 3h</span></div>
+              <div class="card-title">Renew the staging certificate and the deploy key</div>
+              <div class="card-sub">2 of 8<span class="bar"><i></i></span></div>
+            </div>
+            <div class="card sel">
+              <div class="card-top"><span class="mb c-brown">AC</span>Acme<span class="age"><span class="urg today"><i></i>Today</span> · 9h</span></div>
+              <div class="card-title">Choose the backup region</div>
+              <div class="card-sub">Choose 1 of 2</div>
+            </div>
+            <div class="card">
+              <div class="card-top"><span class="mb c-brown">AC</span>Acme<span class="age"><span class="urg today"><i></i>Today</span> · 10h</span></div>
+              <div class="card-title">Review the onboarding checklist</div>
+              <div class="card-sub">4 steps</div>
+            </div>
+            <div class="group"><span>Atlas</span><span>1</span></div>
+            <div class="card">
+              <div class="card-top"><span class="mb c-green">AT</span>Atlas<span class="age"><span class="urg today"><i></i>Today</span> · 11h</span></div>
+              <div class="card-title">Approve the firewall change for the Atlas staging hosts</div>
+              <div class="card-sub">2 steps · Firewall console</div>
+            </div>
+          </div>
+          <div class="p-status"><span>Personal ⌄</span><span class="pond">Pond</span>
+            <svg class="p-icon" viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="2"/><path d="M7 1.5v1.6M7 10.9v1.6M1.5 7h1.6M10.9 7h1.6M3.1 3.1l1.1 1.1M9.8 9.8l1.1 1.1M3.1 10.9l1.1-1.1M9.8 4.2l1.1-1.1"/></svg>
+          </div>
+        </div>
+        <figcaption>The badge counts open asks; ⌃⌥⌘R shows the panel from any app. The status bar names the queue you're looking at.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- Page 2: the problem and the round trip -->
+  <section class="page" aria-labelledby="t-why">
+    <div class="blk">
+      <header class="sec-head"><span class="sec-num">01</span><span class="eyebrow">Why Hook</span><h2 id="t-why">Sessions get stuck on you</h2></header>
+      <div class="prose">
+        <p>A coding session regularly reaches something only you can do: paste an API key, click through a web console, approve a migration, or choose between two options. It writes a line saying it is waiting on you, and that line scrolls away with the rest of the session. With several agents running, nobody keeps track of who is waiting for what.</p>
+        <p class="ink-2">Hook turns each of those moments into an ask: a short, exact checklist, in one queue you can open from any app. Your answer goes back to the session that asked, so it can carry on.</p>
+      </div>
+    </div>
+
+    <div class="blk">
+      <header class="sec-head"><span class="sec-num">02</span><span class="eyebrow">How it works</span><h2 id="t-how">One round trip per ask</h2></header>
+      <figure>
+        <div class="diagram-wrap">
+        <svg class="diagram" viewBox="0 0 680 384" role="img" aria-label="An ask goes from the agent session to you through Hook, and your answer goes back">
+          <defs>
+            <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="d-head-mark"/></marker>
+            <marker id="arr-acc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="d-head-acc"/></marker>
+          </defs>
+          <rect x="20" y="8" width="180" height="56" rx="10" class="d-box"/>
+          <text x="110" y="32" class="d-name">Agent session</text>
+          <text x="110" y="50" class="d-sub">Claude Code, Codex, Cursor…</text>
+          <rect x="250" y="8" width="180" height="56" rx="10" class="d-box d-hero"/>
+          <text x="340" y="32" class="d-name">Hook</text>
+          <text x="340" y="50" class="d-sub">menu bar and panel</text>
+          <rect x="480" y="8" width="180" height="56" rx="10" class="d-box"/>
+          <text x="570" y="32" class="d-name">You</text>
+          <text x="570" y="50" class="d-sub">at the Mac</text>
+          <path d="M110 64V372M340 64V372M570 64V372" class="d-life"/>
+          <path d="M110 112H336" class="d-msg" marker-end="url(#arr)"/>
+          <text x="225" y="102" class="d-label">1 · Posts an ask</text>
+          <text x="225" y="128" class="d-label-sub">relay_post, or relay post</text>
+          <path d="M340 172H566" class="d-msg" marker-end="url(#arr)"/>
+          <text x="455" y="162" class="d-label">2 · Shows it</text>
+          <text x="455" y="188" class="d-label-sub">badge, notification, card</text>
+          <text x="122" y="206" class="d-note">keeps working meanwhile</text>
+          <path d="M570 232H344" class="d-msg" marker-end="url(#arr)"/>
+          <text x="455" y="222" class="d-label">3 · Done, Skip or Reply</text>
+          <text x="455" y="248" class="d-label-sub">after following the steps</text>
+          <path d="M340 292H114" class="d-msg" marker-end="url(#arr)"/>
+          <text x="225" y="282" class="d-label">4 · Reads your answer</text>
+          <text x="225" y="308" class="d-label-sub">relay wait, or the replies hook</text>
+          <path d="M340 348H114" class="d-msg opt" marker-end="url(#arr-acc)"/>
+          <text x="225" y="338" class="d-label acc">Report a problem, or a message</text>
+          <text x="225" y="364" class="d-label-sub">while the ask is open · Pond only</text>
+        </svg>
+        </div>
+        <figcaption>The session never waits idle: it carries on and picks up your answer when it comes.</figcaption>
+      </figure>
+      <div class="two">
+        <div class="box"><h3>This Mac only</h3><p>The default. The queue lives inside Hook, in a file in your Library folder, served only on 127.0.0.1. Asks never leave the Mac.</p></div>
+        <div class="box"><h3>Pond</h3><p>A small server you run holds the queue, and Hook checks it every 15 seconds. Asks can then reach you away from the Mac, on Telegram. Hook ships no Pond server.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Page 3: anatomy of an ask -->
+  <section class="page" aria-labelledby="t-ask">
+    <div class="blk">
+      <header class="sec-head"><span class="sec-num">03</span><span class="eyebrow">An ask, up close</span><h2 id="t-ask">Steps you can follow without thinking</h2></header>
+      <p class="intro ink-2">An agent writes each ask as an instructable: a small JSON document with a title, a reason, numbered steps and a final check. Hook checks it before showing it, then gives every command its own Copy button.</p>
+      <div class="anatomy">
+        <figure>
+          <div class="panel detail app" aria-label="An open ask in Hook">
+            <div class="d-head">
+              <svg class="p-icon" viewBox="0 0 14 14" aria-hidden="true"><path d="M9 2L4 7l5 5"/></svg>
+              <span>Acme ·</span><span class="urg today"><i></i>Today</span><span>· 3 h ago</span>
+              <span class="sp"></span>
+              <svg class="p-icon" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 9l4-4 4 4"/></svg>
+              <svg class="p-icon" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 5l4 4 4-4"/></svg>
+              <svg class="p-icon" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 3l8 8M11 3l-8 8"/></svg>
+            </div>
+            <div class="d-body">
+              <div class="d-title">Create a Slack channel for Acme</div>
+              <div class="d-why">The daily Acme brief needs a channel to post into.</div>
+              <div class="d-sec">Steps <span>1 of 3 done</span></div>
+              <div class="steps-box">
+                <div class="st done"><span class="num ok">✓</span><span class="st-t">Click + next to Channels, then Create channel</span><span class="st-end">›</span></div>
+                <div class="st cur"><span class="num on">2</span>
+                  <div class="st-t"><span class="st-where">Slack desktop</span><b>Paste this as the name, choose Private, click Create</b>
+                    <div class="code"><code>acme-brief</code><span class="btn-s">Copy</span></div>
+                    <div class="expect">↪ Expect: You land in #acme-brief</div>
+                  </div>
+                  <span class="btn-s">Report</span>
+                </div>
+                <div class="st"><span class="num">3</span><span class="st-t">Open the channel's About tab and copy the Channel ID</span><span class="st-end">›</span></div>
+              </div>
+              <div class="d-sec">Reply</div>
+              <div class="d-why">Paste the Channel ID from step 3</div>
+              <div class="reply-box"><span class="f">C07ABC123</span><span class="btn-s">Send</span></div>
+              <div class="d-from"><span>From session 3f2a9c1e</span><span>›</span></div>
+            </div>
+            <div class="d-bar"><span class="btn">Skip</span><span class="btn primary">Done</span></div>
+          </div>
+          <figcaption>Done steps fold to a ✓; the current step is open and outlined.</figcaption>
+        </figure>
+        <dl class="fields">
+          <div><dt>title</dt><dd>One line that says what to do. The same title isn't posted twice within 24 hours.</dd></div>
+          <div><dt>why</dt><dd>One sentence on what it unblocks.</dd></div>
+          <div><dt>urgency</dt><dd><span class="u now">now</span> notifies and slides the panel in, <span class="u today">today</span> notifies, <span class="u whenever">whenever</span> waits quietly. You can change which ones notify.</dd></div>
+          <div><dt>steps</dt><dd>One to twenty, with sub-steps. Each says what to do and where, with an exact command to copy, a page or a document to open, what you should see, or a question to answer.</dd></div>
+          <div><dt>verify</dt><dd>A last check that proves it worked.</dd></div>
+          <div><dt>reply</dt><dd>A typed answer, or one of up to six choices.</dd></div>
+          <div><dt>done</dt><dd>What must be finished before Done turns on. See section 04.</dd></div>
+          <div><dt>from</dt><dd>Filled in for you: the folder, the Mac and the session, with a command that resumes it.</dd></div>
+        </dl>
+      </div>
+      <div class="note"><b>Secrets never travel in an ask.</b>Hook refuses anything that looks like an API key, a token or a private key, and hidden characters that could disguise one. When a session needs a secret, its steps have you store it in the macOS Keychain, and the session reads it from there.</div>
+    </div>
+  </section>
+
+  <!-- Page 4: required before Done -->
+  <section class="page" aria-labelledby="t-req">
+    <div class="blk">
+      <header class="sec-head"><span class="sec-num">04</span><span class="eyebrow">Before Done</span><h2 id="t-req">Finish what the session can't do without</h2></header>
+      <p class="intro ink-2">An ask can mark the steps it can't do without, and can also wait for your reply or a message from you. Done stays off until every marked item is finished. Skip always works.</p>
+      <div class="anatomy wide-fig">
+        <figure>
+          <div class="panel detail app" aria-label="An ask with required steps left">
+            <div class="d-head">
+              <svg class="p-icon" viewBox="0 0 14 14" aria-hidden="true"><path d="M9 2L4 7l5 5"/></svg>
+              <span>Atlas ·</span><span class="urg today"><i></i>Today</span><span>· 2 h ago</span>
+            </div>
+            <div class="d-body">
+              <div class="d-title">Rotate the staging deploy key</div>
+              <div class="d-sec">Steps <span>1 of 5 done</span></div>
+              <div class="steps-box">
+                <div class="st done"><span class="num ok">✓</span><span class="st-t">Open the staging vault</span><span class="st-end">›</span></div>
+                <div class="st cur"><span class="num on must">2</span>
+                  <div class="st-t"><span class="st-where">Mac terminal</span><b>Generate a new deploy key</b>
+                    <div class="code"><code>ssh-keygen -t ed25519 -f ~/.ssh/atlas-deploy</code><span class="btn-s">Copy</span></div>
+                  </div><span></span>
+                </div>
+                <div class="st req"><span class="num must">3</span><span class="st-t">Confirm the old key is revoked</span><span class="st-end">›</span></div>
+                <div class="st"><span class="num">4</span><span class="st-t">Update the deploy job</span><span class="st-end">0 of 2</span></div>
+                <div class="st"><span class="num">5</span><span class="st-t">Delete the old key file</span><span class="st-end">Optional</span></div>
+              </div>
+            </div>
+            <div class="d-bar"><span class="btn">Skip</span><span class="btn off">Done</span></div>
+          </div>
+          <figcaption>A dot on the step number and a tinted row mark what's left. Each mark clears the moment its item is finished.</figcaption>
+        </figure>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr><th scope="col">On a step</th><th scope="col">What you see</th></tr></thead>
+            <tbody>
+              <tr><td><code>required</code></td><td>A mark on the step number. Done stays off until it is ticked, its question answered, or every sub-step finished.</td></tr>
+              <tr><td><code>blocking</code></td><td>A tinted warning box. The steps after it stay locked (“Finish step 2 first”) until it is done.</td></tr>
+              <tr><td><code>optional</code></td><td>“Optional” at the end of the row. You can tick it done without doing it.</td></tr>
+              <tr><td><code>done</code></td><td>On the ask: any of <code>steps</code>, <code>reply</code> and <code>message</code> must be finished first.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="two">
+        <div class="box"><h3>Order or finishing</h3><p><code>blocking</code> is about order; <code>required</code> is about finishing. A step can be both, but never required and optional.</p></div>
+        <div class="box"><h3>Where it works</h3><p>Required items need a Pond 1.3.0 or newer. This Mac mode doesn't take them yet, and the session's post is refused with a clear message. Telegram shows no Done button until everything is finished.</p></div>
+      </div>
+      <figure>
+        <pre class="codeblock"><span class="cm">$ relay status 7f3a2c1e</span>
+open · Atlas · Rotate the staging deploy key
+Left before Done: step 2, step 3, the reply</pre>
+        <figcaption>The session can see what's left, and knows not to treat your answer as finished until it is.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- Page 5: day to day -->
+  <section class="page" aria-labelledby="t-use">
+    <div class="blk">
+      <header class="sec-head"><span class="sec-num">05</span><span class="eyebrow">Day to day</span><h2 id="t-use">Using Hook</h2></header>
+      <div class="two">
+        <div class="box"><h3>The menu-bar icon</h3><p>A red badge counts waiting asks from 1 to 9, and turns into a dot from 10 up. Hover for a summary. Right-click for Presence, Refresh, Panel, Settings, About, Check for Updates and Quit.</p></div>
+        <div class="box"><h3>The panel</h3><p>Docked to the left or right edge of any display, full height. Drag it by its top bar to move it. A “now” ask slides it in without taking focus from the app you're typing in.</p></div>
+        <div class="box"><h3>The queue</h3><p>Group by project or urgency, filter to one project, and find the last 24 hours under Recently closed, each with Reopen. The status bar shows This Mac or your Pond; click it to switch.</p></div>
+        <div class="box"><h3>An ask</h3><p>Tick steps as you go. Copy takes a command exactly as shown, with no trailing newline, so a paste never runs by itself. Questions on a step each have their own Send.</p></div>
+      </div>
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead><tr><th scope="col">Keys</th><th scope="col">What they do</th></tr></thead>
+          <tbody>
+            <tr><td><kbd>⌃⌥⌘R</kbd></td><td>Show, focus or hide the panel from any app. Change or turn off the shortcut in Settings › General.</td></tr>
+            <tr><td><kbd>↑</kbd> <kbd>↓</kbd> <kbd>↩</kbd></td><td>Move through the list and open an ask.</td></tr>
+            <tr><td><kbd>⌘↩</kbd> <kbd>⌘⌫</kbd></td><td>Done or Skip. With something unsent, Done warns first.</td></tr>
+            <tr><td><kbd>⌘T</kbd> <kbd>⇧⌘C</kbd></td><td>Tick the current step; copy its code.</td></tr>
+            <tr><td><kbd>⌘S</kbd></td><td>Send every unsent step answer and keep the ask open.</td></tr>
+            <tr><td><kbd>⌘L</kbd></td><td>Focus the reply field, or the Messages field on an ask without a reply prompt.</td></tr>
+            <tr><td><kbd>⌃⌘G</kbd> <kbd>⌃⌘P</kbd></td><td>Switch grouping; show only this project.</td></tr>
+            <tr><td><kbd>⌘Z</kbd></td><td>Undo the latest Done or Skip.</td></tr>
+            <tr><td><kbd>Esc</kbd></td><td>Back to the list, then hide the panel.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note"><b>Closed something by mistake?</b>An Undo bar shows for 10 seconds after Done or Skip, and Hook sends your answer only after that. Later, open Recently closed and click Reopen.</div>
+    </div>
+  </section>
+
+  <!-- Page 6: settings, setup and away -->
+  <section class="page" aria-labelledby="t-set">
+    <div class="blk">
+      <header class="sec-head"><span class="sec-num">06</span><span class="eyebrow">Settings</span><h2 id="t-set">Five tabs, one config file</h2></header>
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead><tr><th scope="col">Tab</th><th scope="col">What you set there</th></tr></thead>
+          <tbody>
+            <tr><td>General</td><td>The shortcut, presence and away time, start at login, the badge count, where documents open, the terminal for Resume Session, Privacy (crash reports and the activity log), appearance and updates.</td></tr>
+            <tr><td>Panel</td><td>The edge and display, Re-dock Now, whether “now” asks slide the panel in, and what happens after Done or Skip.</td></tr>
+            <tr><td>Queue</td><td>This Mac only or Pond, how long closed asks stay, the Pond's address and token file, its connection and version, Send a Test Ask, and the owner key.</td></tr>
+            <tr><td>Notifications</td><td>Which urgencies notify, sound, permission and a test notification.</td></tr>
+            <tr><td>Agents</td><td>Every coding agent on this Mac and what Hook set up in it, Reinstall All, and Set up new agents automatically.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="intro ink-2">Every “?” button explains its row. Settings writes <code>~/.config/relay/config.json</code>, and Hook applies an edit to that file without a restart.</p>
+      <div class="two">
+        <div class="box"><h3>First run</h3><p>A new install opens Set Up Hook: where asks come from, your agents, notifications, the shortcut and login item, and a test ask. Anything you skip is in Settings. Run it again from About Hook.</p></div>
+        <div class="box"><h3>Away mode</h3><p>When the screen locks, the displays sleep or you've been idle for 10 minutes, Hook marks you away: no slide-ins, no notifications. When you're back, one notification counts what arrived.</p></div>
+        <div class="box"><h3>Documents in a step</h3><p>A step can point to a file on your Mac. Hook opens Markdown and text in its own offline viewer, and other documents in their app. It never opens apps, scripts or installers.</p></div>
+        <div class="box"><h3>Resume Session</h3><p>From a card or an ask's ⋯ menu, opens a new terminal window in the session's folder and resumes the Claude Code session that asked. Pick the terminal in Settings › General.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Page 7: talking to the session -->
+  <section class="page" aria-labelledby="t-talk">
+    <div class="blk">
+      <header class="sec-head"><span class="sec-num">07</span><span class="eyebrow">Talking to the session</span><h2 id="t-talk">Say something without opening its terminal</h2></header>
+      <p class="intro ink-2">With a Pond, you can reach the session that posted an ask from the ask itself. Neither works in This Mac mode, and the Pond refuses a note or message that looks like a secret.</p>
+      <div class="pair">
+        <figure>
+          <img class="shot shot-print-s" src="img/ask-report-light.png" width="760" height="1590" alt="An open step with the Report box docked above the bottom bar, reading Problem with step 2, What went wrong?" loading="lazy">
+          <figcaption>Report on step 2: one line, Return sends, Esc cancels.</figcaption>
+        </figure>
+        <figure>
+          <img class="shot shot-print-s" src="img/ask-messages-light.png" width="760" height="1264" alt="The Messages section of an ask, with two earlier messages and a new one being typed" loading="lazy">
+          <figcaption>Messages: a side note, like typing in the session's chat.</figcaption>
+        </figure>
+      </div>
+      <ul class="points">
+        <li><b>Report a Problem</b><span class="ink-2">An open step with code or a tick ends with a Report button. Type what went wrong in one line, up to 300 characters. The session gets it as a quoted report about that step, never as an instruction, and the step shows a filled icon until the session corrects it. Needs this Mac's owner key.</span></li>
+        <li><b>Messages</b><span class="ink-2">With a Pond 1.2.0 or newer, an open ask has a Messages section. A message answers, closes and changes nothing; only the session that posted the ask sees it. ⌘↩ sends.</span></li>
+        <li><b>Verified or not</b><span class="ink-2">A message counts as yours only when Hook signed it with this Mac's owner key. Sessions treat an unsigned one as data and tell you about it.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Page 8: corrections and the owner key -->
+  <section class="page" aria-labelledby="t-fix">
+    <div class="blk">
+      <header class="sec-head"><span class="sec-num">08</span><span class="eyebrow">Corrections</span><h2 id="t-fix">A changed ask waits for your review</h2></header>
+      <div class="anatomy wide-fig">
+        <figure>
+          <img class="shot shot-narrow shot-print-m" src="img/ask-review-light.png" width="760" height="2360" alt="Reviewing version 3 of an ask: the session's reasons, a diff of changed steps, and flags for a new host and sudo" loading="lazy">
+          <figcaption>The review: every reason the session gave, one diff, and flags to look closer at.</figcaption>
+        </figure>
+        <div class="prose">
+          <p>A session can correct an ask it posted while it is open, such as a wrong port or a missing step, instead of closing it and posting a new one. Hook checks the whole history first: every version is hashed and names the one before.</p>
+          <ul class="points">
+            <li><b>The ask locks</b><span class="ink-2">Until you review it, Copy, links, files, answers, ticks and Done are off. Skip always works.</span></li>
+            <li><b>One diff</b><span class="ink-2">From the version you last accepted on this Mac to the newest, with changed, new and moved steps marked.</span></li>
+            <li><b>Look closer</b><span class="ink-2">Hook flags a new host, <code>sudo</code>, <code>rm -rf</code>, a download piped into a shell, <code>eval</code> and non-ASCII characters. These checks are incomplete: no flag never means safe.</span></li>
+            <li><b>Use Version N</b><span class="ink-2">Accepting a changed command, link or file asks for Touch ID or your password.</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="blk">
+      <header class="sec-head"><span class="sec-num">09</span><span class="eyebrow">The owner key</span><h2 id="t-key">Your answers, told apart from a session's</h2></header>
+      <ol class="steps">
+        <li><span>Open Settings › Queue › Owner Key and press <b>Set Up This Mac…</b>. Hook makes a key in your Keychain and shows a six-digit code.</span></li>
+        <li><span>The Pond sends a request to your Telegram. Check it shows the same code, then tap Approve. If it doesn't, or you didn't start this, tap Refuse.</span></li>
+        <li><span>Once two Macs are approved, <b>Require Owner Key…</b> stops sessions and scripts from answering, pressing Done or reopening as you.</span></li>
+      </ol>
+      <p class="intro ink-2">The Pond stores only the key's hash. Corrections and the owner key need a Pond 1.1.0 or newer at an https address.</p>
+    </div>
+  </section>
+
+  <!-- Page 9: agents -->
+  <section class="page" aria-labelledby="t-agents">
+    <div class="blk">
+      <header class="sec-head"><span class="sec-num">10</span><span class="eyebrow">Agents</span><h2 id="t-agents">One install sets up every agent</h2></header>
+      <p class="intro ink-2">Hook sets itself up in every coding agent it finds on your Mac, keeps that setup in step with each Hook update, tells you when you've edited something it wrote, and removes exactly what it wrote.</p>
+      <figure>
+        <img class="shot shot-print-s" src="img/settings-agents-light.png" width="1200" height="1240" alt="Settings, Agents tab: a list of agents on this Mac with their states, and Claude Code's four pieces, all Installed" loading="lazy">
+        <figcaption>Settings › Agents: each agent and the state of each piece. An edited piece offers Keep Mine, Show Difference and Use Hook's.</figcaption>
+      </figure>
+      <div class="two">
+        <div class="box"><h3>Four pieces</h3><p>The <code>relay</code> MCP server, the instructables skill, one short instructions text and, where the agent has one, the replies hook. Each goes in the agent's own way: its CLI, a plugin, a file Hook owns, one key or a marked block.</p></div>
+        <div class="box"><h3>Kept up to date</h3><p>Setup runs at the end of every install and update, after launch when something changed, and daily. Configs point at a stable path, so an update never needs approving again.</p></div>
+        <div class="box"><h3>Your edits stay yours</h3><p>Hook records a hash of everything it writes. It never overwrites a file you edited without asking, and never rewrites a file that doesn't parse.</p></div>
+        <div class="box"><h3>Your steps</h3><p>Anything only you can do, such as trusting Hook's hook in Codex or reloading Cursor, arrives once as an ask in your queue.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Page 10: the agent table -->
+  <section class="page" aria-labelledby="t-table">
+    <div class="blk">
+      <header class="sec-head"><span class="sec-num">11</span><span class="eyebrow">Supported agents</span><h2 id="t-table">Eighteen agents, one queue</h2></header>
+      <p class="intro ink-2"><b>Replies</b> says when your answers show in a session: before each prompt, at session start (the last 24 hours), or not at all, in which case the session checks with <code>relay_list</code>. <b>Tested</b> says whether the entry has been tried on a real Mac yet, or follows the agent's docs and Hook's fixture tests only.</p>
+      <div class="tbl-wrap">
+        <table class="tbl dense">
+          <thead><tr><th scope="col">Agent</th><th scope="col">Set up through</th><th scope="col">Replies</th><th scope="col">Your step</th><th scope="col">Tested</th></tr></thead>
+          <tbody>
+            <tr><td>Claude Code</td><td>Hook plugin, user MCP server, rules file</td><td>per prompt</td><td>none</td><td><span class="state pending">Not yet</span></td></tr>
+            <tr><td>Codex</td><td><code>codex mcp add</code>, AGENTS.md block, hooks</td><td>per prompt</td><td>Trust the hook in /hooks, once</td><td><span class="state pending">Not yet</span></td></tr>
+            <tr><td>Gemini CLI</td><td>extension</td><td>per prompt</td><td>none</td><td><span class="state pending">Not yet</span></td></tr>
+            <tr><td>Antigravity CLI</td><td>plugin</td><td>session start</td><td>none</td><td><span class="state docs">From docs</span></td></tr>
+            <tr><td>Copilot CLI</td><td><code>copilot mcp add</code>, instructions file, hooks</td><td>session start</td><td>none</td><td><span class="state pending">Not yet</span></td></tr>
+            <tr><td>VS Code Copilot</td><td>Copilot CLI's files</td><td>session start</td><td>none</td><td><span class="state docs">From docs</span></td></tr>
+            <tr><td>Cursor</td><td>local plugin</td><td>session start</td><td>Reload Window after an update</td><td><span class="state pending">Not yet</span></td></tr>
+            <tr><td>OpenCode</td><td><code>opencode.json</code>, plugin</td><td>per prompt</td><td>none</td><td><span class="state pending">Not yet</span></td></tr>
+            <tr><td>Zed</td><td><code>settings.json</code>, AGENTS.md block</td><td>none</td><td>none</td><td><span class="state pending">Not yet</span></td></tr>
+            <tr><td>pi</td><td><code>mcp.json</code>, AGENTS.md block, extension</td><td>per prompt</td><td>none</td><td><span class="state pending">Not yet</span></td></tr>
+            <tr><td>Devin</td><td><code>devin mcp add</code>, rules file</td><td>per prompt</td><td>none</td><td><span class="state docs">From docs</span></td></tr>
+            <tr><td>Factory Droid</td><td><code>droid mcp add</code>, AGENTS.md block</td><td>per prompt</td><td>none</td><td><span class="state docs">From docs</span></td></tr>
+            <tr><td>Kiro</td><td><code>kiro-cli mcp add</code>, steering file</td><td>none</td><td>none</td><td><span class="state docs">From docs</span></td></tr>
+            <tr><td>Amp</td><td><code>amp mcp add</code>, AGENTS.md block, plugin</td><td>per prompt</td><td>none</td><td><span class="state docs">From docs</span></td></tr>
+            <tr><td>Cline</td><td><code>cline mcp add</code>, rules file</td><td>none</td><td>none</td><td><span class="state docs">From docs</span></td></tr>
+            <tr><td>Goose</td><td><code>config.yaml</code>, <code>.goosehints</code> block</td><td>none</td><td>none</td><td><span class="state docs">From docs</span></td></tr>
+            <tr><td>Junie</td><td><code>mcp.json</code>, AGENTS.md block</td><td>none</td><td>none</td><td><span class="state docs">From docs</span></td></tr>
+            <tr><td>Warp</td><td><code>.mcp.json</code></td><td>none</td><td>Paste Hook's rule into Settings › AI › Rules</td><td><span class="state docs">From docs</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="intro ink-2">Where an agent's command isn't installed, Hook writes the same key into its config file instead. Adding an agent is a data change in <code>integration/harnesses.json</code>; the installer has no agent-specific code.</p>
+    </div>
+  </section>
+
+  <!-- Page 11: for the session -->
+  <section class="page" aria-labelledby="t-tools">
+    <div class="blk">
+      <header class="sec-head"><span class="sec-num">12</span><span class="eyebrow">For the session</span><h2 id="t-tools">What every agent gets</h2></header>
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead><tr><th scope="col">Piece</th><th scope="col">What it does</th></tr></thead>
+          <tbody>
+            <tr><td><code>relay_post</code></td><td>Posts an ask and returns its id and a link to open it.</td></tr>
+            <tr><td><code>relay_status</code></td><td>Reads an ask: its status, who closed it, your answers and messages, and what's left before Done.</td></tr>
+            <tr><td><code>relay_list</code></td><td>Lists every open ask.</td></tr>
+            <tr><td><code>relay_amend</code></td><td>Corrects an open ask this Mac posted, with a one-line reason.</td></tr>
+            <tr><td>The <code>relay</code> command</td><td>The same from any terminal or script: <code>post</code>, <code>status</code>, <code>list</code>, <code>done</code>, <code>skip</code>, <code>replies</code>, <code>wait</code>, <code>amend</code>. It is also linked as <code>hook</code>.</td></tr>
+            <tr><td>The instructables skill</td><td>Teaches the agent when to ask and how to write steps a person can follow.</td></tr>
+            <tr><td>The replies hook</td><td>Shows your new answers in the session, before each prompt or at session start.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="intro ink-2">The MCP server and its tools keep their <code>relay</code> names from before the rename, so existing sessions, skills and permission lists keep working.</p>
+      <figure>
+        <pre class="codeblock"><span class="cm">$ relay wait 3f2a9c1e</span>
+[Acme] Create a Slack channel for Acme
+  ↳ owner reply 2026-11-04T09:12:04+00:00: C07ABC123
+last seq: 41</pre>
+        <figcaption>A session waiting in the background wakes the moment you answer. A burst of step answers wakes it once.</figcaption>
+      </figure>
+      <div class="note"><b>Before posting, the command checks the ask.</b><code>relay post</code> refuses a value to copy written inside a step's text, such as a URL, a path or a command, and says which sub-step's <code>code</code> it belongs in. It also refuses keys your Pond is too old for, before anything is sent.</div>
+    </div>
+  </section>
+
+  <!-- Page 12: install -->
+  <section class="page" aria-labelledby="t-install">
+    <div class="blk">
+      <header class="sec-head"><span class="sec-num">13</span><span class="eyebrow">Install</span><h2 id="t-install">One command, nothing to compile</h2></header>
+      <p class="intro ink-2">You need macOS 14 or later and Python 3.9 or later, for the <code>relay</code> command and the MCP server. Hook has no third-party Python dependencies.</p>
+      <pre class="codeblock">curl -fsSL https://raw.githubusercontent.com/xooxoxxo/hook/main/scripts/get.sh | bash</pre>
+      <ol class="steps">
+        <li><span>The script downloads the latest release and its <code>SHA256SUMS</code>, and refuses a zip that doesn't match.</span></li>
+        <li><span>It installs Hook.app to <code>~/Applications</code>, and the <code>relay</code> command, MCP server and skill to <code>~/.local/share/hook</code>. It starts Hook and adds it to your login items.</span></li>
+        <li><span>Last, it sets up the agents it finds. Open Settings › Agents to see what it did.</span></li>
+        <li><span>In Settings › Queue, click Send a Test Ask. A badge appears on the menu-bar icon; open the ask and press Done.</span></li>
+      </ol>
+      <div class="note"><b>Use the command rather than the zip.</b>Releases aren't notarized yet, so macOS blocks a <code>Hook-&lt;version&gt;.zip</code> downloaded in a browser. A curl download isn't quarantined. The zip and its checksums are on the latest release at <a href="https://github.com/xooxoxxo/hook/releases/latest">github.com/xooxoxxo/hook/releases</a>.</div>
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead><tr><th scope="col">To</th><th scope="col">Do this</th></tr></thead>
+          <tbody>
+            <tr><td>Update</td><td>Check for Updates… in the menu-bar menu or Settings › General. Hook downloads, checks and installs the release in the background, and restarts. Running the one-liner again does the same. Your settings are kept.</td></tr>
+            <tr><td>Keep it local</td><td>Add <code>| bash -s -- --local</code> to the one-liner to use This Mac only.</td></tr>
+            <tr><td>Go back</td><td>A failed update links the version before back in place. Nothing is removed until a new version installs.</td></tr>
+            <tr><td>Uninstall</td><td><code>~/.local/share/hook/current/scripts/install.sh --uninstall</code> removes what Hook set up in your agents, then the app, login item and command links. It keeps your config and queue, and prints their paths.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Page 13: crash reports and privacy -->
+  <section class="page" aria-labelledby="t-crash">
+    <div class="blk">
+      <header class="sec-head"><span class="sec-num">14</span><span class="eyebrow">Crash reports and privacy</span><h2 id="t-crash">Nothing leaves without you</h2></header>
+      <div class="anatomy wide-fig">
+        <figure>
+          <img class="shot shot-print-s" src="img/crash-sheet-light.png" width="760" height="924" alt="Send a Crash Report sheet: Send to GitHub, a note that no issue has this crash yet, and the exact redacted text that would be sent" loading="lazy">
+          <figcaption>Review… shows exactly what a send delivers, with each redacted value tinted.</figcaption>
+        </figure>
+        <div class="prose">
+          <p>If Hook quit unexpectedly, the next launch docks a bar in the panel: <b>Hook quit unexpectedly</b>, with Not Now and Review…. Nothing has been sent at that point.</p>
+          <ul class="points">
+            <li><b>GitHub</b><span class="ink-2">The default. Hook opens a prefilled issue in your browser for you to submit, or the existing issue for the same crash. Before that it makes one search for the crash's 12-character signature, a hash.</span></li>
+            <li><b>My Pond</b><span class="ink-2">Files the report on your own Pond as a Hook bug, signed with the owner key.</span></li>
+            <li><b>Your choice</b><span class="ink-2">Settings › General › Privacy: Ask Each Time, Send Automatically (to your Pond) or Off.</span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="two">
+        <div class="box"><h3>A report holds</h3><p>Hook and macOS versions, CPU type, the queue source and Pond version, the exception and Hook's own frames, and the last 40 lines of the activity log, redacted twice. Never the macOS crash file itself.</p></div>
+        <div class="box"><h3>The activity log never holds</h3><p>Ask ids, titles, step text, replies, answers, messages, file paths inside asks, tokens, the owner key or your Pond's address. It records typed events only, and stays on this Mac.</p></div>
+      </div>
+      <p class="intro ink-2">No crash-reporting service is linked into Hook. The log is <code>~/Library/Logs/Hook/hook.log</code>; it rolls at 512 KB, so the two files stay under 1 MB.</p>
+    </div>
+  </section>
+
+  <!-- Page 14: security -->
+  <section class="page" aria-labelledby="t-safe">
+    <div class="blk">
+      <header class="sec-head"><span class="sec-num">15</span><span class="eyebrow">Security</span><h2 id="t-safe">Safe to run on a work Mac</h2></header>
+      <p class="intro ink-2">In This Mac only mode, the queue never leaves the Mac. Hook talks only to programs on the same Mac that hold its key.</p>
+      <ul class="points">
+        <li><b>Local only</b><span class="ink-2">Hook listens on 127.0.0.1, never the network. Every call needs a 256-bit token kept in a file only your account can read.</span></li>
+        <li><b>Web pages can't reach it</b><span class="ink-2">Requests from a browser are refused and no CORS headers are sent, so a website can't post asks or read them.</span></li>
+        <li><b>Sessions can't answer for you</b><span class="ink-2">Only the app records your answers, and every answer says who closed the ask. With Require the owner key on, sessions and scripts can't act as you on the Pond either.</span></li>
+        <li><b>Corrections are checked</b><span class="ink-2">A corrected ask stays locked until you review it, and a history that changed on the Pond stops every act but Skip.</span></li>
+        <li><b>What you see is what you copy</b><span class="ink-2">Hidden characters show as ⟨U+200B⟩, links show their real host, and Copy never adds a newline that would run a command.</span></li>
+        <li><b>Documents only</b><span class="ink-2">A file in a step opens only if it is a known document type on a local disk. Apps, scripts, installers and network paths are never opened.</span></li>
+        <li><b>Quiet logs</b><span class="ink-2">Logs hold typed events and redacted errors, never tokens or the text of an ask.</span></li>
+      </ul>
+      <p class="intro ink-2">The threat model and what Hook doesn't defend against are in <a href="https://github.com/xooxoxxo/hook/blob/main/SECURITY.md">SECURITY.md</a> in the repository. Report a vulnerability privately, from the repository's Security tab, never in a public issue.</p>
+    </div>
+    <div class="colophon"><span>Hook 0.13.0</span><span>Public beta</span><span><a href="https://github.com/xooxoxxo/hook/blob/main/LICENSE">MIT License</a></span><span><a href="https://github.com/xooxoxxo/hook">github.com/xooxoxxo/hook</a></span><span>Swift app; Python standard library for the command and MCP server</span></div>
+  </section>
+
+</main>
+
+</body>
+</html>
