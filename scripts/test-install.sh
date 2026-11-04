@@ -731,6 +731,10 @@ env HOME="$H" RELAY_APP_SCOPE="$T" RELAY_TEST_STEP=stop HOOK_QUIT_BY='x","by":"u
 grep -q '"by":"installer"' "$REQ" || { cat "$REQ"; fail "an odd HOOK_QUIT_BY reached the quit request"; }
 ok "the installer leaves a quit request before it signals Hook (the updater's says updater)"
 kill -9 "$outside_pid" "$other_pid" 2>/dev/null || true
+# The stop steps above force-quit their fakes; make sure every fake in the sandbox is gone
+# before the next case, which treats any running copy as an older Hook (slow CI runners).
+for p in $(pgrep -f "^$H/Applications/Hook.app/Contents/MacOS/Hook" || true); do kill -9 "$p" 2>/dev/null || true; done
+for _ in $(seq 1 50); do pgrep -f "^$H/Applications/Hook.app/Contents/MacOS/Hook" >/dev/null || break; sleep 0.1; done
 
 # 22. After the start, a copy older than the install (open only brought it forward) is
 #     force-quit and the app started again; the new copy is left running.

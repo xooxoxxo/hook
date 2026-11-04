@@ -3,7 +3,7 @@
 All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
-## [Unreleased]
+## [0.14.0] - 2026-11-04
 
 ### Added
 - Hook has its own app icon: the chrome hook and the lime worm on a purple sunburst. At 16 and
