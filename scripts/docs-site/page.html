@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{{page_title}}</title>
+<meta name="description" content="{{description}}">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="icon" href="../img/brand/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../img/brand/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="../img/brand/apple-touch-icon.png">
+<link rel="stylesheet" href="docs.css">
+<script src="docs.js"></script>
+</head>
+<body class="layout-{{layout}}">
+<a class="skip" href="#doc">Skip to the page</a>
+<header class="top">
+  <div class="bar">
+    <a class="brand" href="../index.html" aria-label="Hook, home"><img class="tile" src="../img/brand/hook-tile-128.png" width="30" height="30" alt="">Hook<span class="label">Docs</span></a>
+    <div class="bar-end">
+      <a class="gh" href="https://github.com/xooxoxxo/hook">GitHub</a>
+      <button class="theme" type="button" aria-label="Switch between light and dark"><svg viewBox="0 0 20 20" aria-hidden="true"><circle class="sun" cx="10" cy="10" r="3.6"/><path class="sun" d="M10 1.8v2M10 16.2v2M1.8 10h2M16.2 10h2M4.2 4.2l1.4 1.4M14.4 14.4l1.4 1.4M4.2 15.8l1.4-1.4M14.4 5.6l1.4-1.4"/><path class="moon" d="M16.5 12.3A7 7 0 0 1 7.7 3.5a7 7 0 1 0 8.8 8.8z"/></svg></button>
+    </div>
+  </div>
+  <nav class="tabs" aria-label="All docs">{{tabs}}</nav>
+  <details class="menu"><summary>All docs<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3"/></svg></summary><nav aria-label="All docs">{{nav}}</nav></details>
+</header>
+<div class="shell">
+  <aside class="side"><nav aria-label="All docs">{{nav}}</nav></aside>
+  <main class="doc" id="doc">
+    <article>
+      {{h1}}
+      {{lead}}
+      <details class="toc-inline{{toc_class}}"><summary>On this page<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3"/></svg></summary>{{toc}}</details>
+      {{body}}
+    </article>
+    {{pager}}
+    <footer class="foot">
+      <span class="mark"><img src="../img/brand/hook-tile-128.png" width="20" height="20" alt="">Hook {{version}}</span>
+      <a href="{{source}}">Edit this page on GitHub</a>
+      <a href="../index.html">Homepage</a>
+      <span>MIT License</span>
+    </footer>
+  </main>
+  <aside class="toc-side{{toc_class}}" aria-label="On this page"><p>On this page</p>{{toc}}</aside>
+</div>
+</body>
+</html>

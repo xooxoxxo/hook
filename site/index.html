@@ -286,6 +286,26 @@ footer { padding-block: 40px 56px; }
   mask: radial-gradient(70% 80% at 78% 34%, #000 0%, rgba(0, 0, 0, .55) 45%, transparent 78%); }
 @media (max-width: 620px) { .hero::before { inset: -60px calc(50% - 50vw) 0; } }
 
+/* Small pictures from the logo: the hook and worm on a line, and the caught fish */
+.head { position: relative; }
+.deco { position: absolute; right: clamp(0px, 4vw, 48px); pointer-events: none; }
+.deco .line { fill: none; stroke: var(--accent); stroke-linecap: round; }
+.deco-hook { top: -104px; width: 100px; height: auto; filter: drop-shadow(0 8px 14px rgba(30, 10, 50, .18)); }
+.deco-hook .line { stroke-width: 9; }
+.deco-fish { top: -104px; width: 52px; height: auto; }
+.deco-fish .line { stroke-width: .5; }
+.deco-fish .body { fill: var(--accent); }
+.deco-fish .eye { fill: var(--accent); }
+.deco-fish .ring { fill: none; stroke: var(--accent); stroke-width: 1.4; }
+.ico.fish { background: var(--lime-soft); }
+.ico.fish svg { width: 20px; height: 22px; fill: none; stroke: var(--accent); stroke-linecap: round; }
+.ico.fish .body, .ico.fish .eye { fill: var(--accent); stroke: none; }
+@media (max-width: 620px) {
+  .deco-hook { top: -72px; width: 60px; }
+  .head:has(.deco) h2, .head:has(.deco) p { padding-right: 64px; }
+  .deco-fish { top: -72px; width: 40px; }
+}
+
 /* Motion. Only when site.js has added .motion (JS on, motion allowed): content is
    visible by default, and these rules hide it until it is revealed. */
 @media (prefers-reduced-motion: no-preference) {
@@ -348,12 +368,12 @@ footer { padding-block: 40px 56px; }
 
 <main>
   <section class="hero wrap" id="top" aria-labelledby="t-hero">
-    <div class="meta h-in"><span>A menu-bar app for macOS</span><span>Public beta · 0.13</span><span>macOS 14 and later</span></div>
+    <div class="meta h-in"><span>A menu-bar app for macOS</span><span>Public beta · 0.15</span><span>macOS 14 and later</span></div>
     <div class="lockup"><img class="hero-tile h-in" style="--d: 120ms" src="img/brand/hook-tile-512.png" srcset="img/brand/hook-tile-256.png 256w, img/brand/hook-tile-512.png 512w" sizes="(max-width: 1242px) 19vw, 236px" width="512" height="512" alt="The Hook app icon: a chrome fishing hook with a smiling lime worm, on a purple sunburst"><h1 class="giant" id="t-hero" data-letters>Hook</h1></div>
     <div class="hero-split">
       <p class="thesis h-in" style="--d: 260ms">An inbox in your menu bar for <mark>what your coding agents need from you.</mark></p>
       <div class="hero-text">
-        <p class="lead h-in" style="--d: 360ms">When a Claude Code, Codex or Cursor session needs a key, a decision or a manual step, it lands in Hook as a checklist: numbered steps, exact commands with a Copy button, and what you should see. You tick it off, press Done or reply, and the session that asked carries on with your answer. It runs entirely on your Mac by default.</p>
+        <p class="lead h-in" style="--d: 360ms">A session needs a key, a decision or a click? It lands here as a checklist. Tick it off, and the session carries on.</p>
         <div class="cmd h-in" style="--d: 440ms"><pre id="cmd-hero">curl -fsSL https://raw.githubusercontent.com/xooxoxxo/hook/main/scripts/get.sh | bash</pre><button class="copy" type="button" data-copy="cmd-hero">Copy</button></div>
         <div class="hero-links h-in" style="--d: 520ms">
           <a class="btn primary" href="#install">Install Hook</a>
@@ -373,7 +393,7 @@ footer { padding-block: 40px 56px; }
         <div class="desk-body">
           <figcaption class="desk-text">
             <h2 id="t-panel">One queue for every agent</h2>
-            <p>The panel docks to the edge of your display. ⌃⌥⌘R opens it from any app.</p>
+            <p>⌃⌥⌘R opens it from any app.</p>
           </figcaption>
           <div class="panel-shot">
             <img class="l" src="img/queue-light.png" width="760" height="1142" alt="The Hook panel: a queue of asks grouped by project, with Now and Today urgency, and the Pond status at the bottom">
@@ -387,17 +407,18 @@ footer { padding-block: 40px 56px; }
   <section class="band alt" id="how" aria-labelledby="t-how">
     <div class="wrap">
       <div class="head rv">
-        <h2 id="t-how">One round trip per ask</h2>
-        <p>Each ask goes from the agent to you and back. Nothing scrolls away.</p>
+        <h2 id="t-how">Cast, catch, reel in</h2>
+        <p>Every ask makes one round trip. Nothing scrolls away.</p>
+        <svg class="deco deco-hook" viewBox="240 -360 560 1320" aria-hidden="true"><defs><linearGradient id="dh-chrome" x1="0" y1="0" x2="1" y2=".3"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".55" stop-color="#E4E6F4"/><stop offset="1" stop-color="#A9AECB"/></linearGradient></defs><path class="line" d="M512 -360V190"/><g fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="512" cy="246" r="62" stroke="#1A0630" stroke-width="84"/><path d="M488 300 382 610C330 770 440 872 570 842 680 816 726 716 714 586" stroke="#1A0630" stroke-width="136"/><path d="M724 452 762 606 676 604 680 572 628 592Z" fill="#1A0630" stroke="#1A0630" stroke-width="36"/><circle cx="512" cy="246" r="62" stroke="url(#dh-chrome)" stroke-width="44"/><path d="M488 300 382 610C330 770 440 872 570 842 680 816 726 716 714 586" stroke="url(#dh-chrome)" stroke-width="92"/><path d="M724 452 762 606 676 604 680 572 628 592Z" fill="url(#dh-chrome)" stroke="url(#dh-chrome)" stroke-width="2"/><path d="M346 410Q430 512 540 470" stroke="#1A0630" stroke-width="118"/><path d="M318 640Q400 760 520 720" stroke="#1A0630" stroke-width="118"/><circle cx="590" cy="440" r="74" fill="#1A0630"/><path d="M346 410Q430 512 540 470" stroke="#D8F80A" stroke-width="78"/><path d="M318 640Q400 760 520 720" stroke="#D8F80A" stroke-width="78"/><circle cx="590" cy="440" r="54" fill="#D8F80A"/><path d="M566 450Q592 478 618 448" stroke="#1A0630" stroke-width="14"/></g></svg>
       </div>
       <ol class="trip" data-stagger="110">
-        <li><span class="ico" aria-hidden="true"><svg viewBox="0 0 22 22"><path d="M4 6l4.5 4.5L4 15M11.5 16H18"/></svg></span><h3>A session asks</h3><p>It posts numbered steps, exact commands and what you should see, then keeps working.</p></li>
-        <li><span class="ico" aria-hidden="true"><svg viewBox="0 0 22 22"><path d="M3.5 6.5l2 2 3.5-3.5M12 7h6.5M3.5 14.5l2 2 3.5-3.5M12 15h6.5"/></svg></span><h3>You follow the steps</h3><p>The menu-bar icon shows it's waiting. Tick each step, copy each command, answer any question.</p></li>
-        <li><span class="ico" aria-hidden="true"><svg viewBox="0 0 22 22"><path d="M18 4.5v5.5a3 3 0 0 1-3 3H5M9 9l-4 4 4 4"/></svg></span><h3>Your answer goes back</h3><p>Done, Skip or your reply reaches the session that asked, through <code>relay wait</code> or before its next prompt.</p></li>
+        <li><span class="ico" aria-hidden="true"><svg viewBox="0 0 22 22"><path d="M4 6l4.5 4.5L4 15M11.5 16H18"/></svg></span><h3>A session asks</h3><p>Numbered steps, exact commands and what you should see.</p></li>
+        <li><span class="ico fish" aria-hidden="true"><svg viewBox="0 0 16 18"><mask id="ico-face"><rect width="16" height="18" fill="#fff"/><circle cx="8" cy="4.3" r="3.2"/><circle cx="4.6" cy="11.4" r="1.9"/><circle cx="11.4" cy="11.4" r="1.9"/><path d="M5.4 8Q8 10.3 10.6 8" stroke="#000" stroke-width="1" fill="none" stroke-linecap="round"/></mask><path class="body" d="M.6 18C.6 12.4 2.8 7.6 6 6.4h4c3.2 1.2 5.4 6 5.4 11.6z" mask="url(#ico-face)"/><circle class="eye" cx="4.9" cy="11.1" r=".85"/><circle class="eye" cx="11.1" cy="11.1" r=".85"/><path d="M8 0v2.4" stroke-width="1.6"/><circle cx="8" cy="4.3" r="1.85" stroke-width="2.3"/></svg></span><h3>You tick it off</h3><p>The hook in your menu bar catches a fish. Copy, tick, answer.</p></li>
+        <li><span class="ico" aria-hidden="true"><svg viewBox="0 0 22 22"><path d="M18 4.5v5.5a3 3 0 0 1-3 3H5M9 9l-4 4 4 4"/></svg></span><h3>Your answer goes back</h3><p>Done, Skip or your reply reaches the session that asked.</p></li>
       </ol>
       <div class="modes" data-stagger="90">
-        <div><h3>This Mac only</h3><p>The default. The queue is served only on 127.0.0.1, and asks never leave the Mac.</p></div>
-        <div><h3>Pond</h3><p>A small server you run holds the queue, so asks reach you on Telegram when you're away. Reports, messages, corrections and required steps need one. Hook doesn't ship a Pond server.</p></div>
+        <div><h3>This Mac only</h3><p>The default. Asks never leave the Mac.</p></div>
+        <div><h3>Pond</h3><p>A server you run holds your asks and reaches you on Telegram when you're away. Reports, messages, corrections and required steps need one. Hook doesn't ship a Pond.</p></div>
       </div>
     </div>
   </section>
@@ -405,49 +426,49 @@ footer { padding-block: 40px 56px; }
   <section class="band" id="features" aria-labelledby="t-feat">
     <div class="wrap">
       <div class="head rv">
-        <h2 id="t-feat">Built for the moments only you can handle</h2>
+        <h2 id="t-feat">The parts only you can do</h2>
       </div>
       <div class="rows">
         <article class="row">
           <figure class="shot rv"><img class="l" src="img/ask-steps-light.png" width="760" height="2078" alt="An ask with numbered steps, a sub-step list, a link and a sent reply" loading="lazy"><img class="d" src="img/ask-steps-dark.png" width="760" height="2078" alt="" loading="lazy"></figure>
           <div class="row-text rv">
-            <h3>Steps you can follow without thinking</h3>
-            <p>Every ask says what to do and where, with the exact command and what you should see. Copy never adds a trailing newline, so a paste never runs by itself.</p>
+            <h3>Steps you follow without thinking</h3>
+            <p>The exact command, a Copy button and what you should see. A paste never runs by itself.</p>
           </div>
         </article>
         <article class="row">
           <figure class="shot rv"><img class="l" src="img/ask-required-light.png" width="760" height="1976" alt="An ask with required steps marked and Done turned off" loading="lazy"><img class="d" src="img/ask-required-dark.png" width="760" height="1976" alt="" loading="lazy"></figure>
           <div class="row-text rv">
             <h3>Required steps come first</h3>
-            <p>An ask can mark the steps it can't do without. Done stays off until they're finished. Skip always works.</p>
+            <p>Done waits until they're finished. Skip always works.</p>
           </div>
         </article>
         <article class="row">
           <figure class="shot rv"><img class="l" src="img/ask-messages-light.png" width="760" height="1264" alt="The Messages section of an ask, with a short exchange and a Report button on the current step" loading="lazy"><img class="d" src="img/ask-messages-dark.png" width="760" height="1264" alt="" loading="lazy"></figure>
           <div class="row-text rv">
             <h3>Report a problem, or just say something</h3>
-            <p>A wrong step goes back as a quoted report, never as an instruction. A message is like typing in the session's chat, without opening its terminal.</p>
+            <p>Talk to the session without opening its terminal. A report goes back quoted, never as an instruction.</p>
           </div>
         </article>
         <article class="row">
           <figure class="shot rv"><img class="l" src="img/ask-review-light.png" width="760" height="2360" alt="Reviewing a corrected ask: the session's reasons and a diff of changed commands with flags" loading="lazy"><img class="d" src="img/ask-review-dark.png" width="760" height="2360" alt="" loading="lazy"></figure>
           <div class="row-text rv">
-            <h3>A changed ask waits for your review</h3>
-            <p>Hook locks a corrected ask and shows one diff with the session's reasons. Accepting a changed command asks for Touch ID.</p>
+            <h3>A changed ask waits for you</h3>
+            <p>One diff, with the session's reasons. A changed command needs Touch ID.</p>
           </div>
         </article>
         <article class="row">
           <figure class="shot wide fit rv"><img class="l" src="img/settings-agents-light.png" width="1200" height="1240" alt="Settings, Agents: the agents on this Mac and what Hook set up in Claude Code" loading="lazy"><img class="d" src="img/settings-agents-dark.png" width="1200" height="1240" alt="" loading="lazy"></figure>
           <div class="row-text rv">
-            <h3>One install sets up every agent, and keeps it updated</h3>
-            <p>Its MCP server, skill, instructions and replies hook, each the agent's own way. A file you edited is never overwritten without asking.</p>
+            <h3>One install sets up every agent</h3>
+            <p>MCP server, skill, instructions and replies hook, kept up to date. Hook asks before it touches a file you edited.</p>
           </div>
         </article>
         <article class="row">
           <figure class="shot fit rv"><img class="l" src="img/crash-sheet-light.png" width="760" height="924" alt="Send a Crash Report: the exact redacted text, and Open Issue on GitHub" loading="lazy"><img class="d" src="img/crash-sheet-dark.png" width="760" height="924" alt="" loading="lazy"></figure>
           <div class="row-text rv">
-            <h3>You see the crash report before anyone else</h3>
-            <p>The next launch shows it redacted, exactly as it would be sent. You submit the GitHub issue yourself, or choose Not Now and nothing leaves.</p>
+            <h3>You see the crash report first</h3>
+            <p>Redacted, exactly as it would be sent. Nothing leaves unless you send it.</p>
           </div>
         </article>
       </div>
@@ -458,7 +479,7 @@ footer { padding-block: 40px 56px; }
     <div class="wrap">
       <div class="head rv">
         <h2 id="t-agents">Works with the agents you already use</h2>
-        <p>Eighteen coding agents get Hook's tools from one install.</p>
+        <p>Eighteen agents. One install.</p>
       </div>
       <ul class="agents" data-stagger="28">
         <li data-verified="pending"><span class="mono" aria-hidden="true">CC</span><b>Claude Code</b><span class="mark">Mac test pending</span></li>
@@ -480,7 +501,7 @@ footer { padding-block: 40px 56px; }
         <li data-verified="docs-only"><span class="mono" aria-hidden="true">JU</span><b>Junie</b><span class="mark">From docs</span></li>
         <li data-verified="docs-only"><span class="mono" aria-hidden="true">WA</span><b>Warp</b><span class="mark">From docs</span></li>
       </ul>
-      <p class="legend rv"><span><b>Mac test pending</b> set up from the agent's CLI; to be tested on a Mac</span><span><b>From docs</b> follows the agent's docs and Hook's fixture tests</span></p>
+      <p class="legend rv"><span><b>Mac test pending</b> built on the agent's CLI, not yet tested on a Mac</span><span><b>From docs</b> built from the agent's docs and Hook's tests</span></p>
     </div>
   </section>
 
@@ -488,17 +509,17 @@ footer { padding-block: 40px 56px; }
     <div class="wrap">
       <div class="head rv">
         <h2 id="t-install">Install in one line</h2>
-        <p>Nothing is compiled on your Mac. The script checks the release against its checksums, installs Hook and the <code>relay</code> command, and sets up your agents.</p>
+        <p>Checked against its checksums. Nothing compiles on your Mac.</p>
       </div>
       <div class="install rv">
         <div class="cmd"><pre id="cmd-install">curl -fsSL https://raw.githubusercontent.com/xooxoxxo/hook/main/scripts/get.sh | bash</pre><button class="copy" type="button" data-copy="cmd-install">Copy</button></div>
         <div class="facts">
-          <div><span class="k">Requires</span><p>macOS 14 or later. Python 3.9 or later, for the command and MCP server.</p></div>
-          <div><span class="k">Updates</span><p>Hook checks GitHub daily, offers each release in its menu and installs it in the background. Your settings are kept.</p></div>
+          <div><span class="k">Requires</span><p>macOS 14 or later, and Python 3.9 or later.</p></div>
+          <div><span class="k">Updates</span><p>Hook checks GitHub daily and installs updates in the background. Your settings stay.</p></div>
           <div><span class="k">Uninstall</span><p><code>~/.local/share/hook/current/scripts/install.sh --uninstall</code></p></div>
           <div><span class="k">Release zip</span><p><a href="https://github.com/xooxoxxo/hook/releases/latest">Latest release on GitHub</a>, with <code>SHA256SUMS</code>.</p></div>
         </div>
-        <p class="note"><b>Use the command rather than the zip.</b> Releases aren't notarized yet, so macOS blocks a zip downloaded in a browser. After installing, open Settings › Queue and press Send a Test Ask.</p>
+        <p class="note"><b>Use the command, not the zip.</b> Releases aren't notarized yet, so macOS blocks a zip from a browser. Then try Settings › Queue › Send a Test Ask.</p>
       </div>
     </div>
   </section>
@@ -507,12 +528,13 @@ footer { padding-block: 40px 56px; }
     <div class="wrap">
       <div class="head rv">
         <h2 id="t-beta">It's a beta. Tell us what breaks.</h2>
-        <p>Hook is at 0.13 and changes quickly. Releases aren't notarized yet, and most agent setups still wait for their test on a real Mac.</p>
+        <p>Hook is at 0.15 and moves fast.</p>
+        <svg class="deco deco-fish" viewBox="0 -40 16 58" aria-hidden="true"><mask id="dfish-face"><rect y="-40" width="16" height="58" fill="#fff"/><circle cx="8" cy="4.3" r="3.2"/><circle cx="4.6" cy="11.4" r="1.9"/><circle cx="11.4" cy="11.4" r="1.9"/><path d="M5.4 8Q8 10.3 10.6 8" stroke="#000" stroke-width="1" fill="none" stroke-linecap="round"/></mask><path class="line" d="M8 -40V2.4"/><path class="body" d="M.6 18C.6 12.4 2.8 7.6 6 6.4h4c3.2 1.2 5.4 6 5.4 11.6z" mask="url(#dfish-face)"/><circle class="eye" cx="4.9" cy="11.1" r=".85"/><circle class="eye" cx="11.1" cy="11.1" r=".85"/><circle class="ring" cx="8" cy="4.3" r="1.85"/></svg>
       </div>
       <div class="beta" data-stagger="110">
-        <div class="card"><h3>Report a bug</h3><p>Open an <a href="https://github.com/xooxoxxo/hook/issues">issue on GitHub</a> with what you did, what you saw and the output of <code>relay --version</code>. Security issues go privately through the repository's Security tab.</p></div>
-        <div class="card"><h3>If Hook crashes</h3><p>The next launch offers Review…: the redacted report in full, then a prefilled GitHub issue for you to submit, or the open one for the same crash.</p></div>
-        <div class="card accent"><h3>What we collect: nothing, unless you send it</h3><p>No analytics and no crash-reporting service. The activity log stays on your Mac. Hook asks GitHub once a day for a new release, and sends a 12-character crash hash when it looks for an existing issue.</p></div>
+        <div class="card"><h3>Report a bug</h3><p>Open a <a href="https://github.com/xooxoxxo/hook/issues">GitHub issue</a> with what you did, what you saw and <code>relay --version</code>. Send security issues privately, through the Security tab.</p></div>
+        <div class="card"><h3>If Hook crashes</h3><p>The next launch shows the redacted report and a prefilled GitHub issue. You decide whether it goes.</p></div>
+        <div class="card accent"><h3>We collect nothing you don't send</h3><p>No analytics. The activity log stays on your Mac. Hook asks GitHub daily for updates, and sends a 12-character crash hash to find a matching issue.</p></div>
       </div>
     </div>
   </section>
@@ -520,16 +542,16 @@ footer { padding-block: 40px 56px; }
   <section class="band" id="docs" aria-labelledby="t-docs">
     <div class="wrap">
       <div class="head rv">
-        <h2 id="t-docs">Learn the rest</h2>
+        <h2 id="t-docs">Read the docs</h2>
       </div>
       <div class="docs" data-stagger="45">
         <div class="lead-doc"><a class="main" href="guide.html"><b>The Hook product guide</b></a><span>The whole app in 14 printable pages</span><a class="pdf" href="guide.pdf">PDF</a></div>
-        <a class="doc" href="https://github.com/xooxoxxo/hook/blob/main/docs/install.md"><b>Install</b><span>Install, update, uninstall</span></a>
-        <a class="doc" href="https://github.com/xooxoxxo/hook/blob/main/docs/using.md"><b>Using Hook</b><span>The panel, keys, Settings</span></a>
-        <a class="doc" href="https://github.com/xooxoxxo/hook/blob/main/docs/agents.md"><b>Agents</b><span>What Hook sets up</span></a>
-        <a class="doc" href="https://github.com/xooxoxxo/hook/blob/main/docs/instructables.md"><b>Writing an ask</b><span>The instructable format</span></a>
-        <a class="doc" href="https://github.com/xooxoxxo/hook/blob/main/docs/privacy.md"><b>Privacy</b><span>The log and crash reports</span></a>
-        <a class="doc" href="https://github.com/xooxoxxo/hook/tree/main/docs"><b>All docs</b><span>The docs folder on GitHub</span></a>
+        <a class="doc" href="docs/install.html"><b>Install</b><span>Install, update, uninstall</span></a>
+        <a class="doc" href="docs/using.html"><b>Using Hook</b><span>The panel, keys, Settings</span></a>
+        <a class="doc" href="docs/agents.html"><b>Agents</b><span>What Hook sets up</span></a>
+        <a class="doc" href="docs/instructables.html"><b>Writing an ask</b><span>The instructable format</span></a>
+        <a class="doc" href="docs/privacy.html"><b>Privacy</b><span>The log and crash reports</span></a>
+        <a class="doc" href="docs/index.html"><b>All docs</b><span>Every page, from install to the Pond</span></a>
       </div>
     </div>
   </section>
@@ -539,7 +561,7 @@ footer { padding-block: 40px 56px; }
   <div class="wrap">
     <div class="foot">
       <span class="wordmark"><img class="tile" src="img/brand/hook-tile-128.png" width="24" height="24" alt="">Hook</span>
-      <span>0.13.0 · public beta</span>
+      <span>0.15.0 · public beta</span>
       <span>MIT License</span>
       <a href="https://github.com/xooxoxxo/hook">github.com/xooxoxxo/hook</a>
       <span>Formerly Relay</span>

@@ -1,10 +1,11 @@
 name: Pages
 
-# Deploys site/ (the homepage and the product guide) to GitHub Pages.
+# Deploys site/ (the homepage and the product guide) to GitHub Pages, with docs/*.md
+# rendered into site/docs/ first. The rendered pages are not committed.
 on:
   push:
     branches: [main]
-    paths: ["site/**"]
+    paths: ["site/**", "docs/**", "scripts/build-docs-site.py", "scripts/docs-site/**", "Resources/Info.plist"]
   workflow_dispatch:
 
 permissions:
@@ -24,6 +25,9 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Render the docs pages
+        run: python3 scripts/build-docs-site.py
 
       - uses: actions/configure-pages@v6
 
