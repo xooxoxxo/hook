@@ -174,6 +174,8 @@ public struct ReleaseUpdatePlan: UpdateJob, Equatable, Sendable {
         return """
         #!/bin/sh
         export HOME=\(Shell.quote(home))
+        # install.sh tells Hook the updater is quitting it (quit-request.json).
+        export HOOK_QUIT_BY=updater
         export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
         finish() {
           rm -rf \(Shell.quote(downloadDir))

@@ -251,11 +251,24 @@ old_app_running() {
   return 1
 }
 
+# Tells Hook who is quitting it, just before the signal: Hook logs the quit as the
+# installer's (or the updater's, when its job set HOOK_QUIT_BY=updater) instead of an
+# unexplained SIGTERM, and a copy that has to be force-quit isn't offered as a crash at the
+# next launch. Hook removes the file when it reads it.
+note_quit_request() {
+  by=installer
+  if [ "${HOOK_QUIT_BY:-}" = "updater" ]; then by=updater; fi
+  [ -d "$DATA_DIR" ] || private_dir "$DATA_DIR"
+  (umask 077; printf '{"by":"%s","pid":%s,"at":%s}\n' "$by" "$$" "$(date +%s)" > "$DATA_DIR/.quit-request.json.$$") \
+    && mv -f "$DATA_DIR/.quit-request.json.$$" "$DATA_DIR/quit-request.json" || true
+}
+
 # Quits running copies of this app (Hook, and Relay from before the rename), and
 # waits up to 5 s for them to go.
 quit_apps() {
   pids="$(our_pids)"
   [ -n "$pids" ] || return 0
+  note_quit_request
   # shellcheck disable=SC2086
   kill $pids 2>/dev/null || true
   for _ in 1 2 3 4 5 6 7 8 9 10; do
@@ -269,6 +282,7 @@ quit_apps() {
 # only brings it forward. Returns 1 when one is still there.
 force_quit() {
   [ -n "$1" ] || return 0
+  note_quit_request
   for pid in $1; do
     echo "app: force-quit a Hook that did not quit (pid $pid)"
     kill -9 "$pid" 2>/dev/null || true
