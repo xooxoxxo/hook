@@ -53,13 +53,9 @@ extension AppModel: SettingsViewModel {
                 sourceKey: sourceKey, reachable: store?.reachable ?? false, loadedOnce: store?.lastListAt != nil,
                 waiting: store?.items.count ?? 0, problem: store?.problem),
             connectionProblems: problems, permission: permission,
-            repo: RepoState(
-                repoPath: repo, mcpCommand: repo.map { ConnectInfo.mcpCommand(repoPath: $0) },
-                claudeMdAvailable: repo.flatMap { ConnectInfo.claudeMdSection(repoPath: $0) } != nil,
-                skill: repo.map { ConnectInfo.skillState(home: home, repoPath: $0) },
-                cliFound: ConnectInfo.cliInstalled(home: home), lastCall: lastSeen["mcp"],
-                skillError: skillError, mcpRegistered: mcpRegistered, mcpBusy: mcpBusy, mcpError: mcpError,
-                hookInstalled: hookInstalled, hookError: hookError, claudeMdInstalled: claudeMdInstalled),
+            agents: AgentsState(
+                repoPath: repo, lastCall: lastSeen["mcp"], status: agentsStatus, running: agentsRunning.first,
+                error: agentsError, pieceErrors: agentsPieceErrors),
             localQueuePath: (dataDirectory.appending(path: "queue.json").path as NSString).abbreviatingWithTildeInPath,
             terminals: settingsTerminals(),
             mailbox: sourceKey.hasPrefix("mailbox:") ? mailboxLine : nil,
@@ -121,28 +117,14 @@ extension AppModel: SettingsViewModel {
         case .chooseRepoFolder:
             if let path = Self.chooseFolder() {
                 if ConnectInfo.isRepo(path, fileExists: { FileManager.default.fileExists(atPath: $0) }) {
-                    skillError = nil   // it was about the old repo
                     save(set: ["repoPath": path])
+                    Task { @MainActor in await refreshAgents() }
                 } else {
                     let alert = NSAlert()
                     alert.messageText = "That folder isn't the Hook repo."
                     alert.informativeText = "It has no mcp/relay_mcp.py."
                     alert.runModal()
                 }
-            }
-        case .installSkill:
-            if let repo = settings.repo.repoPath {
-                do {
-                    try ConnectInfo.installSkill(home: Self.home, repoPath: repo)
-                    skillError = nil
-                } catch {
-                    skillError = "Couldn't install the skill. " + UserFacingError.text(error)
-                }
-            }
-        case .copyClaudeMdSection:
-            if let repo = settings.repo.repoPath, let text = ConnectInfo.claudeMdSection(repoPath: repo) {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(text, forType: .string)
             }
         case .redockNow:
             hooks.redock()
@@ -191,18 +173,24 @@ extension AppModel: SettingsViewModel {
             hooks.switchTab(tab)
         case .showPanel:
             hooks.showPanel()
-        case .checkAgents:
-            checkAgents()
-        case .registerMCP:
-            registerMCP()
-        case .installRepliesHook:
-            do {
-                try ConnectInfo.installRepliesHook(home: Self.home)
-                hookError = nil
-            } catch {
-                hookError = "Couldn't add the hook. " + UserFacingError.text(error)
+        case .refreshAgents:
+            Task { @MainActor in await refreshAgents() }
+        case .integration(let command):
+            Task { @MainActor in _ = await runIntegration(command) }
+        case .agentAction(let action):
+            switch action {
+            case .openAsk(let id):
+                hooks.showAsk(id)
+            case .reveal(let path):
+                let url = URL(fileURLWithPath: ConnectInfo.normalized(path))
+                if FileManager.default.fileExists(atPath: url.path) {
+                    NSWorkspace.shared.activateFileViewerSelecting([url])
+                } else {
+                    NSWorkspace.shared.open(url.deletingLastPathComponent())
+                }
+            case .setUp, .update:
+                if let command = action.command { Task { @MainActor in _ = await runIntegration(command) } }
             }
-            checkAgents()
         case .copyText(let text):
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(text, forType: .string)
@@ -222,40 +210,64 @@ extension AppModel: SettingsViewModel {
         refreshSettings()
     }
 
-    /// Re-reads ~/.claude.json, settings.json and CLAUDE.md for the agents page. The reads
-    /// run off the main actor (~/.claude.json can be large); the results land on it, and only
-    /// the newest check's do. `mcpKnown` keeps the MCP item done whatever the file says
-    /// (a registration that just worked, in case claude keeps its servers elsewhere).
-    func checkAgents(mcpKnown: Bool = false) {
-        let home = Self.home, repo = config?.repoPath
-        agentCheckGeneration += 1
-        let generation = agentCheckGeneration
-        Task { @MainActor [weak self] in
-            let checks = await Task.detached(priority: .userInitiated) {
-                ConnectInfo.agentChecks(home: home, repoPath: repo)
-            }.value
-            guard let self, generation == self.agentCheckGeneration else { return }
-            self.mcpRegistered = checks.mcpRegistered || mcpKnown
-            self.hookInstalled = checks.hookInstalled
-            self.claudeMdInstalled = checks.claudeMdInstalled
-            self.refreshSettings()
+    // MARK: Agents (relay integrations)
+
+    /// Runs one `relay integrations` command, then reads the status again. A failed Fix…
+    /// command's line goes on its piece row; any other on the pane.
+    @discardableResult
+    func runIntegration(_ command: IntegrationCommand) async -> Result<Data, IntegrationError> {
+        let row = AgentsState.key(for: command)
+        if let row { agentsPieceErrors[row] = nil }
+        agentsRunning.append(command)
+        refreshSettings()
+        let result = await integrations.run(command)
+        if let index = agentsRunning.firstIndex(of: command) { agentsRunning.remove(at: index) }
+        switch result {
+        case .success:
+            if row == nil { agentsError = nil }
+        case .failure(let error):
+            if let row { agentsPieceErrors[row] = error.text } else { agentsError = error.text }
         }
+        if command != .status { await refreshAgents() }
+        refreshSettings()
+        return result
     }
 
-    /// Register: `claude mcp add` in the login shell, off the main actor, with a time cap.
-    private func registerMCP() {
-        guard !mcpBusy, let repo = settings.repo.repoPath else { return }
-        mcpBusy = true
-        mcpError = nil
-        let command = ConnectInfo.mcpShellCommand(repoPath: repo)
-        Task { @MainActor in
-            let outcome = await LoginShell.run(command)
-            mcpBusy = false
-            mcpError = outcome.ok ? nil : "Couldn't register: " + LoginShell.failureLine(outcome) + ". Copy the command and run it in Terminal."
-            if outcome.ok { mcpRegistered = true }   // in case claude keeps its servers elsewhere
-            checkAgents(mcpKnown: outcome.ok)
-            refreshSettings()
+    /// Reads `relay integrations status` and offers any new harness in a Notice.
+    func refreshAgents() async {
+        switch await integrations.status() {
+        case .success(let status):
+            agentsStatus = status
+            agentsError = nil
+            noticeNewAgents(status)
+        case .failure(let error):
+            // No repo yet is what the Hook repo row already says.
+            agentsError = error == .notInstalled && config?.repoPath == nil ? nil : error.text
         }
+        refreshSettings()
+    }
+
+    /// The scheduled sync: `--if-changed` at launch, a plain one once a day. New harnesses
+    /// are set up when "Set up new agents automatically" is on (the manifest decides when
+    /// no status has been read yet).
+    func syncAgents(ifChanged: Bool) async {
+        agentsSyncStarted = Date()
+        await runIntegration(.sync(ifChanged: ifChanged, includeNew: agentsStatus?.autoSetup ?? false, harness: nil))
+    }
+
+    /// A day since the last sync, by the manifest or by this run's last attempt.
+    func agentsSyncDue(now: Date = Date()) -> Bool {
+        IntegrationSchedule.dailyDue(lastSync: [agentsStatus?.lastSync, agentsSyncStarted].compactMap { $0 }.max(),
+                                     now: now)
+    }
+
+    /// With automatic setup off: one info Notice for the harnesses found and not set up,
+    /// unless each was offered already in this run or dismissed before.
+    private func noticeNewAgents(_ status: IntegrationStatus) {
+        let ids = IntegrationNotice.ids(status: status, dismissed: IntegrationNotice.dismissed(in: .standard))
+        guard !ids.isEmpty, !Set(ids).isSubset(of: agentsNoticed), let store else { return }
+        agentsNoticed.formUnion(ids)
+        store.post(.newAgents(ids: ids, names: IntegrationNotice.names(ids: ids, status: status)))
     }
 
     /// Validates and saves the draft, then waits up to 10 s for the new source's first list.
@@ -315,7 +327,9 @@ extension AppModel: SettingsViewModel {
             if permissionObserver == nil { watchPermission() }
             Task { @MainActor in await refreshPermission() }
             return SettingsWindowController.hosting(NotificationsTab(model: self))
-        case .connect: return SettingsWindowController.hosting(ConnectTab(model: self))
+        case .connect:
+            Task { @MainActor in await refreshAgents() }
+            return SettingsWindowController.hosting(ConnectTab(model: self))
         }
     }
 

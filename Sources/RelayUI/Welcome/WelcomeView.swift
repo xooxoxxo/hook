@@ -32,7 +32,7 @@ public struct WelcomeView<Model: SettingsViewModel>: View {
     }
 
     private var home: String { NSHomeDirectory() }
-    private var repo: RepoState { model.settings.repo }
+    private var agents: AgentsState { model.settings.agents }
 
     public var body: some View {
         VStack(spacing: 0) {
@@ -58,7 +58,7 @@ public struct WelcomeView<Model: SettingsViewModel>: View {
             }
         }
         .onChange(of: flow.page) { _, page in
-            if page == .agents { model.perform(.checkAgents) }
+            if page == .agents { model.perform(.refreshAgents) }
         }
     }
 
@@ -147,20 +147,20 @@ public struct WelcomeView<Model: SettingsViewModel>: View {
 
     @ViewBuilder private var agentsPage: some View {
         Section {
-            if repo.repoPath == nil {
+            if agents.repoPath == nil {
                 SetupRow("Hook repo", symbol: DS.Symbol.setupRepo, help: ConnectHelp.repo) {
                     Button("Choose…") { model.perform(.chooseRepoFolder) }
                 }
             }
-            SetupRow("MCP server", symbol: DS.Symbol.setupMCP, help: WelcomeCopy.mcpHelp,
-                     error: repo.mcpError) { mcpControl }
-            SetupRow("Skill", symbol: DS.Symbol.setupSkill, help: ConnectHelp.skill,
-                     error: repo.skillError) { skillControl }
-            SetupRow("Replies hook", symbol: DS.Symbol.setupHook, help: WelcomeCopy.hookHelp,
-                     error: repo.hookError) { hookControl }
-            SetupRow("CLAUDE.md", symbol: DS.Symbol.setupClaudeMd, help: WelcomeCopy.claudeMdHelp,
-                     error: repo.repoPath != nil && !repo.claudeMdAvailable
-                        ? "docs/claude-md-section.md isn't in the repo" : nil) { claudeMdControl }
+            SetupRow("Agents", symbol: DS.Symbol.setupMCP, help: WelcomeCopy.agentsHelp(agents),
+                     error: agents.error) { agentsControl }
+            SetupRow("New agents", symbol: DS.Symbol.setupSkill, help: ConnectHelp.autoSetup) {
+                Toggle("Set up automatically", isOn: Binding(
+                    get: { agents.status?.autoSetup ?? true },
+                    set: { model.perform(.integration(.setAutoSetup($0))) }))
+                    .toggleStyle(.checkbox)
+                    .disabled(agents.status == nil || agents.busy)
+            }
         } header: {
             SetupHeading("Connect your agents", line: WelcomeCopy.agents)
         }
@@ -215,53 +215,16 @@ public struct WelcomeView<Model: SettingsViewModel>: View {
 
     // MARK: Agent controls
 
-    @ViewBuilder private var mcpControl: some View {
-        if repo.mcpRegistered {
-            SetupDone("Connected")
-        } else if repo.mcpBusy {
-            ProgressView().controlSize(DS.Control.inline).accessibilityLabel("Registering")
+    @ViewBuilder private var agentsControl: some View {
+        if agents.busy {
+            ProgressView().controlSize(DS.Control.inline).accessibilityLabel("Setting up")
+        } else if agents.allSetUp {
+            SetupDone(agents.onThisMac.count == 1 ? "1 set up" : "\(agents.onThisMac.count) set up")
         } else {
-            HStack(spacing: DS.Space.inline) {
-                copyButton(repo.mcpCommand, label: "Copy the MCP command")
-                Button("Register") { model.perform(.registerMCP) }
+            Button("Set Up All") {
+                model.perform(.integration(.sync(ifChanged: false, includeNew: true, harness: nil)))
             }
-            .disabled(repo.repoPath == nil)
-        }
-    }
-
-    @ViewBuilder private var skillControl: some View {
-        switch repo.skill {
-        case .installed?:
-            SetupDone("Installed")
-        case .elsewhere?:
-            Text("Something else is there").foregroundStyle(DS.Color.secondary)
-        case .missing?, nil:
-            Button("Install") { model.perform(.installSkill) }.disabled(repo.repoPath == nil)
-        }
-    }
-
-    @ViewBuilder private var hookControl: some View {
-        if repo.hookInstalled {
-            SetupDone("Added")
-        } else {
-            HStack(spacing: DS.Space.inline) {
-                copyButton(ConnectInfo.hookSnippet(), label: "Copy the hook settings")
-                Button("Add") { model.perform(.installRepliesHook) }
-            }
-        }
-    }
-
-    @ViewBuilder private var claudeMdControl: some View {
-        if repo.claudeMdInstalled {
-            SetupDone("In CLAUDE.md")
-        } else {
-            Button(copied == "claudeMd" ? "Copied" : "Copy Section") {
-                if let text = repo.repoPath.flatMap({ ConnectInfo.claudeMdSection(repoPath: $0) }) {
-                    copy(text, tag: "claudeMd")
-                }
-            }
-            .contentTransition(.opacity)
-            .disabled(repo.repoPath == nil || !repo.claudeMdAvailable)
+            .disabled(agents.repoPath == nil)
         }
     }
 
@@ -329,7 +292,7 @@ public struct WelcomeView<Model: SettingsViewModel>: View {
     private var pageComplete: Bool {
         switch flow.page {
         case .agents:
-            repo.mcpRegistered && repo.skill == .installed && repo.hookInstalled && repo.claudeMdInstalled
+            agents.allSetUp
         case .notifications: model.settings.permission == .authorized
         case .shortcut: model.settings.shortcutLabel != nil
         case .testAsk:
@@ -393,7 +356,12 @@ public enum WelcomeCopy {
     public static let notifications = "Hook tells you when an ask needs you now."
     public static let shortcut = "Show or hide Hook from anywhere."
     public static let testAsk = "Send one, and watch it arrive in the panel."
-    public static let mcpHelp = "Lets every Claude Code session on this Mac post an ask (relay_post, relay_status, relay_list). Register runs claude mcp add in your login shell. Or copy the command and run it in Terminal."
-    public static let hookHelp = "Shows your answers in every session: before each prompt it prints answers given since the last one. Add puts one entry into ~/.claude/settings.json. The file is rewritten as JSON (your keys keep their order, the spacing becomes two-space indents), and a backup of the old file is kept: settings.json.bak, or settings.json.bak-<date and time> when that already exists. A file that isn't valid JSON is left alone. Or copy the snippet and add it yourself."
-    public static let claudeMdHelp = "A short section that tells agents to ask through Hook. Copy it, then paste it into ~/.claude/CLAUDE.md."
+
+    /// The agents row's "?": what Set Up All does, then each agent on this Mac and its state.
+    public static func agentsHelp(_ agents: AgentsState) -> String {
+        let intro = "Set Up All gives every agent on this Mac Hook's MCP server, the instructables skill, "
+            + "Hook's instructions and, where the agent has one, the replies hook. A file you edited is left as it is."
+        let rows = agents.onThisMac.map { "\($0.name): \($0.state.label)" }
+        return rows.isEmpty ? intro : intro + "\n\n" + rows.joined(separator: "\n")
+    }
 }

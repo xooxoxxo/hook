@@ -2,20 +2,19 @@ import AppKit
 import RelayCore
 import SwiftUI
 
-/// Settings → Connect: what to paste into Claude Code on this Mac. No inline
-/// heading or paragraphs: every explanation is behind a "?".
+/// Settings → Connect: the agents on this Mac and what Hook set up in each, read from
+/// `relay integrations status`. A plain list until Settings › Agents (list and detail)
+/// replaces this tab. No inline paragraphs: every explanation is behind a "?".
 public struct ConnectTab<Model: SettingsViewModel>: View {
     @ObservedObject private var model: Model
-    @State private var copiedSection = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.panelGallery) private var gallery
 
     public init(model: Model) {
         _model = ObservedObject(wrappedValue: model)
     }
 
-    private var repo: RepoState { model.settings.repo }
-    private var hasRepo: Bool { repo.repoPath != nil }
+    private var agents: AgentsState { model.settings.agents }
+    private var hasRepo: Bool { agents.repoPath != nil }
 
     public var body: some View {
         Form {
@@ -32,95 +31,94 @@ public struct ConnectTab<Model: SettingsViewModel>: View {
                     }
                 }
                 .environment(\.settingsSection, "Hook repo")
-            }
-            Section("Claude Code") {
-                SettingsRow("MCP server", help: ConnectHelp.mcp) {
-                    CodeBlock(code: repo.mcpCommand ?? ConnectInfo.mcpCommand(repoPath: "<repo>"),
-                              copyLabel: "Copy the MCP command", onCopy: copy)
-                }
-                .disabled(!hasRepo)
-                SettingsRow("Last call") {
-                    TimelineView(.periodic(from: .now, by: DS.Timing.lastCallRefresh)) { context in
-                        Text(lastCall(now: gallery.now ?? context.date))
-                            .foregroundStyle(DS.Color.secondary).monospacedDigit()
+            } else {
+                Section("On this Mac") {
+                    if agents.status == nil, agents.error == nil {
+                        SettingsRow("Agents") {
+                            ProgressView().controlSize(DS.Control.inline).accessibilityLabel("Reading")
+                        }
+                    }
+                    ForEach(agents.onThisMac) { harness in
+                        SettingsRow(harness.name, help: ConnectHelp.changes(harness)) { harnessControl(harness) }
+                    }
+                    if let error = agents.error {
+                        SettingsRow("", error: error) { EmptyView() }
                     }
                 }
-                SettingsRow("relay command") {
-                    Label(repo.cliFound ? "Found" : "Not found at ~/.local/bin/relay",
-                          systemImage: repo.cliFound ? DS.Symbol.statusOK : DS.Symbol.statusDown)
-                        .foregroundStyle(DS.Color.secondary)
+                .environment(\.settingsSection, "On this Mac")
+                Section("Setup") {
+                    SettingsRow("New agents", help: ConnectHelp.autoSetup) {
+                        Toggle("Set up new agents automatically", isOn: Binding(
+                            get: { agents.status?.autoSetup ?? true },
+                            set: { model.perform(.integration(.setAutoSetup($0))) }))
+                            .toggleStyle(.checkbox)
+                            .disabled(agents.status == nil || agents.busy)
+                    }
+                    SettingsRow("Everything", help: ConnectHelp.reinstall) {
+                        HStack(spacing: DS.Space.inline) {
+                            Button("Reinstall All") {
+                                model.perform(.integration(.reinstall(harness: nil, piece: nil, force: false)))
+                            }
+                            .disabled(agents.busy)
+                            if agents.busy {
+                                ProgressView().controlSize(DS.Control.inline).accessibilityLabel("Working")
+                            }
+                        }
+                    }
+                    SettingsRow("MCP last call") {
+                        TimelineView(.periodic(from: .now, by: DS.Timing.lastCallRefresh)) { context in
+                            Text(lastCall(now: gallery.now ?? context.date))
+                                .foregroundStyle(DS.Color.secondary).monospacedDigit()
+                        }
+                    }
                 }
-                SettingsRow("CLAUDE.md", help: ConnectHelp.claudeMd,
-                            error: hasRepo && !repo.claudeMdAvailable ? "docs/claude-md-section.md isn't in the repo" : nil) {
-                    Button(copiedSection ? "Copied" : "Copy CLAUDE.md Section", action: copySection)
-                        .contentTransition(.opacity)
-                        .disabled(!hasRepo || !repo.claudeMdAvailable)
-                }
-                SettingsRow("Skill", help: ConnectHelp.skill, error: hasRepo ? repo.skillError : nil) { skillControl }
-                    .disabled(!hasRepo)
+                .environment(\.settingsSection, "Setup")
             }
-            .environment(\.settingsSection, "Claude Code")
-            Section("Command line") {
-                SettingsRow("Post an ask", help: ConnectHelp.cli) {
-                    CodeBlock(code: ConnectInfo.cliExample(), copyLabel: "Copy the CLI example", onCopy: copy)
-                }
-            }
-            .environment(\.settingsSection, "Command line")
-            Section("Replies hook") {
-                SettingsRow("settings.json", help: ConnectHelp.hook) {
-                    CodeBlock(code: ConnectInfo.hookSnippet(), copyLabel: "Copy the hook settings", onCopy: copy)
-                }
-            }
-            .environment(\.settingsSection, "Replies hook")
         }
         .formStyle(.grouped)
         .controlSize(DS.Control.form)
     }
 
-    @ViewBuilder private var skillControl: some View {
-        switch repo.skill {
-        case .installed?:
-            Text("Installed").foregroundStyle(DS.Color.secondary)
-        case .elsewhere(let path)?:
-            HStack(spacing: DS.Space.inline) {
-                Text("Something else is at ~/.claude/skills/instructables").foregroundStyle(DS.Color.secondary)
-                IconButton(DS.Symbol.reveal, label: "Show in Finder", help: "Show what is at the skill's path in Finder") {
-                    NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+    @ViewBuilder private func harnessControl(_ harness: IntegrationStatus.Harness) -> some View {
+        HStack(spacing: DS.Space.inline) {
+            Text(harness.state.label).foregroundStyle(DS.Color.secondary)
+            switch harness.action {
+            case .setUp?:
+                Button("Set Up") { perform(harness.action) }.disabled(agents.busy)
+            case .update?:
+                Button("Update") { perform(harness.action) }.disabled(agents.busy)
+            case .openAsk?:
+                Button("Show Ask") { perform(harness.action) }
+            case .reveal?:
+                IconButton(DS.Symbol.reveal, label: "Show in Finder", help: "Show the file Hook couldn't change") {
+                    perform(harness.action)
                 }
+            case nil:
+                EmptyView()
             }
-        case .missing?, nil:
-            Button("Install") { model.perform(.installSkill) }
         }
+    }
+
+    private func perform(_ action: HarnessAction?) {
+        if let action { model.perform(.agentAction(action)) }
     }
 
     /// "—" outside This Mac only: the mailbox doesn't report MCP calls.
     private func lastCall(now: Date) -> String {
         guard model.settings.sourceKey == SourceKey.local else { return "—" }
-        return ConnectInfo.lastCall(repo.lastCall, now: now)
-    }
-
-    private func copy(_ text: String) -> CopyOutcome {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
-        return .copied
-    }
-
-    private func copySection() {
-        model.perform(.copyClaudeMdSection)
-        withAnimation(DS.motion(DS.Motion.reveal, reduce: reduceMotion)) { copiedSection = true }
-        Task { @MainActor in
-            try? await Task.sleep(for: .seconds(DS.Motion.copiedFor))
-            withAnimation(DS.motion(DS.Motion.reveal, reduce: reduceMotion)) { copiedSection = false }
-        }
+        return ConnectInfo.lastCall(agents.lastCall, now: now)
     }
 }
 
 /// The Connect tab's "?" texts.
 public enum ConnectHelp {
-    public static let mcp = "Run this once in Terminal. Every Claude Code session on this Mac then has relay_post, relay_status and relay_list."
-    public static let claudeMd = "Copies docs/claude-md-section.md from the repo. Paste it into ~/.claude/CLAUDE.md on this Mac."
-    public static let skill = "The instructables skill teaches Claude how to write asks. Install links ~/.claude/skills/instructables to the repo's skill folder. If that path already holds something else, Hook leaves it alone."
-    public static let cli = "If MCP servers are blocked here, Claude can use the CLI. The relay command posts the same asks. install.sh links it into ~/.local/bin."
-    public static let hook = "Shows answers in every session. Add this to ~/.claude/settings.json. Before each prompt it prints answers given since the last one. It always exits 0, so it never blocks a prompt."
-    public static let repo = "Hook needs its source folder to build these commands. scripts/install.sh sets it for you."
+    public static let repo = "Hook needs its source folder to set up your agents. scripts/install.sh sets it for you."
+    public static let autoSetup = "When Hook finds a new agent on this Mac, it sets up Hook's MCP server, skill, instructions and replies hook there. Off, Hook only tells you it found one."
+    public static let reinstall = "Writes everything Hook installs again, in every agent it set up. A file you edited stays as you left it."
+
+    /// What Hook changed for this harness, one path per line.
+    public static func changes(_ harness: IntegrationStatus.Harness) -> String? {
+        guard !harness.changes.isEmpty else { return nil }
+        return "Hook changed:\n" + harness.changes.map { "\($0.path) (\($0.what))" }.joined(separator: "\n")
+    }
 }

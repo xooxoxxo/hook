@@ -882,7 +882,14 @@ public enum LinkCheck: Equatable, Sendable {
         }
     }
 
-    public func dismissNotice() { notice = nil }
+    /// The owner dismissed the Notice (✕) or pressed its button; a newer Notice replacing it doesn't count.
+    public var onNoticeCleared: (@MainActor (PanelNotice) -> Void)?
+
+    public func dismissNotice() {
+        guard let current = notice else { return }
+        notice = nil
+        onNoticeCleared?(current)
+    }
 
     /// Back, Esc, Next Ask or opening another ask leaves the closed ask, and its Notice with it.
     private func dropNoticeOfLeftAsk() {
@@ -939,7 +946,10 @@ public enum LinkCheck: Equatable, Sendable {
              .mailboxUpdateCommandInvalid, .ownerKeyRefused, .reviewRecordsChanged,
              .doneHeldBack, .acceptFailed, .crashReport:
             break
+        case .newAgents:
+            shell.openSettings(.connect)
         }
+        onNoticeCleared?(current)
     }
 
     /// The Notice's second button: "How to update" opens the mailbox update guide. The

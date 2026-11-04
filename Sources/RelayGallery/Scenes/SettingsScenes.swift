@@ -128,7 +128,7 @@ let settingsRules: [AlignmentRule] = [.sameTrailingPerGroup(.settingsTrailing, t
         },
         settingsScene("settings-connect-norepo", tab: .connect) {
             ConnectTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(
-                config: RelayConfig(source: .local), repo: RepoState(cliFound: false))))
+                config: RelayConfig(source: .local), agents: AgentsState())))
                 .environment(\.panelGallery, PanelGalleryOverrides(now: GalleryFixtures.now))
         },
     ]

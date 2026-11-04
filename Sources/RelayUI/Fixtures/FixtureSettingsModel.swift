@@ -53,29 +53,47 @@ public enum SettingsFixtures {
         config.presence = .away
         return config
     }()
-    public static let repo = RepoState(
-        repoPath: repoPath,
-        mcpCommand: #"claude mcp add --scope user relay -- python3 "$HOME/src/relay/mcp/relay_mcp.py""#,
-        claudeMdAvailable: true, skill: .installed, cliFound: true,
-        lastCall: GalleryFixtures.now.addingTimeInterval(-120))
+    /// Three agents on this Mac: Claude Code and Codex set up, Cursor found and not.
+    public static let agentsStatus = IntegrationStatus(
+        hookVersion: "0.13.0", autoSetup: true, lastSync: GalleryFixtures.now.addingTimeInterval(-3600),
+        harnesses: [
+            agentsHarness("claude-code", "Claude Code", state: .installed),
+            agentsHarness("codex", "Codex", state: .installed),
+            agentsHarness("cursor", "Cursor", state: .notSetUp, managed: false),
+            agentsHarness("zed", "Zed", state: .notSetUp, detected: false, managed: false),
+        ],
+        newlyDetected: ["cursor"])
 
-    /// The setup window's agents page, half done: MCP and the skill in, the hook and CLAUDE.md not.
-    public static let setupRepo: RepoState = {
-        var state = SettingsFixtures.repo
-        state.mcpRegistered = true
+    public static let agents = AgentsState(
+        repoPath: repoPath, lastCall: GalleryFixtures.now.addingTimeInterval(-120), status: agentsStatus)
+
+    /// The setup window's agents page, done: every agent found is set up.
+    public static let agentsDone: AgentsState = {
+        var state = agents
+        state.status?.harnesses = agentsStatus.harnesses.map { harness in
+            var copy = harness
+            if copy.detected { copy.state = .installed; copy.managed = true }
+            return copy
+        }
+        state.status?.newlyDetected = []
         return state
     }()
-    /// Everything connected.
-    public static let setupRepoDone: RepoState = {
-        var state = setupRepo
-        state.hookInstalled = true
-        state.claudeMdInstalled = true
-        return state
-    }()
+
+    static func agentsHarness(_ id: String, _ name: String, state: HarnessState, detected: Bool = true,
+                              managed: Bool = true) -> IntegrationStatus.Harness {
+        let pieceState: PieceState = state == .installed ? .installed : .notSetUp
+        return IntegrationStatus.Harness(
+            id: id, name: name, detected: detected, managed: managed, state: state, verified: "pending",
+            pieces: ["mcp", "skill", "instructions", "replies"].map {
+                IntegrationStatus.Piece(piece: $0, method: "file", state: pieceState, target: nil, key: nil, note: nil,
+                                        diffable: false, reveal: nil)
+            },
+            ownerSteps: [], changes: [])
+    }
 
     public static func snapshot(config: RelayConfig? = mailboxConfig, readOnly: Bool = false, away: Bool = false,
                                 presenceLine: String? = nil,
-                                permission: NotificationPermission = .authorized, repo: RepoState = repo,
+                                permission: NotificationPermission = .authorized, agents: AgentsState = agents,
                                 shortcutLabel: String? = "⌃⌥⌘R",
                                 shortcutProblem: ShortcutProblem? = nil, login: LoginState = LoginState(on: true),
                                 problems: [String] = [],
@@ -97,7 +115,7 @@ public enum SettingsFixtures {
             presenceLine: presenceLine ?? (away ? "Away · screen locked · since 10:22" : "Home · active"), away: away,
             login: login, displays: displays, sourceKey: sourceKey,
             connection: ConnectionStatus.line(sourceKey: sourceKey, reachable: true, loadedOnce: true, waiting: 5, problem: nil),
-            connectionProblems: problems, permission: permission, repo: repo,
+            connectionProblems: problems, permission: permission, agents: agents,
             localQueuePath: "~/Library/Application Support/Relay/queue.json",
             terminals: TerminalChoice.options(installed: [.terminal, .ghostty, .iterm],
                                               current: config?.terminal ?? RelayConfig.automaticTerminal),

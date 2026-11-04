@@ -1,8 +1,9 @@
 import Foundation
 
 /// Runs one command in the user's login shell, off the main actor, with a time cap.
-/// The setup window registers the MCP server this way: a GUI app's PATH lacks what the
-/// login shell adds. stdin is /dev/null, so a prompt can't hang it.
+/// The app runs `relay integrations` this way: a GUI app's PATH (and `*_HOME`) lacks what
+/// the login shell adds, and the harness CLIs live there. stdin is /dev/null, so a prompt
+/// can't hang it.
 public enum LoginShell {
     public struct Outcome: Equatable, Sendable {
         public var status: Int32
@@ -30,14 +31,6 @@ public enum LoginShell {
         await withCheckedContinuation { (continuation: CheckedContinuation<Outcome, Never>) in
             Run(continuation: continuation).start(command: command, shell: shell, timeout: timeout)
         }
-    }
-
-    /// The one line the setup window shows for a failed run.
-    public static func failureLine(_ outcome: Outcome) -> String {
-        if outcome.timedOut { return "No answer within \(Int(defaultTimeout)) seconds" }
-        if outcome.status == 127 { return "The claude command wasn't found" }
-        let last = outcome.output.split(separator: "\n").last.map(String.init) ?? ""
-        return last.isEmpty ? "It stopped with status \(outcome.status)" : Sanitize.revealLine(last)
     }
 }
 

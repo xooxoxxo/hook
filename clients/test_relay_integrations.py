@@ -165,6 +165,37 @@ class SyncTest(Base):
         self.assertEqual(self.w.status()["newlyDetected"], [])
 
 
+    def test_set_auto_setup_answers_in_json(self):
+        rc, out, err = self.w.run("set", "auto-setup", "off", "--json")
+        self.assertEqual(rc, 0, out + err)
+        self.assertEqual(json.loads(out), {"autoSetup": False})
+        self.assertEqual(self.w.status()["autoSetup"], False)
+        rc, out, err = self.w.run("set", "auto-setup", "on", "--json")
+        self.assertEqual(rc, 0, out + err)
+        self.assertEqual(json.loads(out), {"autoSetup": True})
+
+
+class AppFixtureTest(Base):
+    """The app's sample status (Tests/RelayCoreTests/Fixtures/integrations-status.json) has
+    the keys a real `status --json` prints, so the Swift model decodes what the CLI says."""
+
+    FIXTURE = Path(__file__).resolve().parent.parent / "Tests" / "RelayCoreTests" / "Fixtures" / "integrations-status.json"
+
+    def test_the_app_fixture_matches_the_status_shape(self):
+        self.sync()
+        real = self.w.status()
+        sample = json.loads(self.FIXTURE.read_text("utf-8"))
+        self.assertEqual(set(sample), set(real))
+        real_h = real["harnesses"][0]
+        for h in sample["harnesses"]:
+            self.assertEqual(set(h) - {"smoke"}, set(real_h), h["id"])
+            for p in h["pieces"]:
+                self.assertEqual(set(p), set(real_h["pieces"][0]), (h["id"], p["piece"]))
+        states = {p["state"] for h in sample["harnesses"] for p in h["pieces"]}
+        self.assertLessEqual({p["state"] for h in real["harnesses"] for p in h["pieces"]}, states)
+        self.assertLessEqual(set(ri.STATE_ORDER) | {"accepted", "none"}, states)
+
+
 class AcceptDiffTest(Base):
     def drift_block(self):
         self.sync()

@@ -2088,6 +2088,7 @@ def _parser(out: Any = None) -> argparse.ArgumentParser:
     s = sub.add_parser("set", parents=[common], help="a setting")
     s.add_argument("name", choices=["auto-setup"])
     s.add_argument("value", choices=["on", "off"])
+    s.add_argument("--json", action="store_true")
     return p
 
 
@@ -2267,7 +2268,10 @@ def _cmd_write(args, table, manifest, values, run, when, out, err, client_factor
     if args.cmd == "set":
         manifest.data["autoSetup"] = args.value == "on"
         manifest.save()
-        print(f"auto-setup {args.value}", file=out)
+        if args.json:
+            print(json.dumps({"autoSetup": manifest.data["autoSetup"]}, indent=2), file=out)
+        else:
+            print(f"auto-setup {args.value}", file=out)
         return 0
     if args.cmd == "migrate":
         return _cmd_migrate(args, table, manifest, values, run, when, out, client_factory)

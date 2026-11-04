@@ -2,246 +2,7 @@ import Foundation
 import Testing
 @testable import RelayCore
 
-/// A fresh temp folder standing in for HOME; the caller removes it.
-private func tempHome() throws -> URL {
-    let url = FileManager.default.temporaryDirectory
-        .appending(path: "relay-agents-\(UUID().uuidString)", directoryHint: .isDirectory)
-    try FileManager.default.createDirectory(at: url.appending(path: ".claude"), withIntermediateDirectories: true)
-    return url
-}
-
-private func write(_ text: String, to url: URL) throws {
-    try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-    try Data(text.utf8).write(to: url)
-}
-
-private func json(_ url: URL) throws -> [String: Any] {
-    try #require(try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
-}
-
-/// The commands of every UserPromptSubmit hook, in order.
-private func promptCommands(_ object: [String: Any]) -> [String] {
-    let groups = ((object["hooks"] as? [String: Any])?["UserPromptSubmit"] as? [[String: Any]]) ?? []
-    return groups.flatMap { ($0["hooks"] as? [[String: Any]] ?? []).compactMap { $0["command"] as? String } }
-}
-
 @Suite struct AgentSetupTests {
-    @Test func theHookGoesIntoAMissingSettingsFileWithNoBackup() throws {
-        let home = try tempHome()
-        defer { try? FileManager.default.removeItem(at: home) }
-        #expect(!ConnectInfo.repliesHookInstalled(home: home))
-        let result = try ConnectInfo.installRepliesHook(home: home)
-        #expect(result == .added(backup: nil))
-        let settings = try json(ConnectInfo.settingsPath(home: home))
-        #expect(promptCommands(settings) == ["relay replies --new --hook"])
-        let hook = try #require(((settings["hooks"] as? [String: Any])?["UserPromptSubmit"] as? [[String: Any]])?
-            .first?["hooks"] as? [[String: Any]])
-        #expect(hook.first?["type"] as? String == "command" && hook.first?["timeout"] as? Int == 5)
-        #expect(ConnectInfo.repliesHookInstalled(home: home))
-    }
-
-    @Test func theHookMergeKeepsEverythingElseAndABackup() throws {
-        let home = try tempHome()
-        defer { try? FileManager.default.removeItem(at: home) }
-        let path = ConnectInfo.settingsPath(home: home)
-        let before = """
-        {"model": "opus", "permissions": {"allow": ["Bash(ls)"]},
-         "hooks": {"UserPromptSubmit": [{"hooks": [{"type": "command", "command": "other-tool"}]}],
-                   "Stop": [{"hooks": [{"type": "command", "command": "say done"}]}]}}
-        """
-        try write(before, to: path)
-        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path.path)
-        let result = try ConnectInfo.installRepliesHook(home: home)
-        let backup = path.resolvingSymlinksInPath().appendingPathExtension("bak")
-        #expect(result == .added(backup: backup))
-        #expect(try String(contentsOf: backup, encoding: .utf8) == before)
-        let settings = try json(path)
-        #expect(settings["model"] as? String == "opus")
-        #expect((settings["permissions"] as? [String: Any])?["allow"] as? [String] == ["Bash(ls)"])
-        #expect(promptCommands(settings) == ["other-tool", "relay replies --new --hook"])
-        #expect(((settings["hooks"] as? [String: Any])?["Stop"] as? [Any])?.count == 1)
-        let mode = try FileManager.default.attributesOfItem(atPath: path.path)[.posixPermissions] as? Int
-        #expect(mode == 0o600)
-    }
-
-    /// Keys keep their file order (not sorted), and values are written as they were.
-    @Test func theHookMergeKeepsKeyOrder() throws {
-        let home = try tempHome()
-        defer { try? FileManager.default.removeItem(at: home) }
-        let path = ConnectInfo.settingsPath(home: home)
-        try write(#"{"zeta": 1, "model": "opus", "hooks": {"Stop": []}, "alpha": 1.50, "url": "https:\/\/a.example"}"#,
-                  to: path)
-        try ConnectInfo.installRepliesHook(home: home)
-        let text = try String(contentsOf: path, encoding: .utf8)
-        let expected = #"""
-        {
-          "zeta": 1,
-          "model": "opus",
-          "hooks": {
-            "Stop": [],
-            "UserPromptSubmit": [
-              {
-                "hooks": [
-                  {
-                    "type": "command",
-                    "command": "relay replies --new --hook",
-                    "timeout": 5
-                  }
-                ]
-              }
-            ]
-          },
-          "alpha": 1.50,
-          "url": "https:\/\/a.example"
-        }
-
-        """#
-        #expect(text == expected)
-        #expect(ConnectInfo.repliesHookInstalled(home: home))
-    }
-
-    /// settings.json.bak is kept when it exists: the new backup gets a timestamp, and a
-    /// second one in the same second a counter.
-    @Test func anOldBackupIsNeverOverwritten() throws {
-        let home = try tempHome()
-        defer { try? FileManager.default.removeItem(at: home) }
-        let path = ConnectInfo.settingsPath(home: home)
-        let bak = path.appendingPathExtension("bak")
-        try write("old backup", to: bak)
-        try write(#"{"model": "opus"}"#, to: path)
-        // One fixed zone for building the date and for naming the file, so the name is the
-        // same whatever zone the machine runs in.
-        let utc = try #require(TimeZone(identifier: "UTC"))
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = utc
-        var parts = DateComponents()
-        (parts.year, parts.month, parts.day, parts.hour, parts.minute, parts.second) = (2026, 10, 27, 9, 5, 7)
-        let now = try #require(calendar.date(from: parts))
-        let result = try ConnectInfo.installRepliesHook(home: home, now: now, timeZone: utc)
-        let stamped = path.deletingLastPathComponent().appending(path: "settings.json.bak-20261027-090507")
-        #expect(result == .added(backup: stamped))
-        #expect(try String(contentsOf: bak, encoding: .utf8) == "old backup")
-        #expect(try String(contentsOf: stamped, encoding: .utf8) == #"{"model": "opus"}"#)
-        let next = ConnectInfo.backupURL(for: path, now: now, timeZone: utc)
-        #expect(next.lastPathComponent == "settings.json.bak-20261027-090507-2")
-    }
-
-    @Test func aFreeBakNameIsUsedAsIs() throws {
-        let home = try tempHome()
-        defer { try? FileManager.default.removeItem(at: home) }
-        let path = ConnectInfo.settingsPath(home: home)
-        #expect(ConnectInfo.backupURL(for: path, now: Date()).lastPathComponent == "settings.json.bak")
-    }
-
-    @Test func theHookMergeIsIdempotent() throws {
-        let home = try tempHome()
-        defer { try? FileManager.default.removeItem(at: home) }
-        let path = ConnectInfo.settingsPath(home: home)
-        try ConnectInfo.installRepliesHook(home: home)
-        let once = try Data(contentsOf: path)
-        #expect(try ConnectInfo.installRepliesHook(home: home) == .alreadyPresent)
-        #expect(try Data(contentsOf: path) == once)
-        #expect(!FileManager.default.fileExists(atPath: path.path + ".bak"))   // nothing written the second time
-        #expect(promptCommands(try json(path)).count == 1)
-    }
-
-    @Test func aHandWrittenHookCountsAsPresent() throws {
-        let home = try tempHome()
-        defer { try? FileManager.default.removeItem(at: home) }
-        let path = ConnectInfo.settingsPath(home: home)
-        try write(#"{"hooks": {"UserPromptSubmit": [{"hooks": [{"type": "command", "command": "~/.local/bin/hook replies --new --hook"}]}]}}"#, to: path)
-        let before = try Data(contentsOf: path)
-        #expect(ConnectInfo.repliesHookInstalled(home: home))
-        #expect(try ConnectInfo.installRepliesHook(home: home) == .alreadyPresent)
-        #expect(try Data(contentsOf: path) == before)
-    }
-
-    @Test func invalidJSONIsLeftUntouched() throws {
-        let home = try tempHome()
-        defer { try? FileManager.default.removeItem(at: home) }
-        let path = ConnectInfo.settingsPath(home: home)
-        for text in [#"{"model": "opus","#, "[1, 2]", ""] {
-            try write(text, to: path)
-            #expect(throws: AgentSetupError.settingsInvalid("~/.claude/settings.json")) {
-                try ConnectInfo.installRepliesHook(home: home)
-            }
-            #expect(try String(contentsOf: path, encoding: .utf8) == text)
-            #expect(!FileManager.default.fileExists(atPath: path.path + ".bak"))
-        }
-    }
-
-    @Test func hooksOfAnUnknownShapeAreLeftUntouched() throws {
-        let home = try tempHome()
-        defer { try? FileManager.default.removeItem(at: home) }
-        let path = ConnectInfo.settingsPath(home: home)
-        for text in [#"{"hooks": "none"}"#, #"{"hooks": {"UserPromptSubmit": {"x": 1}}}"#] {
-            try write(text, to: path)
-            #expect(throws: AgentSetupError.settingsUnexpected("~/.claude/settings.json")) {
-                try ConnectInfo.installRepliesHook(home: home)
-            }
-            #expect(try String(contentsOf: path, encoding: .utf8) == text)
-        }
-    }
-
-    @Test func aSymlinkedSettingsFileIsWrittenThroughTheLink() throws {
-        let home = try tempHome()
-        defer { try? FileManager.default.removeItem(at: home) }
-        let target = home.appending(path: "dotfiles/settings.json")
-        try write(#"{"model": "opus"}"#, to: target)
-        try FileManager.default.createSymbolicLink(at: ConnectInfo.settingsPath(home: home), withDestinationURL: target)
-        try ConnectInfo.installRepliesHook(home: home)
-        let link = try FileManager.default.destinationOfSymbolicLink(atPath: ConnectInfo.settingsPath(home: home).path)
-        #expect(link == target.path)                                       // still a link
-        #expect(promptCommands(try json(target)) == ["relay replies --new --hook"])
-        #expect(try json(target)["model"] as? String == "opus")
-    }
-
-    @Test func mcpRegisteredReadsTheUserServers() throws {
-        let home = try tempHome()
-        defer { try? FileManager.default.removeItem(at: home) }
-        #expect(!ConnectInfo.mcpRegistered(home: home))
-        try write(#"{"mcpServers": {"other": {}}}"#, to: ConnectInfo.claudeStatePath(home: home))
-        #expect(!ConnectInfo.mcpRegistered(home: home))
-        try write(#"{"mcpServers": {"relay": {"command": "python3"}}}"#, to: ConnectInfo.claudeStatePath(home: home))
-        #expect(ConnectInfo.mcpRegistered(home: home))
-        try write("not json", to: ConnectInfo.claudeStatePath(home: home))
-        #expect(!ConnectInfo.mcpRegistered(home: home))
-    }
-
-    @Test func theMCPShellCommandAddsPathFallbacks() {
-        let command = ConnectInfo.mcpShellCommand(repoPath: "/opt/src/relay")
-        #expect(command.hasPrefix(#"PATH="$HOME/.local/bin:"#))
-        #expect(command.hasSuffix(ConnectInfo.mcpCommand(repoPath: "/opt/src/relay")))
-    }
-
-    @Test func claudeMdCountsAsInstalledByItsHeading() throws {
-        let home = try tempHome()
-        defer { try? FileManager.default.removeItem(at: home) }
-        let repo = home.appending(path: "repo")
-        try write("\n# Owner asks go to Hook\n\nBody.\n", to: repo.appending(path: "docs/claude-md-section.md"))
-        #expect(!ConnectInfo.claudeMdInstalled(home: home, repoPath: repo.path))
-        try write("# Mine\n\nOther notes.\n", to: ConnectInfo.claudeMdPath(home: home))
-        #expect(!ConnectInfo.claudeMdInstalled(home: home, repoPath: repo.path))
-        try write("# Mine\n\n# Owner asks go to Hook\nchanged body\n", to: ConnectInfo.claudeMdPath(home: home))
-        #expect(ConnectInfo.claudeMdInstalled(home: home, repoPath: repo.path))
-    }
-
-    /// The agents page's three checks in one read, which the app runs off the main actor.
-    @Test func agentChecksReadAllThree() async throws {
-        let home = try tempHome()
-        defer { try? FileManager.default.removeItem(at: home) }
-        let repo = home.appending(path: "repo")
-        try write("# Owner asks go to Hook\n", to: repo.appending(path: "docs/claude-md-section.md"))
-        #expect(ConnectInfo.agentChecks(home: home, repoPath: repo.path) == ConnectInfo.AgentChecks())
-        try write(#"{"mcpServers": {"relay": {"command": "python3"}}}"#, to: ConnectInfo.claudeStatePath(home: home))
-        try ConnectInfo.installRepliesHook(home: home)
-        try write("# Owner asks go to Hook\n", to: ConnectInfo.claudeMdPath(home: home))
-        let path = repo.path
-        let checks = await Task.detached { ConnectInfo.agentChecks(home: home, repoPath: path) }.value
-        #expect(checks == ConnectInfo.AgentChecks(mcpRegistered: true, hookInstalled: true, claudeMdInstalled: true))
-        #expect(!ConnectInfo.agentChecks(home: home, repoPath: nil).claudeMdInstalled)
-    }
-
     @Test func theDonationButtonNeedsAnHTTPSLink() {
         #expect(ConnectInfo.donationLink() == URL(string: "https://ko-fi.com/xo-vision"))   // the shipped link
         #expect(ConnectInfo.donationLink("") == nil)
@@ -256,11 +17,23 @@ private func promptCommands(_ object: [String: Any]) -> [String] {
         #expect(outcome.ok && outcome.output == "hello\noops")
     }
 
-    @Test func aFailureKeepsItsStatusAndLastLine() async {
+    @Test func aFailureKeepsItsStatusAndOutput() async {
         let outcome = await LoginShell.run("echo first; echo 'it broke'; exit 3", shell: "/bin/sh", timeout: 10)
         #expect(!outcome.ok && outcome.status == 3 && !outcome.timedOut)
-        #expect(LoginShell.failureLine(outcome) == "it broke")
-        #expect(LoginShell.failureLine(.init(status: 127, output: "", timedOut: false)) == "The claude command wasn't found")
+        #expect(outcome.output == "first\nit broke")
+    }
+
+    /// How IntegrationsRunner keeps the JSON apart from what a login profile prints.
+    @Test func redirectedOutputLandsInItsFiles() async throws {
+        let folder = FileManager.default.temporaryDirectory.appending(path: "relay-shell-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let out = folder.appending(path: "out").path, err = folder.appending(path: "err").path
+        let outcome = await LoginShell.run("echo profile noise; { echo '{}'; echo oops >&2; } >" + Shell.quote(out)
+                                           + " 2>" + Shell.quote(err), shell: "/bin/sh", timeout: 10)
+        #expect(outcome.ok && outcome.output == "profile noise")
+        #expect(try String(contentsOfFile: out, encoding: .utf8) == "{}\n")
+        #expect(try String(contentsOfFile: err, encoding: .utf8) == "oops\n")
     }
 
     @Test func aHungCommandTimesOut() async {

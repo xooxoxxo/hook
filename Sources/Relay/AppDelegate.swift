@@ -76,6 +76,9 @@ import RelayUI
     private var ownerKey: OwnerKeyFlow?
     /// The run marker and the launch check for a crash of the last run.
     private var crash: CrashMonitor?
+    /// The agent integrations' sync: once after launch, then daily (`IntegrationSchedule`).
+    private var agentsSchedule: Task<Void, Never>?
+    private var agentsWakeObserver: (any NSObjectProtocol)?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         HookLog.start()
@@ -196,6 +199,35 @@ import RelayUI
         if pendingShow {
             pendingShow = false
             panel?.present(focus: true, animated: true)
+        }
+        startAgentsSchedule(model: model, store: store)
+    }
+
+    /// `relay integrations sync --if-changed` after `launchDelay` (so launch stays quick), then
+    /// a plain sync whenever a day has passed: checked every `checkEvery` and on wake. A
+    /// dismissed new-harness Notice is remembered, so that harness isn't offered again.
+    private func startAgentsSchedule(model: AppModel, store: Store) {
+        store.onNoticeCleared = { notice in
+            if case .newAgents(let ids, _) = notice { IntegrationNotice.dismiss(ids, in: .standard) }
+        }
+        agentsSchedule?.cancel()
+        agentsSchedule = Task { @MainActor [weak model] in
+            try? await Task.sleep(for: .seconds(IntegrationSchedule.launchDelay))
+            guard !Task.isCancelled, let first = model else { return }
+            await first.syncAgents(ifChanged: true)
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(IntegrationSchedule.checkEvery))
+                guard !Task.isCancelled, let model else { return }
+                if model.agentsSyncDue() { await model.syncAgents(ifChanged: false) }
+            }
+        }
+        if let old = agentsWakeObserver { NSWorkspace.shared.notificationCenter.removeObserver(old) }
+        agentsWakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak model] _ in
+            MainActor.assumeIsolated {
+                guard let model, model.agentsSyncStarted != nil, model.agentsSyncDue() else { return }
+                Task { @MainActor in await model.syncAgents(ifChanged: false) }
+            }
         }
     }
 

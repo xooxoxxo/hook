@@ -91,11 +91,54 @@ private func screen(_ id: String, primary: Bool) -> DockScreen {
         #expect(snapshot.config == nil && snapshot.sourceKey == SourceKey.none && snapshot.displays.isEmpty)
     }
 
-    @Test func aSkillErrorChangesTheRepoState() {
-        #expect(RepoState().skillError == nil)
-        let failed = RepoState(repoPath: "~/src/relay", skillError: "Couldn't install the skill. Disk full.")
-        #expect(failed != RepoState(repoPath: "~/src/relay"))
-        #expect(failed.skillError == "Couldn't install the skill. Disk full.")
+    @Test func anErrorChangesTheAgentsState() {
+        #expect(AgentsState().error == nil && !AgentsState().busy)
+        let failed = AgentsState(repoPath: "~/src/relay", error: "another run holds the lock")
+        #expect(failed != AgentsState(repoPath: "~/src/relay"))
+        #expect(AgentsState(running: .status).busy)
+    }
+
+    @Test func aPieceCommandNamesItsRow() {
+        #expect(AgentsState.key(for: .accept(harness: "zed", piece: "mcp")) == "zed/mcp")
+        #expect(AgentsState.key(for: .diff(harness: "zed", piece: "skill")) == "zed/skill")
+        #expect(AgentsState.key(for: .reinstall(harness: "zed", piece: "replies", force: true)) == "zed/replies")
+        #expect(AgentsState.key(for: .reinstall(harness: "zed", piece: nil, force: true)) == nil)
+        #expect(AgentsState.key(for: .reinstall(harness: nil, piece: nil, force: false)) == nil)
+        #expect(AgentsState.key(for: .accept(harness: "zed", piece: nil)) == nil)
+        #expect(AgentsState.key(for: .sync(ifChanged: false, includeNew: false, harness: "zed")) == nil)
+        #expect(AgentsState.key(for: .status) == nil)
+    }
+
+    @Test func onThisMacPutsClaudeCodeFirstThenByName() {
+        func entry(_ id: String, _ name: String, detected: Bool, managed: Bool) -> IntegrationStatus.Harness {
+            IntegrationStatus.Harness(id: id, name: name, detected: detected, managed: managed, state: .installed,
+                                      verified: "pending", pieces: [], ownerSteps: [], changes: [])
+        }
+        let status = IntegrationStatus(harnesses: [
+            entry("zed", "Zed", detected: true, managed: true),
+            entry("amp", "Amp", detected: false, managed: false),
+            entry("pi", "pi", detected: false, managed: true),
+            entry("claude-code", "Claude Code", detected: true, managed: true),
+            entry("codex", "Codex", detected: true, managed: false),
+        ])
+        #expect(AgentsState(status: status).onThisMac.map(\.id) == ["claude-code", "codex", "pi", "zed"])
+        #expect(AgentsState().onThisMac.isEmpty)
+    }
+
+    @Test func theAgentsPageIsDoneWhenNoDetectedHarnessIsNotSetUp() {
+        func entry(_ id: String, detected: Bool, _ state: HarnessState) -> IntegrationStatus.Harness {
+            IntegrationStatus.Harness(id: id, name: id, detected: detected, managed: state != .notSetUp, state: state,
+                                      verified: "pending", pieces: [], ownerSteps: [], changes: [])
+        }
+        #expect(!AgentsState().allSetUp)                                    // not read yet
+        #expect(AgentsState(status: IntegrationStatus()).allSetUp)          // nothing found
+        let done = IntegrationStatus(harnesses: [entry("a", detected: true, .installed),
+                                                 entry("b", detected: true, .needsOwner),
+                                                 entry("c", detected: false, .notSetUp)])
+        #expect(AgentsState(status: done).allSetUp)
+        var open = done
+        open.harnesses.append(entry("d", detected: true, .notSetUp))
+        #expect(!AgentsState(status: open).allSetUp)
     }
 
     @Test func shortcutProblemsHaveTheSpecTexts() {

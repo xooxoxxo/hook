@@ -97,46 +97,59 @@ public struct LoginState: Equatable, Sendable {
     }
 }
 
-/// What Settings → Connect and the setup window show, read from `repoPath` and the home folder.
-public struct RepoState: Equatable, Sendable {
+/// What Settings › Agents and the setup window's agents page show: the last
+/// `relay integrations status`, and the command running now.
+public struct AgentsState: Equatable, Sendable {
     public var repoPath: String?
-    public var mcpCommand: String?
-    public var claudeMdAvailable: Bool
-    public var skill: ConnectInfo.SkillState?
-    public var cliFound: Bool
+    /// The MCP server's last authenticated call (This Mac only).
     public var lastCall: Date?
-    /// The last failed skill install, one sentence; nil after a successful one.
-    public var skillError: String?
-    /// ~/.claude.json lists the relay MCP server (user scope).
-    public var mcpRegistered: Bool
-    /// The setup window's Register is running in the login shell.
-    public var mcpBusy: Bool
-    /// The last failed Register, one sentence; nil after a successful one.
-    public var mcpError: String?
-    /// ~/.claude/settings.json has the replies hook.
-    public var hookInstalled: Bool
-    /// The last failed hook merge, one sentence.
-    public var hookError: String?
-    /// ~/.claude/CLAUDE.md holds the section's heading.
-    public var claudeMdInstalled: Bool
-    public init(repoPath: String? = nil, mcpCommand: String? = nil, claudeMdAvailable: Bool = false,
-                skill: ConnectInfo.SkillState? = nil, cliFound: Bool = false, lastCall: Date? = nil,
-                skillError: String? = nil, mcpRegistered: Bool = false, mcpBusy: Bool = false,
-                mcpError: String? = nil, hookInstalled: Bool = false, hookError: String? = nil,
-                claudeMdInstalled: Bool = false) {
+    /// nil until the first status has been read.
+    public var status: IntegrationStatus?
+    /// The command running now; a newer one waits for it.
+    public var running: IntegrationCommand?
+    /// The last failed command or status read, one line; nil after one that worked.
+    public var error: String?
+    /// A failed piece command's first line, by `AgentsState.key(harness:piece:)`.
+    public var pieceErrors: [String: String]
+
+    public init(repoPath: String? = nil, lastCall: Date? = nil, status: IntegrationStatus? = nil,
+                running: IntegrationCommand? = nil, error: String? = nil, pieceErrors: [String: String] = [:]) {
         self.repoPath = repoPath
-        self.mcpCommand = mcpCommand
-        self.claudeMdAvailable = claudeMdAvailable
-        self.skill = skill
-        self.cliFound = cliFound
         self.lastCall = lastCall
-        self.skillError = skillError
-        self.mcpRegistered = mcpRegistered
-        self.mcpBusy = mcpBusy
-        self.mcpError = mcpError
-        self.hookInstalled = hookInstalled
-        self.hookError = hookError
-        self.claudeMdInstalled = claudeMdInstalled
+        self.status = status
+        self.running = running
+        self.error = error
+        self.pieceErrors = pieceErrors
+    }
+
+    public var busy: Bool { running != nil }
+
+    public static func key(harness: String, piece: String) -> String { harness + "/" + piece }
+
+    /// The piece row a command belongs to, when it names one (the Fix… menu's commands).
+    public static func key(for command: IntegrationCommand) -> String? {
+        switch command {
+        case .accept(let harness, let piece?), .diff(let harness, let piece?),
+             .reinstall(let harness?, let piece?, _):
+            return key(harness: harness, piece: piece)
+        default:
+            return nil
+        }
+    }
+
+    /// The setup window's agents page is done: the status is read and no detected harness is
+    /// still "Not set up".
+    public var allSetUp: Bool {
+        guard let status else { return false }
+        return !status.harnesses.contains { $0.detected && $0.state == .notSetUp }
+    }
+
+    /// The harnesses on this Mac (detected, or set up by Hook): Claude Code first, then by name.
+    public var onThisMac: [IntegrationStatus.Harness] {
+        (status?.harnesses ?? []).filter { $0.detected || $0.managed }.sorted { a, b in
+            if (a.id == "claude-code") != (b.id == "claude-code") { return a.id == "claude-code" }
+            return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+        }
     }
 }
 
@@ -174,7 +187,7 @@ public struct SettingsSnapshot: Equatable {
     public var connection: ConnectionLine
     public var connectionProblems: [String]
     public var permission: NotificationPermission
-    public var repo: RepoState
+    public var agents: AgentsState
     public var localQueuePath: String?
     /// The Terminal picker: Automatic, then the installed terminals.
     public var terminals: [TerminalChoice]
@@ -196,7 +209,7 @@ public struct SettingsSnapshot: Equatable {
                 connection: ConnectionLine = ConnectionStatus.line(
                     sourceKey: SourceKey.none, reachable: false, loadedOnce: false, waiting: 0, problem: nil),
                 connectionProblems: [String] = [], permission: NotificationPermission = .notDetermined,
-                repo: RepoState = RepoState(), localQueuePath: String? = nil,
+                agents: AgentsState = AgentsState(), localQueuePath: String? = nil,
                 terminals: [TerminalChoice] = [], mailbox: MailboxVersionLine? = nil,
                 documentAppName: String? = nil, install: InstallLine? = nil,
                 privacy: PrivacyLine = PrivacyLine(),
@@ -214,7 +227,7 @@ public struct SettingsSnapshot: Equatable {
         self.connection = connection
         self.connectionProblems = connectionProblems
         self.permission = permission
-        self.repo = repo
+        self.agents = agents
         self.localQueuePath = localQueuePath
         self.terminals = terminals
         self.mailbox = mailbox
@@ -265,13 +278,14 @@ public struct PrivacyLine: Equatable, Sendable {
 
 /// What a Settings or Welcome control asks the app to do.
 public enum SettingsAction: Equatable {
-    case showConfigInFinder, showQueueInFinder, chooseTokenFile, chooseRepoFolder, installSkill, copyClaudeMdSection
+    case showConfigInFinder, showQueueInFinder, chooseTokenFile, chooseRepoFolder
     case redockNow, requestNotifications, openNotificationSettings, sendTestNotification, openLoginItems, setLogin(Bool)
     case beginShortcut, recordShortcut(HotkeySpec?), cancelShortcut, clearShortcut, showAsk(String), switchTab(SettingsTabID), showPanel
-    /// Setup window: register the MCP server in the login shell; merge the replies hook
-    /// into ~/.claude/settings.json; copy a text; open the Support Hook link.
-    /// `checkAgents` re-reads what the agents page shows.
-    case checkAgents, registerMCP, installRepliesHook, copyText(String), openDonation
+    /// Copy a text; open the Support Hook link.
+    case copyText(String), openDonation
+    /// Settings › Agents and the setup window: read `relay integrations status` again; run a
+    /// command (then read the status again); a harness row's own button.
+    case refreshAgents, integration(IntegrationCommand), agentAction(HarnessAction)
     /// Settings › Queue: read the mailbox's version now; run Update Mailbox….
     case checkMailbox, updateMailbox
     /// Settings › General › Open documents in › Other App…: pick an app and save it.

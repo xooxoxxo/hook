@@ -1,0 +1,166 @@
+{
+  "schema": 1,
+  "hookVersion": "0.13.0",
+  "tableChecked": "2026-11-03",
+  "autoSetup": false,
+  "lastSync": "2026-11-04T09:30:00Z",
+  "linkRoot": "~/.local/share/hook/current",
+  "harnesses": [
+    {
+      "id": "claude-code",
+      "name": "Claude Code",
+      "detected": true,
+      "managed": true,
+      "state": "installed",
+      "verified": "pending",
+      "pieces": [
+        {"piece": "mcp", "method": "cli", "state": "installed", "target": "~/.claude.json", "key": "mcpServers.relay",
+         "note": null, "diffable": false, "reveal": "~/.claude.json"},
+        {"piece": "skill", "method": "plugin", "state": "installed", "target": "~/.local/share/hook/plugins/claude-code",
+         "key": null, "note": null, "diffable": false, "reveal": "~/.local/share/hook/plugins/claude-code"},
+        {"piece": "instructions", "method": "file", "state": "accepted", "target": "~/.claude/rules/hook.md",
+         "key": null, "note": "your edit is kept", "diffable": false, "reveal": "~/.claude/rules/hook.md"},
+        {"piece": "replies", "method": "plugin", "state": "installed", "target": "~/.local/share/hook/plugins/claude-code",
+         "key": null, "note": null, "diffable": false, "reveal": "~/.local/share/hook/plugins/claude-code"}
+      ],
+      "ownerSteps": [],
+      "changes": [
+        {"path": "~/.claude.json", "what": "command mcp"},
+        {"path": "~/.claude/rules/hook.md", "what": "file"}
+      ]
+    },
+    {
+      "id": "codex",
+      "name": "Codex",
+      "detected": true,
+      "managed": true,
+      "state": "needs-owner",
+      "verified": "pending",
+      "pieces": [
+        {"piece": "mcp", "method": "cli", "state": "installed", "target": "~/.codex/config.toml", "key": "mcp_servers.relay",
+         "note": null, "diffable": false, "reveal": "~/.codex/config.toml"},
+        {"piece": "skill", "method": "copy", "state": "installed", "target": "~/.agents/skills/instructables",
+         "key": null, "note": null, "diffable": false, "reveal": "~/.agents/skills/instructables"},
+        {"piece": "instructions", "method": "block", "state": "installed", "target": "~/.codex/AGENTS.md",
+         "key": null, "note": null, "diffable": false, "reveal": "~/.codex/AGENTS.md"},
+        {"piece": "replies", "method": "key", "state": "needs-owner", "target": "~/.codex/hooks.json",
+         "key": "hooks.UserPromptSubmit", "note": "only you can do this step", "diffable": false,
+         "reveal": "~/.codex/hooks.json"}
+      ],
+      "ownerSteps": [
+        {"id": "codex-trust", "title": "Trust Hook's replies hook in Codex", "askId": "7c1d2e3f-0000-4000-8000-000000000001",
+         "state": "open"}
+      ],
+      "changes": [{"path": "~/.codex/AGENTS.md", "what": "block instructions"}]
+    },
+    {
+      "id": "cursor",
+      "name": "Cursor",
+      "detected": true,
+      "managed": false,
+      "state": "not-set-up",
+      "verified": "pending",
+      "pieces": [
+        {"piece": "mcp", "method": "plugin", "state": "not-set-up", "target": "~/.cursor/plugins/local/hook",
+         "key": null, "note": null, "diffable": false, "reveal": "~/.cursor"},
+        {"piece": "skill", "method": "plugin", "state": "not-set-up", "target": "~/.cursor/plugins/local/hook",
+         "key": null, "note": null, "diffable": false, "reveal": "~/.cursor"},
+        {"piece": "instructions", "method": "plugin", "state": "not-set-up", "target": "~/.cursor/plugins/local/hook",
+         "key": null, "note": null, "diffable": false, "reveal": "~/.cursor"},
+        {"piece": "replies", "method": "plugin", "state": "not-set-up", "target": "~/.cursor/plugins/local/hook",
+         "key": null, "note": null, "diffable": false, "reveal": null}
+      ],
+      "ownerSteps": [],
+      "changes": []
+    },
+    {
+      "id": "gemini-cli",
+      "name": "Gemini CLI",
+      "detected": true,
+      "managed": true,
+      "state": "outdated",
+      "verified": "pending",
+      "pieces": [
+        {"piece": "mcp", "method": "plugin", "state": "outdated", "target": "~/.local/share/hook/plugins/gemini-cli",
+         "key": null, "note": null, "diffable": false, "reveal": "~/.local/share/hook/plugins/gemini-cli"},
+        {"piece": "skill", "method": "plugin", "state": "outdated", "target": "~/.local/share/hook/plugins/gemini-cli",
+         "key": null, "note": null, "diffable": false, "reveal": "~/.local/share/hook/plugins/gemini-cli"},
+        {"piece": "instructions", "method": "plugin", "state": "installed", "target": "~/.local/share/hook/plugins/gemini-cli",
+         "key": null, "note": null, "diffable": false, "reveal": "~/.local/share/hook/plugins/gemini-cli"},
+        {"piece": "replies", "method": "plugin", "state": "installed", "target": "~/.local/share/hook/plugins/gemini-cli",
+         "key": null, "note": null, "diffable": false, "reveal": "~/.local/share/hook/plugins/gemini-cli"}
+      ],
+      "ownerSteps": [],
+      "changes": [{"path": "~/.local/share/hook/plugins/gemini-cli", "what": "plugin"}]
+    },
+    {
+      "id": "opencode",
+      "name": "OpenCode",
+      "detected": true,
+      "managed": true,
+      "state": "drifted",
+      "verified": "pending",
+      "pieces": [
+        {"piece": "mcp", "method": "key", "state": "drifted", "target": "~/.config/opencode/opencode.json", "key": "mcp.relay",
+         "note": "edited by you", "diffable": true, "reveal": "~/.config/opencode/opencode.json"},
+        {"piece": "skill", "method": "copy", "state": "foreign", "target": "~/.agents/skills/instructables",
+         "key": null, "note": "~/.agents/skills/instructables is there and is not Hook's", "diffable": true,
+         "reveal": "~/.agents/skills/instructables"},
+        {"piece": "instructions", "method": "key", "state": "installed", "target": "~/.config/opencode/opencode.json",
+         "key": "instructions", "note": null, "diffable": false, "reveal": "~/.config/opencode/opencode.json"},
+        {"piece": "replies", "method": "cli", "state": "drifted", "target": "~/.config/opencode/plugins/hook.ts",
+         "key": null, "note": "edited by you", "diffable": false, "reveal": "~/.config/opencode/plugins"}
+      ],
+      "ownerSteps": [],
+      "changes": [{"path": "~/.config/opencode/opencode.json", "what": "key mcp.relay"}],
+      "smoke": {"ok": true, "checks": []}
+    },
+    {
+      "id": "zed",
+      "name": "Zed",
+      "detected": true,
+      "managed": true,
+      "state": "blocked",
+      "verified": "pending",
+      "pieces": [
+        {"piece": "mcp", "method": "key", "state": "blocked", "target": "~/.config/zed/settings.json",
+         "key": "context_servers.relay", "note": "~/.config/zed/settings.json doesn't parse", "diffable": false,
+         "reveal": "~/.config/zed/settings.json"},
+        {"piece": "skill", "method": "copy", "state": "installed", "target": "~/.agents/skills/instructables",
+         "key": null, "note": null, "diffable": false, "reveal": "~/.agents/skills/instructables"},
+        {"piece": "instructions", "method": "block", "state": "installed", "target": "~/.config/zed/AGENTS.md",
+         "key": null, "note": null, "diffable": false, "reveal": "~/.config/zed/AGENTS.md"},
+        {"piece": "replies", "method": "none", "state": "none", "target": null, "key": null,
+         "note": "Zed has no per-prompt hook", "diffable": false, "reveal": null}
+      ],
+      "ownerSteps": [],
+      "changes": [{"path": "~/.config/zed/AGENTS.md", "what": "block instructions"}]
+    },
+    {
+      "id": "warp",
+      "name": "Warp",
+      "detected": false,
+      "managed": false,
+      "state": "not-set-up",
+      "verified": "docs-only",
+      "pieces": [
+        {"piece": "mcp", "method": "key", "state": "not-set-up", "target": "~/.warp/mcp.json", "key": "mcpServers.relay",
+         "note": null, "diffable": false, "reveal": null},
+        {"piece": "skill", "method": "copy", "state": "not-set-up", "target": "~/.agents/skills/instructables",
+         "key": null, "note": null, "diffable": false, "reveal": null},
+        {"piece": "instructions", "method": "owner", "state": "not-set-up", "target": null, "key": null,
+         "note": null, "diffable": false, "reveal": null},
+        {"piece": "replies", "method": "none", "state": "none", "target": null, "key": null,
+         "note": "Warp has no per-prompt hook", "diffable": false, "reveal": null}
+      ],
+      "ownerSteps": [],
+      "changes": []
+    }
+  ],
+  "newlyDetected": ["cursor"],
+  "migrations": [
+    {"id": "claude-md", "state": "proposed", "askId": "7c1d2e3f-0000-4000-8000-000000000002",
+     "path": "~/.claude/CLAUDE.md", "backup": null, "note": null}
+  ],
+  "errors": []
+}

@@ -67,6 +67,8 @@ public enum PanelNotice: Equatable, Sendable {
     case acceptFailed(id: String, title: String, reason: String)
     /// What a crash report send did ("Sent to your Pond.", "Comment copied. Paste it on the issue.").
     case crashReport(message: String)
+    /// Harnesses found while "Set up new agents automatically" is off (`IntegrationNotice`).
+    case newAgents(ids: [String], names: [String])
 
     /// The open ask this Notice is about, when it belongs to that ask's detail: it goes when
     /// the owner leaves the ask and never shows on the queue.
@@ -94,7 +96,7 @@ public enum PanelNotice: Equatable, Sendable {
              .mailboxUpdateFailed, .mailboxUpdateCommandInvalid, .ownerKeyRefused, .historyChanged, .acceptFailed,
              .reviewRecordsChanged, .reviewRecordsUnreadable: return .error
         case .settingsReloaded, .sessionClosed, .noLongerOpen, .offlineCached, .updating, .hookOlder,
-             .mailboxUpToDate, .corrected, .doneHeldBack, .crashReport: return .info
+             .mailboxUpToDate, .corrected, .doneHeldBack, .crashReport, .newAgents: return .info
         }
     }
 
@@ -147,6 +149,8 @@ public enum PanelNotice: Equatable, Sendable {
             return "Done was held back: “\(Sanitize.revealLine(title))” was corrected."
         case .crashReport(let message):
             return message
+        case .newAgents(_, let names):
+            return IntegrationNotice.text(names: names.map(Sanitize.revealLine))
         case let .acceptFailed(_, title, reason):
             return "The Pond didn't take your review of “\(Sanitize.revealLine(title))” yet: "
                 + "\(UserFacingError.text(reason)) Hook sends it again before Done or answers."
@@ -164,6 +168,7 @@ public enum PanelNotice: Equatable, Sendable {
         case .hookOlder: return "Check for Updates"
         case .corrected: return "Review Changes"
         case .historyChanged: return "Trust the Pond's History Again…"
+        case .newAgents: return "Open Settings"
         case .reviewRecordsUnreadable: return "Reset Review Records…"
         case .storeFailed, .settingsReloaded, .updating, .resumeFailed, .mailboxUpToDate, .mailboxUpdateFailed,
              .mailboxUpdateCommandInvalid, .ownerKeyRefused, .reviewRecordsChanged,

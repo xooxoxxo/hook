@@ -67,17 +67,23 @@ final class ServerRouting: Sendable {
     /// Re-reads `permission` whenever Hook becomes active; set once by `watchPermission()`.
     var permissionObserver: (any NSObjectProtocol)?
     var loginError: String?
-    var skillError: String?
-    /// The setup window's agent checks; read on `.checkAgents` and after each setup action,
-    /// not on every refresh (~/.claude.json can be large).
-    var mcpRegistered = false
-    var mcpBusy = false
-    var mcpError: String?
-    var hookInstalled = false
-    var hookError: String?
-    var claudeMdInstalled = false
-    /// Bumped by each `checkAgents`; an older check's late results are dropped.
-    var agentCheckGeneration = 0
+    /// `relay integrations`, run in the login shell, one command at a time.
+    lazy var integrations = IntegrationsRunner { [weak self] in
+        self?.config?.repoPath?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+    }
+    /// The last `relay integrations status`; read at launch, after each command and when
+    /// Settings › Agents or the setup window's agents page opens, not on every refresh.
+    var agentsStatus: IntegrationStatus?
+    /// The commands started and not finished yet, oldest first (they run one at a time).
+    var agentsRunning: [IntegrationCommand] = []
+    /// The last failed command or status read, one line.
+    var agentsError: String?
+    /// A failed piece command's first line, by `AgentsState.key(harness:piece:)`.
+    var agentsPieceErrors: [String: String] = [:]
+    /// When the app last started a sync, so a sync that keeps failing waits a day too.
+    var agentsSyncStarted: Date?
+    /// New-harness ids already offered in a Notice in this run.
+    var agentsNoticed: Set<String> = []
     /// The installed terminals for the Terminal picker, and when they were last looked up.
     var installedTerminals: Set<TerminalKind> = []
     var terminalsCheckedAt: Date?
