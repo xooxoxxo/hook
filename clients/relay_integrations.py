@@ -1256,7 +1256,8 @@ class Applier:
                 if outcome == "skipped":
                     self._note_drift(action)
                 self._clear_failure(action)
-                self.report.add(action, outcome, action.detail.get("note") if outcome in ("skipped", "left") else None)
+                noted = outcome in ("skipped", "left", "restored")
+                self.report.add(action, outcome, action.detail.get("note") if noted else None)
             except _Blocked as exc:
                 self.report.add(action, "blocked", str(exc))
             except (ed.ParseError,) as exc:
@@ -1341,7 +1342,10 @@ class Applier:
             self._unbind(action.harness, d["key"])
             return "released"
         if kind == "remove":
-            self.remove(d["item"], d["key"])
+            note = self.remove(d["item"], d["key"])
+            if note:
+                d["note"] = note
+                return "restored"
             return "removed"
         item = d["item"]
         old_sha = (item.record or {}).get("sha")
@@ -1414,13 +1418,18 @@ class Applier:
     def _write_file(self, item: Item, rec: Dict[str, Any], force: bool) -> Dict[str, Any]:
         path = item.path
         backup = rec.get("backup")
-        if force and (path.exists() or path.is_symlink()):
+        existed = path.exists() or path.is_symlink()
+        # A file Hook has no record of is someone's, even when it reads like Hook's: keep a
+        # copy, so a remove can put it back.
+        if existed and (force or not rec):
             if path.is_dir() and not path.is_symlink():
-                backup = str(_backup_tree(path, self.values, self.now))
+                made = str(_backup_tree(path, self.values, self.now))
                 shutil.rmtree(path)
             else:
-                backup = self._backup_file(path) or backup
-        created = rec.get("created", not path.exists())
+                made = self._backup_file(path)
+            if not (rec.get("created") is False and backup):   # keep the copy of the file from before Hook
+                backup = made or backup
+        created = rec.get("created", not existed)
         dirs = rec.get("dirs") or self._made(_mkparents(path))
         ed.atomic_write(path, item.payload)
         return {"sha": _sha(item.payload), "backup": backup, "created": created, "dirs": dirs}
@@ -1545,16 +1554,22 @@ class Applier:
 
     # --- removing one target ---
 
-    def remove(self, item: Item, key: str) -> None:
+    def remove(self, item: Item, key: str) -> Optional[str]:
+        """Remove the target and forget its record; a note when it put back an earlier file."""
         rec = self.manifest.targets.get(key) or {}
         m = rec.get("kind", item.method)
         path = Path(rec["path"]) if rec.get("path") else None
         forced = item.state in ("drifted", "accepted", "foreign")
+        note = None
         if m == "file" and path is not None:
             if path.exists() or path.is_symlink():
                 if forced and path.is_file():
                     self._backup_file(path)
-                path.unlink()
+                _remove_path(path)
+            earlier = Path(rec["backup"]) if rec.get("created") is False and rec.get("backup") else None
+            if earlier is not None and (earlier.exists() or earlier.is_symlink()):
+                shutil.move(str(earlier), str(path))           # the file that was there before Hook's
+                note = "your earlier file is back"
         elif m in ("copy", "plugin") and path is not None:
             if m == "plugin":
                 for argv in rec.get("remove") or []:
@@ -1586,6 +1601,7 @@ class Applier:
         self.manifest.forget(key)
         for hid in list(self.manifest.harnesses):
             self._unbind(hid, key)
+        return note
 
     def _unedit(self, rec: Dict[str, Any], text: str, item: Item) -> str:
         piece = rec.get("piece", item.piece)

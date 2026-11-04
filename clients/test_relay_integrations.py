@@ -411,6 +411,32 @@ class RemoveTest(Base):
         self.assertEqual(rc, 0, out + err)
         self.assertFalse(rules.exists())
 
+    def test_an_unrecorded_hookish_file_gets_a_backup_and_comes_back_on_remove(self):
+        mine = "# My notes\n\nRun `relay replies --new` after each answer.\n"
+        rules = write(self.home / ".beta" / "rules" / "hook.md", mine)
+        self.sync()
+        self.assertNotEqual(rules.read_text(), mine)
+        bak = rules.with_name("hook.md.bak")
+        self.assertEqual(bak.read_text(), mine)
+        rec = next(r for r in self.w.manifest()["targets"].values() if r.get("path") == str(rules))
+        self.assertIs(rec["created"], False)
+        rc, out, err = self.w.run("remove", "--harness", "beta")
+        self.assertEqual(rc, 0, out + err)
+        self.assertEqual(rules.read_text(), mine)
+        self.assertFalse(bak.exists())
+        self.assertIn("restored ~/.beta/rules/hook.md", out)
+
+    def test_an_edited_unrecorded_file_keeps_both_copies_on_forced_remove(self):
+        mine = "relay replies --new\n"
+        rules = write(self.home / ".beta" / "rules" / "hook.md", mine)
+        self.sync()
+        rules.write_text("Hook's text, edited\n")
+        rc, out, err = self.w.run("remove", "--harness", "beta", "--force")
+        self.assertEqual(rc, 0, out + err)
+        self.assertEqual(rules.read_text(), mine)
+        edited = [p for p in rules.parent.iterdir() if p.name.startswith("hook.md.bak")]
+        self.assertEqual([p.read_text() for p in edited], ["Hook's text, edited\n"])
+
 
 class StatusTest(Base):
     def test_status_shape(self):
