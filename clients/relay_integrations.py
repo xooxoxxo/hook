@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import dataclasses
 import difflib
 import fcntl
 import hashlib
@@ -65,6 +66,7 @@ IF_CHANGED_AGE = timedelta(hours=24)
 ABSENT = "absent"                 # the sha of a target that isn't there (for accept)
 HOOKISH = ("relay_mcp.py", "hook replies", "relay replies", "/integration/instructions/hook.md", "hook:instructions")
 DIFFABLE = ("block", "key", "file", "copy")
+EMPTY_SHAPE = re.compile(r"\ufeff?[ \t\r\n]{0,64}(?:\{[ \t\r\n]{0,64}\}[ \t\r\n]{0,64})?")
 
 
 class TableError(Exception):
@@ -552,6 +554,8 @@ class Item:
     unavailable: Optional[str] = None
     failed: Optional[str] = None    # the last apply failed with this note
     plugin_item: Optional["Item"] = None
+    moved_from: Optional[str] = None  # the record Hook wrote before a `prefer` file filled up
+    moved_item: Optional["Item"] = None
 
 
 def _want(values: Values, content: str, extra: str = "") -> str:
@@ -695,13 +699,21 @@ class Context:
             path = expand(alt["path"], ph, home)
             info = ((self.manifest.harnesses.get(item.harness) or {}).get("pieces") or {}).get(item.piece) or {}
             recorded = info.get("target")
+            preferred = None
             for raw in alt.get("prefer") or []:
                 cand = expand(raw, ph, home)
                 if cand.is_file() and cand.stat().st_size > 0:
-                    path = cand
+                    preferred = cand
                     break
+            path = preferred or path
             if recorded and recorded in self.manifest.targets and info.get("method") == m:
-                path = Path(self.manifest.targets[recorded].get("path", path))
+                was = Path(self.manifest.targets[recorded].get("path", path))
+                if preferred is not None and preferred != was and not _same(preferred, was):
+                    # The harness reads the first non-empty `prefer` file, and one has filled up
+                    # since Hook wrote into `was` (Codex: AGENTS.override.md over AGENTS.md).
+                    item.moved_from = recorded
+                else:
+                    path = was
             item.path = path
             item.fmt = alt.get("format")
             item.keypath = list(alt.get("key") or []) or None
@@ -756,6 +768,26 @@ class Context:
             item.state, item.note = "blocked", _os_note(exc, self.values.home)
             return
         self._state(item)
+        if item.moved_from is not None:
+            self._moved(item)
+
+    def _moved(self, item: Item) -> None:
+        """The item's file is now a `prefer` file other than the one Hook wrote: outdated (the
+        next sync moves Hook's piece there), or drifted when Hook's piece in the old file was
+        edited (moved only with --force)."""
+        rec = self.manifest.targets[item.moved_from]
+        old = _record_item(self, item.harness, item.moved_from, rec)
+        item.moved_item = old
+        was, now = self.tilde(rec.get("path")), self.tilde(item.path)
+        reads = f"{now} is the file it reads now"
+        if old.state in ("drifted", "blocked"):
+            item.state = "drifted"
+            item.note = f"{reads}; Hook's {item.piece} in {was} is edited by you, so Hook won't move it"
+        elif item.state == "not-set-up" or (item.state == "foreign" and item.method == "block"):
+            item.state, item.adopt = "outdated", False
+            item.note = f"{reads}; the next sync moves Hook's {item.piece} there from {was}"
+        else:
+            item.note = f"{reads}, not {was}" + (f"; {item.note}" if item.note else "")
 
     def _desired(self, item: Item) -> None:
         v, alt, ph, m = self.values, item.alt or {}, item.ph, item.method
@@ -1349,6 +1381,8 @@ class Applier:
             return "removed"
         item = d["item"]
         old_sha = (item.record or {}).get("sha")
+        if item.moved_from is not None and item.moved_from in self.manifest.targets:
+            self._move_out(item, kind == "force")
         record = self.write(item, kind)
         if kind != "adopt" and (item.record is None or record.get("sha") != old_sha):
             self.report.changed.setdefault(item.harness, []).append(item.piece)
@@ -1373,6 +1407,20 @@ class Applier:
         self._bind(item, item.key)
         return {"install": "installed", "update": "updated", "replace": "replaced", "force": "overwritten",
                 "adopt": "recorded"}[kind]
+
+    def _move_out(self, item: Item, force: bool) -> None:
+        """Take Hook's piece out of the file it wrote before a `prefer` file filled up; a target
+        another harness shares is only released."""
+        key = item.moved_from
+        rec = self.manifest.targets[key]
+        if [o for o in rec.get("owners") or [] if o != item.harness]:
+            self.manifest.disown(key, item.harness)
+            self._unbind(item.harness, key)
+            return
+        old = item.moved_item or _record_item(self.ctx, item.harness, key, rec)
+        if old.state in ("drifted", "blocked") and not force:
+            raise _Fail(f"Hook's {item.piece} in {self.ctx.tilde(rec.get('path'))} is edited by you")
+        self.remove(old, key)
 
     def _unbind(self, hid: str, key: str) -> None:
         h = self.manifest.harnesses.get(hid)
@@ -1454,9 +1502,14 @@ class Applier:
         first = not rec
         prune = rec.get("prune", 0)
         alt = item.alt or {}
+        empty = rec.get("empty")
         if item.method == "block":
             new = ed.md_set_block(text, item.piece, item.payload, self.values.schema)
         elif item.fmt in ("json", "jsonc"):
+            if first and not item.replace and existed and EMPTY_SHAPE.fullmatch(text):
+                # `{ }`, `{\n}\n`, a newline: a remove gives these bytes back. Only braces and
+                # whitespace are kept, never a comment (a comment-only object round-trips anyway).
+                empty = text
             if text.strip():
                 ed.loads_jsonc(text)
             keypath = item.keypath or []
@@ -1486,7 +1539,10 @@ class Applier:
         if new != text or not existed:
             ed.atomic_write(path, new.encode("utf-8"))
         item.disk = item.content
-        return {"sha": item.content, "backup": backup, "created": created, "dirs": dirs, "prune": prune}
+        out = {"sha": item.content, "backup": backup, "created": created, "dirs": dirs, "prune": prune}
+        if empty is not None:
+            out["empty"] = empty
+        return out
 
     def _confirm(self, item: Item, what: str) -> Optional[str]:
         """The sha of what a command wrote at its `writes` location (None without one)."""
@@ -1611,9 +1667,11 @@ class Applier:
         if fmt in ("json", "jsonc"):
             if not text.strip():
                 return text
+            restore = rec.get("empty") if isinstance(rec.get("empty"), str) else None
             if rec.get("op") == "append":
-                return ed.json_remove_matching(text, keypath, _matcher(rec["match"]), prune=rec.get("prune", 0))
-            return ed.json_delete(text, keypath, prune=rec.get("prune", 0))
+                return ed.json_remove_matching(text, keypath, _matcher(rec["match"]), prune=rec.get("prune", 0),
+                                               restore=restore)
+            return ed.json_delete(text, keypath, prune=rec.get("prune", 0), restore=restore)
         if fmt == "toml":
             return ed.toml_remove_table(text, piece)
         if fmt == "yaml":
@@ -1925,6 +1983,9 @@ def _pretty(value: Any) -> str:
 
 
 def _diff(ctx: Context, item: Item) -> str:
+    if item.moved_item is not None and item.state == "drifted" and item.moved_item.path is not None:
+        # The edit is in the file Hook wrote before the `prefer` file filled up: compare that one.
+        item = dataclasses.replace(item, path=item.moved_item.path, moved_item=None)
     label = _target_label(ctx, item)
     m = item.method
     if m == "block":

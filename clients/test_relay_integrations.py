@@ -588,5 +588,95 @@ class PluginTest(unittest.TestCase):
         self.assertEqual(self.w.manifest()["harnesses"], {})
 
 
+def preferring_table():
+    """The synthetic table, with alpha's block preferring AGENTS.override.md (as Codex's does)."""
+    table = synthetic_table()
+    table[0]["pieces"]["instructions"][0]["prefer"] = ["{{harness_home}}/AGENTS.override.md"]
+    return table
+
+
+class PreferredFileTest(Base):
+    """A `prefer` file that fills up after Hook wrote into `path` takes Hook's block: Codex reads
+    only the first non-empty one of AGENTS.override.md and AGENTS.md."""
+    table = preferring_table()
+    MINE = "# My rules\n\nBe kind.\n"
+    OVERRIDE = "# Override\n\nUse staging.\n"
+
+    def setUp(self):
+        super().setUp()
+        self.agents = self.home / ".alpha" / "AGENTS.md"
+        self.override = self.home / ".alpha" / "AGENTS.override.md"
+
+    def test_status_reports_the_move_and_sync_moves_the_block(self):
+        self.sync()
+        self.assertIn("hook:begin id=instructions", self.agents.read_text())
+        self.assertEqual(self.state("alpha", "instructions"), "installed")
+        write(self.override, self.OVERRIDE)
+        piece = self.w.piece("alpha", "instructions")
+        self.assertEqual(piece["state"], "outdated")
+        self.assertEqual(piece["target"], "~/.alpha/AGENTS.override.md")
+        self.assertIn("AGENTS.override.md", piece["note"])
+        self.assertIn("~/.alpha/AGENTS.md", piece["note"])
+        rc, out, err = self.w.run("sync", "--dry-run")
+        self.assertIn("AGENTS.override.md", out)
+        self.assertEqual(self.agents.read_text().count("hook:begin"), 1)       # a dry run moves nothing
+        self.sync()
+        self.assertEqual(self.agents.read_text(), self.MINE)
+        self.assertTrue(self.override.read_text().startswith(self.OVERRIDE))
+        self.assertIn("hook:begin id=instructions", self.override.read_text())
+        self.assertEqual(self.state("alpha", "instructions"), "installed")
+        keys = [k for k in self.w.manifest()["targets"] if "/.alpha/AGENTS" in k]
+        self.assertEqual(len(keys), 1, keys)
+        self.assertEqual(self.sync().count("instructions"), 0)              # settled
+        rc, out, err = self.w.run("remove", "--all")
+        self.assertEqual(rc, 0, out + err)
+        self.assertEqual(self.override.read_text(), self.OVERRIDE)
+        self.assertEqual(self.agents.read_text(), self.MINE)
+
+    def test_an_edited_block_is_not_moved_without_force(self):
+        self.sync()
+        text = self.agents.read_text().replace("<!-- hook:end -->", "My own line.\n<!-- hook:end -->")
+        self.assertNotEqual(text, self.agents.read_text())
+        self.agents.write_text(text)
+        write(self.override, self.OVERRIDE)
+        piece = self.w.piece("alpha", "instructions")
+        self.assertEqual(piece["state"], "drifted")
+        self.assertIn("AGENTS.override.md", piece["note"])
+        self.sync()
+        self.assertEqual(self.agents.read_text(), text)
+        self.assertEqual(self.override.read_text(), self.OVERRIDE)
+        rc, out, err = self.w.run("diff", "--harness", "alpha", "--piece", "instructions")
+        self.assertEqual(rc, 0, err)
+        self.assertIn("-My own line.", out)
+        self.assertIn("~/.alpha/AGENTS.md (yours)", out)
+        rc, out, err = self.w.run("reinstall", "--force", "--harness", "alpha", "--piece", "instructions")
+        self.assertEqual(rc, 0, out + err)
+        self.assertNotIn("hook:begin", self.agents.read_text())
+        self.assertIn("hook:begin id=instructions", self.override.read_text())
+        self.assertTrue(any(p.name.startswith("AGENTS.md.bak") for p in self.agents.parent.iterdir()))
+        self.assertEqual(self.state("alpha", "instructions"), "installed")
+
+    def test_an_empty_override_changes_nothing(self):
+        self.sync()
+        write(self.override, "")
+        self.assertEqual(self.state("alpha", "instructions"), "installed")
+        self.assertEqual(self.w.piece("alpha", "instructions")["target"], "~/.alpha/AGENTS.md")
+
+
+class EmptyShapeTest(Base):
+    def test_whitespace_only_json_files_come_back_byte_for_byte(self):
+        shapes = {".beta/settings.json": "{ }", ".beta/hooks.json": "\n", ".gamma/mcp.json": "{\n}\n"}
+        for rel, text in shapes.items():
+            write(self.home / rel, text)
+        self.sync("--include-new")
+        for rel in shapes:
+            self.assertIn("hook replies" if "hooks" in rel else "relay",
+                          (self.home / rel).read_text(), rel)
+        rc, out, err = self.w.run("remove", "--all")
+        self.assertEqual(rc, 0, out + err)
+        for rel, text in shapes.items():
+            self.assertEqual((self.home / rel).read_text(), text, rel)
+
+
 if __name__ == "__main__":
     unittest.main()
