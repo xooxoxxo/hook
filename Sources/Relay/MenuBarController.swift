@@ -2,16 +2,14 @@ import AppKit
 import RelayCore
 import RelayUI
 
-/// The status item: the template "checklist" symbol with a red dot on its
-/// top-right corner while an ask that arrived with the panel hidden is unseen
-/// (`UnseenAsks`). The symbol looks disabled while offline or away; the badge
-/// dims only while offline. The tooltip is always set. Left click toggles the
+/// The status item: the outline hook, or a filled fish on the hook while an ask that
+/// arrived with the panel hidden is unseen (`UnseenAsks`). Both are template images, so
+/// macOS tints them for the bar; the fish replaces the old red dot. The glyph looks
+/// disabled while offline or away. The tooltip is always set. Left click toggles the
 /// sidebar; right click or control-click opens the menu, rebuilt from
 /// `MenuBarMenu.entries` on every open.
 @MainActor final class MenuBarController: NSObject {
     private var item: NSStatusItem
-    /// A template image can't carry colour, so the badge is its own view.
-    private let badge = BadgeView(frame: .zero)
     private var state = MenuBarState()
     private let inputs: @MainActor () -> MenuInputs
     private let onToggle: @MainActor () -> Void
@@ -32,15 +30,23 @@ import RelayUI
         update(MenuBarState())
     }
 
-    /// The template "checklist" symbol, `symbolWidth + 8` wide so the badge never clips.
+    /// One fixed length for both glyphs, so the item never shifts when an ask arrives.
+    /// `update(_:)` sets the glyph.
     private static func makeItem() -> NSStatusItem {
-        let image = NSImage(systemSymbolName: DS.Symbol.menuBar, accessibilityDescription: "Hook")
-        image?.isTemplate = true
         // Without a saved position each relaunch puts the icon at the far left, behind the notch.
         StatusItemPosition.seedIfNeeded(UserDefaults.standard)
-        let item = NSStatusBar.system.statusItem(withLength: (image?.size.width ?? 16) + 8)
-        item.button?.image = image
+        let item = NSStatusBar.system.statusItem(withLength: DS.Metric.menuBarItem)
+        item.button?.image = image(for: MenuBarState())
         return item
+    }
+
+    /// The state's glyph; the checklist symbol only if the glyph files are missing.
+    private static func image(for state: MenuBarState) -> NSImage? {
+        if let glyph = MenuBarGlyphImage.image(for: state) { return glyph }
+        let symbol = NSImage(systemSymbolName: DS.Symbol.menuBarFallback,
+                             accessibilityDescription: state.glyph.accessibilityDescription)
+        symbol?.isTemplate = true
+        return symbol
     }
 
     private func configure() {
@@ -50,21 +56,12 @@ import RelayUI
         button.target = self
         button.action = #selector(clicked(_:))
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
-        button.addSubview(badge)
-        // A taller or shorter menu bar (another screen) resizes the button without a
-        // state change, so the badge is placed again whenever the frame changes.
-        button.postsFrameChangedNotifications = true
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(buttonFrameChanged(_:)),
-            name: NSView.frameDidChangeNotification, object: button)
     }
 
     /// A menu bar rebuilt after a display change can leave the button without a window.
+    /// The new item gets the current state's glyph back from `update(state)`.
     @objc private func screenParametersChanged() {
         guard item.button?.window == nil else { return }
-        if let old = item.button {
-            NotificationCenter.default.removeObserver(self, name: NSView.frameDidChangeNotification, object: old)
-        }
         NSStatusBar.system.removeStatusItem(item)
         item = Self.makeItem()
         configure()
@@ -74,28 +71,11 @@ import RelayUI
     func update(_ state: MenuBarState) {
         self.state = state
         guard let button = item.button else { return }
+        let image = Self.image(for: state)
+        if button.image !== image { button.image = image }  // the fish while an ask is unseen
         button.appearsDisabled = state.symbolDimmed        // offline or away
         button.toolTip = state.tooltip                      // always
         button.setAccessibilityLabel(state.accessibilityLabel)
-        badge.badge = state.badge
-        badge.dimmed = state.dimmed                         // 0.5 only offline; away keeps full alpha
-        button.layoutSubtreeIfNeeded()
-        placeBadge(in: button)
-    }
-
-    /// Over the symbol's top-right corner, clamped inside the button's bounds.
-    /// Positioned from the bounds and the image rect, so taller menu bars
-    /// (notched MacBooks) need no special case.
-    private func placeBadge(in button: NSStatusBarButton) {
-        let bounds = button.bounds
-        let image = button.cell?.imageRect(forBounds: bounds) ?? bounds
-        badge.frame = BadgeGeometry.frame(for: badge.badge, in: bounds, imageRect: image, flipped: button.isFlipped)
-        badge.needsDisplay = true
-    }
-
-    @objc private func buttonFrameChanged(_ note: Notification) {
-        guard let button = item.button else { return }
-        placeBadge(in: button)
     }
 
     /// Left click toggles the sidebar; right click or control-click opens the menu.

@@ -203,14 +203,7 @@ public enum DocumentPage {
     /// copies it there), else in the SwiftPM resource bundle next to the executable or the
     /// test bundle. Never `Bundle.module`, which stops the app when its build folder is gone.
     public static func resourceFolder() -> URL? {
-        let bundleName = "Relay_RelayUI.bundle"
-        var candidates: [URL] = []
-        if let resources = Bundle.main.resourceURL { candidates.append(resources.appending(path: "Viewer")) }
-        candidates.append(Bundle.main.bundleURL.appending(path: bundleName).appending(path: "Viewer"))
-        let here = Bundle(for: BundleMarker.self).bundleURL
-        candidates.append(here.deletingLastPathComponent().appending(path: bundleName).appending(path: "Viewer"))
-        candidates.append(here.appending(path: "Contents/Resources").appending(path: bundleName).appending(path: "Viewer"))
-        return candidates.first { FileManager.default.fileExists(atPath: $0.appending(path: scriptNames[0]).path) }
+        BundledResources.folder("Viewer", containing: scriptNames[0])
     }
 
     /// The three scripts' sources, or nil when any is missing.
@@ -224,5 +217,3 @@ public enum DocumentPage {
         return out
     }
 }
-
-private final class BundleMarker {}

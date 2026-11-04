@@ -39,6 +39,12 @@ VIEWER="$ROOT/Sources/RelayUI/Resources/Viewer"
 [ -f "$VIEWER/marked.umd.js" ] || { echo "build.sh: no viewer resources at $VIEWER" >&2; exit 1; }
 mkdir -p "$APP/Contents/Resources"
 cp -R "$VIEWER" "$APP/Contents/Resources/Viewer"
+# The menu-bar glyphs (template PNGs at @1x and @2x), read from Contents/Resources/MenuBar,
+# and the app icon that Info.plist's CFBundleIconFile names.
+MENUBAR="$ROOT/Sources/RelayUI/Resources/MenuBar"
+[ -f "$MENUBAR/menubar-idle.png" ] || { echo "build.sh: no menu-bar glyphs at $MENUBAR" >&2; exit 1; }
+cp -R "$MENUBAR" "$APP/Contents/Resources/MenuBar"
+cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cp THIRD_PARTY_NOTICES.md "$APP/Contents/Resources/THIRD_PARTY_NOTICES.md"
 plutil -lint "$APP/Contents/Info.plist"
 IDENTITY="${SIGN_IDENTITY:--}"

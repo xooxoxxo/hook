@@ -3,6 +3,22 @@
 All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## [0.15.0] - 2026-11-04
+
+### Added
+- Hook has its own app icon: the chrome hook and the lime worm on a purple sunburst. At 16 and
+  32 px, where the full art blurs, a flat version with only the hook and the worm takes its
+  place. It shows in Finder, Spotlight, notifications, About and the setup window.
+- The menu bar shows Hook's own glyph: an outline hook while nothing new is waiting, and a filled
+  fish on the hook while an ask you haven't seen is waiting. The fish replaces the red dot. Both
+  are template images, so macOS tints them for a light or dark bar, and the item keeps one width.
+
+### Changed
+- VoiceOver reads "new ask" on the menu-bar item while the fish shows.
+- The product guide describes the hook and the fish instead of the old badge.
+<!-- hook:pond=^1.1.0 -->
+<!-- hook:mailbox-protocol=5 -->
+
 ## [0.14.0] - 2026-11-04
 
 ### Added

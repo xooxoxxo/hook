@@ -111,13 +111,15 @@ public enum DS {
         public static let welcomeHeight: CGFloat = 500
         /// The About window's width.
         public static let aboutWidth: CGFloat = 340
-        /// The Welcome page's app icon (the placeholder until the logo lands).
+        /// The app icon on the Welcome, Setup and About pages.
         public static let appIcon: CGFloat = 72
         public static let appIconRadius: CGFloat = 16
         /// A progress dot in the setup footer.
         public static let setupDot: CGFloat = 7
         /// A setup row's leading symbol column.
         public static let setupSymbol: CGFloat = 20
+        /// The status item's length: the 16 pt glyph and 4 pt either side, the same for both glyphs.
+        public static let menuBarItem: CGFloat = 24
         public static let badge: CGFloat = 13
         public static let badgeDot: CGFloat = 7
         public static let dragThreshold: CGFloat = 3
@@ -400,6 +402,25 @@ public enum DS {
         public static var panelMaterial: NSVisualEffectView.Material { .sidebar }
     }
 
+    /// Hook's own images, as files in Resources/MenuBar (`MenuBarGlyphImage` loads them).
+    public enum Glyph {
+        /// The outline hook: the menu bar while nothing new is waiting, and the app-icon placeholder.
+        public static let menuBarIdle = "menubar-idle"
+        /// A filled fish on the hook: an unseen ask. It replaces the red dot.
+        public static let menuBarNew = "menubar-new"
+        /// Both glyphs' size in points; the files are @1x and @2x.
+        public static let menuBarSize = CGSize(width: 16, height: 18)
+        /// The placeholder glyph on the app-icon tile while the bundle has no icon (dev builds).
+        public static let appIconPlaceholderHeight: CGFloat = 36
+
+        public static func name(_ glyph: MenuBarGlyph) -> String {
+            switch glyph {
+            case .idle: return menuBarIdle
+            case .new: return menuBarNew
+            }
+        }
+    }
+
     public enum Symbol {
         public static let now = "exclamationmark.circle.fill"
         public static let today = "clock.fill"
@@ -436,7 +457,8 @@ public enum DS {
         public static let offline = "wifi.exclamationmark"
         public static let notSetUp = "tray"
         public static let notFound = "questionmark.circle"
-        public static let menuBar = "checklist"
+        /// Only when the menu-bar glyphs are missing from the bundle (`DS.Glyph`).
+        public static let menuBarFallback = "checklist"
         public static let link = "link"
         /// The detail header's ask menu (Resume Session).
         public static let more = "ellipsis.circle"
@@ -525,6 +547,10 @@ public enum DS {
         public static let step = Animation.easeInOut(duration: 0.20)
         public static let reveal = Animation.easeOut(duration: 0.18)
         public static let reduced = Animation.easeOut(duration: 0.12)
+        /// The app-icon placeholder's one bounce: up to `bounceScale`, then back.
+        public static let bounceScale: CGFloat = 1.15
+        public static let bounceUp: TimeInterval = 0.15
+        public static let bounceSettle: TimeInterval = 0.3
         public static let slideIn: TimeInterval = 0.25
         public static let fade: TimeInterval = 0.12
         public static let snap: TimeInterval = 0.20

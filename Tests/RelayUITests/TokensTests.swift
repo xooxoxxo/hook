@@ -177,7 +177,7 @@ private enum Contrast {
             DS.Symbol.openLink, DS.Symbol.back, DS.Symbol.prev, DS.Symbol.next, DS.Symbol.refresh, DS.Symbol.settings,
             DS.Symbol.hide, DS.Symbol.draft, DS.Symbol.statusOK, DS.Symbol.statusDown, DS.Symbol.away, DS.Symbol.error,
             DS.Symbol.info, DS.Symbol.empty, DS.Symbol.offline, DS.Symbol.notSetUp, DS.Symbol.notFound,
-            DS.Symbol.menuBar, DS.Symbol.link, DS.Symbol.warning, DS.Symbol.sent, DS.Symbol.clearShortcut,
+            DS.Symbol.menuBarFallback, DS.Symbol.link, DS.Symbol.warning, DS.Symbol.sent, DS.Symbol.clearShortcut,
             DS.Symbol.tabGeneral, DS.Symbol.tabPanel, DS.Symbol.tabQueue, DS.Symbol.tabNotifications, DS.Symbol.tabAgents,
             DS.Symbol.agentInstalled, DS.Symbol.agentUpdate, DS.Symbol.agentEdited, DS.Symbol.agentNeedsYou,
             DS.Symbol.agentBlocked, DS.Symbol.agentNotSetUp, DS.Symbol.agentNone,

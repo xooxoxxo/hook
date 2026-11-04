@@ -7,10 +7,25 @@ public enum MenuBarBadge: Sendable, Equatable {
     case number(Int)   // always 1...9
 }
 
-/// What the menu-bar status item shows: a red dot on the symbol while any ask
-/// that arrived with the panel hidden is unseen (`UnseenAsks`), dimming when the
-/// source is unreachable, the fainter symbol while the owner is away, and the
+/// What the menu-bar status item shows: the fish on the hook while any ask that
+/// arrived with the panel hidden is unseen (`UnseenAsks`), dimming when the
+/// source is unreachable, the fainter glyph while the owner is away, and the
 /// VoiceOver label.
+/// The status item's two glyphs: the outline hook, and a filled fish on the hook while an
+/// ask that arrived with the panel hidden is unseen.
+public enum MenuBarGlyph: String, Sendable, Equatable, CaseIterable {
+    case idle
+    case new
+
+    /// The image's accessibility description.
+    public var accessibilityDescription: String {
+        switch self {
+        case .idle: return "Hook"
+        case .new: return "Hook, new ask"
+        }
+    }
+}
+
 public struct MenuBarState: Sendable, Equatable {
     public var count: Int
     public var nowCount: Int
@@ -63,6 +78,12 @@ public struct MenuBarState: Sendable, Equatable {
         unseen && count > 0 ? .dot : .none
     }
 
+    /// The menu-bar glyph: the fish on the hook exactly while the dot would show (an unseen
+    /// ask), the outline hook otherwise. It replaces the red dot.
+    public var glyph: MenuBarGlyph {
+        badge == .dot ? .new : .idle
+    }
+
     /// Offline: the symbol and the badge dim.
     public var dimmed: Bool { !reachable }
 
@@ -72,6 +93,7 @@ public struct MenuBarState: Sendable, Equatable {
     public var accessibilityLabel: String {
         var label = "Hook, \(count) waiting"
         if nowCount > 0 { label += ", \(nowCount) now" }
+        if glyph == .new { label += ", new ask" }
         if !reachable { label += ", offline" }
         if away { label += ", away" }
         return label
