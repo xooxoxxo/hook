@@ -136,7 +136,7 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
     /// Automatic: minutes without input before Hook marks the owner away;
     /// one of `PresenceLogic.awayAfterChoices`.
     public var awayAfterMinutes: Int
-    /// Written by install.sh; the Connect tab builds commands from it.
+    /// Written by install.sh; Settings › Agents runs `relay integrations` from it.
     public var repoPath: String?
     /// The UUID of the display the sidebar is pinned to; set by dragging the
     /// panel. nil, or a display that isn't connected, means the main display.

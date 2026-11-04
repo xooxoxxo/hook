@@ -129,7 +129,7 @@ enum UpdateRunner {
     /// clean, and HEAD is main or a release tag. Runs git off the main thread.
     static func gate(repoPath: String?) async -> Result<(repo: String, mode: UpdateGate.Mode), UpdateCheckError> {
         guard let raw = repoPath?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
-            return .failure(UpdateCheckError("Hook doesn't know where your checkout is. Set it in Settings › Connect, or run scripts/install.sh once."))
+            return .failure(UpdateCheckError(UpdateGate.noCheckout))
         }
         let repo = ConnectInfo.normalized(raw)
         let exists = { (path: String) in FileManager.default.fileExists(atPath: path) }

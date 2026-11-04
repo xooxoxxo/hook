@@ -512,7 +512,7 @@ public enum DS {
         public static let linkRecheck: TimeInterval = 5
         /// How often held-back closes are checked for being due.
         public static let holdTick: TimeInterval = 1
-        /// How often the Connect tab's "Last call" relative time re-renders.
+        /// How often Settings › Agents' "Last call" relative time re-renders.
         public static let lastCallRefresh: TimeInterval = 30
         /// How long a detail fetch, or the first list after a swap, waits before "Couldn't load" or "Still trying…".
         public static let detailLoadTimeout: TimeInterval = 10

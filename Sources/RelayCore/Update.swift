@@ -114,6 +114,10 @@ public enum UpdateSchedule {
 
 /// Whether the checkout can be moved to a release without losing anything.
 public enum UpdateGate {
+    /// The gate's refusal when no checkout is known: it is chosen in Settings › Agents.
+    public static let noCheckout =
+        "Hook doesn't know where your checkout is. Set it in Settings › Agents, or run scripts/install.sh once."
+
     /// How the checkout moves to the release tag.
     public enum Mode: Equatable, Sendable {
         /// On main: a fast-forward merge to the tag.

@@ -36,7 +36,7 @@ final class ServerRouting: Sendable {
 /// The config lifecycle (load, live reload, merge-save) and the state the
 /// Settings and Welcome windows show. AppDelegate applies what it publishes.
 @MainActor final class AppModel: ObservableObject {
-    /// How often the loopback API's last-seen time is read for Settings → Connect.
+    /// How often the loopback API's last-seen time is read for Settings › Agents.
     static let lastSeenPoll: Duration = .seconds(5)
     /// How often Connect (Queue tab and Welcome) checks whether the new mailbox has answered.
     static let connectPoll: Duration = .milliseconds(250)
@@ -46,7 +46,7 @@ final class ServerRouting: Sendable {
     /// "config.json has an error: …", "config.json is missing", or a save failure.
     @Published private(set) var configNote: String?
     @Published private(set) var listenerState: ListenerState = .starting
-    /// "mcp"/"cli" → last authenticated request; polled while the Connect tab is shown.
+    /// "mcp"/"cli" → last authenticated request; polled while Settings › Agents is shown.
     @Published private(set) var lastSeen: [String: Date] = [:]
     /// Why the shortcut isn't working.
     @Published var shortcutProblem: ShortcutProblem?
@@ -240,7 +240,7 @@ final class ServerRouting: Sendable {
         listenerState = state
     }
 
-    /// The Connect tab's "MCP last call": polls `LocalAPI.lastSeen()` every 5 s while on.
+    /// Settings › Agents' "MCP last call": polls `LocalAPI.lastSeen()` every 5 s while on.
     func setLastSeenPolling(_ on: Bool) {
         lastSeenTask?.cancel()
         lastSeenTask = nil

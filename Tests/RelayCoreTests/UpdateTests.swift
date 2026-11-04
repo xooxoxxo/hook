@@ -9,6 +9,13 @@ private func release(_ fields: [String: Any]) -> Data {
 private let page = "https://github.com/xooxoxxo/relay/releases/tag/v0.6.5"
 
 @Suite struct ReleaseVersionTests {
+    /// The checkout is set in Settings › Agents since 0.13 (Connect became Agents).
+    @Test func noCheckoutNamesSettingsAgents() {
+        #expect(UpdateGate.noCheckout
+            == "Hook doesn't know where your checkout is. Set it in Settings › Agents, or run scripts/install.sh once.")
+        #expect(!UpdateGate.noCheckout.contains("Connect"))
+    }
+
     @Test func parsesWithAndWithoutTheLeadingV() {
         #expect(ReleaseVersion("v0.6.5")?.description == "0.6.5")
         #expect(ReleaseVersion("0.6.5")?.description == "0.6.5")

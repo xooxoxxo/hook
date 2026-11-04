@@ -232,7 +232,7 @@ public enum LinkCheck: Equatable, Sendable {
     @Published public private(set) var problem: String?
     /// A list is running. No view shows it (the header spinner is `manualRefreshing`), so it isn't published.
     public private(set) var refreshing = false
-    /// "none", "local" or "mailbox:<host>"; ticks and the Connect tab key on it.
+    /// "none", "local" or "mailbox:<host>"; ticks and Settings › Agents key on it.
     @Published public private(set) var sourceKey = SourceKey.none { didSet { queueInputChanged() } }
 
     /// What the queue view draws. Rebuilt only when one of its inputs changes, and
