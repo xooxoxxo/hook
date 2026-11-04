@@ -47,13 +47,15 @@ public struct KeyContext: Equatable, Sendable {
     public var canMessage: Bool
     /// Detail: the Messages field has focus, so ⌘↩ sends the message and never closes the ask.
     public var messageFieldFocused: Bool
+    /// Detail: a step's inline report field has focus, so ⌘↩ sends the report and never closes the ask.
+    public var reportFieldFocused: Bool
 
     public init(mode: Mode, textFieldFocused: Bool = false, popoverOpen: Bool = false, undoAvailable: Bool = false,
                 filterOn: Bool = false, selectionOpen: Bool? = nil, selectionHasProject: Bool = false, selectionHasUnsent: Bool = false,
                 closedHeaderFocused: Bool = false,
                 askOpen: Bool = true, askHasProject: Bool = false, choiceCount: Int = 0, hasDraftOrPick: Bool = false,
                 hasUnsentAnswers: Bool = false, doneWarning: Bool = false, hasReplyPrompt: Bool = false,
-                canMessage: Bool = false, messageFieldFocused: Bool = false) {
+                canMessage: Bool = false, messageFieldFocused: Bool = false, reportFieldFocused: Bool = false) {
         self.mode = mode
         self.textFieldFocused = textFieldFocused
         self.popoverOpen = popoverOpen
@@ -72,6 +74,7 @@ public struct KeyContext: Equatable, Sendable {
         self.hasReplyPrompt = hasReplyPrompt
         self.canMessage = canMessage
         self.messageFieldFocused = messageFieldFocused
+        self.reportFieldFocused = reportFieldFocused
     }
 }
 
@@ -90,6 +93,8 @@ public enum PanelCommand: Equatable, Sendable {
     case focusMessage
     /// ⌘↩ in the Messages field: send the message (never Done).
     case sendMessage
+    /// ⌘↩ in a step's inline report field: send the report (never Done).
+    case sendReport
 }
 
 /// The single source for the panel's keys. Inside a focused text field the text-editing
@@ -148,6 +153,7 @@ public enum KeyMap {
         case .cmdDown: return c.textFieldFocused ? nil : .nextAsk
         case .cmdReturn:
             guard c.askOpen else { return nil }
+            if c.reportFieldFocused { return .sendReport }
             if c.messageFieldFocused { return c.canMessage ? .sendMessage : nil }
             if c.doneWarning { return .sendAndDone }
             return c.hasDraftOrPick || c.hasUnsentAnswers ? .warnUnsent : .done

@@ -66,13 +66,25 @@ struct DetailSteps<Model: PanelViewModel>: View {
 
     private var locked: Set<String> { Set(Flow.lockedPaths(nodes: nodes, ticks: snapshot.ticks)) }
 
-    /// Report a Problem on the rows: which steps take one, which are reported, the composer's target.
-    private var reports: StepReports {
+    /// Report a Problem on the rows: which steps take one, which are reported, and the inline
+    /// field's target, state, caps and text.
+    private var reports: StepReports { Self.reports(snapshot, model: model) }
+
+    static func reports(_ snapshot: DetailSnapshot, model: Model) -> StepReports {
         let id = snapshot.id
+        let nodes = snapshot.model?.nodes ?? []
         return StepReports(allowed: snapshot.canReport,
                            actionable: Set(Flow.flattened(nodes).filter(ProblemReport.actionable).map(\.path)),
-                           reported: snapshot.reported, target: snapshot.reportTarget,
-                           onReport: { [model] path in model.beginReport(id, path: path) })
+                           reported: snapshot.reported, target: snapshot.reportTarget, state: snapshot.report,
+                           keyReady: snapshot.ownerKeyReady, limits: snapshot.limits,
+                           draft: model.reportDrafts[id] ?? "",
+                           onReport: { [model] path in model.beginReport(id, path: path) },
+                           onSend: { [model] note in model.sendReport(id, note: note) },
+                           onCancel: { [model] in model.endReport(id) },
+                           onEdit: { [model] text in model.reportDrafts[id] = text },
+                           onFocus: { [model] focused in
+                               if focused { model.reportFocus = id } else if model.reportFocus == id { model.reportFocus = nil }
+                           })
     }
     private var lockText: String? { Flow.lockText(nodes: nodes, ticks: snapshot.ticks) }
 

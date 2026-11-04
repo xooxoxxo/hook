@@ -3,8 +3,8 @@ import RelayCore
 import RelayUI
 import SwiftUI
 
-// Talking to the posting session (0.12): Report a Problem on a step (pick 3 B) and the
-// Messages section (pick 4 A). Generic text only.
+// Talking to the posting session: Report a Problem on a step (0.14, owner pick 1: bottom right
+// of the expanded step, opening inline) and the Messages section (0.12, pick 4 A). Generic text only.
 
 /// A step ask with step ids (reports need them): step 1 done, step 2 current with code.
 let reportStepsJSON = #"""
@@ -22,10 +22,35 @@ let reportStepsJSON = #"""
  "events": []}
 """#
 
+/// A step ask whose step 2 has sub-steps, all with ids: step 1 done, so 2a is current.
+let reportSubStepsJSON = #"""
+{"item": {"id": "00000000-0000-4000-8000-0000000014c1", "title": "Move the build cache",
+  "status": "open", "projectId": "Atlas", "created": "2026-10-16T07:40:00+00:00", "updated": "2026-10-16T07:40:00+00:00",
+  "payload": {"instructable": {"v": 1, "title": "Move the build cache", "urgency": "today",
+    "steps": [{"id": "s1", "do": "Stop the build runner", "code": "ci-runner stop --name runner-2"},
+              {"id": "s2", "do": "Copy the cache to the new disk",
+               "substeps": [{"id": "s2-1", "do": "Mount the new disk", "code": "diskutil mount Cache2"},
+                            {"id": "s2-2", "do": "Copy the cache", "code": "rsync -a /cache/ /Volumes/Cache2/"}]},
+              {"id": "s3", "do": "Start the runner again"}],
+    "from": {"session": "1b2c3d4e-0000-4000-8000-000000000001", "host": "example-mac", "cwd": "/work/atlas"}}}},
+ "events": []}
+"""#
+
+/// A pasted traceback of 14 lines, 937 characters (the spec's case).
+let galleryTraceback: String = {
+    var lines = ["Traceback (most recent call last):"]
+    for n in 1...12 { lines.append("  File \"/work/atlas/deploy/step_\(n).py\", line \(n * 7), in rotate") }
+    let head = lines.joined(separator: "\n") + "\n"
+    let tail = "KeyError: 'deploy-key' not found in the staging vault; "
+    let pad = 937 - head.unicodeScalars.count - tail.unicodeScalars.count
+    return head + tail + String(repeating: "x", count: max(0, pad))
+}()
+
 /// The report fixture on a Pond: step 1 ticked, so step 2 is current and open.
 @MainActor func reportSnapshot(target: String? = nil, reported: Set<String> = [], keyReady: Bool = true,
-                               state: ReportBoxState = .idle) -> DetailSnapshot {
-    var snapshot = detailSnapshot(decodeDetail(reportStepsJSON), base: GalleryFixtures.detailSteps, ticks: ["1"])
+                               state: ReportBoxState = .idle, json: String = reportStepsJSON,
+                               limits: TalkLimits = .long) -> DetailSnapshot {
+    var snapshot = detailSnapshot(decodeDetail(json), base: GalleryFixtures.detailSteps, ticks: ["1"])
     snapshot.replies = []
     snapshot.model?.reply = nil
     snapshot.canReport = true
@@ -33,11 +58,19 @@ let reportStepsJSON = #"""
     snapshot.reported = reported
     snapshot.ownerKeyReady = keyReady
     snapshot.report = state
+    snapshot.limits = limits
     return snapshot
 }
 
-@MainActor func reportScene(_ name: String, _ snapshot: DetailSnapshot) -> GalleryScene {
-    detailScene(name, snapshot, height: nil, rules: topColumnRules, overrides: fullHeight)
+/// The detail with the report field's text (`draft`) as the model holds it.
+@MainActor func reportScene(_ name: String, _ snapshot: DetailSnapshot, draft: String? = nil) -> GalleryScene {
+    let model = FixturePanelModel(
+        queue: GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false),
+        details: [snapshot.id: snapshot],
+        navigation: PanelNavigation(listSelection: snapshot.id, selectedID: snapshot.id), status: readyStatus)
+    model.reportDrafts[snapshot.id] = draft
+    model.reporting[snapshot.id] = snapshot.reportTarget
+    return panelScene(name, model, height: nil, rules: topColumnRules, overrides: fullHeight)
 }
 
 /// An open ask with no reply prompt, from a Pond with messages; `messages` earlier ones.
@@ -109,15 +142,21 @@ func pastedLog(_ count: Int) -> String {
 }
 
 @MainActor let talkScenes: [GalleryScene] = [
-    // Report on the current (open) step only; collapsed rows stay clean.
-    reportScene("detail-step-report-open", reportSnapshot()),
-    // The composer docked above the action bar, its step outlined.
-    reportScene("detail-step-report-composer", reportSnapshot(target: "2")),
-    // Step 1 reported: only the icon, no caption.
-    reportScene("detail-step-reported", reportSnapshot(reported: ["1"])),
-    // No approved owner key: Send reads Set Up Owner Key….
-    reportScene("detail-step-report-no-key", reportSnapshot(target: "2", keyReady: false)),
-    reportScene("detail-step-report-held", reportSnapshot(target: "2", keyReady: false, state: .held)),
+    // Report at the bottom right of the current (open) step only; the header is title only,
+    // and collapsed rows stay clean.
+    reportScene("report-link", reportSnapshot()),
+    // The field open in the step with a pasted traceback (937 characters, 14 lines, Pond 1.4.0).
+    reportScene("report-open-traceback", reportSnapshot(target: "2"), draft: galleryTraceback),
+    // No approved owner key: Send held the note and started the setup; the caption says so.
+    reportScene("report-held", reportSnapshot(target: "2", keyReady: false, state: .held),
+                draft: "The key file already exists, so ssh-keygen asks to overwrite it."),
+    reportScene("report-failed", reportSnapshot(target: "2", state: .failed(ProblemReport.secretRefused)),
+                draft: "The new key is in the vault under deploy, version 2."),
+    // Step 1 reported: only the icon, no caption; step 2 still offers Report.
+    reportScene("report-reported", reportSnapshot(reported: ["1"])),
+    // A sub-step's field, inside its parent.
+    reportScene("report-sub-step", reportSnapshot(target: "2.1", json: reportSubStepsJSON),
+                draft: "The disk is called Cache 2, with a space."),
     // Messages: the empty section with its field, a thread, behind the disclosure on an ask
     // with a reply prompt, a refusal, and a closed ask's read-only thread.
     messageScene("detail-messages-empty", messageSnapshot()),

@@ -138,8 +138,7 @@ public enum DS {
         public static let messageFieldRadius: CGFloat = 6
         public static let messageFieldInset: CGFloat = 4
         public static let messageFieldStroke: CGFloat = 0.5
-        /// The report target's outline, inset from the row's edges.
-        public static let targetStroke: CGFloat = 1.5
+        /// The required hue's inset from the row's edges.
         public static let targetInset: CGFloat = 3
         /// An option list's corner.
         public static let optionRadius: CGFloat = 8
@@ -238,9 +237,6 @@ public enum DS {
         /// A multi-line field drawn like the stock rounded text field.
         public static let fieldFill = SwiftUI.Color(nsColor: .textBackgroundColor)
         public static let fieldStroke = SwiftUI.Color.primary.opacity(0.18)
-        /// The step the report composer is about: a light accent fill and an accent outline.
-        public static let targetFill = SwiftUI.Color.accentColor.opacity(0.07)
-        public static let targetStroke = SwiftUI.Color.accentColor.opacity(0.55)
         /// A required item's badge (owner pick 1, RD 25): Done's own accent, so the mark reads as
         /// "this feeds Done".
         public static let required = SwiftUI.Color.accentColor

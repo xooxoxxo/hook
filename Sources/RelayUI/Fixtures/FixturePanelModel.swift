@@ -16,6 +16,8 @@ public final class FixturePanelModel: PanelViewModel {
     @Published public var detailAnchor: [String: String] = [:]
     @Published public var reviewing: [String: RevisionStamp] = [:]
     @Published public var reporting: [String: String] = [:]
+    @Published public var reportDrafts: [String: String] = [:]
+    @Published public var reportFocus: String?
     @Published public var messageDrafts: [String: String] = [:]
     @Published public var messageFocus: String?
     @Published public var notice: PanelNotice?
@@ -119,7 +121,7 @@ public final class FixturePanelModel: PanelViewModel {
     public func isAccepting(_ id: String) -> Bool { acceptingIDs.contains(id) }
     public func reportProblem(_ id: String, stepID: String, note: String) {}
     public func beginReport(_ id: String, path: String?) { if let path { reporting[id] = path } }
-    public func endReport(_ id: String) { reporting[id] = nil }
+    public func endReport(_ id: String) { reporting[id] = nil; reportDrafts[id] = nil }
     public func sendReport(_ id: String, note: String) {}
     public func sendMessage(_ id: String, text: String) {}
     public func messageSession(_ id: String) { navigation.open(id); messageFocus = id }

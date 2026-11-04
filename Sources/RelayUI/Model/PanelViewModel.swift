@@ -143,14 +143,18 @@ public enum CopyOutcome: Equatable, Sendable {
     func reportProblem(_ id: String, stepID: String, note: String)
     /// What this source lets Hook say to the posting session; nothing on This Mac.
     var talk: SessionTalk { get }
-    /// The docked report composer, by ask: the step path it reports on (memory only).
+    /// The inline report field, by ask: the step path it reports on (memory only).
     var reporting: [String: String] { get set }
-    /// Opens the composer on `path` and the ask's detail; nil (the queue row's Report a
+    /// The inline report field's text, by ask (memory only).
+    var reportDrafts: [String: String] { get set }
+    /// The ask whose inline report field has the keys (⌘Return sends the report).
+    var reportFocus: String? { get set }
+    /// Opens the field on `path` and the ask's detail; nil (the queue row's Report a
     /// Problem…) picks the first unticked actionable step.
     func beginReport(_ id: String, path: String?)
-    /// Esc or Cancel: the composer goes, and a held note with it.
+    /// Esc or Cancel: the field goes, with its text and a held note.
     func endReport(_ id: String)
-    /// The composer's Send, or Set Up Owner Key… without an approved key (the note is held).
+    /// The field's Send; without an approved key the note is held and the setup starts.
     func sendReport(_ id: String, note: String)
     /// The Messages field's text, by ask (memory only).
     var messageDrafts: [String: String] { get set }

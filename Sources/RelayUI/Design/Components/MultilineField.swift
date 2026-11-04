@@ -26,6 +26,8 @@ public struct MultilineField: View {
             .textFieldStyle(.plain)
             .font(DS.Font.body)
             .lineLimit(lines)
+            // Its own height, up to `lines`, whatever the row around it proposes.
+            .fixedSize(horizontal: false, vertical: true)
             .focused(isFocused)
             .onKeyPress(.return, phases: [.down, .repeat]) { press in
                 Self.addsLineBreak(press.modifiers) && Self.insertLineBreak() ? .handled : .ignored

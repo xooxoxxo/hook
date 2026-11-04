@@ -9,7 +9,7 @@ public enum ReportResult: Equatable, Sendable {
     case refused(String)
 }
 
-/// The docked composer's send: idle, sending, held until the owner key is approved, or refused.
+/// The inline report field's send: idle, sending, held until the owner key is approved, or refused.
 public enum ReportBoxState: Equatable, Sendable {
     case idle, sending, held, failed(String)
 }
@@ -24,16 +24,15 @@ public enum ProblemReport {
     public static let notEnrolled = "Set up the owner key in Settings › Queue first."
     public static let secretRefused = "The Pond refused the note: it looks like a secret."
 
-    /// The open row's trailing button.
-    public static let buttonTitle = "Report"
+    /// The link at the bottom right of an expanded step (0.14).
+    public static let linkTitle = "Report"
     public static let buttonHelp = "Report a problem with this step to the session"
     /// A reported step shows only the icon: this is its tooltip, and the label is VoiceOver's.
     public static let reportedHelp = "Reported. Waiting for a correction."
     public static let reportedLabel = "Problem reported, waiting for a correction"
-    /// The composer's field.
-    public static let placeholder = "What went wrong?"
-    /// Send without an approved owner key: it opens Settings › Queue and starts the setup.
-    public static let setUpKeyTitle = "Set Up Owner Key…"
+    /// The inline field's prompt.
+    public static let placeholder = "What went wrong? Paste the error if there is one."
+    /// Send without an approved owner key holds the note, opens Settings › Queue and starts the setup.
     public static let heldCaption = "Sends once the owner key is approved."
 
     /// "Problem with step 2", "Problem with step 3b", "Problem with Verify".

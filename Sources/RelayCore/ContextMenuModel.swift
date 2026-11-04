@@ -3,7 +3,7 @@ import Foundation
 /// What a row's context menu item does.
 public enum ContextCommand: Equatable, Sendable {
     case open, done, skip, reopen, showOnly(String), showAll, copyLink, copyResume, resume
-    /// Report a Problem…: opens the ask on its first unticked actionable step with the composer.
+    /// Report a Problem…: opens the ask with the report field open in its first unticked actionable step.
     case reportProblem
     /// Message Session…: opens the ask and focuses its Messages field.
     case messageSession

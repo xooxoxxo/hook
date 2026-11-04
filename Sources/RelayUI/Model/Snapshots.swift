@@ -135,12 +135,12 @@ public struct DetailSnapshot: Equatable, Sendable {
     public var reported: Set<String> = []
     /// Report a Problem is offered: an open ask from a Pond (never This Mac).
     public var canReport = false
-    /// The step path the docked composer reports on, while it is open.
+    /// The step path whose inline report field is open.
     public var reportTarget: String?
-    /// The composer's send state.
+    /// The field's send state.
     public var report: ReportBoxState = .idle
-    /// This Mac has an approved owner key: the composer's button is Send, else Set Up Owner Key….
-    /// Read only while the composer is open.
+    /// This Mac has an approved owner key: Send goes at once, else it holds the note and starts
+    /// the setup. Read only while a field is open.
     public var ownerKeyReady = false
     /// The owner's messages to the session, oldest first (never replies).
     public var messages: [ReplyLine] = []

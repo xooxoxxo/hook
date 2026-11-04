@@ -129,6 +129,108 @@ let traceback: String = {
         #expect(store.reporting["a"] == nil)
     }
 
+    /// 0.14: the report opens inline in its step; nothing docks above the action bar.
+    @Test func noDockedComposer() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, _, _) = await started(defaults)
+        store.beginReport("a", path: "2")
+        let snapshot = store.detail("a")!
+        #expect(snapshot.reportTarget == "2")
+        #expect(DetailView<Store>.barKinds(snapshot, reviewing: false) == [.action])
+    }
+
+    /// Each row's slot carries what its inline field needs.
+    @Test func slotCarriesStateAndLimits() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, _, _) = await started(defaults)
+        store.setPond(pond140)
+        store.beginReport("a", path: "2")
+        store.reportDrafts["a"] = "the flag is wrong"
+        let reports = DetailSteps<Store>.reports(store.detail("a")!, model: store)
+        let slot = reports.slot("2")
+        #expect(slot.targeted)
+        #expect(slot.state == .idle)
+        #expect(slot.keyReady)
+        #expect(slot.limits == .long)
+        #expect(slot.draft == "the flag is wrong")
+        #expect(!reports.slot("1").targeted)
+        slot.onEdit("the flag is wrong in step 2")
+        #expect(store.reportDrafts["a"] == "the flag is wrong in step 2")
+        slot.onCancel()
+        #expect(store.reporting["a"] == nil)
+    }
+
+    @Test func sendClosesFieldAndMarksReported() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, fake, _) = await started(defaults)
+        store.beginReport("a", path: "2")
+        store.reportDrafts["a"] = "the flag is wrong"
+        #expect(await store.sendReport("a", note: "the flag is wrong") == .sent)
+        #expect(await fake.problems.first?.note == "the flag is wrong")
+        #expect(store.reporting["a"] == nil)
+        #expect(store.reportDrafts["a"] == nil)
+        #expect(store.detail("a")?.reported == ["2"])
+        // A reported step offers no Report link, only the icon.
+        let slot = DetailSteps<Store>.reports(store.detail("a")!, model: store).slot("2")
+        #expect(slot.reported)
+        #expect(!StepRow.showsReportLink(slot, open: true, locked: false))
+    }
+
+    @Test func cancelKeepsNothing() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, _, _) = await started(defaults, approved: false)
+        store.beginReport("a", path: "2")
+        store.reportDrafts["a"] = "half a note"
+        _ = await store.sendReport("a", note: "half a note")
+        #expect(store.detail("a")?.report == .held)
+        store.reportFocus = "a"
+        store.endReport("a")
+        #expect(store.reporting["a"] == nil)
+        #expect(store.reportDrafts["a"] == nil)
+        #expect(store.reportFocus == nil)
+        #expect(store.detail("a")?.report == .idle)
+        store.beginReport("a", path: "2")
+        #expect(store.reportDrafts["a"] == nil)
+        #expect(store.detail("a")?.report == .idle)
+    }
+
+    /// Without an approved key the button stays Send; the held caption shows under the field.
+    @Test func heldShowsCaptionNotSetUpButton() {
+        #expect(InlineReportField.caption(.held) == ProblemReport.heldCaption)
+        #expect(InlineReportField.caption(.failed("The Pond refused the note: it looks like a secret."))
+            == "The Pond refused the note: it looks like a secret.")
+        #expect(InlineReportField.caption(.idle) == nil)
+        #expect(InlineReportField.sendTitle == "Send")
+        #expect(ProblemReport.linkTitle == "Report")
+        #expect(ProblemReport.placeholder == "What went wrong? Paste the error if there is one.")
+        #expect(!InlineReportField.canSend("the flag", limits: .old, state: .held))
+        #expect(!InlineReportField.canSend("the flag", limits: .old, state: .sending))
+        #expect(InlineReportField.canSend("the flag", limits: .old, state: .idle))
+        #expect(!InlineReportField.canSend(String(repeating: "x", count: 301), limits: .old, state: .idle))
+        #expect(InlineReportField.canSend(String(repeating: "x", count: 301), limits: .long, state: .idle))
+    }
+
+    /// ⌘Return in the report field sends the report (never Done), through the key router.
+    @Test func commandReturnSendsTheReport() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, fake, _) = await started(defaults)
+        store.beginReport("a", path: "2")
+        store.reportDrafts["a"] = "the flag is wrong"
+        store.reportFocus = "a"
+        let context = store.keyContext(textFieldFocused: true, popoverOpen: false, closedHeaderFocused: false)
+        #expect(context.reportFieldFocused)
+        #expect(KeyMap.command(for: .cmdReturn, in: context) == .sendReport)
+        store.perform(.sendReport)
+        _ = await eventually { await fake.count("problem") == 1 }
+        #expect(await fake.problems.first?.note == "the flag is wrong")
+        #expect(await fake.count("resolve") == 0)
+    }
+
     @Test func aHeldNoteIsDroppedWhenTheAskCloses() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }

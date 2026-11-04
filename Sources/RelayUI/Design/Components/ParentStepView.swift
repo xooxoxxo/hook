@@ -97,7 +97,7 @@ public struct ParentStepView: View {
     @Environment(\.requiredSteps) private var requiredSteps
     private var showsReport: Bool {
         guard let report else { return false }
-        return StepRow.reportable(allowed: report.allowed, actionable: report.actionable, open: isOpen, locked: locked)
+        return StepRow.showsReportLink(report, open: isOpen, locked: locked)
     }
     private var reportsFromMenu: Bool {
         guard let report else { return false }
@@ -125,7 +125,7 @@ public struct ParentStepView: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: DS.Space.stepPart) {
             rowMenu(header)
-                .requiredRow(required && report?.targeted != true, bleed: headerBleed)
+                .requiredRow(required, bleed: headerBleed)
             if let warning = StepRow.warning(content, state: state, locked: locked) {
                 WarningBox(warning).padding(.leading, DS.Space.subIndent)
             }
@@ -133,17 +133,19 @@ public struct ParentStepView: View {
                 VStack(alignment: .leading, spacing: DS.Space.stepPart) {
                     StepBody(content: content, level: .top(number), onCopy: onCopy)
                     if let question { QuestionBlock(question).padding(.top, DS.Space.stepPart) }
+                    reportArea
                     subSteps
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.leading, DS.Space.subIndent)
                 .transition(.opacity)
+            } else if let report, StepRow.showsReportField(report) {
+                reportArea.padding(.leading, DS.Space.subIndent)
             }
         }
         .padding(.horizontal, DS.Space.groupRowH)
         .padding(.vertical, DS.Space.groupRowV)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background { if report?.targeted == true { ReportTargetHighlight() } }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityActions {
@@ -220,7 +222,16 @@ public struct ParentStepView: View {
             } else {
                 titleRow
             }
-            if showsReport, let report { ReportButton(action: report.onReport) }
+        }
+    }
+
+    /// The parent's own report, after its body and before its sub-steps: the open field, else
+    /// Report on an expanded row. The field shows on a collapsed row too, under the header.
+    @ViewBuilder private var reportArea: some View {
+        if let report, StepRow.showsReportField(report) {
+            InlineReportField(title: ProblemReport.composerTitle(label: StepLevel.top(number).label), slot: report)
+        } else if showsReport, let report {
+            StepReportLink(action: report.onReport)
         }
     }
 

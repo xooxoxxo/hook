@@ -131,10 +131,20 @@ public enum LinkCheck: Equatable, Sendable {
     @Published public var reviewing: [String: RevisionStamp] = [:]
     /// Asks whose Use Version N is in flight (Touch ID, then the Pond call).
     @Published public internal(set) var accepting: Set<String> = []
-    /// Report a Problem's docked composer, by ask: the step path it reports on. Memory only.
+    /// Report a Problem's inline field, by ask: the step path it reports on. Memory only.
     @Published public var reporting: [String: String] = [:]
-    /// The composer's send state, by ask, while it isn't idle.
+    /// The field's send state, by ask, while it isn't idle.
     @Published public internal(set) var reportStates: [String: ReportBoxState] = [:]
+    /// The inline report field's text, by ask. Memory only; editing a refused note clears the refusal.
+    @Published public var reportDrafts: [String: String] = [:] {
+        didSet {
+            for (id, state) in reportStates where oldValue[id] != reportDrafts[id] {
+                if case .failed = state { reportStates[id] = nil }
+            }
+        }
+    }
+    /// The ask whose inline report field has the keys: ⌘Return sends the report, never Done.
+    @Published public var reportFocus: String?
     /// A note sent before this Mac had an approved owner key, by ask: held in memory only,
     /// sent once the key is approved (`flushHeldReports`), dropped if the ask closes.
     var heldReports: [String: String] = [:]
@@ -1613,7 +1623,8 @@ extension Store: PanelViewModel {
             doneWarning: opened.map { doneWarnings.contains($0.id) && primaryAction(for: $0.id) == .sendAndDone } ?? false,
             hasReplyPrompt: opened?.instructable?.reply != nil,
             canMessage: opened.map { canMessage($0.id) } ?? false,
-            messageFieldFocused: textFieldFocused && opened != nil && messageFocus == opened?.id)
+            messageFieldFocused: textFieldFocused && opened != nil && messageFocus == opened?.id,
+            reportFieldFocused: textFieldFocused && opened.map { reportFocus == $0.id && reporting[$0.id] != nil } ?? false)
     }
 
     /// The ask a key acts on: the open detail, else the selected row.
@@ -1664,6 +1675,7 @@ extension Store: PanelViewModel {
         case .sendAnswers: if let id = navigation.selectedID { sendAnswers(id) }
         case .focusMessage: if let id = navigation.selectedID, canMessage(id) { messageFocus = id }
         case .sendMessage: if let id = navigation.selectedID { sendMessage(id, text: messageDrafts[id] ?? "") }
+        case .sendReport: if let id = navigation.selectedID { sendReport(id, note: reportDrafts[id] ?? "") }
         }
     }
 

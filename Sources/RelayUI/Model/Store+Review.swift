@@ -555,7 +555,7 @@ extension Store {
         talk.reports && items.contains { $0.id == id } && item(for: id)?.status == "open"
     }
 
-    /// Opens the docked composer on `path`; nil (the queue row's Report a Problem…) picks the
+    /// Opens the inline report field on `path`; nil (the queue row's Report a Problem…) picks the
     /// first unticked actionable step. The ask's detail opens too. Nothing for a step a report
     /// can't be about.
     public func beginReport(_ id: String, path: String?) {
@@ -567,19 +567,22 @@ extension Store {
         guard reporting[id] != target else { return }
         heldReports[id] = nil
         reportStates[id] = nil
+        reportDrafts[id] = nil
         reporting[id] = target
     }
 
-    /// Esc or Cancel: the composer goes, and a held note with it.
+    /// Esc or Cancel: the field goes, with its text and a held note.
     public func endReport(_ id: String) {
         reporting[id] = nil
         reportStates[id] = nil
         heldReports[id] = nil
+        reportDrafts[id] = nil
+        if reportFocus == id { reportFocus = nil }
     }
 
-    /// The composer's Send. Without an approved owner key it is Set Up Owner Key…: the note is
-    /// held in memory, Settings › Queue opens and the setup starts; the note goes once the key
-    /// is approved. Sent, the composer closes and the step shows the reported icon.
+    /// The field's Send (and ⌘Return in it). Without an approved owner key the note is held in
+    /// memory, Settings › Queue opens and the setup starts; the note goes once the key is
+    /// approved. Sent, the field closes and the step shows the reported icon.
     @discardableResult public func sendReport(_ id: String, note: String) async -> ReportResult {
         guard let path = reporting[id], reportStates[id] != .sending else { return .refused(Self.noReportOpen) }
         guard let stepID = nodes(for: id).flatMap({ Flow.flattened($0).first { $0.path == path }?.stepID }) else {

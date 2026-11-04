@@ -343,3 +343,14 @@ private func typing(_ c: KeyContext) -> KeyContext { var c = c; c.textFieldFocus
         #expect(PanelKey(keyCode: 1, modifiers: [.shift, .command], characters: "s") == nil)
     }
 }
+
+/// The inline report field (0.14): ⌘Return sends the report and never closes the ask.
+@Suite struct KeyMapReportTests {
+    @Test func commandReturnInTheReportFieldSendsTheReport() {
+        let report = KeyContext(mode: .detail, textFieldFocused: true, hasDraftOrPick: true, reportFieldFocused: true)
+        #expect(KeyMap.command(for: .cmdReturn, in: report) == .sendReport)
+        let closed = KeyContext(mode: .detail, textFieldFocused: true, askOpen: false, reportFieldFocused: true)
+        #expect(KeyMap.command(for: .cmdReturn, in: closed) == nil)
+        #expect(KeyMap.command(for: .cmdReturn, in: KeyContext(mode: .detail)) == .done)
+    }
+}
