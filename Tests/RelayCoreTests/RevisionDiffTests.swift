@@ -68,6 +68,23 @@ private func removed(_ tokens: [DiffToken]) -> String {
         #expect(!diff.touchesCommandsLinksOrFiles)
     }
 
+    /// A choice with words reads as "Mix (What should change?)"; changing only its text is a change.
+    @Test func choiceTextRendersBesideTheLabel() {
+        let one = steps(2) { $0[1].question = Question(prompt: "How?", choices: ["All at once", Choice("Mix", text: "What?")]) }
+        let two = steps(2) {
+            $0[1].question = Question(prompt: "How?", choices: ["All at once", Choice("Mix", text: "What should change?")])
+        }
+        let diff = RevisionDiff.make(baseline: one, firstRevision: one, current: two, reasons: [])
+        let field = diff.steps.first?.fields.first
+        #expect(field?.name == "question.choices")
+        #expect(field?.old == "All at once\nMix (What?)")
+        #expect(field?.new == "All at once\nMix (What should change?)")
+        var three = one
+        three.reply = ReplySpec(prompt: "Anything else?", choices: ["No", Choice("Yes", text: "What else?")])
+        let top = RevisionDiff.make(baseline: one, firstRevision: one, current: three, reasons: []).top
+        #expect(top.first { $0.name == "reply.choices" }?.new == "No\nYes (What else?)")
+    }
+
     @Test func removingBlockingNamesTheStepsThatUnlock() {
         let one = steps(4) { $0[1].blocking = true }
         let two = steps(4)

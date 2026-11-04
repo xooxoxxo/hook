@@ -51,18 +51,26 @@ public struct Step: Codable, Sendable, Equatable {
 }
 
 /// A step's question. No choices (nil or empty) asks for free text; `multi` allows
-/// several picks. The validator holds the limits; decoding only needs the shape.
+/// several picks. The validator holds the limits; decoding only needs the shape. A choice
+/// may take the owner's words (Pond 1.4.0, `Choice.text`).
 public struct Question: Codable, Sendable, Equatable {
     public var prompt: String
-    public var choices: [String]?
+    public var choices: [Choice]?
     public var multi: Bool?
 
-    public init(prompt: String, choices: [String]? = nil, multi: Bool? = nil) {
+    public init(prompt: String, choices: [Choice]? = nil, multi: Bool? = nil) {
         self.prompt = prompt; self.choices = choices; self.multi = multi
     }
 
-    /// The choices to pick from; empty for a free-text question.
-    public var options: [String] { choices ?? [] }
+    /// The labels to pick from; empty for a free-text question.
+    public var options: [String] { choices?.labels ?? [] }
+    /// The words field's placeholder of the choice at `index`; nil for a plain choice or no choice there.
+    public func placeholder(at index: Int) -> String? {
+        guard let choices, choices.indices.contains(index) else { return nil }
+        return choices[index].text
+    }
+    /// Some choice takes the owner's words.
+    public var hasWords: Bool { choices?.contains(where: \.hasWords) ?? false }
     public var isFreeText: Bool { options.isEmpty }
     /// Several picks allowed (only with choices).
     public var allowsMany: Bool { multi == true && !isFreeText }
@@ -94,9 +102,19 @@ extension Step {
 
 public struct ReplySpec: Codable, Sendable, Equatable {
     public var prompt: String
-    public var choices: [String]?
+    public var choices: [Choice]?
 
-    public init(prompt: String, choices: [String]? = nil) { self.prompt = prompt; self.choices = choices }
+    public init(prompt: String, choices: [Choice]? = nil) { self.prompt = prompt; self.choices = choices }
+
+    /// The labels to pick from; empty for a free-text reply.
+    public var options: [String] { choices?.labels ?? [] }
+    /// The words field's placeholder of the choice at `index`; nil for a plain choice or no choice there.
+    public func placeholder(at index: Int) -> String? {
+        guard let choices, choices.indices.contains(index) else { return nil }
+        return choices[index].text
+    }
+    /// Some choice takes the owner's words.
+    public var hasWords: Bool { choices?.contains(where: \.hasWords) ?? false }
 }
 
 /// A link: a web `url`, or (protocol level 4) a `path` to a local document. The

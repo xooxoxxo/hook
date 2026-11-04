@@ -175,6 +175,24 @@ enum QueueFixture {
         #expect(await queue.list(status: "all", days: nil).isEmpty)
     }
 
+    /// This Mac takes no choice objects in 0.14: an object reads as Pond 1.3.0 reads it.
+    @Test func thisMacRefusesChoiceObjects() async throws {
+        let dir = QueueFixture.directory()
+        defer { QueueFixture.remove(dir) }
+        let queue = try await QueueFixture.openQueue(dir)
+        let body = try JSONValue.parse(Data(#"""
+        {"v":1,"title":"Roll out the new schedule","steps":[{"do":"Pick how it rolls out",
+         "question":{"prompt":"How?","choices":["All at once",{"label":"Mix","text":"What should change?"}]}}]}
+        """#.utf8))
+        do {
+            _ = try await queue.post(project: .string("Example"), instructable: body)
+            Issue.record("This Mac took a choice object")
+        } catch LocalQueueError.invalidInstructable(let errors) {
+            #expect(errors == ["steps[0].question.choices[1]: must be a string"])
+        }
+        #expect(await queue.list(status: "all", days: nil).isEmpty)
+    }
+
     @Test func dedupesOnProjectAndTitle() async throws {
         let dir = QueueFixture.directory()
         defer { QueueFixture.remove(dir) }

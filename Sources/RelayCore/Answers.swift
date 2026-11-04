@@ -37,6 +37,14 @@ public enum Answers {
         .object(["step": .string(step), "picked": .array(picked.map(JSONValue.string))])
     }
 
+    /// A pick with the owner's words (Pond 1.4.0): `{"step","picked","text"}`, or the pick alone
+    /// when the words are nil or blank. The words are sent trimmed.
+    public static func entry(step: String, picked: [String], words: String?) -> JSONValue {
+        let trimmed = words?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !trimmed.isEmpty else { return entry(step: step, picked: picked) }
+        return .object(["step": .string(step), "picked": .array(picked.map(JSONValue.string)), "text": .string(trimmed)])
+    }
+
     /// One free-text answer of a batch: `{"step","text"}`.
     public static func entry(step: String, text: String) -> JSONValue {
         .object(["step": .string(step), "text": .string(text)])
@@ -79,7 +87,8 @@ public enum Answers {
     /// `validate_answers`: `.success` holds one event text per answer, in batch order;
     /// `.failure` the errors ("<field path>: <problem>"), and then nothing may be stored.
     /// An event text is compact JSON with `step` first: {"step":"3.2","picked":["Staging"]}
-    /// or {"step":"4","text":"…"}.
+    /// or {"step":"4","text":"…"}. Pond 1.4.0 adds the owner's words beside a single pick of a
+    /// choice that takes them: {"step":"2","picked":["Mix"],"text":"…"}.
     public static func validate(_ instructable: JSONValue?, _ answers: JSONValue) -> Result<[String], ValidationFailure> {
         guard case .array(let batch) = answers, (1...maxAnswers).contains(batch.count) else {
             return .failure(ValidationFailure(errors: ["answers: must be a list of 1 to \(maxAnswers) answers"]))
@@ -108,13 +117,34 @@ public enum Answers {
                 continue
             }
             if case .array(let choices)? = question["choices"], !choices.isEmpty {
-                if Validator.present(answer["text"]) != nil {
+                let words = Set(choices.compactMap { choice -> [UInt32]? in
+                    guard case .object(let members) = choice, case .string? = members["text"],
+                          case .string(let label)? = members["label"] else { return nil }
+                    return label.unicodeScalars.map(\.value)
+                })
+                let text = Validator.present(answer["text"])
+                if text != nil && words.isEmpty {
                     errors.append("\(path).text: this question takes picks")
                     continue
                 }
                 guard let picks = picked(&errors, path, choices: choices, multi: question["multi"] == .bool(true),
                                          answer["picked"]) else { continue }
-                texts.append("{\"step\":\(jsonString(step)),\"picked\":[\(picks.map(jsonString).joined(separator: ","))]}")
+                var body = "{\"step\":\(jsonString(step)),\"picked\":[\(picks.map(jsonString).joined(separator: ","))]"
+                if text != nil {
+                    guard picks.count == 1, words.contains(picks[0].unicodeScalars.map(\.value)) else {
+                        errors.append("\(path).text: this choice takes no words")
+                        continue
+                    }
+                    let before = errors.count
+                    Validator.text(&errors, "\(path).text", text, limit: maxText, required: true, kind: .multi)
+                    guard errors.count == before, case .string(let words)? = text else { continue }
+                    if Validator.looksSecret(words) {
+                        errors.append("\(path).text: secret-like value")
+                        continue
+                    }
+                    body += ",\"text\":\(jsonString(words))"
+                }
+                texts.append(body + "}")
             } else {
                 if Validator.present(answer["picked"]) != nil {
                     errors.append("\(path).picked: this question takes text")
@@ -210,7 +240,7 @@ public enum Answers {
         }
     }
 
-    /// `_picked`: the picks of a choice question in the order of its choices, or nil
+    /// `_picked`: the picks (labels) of a choice question in the order of its choices, or nil
     /// after recording the errors.
     private static func picked(
         _ errors: inout [String], _ path: String, choices: [JSONValue], multi: Bool, _ value: JSONValue?
@@ -223,8 +253,9 @@ public enum Answers {
             errors.append("\(path).picked: must list " + (multi ? "1 or more of the choices" : "exactly 1 choice"))
             return nil
         }
-        // Python compares strings by code point, not by canonical equivalence.
-        let options = choices.compactMap(\.stringValue).map { Array($0.unicodeScalars) }
+        // Python compares strings by code point, not by canonical equivalence. A choice object
+        // (Pond 1.4.0) is picked by its label.
+        let options = choices.compactMap { $0.stringValue ?? $0["label"]?.stringValue }.map { Array($0.unicodeScalars) }
         var ok = true
         var earlier: [[Unicode.Scalar]] = []
         for (k, pick) in picks.enumerated() {

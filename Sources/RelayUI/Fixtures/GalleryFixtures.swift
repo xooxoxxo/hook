@@ -139,7 +139,7 @@ public enum GalleryFixtures {
         let links = (1...10).map { LinkRef(label: "Runbook page \($0)", url: "https://docs.example.com/runbook/\($0)") }
         return ask("atlas-limits", "Atlas", "today", hoursAgo: 1, Instructable(
             v: 1, title: title, urgency: "today", steps: list, verify: Step(action: "Check the rotation", code: "echo ok"),
-            reply: ReplySpec(prompt: "Which hosts are left?", choices: choices), links: links))
+            reply: ReplySpec(prompt: "Which hosts are left?", choices: choices.map { Choice($0) }), links: links))
     }()
 
     public static let limits = DetailSnapshot.build(

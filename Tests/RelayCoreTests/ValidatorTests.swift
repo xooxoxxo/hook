@@ -365,3 +365,71 @@ private let minimal: [String: JSONValue] = [
         #expect(clean["steps"] == .array([.object(["do": .string("a"), "id": .string("s1")])]))
     }
 }
+
+/// Choice objects (Pond 1.4.0), held to Fixtures/choice-vectors.json.
+@Suite struct ValidatorChoiceTests {
+    @Test func choiceVectors() throws {
+        let vectors = try ChoiceVectors.load()
+        var checked = 0
+        for (name, vector) in vectors.cases where vector.request["path"] == .string("/asks")
+            && vector.request["method"] == .string("POST") {
+            let instructable = try #require(vector.request["body"]?["instructable"], "\(name)")
+            switch Validator.validate(instructable) {
+            case .success:
+                #expect(vector.status == 201, "\(name) passed, the Pond answered \(vector.status)")
+            case .failure(let failure):
+                let details = vector.response["details"].map { value -> [String] in
+                    guard case .array(let items) = value else { return [] }
+                    return items.compactMap(\.stringValue)
+                } ?? []
+                #expect(vector.status == 400 && failure.errors == details, "\(name): \(failure.errors)")
+            }
+            checked += 1
+        }
+        #expect(checked >= 13)
+    }
+
+    /// The mirror of the Pond's `_choice` where the vectors are silent.
+    static let cases: [(String, String, [String])] = [
+        ("choice-empty-label", #"{"v":1,"title":"t","steps":[{"do":"a","question":{"prompt":"p","choices":["A",{"label":" ","text":"w"}]}}]}"#,
+         ["steps[0].question.choices[1].label: must not be empty"]),
+        ("choice-label-lines", #"{"v":1,"title":"t","steps":[{"do":"a","question":{"prompt":"p","choices":["A",{"label":"B\nC","text":"w"}]}}]}"#,
+         ["steps[0].question.choices[1].label: must be a single line"]),
+        ("choice-text-number", #"{"v":1,"title":"t","steps":[{"do":"a","question":{"prompt":"p","choices":["A",{"label":"B","text":3}]}}]}"#,
+         ["steps[0].question.choices[1].text: must be a string"]),
+        ("choice-duplicate-across", #"{"v":1,"title":"t","steps":[{"do":"a","question":{"prompt":"p","choices":[{"label":"A","text":"w"},"A"]}}]}"#,
+         ["steps[0].question.choices[1]: duplicate choice"]),
+        ("choice-null", #"{"v":1,"title":"t","steps":[{"do":"a","question":{"prompt":"p","choices":["A",null]}}]}"#,
+         ["steps[0].question.choices[1]: required"]),
+        // A reply list of plain strings keeps the 1.3.0 rules: no duplicate check.
+        ("reply-plain-duplicates", #"{"v":1,"title":"t","steps":[{"do":"a"}],"reply":{"prompt":"p","choices":["A","A"]}}"#, []),
+        ("reply-object-duplicates", #"{"v":1,"title":"t","steps":[{"do":"a"}],"reply":{"prompt":"p","choices":["A",{"label":"A","text":"w"}]}}"#,
+         ["reply.choices[1]: duplicate choice"]),
+        ("reply-object-in-sub-step", #"{"v":1,"title":"t","steps":[{"do":"a","substeps":[{"do":"b","question":{"prompt":"p","multi":true,"choices":["A",{"label":"B","text":"w"}]}}]}]}"#,
+         ["steps[0].substeps[0].question.choices[1]: a choice with text can't be in a multi question"]),
+    ]
+
+    @Test func choiceRulesMatchThePond() throws {
+        for (name, input, errors) in Self.cases {
+            let value = try JSONValue.parse(Data(input.utf8))
+            switch Validator.validate(value) {
+            case .success: #expect(errors.isEmpty, "\(name) should fail with \(errors)")
+            case .failure(let failure): #expect(failure.errors == errors, "\(name)")
+            }
+        }
+    }
+
+    /// This Mac takes no choice objects in 0.14: an object reads as Pond 1.3.0 reads it.
+    @Test func thisMacRefusesChoiceObjects() throws {
+        let instructable = try ChoiceVectors.load().posted("choice-post")
+        guard case .failure(let failure) = Validator.validate(instructable, choiceObjects: false) else {
+            Issue.record("choiceObjects: false took an object")
+            return
+        }
+        #expect(failure.errors == ["steps[1].question.choices[1]: must be a string", "reply.choices[1]: must be a string"])
+        let plain = try ChoiceVectors.load().posted("choice-plain-post")
+        if case .failure(let failure) = Validator.validate(plain, choiceObjects: false) {
+            Issue.record("a plain ask failed: \(failure.errors)")
+        }
+    }
+}

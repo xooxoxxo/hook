@@ -18,7 +18,7 @@ private func check(pond version: String, level: Int? = 5) -> MailboxCheck {
 private func semver(_ text: String) -> PondVersion { .semver(SemVer(strict: text)!) }
 
 private let everyFeature: [MailboxFeature] = [.answers, .blocking, .optional, .fileLinks, .corrections, .bugs, .messages,
-                                              .requirements]
+                                              .requirements, .longText]
 /// The features the Notice can name: the ones this Hook's range needs.
 private let everyNeededFeature: [MailboxFeature] = [.answers, .blocking, .optional, .fileLinks, .corrections]
 
@@ -60,6 +60,25 @@ private let everyNeededFeature: [MailboxFeature] = [.answers, .blocking, .option
         #expect(!semver("1.3.0-rc.1").supports(.requirements))
         for pond in ["1.1.0", "1.2.0", "1.0.0"] {
             #expect(!MailboxProtocol.missingFeatures(pond: semver(pond)).contains(.requirements), "\(pond)")
+        }
+        #expect(PondCompat.required == "^1.1.0")
+    }
+
+    /// 8000-character messages and reports, multi-line reports (Pond 1.4.0).
+    @Test func longTextNeeds140() {
+        #expect(MailboxFeature.longText.minimumPond == SemVer(major: 1, minor: 4, patch: 0))
+        #expect(MailboxFeature.longText.displayName == "long messages and reports")
+        #expect(semver("1.4.0").supports(.longText))
+        #expect(semver("1.5.2").supports(.longText))
+        #expect(!semver("1.3.0").supports(.longText))
+        #expect(!semver("1.4.0-rc.1").supports(.longText))
+        #expect(!PondVersion.legacy(protocol: 5).supports(.longText))
+    }
+
+    @Test func longTextIsGated() {
+        #expect(MailboxFeature.longText.gated)
+        for pond in ["1.1.0", "1.2.0", "1.3.0", "1.0.0"] {
+            #expect(!MailboxProtocol.missingFeatures(pond: semver(pond)).contains(.longText), "\(pond)")
         }
         #expect(PondCompat.required == "^1.1.0")
     }

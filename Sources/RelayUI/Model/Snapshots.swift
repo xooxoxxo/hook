@@ -173,7 +173,7 @@ public struct DetailSnapshot: Equatable, Sendable {
         let model = detail.map { DetailModel.make(item: $0.item, events: $0.events, history: history) }
         let nodes = model?.nodes ?? []
         let events = detail?.events ?? []
-        let choices = item.instructable?.reply?.choices ?? []
+        let choices = item.instructable?.reply?.options ?? []
         let latest = ReplyText.latestSentChoice(events: events, choices: choices)
         let isOpen = item.status == "open"
         let locked = Set(Flow.lockedPaths(nodes: nodes, ticks: ticks))

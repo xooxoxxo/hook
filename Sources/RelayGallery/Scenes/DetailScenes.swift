@@ -233,7 +233,7 @@ let blockingJSON = #"""
 /// The choice fixture with the first choice picked; `sent` also marks it sent by a reply event.
 @MainActor func choiceScene(_ name: String, sent: Bool) -> GalleryScene {
     var snapshot = GalleryFixtures.detailChoice
-    let choices = snapshot.model?.reply?.choices ?? []
+    let choices = snapshot.model?.reply?.options ?? []
     if sent, let first = choices.first {
         snapshot.sentChoices = [0]
         snapshot.latestSentChoice = 0

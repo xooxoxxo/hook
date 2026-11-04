@@ -423,6 +423,11 @@ private func sentHeader(_ host: String, _ name: String) -> String? {
 }
 
 @Suite struct MailboxClientRevisionTests {
+    /// Protocol 6 (Hook 0.14): the Pond serves choice objects; below 6 it serves labels only.
+    @Test func sendsProtocol6() {
+        #expect(MailboxClient.clientProtocol == "6")
+    }
+
     @Test func everyRequestSaysItReadsRevisions() async throws {
         let (client, host) = try makeClient { request, _ in
             switch request.url?.path() ?? "" {
@@ -453,7 +458,7 @@ private func sentHeader(_ host: String, _ name: String) -> String? {
         ]
         for (name, call) in calls {
             try await call()
-            #expect(sentHeader(host, "X-Hook-Protocol") == "5", "\(name)")
+            #expect(sentHeader(host, "X-Hook-Protocol") == "6", "\(name)")
         }
     }
 

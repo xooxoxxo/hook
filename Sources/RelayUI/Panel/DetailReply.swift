@@ -170,8 +170,8 @@ struct DetailReply<Model: PanelViewModel>: View {
     }
 
     @ViewBuilder private func control(showHeading: Bool) -> some View {
-        if let choices = spec.choices, !choices.isEmpty {
-            ChoiceGroup(prompt: spec.prompt, choices: choices, picked: picked,
+        if !spec.options.isEmpty {
+            ChoiceGroup(prompt: spec.prompt, choices: spec.options, picked: picked,
                         sent: snapshot.sentChoices, latestSent: snapshot.latestSentChoice,
                         sending: snapshot.reply == .sending, showHeading: showHeading, onCancel: cancel,
                         onSend: { model.sendChoice(snapshot.id) })

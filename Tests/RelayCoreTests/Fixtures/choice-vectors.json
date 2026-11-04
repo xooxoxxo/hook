@@ -1,0 +1,1843 @@
+{
+ "version": 1,
+ "pond": "1.4.0",
+ "source": "mailbox/tests/gen_choice_vectors.py, recorded from the Pond over loopback",
+ "format": "{name, note, request: {method, path, ownerKey, protocol, body}, response: {status, body}, binds?}\n\n`ownerKey` true sends an approved X-Hook-Owner-Key; `protocol` is the\nX-Hook-Protocol sent, or null for none. `binds` names a string the response carries\n({\"ask1\": \"item.id\", \"hash1\": \"revision.hash\"}), and later paths and bodies use it\nas {ask1} or {hash1}. In responses every bound string is its {name} and every\nISO-8601 timestamp is {time}; everything else is exactly what the Pond answers.",
+ "cases": [
+  {
+   "name": "choice-post",
+   "note": "a question and the reply with choice objects: 201",
+   "request": {
+    "method": "POST",
+    "path": "/asks",
+    "ownerKey": false,
+    "protocol": 6,
+    "body": {
+     "project": "Example",
+     "context": "personal",
+     "instructable": {
+      "v": 1,
+      "title": "Roll out the new schedule",
+      "urgency": "today",
+      "steps": [
+       {
+        "do": "Read the schedule"
+       },
+       {
+        "do": "Pick how it rolls out",
+        "question": {
+         "prompt": "How should it roll out?",
+         "choices": [
+          "All at once",
+          {
+           "label": "Mix",
+           "text": "What should change?"
+          },
+          "Staff first"
+         ]
+        }
+       }
+      ],
+      "reply": {
+       "prompt": "Anything else before it goes out?",
+       "choices": [
+        "No",
+        {
+         "label": "Yes",
+         "text": "What else?"
+        }
+       ]
+      }
+     }
+    }
+   },
+   "response": {
+    "status": 201,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Roll out the new schedule",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "6a6ad7cc66d5d002",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "reply": {
+         "choices": [
+          "No",
+          {
+           "label": "Yes",
+           "text": "What else?"
+          }
+         ],
+         "prompt": "Anything else before it goes out?"
+        },
+        "steps": [
+         {
+          "do": "Read the schedule",
+          "id": "s1"
+         },
+         {
+          "do": "Pick how it rolls out",
+          "id": "s2",
+          "question": {
+           "choices": [
+            "All at once",
+            {
+             "label": "Mix",
+             "text": "What should change?"
+            },
+            "Staff first"
+           ],
+           "prompt": "How should it roll out?"
+          }
+         }
+        ],
+        "title": "Roll out the new schedule",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "revision": {
+       "rev": 1,
+       "hash": "{hash1}",
+       "prev": "",
+       "at": "{time}",
+       "reason": "",
+       "body": "{\"reply\":{\"choices\":[\"No\",{\"label\":\"Yes\",\"text\":\"What else?\"}],\"prompt\":\"Anything else before it goes out?\"},\"steps\":[{\"do\":\"Read the schedule\",\"id\":\"s1\"},{\"do\":\"Pick how it rolls out\",\"id\":\"s2\",\"question\":{\"choices\":[\"All at once\",{\"label\":\"Mix\",\"text\":\"What should change?\"},\"Staff first\"],\"prompt\":\"How should it roll out?\"}}],\"title\":\"Roll out the new schedule\",\"urgency\":\"today\",\"v\":1}",
+       "acceptedRev": 1
+      }
+     },
+     "revision": {
+      "rev": 1,
+      "hash": "{hash1}"
+     },
+     "editable": false
+    }
+   },
+   "binds": {
+    "ask1": "item.id",
+    "hash1": "revision.hash"
+   }
+  },
+  {
+   "name": "choice-detail-protocol-6",
+   "note": "Hook 0.14 (protocol 6) reads the objects and the revision",
+   "request": {
+    "method": "GET",
+    "path": "/asks/{ask1}",
+    "ownerKey": false,
+    "protocol": 6,
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Roll out the new schedule",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "6a6ad7cc66d5d002",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "reply": {
+         "choices": [
+          "No",
+          {
+           "label": "Yes",
+           "text": "What else?"
+          }
+         ],
+         "prompt": "Anything else before it goes out?"
+        },
+        "steps": [
+         {
+          "do": "Read the schedule",
+          "id": "s1"
+         },
+         {
+          "do": "Pick how it rolls out",
+          "id": "s2",
+          "question": {
+           "choices": [
+            "All at once",
+            {
+             "label": "Mix",
+             "text": "What should change?"
+            },
+            "Staff first"
+           ],
+           "prompt": "How should it roll out?"
+          }
+         }
+        ],
+        "title": "Roll out the new schedule",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "revision": {
+       "rev": 1,
+       "hash": "{hash1}",
+       "prev": "",
+       "at": "{time}",
+       "reason": "",
+       "body": "{\"reply\":{\"choices\":[\"No\",{\"label\":\"Yes\",\"text\":\"What else?\"}],\"prompt\":\"Anything else before it goes out?\"},\"steps\":[{\"do\":\"Read the schedule\",\"id\":\"s1\"},{\"do\":\"Pick how it rolls out\",\"id\":\"s2\",\"question\":{\"choices\":[\"All at once\",{\"label\":\"Mix\",\"text\":\"What should change?\"},\"Staff first\"],\"prompt\":\"How should it roll out?\"}}],\"title\":\"Roll out the new schedule\",\"urgency\":\"today\",\"v\":1}",
+       "acceptedRev": 1
+      }
+     },
+     "events": [
+      {
+       "seq": 1,
+       "itemId": "{ask1}",
+       "kind": "posted",
+       "actor": "session",
+       "text": null,
+       "at": "{time}",
+       "rev": null,
+       "auth": null
+      }
+     ],
+     "revisions": [
+      {
+       "rev": 1,
+       "hash": "{hash1}",
+       "prev": "",
+       "at": "{time}",
+       "reason": "",
+       "body": "{\"reply\":{\"choices\":[\"No\",{\"label\":\"Yes\",\"text\":\"What else?\"}],\"prompt\":\"Anything else before it goes out?\"},\"steps\":[{\"do\":\"Read the schedule\",\"id\":\"s1\"},{\"do\":\"Pick how it rolls out\",\"id\":\"s2\",\"question\":{\"choices\":[\"All at once\",{\"label\":\"Mix\",\"text\":\"What should change?\"},\"Staff first\"],\"prompt\":\"How should it roll out?\"}}],\"title\":\"Roll out the new schedule\",\"urgency\":\"today\",\"v\":1}"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "choice-detail-protocol-5",
+   "note": "Hook 0.13 (protocol 5): labels only, no revision or revisions",
+   "request": {
+    "method": "GET",
+    "path": "/asks/{ask1}",
+    "ownerKey": false,
+    "protocol": 5,
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Roll out the new schedule",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "6a6ad7cc66d5d002",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "reply": {
+         "choices": [
+          "No",
+          "Yes"
+         ],
+         "prompt": "Anything else before it goes out?"
+        },
+        "steps": [
+         {
+          "do": "Read the schedule",
+          "id": "s1"
+         },
+         {
+          "do": "Pick how it rolls out",
+          "id": "s2",
+          "question": {
+           "choices": [
+            "All at once",
+            "Mix",
+            "Staff first"
+           ],
+           "prompt": "How should it roll out?"
+          }
+         }
+        ],
+        "title": "Roll out the new schedule",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null
+     },
+     "events": [
+      {
+       "seq": 1,
+       "itemId": "{ask1}",
+       "kind": "posted",
+       "actor": "session",
+       "text": null,
+       "at": "{time}",
+       "rev": null,
+       "auth": null
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "choice-detail-old-client",
+   "note": "no X-Hook-Protocol: labels only too",
+   "request": {
+    "method": "GET",
+    "path": "/asks/{ask1}",
+    "ownerKey": false,
+    "protocol": null,
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Roll out the new schedule",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "6a6ad7cc66d5d002",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "reply": {
+         "choices": [
+          "No",
+          "Yes"
+         ],
+         "prompt": "Anything else before it goes out?"
+        },
+        "steps": [
+         {
+          "do": "Read the schedule",
+          "id": "s1"
+         },
+         {
+          "do": "Pick how it rolls out",
+          "id": "s2",
+          "question": {
+           "choices": [
+            "All at once",
+            "Mix",
+            "Staff first"
+           ],
+           "prompt": "How should it roll out?"
+          }
+         }
+        ],
+        "title": "Roll out the new schedule",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null
+     },
+     "events": [
+      {
+       "seq": 1,
+       "itemId": "{ask1}",
+       "kind": "posted",
+       "actor": "session",
+       "text": null,
+       "at": "{time}",
+       "rev": null,
+       "auth": null
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "choice-list-protocol-5",
+   "note": "GET /asks for protocol 5: labels only",
+   "request": {
+    "method": "GET",
+    "path": "/asks",
+    "ownerKey": false,
+    "protocol": 5,
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "items": [
+      {
+       "id": "{ask1}",
+       "source": "xo-mailbox",
+       "title": "Roll out the new schedule",
+       "status": "open",
+       "priority": 1,
+       "pinned": false,
+       "rolling": false,
+       "payloadType": "xo.ask",
+       "payload": {
+        "key": "6a6ad7cc66d5d002",
+        "why": null,
+        "cmd": null,
+        "link": null,
+        "tg_chat_id": 12345,
+        "tg_message_id": 2,
+        "note": null,
+        "instructable": {
+         "reply": {
+          "choices": [
+           "No",
+           "Yes"
+          ],
+          "prompt": "Anything else before it goes out?"
+         },
+         "steps": [
+          {
+           "do": "Read the schedule",
+           "id": "s1"
+          },
+          {
+           "do": "Pick how it rolls out",
+           "id": "s2",
+           "question": {
+            "choices": [
+             "All at once",
+             "Mix",
+             "Staff first"
+            ],
+            "prompt": "How should it roll out?"
+           }
+          }
+         ],
+         "title": "Roll out the new schedule",
+         "urgency": "today",
+         "v": 1
+        }
+       },
+       "links": [],
+       "created": "{time}",
+       "updated": "{time}",
+       "anchor": null,
+       "recurrence": null,
+       "snoozeUntil": null,
+       "projectId": "Example",
+       "lane": "personal",
+       "completedAt": null
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "choice-invalid-number",
+   "note": "a choice is a string or {label, text}",
+   "request": {
+    "method": "POST",
+    "path": "/asks",
+    "ownerKey": false,
+    "protocol": 6,
+    "body": {
+     "project": "Example",
+     "context": "personal",
+     "instructable": {
+      "v": 1,
+      "title": "A refused ask",
+      "urgency": "today",
+      "steps": [
+       {
+        "do": "Pick",
+        "question": {
+         "prompt": "How should it roll out?",
+         "choices": [
+          "All at once",
+          5
+         ]
+        }
+       }
+      ],
+      "reply": {
+       "prompt": "Anything else before it goes out?",
+       "choices": [
+        "No",
+        {
+         "label": "Yes",
+         "text": "What else?"
+        }
+       ]
+      }
+     }
+    }
+   },
+   "response": {
+    "status": 400,
+    "body": {
+     "error": "invalid instructable",
+     "details": [
+      "steps[0].question.choices[1]: must be a string or {label, text}"
+     ]
+    }
+   }
+  },
+  {
+   "name": "choice-invalid-unknown-key",
+   "note": "only label and text",
+   "request": {
+    "method": "POST",
+    "path": "/asks",
+    "ownerKey": false,
+    "protocol": 6,
+    "body": {
+     "project": "Example",
+     "context": "personal",
+     "instructable": {
+      "v": 1,
+      "title": "A refused ask",
+      "urgency": "today",
+      "steps": [
+       {
+        "do": "Pick",
+        "question": {
+         "prompt": "How should it roll out?",
+         "choices": [
+          "All at once",
+          {
+           "label": "Mix",
+           "text": "What should change?",
+           "hint": "x"
+          }
+         ]
+        }
+       }
+      ],
+      "reply": {
+       "prompt": "Anything else before it goes out?",
+       "choices": [
+        "No",
+        {
+         "label": "Yes",
+         "text": "What else?"
+        }
+       ]
+      }
+     }
+    }
+   },
+   "response": {
+    "status": 400,
+    "body": {
+     "error": "invalid instructable",
+     "details": [
+      "steps[0].question.choices[1].hint: unknown key"
+     ]
+    }
+   }
+  },
+  {
+   "name": "choice-invalid-no-label",
+   "note": "label is required",
+   "request": {
+    "method": "POST",
+    "path": "/asks",
+    "ownerKey": false,
+    "protocol": 6,
+    "body": {
+     "project": "Example",
+     "context": "personal",
+     "instructable": {
+      "v": 1,
+      "title": "A refused ask",
+      "urgency": "today",
+      "steps": [
+       {
+        "do": "Pick",
+        "question": {
+         "prompt": "How should it roll out?",
+         "choices": [
+          "All at once",
+          {
+           "text": "What should change?"
+          }
+         ]
+        }
+       }
+      ],
+      "reply": {
+       "prompt": "Anything else before it goes out?",
+       "choices": [
+        "No",
+        {
+         "label": "Yes",
+         "text": "What else?"
+        }
+       ]
+      }
+     }
+    }
+   },
+   "response": {
+    "status": 400,
+    "body": {
+     "error": "invalid instructable",
+     "details": [
+      "steps[0].question.choices[1].label: required"
+     ]
+    }
+   }
+  },
+  {
+   "name": "choice-invalid-long-label",
+   "note": "label: 1 to 60 characters",
+   "request": {
+    "method": "POST",
+    "path": "/asks",
+    "ownerKey": false,
+    "protocol": 6,
+    "body": {
+     "project": "Example",
+     "context": "personal",
+     "instructable": {
+      "v": 1,
+      "title": "A refused ask",
+      "urgency": "today",
+      "steps": [
+       {
+        "do": "Pick",
+        "question": {
+         "prompt": "How should it roll out?",
+         "choices": [
+          "All at once",
+          {
+           "label": "MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM",
+           "text": "What should change?"
+          }
+         ]
+        }
+       }
+      ],
+      "reply": {
+       "prompt": "Anything else before it goes out?",
+       "choices": [
+        "No",
+        {
+         "label": "Yes",
+         "text": "What else?"
+        }
+       ]
+      }
+     }
+    }
+   },
+   "response": {
+    "status": 400,
+    "body": {
+     "error": "invalid instructable",
+     "details": [
+      "steps[0].question.choices[1].label: longer than 60 characters"
+     ]
+    }
+   }
+  },
+  {
+   "name": "choice-invalid-no-text",
+   "note": "text is required: a choice without words is a plain string",
+   "request": {
+    "method": "POST",
+    "path": "/asks",
+    "ownerKey": false,
+    "protocol": 6,
+    "body": {
+     "project": "Example",
+     "context": "personal",
+     "instructable": {
+      "v": 1,
+      "title": "A refused ask",
+      "urgency": "today",
+      "steps": [
+       {
+        "do": "Pick",
+        "question": {
+         "prompt": "How should it roll out?",
+         "choices": [
+          "All at once",
+          {
+           "label": "Mix"
+          }
+         ]
+        }
+       }
+      ],
+      "reply": {
+       "prompt": "Anything else before it goes out?",
+       "choices": [
+        "No",
+        {
+         "label": "Yes",
+         "text": "What else?"
+        }
+       ]
+      }
+     }
+    }
+   },
+   "response": {
+    "status": 400,
+    "body": {
+     "error": "invalid instructable",
+     "details": [
+      "steps[0].question.choices[1].text: required"
+     ]
+    }
+   }
+  },
+  {
+   "name": "choice-invalid-long-text",
+   "note": "text: 1 to 100 characters",
+   "request": {
+    "method": "POST",
+    "path": "/asks",
+    "ownerKey": false,
+    "protocol": 6,
+    "body": {
+     "project": "Example",
+     "context": "personal",
+     "instructable": {
+      "v": 1,
+      "title": "A refused ask",
+      "urgency": "today",
+      "steps": [
+       {
+        "do": "Pick",
+        "question": {
+         "prompt": "How should it roll out?",
+         "choices": [
+          "All at once",
+          {
+           "label": "Mix",
+           "text": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+          }
+         ]
+        }
+       }
+      ],
+      "reply": {
+       "prompt": "Anything else before it goes out?",
+       "choices": [
+        "No",
+        {
+         "label": "Yes",
+         "text": "What else?"
+        }
+       ]
+      }
+     }
+    }
+   },
+   "response": {
+    "status": 400,
+    "body": {
+     "error": "invalid instructable",
+     "details": [
+      "steps[0].question.choices[1].text: longer than 100 characters"
+     ]
+    }
+   }
+  },
+  {
+   "name": "choice-invalid-text-lines",
+   "note": "text is one line",
+   "request": {
+    "method": "POST",
+    "path": "/asks",
+    "ownerKey": false,
+    "protocol": 6,
+    "body": {
+     "project": "Example",
+     "context": "personal",
+     "instructable": {
+      "v": 1,
+      "title": "A refused ask",
+      "urgency": "today",
+      "steps": [
+       {
+        "do": "Pick",
+        "question": {
+         "prompt": "How should it roll out?",
+         "choices": [
+          "All at once",
+          {
+           "label": "Mix",
+           "text": "two\nlines"
+          }
+         ]
+        }
+       }
+      ],
+      "reply": {
+       "prompt": "Anything else before it goes out?",
+       "choices": [
+        "No",
+        {
+         "label": "Yes",
+         "text": "What else?"
+        }
+       ]
+      }
+     }
+    }
+   },
+   "response": {
+    "status": 400,
+    "body": {
+     "error": "invalid instructable",
+     "details": [
+      "steps[0].question.choices[1].text: must be a single line"
+     ]
+    }
+   }
+  },
+  {
+   "name": "choice-invalid-duplicate",
+   "note": "labels are distinct across strings and objects",
+   "request": {
+    "method": "POST",
+    "path": "/asks",
+    "ownerKey": false,
+    "protocol": 6,
+    "body": {
+     "project": "Example",
+     "context": "personal",
+     "instructable": {
+      "v": 1,
+      "title": "A refused ask",
+      "urgency": "today",
+      "steps": [
+       {
+        "do": "Pick",
+        "question": {
+         "prompt": "How should it roll out?",
+         "choices": [
+          "Mix",
+          {
+           "label": "Mix",
+           "text": "What should change?"
+          }
+         ]
+        }
+       }
+      ],
+      "reply": {
+       "prompt": "Anything else before it goes out?",
+       "choices": [
+        "No",
+        {
+         "label": "Yes",
+         "text": "What else?"
+        }
+       ]
+      }
+     }
+    }
+   },
+   "response": {
+    "status": 400,
+    "body": {
+     "error": "invalid instructable",
+     "details": [
+      "steps[0].question.choices[1]: duplicate choice"
+     ]
+    }
+   }
+  },
+  {
+   "name": "choice-invalid-secret",
+   "note": "a secret-like text: field paths only, never echoed",
+   "request": {
+    "method": "POST",
+    "path": "/asks",
+    "ownerKey": false,
+    "protocol": 6,
+    "body": {
+     "project": "Example",
+     "context": "personal",
+     "instructable": {
+      "v": 1,
+      "title": "A refused ask",
+      "urgency": "today",
+      "steps": [
+       {
+        "do": "Pick",
+        "question": {
+         "prompt": "How should it roll out?",
+         "choices": [
+          "All at once",
+          {
+           "label": "Mix",
+           "text": "use ghp_example"
+          }
+         ]
+        }
+       }
+      ],
+      "reply": {
+       "prompt": "Anything else before it goes out?",
+       "choices": [
+        "No",
+        {
+         "label": "Yes",
+         "text": "What else?"
+        }
+       ]
+      }
+     }
+    }
+   },
+   "response": {
+    "status": 400,
+    "body": {
+     "error": "invalid instructable",
+     "details": [
+      "steps[0].question.choices[1].text: secret-like value"
+     ]
+    }
+   }
+  },
+  {
+   "name": "choice-invalid-multi",
+   "note": "a choice with text can't be in a multi question",
+   "request": {
+    "method": "POST",
+    "path": "/asks",
+    "ownerKey": false,
+    "protocol": 6,
+    "body": {
+     "project": "Example",
+     "context": "personal",
+     "instructable": {
+      "v": 1,
+      "title": "A refused ask",
+      "urgency": "today",
+      "steps": [
+       {
+        "do": "Pick",
+        "question": {
+         "prompt": "How should it roll out?",
+         "choices": [
+          "All at once",
+          {
+           "label": "Mix",
+           "text": "What should change?"
+          }
+         ],
+         "multi": true
+        }
+       }
+      ],
+      "reply": {
+       "prompt": "Anything else before it goes out?",
+       "choices": [
+        "No",
+        {
+         "label": "Yes",
+         "text": "What else?"
+        }
+       ]
+      }
+     }
+    }
+   },
+   "response": {
+    "status": 400,
+    "body": {
+     "error": "invalid instructable",
+     "details": [
+      "steps[0].question.choices[1]: a choice with text can't be in a multi question"
+     ]
+    }
+   }
+  },
+  {
+   "name": "choice-invalid-reply",
+   "note": "the reply's choices follow the same rules",
+   "request": {
+    "method": "POST",
+    "path": "/asks",
+    "ownerKey": false,
+    "protocol": 6,
+    "body": {
+     "project": "Example",
+     "context": "personal",
+     "instructable": {
+      "v": 1,
+      "title": "A refused reply",
+      "urgency": "today",
+      "steps": [
+       {
+        "do": "Read the schedule"
+       },
+       {
+        "do": "Pick how it rolls out",
+        "question": {
+         "prompt": "How should it roll out?",
+         "choices": [
+          "All at once",
+          {
+           "label": "Mix",
+           "text": "What should change?"
+          },
+          "Staff first"
+         ]
+        }
+       }
+      ],
+      "reply": {
+       "prompt": "Anything else?",
+       "choices": [
+        "No",
+        {
+         "label": "Yes"
+        }
+       ]
+      }
+     }
+    }
+   },
+   "response": {
+    "status": 400,
+    "body": {
+     "error": "invalid instructable",
+     "details": [
+      "reply.choices[1].text: required"
+     ]
+    }
+   }
+  },
+  {
+   "name": "choice-answer-words",
+   "note": "a pick of a word choice with the owner's words: picked plus text",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/answers",
+    "ownerKey": true,
+    "protocol": 6,
+    "body": {
+     "answers": [
+      {
+       "step": "2",
+       "picked": [
+        "Mix"
+       ],
+       "text": "Staff on Monday, the rest on Wednesday"
+      }
+     ]
+    }
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Roll out the new schedule",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "6a6ad7cc66d5d002",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "reply": {
+         "choices": [
+          "No",
+          {
+           "label": "Yes",
+           "text": "What else?"
+          }
+         ],
+         "prompt": "Anything else before it goes out?"
+        },
+        "steps": [
+         {
+          "do": "Read the schedule",
+          "id": "s1"
+         },
+         {
+          "do": "Pick how it rolls out",
+          "id": "s2",
+          "question": {
+           "choices": [
+            "All at once",
+            {
+             "label": "Mix",
+             "text": "What should change?"
+            },
+            "Staff first"
+           ],
+           "prompt": "How should it roll out?"
+          }
+         }
+        ],
+        "title": "Roll out the new schedule",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "revision": {
+       "rev": 1,
+       "hash": "{hash1}",
+       "prev": "",
+       "at": "{time}",
+       "reason": "",
+       "body": "{\"reply\":{\"choices\":[\"No\",{\"label\":\"Yes\",\"text\":\"What else?\"}],\"prompt\":\"Anything else before it goes out?\"},\"steps\":[{\"do\":\"Read the schedule\",\"id\":\"s1\"},{\"do\":\"Pick how it rolls out\",\"id\":\"s2\",\"question\":{\"choices\":[\"All at once\",{\"label\":\"Mix\",\"text\":\"What should change?\"},\"Staff first\"],\"prompt\":\"How should it roll out?\"}}],\"title\":\"Roll out the new schedule\",\"urgency\":\"today\",\"v\":1}",
+       "acceptedRev": 1
+      }
+     }
+    }
+   }
+  },
+  {
+   "name": "choice-answer-words-on-plain",
+   "note": "words on a choice that takes none",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/answers",
+    "ownerKey": true,
+    "protocol": 6,
+    "body": {
+     "answers": [
+      {
+       "step": "2",
+       "picked": [
+        "Staff first"
+       ],
+       "text": "Monday"
+      }
+     ]
+    }
+   },
+   "response": {
+    "status": 400,
+    "body": {
+     "error": "invalid answers",
+     "details": [
+      "answers[0].text: this choice takes no words"
+     ]
+    }
+   }
+  },
+  {
+   "name": "choice-answer-words-too-long",
+   "note": "the words: 1,000 characters at most",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/answers",
+    "ownerKey": true,
+    "protocol": 6,
+    "body": {
+     "answers": [
+      {
+       "step": "2",
+       "picked": [
+        "Mix"
+       ],
+       "text": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+      }
+     ]
+    }
+   },
+   "response": {
+    "status": 400,
+    "body": {
+     "error": "invalid answers",
+     "details": [
+      "answers[0].text: longer than 1000 characters"
+     ]
+    }
+   }
+  },
+  {
+   "name": "choice-answer-no-words",
+   "note": "a word choice picked with no words: picked only",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/answers",
+    "ownerKey": true,
+    "protocol": 6,
+    "body": {
+     "answers": [
+      {
+       "step": "2",
+       "picked": [
+        "Mix"
+       ]
+      }
+     ]
+    }
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Roll out the new schedule",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "6a6ad7cc66d5d002",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "reply": {
+         "choices": [
+          "No",
+          {
+           "label": "Yes",
+           "text": "What else?"
+          }
+         ],
+         "prompt": "Anything else before it goes out?"
+        },
+        "steps": [
+         {
+          "do": "Read the schedule",
+          "id": "s1"
+         },
+         {
+          "do": "Pick how it rolls out",
+          "id": "s2",
+          "question": {
+           "choices": [
+            "All at once",
+            {
+             "label": "Mix",
+             "text": "What should change?"
+            },
+            "Staff first"
+           ],
+           "prompt": "How should it roll out?"
+          }
+         }
+        ],
+        "title": "Roll out the new schedule",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "revision": {
+       "rev": 1,
+       "hash": "{hash1}",
+       "prev": "",
+       "at": "{time}",
+       "reason": "",
+       "body": "{\"reply\":{\"choices\":[\"No\",{\"label\":\"Yes\",\"text\":\"What else?\"}],\"prompt\":\"Anything else before it goes out?\"},\"steps\":[{\"do\":\"Read the schedule\",\"id\":\"s1\"},{\"do\":\"Pick how it rolls out\",\"id\":\"s2\",\"question\":{\"choices\":[\"All at once\",{\"label\":\"Mix\",\"text\":\"What should change?\"},\"Staff first\"],\"prompt\":\"How should it roll out?\"}}],\"title\":\"Roll out the new schedule\",\"urgency\":\"today\",\"v\":1}",
+       "acceptedRev": 1
+      }
+     }
+    }
+   }
+  },
+  {
+   "name": "choice-reply-words",
+   "note": "a reply choice with words: the text is \"choice: <label> · <words>\"",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/reply",
+    "ownerKey": true,
+    "protocol": 6,
+    "body": {
+     "text": "choice: Yes · Tell the night shift first"
+    }
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Roll out the new schedule",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "6a6ad7cc66d5d002",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "v": 1,
+        "title": "Roll out the new schedule",
+        "urgency": "today",
+        "steps": [
+         {
+          "do": "Read the schedule",
+          "id": "s1"
+         },
+         {
+          "do": "Pick how it rolls out",
+          "question": {
+           "prompt": "How should it roll out?",
+           "choices": [
+            "All at once",
+            {
+             "label": "Mix",
+             "text": "What should change?"
+            },
+            "Staff first"
+           ]
+          },
+          "id": "s2"
+         }
+        ],
+        "reply": {
+         "prompt": "Anything else before it goes out?",
+         "choices": [
+          "No",
+          {
+           "label": "Yes",
+           "text": "What else?"
+          }
+         ]
+        }
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null
+     }
+    }
+   }
+  },
+  {
+   "name": "choice-reply-plain",
+   "note": "a reply choice without words: \"choice: <label>\"",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/reply",
+    "ownerKey": true,
+    "protocol": 6,
+    "body": {
+     "text": "choice: No"
+    }
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Roll out the new schedule",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "6a6ad7cc66d5d002",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "v": 1,
+        "title": "Roll out the new schedule",
+        "urgency": "today",
+        "steps": [
+         {
+          "do": "Read the schedule",
+          "id": "s1"
+         },
+         {
+          "do": "Pick how it rolls out",
+          "question": {
+           "prompt": "How should it roll out?",
+           "choices": [
+            "All at once",
+            {
+             "label": "Mix",
+             "text": "What should change?"
+            },
+            "Staff first"
+           ]
+          },
+          "id": "s2"
+         }
+        ],
+        "reply": {
+         "prompt": "Anything else before it goes out?",
+         "choices": [
+          "No",
+          {
+           "label": "Yes",
+           "text": "What else?"
+          }
+         ]
+        }
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null
+     }
+    }
+   }
+  },
+  {
+   "name": "choice-events",
+   "note": "the answer and reply events as a session reads them",
+   "request": {
+    "method": "GET",
+    "path": "/events?after=0&limit=100",
+    "ownerKey": false,
+    "protocol": 6,
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "events": [
+      {
+       "seq": 1,
+       "itemId": "{ask1}",
+       "kind": "posted",
+       "actor": "session",
+       "text": null,
+       "at": "{time}",
+       "rev": null,
+       "auth": null
+      },
+      {
+       "seq": 2,
+       "itemId": "{ask1}",
+       "kind": "answer",
+       "actor": "owner",
+       "text": "{\"step\":\"2\",\"id\":\"s2\",\"picked\":[\"Mix\"],\"text\":\"Staff on Monday, the rest on Wednesday\"}",
+       "at": "{time}",
+       "rev": 1,
+       "auth": "owner-key"
+      },
+      {
+       "seq": 3,
+       "itemId": "{ask1}",
+       "kind": "answer",
+       "actor": "owner",
+       "text": "{\"step\":\"2\",\"id\":\"s2\",\"picked\":[\"Mix\"]}",
+       "at": "{time}",
+       "rev": 1,
+       "auth": "owner-key"
+      },
+      {
+       "seq": 4,
+       "itemId": "{ask1}",
+       "kind": "reply",
+       "actor": "owner",
+       "text": "choice: Yes · Tell the night shift first",
+       "at": "{time}",
+       "rev": null,
+       "auth": "owner-key"
+      },
+      {
+       "seq": 5,
+       "itemId": "{ask1}",
+       "kind": "reply",
+       "actor": "owner",
+       "text": "choice: No",
+       "at": "{time}",
+       "rev": null,
+       "auth": "owner-key"
+      }
+     ],
+     "next": 5
+    }
+   }
+  },
+  {
+   "name": "choice-protocol-5-answer",
+   "note": "Hook 0.13 answers by label: 200, labels only in the item",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/answers",
+    "ownerKey": true,
+    "protocol": 5,
+    "body": {
+     "answers": [
+      {
+       "step": "2",
+       "picked": [
+        "Staff first"
+       ]
+      }
+     ]
+    }
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Roll out the new schedule",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "6a6ad7cc66d5d002",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "reply": {
+         "choices": [
+          "No",
+          "Yes"
+         ],
+         "prompt": "Anything else before it goes out?"
+        },
+        "steps": [
+         {
+          "do": "Read the schedule",
+          "id": "s1"
+         },
+         {
+          "do": "Pick how it rolls out",
+          "id": "s2",
+          "question": {
+           "choices": [
+            "All at once",
+            "Mix",
+            "Staff first"
+           ],
+           "prompt": "How should it roll out?"
+          }
+         }
+        ],
+        "title": "Roll out the new schedule",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null
+     }
+    }
+   }
+  },
+  {
+   "name": "choice-plain-post",
+   "note": "an ask of plain strings beside it",
+   "request": {
+    "method": "POST",
+    "path": "/asks",
+    "ownerKey": false,
+    "protocol": 6,
+    "body": {
+     "project": "Example",
+     "context": "personal",
+     "instructable": {
+      "v": 1,
+      "title": "Rotate the deploy key",
+      "urgency": "today",
+      "steps": [
+       {
+        "do": "Open the deploy settings"
+       },
+       {
+        "do": "Rotate the key",
+        "code": "deploy-key rotate"
+       }
+      ]
+     }
+    }
+   },
+   "response": {
+    "status": 201,
+    "body": {
+     "item": {
+      "id": "{ask2}",
+      "source": "xo-mailbox",
+      "title": "Rotate the deploy key",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "49146ed24389aed4",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 3,
+       "note": null,
+       "instructable": {
+        "steps": [
+         {
+          "do": "Open the deploy settings",
+          "id": "s1"
+         },
+         {
+          "code": "deploy-key rotate",
+          "do": "Rotate the key",
+          "id": "s2"
+         }
+        ],
+        "title": "Rotate the deploy key",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "revision": {
+       "rev": 1,
+       "hash": "8d747e65b59da67d7192023d87109c97e2fa3f9f6934b6732d053d50aaff5ed3",
+       "prev": "",
+       "at": "{time}",
+       "reason": "",
+       "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\"},{\"code\":\"deploy-key rotate\",\"do\":\"Rotate the key\",\"id\":\"s2\"}],\"title\":\"Rotate the deploy key\",\"urgency\":\"today\",\"v\":1}",
+       "acceptedRev": 1
+      }
+     },
+     "revision": {
+      "rev": 1,
+      "hash": "8d747e65b59da67d7192023d87109c97e2fa3f9f6934b6732d053d50aaff5ed3"
+     },
+     "editable": false
+    }
+   },
+   "binds": {
+    "ask2": "item.id"
+   }
+  },
+  {
+   "name": "choice-plain-protocol-5",
+   "note": "unchanged for protocol 5: the revision is there",
+   "request": {
+    "method": "GET",
+    "path": "/asks/{ask2}",
+    "ownerKey": false,
+    "protocol": 5,
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask2}",
+      "source": "xo-mailbox",
+      "title": "Rotate the deploy key",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "49146ed24389aed4",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 3,
+       "note": null,
+       "instructable": {
+        "steps": [
+         {
+          "do": "Open the deploy settings",
+          "id": "s1"
+         },
+         {
+          "code": "deploy-key rotate",
+          "do": "Rotate the key",
+          "id": "s2"
+         }
+        ],
+        "title": "Rotate the deploy key",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "revision": {
+       "rev": 1,
+       "hash": "8d747e65b59da67d7192023d87109c97e2fa3f9f6934b6732d053d50aaff5ed3",
+       "prev": "",
+       "at": "{time}",
+       "reason": "",
+       "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\"},{\"code\":\"deploy-key rotate\",\"do\":\"Rotate the key\",\"id\":\"s2\"}],\"title\":\"Rotate the deploy key\",\"urgency\":\"today\",\"v\":1}",
+       "acceptedRev": 1
+      }
+     },
+     "events": [
+      {
+       "seq": 7,
+       "itemId": "{ask2}",
+       "kind": "posted",
+       "actor": "session",
+       "text": null,
+       "at": "{time}",
+       "rev": null,
+       "auth": null
+      }
+     ],
+     "revisions": [
+      {
+       "rev": 1,
+       "hash": "8d747e65b59da67d7192023d87109c97e2fa3f9f6934b6732d053d50aaff5ed3",
+       "prev": "",
+       "at": "{time}",
+       "reason": "",
+       "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\"},{\"code\":\"deploy-key rotate\",\"do\":\"Rotate the key\",\"id\":\"s2\"}],\"title\":\"Rotate the deploy key\",\"urgency\":\"today\",\"v\":1}"
+      }
+     ]
+    }
+   }
+  }
+ ]
+}

@@ -121,7 +121,7 @@ private let three = [item("a", urgency: "now", created: stamp(minutesAgo: 10), s
         #expect(limits.row.title.count == 120)
         #expect(limits.model?.nodes.count == 21)
         #expect(limits.progress.total == 57)
-        #expect(limits.model?.reply?.choices?.allSatisfy { $0.count == 60 } == true)
+        #expect(limits.model?.reply?.options.allSatisfy { $0.count == 60 } == true)
         #expect(limits.model?.links.count == 10)
         #expect(limits.model?.nodes.contains { $0.content.detail?.count == 1500 } == true)
         #expect(limits.model?.nodes.contains { $0.content.code?.count == 4000 } == true)
@@ -457,7 +457,7 @@ private let phase3Now = Date(timeIntervalSince1970: 1_792_143_600)
 @MainActor @Suite struct DetailReplySnapshotTests {
     private func replyItem(_ id: String, choices: [String]?, steps: [Step] = []) -> WireItem {
         let ins = Instructable(v: 1, title: "Pick where the example repo lives", steps: steps,
-                               reply: ReplySpec(prompt: "Where should it live?", choices: choices))
+                               reply: ReplySpec(prompt: "Where should it live?", choices: choices?.map { Choice($0) }))
         return WireItem(id: id, title: ins.title, status: "open", projectId: "Acme",
                         created: "2026-10-16T08:00:00+00:00", updated: "2026-10-16T08:00:00+00:00",
                         payload: Payload(instructable: ins))

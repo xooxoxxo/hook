@@ -1218,7 +1218,7 @@ public enum LinkCheck: Equatable, Sendable {
     }
 
     public func sendChoice(_ id: String) async -> Bool {
-        guard let index = pendingChoice[id], let choices = item(for: id)?.instructable?.reply?.choices,
+        guard let index = pendingChoice[id], let choices = item(for: id)?.instructable?.reply?.options,
               choices.indices.contains(index), replyStates[id] != .sending, !isContentLocked(id) else { return false }
         return await send(ReplyText.wire(choice: choices[index]), for: id) {
             self.pendingChoice[id] = nil
@@ -1400,7 +1400,7 @@ public enum LinkCheck: Equatable, Sendable {
     }
 
     public func latestSentChoice(for id: String) -> Int? {
-        guard let choices = item(for: id)?.instructable?.reply?.choices else { return nil }
+        guard let choices = item(for: id)?.instructable?.reply?.options else { return nil }
         return ReplyText.latestSentChoice(events: details[id]?.events ?? [], choices: choices)
     }
 
@@ -1484,7 +1484,7 @@ public enum LinkCheck: Equatable, Sendable {
         for id in editingReply {
             let before = details[id]?.events ?? [], after = next[id]?.events ?? []
             guard before != after else { continue }
-            let choices = item(for: id)?.instructable?.reply?.choices ?? []
+            let choices = item(for: id)?.instructable?.reply?.options ?? []
             guard AnswerEditing.changeWentStale(before: ReplyText.lines(events: before),
                                                 after: ReplyText.lines(events: after),
                                                 draft: drafts[id], pick: pendingChoice[id],

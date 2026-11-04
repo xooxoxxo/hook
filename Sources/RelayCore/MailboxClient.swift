@@ -52,10 +52,11 @@ final class NoRedirectDelegate: NSObject, URLSessionTaskDelegate, Sendable {
 /// The mailbox service as a `QueueSource`. The token is read from the token file
 /// on every request, so it is never kept in memory longer than one call; so is the owner key.
 public struct MailboxClient: QueueSource {
-    /// What every request says this client reads: revision histories (Pond 1.1.0). Without
-    /// it a corrected ask is served as a stub.
+    /// What every request says this client reads: revision histories (Pond 1.1.0; without it a
+    /// corrected ask is served as a stub), and from 6 choice objects (Pond 1.4.0; below 6 an ask
+    /// with one is served with labels only).
     public static let protocolHeader = "X-Hook-Protocol"
-    public static let clientProtocol = "5"
+    public static let clientProtocol = "6"
     /// The owner key's header, sent on owner acts while this Mac's key is approved.
     public static let ownerKeyHeader = "X-Hook-Owner-Key"
 

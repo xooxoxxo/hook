@@ -1,10 +1,44 @@
 import Foundation
 
 /// A choice reply travels as "choice: X" (unchanged from 0.5) and shows as "You chose: X".
+/// Pond 1.4.0 adds the owner's words on a choice that takes them: "choice: X · words".
 public enum ReplyText {
     public static let prefix = "choice: "
+    /// Between a choice and the owner's words: U+00B7 with a space on each side.
+    public static let separator = " \u{00B7} "
 
     public static func wire(choice: String) -> String { prefix + choice }
+
+    /// "choice: Mix · words", with the words trimmed; nil or blank words send "choice: Mix".
+    public static func wire(choice: String, words: String?) -> String {
+        let trimmed = words?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? wire(choice: choice) : prefix + choice + separator + trimmed
+    }
+
+    /// Which of `choices` a reply picked, and the words beside it: the prefix and a label exactly,
+    /// or the prefix, a label, the separator and non-empty words. Labels are tried longest first,
+    /// so "Mix it" wins over "Mix", and a label holding the separator still reads whole.
+    /// Compared by code point, as the Pond compares strings.
+    public static func parse(_ text: String, choices: [String]) -> (index: Int, words: String?)? {
+        let scalars = Array(text.unicodeScalars)
+        let head = Array(prefix.unicodeScalars), gap = Array(separator.unicodeScalars)
+        guard scalars.starts(with: head) else { return nil }
+        let rest = scalars.dropFirst(head.count)
+        let order = choices.indices.sorted {
+            let a = choices[$0].unicodeScalars.count, b = choices[$1].unicodeScalars.count
+            return a != b ? a > b : $0 < $1
+        }
+        for index in order {
+            let label = Array(choices[index].unicodeScalars)
+            guard rest.starts(with: label) else { continue }
+            let tail = rest.dropFirst(label.count)
+            if tail.isEmpty { return (index, nil) }
+            if tail.starts(with: gap), tail.count > gap.count {
+                return (index, String(String.UnicodeScalarView(tail.dropFirst(gap.count))))
+            }
+        }
+        return nil
+    }
 
     public static func choice(from text: String) -> String? {
         text.hasPrefix(prefix) ? String(text.dropFirst(prefix.count)) : nil
@@ -36,9 +70,10 @@ public enum ReplyText {
         events.filter { $0.kind == "reply" && $0.actor == "owner" }
     }
 
+    /// Word replies count too: "choice: Yes · words" is a sent "Yes".
     private static func sentIndices(_ events: [Event], _ choices: [String]) -> [Int] {
         ownerReplies(events).compactMap { event in
-            event.text.flatMap(choice(from:)).flatMap { choices.firstIndex(of: $0) }
+            event.text.flatMap { parse($0, choices: choices)?.index }
         }
     }
 }
