@@ -66,4 +66,14 @@ import Testing
                                          hosts: ["Oytuns-MacBook-Pro", "Oytun's MacBook Pro"]) == "on <host> now")
         #expect(DiagnosticsReport.redact("x", home: "/Users/me", user: "me", hosts: [""]) == "x")
     }
+
+    @Test func theRowSaysWhereItIs() {
+        #expect(DiagnosticsState.idle.text == "For an issue report")
+        #expect(DiagnosticsState.collecting.text == "Collecting…")
+        #expect(DiagnosticsState.collecting.collecting)
+        #expect(DiagnosticsState.saved("hook-diagnostics-2026-11-04-1530.txt").text
+            == "Saved hook-diagnostics-2026-11-04-1530.txt")
+        #expect(DiagnosticsState.failed("disk full").text == "Couldn't save: disk full")
+        #expect(PrivacyLine().diagnostics == .idle)
+    }
 }
