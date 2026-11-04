@@ -13,6 +13,9 @@ import SwiftUI
     /// Validates and saves the draft, then waits for the first list (10 s cap).
     /// nil on success, else the reason as one sanitized line.
     func connect() async -> String?
+    /// Show Difference: `relay integrations diff --harness X --piece P`. A failure also lands
+    /// on the piece row, through `settings.agents.pieceErrors`.
+    func integrationDiff(harness: String, piece: String) async -> Result<IntegrationDiff, IntegrationError>
 
     // This Mac's owner key for the connected Pond (Settings › Queue › Owner Key).
     var ownerKeyState: OwnerKeyState { get }

@@ -133,7 +133,7 @@ func tabTitle(_ id: SettingsTabID) -> String {
     case .panel: "Panel"
     case .queue: "Queue"
     case .notifications: "Notifications"
-    case .connect: "Connect"
+    case .agents: "Agents"
     }
 }
 
@@ -143,7 +143,7 @@ func tabSymbol(_ id: SettingsTabID) -> String {
     case .panel: DS.Symbol.tabPanel
     case .queue: DS.Symbol.tabQueue
     case .notifications: DS.Symbol.tabNotifications
-    case .connect: DS.Symbol.tabConnect
+    case .agents: DS.Symbol.tabAgents
     }
 }
 
@@ -164,7 +164,10 @@ func tabSymbol(_ id: SettingsTabID) -> String {
     var selectedController: NSHostingController<AnyView>?
     for (index, spec) in specs.enumerated() {
         let rooted: AnyView = index == selected
-            ? AnyView(decorated(scene.view(), options: options, standIn: false, sink: sink).frame(width: width))
+            // A scene with no rules collects no probes: Settings › Agents nests its Form beside a
+            // List, where probe frames aren't in the frame view's space.
+            ? AnyView(decorated(scene.view(), options: options, standIn: false,
+                                sink: scene.rules.isEmpty ? nil : sink).frame(width: width))
             : AnyView(EmptyView())
         let controller = NSHostingController(rootView: rooted)
         if index == selected {
@@ -190,6 +193,10 @@ func tabSymbol(_ id: SettingsTabID) -> String {
     }
     frameView.layoutSubtreeIfNeeded()
     RunLoop.current.run(until: Date().addingTimeInterval(0.8))
+    if scene.scrollListsToEnd {
+        for table in tables(frameView) where table.numberOfRows > 0 { table.scrollRowToVisible(table.numberOfRows - 1) }
+        RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+    }
     frameView.displayIfNeeded()
     guard let selectedController else { fatalError("RelayGallery: Settings tab \(tab) has no controller") }
     let content = selectedController.view

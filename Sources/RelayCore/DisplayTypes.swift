@@ -293,5 +293,6 @@ public struct ReplyLine: Equatable, Sendable, Identifiable {
     }
 }
 
-/// Settings tabs, saved by identifier in `relay.settings.tabID`.
-public enum SettingsTabID: String, CaseIterable, Sendable { case general, panel, queue, notifications, connect }
+/// Settings tabs, saved by identifier in `relay.settings.tabID`. Agents was Connect before
+/// 0.13; `SettingsTabID(stored:)` reads a saved "connect" as Agents.
+public enum SettingsTabID: String, CaseIterable, Sendable { case general, panel, queue, notifications, agents }

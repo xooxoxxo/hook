@@ -51,6 +51,16 @@ private enum Contrast {
         #expect([m.badge, m.badgeDot, m.dragThreshold, m.recorderMin, m.rowMinHeight] == [13, 7, 3, 130, 28])
     }
 
+    /// Settings › Agents: the prototype's literals, as tokens.
+    @Test func agentsPaneGeometry() {
+        let s = DS.Space.self, m = DS.Metric.self
+        #expect([m.harnessMark, m.harnessMarkRadius, m.agentsSidebar, m.agentsHeight] == [24, 6, 200, 540])
+        #expect([s.paneFooterH, s.paneFooterV, s.harnessCaption, s.harnessRowV, s.stateLabel] == [20, 12, 1, 2, 4])
+        #expect([m.diffSheetWidth, m.diffSheetBody] == [560, 320])
+        #expect(DS.Color.harnessDimmedOpacity == 0.45)
+        #expect(m.agentsSidebar + m.harnessMark < m.settingsWidth / 2)
+    }
+
     @Test func cardGeometry() {
         let s = DS.Space.self, m = DS.Metric.self
         #expect([s.cardPadding, s.cardGap, s.cardEdge, s.cardMeta] == [12, 8, 10, 6])
@@ -128,7 +138,9 @@ private enum Contrast {
             DS.Symbol.hide, DS.Symbol.draft, DS.Symbol.statusOK, DS.Symbol.statusDown, DS.Symbol.away, DS.Symbol.error,
             DS.Symbol.info, DS.Symbol.empty, DS.Symbol.offline, DS.Symbol.notSetUp, DS.Symbol.notFound,
             DS.Symbol.menuBar, DS.Symbol.link, DS.Symbol.warning, DS.Symbol.sent, DS.Symbol.clearShortcut,
-            DS.Symbol.tabGeneral, DS.Symbol.tabPanel, DS.Symbol.tabQueue, DS.Symbol.tabNotifications, DS.Symbol.tabConnect,
+            DS.Symbol.tabGeneral, DS.Symbol.tabPanel, DS.Symbol.tabQueue, DS.Symbol.tabNotifications, DS.Symbol.tabAgents,
+            DS.Symbol.agentInstalled, DS.Symbol.agentUpdate, DS.Symbol.agentEdited, DS.Symbol.agentNeedsYou,
+            DS.Symbol.agentBlocked, DS.Symbol.agentNotSetUp, DS.Symbol.agentNone,
             DS.Symbol.reveal, DS.Symbol.update, DS.Symbol.openApp, DS.Symbol.show,
         ]
         for name in names {

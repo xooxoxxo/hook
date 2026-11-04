@@ -180,6 +180,16 @@ extension HarnessState {
     }
 }
 
+extension HarnessState {
+    /// Update ready, Edited by you and Needs you: the sidebar row gets a trailing symbol.
+    public var needsAction: Bool {
+        switch self {
+        case .outdated, .drifted, .needsOwner, .blocked: return true
+        case .notSetUp, .installed: return false
+        }
+    }
+}
+
 extension PieceState {
     /// `harness` names the harness for a piece it has no place for.
     public func label(harness name: String) -> String {
@@ -383,6 +393,20 @@ public struct IntegrationReport: Decodable, Equatable, Sendable {
 
     public static func decode(_ data: Data) throws -> IntegrationReport {
         try IntegrationStatus.decoder.decode(IntegrationReport.self, from: data)
+    }
+
+    /// Reinstall All's line: edits Hook left alone (`skipped`) and pieces it couldn't write.
+    public var reinstallLine: String {
+        let kept = results.filter { $0.outcome == "skipped" }.count
+        let failed = results.filter { $0.outcome == "failed" || $0.outcome == "blocked" }.count
+        var line = "Reinstalled."
+        switch kept {
+        case 0: break
+        case 1: line += " 1 change you made stays as you left it."
+        default: line += " \(kept) changes you made stay as you left them."
+        }
+        if failed > 0 { line += " \(failed) couldn't be written." }
+        return line
     }
 }
 

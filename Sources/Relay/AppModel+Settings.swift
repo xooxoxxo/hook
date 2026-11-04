@@ -55,7 +55,7 @@ extension AppModel: SettingsViewModel {
             connectionProblems: problems, permission: permission,
             agents: AgentsState(
                 repoPath: repo, lastCall: lastSeen["mcp"], status: agentsStatus, running: agentsRunning.first,
-                error: agentsError, pieceErrors: agentsPieceErrors),
+                error: agentsError, pieceErrors: agentsPieceErrors, result: agentsResult),
             localQueuePath: (dataDirectory.appending(path: "queue.json").path as NSString).abbreviatingWithTildeInPath,
             terminals: settingsTerminals(),
             mailbox: sourceKey.hasPrefix("mailbox:") ? mailboxLine : nil,
@@ -218,19 +218,38 @@ extension AppModel: SettingsViewModel {
     func runIntegration(_ command: IntegrationCommand) async -> Result<Data, IntegrationError> {
         let row = AgentsState.key(for: command)
         if let row { agentsPieceErrors[row] = nil }
+        if command != .status { agentsResult = nil }
         agentsRunning.append(command)
         refreshSettings()
         let result = await integrations.run(command)
         if let index = agentsRunning.firstIndex(of: command) { agentsRunning.remove(at: index) }
         switch result {
-        case .success:
+        case .success(let data):
             if row == nil { agentsError = nil }
+            if command == .reinstall(harness: nil, piece: nil, force: false) {
+                agentsResult = (try? IntegrationReport.decode(data))?.reinstallLine
+            }
         case .failure(let error):
             if let row { agentsPieceErrors[row] = error.text } else { agentsError = error.text }
         }
         if command != .status { await refreshAgents() }
         refreshSettings()
         return result
+    }
+
+    /// Show Difference: runs `diff` (its failure lands on the piece row) and decodes it.
+    func integrationDiff(harness: String, piece: String) async -> Result<IntegrationDiff, IntegrationError> {
+        switch await runIntegration(.diff(harness: harness, piece: piece)) {
+        case .success(let data):
+            guard let diff = try? IntegrationDiff.decode(data) else {
+                agentsPieceErrors[AgentsState.key(harness: harness, piece: piece)] = IntegrationError.unreadable.text
+                refreshSettings()
+                return .failure(.unreadable)
+            }
+            return .success(diff)
+        case .failure(let error):
+            return .failure(error)
+        }
     }
 
     /// Reads `relay integrations status` and offers any new harness in a Notice.
@@ -295,7 +314,7 @@ extension AppModel: SettingsViewModel {
         draft = MailboxDraft(config: config, home: Self.home.path)
     }
 
-    /// Settings closed: stop polling the Connect tab's last call.
+    /// Settings closed: stop polling Settings › Agents' MCP last call.
     func settingsWindowClosed() {
         setLastSeenPolling(false)
         resetDraft()
@@ -327,9 +346,9 @@ extension AppModel: SettingsViewModel {
             if permissionObserver == nil { watchPermission() }
             Task { @MainActor in await refreshPermission() }
             return SettingsWindowController.hosting(NotificationsTab(model: self))
-        case .connect:
+        case .agents:
             Task { @MainActor in await refreshAgents() }
-            return SettingsWindowController.hosting(ConnectTab(model: self))
+            return SettingsWindowController.hosting(AgentsTab(model: self))
         }
     }
 

@@ -122,15 +122,52 @@ let settingsRules: [AlignmentRule] = [.sameTrailingPerGroup(.settingsTrailing, t
         settingsScene("settings-notifications-readonly", tab: .notifications) {
             NotificationsTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(readOnly: true)))
         },
-        settingsScene("settings-connect", tab: .connect) {
-            ConnectTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(config: SettingsFixtures.localConfig)))
-                .environment(\.panelGallery, PanelGalleryOverrides(now: GalleryFixtures.now))
-        },
-        settingsScene("settings-connect-norepo", tab: .connect) {
-            ConnectTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(
+        // Settings › Agents (direction B): Claude Code, all set up.
+        agentsScene("settings-agents", selection: "claude-code"),
+        // Codex needs the owner: "Your step" with Show Ask, no header button.
+        agentsScene("settings-agents-needs", selection: "codex"),
+        // OpenCode edited by the owner: a Fix… menu on each edited piece.
+        agentsScene("settings-agents-edited", selection: "opencode"),
+        // Gemini CLI with an update ready: the header's Update button.
+        agentsScene("settings-agents-update", selection: "gemini-cli"),
+        // Cursor found and not set up: Set Up, every piece "Not set up".
+        agentsScene("settings-agents-notsetup", selection: "cursor"),
+        // Zed has no replies hook: "Installed · no replies", "Not available in Zed".
+        agentsScene("settings-agents-zed", selection: "zed"),
+        // "9 more supported", expanded and scrolled into view: dimmed marks, nothing to select.
+        {
+            var scene = agentsScene("settings-agents-more", selection: "zed", moreExpanded: true)
+            scene.scrollListsToEnd = true
+            return scene
+        }(),
+        // Reinstall All ran with two of the owner's edits left alone.
+        agentsScene("settings-agents-reinstalled", selection: "claude-code",
+                    result: "Reinstalled. 2 changes you made stay as you left them."),
+        settingsScene("settings-agents-norepo", tab: .agents, rules: []) {
+            AgentsTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(
                 config: RelayConfig(source: .local), agents: AgentsState())))
                 .environment(\.panelGallery, PanelGalleryOverrides(now: GalleryFixtures.now))
         },
+        // Show Difference's sheet.
+        GalleryScene(name: "settings-agents-diff", size: .wide(width: DS.Metric.diffSheetWidth, height: nil),
+                     standIn: false, view: {
+                         AnyView(PieceDiffSheet(diff: SettingsFixtures.agentsDiff, onClose: {}, onUseHooks: {})
+                             .background(Color(nsColor: .windowBackgroundColor)))
+                     }),
     ]
+}
+
+/// Settings › Agents on the nine-agent Mac, opened on `selection`.
+@MainActor private func agentsScene(_ name: String, selection: String, moreExpanded: Bool = false,
+                                    result: String? = nil) -> GalleryScene {
+    // No alignment rules: the detail Form sits beside the sidebar List, so its probes aren't
+    // in the window's space. The piece rows are checked by eye and by AgentsTabTests.
+    settingsScene(name, tab: .agents, rules: []) {
+        var agents = SettingsFixtures.agentsMac
+        agents.result = result
+        return AgentsTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(
+            config: SettingsFixtures.localConfig, agents: agents)), selection: selection, moreExpanded: moreExpanded)
+            .environment(\.panelGallery, PanelGalleryOverrides(now: GalleryFixtures.now))
+    }
 }
 

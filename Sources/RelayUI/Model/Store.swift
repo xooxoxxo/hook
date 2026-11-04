@@ -947,7 +947,7 @@ public enum LinkCheck: Equatable, Sendable {
              .doneHeldBack, .acceptFailed, .crashReport:
             break
         case .newAgents:
-            shell.openSettings(.connect)
+            shell.openSettings(.agents)
         }
         onNoticeCleared?(current)
     }

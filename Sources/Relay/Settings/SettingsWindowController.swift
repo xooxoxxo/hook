@@ -41,7 +41,7 @@ import SwiftUI
         if shown == .notifications { Task { await model.refreshPermission() } }
         // Closing the window stops last-call polling, and re-selecting the already
         // selected tab fires no didSelect, so every show sets it again.
-        model.setLastSeenPolling(shown == .connect)
+        model.setLastSeenPolling(shown == .agents)
         model.refreshSettings()
         model.refreshOwnerStatus()
         if !window.isVisible { window.center() }
@@ -86,7 +86,7 @@ import SwiftUI
         tabs.onSelect = { [weak self] tab in
             tab.save(.standard)
             self?.logOpened(tab)
-            self?.model.setLastSeenPolling(tab == .connect)
+            self?.model.setLastSeenPolling(tab == .agents)
             if tab == .notifications, let model = self?.model { Task { await model.refreshPermission() } }
         }
     }

@@ -25,6 +25,9 @@ struct GalleryScene {
     let view: @MainActor () -> AnyView
     var appKit: (@MainActor () -> NSView)? = nil
     var web: (@MainActor () -> DocumentWebView)? = nil
+    /// Settings scenes: scroll every list to its last row before the capture (a sidebar whose
+    /// last section is the point of the scene).
+    var scrollListsToEnd = false
 }
 
 /// Every scene, in index order. Each scene task appends its own array here.

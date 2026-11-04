@@ -80,6 +80,8 @@ final class ServerRouting: Sendable {
     var agentsError: String?
     /// A failed piece command's first line, by `AgentsState.key(harness:piece:)`.
     var agentsPieceErrors: [String: String] = [:]
+    /// Reinstall All's last result line.
+    var agentsResult: String?
     /// When the app last started a sync, so a sync that keeps failing waits a day too.
     var agentsSyncStarted: Date?
     /// New-harness ids already offered in a Notice in this run.
@@ -249,7 +251,7 @@ final class ServerRouting: Sendable {
                     let seen = await api.lastSeen()
                     if self?.lastSeen != seen {
                         self?.lastSeen = seen
-                        self?.refreshSettings()   // the Connect tab reads the snapshot, not lastSeen
+                        self?.refreshSettings()   // Settings › Agents reads the snapshot, not lastSeen
                     }
                 }
                 try? await Task.sleep(for: Self.lastSeenPoll)

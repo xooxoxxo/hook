@@ -24,6 +24,9 @@ public final class FixtureSettingsModel: SettingsViewModel {
     public func perform(_ action: SettingsAction) {}
     public func sendTestAsk() async -> TestAskResult { .sent(id: SettingsFixtures.testAskID) }
     public func connect() async -> String? { nil }
+    public func integrationDiff(harness: String, piece: String) async -> Result<IntegrationDiff, IntegrationError> {
+        .success(SettingsFixtures.agentsDiff)
+    }
     public func setUpOwnerKey() {}
     public func cancelOwnerKeySetup() {}
     public func requireOwnerKey(_ on: Bool) {}
@@ -78,6 +81,119 @@ public enum SettingsFixtures {
         state.status?.newlyDetected = []
         return state
     }()
+
+    /// Settings › Agents on a Mac with nine agents: every state the pane draws, and nine more
+    /// supported that aren't here. Paths are `~` paths; nothing names a real home or host.
+    public static let codexAskID = "7c1d2e3f-0000-4000-8000-000000000001"
+    public static let agentsMacStatus: IntegrationStatus = {
+        typealias Piece = IntegrationStatus.Piece
+        func installed(_ piece: String, _ method: String, _ target: String?, key: String? = nil,
+                       state: PieceState = .installed, note: String? = nil, diffable: Bool = false) -> Piece {
+            Piece(piece: piece, method: method, state: state, target: target, key: key, note: note, diffable: diffable,
+                  reveal: target)
+        }
+        func entry(_ id: String, _ name: String, _ state: HarnessState, detected: Bool = true, managed: Bool = true,
+                   verified: String = "pending", pieces: [Piece], steps: [IntegrationStatus.OwnerStep] = [],
+                   changes: [IntegrationStatus.Change] = []) -> IntegrationStatus.Harness {
+            IntegrationStatus.Harness(id: id, name: name, detected: detected, managed: managed, state: state,
+                                      verified: verified, pieces: pieces, ownerSteps: steps, changes: changes)
+        }
+        func absent(_ id: String, _ name: String) -> IntegrationStatus.Harness {
+            entry(id, name, .notSetUp, detected: false, managed: false, verified: "docs-only",
+                  pieces: ["mcp", "skill", "instructions", "replies"].map {
+                      Piece(piece: $0, method: "key", state: .notSetUp, target: nil, key: nil, note: nil,
+                            diffable: false, reveal: nil)
+                  })
+        }
+        let skill = installed("skill", "copy", "~/.agents/skills/instructables")
+        let claudePlugin = "~/.local/share/hook/plugins/claude-code"
+        let harnesses = [
+            entry("claude-code", "Claude Code", .installed, pieces: [
+                installed("mcp", "cli", "~/.claude.json", key: "mcpServers.relay"),
+                installed("skill", "plugin", claudePlugin),
+                installed("instructions", "file", "~/.claude/rules/hook.md", state: .accepted, note: "your edit is kept"),
+                installed("replies", "plugin", claudePlugin),
+            ], changes: [IntegrationStatus.Change(path: "~/.claude.json", what: "command mcp"),
+                         IntegrationStatus.Change(path: "~/.claude/rules/hook.md", what: "file"),
+                         IntegrationStatus.Change(path: claudePlugin, what: "plugin")]),
+            entry("codex", "Codex", .needsOwner, pieces: [
+                installed("mcp", "cli", "~/.codex/config.toml", key: "mcp_servers.relay"),
+                skill,
+                installed("instructions", "block", "~/.codex/AGENTS.md"),
+                installed("replies", "key", "~/.codex/hooks.json", key: "hooks.UserPromptSubmit", state: .needsOwner,
+                          note: "only you can do this step"),
+            ], steps: [IntegrationStatus.OwnerStep(id: "codex-trust", title: "Trust Hook's replies hook in Codex",
+                                                   askId: codexAskID, state: "open")],
+            changes: [IntegrationStatus.Change(path: "~/.codex/AGENTS.md", what: "block instructions"),
+                      IntegrationStatus.Change(path: "~/.codex/hooks.json", what: "key hooks.UserPromptSubmit")]),
+            entry("gemini-cli", "Gemini CLI", .outdated, pieces: [
+                installed("mcp", "plugin", "~/.local/share/hook/plugins/gemini-cli", state: .outdated),
+                installed("skill", "plugin", "~/.local/share/hook/plugins/gemini-cli", state: .outdated),
+                installed("instructions", "plugin", "~/.local/share/hook/plugins/gemini-cli"),
+                installed("replies", "plugin", "~/.local/share/hook/plugins/gemini-cli"),
+            ]),
+            entry("copilot-cli", "Copilot CLI", .installed, pieces: [
+                installed("mcp", "key", "~/.copilot/mcp-config.json", key: "mcpServers.relay"),
+                skill,
+                installed("instructions", "file", "~/.copilot/instructions/hook.instructions.md"),
+                installed("replies", "key", "~/.copilot/hooks/hook.json", key: "hooks.sessionStart"),
+            ]),
+            entry("vscode-copilot", "VS Code Copilot", .installed, verified: "docs-only", pieces: [
+                installed("mcp", "key", "~/Library/Application Support/Code/User/mcp.json", key: "servers.relay"),
+                skill,
+                installed("instructions", "file", "~/.copilot/instructions/hook.instructions.md"),
+                installed("replies", "key", "~/.copilot/hooks/hook.json", key: "hooks.sessionStart"),
+            ]),
+            entry("cursor", "Cursor", .notSetUp, managed: false, pieces: ["mcp", "skill", "instructions", "replies"].map {
+                Piece(piece: $0, method: "plugin", state: .notSetUp, target: "~/.cursor/plugins/local/hook", key: nil,
+                      note: nil, diffable: false, reveal: "~/.cursor")
+            }),
+            entry("opencode", "OpenCode", .drifted, pieces: [
+                installed("mcp", "key", "~/.config/opencode/opencode.json", key: "mcp.relay", state: .drifted,
+                          note: "edited by you", diffable: true),
+                skill,
+                installed("instructions", "key", "~/.config/opencode/opencode.json", key: "instructions"),
+                installed("replies", "cli", "~/.config/opencode/plugins/hook.ts", state: .drifted, note: "edited by you"),
+            ]),
+            entry("zed", "Zed", .installed, pieces: [
+                installed("mcp", "key", "~/.config/zed/settings.json", key: "context_servers.relay"),
+                skill,
+                installed("instructions", "block", "~/.config/zed/AGENTS.md"),
+                Piece(piece: "replies", method: "none", state: .none, target: nil, key: nil,
+                      note: "Zed documents no prompt or session hooks; the instructions cover it", diffable: false,
+                      reveal: nil),
+            ]),
+            entry("pi", "pi", .installed, pieces: [
+                installed("mcp", "key", "~/.pi/agent/mcp.json", key: "mcpServers.relay"),
+                skill,
+                installed("instructions", "block", "~/.pi/agent/AGENTS.md"),
+                installed("replies", "file", "~/.pi/agent/extensions/hook.ts"),
+            ]),
+        ] + [("antigravity", "Antigravity CLI"), ("devin", "Devin"), ("factory", "Factory Droid"), ("kiro", "Kiro"),
+             ("amp", "Amp"), ("cline", "Cline"), ("goose", "Goose"), ("junie", "Junie"), ("warp", "Warp")]
+            .map { absent($0.0, $0.1) }
+        return IntegrationStatus(hookVersion: "0.13.0", autoSetup: true,
+                                 lastSync: GalleryFixtures.now.addingTimeInterval(-3600), harnesses: harnesses)
+    }()
+
+    public static let agentsMac = AgentsState(
+        repoPath: repoPath, lastCall: GalleryFixtures.now.addingTimeInterval(-120), status: agentsMacStatus)
+
+    /// Show Difference on OpenCode's MCP server.
+    public static let agentsDiff = IntegrationDiff(
+        harness: "opencode", piece: "mcp", target: "~/.config/opencode/opencode.json",
+        diff: """
+        --- hook
+        +++ ~/.config/opencode/opencode.json
+        @@ -1,6 +1,7 @@
+         "relay": {
+           "type": "local",
+        -  "command": ["python3", "~/.local/share/hook/current/mcp/relay_mcp.py"],
+        +  "command": ["/usr/bin/python3", "~/.local/share/hook/current/mcp/relay_mcp.py"],
+        +  "timeout": 20000,
+           "enabled": true
+         }
+        """)
 
     static func agentsHarness(_ id: String, _ name: String, state: HarnessState, detected: Bool = true,
                               managed: Bool = true) -> IntegrationStatus.Harness {

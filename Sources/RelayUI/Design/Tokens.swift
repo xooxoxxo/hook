@@ -71,6 +71,14 @@ public enum DS {
         public static let setupFooter: CGFloat = 14
         /// Between a file row's name and its folder line.
         public static let fileLine: CGFloat = 1
+        /// Settings › Agents: the footer under both columns, its sides and its top and bottom.
+        public static let paneFooterH: CGFloat = 20
+        public static let paneFooterV: CGFloat = 12
+        /// Between a sidebar harness's name and its state caption, and the row's extra top and bottom.
+        public static let harnessCaption: CGFloat = 1
+        public static let harnessRowV: CGFloat = 2
+        /// Between a state symbol and its label (Installed, Edited by you).
+        public static let stateLabel: CGFloat = 4
     }
 
     public enum Metric {
@@ -135,6 +143,16 @@ public enum DS {
         public static let optionNumber: CGFloat = 14
         /// A file row's document icon.
         public static let fileIcon: CGFloat = 28
+        /// A harness's mark in Settings › Agents and the setup window, a little larger than a monogram.
+        public static let harnessMark: CGFloat = 24
+        public static let harnessMarkRadius: CGFloat = 6
+        /// Settings › Agents: the harness list's width, and the tab's one height whichever harness
+        /// is selected (the list and the detail scroll inside it).
+        public static let agentsSidebar: CGFloat = 200
+        public static let agentsHeight: CGFloat = 540
+        /// Show Difference's sheet, and its diff's scroll box.
+        public static let diffSheetWidth: CGFloat = 560
+        public static let diffSheetBody: CGFloat = 320
     }
 
     public enum Font {
@@ -171,6 +189,8 @@ public enum DS {
         public static var sheetSymbol: SwiftUI.Font { .system(size: 28) }
         /// The Done page's hero symbol.
         public static var heroSymbol: SwiftUI.Font { .system(size: 52, weight: .regular) }
+        /// A harness mark's two letters, sized to `Metric.harnessMark`.
+        public static var harnessMark: SwiftUI.Font { .system(size: 10, weight: .bold) }
         /// The owner key's 6-digit enrollment code in Settings › Queue.
         public static var enrollCode: SwiftUI.Font { .system(size: 34, weight: .semibold, design: .monospaced) }
     }
@@ -283,6 +303,30 @@ public enum DS {
         public static let dotOther = AnyShapeStyle(.quaternary)
         /// A file row's icon when the file can't be opened here (missing, or on another Mac).
         public static let fileUnavailableOpacity: Double = 0.5
+        /// A harness mark in "N more supported": found nowhere on this Mac.
+        public static let harnessDimmedOpacity: Double = 0.45
+        /// One colour per harness mark, keyed by the harness table's ids in `HarnessMark`. Each
+        /// keeps white letters at 4:1 or better (`HarnessMarkTests`), in both appearances.
+        public enum Harness {
+            public static let claudeCode = NSColor(srgbRed: 0.78, green: 0.36, blue: 0.18, alpha: 1)
+            public static let codex = NSColor(srgbRed: 0.30, green: 0.32, blue: 0.36, alpha: 1)
+            public static let geminiCLI = NSColor(srgbRed: 0.15, green: 0.40, blue: 0.85, alpha: 1)
+            public static let antigravity = NSColor(srgbRed: 0.33, green: 0.30, blue: 0.78, alpha: 1)
+            public static let copilotCLI = NSColor(srgbRed: 0.53, green: 0.27, blue: 0.78, alpha: 1)
+            public static let vscodeCopilot = NSColor(srgbRed: 0.0, green: 0.45, blue: 0.75, alpha: 1)
+            public static let cursor = NSColor(srgbRed: 0.25, green: 0.24, blue: 0.58, alpha: 1)
+            public static let opencode = NSColor(srgbRed: 0.0, green: 0.48, blue: 0.48, alpha: 1)
+            public static let zed = NSColor(srgbRed: 0.04, green: 0.42, blue: 0.60, alpha: 1)
+            public static let pi = NSColor(srgbRed: 0.18, green: 0.52, blue: 0.25, alpha: 1)
+            public static let devin = NSColor(srgbRed: 0.0, green: 0.48, blue: 0.36, alpha: 1)
+            public static let factory = NSColor(srgbRed: 0.62, green: 0.42, blue: 0.08, alpha: 1)
+            public static let kiro = NSColor(srgbRed: 0.66, green: 0.20, blue: 0.56, alpha: 1)
+            public static let amp = NSColor(srgbRed: 0.80, green: 0.20, blue: 0.20, alpha: 1)
+            public static let cline = NSColor(srgbRed: 0.36, green: 0.42, blue: 0.52, alpha: 1)
+            public static let goose = NSColor(srgbRed: 0.40, green: 0.46, blue: 0.14, alpha: 1)
+            public static let junie = NSColor(srgbRed: 0.80, green: 0.22, blue: 0.40, alpha: 1)
+            public static let warp = NSColor(srgbRed: 0.50, green: 0.32, blue: 0.22, alpha: 1)
+        }
         /// The panel's backdrop material.
         public static var panelMaterial: NSVisualEffectView.Material { .sidebar }
     }
@@ -345,7 +389,15 @@ public enum DS {
         public static let tabPanel = "sidebar.right"
         public static let tabQueue = "tray"
         public static let tabNotifications = "bell"
-        public static let tabConnect = "link"
+        public static let tabAgents = "terminal"
+        /// Settings › Agents: a harness's or a piece's state.
+        public static let agentInstalled = "checkmark.circle.fill"
+        public static let agentUpdate = "arrow.down.circle.fill"
+        public static let agentEdited = "pencil.circle.fill"
+        public static let agentNeedsYou = "exclamationmark.circle.fill"
+        public static let agentBlocked = "exclamationmark.triangle.fill"
+        public static let agentNotSetUp = "circle.dashed"
+        public static let agentNone = "minus.circle"
         /// Settings' same-line icon buttons: Show in Finder, Check for Updates…, open an app
         /// or a System Settings pane, and show an ask.
         public static let reveal = "folder"

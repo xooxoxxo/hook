@@ -28,7 +28,7 @@ private func screen(_ id: String, primary: Bool) -> DockScreen {
     }
 
     @Test func aLegacyIndexMapsToTheOldFourTabs() {
-        let expected: [(Int, SettingsTabID)] = [(0, .general), (1, .queue), (2, .notifications), (3, .connect)]
+        let expected: [(Int, SettingsTabID)] = [(0, .general), (1, .queue), (2, .notifications), (3, .agents)]
         for (index, tab) in expected {
             let (defaults, name) = scratchDefaults()
             defer { defaults.removePersistentDomain(forName: name) }
@@ -40,12 +40,24 @@ private func screen(_ id: String, primary: Bool) -> DockScreen {
     }
 
     @Test func aLegacyStringIsItsRawValue() {
-        for raw in ["connect", "queue", "notifications", "general"] {
+        for raw in ["queue", "notifications", "general"] {
             let (defaults, name) = scratchDefaults()
             defer { defaults.removePersistentDomain(forName: name) }
             defaults.set(raw, forKey: legacyKey)
             #expect(SettingsTabID.restore(defaults).rawValue == raw)
             #expect(defaults.string(forKey: SettingsTabID.defaultsKey) == raw)
+        }
+    }
+
+    /// Connect became Agents in 0.13: a saved "connect", new or legacy, opens Agents and is saved as it.
+    @Test func aSavedConnectTabOpensAgents() {
+        for key in [SettingsTabID.defaultsKey, legacyKey] {
+            let (defaults, name) = scratchDefaults()
+            defer { defaults.removePersistentDomain(forName: name) }
+            defaults.set("connect", forKey: key)
+            #expect(SettingsTabID.restore(defaults) == .agents)
+            #expect(defaults.string(forKey: SettingsTabID.defaultsKey) == "agents")
+            #expect(defaults.object(forKey: legacyKey) == nil)
         }
     }
 
@@ -75,14 +87,14 @@ private func screen(_ id: String, primary: Bool) -> DockScreen {
     }
 
     @Test func commandDigitsPickTheFiveTabsInOrder() {
-        #expect((1...5).compactMap(SettingsTabID.init(shortcutDigit:)) == [.general, .panel, .queue, .notifications, .connect])
+        #expect((1...5).compactMap(SettingsTabID.init(shortcutDigit:)) == [.general, .panel, .queue, .notifications, .agents])
         #expect(SettingsTabID(shortcutDigit: 0) == nil)
         #expect(SettingsTabID(shortcutDigit: 6) == nil)
     }
 
     @Test func titlesAndSymbols() {
-        #expect(SettingsTabID.allCases.map(\.title) == ["General", "Panel", "Queue", "Notifications", "Connect"])
-        #expect(SettingsTabID.allCases.map(\.symbol) == ["gearshape", "sidebar.right", "tray", "bell", "link"])
+        #expect(SettingsTabID.allCases.map(\.title) == ["General", "Panel", "Queue", "Notifications", "Agents"])
+        #expect(SettingsTabID.allCases.map(\.symbol) == ["gearshape", "sidebar.right", "tray", "bell", "terminal"])
     }
 
     @Test func anEmptyDraftAndSnapshotStartBlank() {

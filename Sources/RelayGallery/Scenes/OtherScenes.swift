@@ -69,6 +69,8 @@ final class BadgeStrip: NSView {
                  }, appKit: nil),
     setupScene("setup-3-agents", page: .agents,
                settings: SettingsFixtures.snapshot(config: SettingsFixtures.localConfig, agents: SettingsFixtures.agents)),
+    setupScene("setup-3-agents-mac", page: .agents,
+               settings: SettingsFixtures.snapshot(config: SettingsFixtures.localConfig, agents: SettingsFixtures.agentsMac)),
     setupScene("setup-3-agents-done", page: .agents,
                settings: SettingsFixtures.snapshot(config: SettingsFixtures.localConfig, agents: SettingsFixtures.agentsDone)),
     setupScene("setup-4-notifications", page: .notifications,

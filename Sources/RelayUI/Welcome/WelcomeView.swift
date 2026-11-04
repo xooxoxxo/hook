@@ -145,16 +145,17 @@ public struct WelcomeView<Model: SettingsViewModel>: View {
         }
     }
 
+    /// Set Up All and the automatic setup checkbox, then the agents on this Mac, read only.
     @ViewBuilder private var agentsPage: some View {
         Section {
             if agents.repoPath == nil {
-                SetupRow("Hook repo", symbol: DS.Symbol.setupRepo, help: ConnectHelp.repo) {
+                SetupRow("Hook repo", symbol: DS.Symbol.setupRepo, help: AgentsHelp.repo) {
                     Button("Choose…") { model.perform(.chooseRepoFolder) }
                 }
             }
             SetupRow("Agents", symbol: DS.Symbol.setupMCP, help: WelcomeCopy.agentsHelp(agents),
                      error: agents.error) { agentsControl }
-            SetupRow("New agents", symbol: DS.Symbol.setupSkill, help: ConnectHelp.autoSetup) {
+            SetupRow("New agents", symbol: DS.Symbol.setupSkill, help: AgentsHelp.autoSetup) {
                 Toggle("Set up automatically", isOn: Binding(
                     get: { agents.status?.autoSetup ?? true },
                     set: { model.perform(.integration(.setAutoSetup($0))) }))
@@ -163,6 +164,19 @@ public struct WelcomeView<Model: SettingsViewModel>: View {
             }
         } header: {
             SetupHeading("Connect your agents", line: WelcomeCopy.agents)
+        }
+        if !agents.onThisMac.isEmpty {
+            Section("On this Mac") {
+                ForEach(agents.onThisMac) { harness in
+                    HStack(spacing: DS.Space.inline) {
+                        HarnessMark(id: harness.id, name: harness.name)
+                        Text(harness.name)
+                        Spacer(minLength: DS.Space.inline)
+                        Text(AgentsPane.caption(harness)).foregroundStyle(DS.Color.secondary)
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+            }
         }
     }
 
@@ -359,9 +373,8 @@ public enum WelcomeCopy {
 
     /// The agents row's "?": what Set Up All does, then each agent on this Mac and its state.
     public static func agentsHelp(_ agents: AgentsState) -> String {
-        let intro = "Set Up All gives every agent on this Mac Hook's MCP server, the instructables skill, "
-            + "Hook's instructions and, where the agent has one, the replies hook. A file you edited is left as it is."
-        let rows = agents.onThisMac.map { "\($0.name): \($0.state.label)" }
-        return rows.isEmpty ? intro : intro + "\n\n" + rows.joined(separator: "\n")
+        "Set Up All gives every agent on this Mac Hook's MCP server, the instructables skill, "
+            + "Hook's instructions and, where the agent has one, the replies hook. A file you edited is left as it is. "
+            + "Settings › Agents shows what Hook set up in each."
     }
 }

@@ -6,19 +6,32 @@ extension SettingsTabID {
     public static let defaultsKey = "relay.settings.tabID"
     /// 0.5.x saved the tab here, as an index (0–3) or a raw value.
     public static let legacyDefaultsKey = "relay.settings.tab"
-    static let legacyOrder: [SettingsTabID] = [.general, .queue, .notifications, .connect]
+    static let legacyOrder: [SettingsTabID] = [.general, .queue, .notifications, .agents]
+
+    /// A saved tab id: its raw value, or "connect", the Agents tab's id before 0.13.
+    public init?(stored raw: String) {
+        if raw == "connect" {
+            self = .agents
+        } else if let tab = SettingsTabID(rawValue: raw) {
+            self = tab
+        } else {
+            return nil
+        }
+    }
 
     /// The tab Settings opens on. A legacy value is migrated once: written as an id, then deleted.
+    /// A saved "connect" is saved again as "agents".
     public static func restore(_ defaults: UserDefaults) -> SettingsTabID {
-        if let raw = defaults.string(forKey: defaultsKey), let tab = SettingsTabID(rawValue: raw) {
+        if let raw = defaults.string(forKey: defaultsKey), let tab = SettingsTabID(stored: raw) {
             defaults.removeObject(forKey: legacyDefaultsKey)
+            if tab.rawValue != raw { tab.save(defaults) }
             return tab
         }
         guard let legacy = defaults.object(forKey: legacyDefaultsKey) else { return .general }
         defaults.removeObject(forKey: legacyDefaultsKey)
         let tab: SettingsTabID
         if let raw = legacy as? String {
-            tab = SettingsTabID(rawValue: raw) ?? .general
+            tab = SettingsTabID(stored: raw) ?? .general
         } else if let index = legacy as? Int, legacyOrder.indices.contains(index) {
             tab = legacyOrder[index]
         } else {
@@ -44,7 +57,7 @@ extension SettingsTabID {
         case .panel: "Panel"
         case .queue: "Queue"
         case .notifications: "Notifications"
-        case .connect: "Connect"
+        case .agents: "Agents"
         }
     }
 
@@ -54,7 +67,7 @@ extension SettingsTabID {
         case .panel: "sidebar.right"
         case .queue: "tray"
         case .notifications: "bell"
-        case .connect: "link"
+        case .agents: "terminal"
         }
     }
 }
@@ -111,18 +124,35 @@ public struct AgentsState: Equatable, Sendable {
     public var error: String?
     /// A failed piece command's first line, by `AgentsState.key(harness:piece:)`.
     public var pieceErrors: [String: String]
+    /// Reinstall All's result line (`IntegrationReport.reinstallLine`); nil until it ran.
+    public var result: String?
 
     public init(repoPath: String? = nil, lastCall: Date? = nil, status: IntegrationStatus? = nil,
-                running: IntegrationCommand? = nil, error: String? = nil, pieceErrors: [String: String] = [:]) {
+                running: IntegrationCommand? = nil, error: String? = nil, pieceErrors: [String: String] = [:],
+                result: String? = nil) {
         self.repoPath = repoPath
         self.lastCall = lastCall
         self.status = status
         self.running = running
         self.error = error
         self.pieceErrors = pieceErrors
+        self.result = result
     }
 
     public var busy: Bool { running != nil }
+
+    /// The Fix… command for this piece is the one running.
+    public func isRunning(harness: String, piece: String) -> Bool {
+        running.flatMap(Self.key(for:)) == Self.key(harness: harness, piece: piece)
+    }
+
+    /// Set Up or Update for this harness is the one running.
+    public func isRunning(harness: String) -> Bool {
+        switch running {
+        case .sync(_, _, let id?), .reinstall(let id?, nil, _): return id == harness
+        default: return false
+        }
+    }
 
     public static func key(harness: String, piece: String) -> String { harness + "/" + piece }
 
@@ -150,6 +180,25 @@ public struct AgentsState: Equatable, Sendable {
             if (a.id == "claude-code") != (b.id == "claude-code") { return a.id == "claude-code" }
             return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
         }
+    }
+
+    /// The table's other entries, by name: "N more supported".
+    public var moreSupported: [IntegrationStatus.Harness] {
+        (status?.harnesses ?? []).filter { !$0.detected && !$0.managed }.sorted {
+            $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+        }
+    }
+
+    /// Settings › Agents opens on the first harness needing action, else the first one.
+    public var defaultSelection: String? {
+        let rows = onThisMac
+        return (rows.first { $0.state.needsAction } ?? rows.first)?.id
+    }
+
+    /// The stored selection while it is still on this Mac, else `defaultSelection`.
+    public func selection(stored: String?) -> String? {
+        if let stored, onThisMac.contains(where: { $0.id == stored }) { return stored }
+        return defaultSelection
     }
 }
 
