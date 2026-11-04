@@ -43,7 +43,9 @@ public struct HelpButton: View {
     }
 
     public var body: some View {
-        Button { open = true } label: {
+        // Read here, not in the guide's closure: the closure is Sendable in newer SDKs.
+        let halfCap = DS.Font.capHeight(style) / 2
+        return Button { open = true } label: {
             Image(systemName: Self.symbol)
                 .font(Self.font)
                 .foregroundStyle(Self.foreground)
@@ -52,7 +54,7 @@ public struct HelpButton: View {
         .buttonStyle(.borderless)
         .help("Help")
         .accessibilityLabel(Self.accessibilityLabel(rowLabel: rowLabel))
-        .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + DS.Font.capHeight(style) / 2 }
+        .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + halfCap }
         .popover(isPresented: $open, arrowEdge: .bottom) {
             Text(text)
                 .font(DS.Font.prose)

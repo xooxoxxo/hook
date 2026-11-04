@@ -1790,7 +1790,7 @@ extension Store: PanelViewModel {
     public func sendReply(_ id: String) { Task { _ = await sendReply(id) } }
     public func sendChoice(_ id: String) { Task { _ = await sendChoice(id) } }
     public func sendAndDone(_ id: String) { Task { await sendAndDone(id) } }
-    public func sendAnswers(_ id: String) { Task { _ = await sendAnswers(id) } }
+    public func sendAnswers(_ id: String) { Task { _ = await sendAnswers(id, only: nil) } }
     public func sendAnswer(_ id: String, path: String) { Task { _ = await sendAnswers(id, only: [path]) } }
     public func performNoticeAction() { Task { await performNoticeAction() } }
     /// Use Version N from the inline review: on success the review ends.

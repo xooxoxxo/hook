@@ -125,6 +125,22 @@ private func answerEvent(_ id: String, seq: Int, _ entry: JSONValue) -> Event {
         #expect(store.pending.isEmpty)   // answers leave the ask open
     }
 
+    /// The panel's Send (the PanelViewModel call, not the async one) sends the answers: its
+    /// Task once called itself instead (an overload picked the wrong way), and nothing went.
+    @Test func thePanelsSendCallSendsTheAnswers() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let store = Store(defaults: defaults.defaults)
+        let fake = FakeQueueSource(items: [questionItem()])
+        await start(store, fake)
+        store.answerDrafts["q"] = ["1": .picked(["Staging"])]
+        let press: @MainActor (String) -> Void = store.sendAnswers
+        press("q")
+        #expect(await eventually { await fake.count("answer") == 1 })
+        try? await Task.sleep(for: .milliseconds(50))
+        #expect(await fake.count("answer") == 1)
+    }
+
     @Test func aSecondSendWhileOneRunsIsBlocked() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }
