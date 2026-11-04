@@ -185,6 +185,7 @@ import RelayUI
         startCrashMonitor(model: model, notifier: notifier)
         let safeMode = crash?.safeMode ?? false
         if !safeMode { updates.start() }
+        DiagnosticsSubscriber.shared.start()
         applyGeneral(model.config)
         scheduleApply(model.config)
 

@@ -238,3 +238,23 @@ extension RunMarker {
         return copy
     }
 }
+
+@Suite struct MetricDiagnosticsTests {
+    private func line(_ event: HookLog.Event) -> String { event.line(home: "/Users/me", user: "me") }
+
+    @Test func eachPayloadIsOneLine() {
+        #expect(line(MetricDiagnostics.crash(exceptionType: 6, exceptionCode: 1, signal: 5,
+                                             reason: "Namespace SIGNAL, Code 5\nat /Users/me/x", version: "0.14.0"))
+            == #"diagnostic crash "exception=6 code=1 signal=5 version=0.14.0 reason=Namespace SIGNAL, Code 5 at ~/x""#)
+        #expect(line(MetricDiagnostics.crash(exceptionType: nil, exceptionCode: nil, signal: nil, reason: nil,
+                                             version: nil)) == #"diagnostic crash """#)
+        #expect(line(MetricDiagnostics.hang(seconds: 4.25, version: "0.14.0"))
+            == #"diagnostic hang "duration=4.2s version=0.14.0""#)
+        #expect(line(MetricDiagnostics.cpuException(cpuSeconds: 92.5, sampledSeconds: 180, version: "0.14.0"))
+            == #"diagnostic cpu "cpu=92.5s over=180.0s version=0.14.0""#)
+        #expect(line(MetricDiagnostics.diskWrites(megabytes: 2048.4, version: "0.14.0"))
+            == #"diagnostic disk-writes "written=2048MB version=0.14.0""#)
+        #expect(line(MetricDiagnostics.hang(seconds: .nan, version: "not a version"))
+            == #"diagnostic hang "duration=? version=?""#)
+    }
+}
