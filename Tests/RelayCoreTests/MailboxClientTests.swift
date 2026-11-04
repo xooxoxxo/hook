@@ -89,7 +89,7 @@ private func makeClient(
     writeToken: Bool = true,
     scheme: String = "https",
     host fixedHost: String? = nil,
-    ownerKey: (@Sendable () -> String?)? = nil,
+    ownerKey: (@Sendable () async -> String?)? = nil,
     _ handler: @escaping MailboxStubRegistry.Handler
 ) throws -> (client: MailboxClient, host: String) {
     let host = fixedHost ?? "mbx-" + UUID().uuidString.lowercased() + ".test"

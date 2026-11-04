@@ -139,6 +139,8 @@ public enum OwnerKeyVault {
 /// What Settings › Queue shows for this Mac's owner key.
 public enum OwnerKeyState: Equatable, Sendable {
     case notSetUp
+    /// The record is being read: the Keychain may be waiting on its password prompt.
+    case reading
     /// Waiting for the owner's tap on Telegram; `code` is the one the request repeats.
     case waiting(id: String, code: String)
     case approved
@@ -153,6 +155,10 @@ public enum OwnerKeyState: Equatable, Sendable {
 
 /// Setting up, checking and losing this Mac's owner key for the connected Pond. Settings
 /// drives it through `SettingsViewModel`; the Store reports a refused key.
+///
+/// Every Keychain call runs on `KeychainQueue`, never on the main actor: a prompt after an
+/// update holds only the flow (`.reading`), not the app. Each call that changes the item
+/// returns the task doing it.
 @MainActor public final class OwnerKeyFlow {
     public nonisolated static let pollInterval: Duration = .seconds(3)
     public nonisolated static let pollLimit: Duration = .seconds(600)
@@ -166,6 +172,8 @@ public enum OwnerKeyState: Equatable, Sendable {
     public nonisolated static let declined = "The request was turned down on Telegram."
     public nonisolated static let needsHTTPS = "The owner key needs a Pond URL that starts with https."
     public nonisolated static let expired = "The request expired before it was approved."
+    /// While the record is read (`.reading`).
+    public nonisolated static let readingKeychain = "Waiting for Keychain access"
 
     /// An approved key the Pond URL's scheme doesn't take (`scheme` is the one it was set up on).
     public nonisolated static func notUsedHere(scheme: String?) -> String {
@@ -188,17 +196,28 @@ public enum OwnerKeyState: Equatable, Sendable {
     private let label: String
     private let sleep: @Sendable (Duration) async throws -> Void
     private let generate: @Sendable () -> String
+    /// Where the flow's Keychain calls run.
+    private let keychain: KeychainQueue
     /// The Pond attached (`SourceKey`); nil outside mailbox mode.
     public private(set) var sourceKey: String?
     /// Its URL, whose scheme a new key is bound to.
     private var url: URL?
     private var source: (any QueueSource)?
+    /// The read, setup or poll in flight; a second one waits for it to end.
     private var task: Task<Void, Never>?
+    /// The last change to the item that runs apart from `task` (a cancel's delete, a refusal),
+    /// so a setup after it never races it.
+    private var cleanup: Task<Void, Never>?
+    /// The record as this flow last read or wrote it for `sourceKey`; a new URL for the same
+    /// Pond is judged from it, without another Keychain read.
+    private var lastRecord: OwnerKeyRecord?
 
     public init(secrets: any SecretStore, seal: @escaping @Sendable () throws -> SymmetricKey?, label: String,
                 sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
-                generate: @escaping @Sendable () -> String = OwnerKey.generate) {
+                generate: @escaping @Sendable () -> String = OwnerKey.generate,
+                keychain: KeychainQueue = .shared) {
         self.secrets = secrets
+        self.keychain = keychain
         self.seal = seal
         self.label = Self.label(from: label)
         self.sleep = sleep
@@ -214,10 +233,22 @@ public enum OwnerKeyState: Equatable, Sendable {
         return kept.isEmpty ? "Mac" : String(kept.prefix(maxLabel))
     }
 
-    /// The provider `MailboxClient` reads on each owner act to the Pond at `url`: no seal, no key.
+    /// The provider `MailboxClient` reads on each owner act to the Pond at `url`: no seal, no
+    /// key. It reads the Keychain on `KeychainQueue`.
     public nonisolated static func provider(_ secrets: any SecretStore, sourceKey: String, url: URL,
-                                            seal: @escaping @Sendable () throws -> SymmetricKey?) -> @Sendable () -> String? {
-        { OwnerKeyVault.approvedKey(secrets, sourceKey: sourceKey, url: url, seal: (try? seal()) ?? nil) }
+                                            seal: @escaping @Sendable () throws -> SymmetricKey?,
+                                            keychain: KeychainQueue = .shared) -> @Sendable () async -> String? {
+        {
+            await keychain.run {
+                OwnerKeyVault.approvedKey(secrets, sourceKey: sourceKey, url: url, seal: (try? seal()) ?? nil)
+            }
+        }
+    }
+
+    /// The flow says approved for this Pond at this URL: what the provider would send a key
+    /// to, read from the flow's state, so the main actor never waits on the Keychain for it.
+    public func isApproved(sourceKey: String, url: URL?) -> Bool {
+        state == .approved && self.sourceKey == sourceKey && self.url == url
     }
 
     /// Require is offered only once two Macs are approved, this one among them, so turning it
@@ -228,7 +259,9 @@ public enum OwnerKeyState: Equatable, Sendable {
     }
 
     /// The connected Pond (nil outside mailbox mode) and its URL. A new one stops any setup in
-    /// flight and reads its record; a pending request is polled again.
+    /// flight and reads its record (`.reading` until the Keychain answers); a pending request
+    /// is polled again. The returned task ends once the record is read (and a pending
+    /// request's poll is over).
     @discardableResult
     public func attach(sourceKey: String?, url: URL?, source: (any QueueSource)?) -> Task<Void, Never>? {
         let urlChanged = url != self.url
@@ -236,7 +269,7 @@ public enum OwnerKeyState: Equatable, Sendable {
         guard sourceKey != self.sourceKey else {
             self.source = source
             // The same Pond on another scheme: an approved key may no longer go to it, or again.
-            if urlChanged, task == nil, let sourceKey, Self.followsURL(state) { rereadForURL(sourceKey) }
+            if urlChanged, task == nil, sourceKey != nil, Self.followsURL(state) { stateForURL() }
             return nil
         }
         task?.cancel()
@@ -246,32 +279,50 @@ public enum OwnerKeyState: Equatable, Sendable {
         status = nil
         requireOffPending = false
         requireProblem = nil
+        lastRecord = nil
         guard let sourceKey else {
             state = .notSetUp
             return nil
         }
+        state = .reading
+        let task = Task { await self.read(sourceKey) }
+        self.task = task
+        return task
+    }
+
+    /// `attach`'s read: the record's state, and a pending request polled again.
+    private func read(_ sourceKey: String) async {
+        await cleanup?.value
         let record: OwnerKeyRecord?
         do {
-            record = try ownRecord(sourceKey)
+            record = try await ownRecord(sourceKey)
         } catch {
+            guard current(sourceKey) else { return }
             state = .unavailable(Self.readFailed)
-            return nil
+            task = nil
+            return
         }
+        guard current(sourceKey) else { return }
+        lastRecord = record
         switch record?.status {
         case nil: state = .notSetUp
-        case .approved?: state = record.map(approvedState) ?? .notSetUp
+        case .approved?:
+            state = record.map(approvedState) ?? .notSetUp
+            // `GET /owner` may have answered while the read waited: the check `refresh` skipped.
+            if state == .approved, let status, status.self_?.status != "approved" {
+                await refuse(sourceKey: sourceKey)
+            }
         case .refused?: state = .refused(Self.noLongerAccepted)
         case .pending?:
             guard let record, let id = record.enrollID else {
                 state = .notSetUp       // the enroll call never answered: nothing is waiting
-                return nil
+                break
             }
             state = .waiting(id: id, code: OwnerKey.enrollCode(id: id, keyHash: OwnerKey.hash(record.key)))
-            let task = Task { await self.poll(id: id, sourceKey: sourceKey) }
-            self.task = task
-            return task
+            await poll(id: id, sourceKey: sourceKey)
+            return
         }
-        return nil
+        if current(sourceKey) { task = nil }
     }
 
     /// Set up: the key and a pending record go to the Keychain first, in a fresh item (any item
@@ -283,52 +334,70 @@ public enum OwnerKeyState: Equatable, Sendable {
     public func setUp() -> Task<Void, Never>? {
         guard let sourceKey, let source, task == nil else { return nil }
         switch state {
-        case .waiting, .approved: return nil
+        case .waiting, .approved, .reading: return nil
         case .notSetUp, .notUsedHere, .refused, .unavailable: break
         }
         guard let url, OwnerKey.mayCarry(url), let scheme = url.scheme?.lowercased() else {
             state = .refused(Self.needsHTTPS)
             return nil
         }
-        do {
-            if let record = try ownRecord(sourceKey), record.status == .approved, record.scheme == scheme {
-                state = .approved
-                return nil
-            }
-        } catch {
-            state = .unavailable(Self.readFailed)
-            return nil
-        }
-        let key = generate()
-        do {
-            try OwnerKeyVault.create(OwnerKeyRecord(key: key, status: .pending, scheme: scheme), secrets,
-                                     sourceKey: sourceKey, seal: markingSeal())
-        } catch {
-            state = .unavailable(Self.saveFailed)
-            return nil
-        }
         let label = self.label
         let task = Task {
+            await self.cleanup?.value
+            do {
+                if let record = try await self.ownRecord(sourceKey), record.status == .approved, record.scheme == scheme {
+                    guard self.current(sourceKey) else { return }
+                    self.lastRecord = record
+                    self.state = .approved
+                    self.task = nil
+                    return
+                }
+            } catch {
+                guard self.current(sourceKey) else { return }
+                self.state = .unavailable(Self.readFailed)
+                self.task = nil
+                return
+            }
+            guard self.current(sourceKey) else { return }
+            let key = self.generate()
+            do {
+                try await self.marked { secrets, seal in
+                    try OwnerKeyVault.create(OwnerKeyRecord(key: key, status: .pending, scheme: scheme), secrets,
+                                             sourceKey: sourceKey, seal: seal)
+                }
+            } catch {
+                guard self.current(sourceKey) else { return }
+                self.state = .unavailable(Self.saveFailed)
+                self.task = nil
+                return
+            }
+            guard self.current(sourceKey) else { return }
+            self.lastRecord = OwnerKeyRecord(key: key, status: .pending, scheme: scheme)
             let hash = OwnerKey.hash(key)
             let enrollment: Enrollment
             do {
                 enrollment = try await source.enroll(keyHash: hash, label: label)
             } catch {
-                guard !Task.isCancelled, self.sourceKey == sourceKey else { return }
-                self.drop(sourceKey: sourceKey)
+                guard self.current(sourceKey) else { return }
+                await self.drop(sourceKey: sourceKey)
                 self.state = .refused("Couldn't start the setup: " + UserFacingError.text(error))
                 self.task = nil
                 return
             }
-            guard !Task.isCancelled, self.sourceKey == sourceKey else { return }
+            guard self.current(sourceKey) else { return }
             do {
-                try OwnerKeyVault.save(OwnerKeyRecord(key: key, enrollID: enrollment.id, status: .pending, scheme: scheme),
-                                       self.secrets, sourceKey: sourceKey, seal: self.markingSeal())
+                try await self.marked { secrets, seal in
+                    try OwnerKeyVault.save(OwnerKeyRecord(key: key, enrollID: enrollment.id, status: .pending, scheme: scheme),
+                                           secrets, sourceKey: sourceKey, seal: seal)
+                }
             } catch {
+                guard self.current(sourceKey) else { return }
                 self.state = .unavailable(Self.saveFailed)
                 self.task = nil
                 return
             }
+            guard self.current(sourceKey) else { return }
+            self.lastRecord = OwnerKeyRecord(key: key, enrollID: enrollment.id, status: .pending, scheme: scheme)
             self.state = .waiting(id: enrollment.id, code: OwnerKey.enrollCode(id: enrollment.id, keyHash: hash))
             await self.poll(id: enrollment.id, sourceKey: sourceKey)
         }
@@ -336,13 +405,16 @@ public enum OwnerKeyState: Equatable, Sendable {
         return task
     }
 
-    /// Stops waiting and forgets the pending key. The Pond's request expires on its own.
-    public func cancelSetup() {
-        guard case .waiting = state, let sourceKey else { return }
+    /// Stops waiting and forgets the pending key; the returned task ends once it is gone. The
+    /// Pond's request expires on its own.
+    @discardableResult
+    public func cancelSetup() -> Task<Void, Never>? {
+        guard case .waiting = state, let sourceKey else { return nil }
         task?.cancel()
         task = nil
-        drop(sourceKey: sourceKey)
+        lastRecord = nil
         state = .notSetUp
+        return afterCleanup { await $0.drop(sourceKey: sourceKey) }
     }
 
     /// `GET /owner`, on launch and each time Settings opens. An approved record whose key the
@@ -357,7 +429,7 @@ public enum OwnerKeyState: Equatable, Sendable {
             self.status = status
             if !status.required { self.requireOffPending = false }     // the owner tapped Turn off
             guard self.state == .approved, status.self_?.status != "approved" else { return }
-            self.refuse(sourceKey: sourceKey)
+            await self.refuse(sourceKey: sourceKey)
         }
     }
 
@@ -371,9 +443,10 @@ public enum OwnerKeyState: Equatable, Sendable {
     }
 
     /// An owner act got 403 "unknown owner key": the next one goes without a key.
-    public func keyRefused() {
-        guard let sourceKey, state == .approved else { return }
-        refuse(sourceKey: sourceKey)
+    @discardableResult
+    public func keyRefused() -> Task<Void, Never>? {
+        guard let sourceKey, state == .approved else { return nil }
+        return afterCleanup { await $0.refuse(sourceKey: sourceKey) }
     }
 
     /// On takes effect at once (when `canRequireOwnerKey`); off waits for the Telegram tap.
@@ -393,7 +466,7 @@ public enum OwnerKeyState: Equatable, Sendable {
                 }
             } catch QueueError.ownerKeyRefused {
                 guard self.sourceKey == sourceKey else { return }
-                self.refuse(sourceKey: sourceKey)
+                await self.refuse(sourceKey: sourceKey)
             } catch {
                 guard self.sourceKey == sourceKey else { return }
                 self.requireProblem = UserFacingError.text(error)
@@ -403,43 +476,64 @@ public enum OwnerKeyState: Equatable, Sendable {
 
     // MARK: -
 
+    /// The same Pond is still attached and this task wasn't stopped.
+    private func current(_ sourceKey: String) -> Bool {
+        !Task.isCancelled && self.sourceKey == sourceKey
+    }
+
+    /// `work` after the last cleanup, kept as the new last one.
+    private func afterCleanup(_ work: @escaping @MainActor (OwnerKeyFlow) async -> Void) -> Task<Void, Never> {
+        let previous = cleanup
+        let next = Task { @MainActor in
+            await previous?.value
+            await work(self)
+        }
+        cleanup = next
+        return next
+    }
+
     private func poll(id: String, sourceKey: String) async {
         let rounds = Int(Self.pollLimit / Self.pollInterval)
         for _ in 0..<rounds {
             do { try await sleep(Self.pollInterval) } catch { return }
-            guard !Task.isCancelled, self.sourceKey == sourceKey, let source else { return }
+            guard current(sourceKey), let source else { return }
             guard let enrollment = try? await source.enrollment(id) else { continue }
-            guard !Task.isCancelled, self.sourceKey == sourceKey else { return }
+            guard current(sourceKey) else { return }
             switch enrollment.status {
             case "approved"?:
                 do {
-                    guard let record = try ownRecord(sourceKey) else {
+                    guard let record = try await ownRecord(sourceKey) else {
+                        guard current(sourceKey) else { return }
                         state = .refused(Self.noLongerAccepted)
                         task = nil
                         return
                     }
                     var approved = record
                     approved.status = .approved
-                    try OwnerKeyVault.save(approved, secrets, sourceKey: sourceKey, seal: markingSeal())
+                    let saved = approved
+                    try await marked { secrets, seal in try OwnerKeyVault.save(saved, secrets, sourceKey: sourceKey, seal: seal) }
+                    guard current(sourceKey) else { return }
+                    lastRecord = approved
                     state = approvedState(approved)
                 } catch {
+                    guard current(sourceKey) else { return }
                     state = .unavailable(Self.saveFailed)
                 }
                 task = nil
                 refresh()
                 return
             case "rejected"?:
-                finish(sourceKey: sourceKey, reason: Self.declined)
+                await finish(sourceKey: sourceKey, reason: Self.declined)
                 return
             case "expired"?:
-                finish(sourceKey: sourceKey, reason: Self.expired)
+                await finish(sourceKey: sourceKey, reason: Self.expired)
                 return
             default:
                 continue
             }
         }
-        guard !Task.isCancelled, self.sourceKey == sourceKey else { return }
-        finish(sourceKey: sourceKey, reason: Self.expired)
+        guard current(sourceKey) else { return }
+        await finish(sourceKey: sourceKey, reason: Self.expired)
     }
 
     /// An approved record's state for the URL attached now: `.approved` only where
@@ -457,29 +551,25 @@ public enum OwnerKeyState: Equatable, Sendable {
         switch state {
         case .approved, .notUsedHere: return true
         case .refused(let reason): return reason == needsHTTPS
-        case .notSetUp, .waiting, .unavailable: return false
+        case .notSetUp, .reading, .waiting, .unavailable: return false
         }
     }
 
-    /// The record read again for the URL attached now (`followsURL` states only).
-    private func rereadForURL(_ sourceKey: String) {
-        do {
-            guard let record = try ownRecord(sourceKey) else {
-                state = .notSetUp
-                return
-            }
-            switch record.status {
-            case .approved: state = approvedState(record)
-            case .refused: state = .refused(Self.noLongerAccepted)
-            case .pending: break
-            }
-        } catch {
-            state = .unavailable(Self.readFailed)
+    /// The state for the URL attached now (`followsURL` states only), from the record as the
+    /// flow last saw it.
+    private func stateForURL() {
+        switch lastRecord?.status {
+        case nil: state = .notSetUp
+        case .approved?: state = lastRecord.map(approvedState) ?? .notSetUp
+        case .refused?: state = .refused(Self.noLongerAccepted)
+        case .pending?: break
         }
     }
 
-    private func finish(sourceKey: String, reason: String) {
-        drop(sourceKey: sourceKey)
+    private func finish(sourceKey: String, reason: String) async {
+        await drop(sourceKey: sourceKey)
+        guard self.sourceKey == sourceKey else { return }
+        lastRecord = nil
         state = .refused(reason)
         task = nil
     }
@@ -487,44 +577,60 @@ public enum OwnerKeyState: Equatable, Sendable {
     /// The Pond turned the key down: the record becomes refused. A read the Keychain refuses
     /// leaves the item in place and only gives `.unavailable`, since the provider sends no key
     /// then and the Pond's answer says nothing about it.
-    private func refuse(sourceKey: String) {
-        let record: OwnerKeyRecord?
-        do {
-            record = try ownRecord(sourceKey)
-        } catch {
-            state = .unavailable(Self.readFailed)
-            return
+    private func refuse(sourceKey: String) async {
+        let secrets = self.secrets, seal = self.seal
+        let read = await keychain.run { () -> Bool in
+            do {
+                if let record = try Self.ownRecord(secrets, seal: seal, sourceKey: sourceKey) {
+                    Self.markRefused(record, secrets, seal: seal, sourceKey: sourceKey)
+                }
+                return true
+            } catch {
+                return false
+            }
         }
-        if let record { markRefused(record, sourceKey: sourceKey) }
-        state = .refused(Self.noLongerAccepted)
+        guard self.sourceKey == sourceKey else { return }
+        if read { lastRecord = nil }
+        state = read ? .refused(Self.noLongerAccepted) : .unavailable(Self.readFailed)
     }
 
     /// Deletes the record; when the delete fails, marks it refused so the provider still gives nil.
     /// A read the Keychain refuses changes nothing: the provider already gives nil then.
-    private func drop(sourceKey: String) {
-        do {
-            try OwnerKeyVault.delete(secrets, sourceKey: sourceKey)
-        } catch {
-            guard let record = try? ownRecord(sourceKey) else { return }
-            markRefused(record, sourceKey: sourceKey)
+    private func drop(sourceKey: String) async {
+        let secrets = self.secrets, seal = self.seal
+        await keychain.run {
+            do {
+                try OwnerKeyVault.delete(secrets, sourceKey: sourceKey)
+            } catch {
+                guard let record = try? Self.ownRecord(secrets, seal: seal, sourceKey: sourceKey) else { return }
+                Self.markRefused(record, secrets, seal: seal, sourceKey: sourceKey)
+            }
         }
     }
 
     /// Rewrites a record that read fine as refused; when that write fails, deletes it. Either way
-    /// the provider gives nil.
-    private func markRefused(_ record: OwnerKeyRecord, sourceKey: String) {
+    /// the provider gives nil. Runs on the Keychain queue.
+    private nonisolated static func markRefused(_ record: OwnerKeyRecord, _ secrets: any SecretStore,
+                                                seal: @Sendable () throws -> SymmetricKey?, sourceKey: String) {
         var refused = record
         refused.status = .refused
         do {
-            try OwnerKeyVault.save(refused, secrets, sourceKey: sourceKey, seal: markingSeal())
+            try OwnerKeyVault.save(refused, secrets, sourceKey: sourceKey, seal: markingSeal(seal))
         } catch {
             try? OwnerKeyVault.delete(secrets, sourceKey: sourceKey)
         }
     }
 
-    /// This Mac's record, verified. One Hook didn't make (`.foreign`) is no record: it is never
-    /// sent, and setting up replaces it. A refused Keychain or seal read throws.
-    private func ownRecord(_ sourceKey: String) throws -> OwnerKeyRecord? {
+    /// This Mac's record, verified, read on the Keychain queue. One Hook didn't make
+    /// (`.foreign`) is no record: it is never sent, and setting up replaces it. A refused
+    /// Keychain or seal read throws.
+    private func ownRecord(_ sourceKey: String) async throws -> OwnerKeyRecord? {
+        let secrets = self.secrets, seal = self.seal
+        return try await keychain.run { try Self.ownRecord(secrets, seal: seal, sourceKey: sourceKey) }
+    }
+
+    private nonisolated static func ownRecord(_ secrets: any SecretStore, seal: @Sendable () throws -> SymmetricKey?,
+                                              sourceKey: String) throws -> OwnerKeyRecord? {
         let seal = try seal()
         do {
             return try OwnerKeyVault.record(secrets, sourceKey: sourceKey, seal: seal)
@@ -533,8 +639,14 @@ public enum OwnerKeyState: Equatable, Sendable {
         }
     }
 
+    /// A write marked with the seal, on the Keychain queue; without a seal nothing is written.
+    private func marked(_ write: @escaping @Sendable (any SecretStore, SymmetricKey) throws -> Void) async throws {
+        let secrets = self.secrets, seal = self.seal
+        try await keychain.run { try write(secrets, OwnerKeyFlow.markingSeal(seal)) }
+    }
+
     /// The seal a write marks with; without one nothing is written.
-    private func markingSeal() throws -> SymmetricKey {
+    private nonisolated static func markingSeal(_ seal: @Sendable () throws -> SymmetricKey?) throws -> SymmetricKey {
         guard let seal = try seal() else { throw SecretStoreError.writeFailed(errSecItemNotFound) }
         return seal
     }

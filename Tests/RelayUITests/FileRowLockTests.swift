@@ -44,7 +44,7 @@ import UniformTypeIdentifiers
 
     /// An accepted rev 2 of "a", open, and the row context DetailView builds for its snapshot.
     private func acceptedStore(_ defaults: TestDefaults) async -> (Store, FakeQueueSource, RevisionStamp?) {
-        let store = reviewingStore(defaults)
+        let store = await reviewingStore(defaults)
         let two = revised("a", [body("run 2"), body("run two")])
         let fake = FakeQueueSource(items: [two.item], details: ["a": two.detail])
         await start(store, fake)
@@ -68,7 +68,7 @@ import UniformTypeIdentifiers
     @Test func theStoreAllowsOnlyAShownFileOfTheRenderedRevision() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }
-        let store = reviewingStore(defaults)
+        let store = await reviewingStore(defaults)
         let two = revised("a", [body("run 2"), body("run two")])
         let fake = FakeQueueSource(items: [two.item], details: ["a": two.detail])
         await start(store, fake)

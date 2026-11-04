@@ -65,10 +65,12 @@ public struct MailboxClient: QueueSource {
     /// This client's last logged failure, so a Pond that stays down is logged once, not on every poll.
     private let failures = FailureLog()
     /// Read on each owner act, never stored: it returns this Mac's key only while the Pond
-    /// has approved it (`OwnerKeyVault.approvedKey`).
-    private let ownerKey: (@Sendable () -> String?)?
+    /// has approved it (`OwnerKeyVault.approvedKey`). Async: it reads the Keychain on
+    /// `KeychainQueue`, which may be waiting on a prompt.
+    private let ownerKey: (@Sendable () async -> String?)?
 
-    public init(settings: MailboxSettings, session: URLSession = .shared, ownerKey: (@Sendable () -> String?)? = nil) {
+    public init(settings: MailboxSettings, session: URLSession = .shared,
+                ownerKey: (@Sendable () async -> String?)? = nil) {
         self.settings = settings
         self.session = session
         self.ownerKey = ownerKey
@@ -374,7 +376,7 @@ public struct MailboxClient: QueueSource {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue(Self.clientProtocol, forHTTPHeaderField: Self.protocolHeader)
         // Never over plain http to another host, whatever the provider says.
-        if owner, OwnerKey.mayCarry(url), let key = ownerKey?() {
+        if owner, OwnerKey.mayCarry(url), let key = await ownerKey?() {
             request.setValue(key, forHTTPHeaderField: Self.ownerKeyHeader)
         }
         if let body {

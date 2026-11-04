@@ -335,19 +335,23 @@ public struct ReviewPage: Equatable, Sendable {
 
 /// The bar that takes the action bar's place while an ask is locked and not being reviewed.
 public struct ReviewLockBar: Equatable, Sendable {
-    public enum Tone: Equatable, Sendable { case correction, history }
+    /// `keychain`: the review records are still being read (`ReviewState.waitingForKeychain`).
+    public enum Tone: Equatable, Sendable { case correction, history, keychain }
 
     public var tone: Tone
     public var title: String
     public var detail: String
-    /// "Show Changes" or "Trust the Pond's History Again…".
-    public var action: String
+    /// "Show Changes" or "Trust the Pond's History Again…"; nil while waiting for the Keychain.
+    public var action: String?
 
     public static let lockHelp = "Until you review the correction, Copy, links, files, answers, ticks and Done are off. "
         + "Skip still works. Using a version that changes a command, link or file asks for Touch ID."
     public static let historyHelp = "The Pond served a history that doesn't match what this Mac saw: a revision is "
         + "missing, changed or older. That happens after a Pond restore, or when someone swapped it. Trust it again "
         + "only after a restore you made."
+    public static let keychainHelp = "After an update macOS asks once whether Hook may read its own items in your "
+        + "Keychain. Until you allow it, Hook can't tell which corrections you already reviewed, so each one stays "
+        + "locked. Everything else works."
     public static let showChanges = "Show Changes"
     /// The plan's ActionBar line while locked.
     public static let reviewFirst = "Review the correction first."
@@ -365,6 +369,11 @@ public struct ReviewLockBar: Equatable, Sendable {
                 title: shown == nil ? "Corrected before this Mac showed it" : "Corrected after you saw it",
                 detail: "Version \(current.rev) of \(current.rev) · \(counted). Copy, links and Done are off until you review.",
                 action: showChanges)
+        case .waitingForKeychain:
+            return ReviewLockBar(
+                tone: .keychain, title: "Waiting for Keychain access",
+                detail: "Allow Hook when macOS asks for your password. Until then this correction stays locked.",
+                action: nil)
         case .historyChanged:
             return ReviewLockBar(
                 tone: .history, title: "This ask's history changed on the Pond",

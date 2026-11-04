@@ -336,6 +336,10 @@ public enum LinkCheck: Equatable, Sendable {
     var sealKey: SymmetricKey?
     /// The Keychain refused the seal key: no records loaded, nothing written, corrected asks locked.
     public internal(set) var reviewsUnreadable = false
+    /// The seal key and the records are being read (`startLoadingReviews`); the Keychain may be
+    /// waiting on its prompt. Corrections are `waitingForKeychain` meanwhile.
+    public internal(set) var reviewsLoading = false
+    var reviewLoad: Task<Void, Never>?
     var reviewSaveScheduled = false
     /// A load problem to post once the first swap has cleared the Notice slot.
     var pendingReviewNotice: PanelNotice?
@@ -374,7 +378,7 @@ public enum LinkCheck: Equatable, Sendable {
             sourceKey: SourceKey.none, loadedOnce: false, reachable: false, problem: Store.noSourceProblem,
             waitedTenSeconds: false, manualRefreshing: false, updated: "")
         rebuildQueue()
-        loadReviews()
+        startLoadingReviews()
     }
 
     /// Swap: 1 bump the generation; 2 stop the poll or stream; 3 clear the
@@ -1684,7 +1688,7 @@ extension Store: PanelViewModel {
         if snapshot.canReport, let target = reporting[id] {
             snapshot.reportTarget = target
             snapshot.report = reportStates[id] ?? .idle
-            // Read only while the composer is open: the check reads the Keychain.
+            // Read only while the composer is open.
             snapshot.ownerKeyReady = ownerKeyApproved(sourceKey, identity.mailbox?.url)
         }
         return snapshot

@@ -98,6 +98,9 @@ import RelayUI
         self.secrets = secrets
         let reviews = model.dataDirectory.appending(path: "reviews.json", directoryHint: .notDirectory)
         // The Store makes the seal at launch, if Hook has none; the owner key only reads it.
+        // No Keychain call runs on the main thread (`KeychainQueue`): after an update macOS
+        // shows a prompt for each item, and the app, the panel and the local server keep going
+        // until the owner answers it, however long that takes. The Store's read goes first.
         let store = Store(reviews: ReviewPersistence(secrets: secrets, url: reviews))
         let seal: @Sendable () throws -> SymmetricKey? = { try ReviewSeal.load(secrets, file: reviews) }
         self.seal = seal
@@ -108,9 +111,8 @@ import RelayUI
         }
         store.onOwnerKeyRefused = { [weak ownerKey] in ownerKey?.keyRefused() }
         store.onReviewRecordsReset = { [weak ownerKey] in ownerKey?.reread() }
-        store.ownerKeyApproved = { key, url in
-            url.map { OwnerKeyVault.approvedKey(secrets, sourceKey: key, url: $0, seal: (try? seal()) ?? nil) != nil } ?? false
-        }
+        // From the flow's state, never a Keychain read on the main actor (the snapshot asks too).
+        store.ownerKeyApproved = { [weak ownerKey] key, url in ownerKey?.isApproved(sourceKey: key, url: url) ?? false }
         self.ownerKey = ownerKey
         model.ownerKey = ownerKey
         store.setLocalHost(HostName.current)
@@ -425,7 +427,9 @@ import RelayUI
         // ⌘↩ while Done is off (an ask's requirements aren't met).
         store.shell.beep = { NSSound.beep() }
         // Report a Problem's Set Up Owner Key…: Settings › Queue, and the setup starts there.
+        // While the key is still being read the note waits for it, without Settings opening.
         store.shell.setUpOwnerKey = { [weak self] in
+            guard self?.ownerKey?.state != .reading else { return }
             self?.showSettings(tab: .queue)
             self?.ownerKey?.setUp()
         }

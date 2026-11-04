@@ -60,6 +60,9 @@ struct OwnerKeySection<Model: SettingsViewModel>: View {
                 Text("Not set up").foregroundStyle(DS.Color.secondary)
                 Button(OwnerKeyText.setUp) { model.setUpOwnerKey() }
             }
+        case .reading:
+            Label(OwnerKeyFlow.readingKeychain, systemImage: DS.Symbol.locked)
+                .foregroundStyle(DS.Color.secondary)
         case .waiting:
             Label("Waiting for Telegram", systemImage: DS.Symbol.ownerKey)
                 .foregroundStyle(DS.Color.secondary)

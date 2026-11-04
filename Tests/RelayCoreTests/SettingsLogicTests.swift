@@ -314,11 +314,14 @@ private actor OwnerPond: QueueSource {
     var requireOutcome: OwnerKeyRequirement = .on
     private(set) var calls: [String] = []
     private(set) var enrolled: [(keyHash: String, label: String)] = []
+    /// Called as the enroll arrives, before it answers.
+    private var atEnroll: (@Sendable () -> Void)?
 
     func set(enroll: Result<Enrollment, QueueError>) { enrollResult = enroll }
     func set(polls: [String]) { self.polls = polls }
     func set(owner: OwnerStatus) { self.owner = owner }
     func set(require: OwnerKeyRequirement) { requireOutcome = require }
+    func set(atEnroll: @escaping @Sendable () -> Void) { self.atEnroll = atEnroll }
     func count(_ call: String) -> Int { calls.filter { $0 == call }.count }
 
     func list() async throws -> [WireItem] { throw QueueError.notSupported }
@@ -333,6 +336,7 @@ private actor OwnerPond: QueueSource {
 
     func enroll(keyHash: String, label: String) async throws -> Enrollment {
         calls.append("enroll")
+        atEnroll?()
         enrolled.append((keyHash, label))
         return try enrollResult.get()
     }
@@ -351,6 +355,16 @@ private actor OwnerPond: QueueSource {
     func requireOwnerKey(_ on: Bool) async throws -> OwnerKeyRequirement {
         calls.append(on ? "require on" : "require off")
         return requireOutcome
+    }
+}
+
+/// What the Keychain held when the enroll arrived.
+private final class StatusBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _value: OwnerKeyRecord.Status?
+    var value: OwnerKeyRecord.Status? {
+        get { lock.lock(); defer { lock.unlock() }; return _value }
+        set { lock.lock(); _value = newValue; lock.unlock() }
     }
 }
 
@@ -378,10 +392,10 @@ private func approvedRow(_ id: String) -> OwnerKeyRow {
 
 @MainActor
 private func makeFlow(_ secrets: MemorySecretStore = MemorySecretStore(), pond: OwnerPond = OwnerPond(),
-                      keys: KeyMaker = KeyMaker()) -> OwnerKeyFlow {
+                      keys: KeyMaker = KeyMaker()) async -> OwnerKeyFlow {
     let flow = OwnerKeyFlow(secrets: secrets, seal: { ownerSeal }, label: "Studio", sleep: { _ in await Task.yield() },
                             generate: { keys.make() })
-    flow.attach(sourceKey: pondKey, url: pondURL, source: pond)
+    await flow.attach(sourceKey: pondKey, url: pondURL, source: pond)?.value
     return flow
 }
 
@@ -411,13 +425,17 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
         let secrets = MemorySecretStore(), pond = OwnerPond(), keys = KeyMaker()
         await pond.set(polls: ["pending", "pending", "approved"])
         await pond.set(owner: OwnerStatus(required: false, keys: [approvedRow("k1")], self_: OwnerSelf(id: "k1", status: "approved")))
-        let flow = makeFlow(secrets, pond: pond, keys: keys)
+        // Before the Pond hears of it, the key is in the Keychain as pending, and not sent.
+        let atEnroll = StatusBox()
+        await pond.set(atEnroll: {
+            let stored = secrets.peek(.ownerKey(sourceKey: pondKey)).flatMap { try? JSONDecoder().decode(OwnerKeyRecord.self, from: $0) }
+            atEnroll.value = stored?.status
+        })
+        let flow = await makeFlow(secrets, pond: pond, keys: keys)
         #expect(flow.state == .notSetUp)
         let task = try #require(flow.setUp())
-        // Before the Pond hears of it, the key is in the Keychain as pending.
-        #expect(record(secrets)?.status == .pending)
-        #expect(OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: pondURL, seal: { ownerSeal })() == nil)
         await task.value
+        #expect(atEnroll.value == .pending)
         let key = try #require(keys.last)
         let enrolled = await pond.enrolled
         #expect(enrolled.map(\.keyHash) == [OwnerKey.hash(key)])
@@ -425,7 +443,7 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
         #expect(await pond.count("enrollment") == 3)
         #expect(flow.state == .approved)
         #expect(record(secrets) == OwnerKeyRecord(key: key, enrollID: "e1", status: .approved, scheme: "https"))
-        #expect(OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: pondURL, seal: { ownerSeal })() == key)
+        #expect(await OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: pondURL, seal: { ownerSeal })() == key)
         await flow.refresh()?.value
         #expect(flow.status?.self_?.status == "approved")
     }
@@ -438,25 +456,25 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
         let seal = SealBox(ownerSeal)
         let flow = OwnerKeyFlow(secrets: secrets, seal: { seal.key }, label: "Studio", sleep: { _ in await Task.yield() },
                                 generate: { keys.make() })
-        flow.attach(sourceKey: pondKey, url: pondURL, source: pond)
+        await flow.attach(sourceKey: pondKey, url: pondURL, source: pond)?.value
         await flow.setUp()?.value
         #expect(flow.state == .approved)
         seal.key = SymmetricKey(data: Data(repeating: 4, count: 32))
-        flow.reread()
+        await flow.reread()?.value
         #expect(flow.state == .notSetUp)
-        #expect(OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: pondURL, seal: { seal.key })() == nil)
+        #expect(await OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: pondURL, seal: { seal.key })() == nil)
     }
 
     @Test func whileWaitingTheCodeIsHooksOwn() async throws {
         let secrets = MemorySecretStore(), pond = OwnerPond(), keys = KeyMaker()
         await pond.set(polls: ["pending"])
-        let flow = makeFlow(secrets, pond: pond, keys: keys)
+        let flow = await makeFlow(secrets, pond: pond, keys: keys)
         let task = try #require(flow.setUp())
         while await pond.count("enrollment") < 2 { await Task.yield() }
         let key = try #require(keys.last)
         // The Pond's own code ("000000" here) is never what Hook shows.
         #expect(flow.state == .waiting(id: "e1", code: OwnerKey.enrollCode(id: "e1", keyHash: OwnerKey.hash(key))))
-        flow.cancelSetup()
+        await flow.cancelSetup()?.value
         await task.value
         #expect(flow.state == .notSetUp)
         #expect(record(secrets) == nil)
@@ -470,7 +488,7 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
         let secrets = MemorySecretStore(), pond = OwnerPond(), keys = KeyMaker()
         let flow = OwnerKeyFlow(secrets: secrets, seal: { ownerSeal }, label: "Studio", sleep: { _ in await Task.yield() },
                                 generate: { keys.make() })
-        flow.attach(sourceKey: pondKey, url: URL(string: "http://pond.example:8790"), source: pond)
+        await flow.attach(sourceKey: pondKey, url: URL(string: "http://pond.example:8790"), source: pond)?.value
         #expect(flow.setUp() == nil)
         #expect(flow.state == .refused("The owner key needs a Pond URL that starts with https."))
         #expect(keys.count == 0)
@@ -478,13 +496,13 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
         #expect(await pond.count("enroll") == 0)
 
         await pond.set(polls: ["approved"])
-        flow.attach(sourceKey: pondKey, url: pondURL, source: pond)
+        await flow.attach(sourceKey: pondKey, url: pondURL, source: pond)?.value
         await flow.setUp()?.value
         #expect(flow.state == .approved)
         #expect(record(secrets)?.scheme == "https")
         let http = OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: URL(string: "http://pond.example:8790")!,
                                          seal: { ownerSeal })
-        #expect(http() == nil)
+        #expect(await http() == nil)
     }
 
     /// A key approved over https isn't sent once the Pond URL switches to http, so the flow
@@ -492,22 +510,22 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
     @Test func aKeyApprovedOverHTTPSIsNotUsedOnAnHTTPAddress() async throws {
         let secrets = MemorySecretStore(), pond = OwnerPond(), keys = KeyMaker()
         await pond.set(polls: ["approved"])
-        let flow = makeFlow(secrets, pond: pond, keys: keys)
+        let flow = await makeFlow(secrets, pond: pond, keys: keys)
         await flow.setUp()?.value
         #expect(flow.state == .approved)
         let http = URL(string: "http://pond.example:8790")!
-        flow.attach(sourceKey: pondKey, url: http, source: pond)
+        await flow.attach(sourceKey: pondKey, url: http, source: pond)?.value
         #expect(flow.state == .notUsedHere(OwnerKeyFlow.notUsedHere(scheme: "https")))
-        #expect(OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: http, seal: { ownerSeal })() == nil)
+        #expect(await OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: http, seal: { ownerSeal })() == nil)
         // The record stays: Hook neither refuses nor drops a key it only doesn't send here.
         await pond.set(owner: OwnerStatus(required: false, keys: [], self_: nil))
         await flow.refresh()?.value
         #expect(flow.state == .notUsedHere(OwnerKeyFlow.notUsedHere(scheme: "https")))
         #expect(record(secrets)?.status == .approved)
         #expect(flow.requireOwnerKey(true) == nil)
-        flow.keyRefused()
+        await flow.keyRefused()?.value
         #expect(record(secrets)?.status == .approved)
-        flow.attach(sourceKey: pondKey, url: pondURL, source: pond)
+        await flow.attach(sourceKey: pondKey, url: pondURL, source: pond)?.value
         #expect(flow.state == .approved)
     }
 
@@ -516,7 +534,7 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
         let secrets = MemorySecretStore(), pond = OwnerPond(), keys = KeyMaker()
         let approved = OwnerKeyRecord(key: OwnerKey.generate(), enrollID: "e0", status: .approved, scheme: "http")
         try OwnerKeyVault.save(approved, secrets, sourceKey: pondKey, seal: ownerSeal)
-        let flow = makeFlow(secrets, pond: pond, keys: keys)
+        let flow = await makeFlow(secrets, pond: pond, keys: keys)
         #expect(flow.state == .notUsedHere(OwnerKeyFlow.notUsedHere(scheme: "http")))
         #expect(OwnerKeyFlow.notUsedHere(scheme: "http")
                 == "This Mac's key was approved for the Pond's http address. Hook doesn't send it to this one.")
@@ -533,13 +551,13 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
         await pond.set(polls: ["approved"])
         let planted = OwnerKeyRecord(key: "known-to-its-maker", enrollID: "e0", status: .approved, scheme: "https")
         secrets.plantForeign(.ownerKey(sourceKey: pondKey), try JSONEncoder().encode(planted))
-        let flow = makeFlow(secrets, pond: pond, keys: keys)
-        #expect(OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: pondURL, seal: { ownerSeal })() == nil)
+        let flow = await makeFlow(secrets, pond: pond, keys: keys)
+        #expect(await OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: pondURL, seal: { ownerSeal })() == nil)
         await flow.setUp()?.value
         let key = try #require(keys.last)
         #expect(secrets.creates == 1)
         #expect(flow.state == .approved)
-        #expect(OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: pondURL, seal: { ownerSeal })() == key)
+        #expect(await OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: pondURL, seal: { ownerSeal })() == key)
     }
 
     /// An approved record whose access list looks like Hook's but carries no mark Hook wrote:
@@ -549,16 +567,16 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
         let secrets = MemorySecretStore([.ownerKey(sourceKey: pondKey): try JSONEncoder().encode(planted)])
         let pond = OwnerPond(), keys = KeyMaker()
         await pond.set(polls: ["approved"])
-        let flow = makeFlow(secrets, pond: pond, keys: keys)
+        let flow = await makeFlow(secrets, pond: pond, keys: keys)
         #expect(flow.state == .notSetUp)
-        #expect(OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: pondURL, seal: { ownerSeal })() == nil)
+        #expect(await OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: pondURL, seal: { ownerSeal })() == nil)
         await flow.setUp()?.value
         #expect(secrets.creates == 1)
         #expect(flow.state == .approved)
-        #expect(OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: pondURL, seal: { ownerSeal })() == keys.last)
+        #expect(await OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: pondURL, seal: { ownerSeal })() == keys.last)
         // Without the seal that marked it (none yet, or another one), the key isn't sent.
-        #expect(OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: pondURL, seal: { nil })() == nil)
-        #expect(OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: pondURL, seal: { SymmetricKey(size: .bits256) })() == nil)
+        #expect(await OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: pondURL, seal: { nil })() == nil)
+        #expect(await OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: pondURL, seal: { SymmetricKey(size: .bits256) })() == nil)
     }
 
     /// A seal the Keychain refuses is a refused read, not a missing key: nothing is replaced.
@@ -568,9 +586,10 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
         try OwnerKeyVault.save(approved, secrets, sourceKey: pondKey, seal: ownerSeal)
         let flow = OwnerKeyFlow(secrets: secrets, seal: { throw SecretStoreError.unreadable(-128) }, label: "Studio",
                                 sleep: { _ in await Task.yield() }, generate: { keys.make() })
-        flow.attach(sourceKey: pondKey, url: pondURL, source: pond)
+        await flow.attach(sourceKey: pondKey, url: pondURL, source: pond)?.value
         #expect(flow.state == .unavailable(OwnerKeyFlow.readFailed))
-        #expect(flow.setUp() == nil)
+        await flow.setUp()?.value
+        #expect(flow.state == .unavailable(OwnerKeyFlow.readFailed))
         #expect(keys.count == 0)
         #expect(record(secrets) == approved)
     }
@@ -578,8 +597,8 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
     @Test func aKeychainThatCantSaveStopsBeforeThePond() async throws {
         let secrets = MemorySecretStore(), pond = OwnerPond()
         secrets.writeError = .writeFailed(-25308)
-        let flow = makeFlow(secrets, pond: pond)
-        #expect(flow.setUp() == nil)
+        let flow = await makeFlow(secrets, pond: pond)
+        await flow.setUp()?.value
         #expect(flow.state == .unavailable("Hook couldn't save its key in the Keychain."))
         #expect(await pond.count("enroll") == 0)
     }
@@ -590,11 +609,11 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
         try OwnerKeyVault.save(approved, secrets, sourceKey: pondKey, seal: ownerSeal)
         secrets.readError = .unreadable(-128)
         let writes = secrets.writes
-        let flow = makeFlow(secrets, pond: pond, keys: keys)
+        let flow = await makeFlow(secrets, pond: pond, keys: keys)
         let text = "Hook couldn't read its key from the Keychain. Allow Hook when macOS asks, or set it up again."
         #expect(flow.state == .unavailable(text))
-        #expect(OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: pondURL, seal: { ownerSeal })() == nil)
-        #expect(flow.setUp() == nil)
+        #expect(await OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: pondURL, seal: { ownerSeal })() == nil)
+        await flow.setUp()?.value
         #expect(flow.state == .unavailable(text))
         #expect(keys.count == 0)
         #expect(secrets.writes == writes)
@@ -606,20 +625,20 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
     @Test func aDeclinedRequestWhoseDeleteFailsIsStillRefused() async throws {
         let secrets = MemorySecretStore(), pond = OwnerPond()
         await pond.set(polls: ["pending", "rejected"])
-        let flow = makeFlow(secrets, pond: pond)
+        let flow = await makeFlow(secrets, pond: pond)
         let task = try #require(flow.setUp())
         while await pond.count("enroll") == 0 { await Task.yield() }
         secrets.deleteError = .deleteFailed(-25308)
         await task.value
         #expect(flow.state == .refused("The request was turned down on Telegram."))
         #expect(record(secrets)?.status == .refused)
-        #expect(OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: pondURL, seal: { ownerSeal })() == nil)
+        #expect(await OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: pondURL, seal: { ownerSeal })() == nil)
     }
 
     @Test func anExpiredRequestForgetsTheKey() async throws {
         let secrets = MemorySecretStore(), pond = OwnerPond()
         await pond.set(polls: ["expired"])
-        let flow = makeFlow(secrets, pond: pond)
+        let flow = await makeFlow(secrets, pond: pond)
         await flow.setUp()?.value
         #expect(flow.state == .refused("The request expired before it was approved."))
         #expect(record(secrets) == nil)
@@ -628,7 +647,7 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
     @Test func tenMinutesOfWaitingIsAnExpiry() async throws {
         let secrets = MemorySecretStore(), pond = OwnerPond()
         await pond.set(polls: ["pending"])
-        let flow = makeFlow(secrets, pond: pond)
+        let flow = await makeFlow(secrets, pond: pond)
         await flow.setUp()?.value
         #expect(await pond.count("enrollment") == 200)
         #expect(flow.state == .refused("The request expired before it was approved."))
@@ -638,7 +657,7 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
     @Test func aRefusedEnrollmentSaysWhyAndKeepsNoKey() async throws {
         let secrets = MemorySecretStore(), pond = OwnerPond()
         await pond.set(enroll: .failure(.rejected(status: 409, error: "too many keys", details: [])))
-        let flow = makeFlow(secrets, pond: pond)
+        let flow = await makeFlow(secrets, pond: pond)
         await flow.setUp()?.value
         #expect(flow.state == .refused("Couldn't start the setup: too many keys"))
         #expect(record(secrets) == nil)
@@ -648,13 +667,13 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
         let secrets = MemorySecretStore()
         let key = OwnerKey.generate()
         try OwnerKeyVault.save(OwnerKeyRecord(key: key, enrollID: "e1", status: .approved, scheme: "https"), secrets, sourceKey: pondKey, seal: ownerSeal)
-        let flow = makeFlow(secrets)
+        let flow = await makeFlow(secrets)
         #expect(flow.state == .approved)
-        #expect(OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: pondURL, seal: { ownerSeal })() == key)
-        flow.keyRefused()
+        #expect(await OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: pondURL, seal: { ownerSeal })() == key)
+        await flow.keyRefused()?.value
         #expect(flow.state == .refused("The Pond no longer accepts this Mac's key."))
         #expect(record(secrets)?.status == .refused)
-        #expect(OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: pondURL, seal: { ownerSeal })() == nil)
+        #expect(await OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: pondURL, seal: { ownerSeal })() == nil)
     }
 
     @Test func afterARestartARevokedKeyIsRefused() async throws {
@@ -662,7 +681,7 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
         try OwnerKeyVault.save(OwnerKeyRecord(key: OwnerKey.generate(), enrollID: "e1", status: .approved, scheme: "https"), secrets,
                                sourceKey: pondKey, seal: ownerSeal)
         await pond.set(owner: OwnerStatus(required: true, keys: [approvedRow("k2")], self_: OwnerSelf(id: "k1", status: "revoked")))
-        let flow = makeFlow(secrets, pond: pond)
+        let flow = await makeFlow(secrets, pond: pond)
         await flow.refresh()?.value
         #expect(flow.state == .refused("The Pond no longer accepts this Mac's key."))
         #expect(record(secrets)?.status == .refused)
@@ -671,7 +690,7 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
         try OwnerKeyVault.save(OwnerKeyRecord(key: OwnerKey.generate(), enrollID: "e1", status: .approved, scheme: "https"), other,
                                sourceKey: pondKey, seal: ownerSeal)
         await unknown.set(owner: OwnerStatus(required: false, keys: []))
-        let second = makeFlow(other, pond: unknown)
+        let second = await makeFlow(other, pond: unknown)
         await second.refresh()?.value
         #expect(second.state == .refused("The Pond no longer accepts this Mac's key."))
     }
@@ -682,7 +701,7 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
         try OwnerKeyVault.save(approved, secrets, sourceKey: pondKey, seal: ownerSeal)
         // No key goes out while the Keychain refuses the read, so the Pond answers `self: null`.
         await pond.set(owner: OwnerStatus(required: false, keys: [approvedRow("k1")]))
-        let flow = makeFlow(secrets, pond: pond)
+        let flow = await makeFlow(secrets, pond: pond)
         #expect(flow.state == .approved)
         secrets.readError = .unreadable(-128)
         let writes = secrets.writes
@@ -696,10 +715,10 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
         let approved = OwnerKeyRecord(key: OwnerKey.generate(), enrollID: "e1", status: .approved, scheme: "https")
         let secrets = MemorySecretStore()
         try OwnerKeyVault.save(approved, secrets, sourceKey: pondKey, seal: ownerSeal)
-        let flow = makeFlow(secrets)
+        let flow = await makeFlow(secrets)
         #expect(flow.state == .approved)
         secrets.readError = .unreadable(-128)
-        flow.keyRefused()
+        await flow.keyRefused()?.value
         #expect(flow.state == .unavailable(OwnerKeyFlow.readFailed))
         #expect(record(secrets) == approved)
     }
@@ -708,12 +727,12 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
         let secrets = MemorySecretStore()
         try OwnerKeyVault.save(OwnerKeyRecord(key: OwnerKey.generate(), enrollID: "e1", status: .approved, scheme: "https"), secrets,
                                sourceKey: pondKey, seal: ownerSeal)
-        let flow = makeFlow(secrets)
+        let flow = await makeFlow(secrets)
         secrets.writeError = .writeFailed(-25308)
-        flow.keyRefused()
+        await flow.keyRefused()?.value
         #expect(flow.state == .refused("The Pond no longer accepts this Mac's key."))
         #expect(record(secrets) == nil)
-        #expect(OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: pondURL, seal: { ownerSeal })() == nil)
+        #expect(await OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: pondURL, seal: { ownerSeal })() == nil)
     }
 
     @Test func aPendingRequestIsPolledAgainAfterARestart() async throws {
@@ -723,6 +742,7 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
         await pond.set(polls: ["approved"])
         let flow = OwnerKeyFlow(secrets: secrets, seal: { ownerSeal }, label: "Studio", sleep: { _ in await Task.yield() })
         let task = try #require(flow.attach(sourceKey: pondKey, url: pondURL, source: pond))
+        while flow.state == .reading { await Task.yield() }
         #expect(flow.state == .waiting(id: "e9", code: OwnerKey.enrollCode(id: "e9", keyHash: OwnerKey.hash(key))))
         await task.value
         #expect(flow.state == .approved)
@@ -741,7 +761,7 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
         let pond = OwnerPond()
         let rows = keys.enumerated().map { OwnerKeyRow(id: "k\($0.offset)", label: "m", status: $0.element, created: "x") }
         await pond.set(owner: OwnerStatus(required: false, keys: rows, self_: mine.map { OwnerSelf(id: "k0", status: $0) }))
-        let flow = makeFlow(pond: pond)
+        let flow = await makeFlow(pond: pond)
         #expect(!flow.canRequireOwnerKey)
         await flow.refresh()?.value
         #expect(flow.canRequireOwnerKey == allowed)
@@ -753,7 +773,7 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
                                sourceKey: pondKey, seal: ownerSeal)
         let me = OwnerSelf(id: "k1", status: "approved")
         await pond.set(owner: OwnerStatus(required: false, keys: [approvedRow("k1")], self_: me))
-        let flow = makeFlow(secrets, pond: pond)
+        let flow = await makeFlow(secrets, pond: pond)
         await flow.refresh()?.value
         #expect(flow.requireOwnerKey(true) == nil)          // one approved Mac: not offered
         await pond.set(owner: OwnerStatus(required: false, keys: [approvedRow("k1"), approvedRow("k2")], self_: me))
@@ -775,13 +795,71 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
         let secrets = MemorySecretStore()
         try OwnerKeyVault.save(OwnerKeyRecord(key: OwnerKey.generate(), enrollID: "e1", status: .approved, scheme: "https"), secrets,
                                sourceKey: pondKey, seal: ownerSeal)
-        let flow = makeFlow(secrets)
+        let flow = await makeFlow(secrets)
         #expect(flow.state == .approved)
-        flow.attach(sourceKey: "mailbox:other.example:8790#personal", url: URL(string: "https://other.example:8790"), source: OwnerPond())
+        await flow.attach(sourceKey: "mailbox:other.example:8790#personal", url: URL(string: "https://other.example:8790"), source: OwnerPond())?.value
         #expect(flow.state == .notSetUp)
-        flow.attach(sourceKey: nil, url: nil, source: nil)
+        await flow.attach(sourceKey: nil, url: nil, source: nil)?.value
         #expect(flow.state == .notSetUp)
         #expect(flow.setUp() == nil)
+    }
+
+    /// 0.14: attaching at launch never waits on the Keychain. While its prompt is up the flow
+    /// says so, sends no key and offers no setup; once answered the record reads as before.
+    @Test func attachReturnsWhileTheKeychainPromptWaits() async throws {
+        let secrets = MemorySecretStore(), pond = OwnerPond()
+        let key = OwnerKey.generate()
+        try OwnerKeyVault.save(OwnerKeyRecord(key: key, enrollID: "e1", status: .approved, scheme: "https"), secrets,
+                               sourceKey: pondKey, seal: ownerSeal)
+        secrets.holdReads()
+        let flow = OwnerKeyFlow(secrets: secrets, seal: { ownerSeal }, label: "Studio", sleep: { _ in await Task.yield() },
+                                keychain: KeychainQueue(label: "test.held"))
+        let task = try #require(flow.attach(sourceKey: pondKey, url: pondURL, source: pond))
+        #expect(flow.state == .reading)
+        while secrets.waitingReads == 0 { await Task.yield() }
+        #expect(flow.state == .reading)
+        #expect(!flow.isApproved(sourceKey: pondKey, url: pondURL))
+        #expect(flow.setUp() == nil)
+        secrets.releaseReads()
+        await task.value
+        #expect(flow.state == .approved)
+        #expect(flow.isApproved(sourceKey: pondKey, url: pondURL))
+        #expect(!flow.isApproved(sourceKey: pondKey, url: URL(string: "https://other.example")))
+        #expect(await OwnerKeyFlow.provider(secrets, sourceKey: pondKey, url: pondURL, seal: { ownerSeal })() == key)
+    }
+
+    /// `GET /owner` answered while the read waited: a revoked key is still refused once it reads.
+    @Test func aRevocationThatArrivesDuringTheReadStillRefusesTheKey() async throws {
+        let secrets = MemorySecretStore(), pond = OwnerPond()
+        try OwnerKeyVault.save(OwnerKeyRecord(key: OwnerKey.generate(), enrollID: "e1", status: .approved, scheme: "https"),
+                               secrets, sourceKey: pondKey, seal: ownerSeal)
+        await pond.set(owner: OwnerStatus(required: false, keys: [], self_: OwnerSelf(id: "k1", status: "revoked")))
+        secrets.holdReads()
+        let flow = OwnerKeyFlow(secrets: secrets, seal: { ownerSeal }, label: "Studio", sleep: { _ in await Task.yield() },
+                                keychain: KeychainQueue(label: "test.held"))
+        let read = try #require(flow.attach(sourceKey: pondKey, url: pondURL, source: pond))
+        await flow.refresh()?.value
+        #expect(flow.status?.self_?.status == "revoked")
+        secrets.releaseReads()
+        await read.value
+        #expect(flow.state == .refused(OwnerKeyFlow.noLongerAccepted))
+        #expect(record(secrets)?.status == .refused)
+    }
+
+    /// A cancel's delete runs before a setup started right after it, never after.
+    @Test func setUpAfterCancelKeepsTheNewKey() async throws {
+        let secrets = MemorySecretStore(), pond = OwnerPond(), keys = KeyMaker()
+        await pond.set(polls: ["pending"])
+        let flow = await makeFlow(secrets, pond: pond, keys: keys)
+        let first = try #require(flow.setUp())
+        while await pond.count("enrollment") < 1 { await Task.yield() }
+        flow.cancelSetup()
+        await first.value
+        await pond.set(polls: ["approved"])
+        await flow.setUp()?.value
+        #expect(flow.state == .approved)
+        #expect(record(secrets)?.key == keys.last)
+        #expect(keys.count == 2)
     }
 }
 

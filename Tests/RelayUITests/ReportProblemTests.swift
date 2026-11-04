@@ -21,7 +21,7 @@ let traceback: String = {
 @Suite @MainActor struct ReportProblemTests {
     private func started(_ defaults: TestDefaults, bodies: [Instructable] = [idSteps(3)], approved: Bool = true,
                          identity: SourceIdentity = mailboxIdentity) async -> (Store, FakeQueueSource, AskDetail) {
-        let store = reviewingStore(defaults)
+        let store = await reviewingStore(defaults)
         store.ownerKeyApproved = { _, _ in approved }
         let ask = revised("a", bodies)
         let fake = FakeQueueSource(items: [ask.item], details: ["a": ask.detail])
@@ -300,7 +300,7 @@ let traceback: String = {
     @Test func reportIsHiddenOnAClosedAsk() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }
-        let store = reviewingStore(defaults)
+        let store = await reviewingStore(defaults)
         store.ownerKeyApproved = { _, _ in true }
         let ask = revised("a", [idSteps(3)])
         var shut = ask.detail
