@@ -147,6 +147,23 @@ class FormatTest(Base):
         self.assertLessEqual(len(context["hookSpecificOutput"]["additionalContext"]), rh.CONTEXT_CAP)
 
 
+    def test_the_cap_counts_the_escaped_context(self):
+        # JSON escapes é as \u00e9 and " as \": six and two characters. The cap is on what
+        # the hook prints, so heavy escaping can't take the context past it.
+        self.prime("claude")
+        out, _ = self.hook("--format", "claude", stdin=stdin_of({"session_id": "s1"}))
+        for k in range(12):
+            self.add(A, "reply", f"{k:02d} " + "\u00e9\"" * 200)
+        out, _ = self.hook("--format", "claude", stdin=stdin_of({"session_id": "s1"}))
+        context = json.loads(out)["hookSpecificOutput"]["additionalContext"]
+        escaped = json.dumps(context)[1:-1]
+        self.assertLessEqual(len(escaped), rh.CONTEXT_CAP)
+        self.assertGreater(len(escaped), rh.CONTEXT_CAP - 2000)
+        self.assertEqual(context.split("\n")[-1], rh.MORE)
+        # Plain text isn't escaped: the same lines all fit.
+        self.assertEqual(rh.cap(["\u00e9" * 200] * 10, escaped=False), ["\u00e9" * 200] * 10)
+        self.assertEqual(rh.cap(["\u00e9" * 200] * 10, escaped=True)[-1], rh.MORE)
+
     def test_hook_output_under_context_cap(self):
         # One 8000-character message (the most a Pond 1.4.0 takes) reaches the session whole.
         self.assertEqual(rh.CONTEXT_CAP, 9800)

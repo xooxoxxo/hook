@@ -104,17 +104,30 @@ def read_session(stdin: Any) -> Optional[str]:
     return None
 
 
-def cap(lines: List[str], limit: int = CONTEXT_CAP) -> List[str]:
-    """The lines, cut at a line boundary so that they and MORE fit in `limit` characters."""
-    if len("\n".join(lines)) <= limit:
+# The formats whose context goes out inside a JSON string (emit), escaped.
+JSON_FORMATS = {"claude", "gemini", "cursor", "copilot"}
+
+
+def _escaped_size(text: str) -> int:
+    """`text`'s length inside a JSON string as emit writes it (é as \\u00e9, " as \\")."""
+    return len(json.dumps(text)) - 2
+
+
+def cap(lines: List[str], limit: int = CONTEXT_CAP, escaped: bool = False) -> List[str]:
+    """The lines, cut at a line boundary so that they and MORE fit in `limit` characters.
+    With `escaped`, the size counted is the JSON-escaped one (each joining newline is \\n),
+    so a context full of escapes can't take the hook's output past the limit."""
+    size_of = _escaped_size if escaped else len
+    newline = size_of("\n")
+    if size_of("\n".join(lines)) <= limit:
         return lines
     kept: List[str] = []
-    size = len(MORE)
+    size = size_of(MORE)
     for line in lines:
-        if size + len(line) + 1 > limit:
+        if size + size_of(line) + newline > limit:
             break
         kept.append(line)
-        size += len(line) + 1
+        size += size_of(line) + newline
     return kept + [MORE]
 
 
@@ -160,7 +173,7 @@ def run(argv: List[str], *, stdin: Any, out: Any, err: Any, client_factory: Call
         else:
             client = client_factory(autolaunch=False, timeout=rr.HOOK_BUDGET_S)
             lines, partial = rr.recent(client, now=now() if now else None, monotonic=monotonic)
-        text = emit(cap(lines), args.format, when)
+        text = emit(cap(lines, escaped=args.format in JSON_FORMATS), args.format, when)
     except rr.OutOfTime:
         err.write("hook replies: ran out of time\n")
         return 0
