@@ -9,10 +9,6 @@ public enum MessageBoxState: Equatable, Sendable {
 /// session's chat. A message answers, closes and changes nothing; it is kept verbatim
 /// (multi-line) and only the session that posted the ask hears it.
 public enum MessageText {
-    /// The Pond's limit, in characters (Python `len`, so Unicode scalars).
-    public static let limit = 1000
-    /// The counter shows from this many characters.
-    public static let counterFrom = 900
     /// The Pond keeps at most this many messages on one ask.
     public static let maxMessages = 50
 
@@ -30,27 +26,22 @@ public enum MessageText {
     public static let closed = "This ask is closed, so the session won't get messages any more."
     public static let tooMany = "This ask has had \(maxMessages) messages already."
 
-    /// Sent as typed. Send is on for 1 to 1,000 characters with something besides blanks.
-    public static func canSend(_ text: String) -> Bool {
-        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && text.unicodeScalars.count <= limit
+    /// Sent as typed. Send is on for 1 to `limits.message` characters (Unicode scalars) with
+    /// something besides blanks.
+    public static func canSend(_ text: String, limits: TalkLimits) -> Bool {
+        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && count(text) <= limits.message
     }
 
-    /// "912/1000".
-    public static func counter(_ text: String) -> String {
-        "\(text.unicodeScalars.count)/\(limit)"
-    }
-
-    public static func showsCounter(_ text: String) -> Bool {
-        text.unicodeScalars.count >= counterFrom
-    }
+    /// What the counter counts: the text as typed, in Unicode scalars.
+    public static func count(_ text: String) -> Int { text.unicodeScalars.count }
 
     /// The line under the field for a refused send. Field paths only, never the text.
-    public static func refusal(_ error: any Error) -> String {
+    public static func refusal(_ error: any Error, limits: TalkLimits) -> String {
         switch error as? QueueError {
         case .rejected(400, "invalid message", let details)?:
             if details.contains(where: { $0.hasSuffix("secret-like value") }) { return secretRefused }
             if details.contains(where: { $0.hasSuffix("too long") }) {
-                return "The Pond refused the message: it is over \(limit) characters."
+                return "The Pond refused the message: it is over \(limits.message) characters."
             }
             return "The Pond refused the message: " + details.map(Sanitize.revealLine).joined(separator: ", ") + "."
         case .rejected(400, "missing text", _)?:

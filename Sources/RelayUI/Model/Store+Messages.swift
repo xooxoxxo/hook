@@ -12,7 +12,8 @@ extension Store {
     /// ask reloads, so the message shows; a refusal keeps the draft and says why. Nothing else
     /// moves: no reply, answer, tick or close.
     @discardableResult public func sendMessage(_ id: String, text: String) async -> Bool {
-        guard canMessage(id), MessageText.canSend(text), messageStates[id] != .sending, let source else { return false }
+        guard canMessage(id), MessageText.canSend(text, limits: talk.limits), messageStates[id] != .sending,
+              let source else { return false }
         HookLog.action(.message)
         messageStates[id] = .sending
         let gen = generation
@@ -26,7 +27,7 @@ extension Store {
         } catch {
             guard gen == generation else { return false }
             _ = ownerKeyRefused(error)
-            messageStates[id] = .failed(MessageText.refusal(error))
+            messageStates[id] = .failed(MessageText.refusal(error, limits: talk.limits))
             return false
         }
     }

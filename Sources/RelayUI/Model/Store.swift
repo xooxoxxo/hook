@@ -1577,6 +1577,7 @@ extension Store: PanelViewModel {
             history: try? histories[id]?.get(), chips: chips(id, review: review), reported: reported(id),
             addedSinceShown: addedSinceShown(id, review: review))
         snapshot.canMessage = talk.messages
+        snapshot.limits = talk.limits
         snapshot.message = messageStates[id] ?? .idle
         snapshot.canReport = canReport(id)
         if snapshot.canReport, let target = reporting[id] {

@@ -66,6 +66,51 @@ import Testing
         #expect(mac.detail("a")?.canMessage == false)
     }
 
+    /// Pond 1.4.0 takes 8000 characters; the snapshot carries the caps the field shows.
+    @Test func sends8000On140() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, fake) = await started(defaults)
+        #expect(store.detail("a")?.limits == .old)
+        store.setPond(PondVersion.semver(SemVer(major: 1, minor: 4, patch: 0)))
+        #expect(store.detail("a")?.limits.message == 8000)
+        let text = String(repeating: "line of a traceback\n", count: 400)
+        #expect(text.unicodeScalars.count == 8000)
+        #expect(await store.sendMessage("a", text: text))
+        #expect(await fake.messages["a"] == [text])
+    }
+
+    /// The long fields add a line on Return (and ⇧Return); ⌘Return is left to the key router, which sends.
+    @Test func returnAddsALineCommandReturnSends() {
+        #expect(MultilineField.addsLineBreak([]))
+        #expect(MultilineField.addsLineBreak(.shift))
+        #expect(!MultilineField.addsLineBreak(.command))
+        #expect(!MultilineField.addsLineBreak([.command, .shift]))
+        #expect(!MultilineField.addsLineBreak(.option))
+        #expect(!MultilineField.addsLineBreak(.control))
+        #expect(DS.Metric.fieldLines == 3...8)
+    }
+
+    /// Over the cap nothing is sent and the draft stays as pasted: never cut to fit.
+    @Test func refusesOverLimitKeepsDraft() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, fake) = await started(defaults)
+        let long = String(repeating: "m", count: 1001)
+        store.messageDrafts["a"] = long
+        #expect(!(await store.sendMessage("a", text: long)))
+        #expect(store.messageDrafts["a"] == long)
+        store.setPond(PondVersion.semver(SemVer(major: 1, minor: 4, patch: 0)))
+        #expect(await store.sendMessage("a", text: long))
+        let longer = String(repeating: "m", count: 8001)
+        store.messageDrafts["a"] = longer
+        #expect(!(await store.sendMessage("a", text: longer)))
+        #expect(store.messageDrafts["a"] == longer)
+        #expect(await fake.messages["a"] == [long])
+        #expect(!MessageBox.canSend(longer, limits: store.detail("a")!.limits, state: .idle))
+        #expect(MessageBox.canSend(long, limits: store.detail("a")!.limits, state: .idle))
+    }
+
     @Test func aRefusalKeepsTheDraftAndSaysWhy() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }

@@ -526,23 +526,24 @@ extension Store {
     /// so without an approved one nothing is sent.
     public func reportProblem(_ id: String, stepID: String, note: String) async -> ReportResult {
         guard ownerKeyApproved(sourceKey, identity.mailbox?.url) else { return .notEnrolled }
-        let cleaned = ProblemReport.clean(note)
-        guard ProblemReport.canSend(cleaned) else {
-            return .refused("The note must be 1 to \(ProblemReport.limit) characters.")
+        let limits = talk.limits
+        let prepared = ProblemReport.prepared(note, limits: limits)
+        guard ProblemReport.canSend(prepared, limits: limits) else {
+            return .refused(Self.noteLength(limits))
         }
         guard let source, let stamp = renderedStamp(id) else {
             return .refused("This ask comes from a Pond without problem reports.")
         }
         let gen = generation
         do {
-            _ = try await source.problem(id, stepID: stepID, stamp: stamp, note: cleaned)
+            _ = try await source.problem(id, stepID: stepID, stamp: stamp, note: prepared)
             guard gen == generation else { return .sent }
             await reload(id)
             return .sent
         } catch {
-            guard gen == generation else { return .refused(ProblemReport.refusal(error)) }
+            guard gen == generation else { return .refused(ProblemReport.refusal(error, limits: limits)) }
             if ownerKeyRefused(error) { return .notEnrolled }
-            return .refused(ProblemReport.refusal(error))
+            return .refused(ProblemReport.refusal(error, limits: limits))
         }
     }
 
@@ -584,8 +585,8 @@ extension Store {
         guard let stepID = nodes(for: id).flatMap({ Flow.flattened($0).first { $0.path == path }?.stepID }) else {
             return .refused(Self.noReportOpen)
         }
-        guard ProblemReport.canSend(note) else {
-            return .refused("The note must be 1 to \(ProblemReport.limit) characters.")
+        guard ProblemReport.canSend(note, limits: talk.limits) else {
+            return .refused(Self.noteLength(talk.limits))
         }
         HookLog.action(.report)
         guard ownerKeyApproved(sourceKey, identity.mailbox?.url) else {
@@ -604,6 +605,11 @@ extension Store {
     }
 
     static let noReportOpen = "No report is open on this ask."
+
+    /// "The note must be 1 to 8000 characters."
+    static func noteLength(_ limits: TalkLimits) -> String {
+        "The note must be 1 to \(limits.report) characters."
+    }
 
     private func holdReport(_ id: String, note: String) {
         heldReports[id] = note

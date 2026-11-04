@@ -10,24 +10,26 @@ public struct ReportComposer: View {
     let title: String
     let state: ReportBoxState
     let keyReady: Bool
+    let limits: TalkLimits
     let onSend: (String) -> Void
     let onCancel: () -> Void
     @State private var text: String
     @FocusState private var focused: Bool
 
-    public init(title: String, state: ReportBoxState, keyReady: Bool, text: String = "",
+    public init(title: String, state: ReportBoxState, keyReady: Bool, limits: TalkLimits, text: String = "",
                 onSend: @escaping (String) -> Void, onCancel: @escaping () -> Void) {
         self.title = title
         self.state = state
         self.keyReady = keyReady
+        self.limits = limits
         self.onSend = onSend
         self.onCancel = onCancel
         _text = State(initialValue: text)
     }
 
     /// Send (or Set Up Owner Key…) is on for 1 to 300 characters, while nothing is in flight or held.
-    public static func canSend(_ text: String, state: ReportBoxState) -> Bool {
-        ProblemReport.canSend(text) && state != .sending && state != .held
+    public static func canSend(_ text: String, limits: TalkLimits, state: ReportBoxState) -> Bool {
+        ProblemReport.canSend(text, limits: limits) && state != .sending && state != .held
     }
 
     /// The line under the field: held, or why the Pond refused the note.
@@ -49,12 +51,7 @@ public struct ReportComposer: View {
                     HelpButton(rowLabel: ProblemReport.menuTitle, text: ProblemReport.help)
                         .controlSize(DS.Control.inline)
                     Spacer(minLength: DS.Space.inline)
-                    if ProblemReport.showsCounter(text) {
-                        Text(ProblemReport.counter(text))
-                            .font(DS.Font.meta)
-                            .monospacedDigit()
-                            .foregroundStyle(ProblemReport.canSend(text) ? DS.Color.secondary : DS.Color.errorText)
-                    }
+                    LimitCounter(count: ProblemReport.count(text, limits: limits), limit: limits.report)
                     IconButton(DS.Symbol.clearFilter, label: "Cancel the report", help: "Cancel (Esc)", action: onCancel)
                 }
                 HStack(alignment: .firstTextBaseline, spacing: DS.Space.inline) {
@@ -92,13 +89,13 @@ public struct ReportComposer: View {
             .disabled(true)
         } else {
             Button(keyReady ? "Send" : ProblemReport.setUpKeyTitle) { send() }
-                .disabled(!Self.canSend(text, state: state))
+                .disabled(!Self.canSend(text, limits: limits, state: state))
                 .help(keyReady ? "Send (Return)" : ProblemReport.notEnrolled)
         }
     }
 
     private func send() {
-        guard Self.canSend(text, state: state) else { return }
+        guard Self.canSend(text, limits: limits, state: state) else { return }
         onSend(text)
     }
 }

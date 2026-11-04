@@ -14,12 +14,10 @@ public enum ReportBoxState: Equatable, Sendable {
     case idle, sending, held, failed(String)
 }
 
-/// Report a Problem (Pond 1.1.0): a one-line note about one step, sent to the posting session
-/// as a quoted report, never as an instruction. Only from Hook.
+/// Report a Problem (Pond 1.1.0): a note about one step, sent to the posting session as a
+/// quoted report, never as an instruction. Only from Hook. Pond 1.4.0 takes 8000 characters
+/// over several lines; an older one 300 on one line (`TalkLimits`).
 public enum ProblemReport {
-    /// The Pond's limit, in characters (Python `len`, so Unicode scalars).
-    public static let limit = 300
-
     public static let menuTitle = "Report a Problem…"
     public static let help = "The session gets this as a quoted report about its step. "
         + "Don't paste secrets; the Pond refuses them."
@@ -37,17 +35,10 @@ public enum ProblemReport {
     /// Send without an approved owner key: it opens Settings › Queue and starts the setup.
     public static let setUpKeyTitle = "Set Up Owner Key…"
     public static let heldCaption = "Sends once the owner key is approved."
-    /// The counter shows from this many characters.
-    public static let counterFrom = 250
 
     /// "Problem with step 2", "Problem with step 3b", "Problem with Verify".
     public static func composerTitle(label: String) -> String {
         label == "Verify" ? "Problem with Verify" : "Problem with step " + label
-    }
-
-    /// The counter shows once the cleaned note reaches `counterFrom` characters.
-    public static func showsCounter(_ note: String) -> Bool {
-        clean(note).unicodeScalars.count >= counterFrom
     }
 
     /// A step a report can be about: it has an id, and code or a tick (a step that asks a
@@ -70,21 +61,30 @@ public enum ProblemReport {
         return joined.trimmingCharacters(in: .whitespaces)
     }
 
-    /// Send is on for 1 to 300 characters once cleaned.
-    public static func canSend(_ note: String) -> Bool {
-        (1...limit).contains(clean(note).unicodeScalars.count)
+    /// The note as it is sent: on Pond 1.4.0 as typed with its ends trimmed, line breaks kept (a
+    /// pasted traceback keeps its lines); before, `clean`ed to one line.
+    public static func prepared(_ note: String, limits: TalkLimits) -> String {
+        limits.multilineReports ? note.trimmingCharacters(in: .whitespacesAndNewlines) : clean(note)
     }
 
-    /// "12/300".
-    public static func counter(_ note: String) -> String {
-        "\(clean(note).unicodeScalars.count)/\(limit)"
+    /// What the counter counts: the note as it would be sent, in Unicode scalars.
+    public static func count(_ note: String, limits: TalkLimits) -> Int {
+        prepared(note, limits: limits).unicodeScalars.count
     }
 
-    /// The popover's line for a refused send.
-    public static func refusal(_ error: any Error) -> String {
+    /// Send is on for 1 to `limits.report` characters as it would be sent.
+    public static func canSend(_ note: String, limits: TalkLimits) -> Bool {
+        (1...limits.report).contains(count(note, limits: limits))
+    }
+
+    /// The line for a refused send.
+    public static func refusal(_ error: any Error, limits: TalkLimits) -> String {
         switch error as? QueueError {
         case .rejected(400, "invalid problem", let details)?:
             if details.contains(where: { $0.hasSuffix("secret-like value") }) { return secretRefused }
+            if details.contains(where: { $0.hasSuffix("too long") }) {
+                return "The Pond refused the note: it is over \(limits.report) characters."
+            }
             return "The Pond refused the note: " + details.map(Sanitize.revealLine).joined(separator: ", ") + "."
         case .rejected(409, "too many reports", _)?:
             return "This ask has had 20 reports already."

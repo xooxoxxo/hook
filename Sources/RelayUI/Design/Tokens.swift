@@ -133,8 +133,8 @@ public enum DS {
         public static let monogramRadius: CGFloat = 5
         /// The inset grouped steps list's corner.
         public static let groupRadius: CGFloat = 10
-        /// The Messages field: about three lines tall, with the stock text field's corner.
-        public static let messageField: CGFloat = 64
+        /// A long text's field (a message, a report): from 3 lines, growing to 8, then scrolling.
+        public static let fieldLines: ClosedRange<Int> = 3...8
         public static let messageFieldRadius: CGFloat = 6
         public static let messageFieldInset: CGFloat = 4
         public static let messageFieldStroke: CGFloat = 0.5

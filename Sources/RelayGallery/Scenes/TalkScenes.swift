@@ -94,6 +94,20 @@ let messageEvents = #"""
     return panelScene(name, model, height: nil, rules: [], overrides: overrides)
 }
 
+/// A pasted log of exactly `count` characters, in lines, for the 8000 cap (Pond 1.4.0).
+func pastedLog(_ count: Int) -> String {
+    let line = "2026-10-16 09:31:04 runner-2 waiting for the build lock held by job 4417, retrying\n"
+    let text = String(repeating: line, count: count / line.unicodeScalars.count + 1)
+    return String(String.UnicodeScalarView(text.unicodeScalars.prefix(count)))
+}
+
+/// The message fixture on a Pond 1.4.0: 8000 characters.
+@MainActor func longMessageSnapshot() -> DetailSnapshot {
+    var snapshot = messageSnapshot()
+    snapshot.limits = .long
+    return snapshot
+}
+
 @MainActor let talkScenes: [GalleryScene] = [
     // Report on the current (open) step only; collapsed rows stay clean.
     reportScene("detail-step-report-open", reportSnapshot()),
@@ -114,4 +128,8 @@ let messageEvents = #"""
     messageScene("detail-messages-refused", messageSnapshot(state: .failed(MessageText.secretRefused)),
                  draft: "The new key is in the vault under deploy, version 2."),
     messageScene("detail-messages-closed", messageSnapshot(thread: true, closed: true)),
+    // 0.14 on Pond 1.4.0: past 80 % of 8000 the counter shows; over it the caption says how
+    // much to trim and Send is off. The field grows to 8 lines, then scrolls.
+    messageScene("talk-messages-long", longMessageSnapshot(), draft: pastedLog(7412)),
+    messageScene("talk-messages-over", longMessageSnapshot(), draft: pastedLog(9204)),
 ]

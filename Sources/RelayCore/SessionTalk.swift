@@ -7,10 +7,13 @@ public struct SessionTalk: Equatable, Sendable {
     public var reports: Bool
     /// The Messages section and Message Session….
     public var messages: Bool
+    /// How long a message or a report may be, and whether a report keeps its lines.
+    public var limits: TalkLimits
 
-    public init(reports: Bool = false, messages: Bool = false) {
+    public init(reports: Bool = false, messages: Bool = false, limits: TalkLimits = .old) {
         self.reports = reports
         self.messages = messages
+        self.limits = limits
     }
 
     public static let none = SessionTalk()
@@ -19,6 +22,7 @@ public struct SessionTalk: Equatable, Sendable {
     /// version check hasn't answered yet counts as having them; messages wait for the check.
     public static func make(sourceKey: String, pond: PondVersion?) -> SessionTalk {
         guard sourceKey.hasPrefix("mailbox:") else { return .none }
-        return SessionTalk(reports: pond?.supports(.corrections) ?? true, messages: pond?.supports(.messages) ?? false)
+        return SessionTalk(reports: pond?.supports(.corrections) ?? true, messages: pond?.supports(.messages) ?? false,
+                           limits: TalkLimits.make(pond: pond))
     }
 }

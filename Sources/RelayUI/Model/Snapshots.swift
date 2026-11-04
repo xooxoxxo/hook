@@ -149,6 +149,9 @@ public struct DetailSnapshot: Equatable, Sendable {
     /// The Messages section shows: a Pond with messages (1.2.0 or later), never This Mac. On a
     /// closed ask the earlier messages stay, read-only.
     public var canMessage = false
+    /// How long a message or a report may be (8000 on Pond 1.4.0, else 1000 and 300), and
+    /// whether a report keeps its lines.
+    public var limits: TalkLimits = .old
     /// While a correction is pending: how many steps it adds to the version shown.
     public var addedSinceShown = 0
     /// What the ask needs before Done and what's left (Pond 1.3.0); `.none` without requirements,

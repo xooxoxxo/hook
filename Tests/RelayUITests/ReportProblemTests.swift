@@ -5,6 +5,19 @@ import Testing
 
 /// Report a Problem (Task 3.9, and its UI in 0.12): the note's rules, the owner key, the
 /// Pond's refusals, the composer's state and the reported icon.
+private let pond140 = PondVersion.semver(SemVer(major: 1, minor: 4, patch: 0))
+private let pond130 = PondVersion.semver(SemVer(major: 1, minor: 3, patch: 0))
+
+/// A pasted traceback: 14 lines, 937 characters (the spec's case).
+let traceback: String = {
+    var lines = ["Traceback (most recent call last):"]
+    for n in 1...12 { lines.append("  File \"/Users/me/deploy/step_\(n).py\", line \(n * 7), in rotate") }
+    let head = lines.joined(separator: "\n") + "\n"
+    let tail = "KeyError: "
+    let pad = 937 - head.unicodeScalars.count - tail.unicodeScalars.count
+    return head + tail + String(repeating: "k", count: max(0, pad))
+}()
+
 @Suite @MainActor struct ReportProblemTests {
     private func started(_ defaults: TestDefaults, bodies: [Instructable] = [idSteps(3)], approved: Bool = true,
                          identity: SourceIdentity = mailboxIdentity) async -> (Store, FakeQueueSource, AskDetail) {
@@ -17,16 +30,14 @@ import Testing
     }
 
     @Test func theNoteRules() {
-        #expect(!ProblemReport.canSend(String(repeating: "x", count: 301)))
-        #expect(ProblemReport.canSend(String(repeating: "x", count: 300)))
-        #expect(!ProblemReport.canSend("   \n "))
+        #expect(!ProblemReport.canSend(String(repeating: "x", count: 301), limits: .old))
+        #expect(ProblemReport.canSend(String(repeating: "x", count: 300), limits: .old))
+        #expect(!ProblemReport.canSend("   \n ", limits: .old))
+        #expect(!ProblemReport.canSend("   \n ", limits: TalkLimits.make(pond: pond140)))
         #expect(ProblemReport.clean("wrong\nflag\r\nhere ") == "wrong flag  here")
-        #expect(ProblemReport.counter("abc") == "3/300")
         #expect(ProblemReport.help == "The session gets this as a quoted report about its step. "
             + "Don't paste secrets; the Pond refuses them.")
         #expect(ProblemReport.menuTitle == "Report a Problem…")
-        #expect(!ProblemReport.showsCounter(String(repeating: "x", count: 249)))
-        #expect(ProblemReport.showsCounter(String(repeating: "x", count: 250)))
         #expect(ProblemReport.composerTitle(label: "2") == "Problem with step 2")
         #expect(ProblemReport.composerTitle(label: "3b") == "Problem with step 3b")
         #expect(ProblemReport.composerTitle(label: "Verify") == "Problem with Verify")
@@ -190,6 +201,43 @@ import Testing
             Issue.record("expected refused")
         }
         #expect(await fake.count("problem") == 0)
+    }
+
+    /// Pond 1.4.0: a long, multi-line note reaches the Pond as typed, its ends trimmed.
+    @Test func multilineNoteOn140() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        #expect(traceback.unicodeScalars.count == 937)
+        #expect(traceback.split(separator: "\n").count == 14)
+        let (store, fake, _) = await started(defaults)
+        store.setPond(pond140)
+        #expect(store.detail("a")?.limits == TalkLimits.make(pond: pond140))
+        #expect(await store.reportProblem("a", stepID: "s2", note: "\n" + traceback + "\n") == .sent)
+        #expect(await fake.problems.first?.note == traceback)
+        let long = String(repeating: "x", count: 8000)
+        #expect(await store.reportProblem("a", stepID: "s2", note: long) == .sent)
+        if case .refused = await store.reportProblem("a", stepID: "s2", note: long + "x") {} else {
+            Issue.record("8001 characters should be refused")
+        }
+        #expect(await fake.count("problem") == 2)
+    }
+
+    /// Pond 1.3.0: the 0.12 rules stay, one line and 300 characters, and nothing is cut to fit.
+    @Test func oldPondReportStaysOneLine() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, fake, _) = await started(defaults)
+        store.setPond(pond130)
+        #expect(store.detail("a")?.limits == .old)
+        #expect(await store.reportProblem("a", stepID: "s2", note: "the flag\nis wrong\n") == .sent)
+        #expect(await fake.problems.first?.note == "the flag is wrong")
+        if case .refused = await store.reportProblem("a", stepID: "s2", note: String(repeating: "x", count: 301)) {} else {
+            Issue.record("301 characters should be refused")
+        }
+        if case .refused = await store.reportProblem("a", stepID: "s2", note: traceback) {} else {
+            Issue.record("the traceback should be refused on 1.3.0")
+        }
+        #expect(await fake.count("problem") == 1)
     }
 
     @Test func aSecretLikeNoteIsRefusedInPlainWords() async {

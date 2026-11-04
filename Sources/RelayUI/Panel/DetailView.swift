@@ -427,7 +427,7 @@ struct DetailView<Model: PanelViewModel>: View {
                     .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
             }
             if Self.bar(snapshot, reviewing: model.isReviewing(id)) != .review, let title = Self.reportTitle(snapshot) {
-                ReportComposer(title: title, state: snapshot.report, keyReady: snapshot.ownerKeyReady,
+                ReportComposer(title: title, state: snapshot.report, keyReady: snapshot.ownerKeyReady, limits: snapshot.limits,
                                onSend: { model.sendReport(id, note: $0) }, onCancel: { model.endReport(id) })
                     .id("report-\(id)-\(snapshot.reportTarget ?? "")")
                     .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))

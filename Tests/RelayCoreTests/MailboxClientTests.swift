@@ -745,15 +745,15 @@ private struct MessageVectors {
                 _ = try await client.message(askID, text: "x")
                 Issue.record("\(name) should be refused")
             } catch {
-                #expect(MessageText.refusal(error) == text, "\(name)")
+                #expect(MessageText.refusal(error, limits: .old) == text, "\(name)")
                 // A refusal never echoes the text it refused.
-                #expect(!MessageText.refusal(error).contains("ghp_"))
+                #expect(!MessageText.refusal(error, limits: .old).contains("ghp_"))
             }
         }
         let (capped, _) = try makeClient { _, _ in (409, #"{"error":"too many messages"}"#) }
         await #expect(throws: QueueError.self) { _ = try await capped.message(askID, text: "x") }
         do { _ = try await capped.message(askID, text: "x") } catch {
-            #expect(MessageText.refusal(error) == "This ask has had 50 messages already.")
+            #expect(MessageText.refusal(error, limits: .old) == "This ask has had 50 messages already.")
         }
     }
 
@@ -777,14 +777,11 @@ private struct MessageVectors {
     }
 
     @Test func theTextRules() {
-        #expect(!MessageText.canSend(""))
-        #expect(!MessageText.canSend(" \n "))
-        #expect(MessageText.canSend("Line one\nline two"))
-        #expect(MessageText.canSend(String(repeating: "m", count: 1000)))
-        #expect(!MessageText.canSend(String(repeating: "m", count: 1001)))
-        #expect(!MessageText.showsCounter(String(repeating: "m", count: 899)))
-        #expect(MessageText.showsCounter(String(repeating: "m", count: 900)))
-        #expect(MessageText.counter("abc") == "3/1000")
+        #expect(!MessageText.canSend("", limits: .old))
+        #expect(!MessageText.canSend(" \n ", limits: .old))
+        #expect(MessageText.canSend("Line one\nline two", limits: .old))
+        #expect(MessageText.canSend(String(repeating: "m", count: 1000), limits: .old))
+        #expect(!MessageText.canSend(String(repeating: "m", count: 1001), limits: .old))
     }
 }
 
