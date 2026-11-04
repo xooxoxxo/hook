@@ -11,6 +11,8 @@ import SwiftUI
 /// A step that asks a question has a plain marker instead of a tick (only an answer completes it),
 /// unless it is optional: then it keeps the tick, and a tick marks it done unanswered.
 /// An optional step shows an "Optional" caption at the end of its title row.
+/// A required step left (`stepRequired`, owner pick 1) carries a badge on its marker and the
+/// required hue behind its row, until it is finished.
 /// Report a Problem (`stepReport`): an open, actionable row ends with Report; a row that can't
 /// expand offers it from its context menu; a reported step shows only the report icon; the
 /// composer's target is outlined.
@@ -33,6 +35,7 @@ public struct StepView: View {
     @Environment(\.askContentLocked) private var contentLocked
     @Environment(\.stepTag) private var tag
     @Environment(\.stepReport) private var report
+    @Environment(\.stepRequired) private var required
 
     public init(content: StepContent, level: StepLevel, state: StepState, total: Int, readOnly: Bool,
                 expanded: Binding<Bool>, question: StepQuestion? = nil, lockText: String? = nil,
@@ -73,7 +76,7 @@ public struct StepView: View {
     private var row: some View {
         VStack(alignment: .leading, spacing: DS.Space.stepPart) {
             HStack(alignment: .firstTextBaseline, spacing: DS.Space.marker) {
-                marker
+                marker.requiredBadge(required)
                 titleArea
                 // Outside the disclosure button, so its click is its own.
                 if showsReport, let report { ReportButton(action: report.onReport) }
@@ -96,7 +99,12 @@ public struct StepView: View {
         .padding(.vertical, level.isSub ? DS.Space.subRowV : DS.Space.groupRowV)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background { if report?.targeted == true { ReportTargetHighlight() } }
+        .requiredRow(required && report?.targeted != true, bleed: level.isSub ? Self.subBleed : EdgeInsets())
     }
+
+    /// A sub-step row has no side padding of its own: its hue reaches past it.
+    static let subBleed = EdgeInsets(top: 0, leading: DS.Space.requiredBleed, bottom: 0,
+                                     trailing: DS.Space.requiredBleed)
 
     private var placeText: String? { StepAccessibility.placeText(level: level, place: content.place) }
 
@@ -162,12 +170,13 @@ public struct StepView: View {
 
     @ViewBuilder private var marker: some View {
         if let lockText {
-            LockMarker(level: level, label: StepAccessibility.lockedLabel(level: level, action: content.action,
-                                                                           lockText: lockText))
+            LockMarker(level: level, label: StepAccessibility.required(
+                StepAccessibility.lockedLabel(level: level, action: content.action, lockText: lockText), required))
         } else if let question, !content.optional {
             StepMarker(level: level, state: state,
-                       label: StepAccessibility.questionLabel(action: content.action, prompt: question.question.prompt,
-                                                              answer: question.answer))
+                       label: StepAccessibility.required(
+                           StepAccessibility.questionLabel(action: content.action, prompt: question.question.prompt,
+                                                           answer: question.answer), required))
         } else {
             TickButton(level: level, state: state, label: tickLabel,
                        hint: StepAccessibility.hint(level: level, total: total), value: StepAccessibility.tickValue(state),
@@ -175,12 +184,13 @@ public struct StepView: View {
         }
     }
 
-    /// The tick's label: the action (and an optional question's prompt and answer), then ", optional".
+    /// The tick's label: the action (and an optional question's prompt and answer), then
+    /// ", optional", or ", required" while a required step is left.
     private var tickLabel: String {
         let label = question.map {
             StepAccessibility.questionLabel(action: content.action, prompt: $0.question.prompt, answer: $0.answer)
         } ?? line(content.action)
-        return StepAccessibility.optional(label, content.optional)
+        return StepAccessibility.required(StepAccessibility.optional(label, content.optional), required)
     }
 
     private func toggle() {

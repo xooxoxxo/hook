@@ -35,6 +35,12 @@ public enum DS {
         /// GroupBox content inset (5 pt, measured) + currentStep: the current step's box bleeds out by this
         /// so its marker and text stay on the todo/done column.
         public static let currentBleed: CGFloat = 9
+        /// How far a required item's hue reaches past a sub-step row or a section, so the text
+        /// inside it keeps its place (owner pick 1).
+        public static let requiredBleed: CGFloat = inline
+        /// The Welcome window's form pages end this far above the footer, so the last row of a
+        /// long page never sits on the dots.
+        public static let setupFormEnd: CGFloat = 16
         public static let emptyLine: CGFloat = 24
         public static let popover: CGFloat = 16
         /// A queue card's content inset.
@@ -153,6 +159,13 @@ public enum DS {
         /// Show Difference's sheet, and its diff's scroll box.
         public static let diffSheetWidth: CGFloat = 560
         public static let diffSheetBody: CGFloat = 320
+        /// The action bar's Skip, Done, Send & Done and Discard & Done: wide enough to hit at a
+        /// glance (owner pick 1); two of them beside each other fit the panel.
+        public static let barButtonMinWidth: CGFloat = 84
+        /// The dot on a required step's marker, and beside a required section's "?".
+        public static let requiredBadge: CGFloat = 7
+        /// The fade at the bottom of a Welcome form page that scrolls under the footer.
+        public static let setupFade: CGFloat = 24
     }
 
     public enum Font {
@@ -169,6 +182,10 @@ public enum DS {
         public static var listTitle: SwiftUI.Font { style(.headline, .headline) }
         public static var askTitle: SwiftUI.Font { style(.title3, .title3).weight(.semibold) }
         public static var heading: SwiftUI.Font { style(.headline, .headline) }
+        /// The heading font's cap height, for a mark centred on a heading's capitals.
+        public static var headingCapHeight: CGFloat {
+            NSFont.preferredFont(forTextStyle: .headline).capHeight * galleryScale
+        }
         public static var body: SwiftUI.Font { style(.body, .body) }
         public static var currentAction: SwiftUI.Font { style(.headline, .headline) }
         public static var meta: SwiftUI.Font { style(.subheadline, .subheadline) }
@@ -224,6 +241,26 @@ public enum DS {
         /// The step the report composer is about: a light accent fill and an accent outline.
         public static let targetFill = SwiftUI.Color.accentColor.opacity(0.07)
         public static let targetStroke = SwiftUI.Color.accentColor.opacity(0.55)
+        /// A required item's badge (owner pick 1, RD 25): Done's own accent, so the mark reads as
+        /// "this feeds Done".
+        public static let required = SwiftUI.Color.accentColor
+        /// A required item's row hue: the accent at a low opacity, stronger over the dark list
+        /// (`RequiredHue`); `requiredRowContrast` under Increase Contrast.
+        public static let requiredRow = accentHue(light: RequiredHue.light, dark: RequiredHue.dark)
+        public static let requiredRowContrast = accentHue(light: RequiredHue.lightContrast, dark: RequiredHue.darkContrast)
+        /// The system accent at `light` or `dark` opacity, by appearance.
+        static func accentHue(light: CGFloat, dark: CGFloat) -> SwiftUI.Color {
+            SwiftUI.Color(nsColor: NSColor(name: nil) { appearance in
+                let alpha = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light
+                return NSColor.controlAccentColor.withAlphaComponent(alpha)
+            })
+        }
+        public enum RequiredHue {
+            public static let light: CGFloat = 0.08
+            public static let dark: CGFloat = 0.16
+            public static let lightContrast: CGFloat = 0.16
+            public static let darkContrast: CGFloat = 0.26
+        }
         enum TextTint {
             static let warnLight = NSColor(srgbRed: 0.60, green: 0.29, blue: 0.0, alpha: 1)
             static let warnDark = NSColor(srgbRed: 1.0, green: 0.72, blue: 0.30, alpha: 1)
@@ -338,6 +375,8 @@ public enum DS {
         public static func stepTodo(_ n: Int) -> String { "\(n).circle" }
         public static func stepCurrent(_ n: Int) -> String { "\(n).circle.fill" }
         public static let stepDone = "checkmark.circle.fill"
+        /// The badge on a required item (owner pick 1).
+        public static let requiredBadge = "circle.fill"
         public static let subTodo = "circle"
         public static let subCurrent = "circle.inset.filled"
         public static let subDone = "checkmark.circle.fill"

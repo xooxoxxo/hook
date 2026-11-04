@@ -50,6 +50,18 @@ struct DetailView<Model: PanelViewModel>: View {
         return ActionBarAnswers(caption: warning ?? snapshot.unansweredCaption, failure: failure)
     }
 
+    /// What the bar's Done and Discard & Done may do (Pond 1.3.0 requirements), and why Done is off.
+    struct BarGate: Equatable {
+        var doneEnabled: Bool
+        var discardEnabled: Bool
+        var doneHelp: String
+    }
+
+    static func gate(_ snapshot: DetailSnapshot) -> BarGate {
+        BarGate(doneEnabled: snapshot.doneEnabled, discardEnabled: snapshot.discardEnabled,
+                doneHelp: Requirements.doneHelp(snapshot.requirements))
+    }
+
     /// The ask a header chevron opens; nil at the ends and outside the filter (disabled).
     static func target(_ neighbour: Neighbour) -> String? {
         if case .ask(let id) = neighbour { return id }
@@ -426,7 +438,9 @@ struct DetailView<Model: PanelViewModel>: View {
             case .lock(let bar):
                 DetailLockBar(model: model, id: id, bar: bar)
             case .action:
+                let gate = Self.gate(snapshot)
                 ActionBar(mode: Self.actionMode(snapshot), answers: Self.answers(snapshot),
+                          doneEnabled: gate.doneEnabled, discardEnabled: gate.discardEnabled, doneHelp: gate.doneHelp,
                           onSkip: { model.close(id, .declined) },
                           onPrimary: { primary(snapshot) },
                           onReopen: { model.reopen(id) },

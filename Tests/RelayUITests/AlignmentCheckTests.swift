@@ -59,6 +59,16 @@ private func probe(_ role: ProbeRole, _ x: CGFloat, _ y: CGFloat, _ w: CGFloat, 
         #expect(failures.first?.detail.contains("no ink") == true)
     }
 
+    /// A required badge on a marker is a decoration: its ink never moves the marker's column.
+    @Test func aRequiredBadgesInkIsLeftOutOfTheScan() {
+        // Two markers centred at 18 pt; the second also has a badge's ink at 22–24 pt.
+        let markers = paint(paint(canvas(50, 10), columns: 32..<40, rows: 0..<20), columns: 44..<48, rows: 10..<14)
+        let probes = [probe(.topMarker, 0, 0, 50, 5), probe(.topMarker, 0, 5, 50, 5)]
+        #expect(AlignmentCheck.verify(probes, bitmap: markers, rules: [.sameCentre(.topMarker, tolerance: 1)]).count == 1)
+        let badged = probes + [probe(.requiredBadge, 22, 5, 2, 2, measure: .frame)]
+        #expect(AlignmentCheck.verify(badged, bitmap: markers, rules: [.sameCentre(.topMarker, tolerance: 1)]).isEmpty)
+    }
+
     @Test func aRuleWithoutProbesFails() {
         let failures = AlignmentCheck.verify([], bitmap: ink, rules: [.sameCentre(.subMarker, tolerance: 1)])
         #expect(failures.first?.detail == "no subMarker probe")

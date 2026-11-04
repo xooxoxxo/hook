@@ -63,7 +63,7 @@ import Testing
             steps: [Step(action: "Tell us what you think", question: Question(prompt: "Anything?"), optional: true),
                     Step(action: "Try it", substeps: [Step(action: "Note it", optional: true)])],
             verify: nil)
-        #expect(Flow.flattened(nodes).map(DetailSteps<FixturePanelModel>.rotorTitle)
+        #expect(Flow.flattened(nodes).map { DetailSteps<FixturePanelModel>.rotorTitle($0) }
             == ["1. Tell us what you think, optional", "2. Try it", "2a. Note it, optional"])
     }
 

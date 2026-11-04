@@ -21,6 +21,8 @@ struct NodeFramesKey: PreferenceKey {
 /// text, above the sub-steps; the question is one more item of its count, and its marker is
 /// not a tick, unless the parent is optional: then its tick marks the question done
 /// unanswered along with the sub-steps. An optional parent shows an "Optional" caption.
+/// A required parent left (`stepRequired`) marks its own header only: the badge on its marker
+/// and the hue behind the header row; each sub-step carries its own mark (`requiredSteps`).
 public struct ParentStepView: View {
     let content: StepContent
     let number: Int
@@ -91,6 +93,8 @@ public struct ParentStepView: View {
     @Environment(\.stepTags) private var tags
     @Environment(\.stepReport) private var report
     @Environment(\.stepReports) private var reports
+    @Environment(\.stepRequired) private var required
+    @Environment(\.requiredSteps) private var requiredSteps
     private var showsReport: Bool {
         guard let report else { return false }
         return StepRow.reportable(allowed: report.allowed, actionable: report.actionable, open: isOpen, locked: locked)
@@ -101,6 +105,19 @@ public struct ParentStepView: View {
                                        locked: locked)
     }
 
+    /// The marks of a parent's rows: its header by its own requirement, each sub-step by its own.
+    public static func requiredMarks(own: Bool, childPaths: [String],
+                                     marked: Set<String>) -> (header: Bool, children: [Bool]) {
+        (own, childPaths.map(marked.contains))
+    }
+
+    /// The header's hue reaches over the row's padding, which sits on the whole parent.
+    private var headerBleed: EdgeInsets {
+        let below = isOpen || StepRow.warning(content, state: state, locked: locked) != nil
+        return EdgeInsets(top: DS.Space.groupRowV, leading: DS.Space.groupRowH,
+                          bottom: below ? DS.Space.stepPart / 2 : DS.Space.groupRowV, trailing: DS.Space.groupRowH)
+    }
+
     public static func rowState(allDone: Bool, holdsCurrent: Bool) -> StepState {
         allDone ? .done : (holdsCurrent ? .current : .todo)
     }
@@ -108,6 +125,7 @@ public struct ParentStepView: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: DS.Space.stepPart) {
             rowMenu(header)
+                .requiredRow(required && report?.targeted != true, bleed: headerBleed)
             if let warning = StepRow.warning(content, state: state, locked: locked) {
                 WarningBox(warning).padding(.leading, DS.Space.subIndent)
             }
@@ -136,7 +154,8 @@ public struct ParentStepView: View {
     }
 
     private var subSteps: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        let marks = Self.requiredMarks(own: required, childPaths: childPaths, marked: requiredSteps).children
+        return VStack(alignment: .leading, spacing: 0) {
             ForEach(children.indices, id: \.self) { i in
                 StepView(content: children[i], level: .sub(number, i), state: childStates[i], total: total,
                          readOnly: readOnly, expanded: childExpanded(i),
@@ -145,6 +164,7 @@ public struct ParentStepView: View {
                          onToggle: { onToggleChild(i) }, onCopy: onCopy)
                     .environment(\.stepTag, tags[childPaths[i]])
                     .environment(\.stepReport, reports.slot(childPaths[i]))
+                    .environment(\.stepRequired, marks.indices.contains(i) && marks[i])
                     .id(childPaths[i])
                     .background(GeometryReader { geometry in
                         Color.clear.preference(key: NodeFramesKey.self,
@@ -156,11 +176,12 @@ public struct ParentStepView: View {
 
     private var accessibilityLabel: String {
         if let lockText {
-            return StepAccessibility.lockedLabel(level: .top(number), action: content.action, lockText: lockText)
+            return StepAccessibility.required(
+                StepAccessibility.lockedLabel(level: .top(number), action: content.action, lockText: lockText), required)
         }
-        let label = StepAccessibility.optional(
+        let label = StepAccessibility.required(StepAccessibility.optional(
             StepAccessibility.parentLabel(number: number, action: content.action, done: ticked, total: itemTotal),
-            content.optional)
+            content.optional), required)
         guard let question else { return label }
         return label + ". " + StepAccessibility.question(prompt: question.question.prompt, answer: question.answer)
     }
@@ -168,13 +189,15 @@ public struct ParentStepView: View {
     @ViewBuilder private var marker: some View {
         if let lockText {
             LockMarker(level: .top(number),
-                       label: StepAccessibility.lockedLabel(level: .top(number), action: content.action, lockText: lockText))
+                       label: StepAccessibility.required(StepAccessibility.lockedLabel(
+                           level: .top(number), action: content.action, lockText: lockText), required))
         } else if question != nil, !content.optional {
             StepMarker(level: .top(number), state: allDone ? .done : (ownState == .current ? .current : .todo),
-                       label: line(content.action))
+                       label: StepAccessibility.required(line(content.action), required))
         } else {
             TickButton(level: .top(number), state: allDone ? .done : (holdsCurrent ? .current : .todo),
-                       label: StepAccessibility.optional(line(content.action), content.optional),
+                       label: StepAccessibility.required(StepAccessibility.optional(line(content.action),
+                                                                                    content.optional), required),
                        hint: StepAccessibility.hint(level: .top(number), total: total),
                        value: StepAccessibility.parentValue(done: ticked, total: itemTotal),
                        help: StepAccessibility.parentHelp(done: ticked, total: itemTotal),
@@ -184,7 +207,7 @@ public struct ParentStepView: View {
 
     private var header: some View {
         HStack(alignment: .firstTextBaseline, spacing: DS.Space.marker) {
-            marker
+            marker.requiredBadge(required)
             if expandable {
                 Button {
                     withAnimation(DS.motion(DS.Motion.reveal, reduce: reduceMotion)) { expanded.wrappedValue.toggle() }

@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 @testable import RelayCore
 import SwiftUI
@@ -396,7 +397,7 @@ private let phase3Now = Date(timeIntervalSince1970: 1_792_143_600)
             steps: [Step(action: "Create the Slack app", substeps: [Step(action: "Click Create New App"),
                                                                      Step(action: "Name\u{200B} it")])],
             verify: Step(action: "Check the bot posts"))
-        let titles = Flow.flattened(nodes).map(DetailSteps<FixturePanelModel>.rotorTitle)
+        let titles = Flow.flattened(nodes).map { DetailSteps<FixturePanelModel>.rotorTitle($0) }
         #expect(titles == ["1. Create the Slack app", "1a. Click Create New App", "1b. Name⟨U+200B⟩ it",
                            "Verify. Check the bot posts"])
     }
@@ -556,5 +557,66 @@ private let phase3Now = Date(timeIntervalSince1970: 1_792_143_600)
         #expect(await eventually {
             store.detail("r1").map(DetailView<FixturePanelModel>.focusesReplyOnOpen) == true
         })
+    }
+}
+
+/// Required before Done (owner pick 1): the detail-required-left and -ready scenes, rendered
+/// as the gallery renders them at the panel's width, in light and dark.
+@Suite @MainActor struct RequiredSnapshotTests {
+    /// Every probe frame of the full-height detail of `snapshot`, with parent 4 opened by hand.
+    private func probes(_ snapshot: DetailSnapshot, appearance: NSAppearance.Name) -> [ProbeFrame] {
+        let model = FixturePanelModel(
+            queue: GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false),
+            details: [snapshot.id: snapshot],
+            navigation: PanelNavigation(listSelection: snapshot.id, selectedID: snapshot.id),
+            status: PanelStatus(symbol: .ok, text: "Pond · ready", detail: .updated))
+        model.expandedTodo[snapshot.id] = ["4"]
+        let sink = AlignmentProbeSink()
+        let overrides = PanelGalleryOverrides(now: GalleryFixtures.now, fromExpanded: false, fullHeight: true)
+        let root = PanelRoot(model: model).environment(\.panelGallery, overrides)
+            .environment(\.alignmentProbesEnabled, true)
+            .environment(\.alignmentProbeSink, sink)
+            .frame(width: DS.Metric.panelWidth)
+        let host = NSHostingView(rootView: root)
+        host.appearance = NSAppearance(named: appearance)
+        host.frame = NSRect(origin: .zero, size: host.fittingSize)
+        let window = NSWindow(contentRect: host.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+        window.contentView = host
+        host.layoutSubtreeIfNeeded()
+        let deadline = Date().addingTimeInterval(2)
+        repeat {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+            host.layoutSubtreeIfNeeded()
+        } while shown(sink.frames, .barButton).count < 2 && Date() < deadline
+        window.contentView = nil
+        return sink.frames
+    }
+
+    @Test(arguments: [NSAppearance.Name.aqua, .darkAqua])
+    func leftMarksStepsMessagesAndTheReplyInsideTheMarkerColumn(appearance: NSAppearance.Name) {
+        let frames = probes(RequiredFixtures.full(ready: false), appearance: appearance)
+        let badges = shown(frames, .requiredBadge)
+        // Steps 2, 3 and 4a, the reply heading and the Messages heading.
+        #expect(badges.count == 5, "\(badges)")
+        // A step's badge sits inside its marker's column, so the text never moves.
+        let markers = shown(frames, .topMarker) + shown(frames, .subMarker)
+        let onMarkers = badges.filter { badge in
+            markers.contains { $0.insetBy(dx: -1, dy: -1).contains(badge) }
+        }
+        #expect(onMarkers.count == 3, "\(badges) \(markers)")
+        for badge in badges {
+            #expect(badge.minX >= DS.Space.gutter - 0.5 && badge.maxX <= DS.Metric.panelWidth - DS.Space.gutter + 0.5,
+                    "\(badge)")
+        }
+        // Nothing drawn past the panel's edges, and both bar buttons on screen.
+        for frame in frames { #expect(frame.frame.minX >= 0 && frame.frame.maxX <= DS.Metric.panelWidth + 0.5) }
+        #expect(shown(frames, .barButton).count == 2)
+    }
+
+    @Test(arguments: [NSAppearance.Name.aqua, .darkAqua])
+    func readyHasNoMarks(appearance: NSAppearance.Name) {
+        let frames = probes(RequiredFixtures.full(ready: true), appearance: appearance)
+        #expect(shown(frames, .requiredBadge).isEmpty)
+        #expect(shown(frames, .barButton).count == 2)
     }
 }

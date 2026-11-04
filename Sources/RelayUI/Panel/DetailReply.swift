@@ -14,6 +14,9 @@ extension Notification.Name {
 /// … · time" and Change, earlier replies behind History. Change brings the question back
 /// prefilled (editing is memory only, in the model); a sent reply folds it again. A closed
 /// ask shows the row without Change, and "Reply anyway" below it.
+///
+/// When the ask's Done waits for the reply (`done: ["reply"]`) and none was sent yet, the
+/// section is marked: the badge after its heading and the required hue behind it.
 struct DetailReply<Model: PanelViewModel>: View {
     @ObservedObject private var model: Model
     let snapshot: DetailSnapshot
@@ -31,6 +34,9 @@ struct DetailReply<Model: PanelViewModel>: View {
         self.closed = closed
         self.isFocused = isFocused
     }
+
+    /// The section carries the required mark: Done waits for the reply and none was sent yet.
+    static func marked(_ snapshot: DetailSnapshot) -> Bool { snapshot.requirements.marksReply }
 
     /// An empty field keeps no draft (no pencil on the row); anything typed, blanks included, is kept.
     static func storedDraft(_ text: String) -> String? {
@@ -85,10 +91,19 @@ struct DetailReply<Model: PanelViewModel>: View {
         } else if showsAnswer, let latest = snapshot.replies.last {
             answer(latest, canChange: true)
         } else {
+            let marked = Self.marked(snapshot)
             VStack(alignment: .leading, spacing: DS.Space.inline) {
-                control(showHeading: true)
+                // Marked, the heading is drawn here to carry the badge; the control's own goes.
+                if marked {
+                    HStack(alignment: .firstTextBaseline, spacing: DS.Space.inline) {
+                        heading.accessibilityValue(RequiredMark.headingValue(true) ?? "")
+                        RequiredHeadingBadge(on: true)
+                    }
+                }
+                control(showHeading: !marked)
                 if editing { note }
             }
+            .requiredSection(marked)
         }
     }
 

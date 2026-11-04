@@ -33,5 +33,5 @@ struct GalleryScene {
 /// Every scene, in index order. Each scene task appends its own array here.
 @MainActor var allScenes: [GalleryScene] {
     componentScenes + queueScenes + stateScenes + detailScenes + fileScenes + answerScenes + settingsScenes
-        + otherScenes + reviewScenes + crashScenes + talkScenes + profileMenuScenes
+        + otherScenes + reviewScenes + crashScenes + talkScenes + profileMenuScenes + requiredScenes
 }

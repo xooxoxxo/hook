@@ -52,30 +52,43 @@ public struct InkBitmap: Sendable {
 }
 
 /// Where ink starts and ends inside a probe's rect. The rect's top-left pixel is the background.
+/// Pixels inside `excluding` (decorations such as a required badge) never count as ink.
 public enum InkScan {
-    public static func firstInkX(_ bitmap: InkBitmap, in rect: CGRect, threshold: Int) -> CGFloat? {
-        inkColumns(bitmap, rect, threshold).first.map { CGFloat($0) / bitmap.scale }
+    public static func firstInkX(_ bitmap: InkBitmap, in rect: CGRect, threshold: Int,
+                                 excluding: [CGRect] = []) -> CGFloat? {
+        inkColumns(bitmap, rect, threshold, excluding).first.map { CGFloat($0) / bitmap.scale }
     }
 
-    public static func lastInkX(_ bitmap: InkBitmap, in rect: CGRect, threshold: Int) -> CGFloat? {
-        inkColumns(bitmap, rect, threshold).last.map { CGFloat($0 + 1) / bitmap.scale }
+    public static func lastInkX(_ bitmap: InkBitmap, in rect: CGRect, threshold: Int,
+                                excluding: [CGRect] = []) -> CGFloat? {
+        inkColumns(bitmap, rect, threshold, excluding).last.map { CGFloat($0 + 1) / bitmap.scale }
     }
 
-    public static func centreX(_ bitmap: InkBitmap, in rect: CGRect, threshold: Int) -> CGFloat? {
-        guard let first = firstInkX(bitmap, in: rect, threshold: threshold),
-              let last = lastInkX(bitmap, in: rect, threshold: threshold) else { return nil }
+    public static func centreX(_ bitmap: InkBitmap, in rect: CGRect, threshold: Int,
+                               excluding: [CGRect] = []) -> CGFloat? {
+        guard let first = firstInkX(bitmap, in: rect, threshold: threshold, excluding: excluding),
+              let last = lastInkX(bitmap, in: rect, threshold: threshold, excluding: excluding) else { return nil }
         return (first + last) / 2
     }
 
-    static func inkColumns(_ bitmap: InkBitmap, _ rect: CGRect, _ threshold: Int) -> [Int] {
-        let x0 = max(0, Int((rect.minX * bitmap.scale).rounded(.down)))
-        let x1 = min(bitmap.width, Int((rect.maxX * bitmap.scale).rounded(.up)))
-        let y0 = max(0, Int((rect.minY * bitmap.scale).rounded(.down)))
-        let y1 = min(bitmap.height, Int((rect.maxY * bitmap.scale).rounded(.up)))
-        guard x0 < x1, y0 < y1 else { return [] }
-        let background = bitmap.pixels[y0 * bitmap.width + x0]
-        return (x0..<x1).filter { x in
-            (y0..<y1).contains { y in bitmap.differs(bitmap.pixels[y * bitmap.width + x], background, threshold: threshold) }
+    static func inkColumns(_ bitmap: InkBitmap, _ rect: CGRect, _ threshold: Int,
+                           _ excluding: [CGRect] = []) -> [Int] {
+        func pixels(_ r: CGRect) -> (x: Range<Int>, y: Range<Int>) {
+            let x0 = max(0, Int((r.minX * bitmap.scale).rounded(.down)))
+            let x1 = min(bitmap.width, Int((r.maxX * bitmap.scale).rounded(.up)))
+            let y0 = max(0, Int((r.minY * bitmap.scale).rounded(.down)))
+            let y1 = min(bitmap.height, Int((r.maxY * bitmap.scale).rounded(.up)))
+            return (x0..<max(x0, x1), y0..<max(y0, y1))
+        }
+        let (xs, ys) = pixels(rect)
+        guard !xs.isEmpty, !ys.isEmpty else { return [] }
+        let skipped = excluding.map(pixels)
+        let background = bitmap.pixels[ys.lowerBound * bitmap.width + xs.lowerBound]
+        return xs.filter { x in
+            ys.contains { y in
+                !skipped.contains { $0.x.contains(x) && $0.y.contains(y) }
+                    && bitmap.differs(bitmap.pixels[y * bitmap.width + x], background, threshold: threshold)
+            }
         }
     }
 }
@@ -148,11 +161,12 @@ public enum AlignmentCheck {
     }
 
     /// Checks `rules` against the probes, each by its ink or, for a `.frame` probe, by its frame's
-    /// edges. A probe whose frame runs past the capture's edges (a List
+    /// edges. A required badge's ink is left out of every scan: it sits on a marker, not in its column. A probe whose frame runs past the capture's edges (a List
     /// row cut off at the bottom) is skipped: the visible strip holds no full glyph, so measuring it
     /// would report a false "no ink". A rule whose probes are all clipped fails.
     public static func verify(_ probes: [ProbeFrame], bitmap: InkBitmap, rules: [AlignmentRule]) -> [AlignmentFailure] {
         var failures: [AlignmentFailure] = []
+        let badges = probes.filter { $0.role == .requiredBadge }.map(\.frame)
         let bounds = CGRect(x: 0, y: 0, width: CGFloat(bitmap.width) / bitmap.scale,
                             height: CGFloat(bitmap.height) / bitmap.scale)
             .insetBy(dx: -edgeSlack, dy: -edgeSlack)
@@ -189,21 +203,24 @@ public enum AlignmentCheck {
             }
             switch rule {
             case let .leading(_, x, tolerance):
-                for (p, value) in measure(InkScan.firstInkX, \.minX) ?? [] where abs(value - x) > tolerance {
+                for (p, value) in measure({ InkScan.firstInkX($0, in: $1, threshold: $2, excluding: badges) },
+                                          \.minX) ?? [] where abs(value - x) > tolerance {
                     failures.append(AlignmentFailure(rule: rule, detail: "starts at \(format(value)), expected \(format(x)) ± \(format(tolerance)) (\(format(rect: p.frame)))"))
                 }
             case let .trailing(_, x, tolerance):
-                for (p, value) in measure(InkScan.lastInkX, \.maxX) ?? [] where abs(value - x) > tolerance {
+                for (p, value) in measure({ InkScan.lastInkX($0, in: $1, threshold: $2, excluding: badges) },
+                                          \.maxX) ?? [] where abs(value - x) > tolerance {
                     failures.append(AlignmentFailure(rule: rule, detail: "ends at \(format(value)), expected \(format(x)) ± \(format(tolerance)) (\(format(rect: p.frame)))"))
                 }
             case let .sameCentre(_, tolerance):
-                let values = measure(InkScan.centreX, \.midX)
+                let values = measure({ InkScan.centreX($0, in: $1, threshold: $2, excluding: badges) }, \.midX)
                 spread(values, tolerance, rule, "centres", &failures)
             case let .sameLeading(_, tolerance):
-                let values = measure(InkScan.firstInkX, \.minX)
+                let values = measure({ InkScan.firstInkX($0, in: $1, threshold: $2, excluding: badges) }, \.minX)
                 spread(values, tolerance, rule, "starts", &failures)
             case let .sameTrailingPerGroup(_, tolerance):
-                guard let values = measure(InkScan.lastInkX, \.maxX) else { continue }
+                guard let values = measure({ InkScan.lastInkX($0, in: $1, threshold: $2, excluding: badges) },
+                                           \.maxX) else { continue }
                 for group in Set(values.map(\.0.group)).sorted() {
                     spread(values.filter { $0.0.group == group }, tolerance, rule, "ends in \(group)", &failures)
                 }

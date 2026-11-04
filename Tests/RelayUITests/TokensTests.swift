@@ -91,6 +91,45 @@ private enum Contrast {
         #expect(alpha(DS.Color.cardStrokeQuiet, .darkAqua) > 0)
     }
 
+    /// Required before Done (owner pick 1): the wider bar buttons, the badge on a step's
+    /// marker, and the row hue in Done's own accent.
+    @Test func requiredMarkTokens() {
+        #expect(DS.Metric.barButtonMinWidth == 84)
+        #expect(DS.Metric.requiredBadge == 7)
+        #expect(DS.Symbol.requiredBadge == "circle.fill")
+        #expect(NSImage(systemSymbolName: DS.Symbol.requiredBadge, accessibilityDescription: nil) != nil)
+        #expect(DS.Color.required == SwiftUI.Color.accentColor)
+        #expect(DS.Space.requiredBleed == DS.Space.inline)
+        // Skip and Done at the minimum width, with the gutters and the gap, fit the panel.
+        #expect(2 * DS.Metric.barButtonMinWidth + DS.Space.inline + 2 * DS.Space.gutter < DS.Metric.panelWidth)
+    }
+
+    /// The row hue is the accent at a low opacity, stronger in dark mode and stronger again
+    /// under Increase Contrast, where it must still read; never opaque enough to hide text.
+    @Test func requiredRowHueByAppearance() {
+        func alpha(_ color: SwiftUI.Color, _ name: NSAppearance.Name) -> CGFloat {
+            var value: CGFloat = -1
+            NSAppearance(named: name)?.performAsCurrentDrawingAppearance {
+                value = NSColor(color).usingColorSpace(.deviceRGB)?.alphaComponent ?? -1
+            }
+            return value
+        }
+        typealias H = DS.Color.RequiredHue
+        #expect(abs(alpha(DS.Color.requiredRow, .aqua) - H.light) < 0.01)
+        #expect(abs(alpha(DS.Color.requiredRow, .darkAqua) - H.dark) < 0.01)
+        #expect(abs(alpha(DS.Color.requiredRowContrast, .aqua) - H.lightContrast) < 0.01)
+        #expect(abs(alpha(DS.Color.requiredRowContrast, .darkAqua) - H.darkContrast) < 0.01)
+        #expect(H.light < H.lightContrast && H.dark < H.darkContrast)
+        #expect([H.light, H.dark, H.lightContrast, H.darkContrast].allSatisfy { $0 > 0.05 && $0 <= 0.3 })
+    }
+
+    /// The Welcome window's form pages end this far above the footer's dots, so a long page
+    /// reads as scrolling, not cut off.
+    @Test func setupFormEnd() {
+        #expect(DS.Space.setupFormEnd == 16)
+        #expect(DS.Metric.setupFade == 24)
+    }
+
     @Test func derivedTokensHold() {
         #expect(DS.Space.subIndent == DS.Metric.hit + DS.Space.marker)
         #expect(DS.Space.currentBleed == 5 + DS.Space.currentStep)

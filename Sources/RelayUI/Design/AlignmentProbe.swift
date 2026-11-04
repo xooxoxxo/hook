@@ -5,6 +5,8 @@ public enum ProbeRole: String, Sendable, CaseIterable {
     case gutterText, trailingEdge, cardText, cardTrailing, cardEdge, topMarker, subMarker, topActionText, subLabelText, settingsTrailing, mailboxField
     /// A Settings row's control and its trailing accessory (an icon button on the same line).
     case settingsControl, settingsAccessory
+    /// An action bar button's label (`DS.Metric.barButtonMinWidth`), and a required item's badge.
+    case barButton, requiredBadge
 }
 
 /// How the alignment check measures a probe. `.ink` scans the pixels inside the probe's frame;

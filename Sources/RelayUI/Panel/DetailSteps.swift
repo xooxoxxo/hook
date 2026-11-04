@@ -24,10 +24,11 @@ struct DetailSteps<Model: PanelViewModel>: View {
         "\(progress.done) of \(progress.total) done"
     }
 
-    /// "3. Create the Slack app", "3a. Click Create New App", "4. Tell us what you think, optional"
-    /// (the VoiceOver rotor).
-    static func rotorTitle(_ node: DetailModel.Node) -> String {
-        StepAccessibility.optional(node.label + ". " + line(node.content.action), node.isOptional)
+    /// "3. Create the Slack app", "3a. Click Create New App", "4. Tell us what you think, optional",
+    /// "2. Rotate the key, required" while a required step is left (the VoiceOver rotor).
+    static func rotorTitle(_ node: DetailModel.Node, required: Bool = false) -> String {
+        StepAccessibility.required(
+            StepAccessibility.optional(node.label + ". " + line(node.content.action), node.isOptional), required)
     }
 
     static func toggled(_ paths: Set<String>?, path: String, expanded: Bool) -> Set<String> {
@@ -79,7 +80,8 @@ struct DetailSteps<Model: PanelViewModel>: View {
     private var total: Int { snapshot.model?.stepTotal ?? nodes.count }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DS.Space.step) {
+        let marked = RequiredMark.stepPaths(snapshot.requirements)
+        return VStack(alignment: .leading, spacing: DS.Space.step) {
             HStack(alignment: .firstTextBaseline) {
                 Text("Steps")
                     .font(DS.Font.heading)
@@ -98,6 +100,7 @@ struct DetailSteps<Model: PanelViewModel>: View {
                     nodeView(node, locked: locked, lockText: lockText)
                         .environment(\.stepTag, snapshot.changedSteps[node.path])
                         .environment(\.stepReport, reports.slot(node.path))
+                        .environment(\.stepRequired, marked.contains(node.path))
                         .opacity(Self.dims(node, snapshot: snapshot) ? DS.Color.lockedOpacity : 1)
                         .id(node.path)
                         .background(GeometryReader { geometry in
@@ -112,6 +115,7 @@ struct DetailSteps<Model: PanelViewModel>: View {
             }
             .environment(\.stepTags, snapshot.changedSteps)
             .environment(\.stepReports, reports)
+            .environment(\.requiredSteps, marked)
         }
         .animation(DS.motion(DS.Motion.step, reduce: reduceMotion), value: snapshot.current)
         .animation(DS.motion(DS.Motion.step, reduce: reduceMotion), value: snapshot.ticks)
@@ -120,7 +124,7 @@ struct DetailSteps<Model: PanelViewModel>: View {
                                     expanded: (model.expandedDone[snapshot.id] ?? [])
                                         .union(model.expandedTodo[snapshot.id] ?? []),
                                     locked: locked)) { node in
-                AccessibilityRotorEntry(Text(Self.rotorTitle(node)), id: node.path)
+                AccessibilityRotorEntry(Text(Self.rotorTitle(node, required: marked.contains(node.path))), id: node.path)
             }
         }
     }

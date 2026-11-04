@@ -55,6 +55,12 @@ public enum StepAccessibility {
         isOptional ? label + ", optional" : label
     }
 
+    /// A label with ", required" added while a required step is left (VoiceOver, the Steps
+    /// rotor). It never meets ", optional": a step can't be both.
+    public static func required(_ label: String, _ isMarked: Bool) -> String {
+        isMarked ? label + ", required" : label
+    }
+
     /// A locked step's marker: "Step 4, locked: Check the site. Finish step 3 first."
     public static func lockedLabel(level: StepLevel, action: String, lockText: String) -> String {
         let name = level == .verify ? "Verify" : "Step \(level.label)"
