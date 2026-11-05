@@ -89,6 +89,6 @@ public enum QueueContextMenu {
     }
 
     public static func link(for id: String) -> String {
-        "relay://i/" + id
+        "hook://i/" + id
     }
 }

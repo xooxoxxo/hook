@@ -24,7 +24,9 @@ Before any other check, Hook answers 403 `forbidden` to:
 | `GET /events` | `after` ≥ 0, `limit` 1–1000 (default 100) | 200 `{events, next, epoch}` | 400 `invalid query` |
 | `GET /version` | none | 200 `{"service": "hook", "version": "1.0.0", "protocol": 4}`: the Pond version the built-in queue implements (no step corrections yet). A client checks This Mac like a Pond | 401 |
 | `GET /health` | optional `X-Relay-Nonce` header (32–64 hex) | 200 `{"ok":true,"app":"relay","source":"local"\|"mailbox"\|"none"}`, plus `proof` in local mode | none |
-| `GET /i/<id>` | none | Brings Hook forward on that ask (`relay://i/<id>` does the same) | 403 for web-page requests |
+| `GET /i/<id>` | none | Brings Hook forward on that ask (`hook://i/<id>` does the same; `relay://i/<id>` still works) | 403 for web-page requests |
+
+Hook registers `hook://` and keeps `relay://`. If another app owns `hook://` on your Mac (Hookmark does), use `relay://`.
 
 The body format and the `project` rule are in [Instructable format](instructables.md).
 

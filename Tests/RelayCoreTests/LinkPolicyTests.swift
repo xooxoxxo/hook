@@ -62,6 +62,22 @@ private func decide(_ headers: [String: String], method: String = "GET") -> Link
         #expect(parse("relay://i/" + id.uppercased()) == .open(id: id))
     }
 
+    @Test func bothSchemesParse() {
+        for scheme in ["hook", "relay", "HOOK", "Relay"] {
+            #expect(parse("\(scheme)://show") == .show)
+            #expect(parse("\(scheme)://i/" + id) == .open(id: id))
+        }
+    }
+
+    @Test func unknownSchemesAndHostsAreRefused() {
+        #expect(parse("hooks://show") == nil)
+        #expect(parse("hookmark://show") == nil)
+        #expect(parse("hook://settings") == nil)
+        #expect(parse("hook://i/not-a-uuid") == nil)
+        #expect(parse("hook://show/extra") == nil)
+        #expect(parse("hook:show") == nil)
+    }
+
     @Test func everythingElseIsRefused() {
         #expect(parse("relay://i/") == nil)
         #expect(parse("relay://i/not-a-uuid") == nil)

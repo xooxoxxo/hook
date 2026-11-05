@@ -111,9 +111,9 @@ import Testing
         #expect(QueueContextMenu.middleTruncated("abcdefghij", max: 5) == "ab…ij")
     }
 
-    @Test func linkUsesTheRelayScheme() {
+    @Test func linkUsesTheHookScheme() {
         #expect(QueueContextMenu.link(for: "6f1c2b0e-8a1d-4c55-9a77-0d2f3c4b5a61")
-                == "relay://i/6f1c2b0e-8a1d-4c55-9a77-0d2f3c4b5a61")
+                == "hook://i/6f1c2b0e-8a1d-4c55-9a77-0d2f3c4b5a61")
     }
 
     @Test func reportAProblemIsOfferedOnAnOpenPondAsk() {

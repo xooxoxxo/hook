@@ -92,7 +92,7 @@ private let three = [item("a", urgency: "now", created: stamp(minutesAgo: 10), s
         store.perform(.clearFilter)
         #expect(store.filter == nil)
         store.perform(.copyLink)
-        #expect(copied == ["relay://i/n"])
+        #expect(copied == ["hook://i/n"])
         store.perform(.openSelection)
         #expect(store.navigation.selectedID == "n")
         store.perform(.pickChoice(1))

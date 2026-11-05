@@ -547,7 +547,7 @@ public enum LinkCheck: Equatable, Sendable {
         await task.value
     }
 
-    /// What a link from outside the app (loopback, relay:// or a notification click)
+    /// What a link from outside the app (loopback, hook://, relay:// or a notification click)
     /// finds for `id`: `.open` when it is in the open queue, `.closed` when it is held
     /// back or a fresh list confirms it is gone, `.unknown` when nothing was checked
     /// (no source yet, a refresh in the last 5 seconds, or the list failed).
@@ -1808,7 +1808,7 @@ extension Store: PanelViewModel {
 
     public func copyLink(_ id: String) {
         HookLog.action(.copy)
-        shell.copy("relay://i/\(id)")
+        shell.copy("hook://i/\(id)")
     }
 
     public func retryDetail(_ id: String) {
