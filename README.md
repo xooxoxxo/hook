@@ -1,4 +1,6 @@
-# Hook
+<p align="center"><img src="site/img/brand/hook-tile-256.png" width="128" height="128" alt="Hook logo: a chrome hook with a lime worm"></p>
+
+<h1 align="center">Hook</h1>
 
 Hook (formerly Relay) is a macOS menu-bar inbox for your coding agents: Claude Code, Codex, Cursor and [more](docs/agents.md#the-agents). When a session needs a key, a decision or a manual step, it lands here as a checklist you tick off.
 
