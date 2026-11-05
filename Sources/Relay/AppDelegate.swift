@@ -43,7 +43,7 @@ import RelayUI
     private var applyChain: Task<Void, Never>?
     /// A link that arrived before launch finished.
     private var pendingLink: String?
-    /// A relay://show that arrived before launch finished.
+    /// A hook://show that arrived before launch finished.
     private var pendingShow = false
     /// Quit is waiting on held-back closes; set once the reply has been sent.
     private var terminationAnswered = false
@@ -259,7 +259,7 @@ import RelayUI
         crash.start(version: UpdateChecker.runningVersion)
     }
 
-    /// A second copy (another path, or a manual `open -n`) hands `relay://show` to the
+    /// A second copy (another path, or a manual `open -n`) hands `hook://show` to the
     /// copy that started first and exits before it opens the queue, the port or the status
     /// item. Only an earlier copy counts, so two copies started together never both leave.
     private func handOffToRunningRelay() -> Bool {
@@ -272,7 +272,7 @@ import RelayUI
         let mine = SingleInstance.Copy(bundleID: bundleID, pid: myPID, started: Self.startTime(of: myPID))
         guard let pid = SingleInstance.older(than: mine, running: running),
               let other = NSRunningApplication(processIdentifier: pid), let appURL = other.bundleURL,
-              let show = URL(string: "relay://show") else { return false }
+              let show = URL(string: "hook://show") else { return false }
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = false
         NSWorkspace.shared.open([show], withApplicationAt: appURL, configuration: configuration) { @Sendable _, error in
@@ -343,7 +343,7 @@ import RelayUI
         NSApp.reply(toApplicationShouldTerminate: true)
     }
 
-    /// relay://show and relay://i/<uuid>.
+    /// hook://show and hook://i/<uuid> (relay:// too).
     func application(_ application: NSApplication, open urls: [URL]) {
         for url in urls {
             switch RelayURL.parse(url) {
@@ -357,7 +357,7 @@ import RelayUI
         }
     }
 
-    /// A link from outside the app (relay://, the loopback server, a notification click)
+    /// A link from outside the app (hook://, relay://, the loopback server, a notification click)
     /// opens an ask in the open queue. An ask confirmed closed shows the list with
     /// "This ask is no longer open."; one that couldn't be checked (no source yet,
     /// a check in the last 5 seconds, an unreachable source) opens directly, and the

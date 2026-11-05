@@ -69,7 +69,7 @@ if [ "${UNIVERSAL:-0}" = "1" ]; then
 fi
 
 if [ "${BUILD_ONLY:-0}" != "1" ]; then
-  # Launch Services must know the app for relay:// to resolve.
+  # Launch Services must know the app for hook:// and relay:// to resolve.
   /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$APP"
 fi
 echo "built $APP"

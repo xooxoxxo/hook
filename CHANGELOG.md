@@ -6,6 +6,10 @@ and versions follow Semantic Versioning.
 ## [Unreleased]
 
 ### Added
+- A `hook://` URL scheme next to `relay://`. `hook://show` and `hook://i/<uuid>` bring Hook
+  forward; `relay://` links still work, so old links and other Macs keep working. Copy link, the
+  context menu and the second-launch hand-off now produce `hook://`. If another app owns
+  `hook://` on your Mac (Hookmark does), `relay://` is the fallback.
 - A notification about asks (one new ask, "N new asks", or the away summary) shows the fish on
   the hook, in the app icon's colours, as its thumbnail on the right. macOS always shows the app
   icon on the left, so the fish is what tells an ask from Hook's other notices, which carry no

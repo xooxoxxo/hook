@@ -594,7 +594,7 @@ if [ "$prebuilt" -eq 1 ] || [ "$SKIP_BUILD" != "1" ]; then
   ditto "$NEW_APP" "$APP"
   if [ "$SKIP_LAUNCH" != "1" ]; then
     "$LSREGISTER" -f "$APP"
-    # relay:// must open ~/Applications/Hook.app, never the release's own copy.
+    # hook:// and relay:// must open ~/Applications/Hook.app, never the release's own copy.
     if [ "$prebuilt" -eq 1 ]; then "$LSREGISTER" -u "$NEW_APP" 2>/dev/null || true; fi
   fi
   echo "app: installed $APP"

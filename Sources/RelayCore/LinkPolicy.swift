@@ -42,18 +42,20 @@ public enum LinkPolicy {
     }
 }
 
-/// What a relay:// URL asks for.
+/// What a hook:// (or legacy relay://) URL asks for.
 public enum RelayURLAction: Equatable, Sendable {
-    /// relay://show: present the panel with focus (a second launch sends this).
+    /// hook://show: present the panel with focus (a second launch sends this).
     case show
-    /// relay://i/<uuid>: open that ask.
+    /// hook://i/<uuid>: open that ask.
     case open(id: String)
 }
 
 public enum RelayURL {
-    /// relay://show and relay://i/<uuid> (case-insensitive scheme and host, id normalized); else nil.
+    /// hook://show and hook://i/<uuid>; relay:// is accepted too, so old links keep working
+    /// (case-insensitive scheme and host, id normalized); else nil.
     public static func parse(_ url: URL) -> RelayURLAction? {
-        guard url.scheme?.lowercased() == "relay", let host = url.host()?.lowercased() else { return nil }
+        guard let scheme = url.scheme?.lowercased(), scheme == "hook" || scheme == "relay",
+              let host = url.host()?.lowercased() else { return nil }
         let parts = url.path().split(separator: "/", omittingEmptySubsequences: true).map(String.init)
         switch host {
         case "show":

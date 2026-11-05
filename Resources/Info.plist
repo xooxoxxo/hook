@@ -35,6 +35,7 @@
             <string>io.github.xooxoxxo.relay</string>
             <key>CFBundleURLSchemes</key>
             <array>
+                <string>hook</string>
                 <string>relay</string>
             </array>
         </dict>
