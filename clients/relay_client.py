@@ -1017,8 +1017,12 @@ class Client:
             return
         # This Mac implements this field without claiming all newer Pond features.
         if self.local and "warning" in instructable:
-            info = self._call("GET", "/version")
-            if isinstance(info, dict) and "ask-warning" in (info.get("capabilities") or []):
+            try:
+                info = self._call("GET", "/version")
+            except NotFound:
+                info = {}
+            capabilities = info.get("capabilities") if isinstance(info, dict) else None
+            if isinstance(capabilities, list) and "ask-warning" in capabilities:
                 needed.pop("warning", None)
         order = [k for k, _ in KEY_MIN_POND] + [LINK_PATH_KEY] + [k for k, _ in TOP_KEY_MIN_POND] + [CHOICE_KEY]
         for key, needs in sorted(needed.items(), key=lambda kv: (_version_key(kv[1]), -order.index(kv[0])),

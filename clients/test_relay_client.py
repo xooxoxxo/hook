@@ -563,6 +563,10 @@ class PondGateTests(Base):
         local = self.local_http("1.0.0", 4)
         with self.assertRaises(rc.PondTooOld):
             self.local(local).post("Acme", ask)
+        for malformed in (True, 42, "ask-warning", {"ask-warning": True}):
+            local.routes[("GET", "/version")][1]["capabilities"] = malformed
+            with self.assertRaises(rc.PondTooOld):
+                self.local(local).post("Acme", ask)
         local.routes[("GET", "/version")][1]["capabilities"] = ["ask-warning"]
         self.assertEqual(self.local(local).post("Acme", ask)["item"]["id"], ITEM_ID)
 
