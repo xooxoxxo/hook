@@ -17,6 +17,8 @@ and versions follow Semantic Versioning.
   `scripts/menubar-glyphs.sh`, and the gallery shows it (`notification-fish`).
 
 ### Changed
+- Keep quick, low-risk clarifications in chat. The skill and agent rules still route owner
+  actions, consequential decisions, merge approvals and release approvals through Hook.
 - `relay post`, `relay_post` and `relay amend` refuse a step that only points at Hook's own
   controls ("Pick an answer below", "Reply with …", "Press Done after answering") and a `verify`
   that only restates the reply or Done ("Look at the reply you sent"). The reply box, the

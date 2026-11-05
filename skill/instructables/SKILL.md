@@ -1,6 +1,7 @@
 ---
 name: instructables
-description: Use whenever a session needs the owner, i.e. a manual step, an API key or token, a login, a click only they can do, a decision, an approval, an unlock or a confirmation. Sends ONE instructable (numbered steps with copy-paste code) to the owner's Hook queue with the relay_post MCP tool, or with `relay post` as a fallback. Triggers include "need the owner", "owner must", "ask the owner", "waiting on the owner", "manual step", "API key", "token", "secret", "credentials", "decision", "approve", "sign off", "click", "login", "sign in", "unlock", "only the owner can".
+description: >-
+  Send owner actions and approvals to Hook: credentials, logins, manual steps, access changes, merge or release approval, and decisions that need durable follow-up. Keep simple explanations and quick, low-risk clarifications in the current chat when a short answer or multiple choice is enough. Uses the relay_post MCP tool, or `relay post` as a fallback.
 ---
 
 # Instructables
@@ -12,10 +13,23 @@ block, and sends a notification.
 
 ## When to send
 
-Send one the moment the work needs the owner: an API key or token, a login, a click in
-a web UI, a command on a machine you can't reach, a decision, an approval or an unlock.
-Don't save asks for the end of the session. Send one ask per instructable. A "waiting
-on you" line in chat alone gets lost.
+First decide whether the owner needs an ask at all. Answer explanations, summaries,
+and status questions directly. Make routine implementation choices within the owner's
+existing instructions; don't ask them to approve work they already authorized.
+
+Keep a quick, low-risk clarification in the current chat when a short answer or a few
+choices are enough, such as which label to use or whether a summary should be brief.
+Use the chat's question control when available. Don't turn it into an instructable
+just because it has choices or the answer is needed to continue.
+
+Send one ask when the owner must act outside the chat: provide credentials, log in,
+click a UI you cannot operate, run a command on an unreachable machine, or unlock access.
+Also use Hook for approvals (including merges and releases), consequential decisions,
+and work that needs a durable checklist or later follow-up. A one-word approval still
+belongs in Hook. Follow any explicit owner preference for where to ask.
+
+Don't save these asks for the end of the session. Bundle related steps and questions
+into one instructable, then keep working on independent tasks.
 
 ## How to write it
 

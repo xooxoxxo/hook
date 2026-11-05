@@ -200,7 +200,9 @@ class AcceptDiffTest(Base):
     def drift_block(self):
         self.sync()
         agents = self.home / ".alpha" / "AGENTS.md"
-        agents.write_text(agents.read_text().replace("send ONE instructable", "send one instructable"))
+        text = agents.read_text()
+        self.assertIn("# Owner asks go to Hook", text)
+        agents.write_text(text.replace("# Owner asks go to Hook", "# Owner asks go to my queue"))
         return agents
 
     def test_accept_keeps_the_edit_until_hook_or_the_file_changes(self):
@@ -238,7 +240,7 @@ class AcceptDiffTest(Base):
         rules.write_text(rules.read_text() + "my line\n")
         skill = self.home / ".agents" / "skills" / "instructables" / "SKILL.md"
         skill.write_text(skill.read_text() + "my skill line\n")
-        cases = [("alpha", "instructions", "send one instructable"), ("beta", "mcp", '"mine.py"'),
+        cases = [("alpha", "instructions", "# Owner asks go to my queue"), ("beta", "mcp", '"mine.py"'),
                  ("beta", "instructions", "my line"), ("gamma", "skill", "my skill line")]
         for hid, piece, frag in cases:
             with self.subTest(hid=hid, piece=piece):
