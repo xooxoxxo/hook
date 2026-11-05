@@ -287,6 +287,10 @@ public enum StepRow {
 
     /// The warning box text while the blocking step is unfinished and not itself locked.
     public static func warning(_ content: StepContent, state: StepState, locked: Bool) -> String? {
+        // Explicit cautions remain visible when completed instructions are revisited.
+        if let warning = content.warning, !warning.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return warning
+        }
         guard !locked, state != .done else { return nil }
         return content.warningText
     }

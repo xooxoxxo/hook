@@ -87,7 +87,8 @@ import Testing
         #expect(StepRow.warning(blocking, state: .current, locked: false) == Flow.blockingWarning)
         #expect(StepRow.warning(blocking, state: .done, locked: false) == nil)
         #expect(StepRow.warning(blocking, state: .todo, locked: true) == nil)
-        #expect(StepRow.warning(StepContent(action: "a", warning: "careful"), state: .todo, locked: false) == nil)
+        #expect(StepRow.warning(StepContent(action: "a", warning: "careful"), state: .todo, locked: false) == "careful")
+        #expect(StepRow.warning(StepContent(action: "a", warning: "Do not run twice"), state: .done, locked: false) == "Do not run twice")
     }
 
     @Test func lockedLabels() {

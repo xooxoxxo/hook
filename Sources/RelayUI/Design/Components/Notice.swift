@@ -6,6 +6,7 @@ import SwiftUI
 ///
 /// `text` is already sanitized (`PanelNotice.text`), so it is shown as is.
 public struct Notice: View {
+    let compact: Bool
     let kind: NoticeKind
     let text: String
     let actionTitle: String?
@@ -15,9 +16,10 @@ public struct Notice: View {
     let onSecondary: () -> Void
     let onDismiss: () -> Void
 
-    public init(kind: NoticeKind, text: String, actionTitle: String?, help: String? = nil,
+    public init(compact: Bool = false, kind: NoticeKind, text: String, actionTitle: String?, help: String? = nil,
                 secondaryTitle: String? = nil, onSecondary: @escaping () -> Void = {},
                 onAction: @escaping () -> Void, onDismiss: @escaping () -> Void) {
+        self.compact = compact
         self.kind = kind
         self.text = text
         self.actionTitle = actionTitle
@@ -29,6 +31,29 @@ public struct Notice: View {
     }
 
     public var body: some View {
+        Group {
+            if compact {
+                VStack(alignment: .leading, spacing: DS.Space.inline) {
+                    HStack(alignment: .firstTextBaseline, spacing: DS.Space.inline) {
+                        label
+                        Spacer(minLength: 0)
+                        IconButton(DS.Symbol.hide, label: "Dismiss", action: onDismiss)
+                    }
+                    if let actionTitle {
+                        Button(actionTitle, action: onAction).controlSize(DS.Control.form)
+                    }
+                }
+            } else {
+                fullNotice
+            }
+        }
+        .helpLabelStyle(.prose)
+        .modifier(NoticeSizing())
+        .accessibilityElement(children: .contain)
+        .onAppear { AccessibilityNotification.Announcement(text).post() }
+    }
+
+    private var fullNotice: some View {
         GroupBox {
             if let secondaryTitle, let actionTitle {
                 // Two buttons don't fit beside the text at panel width: they get their own line.
@@ -56,10 +81,7 @@ public struct Notice: View {
                 }
             }
         }
-        .helpLabelStyle(.prose)
-        .modifier(NoticeSizing())
-        .accessibilityElement(children: .contain)
-        .onAppear { AccessibilityNotification.Announcement(text).post() }
+
     }
 
     private var label: some View {

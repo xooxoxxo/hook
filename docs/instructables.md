@@ -30,6 +30,7 @@ An ask is a `project` plus an instructable: a JSON object with a title and numbe
 | `v` | `1` |
 | `title` | Required, ≤ 120 chars, imperative; the 24 h dedupe key |
 | `why` | ≤ 300 |
+| `warning` | ≤ 300, line breaks allowed. An orange caution above all steps. Does not lock steps. Needs Pond 1.6.0 or a This Mac queue advertising `ask-warning`. |
 | `urgency` | `now`, `today` (default) or `whenever` |
 | `steps` | Required, 1–20 Steps |
 | `verify` | Optional. One Step without `substeps` or `question`: a real check in the world, best a command with `expect`. Leave it out for a pure decision or a review ([Hook's own controls](#hooks-own-controls)) |

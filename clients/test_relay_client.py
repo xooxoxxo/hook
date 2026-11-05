@@ -343,6 +343,14 @@ class PondGateTests(Base):
         self.assertEqual(ctx.exception.exit_code, 1)
         return ctx.exception.error
 
+    def test_ask_warning_requires_a_server_that_preserves_it(self):
+        ask = self.ask(warning="Step caution")
+        ask["warning"] = "Do not run twice"
+        self.pond("1.5.0")
+        self.assertIn("`warning` needs (Pond 1.6.0 or newer)", self.refused(ask))
+        self.pond("1.6.0")
+        self.assertEqual(self.client().post("Acme", ask)["item"]["id"], ITEM_ID)
+
     def test_step_ids_need_1_1_0(self):
         ask = {"v": 1, "title": "Ids", "steps": [{"do": "Go", "id": "s1"}]}
         for pond in (lambda: self.pond("1.0.0", 4), lambda: self.old_pond(4)):
@@ -549,6 +557,14 @@ class PondGateTests(Base):
         local.routes[("GET", "/version")] = (200, {"service": "hook", "version": version, "protocol": protocol})
         local.routes[("POST", "/asks")] = (201, {"item": {"id": ITEM_ID}})
         return local
+
+    def test_local_warning_requires_explicit_capability(self):
+        ask = dict(self.ask(warning="Step caution"), warning="Ask caution")
+        local = self.local_http("1.0.0", 4)
+        with self.assertRaises(rc.PondTooOld):
+            self.local(local).post("Acme", ask)
+        local.routes[("GET", "/version")][1]["capabilities"] = ["ask-warning"]
+        self.assertEqual(self.local(local).post("Acme", ask)["item"]["id"], ITEM_ID)
 
     def test_local_mode_asks_the_app(self):
         local = self.local_http("1.0.0", 4)

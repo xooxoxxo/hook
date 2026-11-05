@@ -9,6 +9,7 @@
     "v": { "const": 1 },
     "title": { "type": "string", "minLength": 1, "maxLength": 120 },
     "why": { "type": "string", "maxLength": 300 },
+    "warning": { "type": "string", "maxLength": 300, "description": "Ask-wide caution shown above all steps. Needs Pond 1.6.0. Does not lock steps." },
     "urgency": { "enum": ["now", "today", "whenever"], "default": "today" },
     "steps": {
       "type": "array",

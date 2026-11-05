@@ -140,9 +140,11 @@ public struct StepContent: Equatable, Sendable {
         self.required = required && !optional
     }
 
-    /// The warning box's text on a blocking step: `warning`, else `Flow.blockingWarning`;
-    /// nil when the step doesn't block.
-    public var warningText: String? { blocking ? (warning ?? Flow.blockingWarning) : nil }
+    /// Explicit cautions do not lock steps. Blocking steps also get a default warning.
+    public var warningText: String? {
+        if let warning, !warning.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return warning }
+        return blocking ? Flow.blockingWarning : nil
+    }
 }
 
 public enum StatusSymbol: Equatable, Sendable { case ok, down, connecting, notSetUp, away }

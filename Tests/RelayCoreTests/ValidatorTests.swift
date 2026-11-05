@@ -1,4 +1,5 @@
 import Foundation
+import Foundation
 import Testing
 @testable import RelayCore
 
@@ -47,6 +48,23 @@ private let minimal: [String: JSONValue] = [
 ]
 
 @Suite struct ValidatorTests {
+    @Test func askWarningsRoundTripAndRespectTheTextLimit() throws {
+        var input = minimal
+        input["warning"] = .string(String(repeating: "w", count: 300))
+        guard case .success(let cleaned) = Validator.validate(.object(input)) else {
+            Issue.record("A valid ask warning was refused"); return
+        }
+        let data = try JSONEncoder().encode(cleaned)
+        let ask = try JSONDecoder().decode(Instructable.self, from: data)
+        #expect(ask.warning == String(repeating: "w", count: 300))
+        #expect(try JSONDecoder().decode(Instructable.self, from: JSONEncoder().encode(ask)).warning == ask.warning)
+        input["warning"] = .string(String(repeating: "w", count: 301))
+        guard case .failure(let failure) = Validator.validate(.object(input)) else {
+            Issue.record("An oversized warning was accepted"); return
+        }
+        #expect(failure.errors == ["warning: longer than 300 characters"])
+    }
+
     @Test func theFixtureIsThere() throws {
         let vectors = try loadVectors()
         #expect(vectors.count >= 200)

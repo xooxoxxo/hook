@@ -33,7 +33,7 @@ QUESTIONS_SENTENCE = ("Any step or sub-step (not verify) can hold a `question` {
 BLOCKING_SENTENCE = ("A step or sub-step (not verify) can set `blocking: true` when the next steps can't "
                      "start without it: the owner can't open later steps until it is done. Use it only when "
                      "later steps fail without it, and put the reason in `warning` (at most 300 chars). "
-                     "`warning` alone shows a caution box. A Pond that is too old refuses these keys.")
+                     "`warning` alone shows a caution above step instructions. Ask-level `warning` shows above all steps (Pond 1.6.0 or This Mac with ask-warning). A Pond that is too old refuses these keys.")
 OPTIONAL_SENTENCE = ("A step or sub-step (not verify) can set `optional: true` when the owner may finish it "
                      "without doing or answering it, e.g. a feedback question or a nice-to-have; it can't "
                      "also be blocking. On a step with sub-steps it makes every sub-step optional. "
