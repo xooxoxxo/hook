@@ -102,6 +102,32 @@ class VectorTests(unittest.TestCase):
                 self.assertEqual(got, [p for p in case["expect"] if "Hook's own controls" in p[1]
                                        or "restates the reply" in p[1]])
 
+    def test_do_title_vectors(self):
+        # A do that is more than the owner's one action: joined actions, or over 60 characters.
+        cases = {c["name"]: c for c in CASES if c["name"].startswith("do-title-")}
+        flagged = [c for c in cases.values() if c["expect"]]
+        self.assertGreaterEqual(len(flagged), 10)
+        self.assertGreaterEqual(len(cases) - len(flagged), 8)
+        self.assertEqual(cases["do-title-leasekey"]["expect"], [[
+            "steps[0].do",
+            "\"Install the Leasekey client…\" names more than one action: keep do to the owner's one action "
+            "and move the rest to detail, or split into steps"]])
+        self.assertEqual(cases["do-title-61"]["expect"], [[
+            "steps[0].do", "do is 61 characters: keep it under 60 and move the rest to detail"]])
+        for name in ("do-title-leasekey-rewritten", "do-title-60", "do-title-click-path", "do-title-click-then",
+                     "do-title-verify-actions"):
+            self.assertEqual(cases[name]["expect"], [], name)
+        for name, case in cases.items():
+            with self.subTest(name):
+                got = [list(p) for p in relay_lint.lint_do_title(case["instructable"])]
+                self.assertEqual(got, [p for p in case["expect"] if "names more than one action" in p[1]
+                                       or "characters: keep it under" in p[1]])
+
+    def test_do_title_pairs_come_last(self):
+        doc = {"v": 1, "title": "x", "steps": [
+            {"do": "Install Node, create a token and add the rule"}, {"do": "Press Done"}]}
+        self.assertEqual([p[0] for p in relay_lint.lint_instructable(doc)], ["steps[1].do", "steps[0].do"])
+
     def test_control_pairs_come_last(self):
         doc = {"v": 1, "title": "x", "done": ["reply"], "steps": [
             {"do": "Press Done"},

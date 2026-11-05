@@ -554,7 +554,8 @@ def _ask(values: Any, title: str) -> Dict[str, Any]:
              "question": {"prompt": "Apply the proposal, remove the whole section, or keep CLAUDE.md as it is?",
                           "choices": list(CHOICES)}},
         ],
-        "verify": {"do": "After the next sync, start a new Claude Code session and ask how it sends you an ask",
+        "verify": {"do": "Ask a new Claude Code session how it sends you an ask",
+                   "detail": "Do it after Hook's next sync.",
                    "expect": "It names relay_post and Hook's rules file"},
     }
 
