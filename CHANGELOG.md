@@ -3,15 +3,14 @@
 All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
-## [Unreleased]
+## [0.15.2] - 2026-11-06
 
 ### Added
 
 - An opt-in synthetic Codex session-delivery proof covering idle turns, active steering, duplicate suppression and runtime restart; it does not attach existing desktop chats.
 - A `hook://` URL scheme next to `relay://`. `hook://show` and `hook://i/<uuid>` bring Hook
-  forward; `relay://` links still work, so old links and other Macs keep working. Copy link, the
-  context menu and the second-launch hand-off now produce `hook://`. If another app owns
-  `hook://` on your Mac (Hookmark does), `relay://` is the fallback.
+  forward; `relay://` links still work. Copy Link uses the local HTTP address so another app
+  claiming `hook://` cannot intercept copied ask links.
 - A notification about asks (one new ask, "N new asks", or the away summary) shows the fish on
   the hook, in the app icon's colours, as its thumbnail on the right. macOS always shows the app
   icon on the left, so the fish is what tells an ask from Hook's other notices, which carry no
