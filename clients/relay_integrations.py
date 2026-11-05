@@ -974,6 +974,8 @@ class Context:
                 item.state, item.note = "drifted", "edited by you"
             elif item.want != rec.get("want"):
                 item.state = "outdated"
+            elif rec.get("refresh"):
+                item.state, item.note = "outdated", f"the installed plugin isn't refreshed yet ({rec['refresh']})"
             else:
                 item.state = "installed"
         if item.failed and item.state in ("not-set-up", "outdated"):
@@ -1311,7 +1313,7 @@ class Applier:
                 if outcome == "skipped":
                     self._note_drift(action)
                 self._clear_failure(action)
-                noted = outcome in ("skipped", "left", "restored")
+                noted = outcome in ("skipped", "left", "restored") or bool(action.detail.get("warned"))
                 self.report.add(action, outcome, action.detail.get("note") if noted else None)
             except _Blocked as exc:
                 self.report.add(action, "blocked", str(exc))
@@ -1407,6 +1409,8 @@ class Applier:
         if item.moved_from is not None and item.moved_from in self.manifest.targets:
             self._move_out(item, kind == "force")
         record = self.write(item, kind)
+        if record.get("refresh"):
+            d["note"], d["warned"] = f"files updated, but {record['refresh']}; the next sync tries again", True
         if kind != "adopt" and (item.record is None or record.get("sha") != old_sha):
             self.report.changed.setdefault(item.harness, []).append(item.piece)
         record.update({"kind": item.method, "piece": item.piece, "schema": self.values.schema,
@@ -1615,21 +1619,34 @@ class Applier:
             _remove_path(dest)
         dirs = rec.get("dirs") or self._made(_mkparents(dest))
         sha = rb.render_tree(src, dest, item.ph, extra)
+        refresh = None
         if plugin.get("method") == "cli":
             fresh = not rec or kind in ("replace", "force") or rec.get("added") is False
             if fresh:
                 for argv in plugin.get("add") or []:
                     self._cmd(_argv(argv, item.ph))
             else:
-                for argv in plugin.get("update") or []:
-                    self._cmd(_argv(argv, item.ph))
+                refresh = self._refresh_plugin(plugin, item)
             if plugin.get("writes"):
                 wpath, _ = _writes_loc(plugin["writes"], item.ph, self.values.home)
                 if not (wpath.exists() or wpath.is_symlink()):
                     raise _Fail(f"`{plugin['add'][0][0]}` ran, but {self.ctx.tilde(wpath)} is not there")
         return {"sha": sha, "backup": backup, "created": True, "dirs": dirs, "version": self.values.version,
                 "remove": [_argv(a, item.ph) for a in plugin.get("remove") or []],
-                "treeChanged": sha != rec.get("sha")}
+                "treeChanged": sha != rec.get("sha"), "refresh": refresh}
+
+    def _refresh_plugin(self, plugin: Dict[str, Any], item: Item) -> Optional[str]:
+        """Run the plugin's update commands (for Claude Code: refresh the marketplace, then update
+        the installed plugin from it). The new files are already in place, so a missing or failing
+        command doesn't fail the update: it returns why, and the next sync runs them again."""
+        for argv in plugin.get("update") or []:
+            argv = _argv(argv, item.ph)
+            if not self.ctx.runner.which(argv[0]):
+                return f"`{argv[0]}` isn't on PATH to refresh the installed plugin"
+            rc, _, err = self.ctx.runner.run(argv)
+            if rc != 0:
+                return f"`{' '.join(argv[:4])}` failed: {_first_line(err, f'exited {rc}')}"
+        return None
 
     # --- removing one target ---
 

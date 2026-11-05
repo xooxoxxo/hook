@@ -35,6 +35,18 @@ and versions follow Semantic Versioning.
   command does in `detail` and what to see in `expect`. The examples that listed several actions
   in one `do` are shorter, and so are the Codex, Cursor and Warp owner steps and the CLAUDE.md
   migration ask's `verify`.
+- The rules file Hook writes into each agent (`~/.claude/rules/hook.md`, `AGENTS.md` and the
+  others) now says to correct a wrong or missing step in an open ask in place with `relay_amend`
+  (`relay amend`), keeping every step's `id`, instead of closing it and posting a new one, which
+  loses the owner's ticks and answers. `relay done` is for when the need is gone.
+
+### Fixed
+- Updating Hook now updates Claude Code's installed plugin too, not only the local marketplace
+  folder: after `claude plugin marketplace update hook` it runs
+  `claude plugin update hook@hook --scope user`, so Claude Code stops running an old copy of the
+  skill. If `claude` is missing or a command fails, the new files stay in place, the sync says
+  so and doesn't fail, and the next sync runs the commands again. Before, a failed refresh left
+  the plugin folder marked "edited by you".
 <!-- hook:pond=^1.1.0 -->
 <!-- hook:mailbox-protocol=5 -->
 

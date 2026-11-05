@@ -5,7 +5,7 @@ Hook sets up Claude Code like every other agent ([agents.md](agents.md)), plus a
 ## What Hook installs
 
 - **MCP server:** `claude mcp add-json --scope user relay`, running `~/.local/share/hook/current/mcp/relay_mcp.py`. It is a user-scope server because a plugin's server would rename the tools (`mcp__plugin_hook_relay__*`) and break permission lists.
-- **The Hook plugin** `hook@hook`, from a local marketplace in `~/.local/share/hook/plugins/claude` (`claude plugin marketplace add`, then `claude plugin install hook@hook --scope user`). It carries the `instructables` skill and the replies hook, which runs `relay hook replies --format claude` on every prompt. Updates run `claude plugin marketplace update hook`.
+- **The Hook plugin** `hook@hook`, from a local marketplace in `~/.local/share/hook/plugins/claude` (`claude plugin marketplace add`, then `claude plugin install hook@hook --scope user`). It carries the `instructables` skill and the replies hook, which runs `relay hook replies --format claude` on every prompt. Updates run `claude plugin marketplace update hook`, then `claude plugin update hook@hook --scope user`, so the installed copy follows the folder; if `claude` is missing or either fails, the sync says so and the next sync tries again.
 - **The rules file** `~/.claude/rules/hook.md`: Hook's instructions. Hook owns it. To change what sessions are told, add your own rules beside it.
 
 Check with `claude mcp get relay` and `claude plugin list` (it lists `hook@hook`), or run both with `relay integrations status --harness claude-code --smoke`.

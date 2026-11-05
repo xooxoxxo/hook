@@ -43,7 +43,10 @@
         ["claude", "plugin", "marketplace", "add", "{{plugins}}/claude"],
         ["claude", "plugin", "install", "hook@hook", "--scope", "user"]
       ],
-      "update": [["claude", "plugin", "marketplace", "update", "hook"]],
+      "update": [
+        ["claude", "plugin", "marketplace", "update", "hook"],
+        ["claude", "plugin", "update", "hook@hook", "--scope", "user"]
+      ],
       "remove": [
         ["claude", "plugin", "uninstall", "hook@hook", "--scope", "user"],
         ["claude", "plugin", "marketplace", "remove", "hook"]
