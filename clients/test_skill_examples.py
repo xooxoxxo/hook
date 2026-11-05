@@ -163,6 +163,12 @@ class SkillExampleTest(unittest.TestCase):
                 with self.subTest(instructable["title"]):
                     self.assertEqual(relay_lint.lint_details(instructable), [])
 
+    def test_the_skill_forbids_steps_that_only_point_at_hooks_controls(self):
+        rules = SKILL.split("## How to write it", 1)[1].split("- **title**", 1)[0]
+        for phrase in ("press Done or Skip", "Hook already shows the reply box", "only points at Hook's own controls"):
+            self.assertIn(phrase, rules)
+        self.assertIn("**verify**: optional.", SKILL)
+
     def test_the_form_example_is_one_sub_step_per_field(self):
         for text in (SKILL, DOCS):
             _, steps = examples(text)

@@ -1736,6 +1736,553 @@
     }
    },
    "expect": []
+  },
+  {
+   "name": "controls-reply",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Restart the reader",
+      "where": "Mac terminal",
+      "code": "launchctl kickstart -k gui/501/com.example.reader",
+      "lang": "bash"
+     },
+     {
+      "do": "Reply with anything that still looks wrong, or 'Fine'"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[1].do",
+     "\"Reply with anything that still looks wrong, or 'Fine'\" only points at Hook's own controls: drop the step; the reply box and questions already show"
+    ]
+   ]
+  },
+  {
+   "name": "controls-pick-an-answer",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Pick an answer below",
+      "where": "Hook"
+     }
+    ],
+    "reply": {
+     "prompt": "Which one?",
+     "choices": [
+      "A",
+      "B"
+     ]
+    }
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"Pick an answer below\" only points at Hook's own controls: drop the step; the reply box and questions already show"
+    ]
+   ]
+  },
+  {
+   "name": "controls-answer-the-question",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Pick the deploy target",
+      "question": {
+       "prompt": "Which environment?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      }
+     },
+     {
+      "do": "Answer the question"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[1].do",
+     "\"Answer the question\" only points at Hook's own controls: drop the step; the reply box and questions already show"
+    ]
+   ]
+  },
+  {
+   "name": "controls-press-done",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Restart the reader",
+      "where": "Mac terminal",
+      "code": "launchctl kickstart -k gui/501/com.example.reader",
+      "lang": "bash"
+     },
+     {
+      "do": "Press Done after answering"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[1].do",
+     "\"Press Done after answering\" only points at Hook's own controls: drop the step; the reply box and questions already show"
+    ]
+   ]
+  },
+  {
+   "name": "controls-choose-an-option",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Choose an option below"
+     }
+    ],
+    "reply": {
+     "prompt": "Which date?",
+     "choices": [
+      "Monday",
+      "Friday"
+     ]
+    }
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"Choose an option below\" only points at Hook's own controls: drop the step; the reply box and questions already show"
+    ]
+   ]
+  },
+  {
+   "name": "controls-look-at-your-reply",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Restart the reader",
+      "where": "Mac terminal",
+      "code": "launchctl kickstart -k gui/501/com.example.reader",
+      "lang": "bash"
+     },
+     {
+      "do": "Look at your reply"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[1].do",
+     "\"Look at your reply\" only points at Hook's own controls: drop the step; the reply box and questions already show"
+    ]
+   ]
+  },
+  {
+   "name": "controls-substep",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Set up the reader",
+      "where": "Browser",
+      "substeps": [
+       {
+        "do": "Open the settings page",
+        "url": "https://app.example.com/settings"
+       },
+       {
+        "do": "Reply here once it shows Ready"
+       }
+      ]
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].substeps[1].do",
+     "\"Reply here once it shows Ready\" only points at Hook's own controls: drop the step; the reply box and questions already show"
+    ]
+   ]
+  },
+  {
+   "name": "controls-verify-look-at-the-reply",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Restart the reader",
+      "where": "Mac terminal",
+      "code": "launchctl kickstart -k gui/501/com.example.reader",
+      "lang": "bash"
+     }
+    ],
+    "verify": {
+     "do": "Look at the reply you sent",
+     "expect": "Fine, or your notes"
+    }
+   },
+   "expect": [
+    [
+     "verify.do",
+     "\"Look at the reply you sent\" only restates the reply or Done: drop verify; keep it only for a real check, like a command with expect"
+    ]
+   ]
+  },
+  {
+   "name": "controls-verify-the-ask-closes",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Restart the reader",
+      "where": "Mac terminal",
+      "code": "launchctl kickstart -k gui/501/com.example.reader",
+      "lang": "bash"
+     }
+    ],
+    "verify": {
+     "do": "Confirm it worked",
+     "expect": "The ask closes"
+    }
+   },
+   "expect": [
+    [
+     "verify.expect",
+     "\"The ask closes\" only restates the reply or Done: drop verify; keep it only for a real check, like a command with expect"
+    ]
+   ]
+  },
+  {
+   "name": "controls-verify-press-done",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Restart the reader",
+      "where": "Mac terminal",
+      "code": "launchctl kickstart -k gui/501/com.example.reader",
+      "lang": "bash"
+     }
+    ],
+    "verify": {
+     "do": "Press Done on this ask in Hook"
+    }
+   },
+   "expect": [
+    [
+     "verify.do",
+     "\"Press Done on this ask in Hook\" only restates the reply or Done: drop verify; keep it only for a real check, like a command with expect"
+    ]
+   ]
+  },
+  {
+   "name": "controls-two-filler-steps",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Restart the reader",
+      "where": "Mac terminal",
+      "code": "launchctl kickstart -k gui/501/com.example.reader",
+      "lang": "bash"
+     },
+     {
+      "do": "Reply with what it printed"
+     },
+     {
+      "do": "Press Done"
+     }
+    ],
+    "verify": {
+     "do": "Look at the reply you sent",
+     "expect": "Fine, or your notes"
+    }
+   },
+   "expect": [
+    [
+     "steps[1].do",
+     "\"Reply with what it printed\" only points at Hook's own controls: drop the step; the reply box and questions already show"
+    ],
+    [
+     "steps[2].do",
+     "\"Press Done\" only points at Hook's own controls: drop the step; the reply box and questions already show"
+    ],
+    [
+     "verify.do",
+     "\"Look at the reply you sent\" only restates the reply or Done: drop verify; keep it only for a real check, like a command with expect"
+    ]
+   ]
+  },
+  {
+   "name": "controls-after-a-value-to-copy",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Open https://app.example.com/settings"
+     },
+     {
+      "do": "Pick an answer below"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"https://app.example.com/settings\" is a value to copy: put it in code (or a URL in url)"
+    ],
+    [
+     "steps[1].do",
+     "\"Pick an answer below\" only points at Hook's own controls: drop the step; the reply box and questions already show"
+    ]
+   ]
+  },
+  {
+   "name": "controls-reply-in-another-app",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Reply to the Slack thread with the link"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "controls-reply-where-another-app",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Reply to the thread with the link",
+      "where": "Slack desktop"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "controls-reply-with-url",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Reply with the release link",
+      "url": "https://github.com/example/app/releases"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "controls-reply-with-code",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Reply with this",
+      "where": "Mail",
+      "code": "Approved, ship it",
+      "lang": "text"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "controls-reply-to-an-email",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Reply to the email from the landlord"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "controls-question-step",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Pick the deploy target",
+      "where": "Hook",
+      "question": {
+       "prompt": "Which environment?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      }
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "controls-click-done-in-a-dialog",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Click Done"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "controls-done-in-another-app",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Tap Done when the pairing finishes",
+      "where": "iPhone Settings"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "controls-answer-in-a-form",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Answer the question in the Google form"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "controls-read-a-file",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Read the replies in the review notes",
+      "file": "~/Documents/review.md"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "controls-pick-a-real-thing",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Pick a date for the public launch"
+     }
+    ],
+    "reply": {
+     "prompt": "Which date?",
+     "choices": [
+      "Monday",
+      "Friday"
+     ]
+    }
+   },
+   "expect": []
+  },
+  {
+   "name": "controls-verify-real-check",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Restart the reader",
+      "where": "Mac terminal",
+      "code": "launchctl kickstart -k gui/501/com.example.reader",
+      "lang": "bash"
+     }
+    ],
+    "verify": {
+     "do": "Check the reader is up",
+     "where": "Mac terminal",
+     "code": "curl -s http://127.0.0.1:8080/health",
+     "lang": "bash",
+     "expect": "ok"
+    }
+   },
+   "expect": []
+  },
+  {
+   "name": "controls-verify-another-app",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Restart the reader",
+      "where": "Mac terminal",
+      "code": "launchctl kickstart -k gui/501/com.example.reader",
+      "lang": "bash"
+     }
+    ],
+    "verify": {
+     "do": "Reload Slack and look under Channels",
+     "where": "Slack desktop",
+     "expect": "#acme-brief is listed with a lock icon"
+    }
+   },
+   "expect": []
+  },
+  {
+   "name": "controls-verify-your-notes-in-an-app",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Restart the reader",
+      "where": "Mac terminal",
+      "code": "launchctl kickstart -k gui/501/com.example.reader",
+      "lang": "bash"
+     }
+    ],
+    "verify": {
+     "do": "Open the notes app",
+     "where": "Notes",
+     "expect": "Your notes appear in the list"
+    }
+   },
+   "expect": []
   }
  ]
 }

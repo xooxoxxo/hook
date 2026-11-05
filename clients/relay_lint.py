@@ -8,6 +8,8 @@ sub-step's `code` (or a page into `url`) and posts again. lint_requirements() ad
 `required` and `done` (Pond 1.3.0) that nothing could ever finish, worded as guidance.
 lint_choice_labels() flags a string choice that asks for words in its label ("Mix (reply
 what)"): from Pond 1.4.0 such a choice is {"label", "text"} with its own field.
+lint_hook_controls() flags a step that only points at Hook's own controls ("Pick an answer
+below", "Press Done") and a verify that only restates the reply or Done.
 
 The rules live here and nowhere else in Hook. Other clients copy this file's functions and
 test them against clients/lint-vectors.json. Stdlib only, Python 3.9+.
@@ -259,10 +261,87 @@ def lint_choice_labels(doc: Any) -> List[Tuple[str, str]]:
     return problems
 
 
+# A step that only points at Hook's own controls: the reply box, the questions, Done and Skip.
+# Hook already shows them, so such a step (or a verify that restates them) is filler.
+_HOOK_PLACES = frozenset(("hook", "hook app", "the hook app", "hook sidebar", "hook queue", "relay", "here",
+                          "this ask", "the ask"))
+_ON_HOOK = r"(?:this|the|your|my)\s+(?:ask|question|questions|prompt|instructable)\b|hook\b|relay\b|here\b|below\b|above\b"
+_CONTROL_DO = re.compile(r"(?:" + "|".join((
+    r"reply\b(?!\s+all\b)(?!\s+(?:to|in|on|at)\s+(?!" + _ON_HOOK + r"))",
+    r"(?:pick|choose|select)\s+(?:an?\s+|one\s+|your\s+)?(?:answer|option|choice|reply)s?\b",
+    r"(?:pick|choose|select)\s+(?:one\s+)?(?:below|above)\b",
+    r"answer\s+(?:(?:the|each|every|all|all\s+the|these|this|my|both)\s+)?(?:question|questions|prompt)\b",
+    r"answer\s+(?:it\s+)?(?:below|above|here|in\s+hook)\b",
+    r"press\s+(?:the\s+)?(?:done|skip)\b",
+    # "Click Done" alone is a button in any app; only Hook's Done comes after answering.
+    r"(?:click|tap|hit|use)\s+(?:the\s+)?(?:done|skip)\s+(?:button\s+)?"
+    r"(?:on\s+(?:this|the)\s+ask|in\s+hook|after\b|when\b|once\b|to\s+(?:close|finish))",
+    r"(?:look\s+at|check|review|read|confirm)\s+(?:the|your)\s+(?:reply|replies|answer|answers)\b",
+)) + r")", re.IGNORECASE)
+_CONTROL_EXPECT = re.compile(r"(?:" + "|".join((
+    r"(?:the\s+)?ask\s+(?:closes|is\s+closed|is\s+done|shows\s+done|moves\s+to\s+done)\b",
+    r"(?:[^.]{0,30}\bor\s+)?your\s+(?:reply|replies|answer|answers|notes)"
+    r"(?:\s+(?:is|are)\s+(?:sent|shown|listed|recorded|there))?\s*[.!]?$",
+    r".*\b(?:done|skip)\s+(?:is\s+)?(?:pressed|turns\s+on|is\s+on)\b",
+)) + r")", re.IGNORECASE)
+_VERIFY_DO = re.compile(r"(?:the\s+)?ask\s+(?:closes|is\s+closed|is\s+done)\b", re.IGNORECASE)
+# "Reply to the Slack thread", "Answer the question in the Google form": work in another app.
+_ELSEWHERE = re.compile(r"\b(?:in|on|to|via|from|at)\s+(?:the\s+|your\s+|a\s+)?([A-Z][\w.-]*)")
+
+
+def _elsewhere(text: str) -> bool:
+    return any(m.group(1).lower() not in ("hook", "relay", "done", "skip") for m in _ELSEWHERE.finditer(text))
+
+
+def _hook_only(node: Dict[str, Any]) -> bool:
+    """No code, url, file, question or sub-steps, and no other place named in where."""
+    if any(node.get(k) not in (None, "", []) for k in ("code", "url", "file", "question", "substeps")):
+        return False
+    where = node.get("where")
+    return not (isinstance(where, str) and where.strip() and where.strip().lower() not in _HOOK_PLACES)
+
+
+def _points_at_controls(text: Any, pattern: "re.Pattern[str]") -> bool:
+    return isinstance(text, str) and bool(pattern.match(text.strip())) and not _elsewhere(text)
+
+
+def lint_hook_controls(doc: Any) -> List[Tuple[str, str]]:
+    """(path, message) for each step or sub-step whose do only points at Hook's own controls
+    ("Pick an answer below", "Reply with …", "Press Done after answering"), then for a verify
+    whose do or expect only restates the reply or Done. A step with code, url, file, a question
+    or sub-steps, or with a where that names another app, is real work and passes."""
+    problems: List[Tuple[str, str]] = []
+    if not isinstance(doc, dict):
+        return problems
+    steps = doc.get("steps") if isinstance(doc.get("steps"), list) else []
+    for i, step in enumerate(steps):
+        if not isinstance(step, dict):
+            continue
+        raw = step.get("substeps") if isinstance(step.get("substeps"), list) else []
+        nodes: List[Tuple[str, Dict[str, Any]]] = [(f"steps[{i}]", step)]
+        nodes += [(f"steps[{i}].substeps[{j}]", sub) for j, sub in enumerate(raw) if isinstance(sub, dict)]
+        for path, node in nodes:
+            if _hook_only(node) and _points_at_controls(node.get("do"), _CONTROL_DO):
+                problems.append((f"{path}.do", f"{json.dumps(node['do'].strip(), ensure_ascii=False)} only points at "
+                                               "Hook's own controls: drop the step; the reply box and questions "
+                                               "already show"))
+    verify = doc.get("verify")
+    if isinstance(verify, dict) and _hook_only(verify):
+        for key in ("do", "expect"):
+            text = verify.get(key)
+            pattern = _CONTROL_EXPECT if key == "expect" else _CONTROL_DO
+            if _points_at_controls(text, pattern) or (key == "do" and _points_at_controls(text, _VERIFY_DO)):
+                problems.append((f"verify.{key}", f"{json.dumps(text.strip(), ensure_ascii=False)} only restates the "
+                                                  "reply or Done: drop verify; keep it only for a real check, "
+                                                  "like a command with expect"))
+                break
+    return problems
+
+
 def lint_instructable(doc: Any) -> List[Tuple[str, str]]:
     """(path, message) for each `do` (step, sub-step, verify) that holds a value the owner
-    would have to retype, then lint_requirements' pairs, then lint_choice_labels'. A step
-    shares its sub-steps' code and url, and they share its."""
+    would have to retype, then lint_requirements' pairs, then lint_choice_labels', then
+    lint_hook_controls'. A step shares its sub-steps' code and url, and they share its."""
     problems: List[Tuple[str, str]] = []
     if not isinstance(doc, dict):
         return problems
@@ -284,7 +363,7 @@ def lint_instructable(doc: Any) -> List[Tuple[str, str]]:
         values = lint_do(verify.get("do"), _strings(verify, "code"), _strings(verify, "url"))
         if values:
             problems.append(("verify.do", _message(values, verify=True)))
-    return problems + lint_requirements(doc) + lint_choice_labels(doc)
+    return problems + lint_requirements(doc) + lint_choice_labels(doc) + lint_hook_controls(doc)
 
 
 def lint_details(doc: Any) -> List[str]:
