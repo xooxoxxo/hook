@@ -3,6 +3,16 @@
 All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## [0.15.1] - 2026-11-05
+
+### Fixed
+- The app icon fills the icon shape on macOS 26 and later, instead of sitting small inside a grey
+  system frame. The icon is now an Icon Composer icon with full-bleed art, compiled into
+  Assets.car, so the system masks it to its own shape. macOS 14 and 15 show the same art as a
+  rounded tile.
+<!-- hook:pond=^1.1.0 -->
+<!-- hook:mailbox-protocol=5 -->
+
 ## [0.15.0] - 2026-11-04
 
 ### Added

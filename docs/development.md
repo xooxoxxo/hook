@@ -110,6 +110,10 @@ scripts/            build, install, test
 
 `Tests/RelayCoreTests/Fixtures/instructable-vectors.json` is the validator's source of truth, and the validator tests run against it. It is kept by hand, except the `optional-*` and `file-*` cases. The Pond's reference validator makes those, and the tests check their error order too.
 
+## App icon
+
+The icon's source is `Resources/AppIcon.icon`, an Icon Composer document with one full-bleed 1024 px layer. `scripts/app-icon.sh` compiles it into `Resources/Assets.car`, which is committed because only Xcode 26 or later can compile a `.icon`. Run it after changing the `.icon` and commit both. `Info.plist` names the catalog in `CFBundleIconName`. macOS 26 and later mask the layered icon to their own shape; macOS 14 and 15 use the rounded images actool renders into the same catalog. `Resources/AppIcon.icns` (`CFBundleIconFile`, the rounded tile on the older grid) is for anything that reads the `.icns` directly, such as the gallery.
+
 ## Vendored viewer scripts
 
 The document viewer uses marked and DOMPurify from `Sources/RelayUI/Resources/Viewer/`, a SwiftPM resource of RelayUI. `scripts/build.sh` copies the folder into `Hook.app/Contents/Resources/Viewer`. They are the unmodified browser builds from the npm tarballs. [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) lists the versions, the tarball integrity hashes and how to update them. The gallery's `viewer-*` scenes render the viewer with WebKit's own snapshot.

@@ -2,7 +2,9 @@ import Foundation
 import Testing
 
 /// What Hook.app carries besides the binary: the app icon (named in Info.plist, copied by
-/// scripts/build.sh) and the menu-bar glyphs.
+/// scripts/build.sh) and the menu-bar glyphs. The icon is Assets.car, compiled from
+/// Resources/AppIcon.icon by scripts/app-icon.sh (CFBundleIconName), and AppIcon.icns
+/// (CFBundleIconFile).
 @Suite struct AppBundleTests {
     private static let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         .deletingLastPathComponent()
@@ -11,6 +13,25 @@ import Testing
         let data = try Data(contentsOf: Self.root.appending(path: "Resources/Info.plist"))
         let plist = try #require(try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any])
         #expect(plist["CFBundleIconFile"] as? String == "AppIcon")
+        #expect(plist["CFBundleIconName"] as? String == "AppIcon")
+    }
+
+    /// macOS 26 and later only fill their icon shape with an icon compiled from an Icon Composer
+    /// document: a BOM-store catalog holding AppIcon's layered stack, beside the flat images
+    /// macOS 14 and 15 read.
+    @Test func theCatalogHoldsTheLayeredIcon() throws {
+        let car = try Data(contentsOf: Self.root.appending(path: "Resources/Assets.car"))
+        #expect(car.prefix(8) == Data("BOMStore".utf8))
+        #expect(car.range(of: Data("AppIcon.iconstack".utf8)) != nil)
+        let icon = Self.root.appending(path: "Resources/AppIcon.icon")
+        let json = try Data(contentsOf: icon.appending(path: "icon.json"))
+        let doc = try #require(try JSONSerialization.jsonObject(with: json) as? [String: Any])
+        let groups = try #require(doc["groups"] as? [[String: Any]])
+        let images = groups.flatMap { ($0["layers"] as? [[String: Any]]) ?? [] }.compactMap { $0["image-name"] as? String }
+        #expect(!images.isEmpty)
+        for name in images {
+            #expect(FileManager.default.fileExists(atPath: icon.appending(path: "Assets/\(name)").path), "\(name)")
+        }
     }
 
     /// Every slot from 16 pt @1x to 512 pt @2x: ic04/ic05 (16 and 32 px), ic11-ic14 (the @2x
@@ -37,6 +58,7 @@ import Testing
     @Test func buildCopiesTheIconAndTheGlyphs() throws {
         let script = try String(contentsOf: Self.root.appending(path: "scripts/build.sh"), encoding: .utf8)
         #expect(script.contains(#"cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns""#))
+        #expect(script.contains(#"cp Resources/Assets.car "$APP/Contents/Resources/Assets.car""#))
         #expect(script.contains(#"cp -R "$MENUBAR" "$APP/Contents/Resources/MenuBar""#))
         let glyphs = Self.root.appending(path: "Sources/RelayUI/Resources/MenuBar")
         for name in ["menubar-idle.png", "menubar-idle@2x.png", "menubar-new.png", "menubar-new@2x.png"] {
