@@ -17,6 +17,8 @@ and versions follow Semantic Versioning.
   `scripts/menubar-glyphs.sh`, and the gallery shows it (`notification-fish`).
 
 ### Changed
+- Panel controls accept the first click while another app has focus, including the group
+  and filter menu. The click no longer only focuses the panel.
 - `relay post`, `relay_post` and `relay amend` refuse a step that only points at Hook's own
   controls ("Pick an answer below", "Reply with …", "Press Done after answering") and a `verify`
   that only restates the reply or Done ("Look at the reply you sent"). The reply box, the
