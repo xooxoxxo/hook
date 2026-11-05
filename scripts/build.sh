@@ -45,6 +45,10 @@ cp -R "$VIEWER" "$APP/Contents/Resources/Viewer"
 MENUBAR="$ROOT/Sources/RelayUI/Resources/MenuBar"
 [ -f "$MENUBAR/menubar-idle.png" ] || { echo "build.sh: no menu-bar glyphs at $MENUBAR" >&2; exit 1; }
 cp -R "$MENUBAR" "$APP/Contents/Resources/MenuBar"
+# The colour fish on the hook that new-ask notifications attach, from Contents/Resources/Notification.
+NOTIFICATION="$ROOT/Sources/RelayUI/Resources/Notification"
+[ -f "$NOTIFICATION/ask-fish.png" ] || { echo "build.sh: no notification image at $NOTIFICATION" >&2; exit 1; }
+cp -R "$NOTIFICATION" "$APP/Contents/Resources/Notification"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cp Resources/Assets.car "$APP/Contents/Resources/Assets.car"
 cp THIRD_PARTY_NOTICES.md "$APP/Contents/Resources/THIRD_PARTY_NOTICES.md"

@@ -336,10 +336,7 @@ extension AppModel: SettingsViewModel {
     /// Title "Hook", body "Notifications work.", ignoring Away (it skips the Notifier's quiet mode).
     private func sendTestNotification() {
         guard Bundle.main.bundleIdentifier != nil else { return }
-        let note = UNMutableNotificationContent()
-        note.title = "Hook"
-        note.body = "Notifications work."
-        if config?.notify.sound == true { note.sound = .default }
+        let note = NotificationContentMaker.testNotice(sound: config?.notify.sound == true)
         UNUserNotificationCenter.current().add(
             UNNotificationRequest(identifier: "relay.test.\(UUID().uuidString)", content: note, trigger: nil))
     }

@@ -1,5 +1,6 @@
 import AppKit
 import RelayCore
+import RelayUI
 import UserNotifications
 
 /// Notifications for new asks. `NotifyPolicy` decides what to show and
@@ -91,13 +92,9 @@ import UserNotifications
     /// away"). A click opens the list with `first`, the first ask that arrived, selected.
     func showReturnSummary(_ text: String, first: String?, settings: NotifySettings) {
         guard available, !quiet else { return }
-        let note = UNMutableNotificationContent()
-        note.title = "Hook"
-        note.body = text
-        note.threadIdentifier = "relay"
-        note.userInfo = first.map { ["first": $0] } ?? [:]
-        if settings.sound { note.sound = .default }
-        post(note, identifier: "relay.away.\(UUID().uuidString)")
+        let made = NotificationContentMaker.awaySummary(
+            text, first: first, sound: settings.sound, images: AskNotificationImage.defaultFolder)
+        post(made.content, identifier: made.identifier)
     }
 
     /// One notification after a crash, pointing to the bar in the panel. Only when
@@ -106,10 +103,7 @@ import UserNotifications
         guard available, !quiet else { return }
         Task { @MainActor in
             guard await permission() == .authorized else { return }
-            let note = UNMutableNotificationContent()
-            note.title = "Hook quit unexpectedly"
-            note.body = "Open Hook to review the crash report. Nothing has been sent."
-            note.threadIdentifier = "relay"
+            let note = NotificationContentMaker.crashNotice()
             try? await UNUserNotificationCenter.current().add(
                 UNNotificationRequest(identifier: "relay.crash", content: note, trigger: nil))
         }
@@ -140,30 +134,23 @@ import UserNotifications
 
     private func deliver(_ content: NotifyContent) {
         guard available, !quiet else { return }
-        let note = UNMutableNotificationContent()
-        note.title = content.title
-        note.body = content.body
-        let identifier: String
-        switch content {
-        case let .single(id, project, _):
-            note.threadIdentifier = project.isEmpty ? "relay" : project
-            note.userInfo = ["id": id]
-            identifier = id
-        case .many:
-            note.threadIdentifier = "relay"
-            identifier = "relay.many.\(UUID().uuidString)"
-        }
-        if settings.sound { note.sound = .default }
-        post(note, identifier: identifier)
+        // One new ask or "N new asks": both carry the fish on the hook (AskNotificationImage).
+        let made = NotificationContentMaker.asks(
+            content, sound: settings.sound, images: AskNotificationImage.defaultFolder)
+        post(made.content, identifier: made.identifier)
     }
 
     /// No category, so no action buttons. Inside the Task, `add(_:)` resolves to
     /// its `async throws` overload; a refused post (permission denied) is dropped.
+    /// A posted attachment's file is moved into the notification store; a refused
+    /// post leaves its copy behind, so it is removed here.
     private func post(_ note: UNMutableNotificationContent, identifier: String) {
+        let copies = note.attachments.map(\.url)
         Task { @MainActor in
             await authorizeIfNeeded()
             try? await UNUserNotificationCenter.current().add(
                 UNNotificationRequest(identifier: identifier, content: note, trigger: nil))
+            for url in copies { try? FileManager.default.removeItem(at: url) }
         }
     }
 

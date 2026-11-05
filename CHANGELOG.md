@@ -5,6 +5,13 @@ and versions follow Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+- A notification about asks (one new ask, "N new asks", or the away summary) shows the fish on
+  the hook, in the app icon's colours, as its thumbnail on the right. macOS always shows the app
+  icon on the left, so the fish is what tells an ask from Hook's other notices, which carry no
+  image. The image comes from `Resources/Notification/ask-fish.svg` through
+  `scripts/menubar-glyphs.sh`, and the gallery shows it (`notification-fish`).
+
 ### Changed
 - `relay post`, `relay_post` and `relay amend` refuse a step that only points at Hook's own
   controls ("Pick an answer below", "Reply with …", "Press Done after answering") and a `verify`
