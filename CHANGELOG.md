@@ -19,6 +19,8 @@ and versions follow Semantic Versioning.
 ### Changed
 - Keep quick, low-risk clarifications in chat. The skill and agent rules still route owner
   actions, consequential decisions, merge approvals and release approvals through Hook.
+- Panel controls accept the first click while another app has focus, including the group
+  and filter menu. The click no longer only focuses the panel.
 - `relay post`, `relay_post` and `relay amend` refuse a step that only points at Hook's own
   controls ("Pick an answer below", "Reply with …", "Press Done after answering") and a `verify`
   that only restates the reply or Done ("Look at the reply you sent"). The reply box, the
