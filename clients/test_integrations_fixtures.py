@@ -190,7 +190,7 @@ class Cycle:
             path.write_text(text)
         elif kind == "block":
             text = path.read_text()
-            text = text.replace("send ONE instructable", "send one instructable")
+            text = text.replace("# Owner asks go to Hook", "# Owner asks go to my queue")
             path.write_text(text)
         elif kind == "file":
             path.write_text(path.read_text() + "my line\n")
