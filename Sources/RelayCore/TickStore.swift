@@ -12,6 +12,19 @@ public enum TickStore {
     public static let prefix = "relay.ticks.v2."
     public static let prefixV3 = "relay.ticks.v3."
 
+    /// First authoritative 1.5 fetch retires this source's device-local ticks.
+    /// Never upload them: an old cache could undo another device's untick.
+    public static func adoptShared(_ defaults: UserDefaults, sourceKey: String) {
+        let marker = "relay.ticks.shared." + sourceKey
+        guard !defaults.bool(forKey: marker) else { return }
+        let prefixes = [prefix, prefixV3, "relay.ticks."].map { $0 + sourceKey + "." }
+        for key in defaults.dictionaryRepresentation().keys {
+            guard let prefix = prefixes.first(where: key.hasPrefix) else { continue }
+            if !key.dropFirst(prefix.count).contains(".") { defaults.removeObject(forKey: key) }
+        }
+        defaults.set(true, forKey: marker)
+    }
+
     public static func key(sourceKey: String, id: String) -> String {
         prefix + sourceKey + "." + id
     }

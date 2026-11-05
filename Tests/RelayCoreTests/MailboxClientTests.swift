@@ -594,6 +594,53 @@ private func sentHeader(_ host: String, _ name: String) -> String? {
         await #expect(throws: QueueError.notFound) { try await client.enrollment("e2") }
     }
 
+    @Test func revokeSendsOnlyTheDeviceIDWithApprovedOwnerAuthentication() async throws {
+        let (client, host) = try makeClient(ownerKey: { ownerKeyValue }) { _, _ in (200, #"{"revoked":"phone-1"}"#) }
+        try await client.revokeOwnerKey("phone-1")
+        let request = try #require(MailboxStubRegistry.shared.last(host)?.request)
+        #expect(request.httpMethod == "POST")
+        #expect(request.url?.path() == "/owner/revoke")
+        #expect(try sentBody(host) == .object(["id": .string("phone-1")]))
+        #expect(sentHeader(host, "X-Hook-Owner-Key") == ownerKeyValue)
+        #expect(sentHeader(host, "Authorization")?.hasPrefix("Bearer ") == true)
+        #expect(sentHeader(host, "X-Hook-Protocol") == "6")
+        let (refused, _) = try makeClient(ownerKey: { ownerKeyValue }) { _, _ in (403, #"{"error":"unknown owner key"}"#) }
+        await #expect(throws: QueueError.ownerKeyRefused) { try await refused.revokeOwnerKey("phone-1") }
+    }
+
+    @Test @MainActor func cancelledRevokeAfterCredentialReadNeverReachesTransport() async throws {
+        let tokenName = SecretName.pondToken(sourceKey: "synthetic-revoke")
+        let tokens = MemorySecretStore([tokenName: Data("synthetic-token".utf8)])
+        tokens.holdReads()
+        defer { tokens.releaseReads() }
+        let dispatched = OSAllocatedUnfairLock(initialState: 0)
+        let settings = MailboxSettings(url: URL(string: "https://pond.example.test")!, tokenFile: "unused", context: "test")
+        let client = MailboxClient(settings: settings, tokenSource: KeychainTokenSource(store: tokens, name: tokenName),
+            ownerKey: { "synthetic-approved-owner-key" }, keychain: KeychainQueue(label: "test.revoke.cancelled-token"),
+            transport: { request in
+                dispatched.withLock { $0 += 1 }
+                return (Data(#"{"revoked":"phone"}"#.utf8),
+                        HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+            })
+        let task = Task { try await client.revokeOwnerKey("phone") }
+        while tokens.waitingReads == 0 { await Task.yield() }
+        task.cancel()
+        tokens.releaseReads()
+        await #expect(throws: CancellationError.self) { try await task.value }
+        #expect(dispatched.withLock { $0 } == 0)
+    }
+
+    @Test func revokeNeverFallsBackToBearerOnlyWhenTheApprovedKeyDisappears() async throws {
+        for key in [nil, ""] as [String?] {
+            let (client, host) = try makeClient(ownerKey: { key }) { _, _ in
+                Issue.record("Unsigned revocation must not reach transport")
+                return (200, #"{"revoked":"phone-1"}"#)
+            }
+            await #expect(throws: QueueError.ownerKeyRefused) { try await client.revokeOwnerKey("phone-1") }
+            #expect(MailboxStubRegistry.shared.last(host) == nil)
+        }
+    }
+
     @Test func requiringTheOwnerKeyOnIsAtOnceAndOffWaitsForTelegram() async throws {
         let (on, onHost) = try makeClient(ownerKey: { ownerKeyValue }) { _, _ in (200, #"{"required":true}"#) }
         #expect(try await on.requireOwnerKey(true) == .on)

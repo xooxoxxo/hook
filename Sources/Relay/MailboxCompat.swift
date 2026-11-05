@@ -1,3 +1,4 @@
+import RelayMacCore
 import AppKit
 import RelayCore
 import RelayUI

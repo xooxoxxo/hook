@@ -1,8 +1,8 @@
 import Foundation
 import RelayCore
 
-/// Required steps before Done (Pond 1.3.0): the Done gate, and this Mac's ticks sent to the Pond
-/// as progress, so its 409 and Telegram's Done see them.
+/// Required steps before Done (Pond 1.3), plus shared ticks on every ask (Pond 1.5).
+/// Older Ponds retain the Mac's local tick and requirements catch-up behavior.
 extension Store {
     // MARK: The gate
 
@@ -50,6 +50,7 @@ extension Store {
         post(.doneRefused(id: close.id, title: close.title))
         await reload(close.id)
         guard gen == generation else { return }
+        guard deliveryPolicy == .desktop, sharedProgressSupport == false else { return }
         let behind = Requirements.behind(left, nodes: nodes(for: close.id) ?? [], ticks: ticks(for: close.id))
         queueProgress(close.id, tick: behind, untick: [])
     }
@@ -103,14 +104,103 @@ extension Store {
         return pond.supports(.requirements)
     }
 
-    /// Adds tick changes to the ask's outbox and restarts its debounce. Only for an ask that
-    /// declares requirements, on a source that may take progress.
+    /// nil until the version arrives; older Ponds retain their local Mac semantics.
+    var sharedProgressSupport: Bool? {
+        guard sourceKey.hasPrefix("mailbox:") else { return false }
+        return pond.map { $0.supports(.sharedProgress) }
+    }
+
+    /// Match the raw body of the displayed, verified stamp. Typed Step omits
+    /// unknown fields, so it cannot establish the identity of a local action.
+    private func progressIdentity(_ id: String) -> [String: JSONValue]? {
+        if let stamp = renderedStamp(id) {
+            guard case .success(let history)? = histories[id], history.body(stamp) != nil,
+                  RevisionCheck.checkPins(history, pins: record(id)?.pins ?? [:]) == nil else { return nil }
+            let retained = sharedProgressDetails[id]?.revisions.first { $0.stamp == stamp }?.body
+            let listed = served[id]?.revision.flatMap { $0.stamp == stamp ? $0.body : nil }
+            guard let body = retained ?? listed, let json = try? JSONValue.parse(Data(body.utf8)) else { return nil }
+            return SharedProgress.stepIdentities(in: json)
+        }
+        guard histories[id] == nil, served[id]?.revision == nil,
+              served[id]?.revisionMetadataMalformed != true else { return nil }
+        guard let body = sharedProgressDetails[id]?.item.payload.instructableJSON
+                ?? served[id]?.payload.instructableJSON else { return nil }
+        return SharedProgress.stepIdentities(in: body)
+    }
+
+    private func sharedBase(_ id: String) -> Set<String> {
+        let identity = progressIdentity(id)
+        let authoritative = sharedProgressValues[id]
+        var ticks: Set<String> = []
+        ProgressOverlay(delta: ProgressDelta(tick: authoritative?.ticks ?? []), identity: authoritative?.identity)
+            .apply(to: &ticks, identity: identity)
+        for overlay in progressOverlays[id] ?? [] { overlay.apply(to: &ticks, identity: identity) }
+        return ticks
+    }
+
+    func sharedTicks(_ id: String, item: WireItem) -> Set<String> {
+        var ticks = sharedBase(id)
+        if let delta = progressOutbox[id] {
+            ProgressOverlay(delta: delta, identity: progressIdentities[id]).apply(to: &ticks, identity: progressIdentity(id))
+        }
+        return Set(Flow.items(of: stepTree(item)).filter { $0.stepID.map(ticks.contains) ?? false }.map(\.path))
+    }
+
+    /// A late response must not roll back either the event log or the accepted revision.
+    func staleProgressDetail(_ detail: AskDetail) -> Bool {
+        let id = detail.item.id
+        let old = sharedProgressDetails[id]
+        let seenRevision = max(old?.item.revision?.rev ?? 0, served[id]?.revision?.rev ?? 0)
+        if (detail.item.revision?.rev ?? 0) < seenRevision { return true }
+        if (detail.item.revision?.acceptedRev ?? 1) < (old?.item.revision?.acceptedRev ?? 1) { return true }
+        return (detail.events.map(\.seq).max() ?? 0) < (old?.events.map(\.seq).max() ?? 0)
+    }
+
+    func receiveSharedProgress(_ raw: AskDetail, confirmed: Set<UUID>) {
+        let id = raw.item.id
+        guard let ticks = try? SharedProgress.fold(detail: raw) else { return }
+        if case .success(let history)? = histories[id],
+           RevisionCheck.checkPins(history, pins: record(id)?.pins ?? [:]) != nil { return }
+        var body = raw.item.payload.instructableJSON
+        if raw.item.revision != nil {
+            guard case .success(let history)? = histories[id],
+                  let revision = raw.revisions.first(where: { $0.rev == history.acceptedOnPond }),
+                  let accepted = try? JSONValue.parse(Data(revision.body.utf8)) else { return }
+            body = accepted
+        }
+        sharedProgressDetails[id] = raw
+        sharedProgressValues[id] = (ticks, body.map(SharedProgress.stepIdentities) ?? [:])
+        guard sharedProgressSupport == true else { return }
+        TickStore.adoptShared(defaults, sourceKey: sourceKey)
+        progressOverlays[id]?.removeAll { confirmed.contains($0.token) }
+        progressConfirmed[id]?.subtract(confirmed)
+        tickCache[id] = nil
+    }
+
+    /// Adds current local tick changes to the outbox and restarts its debounce.
+    /// Before 1.5, only asks declaring requirements send progress.
     func queueProgress(_ id: String, tick: [String], untick: [String]) {
         guard !tick.isEmpty || !untick.isEmpty, progressSupport != false,
-              Requirements.declared(item(for: id)?.instructable) else { return }
+              sharedProgressSupport != false || Requirements.declared(item(for: id)?.instructable) else { return }
         var delta = progressOutbox[id] ?? ProgressDelta()
-        delta.add(tick: tick, untick: untick)
+        if sharedProgressSupport == true {
+            delta = ProgressOverlay(delta: delta, identity: progressIdentities[id]).filtered(identity: progressIdentity(id))
+        }
+        if sharedProgressSupport == true, item(for: id) != nil {
+            // Keep the latest intent relative to the current server/in-flight base.
+            // A remote tick arriving during the debounce must not cancel a new untick.
+            delta.tick.subtract(untick)
+            delta.untick.subtract(tick)
+            delta.tick.formUnion(tick)
+            delta.untick.formUnion(untick)
+            let base = sharedBase(id)
+            delta.tick.subtract(base)
+            delta.untick.formIntersection(base)
+        } else {
+            delta.add(tick: tick, untick: untick)
+        }
         progressOutbox[id] = delta.isEmpty ? nil : delta
+        progressIdentities[id] = progressIdentity(id)
         scheduleProgress(id)
     }
 
@@ -134,37 +224,69 @@ extension Store {
     /// refuses as invalid (400) would be refused again, so it goes.
     @discardableResult func flushProgress(_ id: String) async -> Bool {
         progressTimers.removeValue(forKey: id)?.cancel()
+        let gen = generation
         while let running = progressSends[id] {
             await running.task.value
+            guard gen == generation else { return false }
             if progressSends[id]?.token == running.token { progressSends[id] = nil }
         }
+        if sharedProgressSupport == true, let delta = progressOutbox[id] {
+            let filtered = ProgressOverlay(delta: delta, identity: progressIdentities[id]).filtered(identity: progressIdentity(id))
+            progressOutbox[id] = filtered.isEmpty ? nil : filtered
+        }
         guard let delta = progressOutbox[id], !delta.isEmpty else { return true }
-        guard progressSupport == true, let source else { return false }
+        guard mutationsAvailable, progressSupport == true, let source else { return false }
         progressOutbox[id] = nil
-        let gen = generation
         let stamp = renderedStamp(id)
         let token = UUID()
+        let shared = sharedProgressSupport == true
+        let sentIdentity = progressIdentities[id]
+        if shared {
+            progressOverlays[id, default: []].append(ProgressOverlay(token: token, delta: delta, identity: sentIdentity))
+        }
         let task = Task { [weak self] in
             do {
                 _ = try await source.progress(id, tick: delta.tick.sorted(), untick: delta.untick.sorted(), stamp: stamp)
+                guard let self, gen == self.generation, !Task.isCancelled else { return }
+                if shared {
+                    self.progressConfirmed[id, default: []].insert(token)
+                    await self.reload(id)
+                }
             } catch {
                 guard let self, gen == self.generation else { return }
+                self.progressOverlays[id]?.removeAll { $0.token == token }
+                self.tickCache[id] = nil
+                if self.deliveryPolicy == .phone {
+                    self.post(.deliveryFailed(reason: Self.failureReason(error)))
+                    return
+                }
                 if case QueueError.rejected(400, _, _)? = error as? QueueError { return }
-                var back = delta
-                if let later = self.progressOutbox[id] { back.add(later) }
+                var back = shared
+                    ? ProgressOverlay(delta: delta, identity: sentIdentity).filtered(identity: self.progressIdentity(id))
+                    : delta
+                if let later = self.progressOutbox[id] {
+                    if shared {
+                        back.tick.subtract(later.untick)
+                        back.untick.subtract(later.tick)
+                        back.tick.formUnion(later.tick)
+                        back.untick.formUnion(later.untick)
+                    } else { back.add(later) }
+                }
                 self.progressOutbox[id] = back.isEmpty ? nil : back
             }
         }
         progressSends[id] = (token, task)
         await task.value
+        guard gen == generation else { return false }
         if progressSends[id]?.token == token { progressSends[id] = nil }
         return progressOutbox[id] == nil
     }
 
-    /// After a detail load: the ticks the Pond lists as left that this Mac has go again (RD 11,
-    /// 13), and an outbox a failed send left behind gets another try.
+    /// Older Ponds catch up device-local required ticks. Shared-progress Ponds
+    /// only retry the current outbox; receiving remote ticks never queues a send.
     func catchUpProgress(_ id: String) {
-        if let pond = details[id]?.item.requirements, !pond.ready, let nodes = nodes(for: id) {
+        guard deliveryPolicy == .desktop else { return }
+        if sharedProgressSupport == false, let pond = details[id]?.item.requirements, !pond.ready, let nodes = nodes(for: id) {
             queueProgress(id, tick: Requirements.behind(pond.left, nodes: nodes, ticks: ticks(for: id)), untick: [])
         }
         if progressOutbox[id] != nil, progressTimers[id] == nil, progressSends[id] == nil { scheduleProgress(id) }
@@ -173,7 +295,17 @@ extension Store {
     /// The version check answered: a Pond with progress gets what waited, any other source never will.
     func progressSupportChanged() {
         switch progressSupport {
-        case true?: progressOutbox.keys.forEach(scheduleProgress)
+        case true?:
+            if sharedProgressSupport == true {
+                if !sharedProgressDetails.isEmpty { TickStore.adoptShared(defaults, sourceKey: sourceKey) }
+                tickCache = [:]
+            } else {
+                progressOutbox = progressOutbox.filter { Requirements.declared(item(for: $0.key)?.instructable) }
+                // Version discovery held legacy catch-up; only an older Pond may
+                // now receive the ticks it says are missing from requirements.
+                details.keys.forEach(catchUpProgress)
+            }
+            progressOutbox.keys.forEach(scheduleProgress)
         case false?: resetProgress()
         case nil: break
         }
@@ -184,6 +316,13 @@ extension Store {
         progressTimers.values.forEach { $0.cancel() }
         progressTimers = [:]
         progressOutbox = [:]
+        progressSends.values.forEach { $0.task.cancel() }
+        progressSends = [:]
+        progressOverlays = [:]
+        progressConfirmed = [:]
+        progressIdentities = [:]
+        sharedProgressDetails = [:]
+        sharedProgressValues = [:]
     }
 }
 
@@ -193,4 +332,24 @@ struct RequirementInputs: Equatable {
     var detail: Int
     var history: Int
     var ticks: Set<String>
+}
+
+/// A delta acts only on the same step content the owner ticked. A correction may
+/// toggle required or move a step, but changing its command invalidates the tick.
+struct ProgressOverlay {
+    var token = UUID()
+    var delta: ProgressDelta
+    var identity: [String: JSONValue]?
+
+    func filtered(identity current: [String: JSONValue]?) -> ProgressDelta {
+        guard let identity, let current else { return ProgressDelta() }
+        let valid = Set(current.keys.filter { identity[$0] != nil && identity[$0] == current[$0] })
+        return ProgressDelta(tick: delta.tick.intersection(valid), untick: delta.untick.intersection(valid))
+    }
+
+    func apply(to ticks: inout Set<String>, identity current: [String: JSONValue]?) {
+        let delta = filtered(identity: current)
+        ticks.formUnion(delta.tick)
+        ticks.subtract(delta.untick)
+    }
 }

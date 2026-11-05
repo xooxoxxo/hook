@@ -20,6 +20,15 @@ jobs:
       - name: Build
         run: swift build
 
+      - name: Shared core boundary
+        run: ./scripts/test-check-core-boundary.sh && python3 scripts/check-core-boundary.py --include-ui
+
+      - name: iOS shared core builds
+        run: ./scripts/check-ios-core.sh
+
+      - name: iOS shared UI builds
+        run: ./scripts/check-ios-ui.sh
+
       - name: Token lint
         run: ./scripts/test-check-tokens.sh && ./scripts/check-tokens.sh
 

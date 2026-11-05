@@ -210,7 +210,12 @@ public struct Payload: Codable, Sendable, Equatable {
     public var why: String?
     public var cmd: String?
     public var link: String?
-    public var instructable: Instructable?
+    public var instructable: Instructable? {
+        didSet { instructableJSON = Self.json(instructable) }
+    }
+    /// The source JSON retains own fields this version of Step does not know.
+    /// A typed mutation regenerates it, so it cannot outlive the value it describes.
+    public private(set) var instructableJSON: JSONValue?
 
     enum CodingKeys: String, CodingKey {
         case why, cmd, link, instructable
@@ -218,6 +223,20 @@ public struct Payload: Codable, Sendable, Equatable {
 
     public init(why: String? = nil, cmd: String? = nil, link: String? = nil, instructable: Instructable? = nil) {
         self.why = why; self.cmd = cmd; self.link = link; self.instructable = instructable
+        self.instructableJSON = Self.json(instructable)
+    }
+
+    private static func json(_ instructable: Instructable?) -> JSONValue? {
+        guard let instructable, let data = try? JSONEncoder().encode(instructable) else { return nil }
+        return try? JSONValue.parse(data)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(why, forKey: .why)
+        try c.encodeIfPresent(cmd, forKey: .cmd)
+        try c.encodeIfPresent(link, forKey: .link)
+        try c.encodeIfPresent(instructableJSON, forKey: .instructable)
     }
 }
 
@@ -230,6 +249,7 @@ extension Payload {
         cmd = try? c.decodeIfPresent(String.self, forKey: .cmd)
         link = try? c.decodeIfPresent(String.self, forKey: .link)
         instructable = try? c.decodeIfPresent(Instructable.self, forKey: .instructable)
+        instructableJSON = instructable == nil ? nil : try c.decodeIfPresent(JSONValue.self, forKey: .instructable)
     }
 }
 
@@ -317,6 +337,9 @@ public struct WireItem: Codable, Sendable, Equatable, Identifiable {
     public var completedAt: String? = nil
     /// The current revision (Pond 1.1.0); nil from an older Pond or This Mac mode.
     public var revision: ServedRevision? = nil
+    /// Existing readers remain lenient; shared progress must distinguish corrupt
+    /// metadata (including null) from a genuinely absent legacy revision.
+    public private(set) var revisionMetadataMalformed = false
     /// What the owner's Done still waits for (Pond 1.3.0), on `GET /asks/{id}` and the routes that
     /// answer one item; nil on an ask without requirements, from `GET /asks`, or an older Pond.
     public var requirements: PondRequirements? = nil
@@ -333,8 +356,8 @@ public struct WireItem: Codable, Sendable, Equatable, Identifiable {
         self.revision = revision; self.requirements = requirements
     }
 
-    /// As the synthesized decoder did, plus a lenient `revision` and `requirements`: a malformed
-    /// one is nil, so the ask reads as one from an older Pond rather than failing the list.
+    /// Keep existing list readers lenient: malformed values remain nil. Revision
+    /// provenance is retained so shared progress can refuse corrupt metadata.
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id)
@@ -345,8 +368,26 @@ public struct WireItem: Codable, Sendable, Equatable, Identifiable {
         updated = try c.decode(String.self, forKey: .updated)
         payload = try c.decode(Payload.self, forKey: .payload)
         completedAt = try c.decodeIfPresent(String.self, forKey: .completedAt)
-        revision = (try? c.decodeIfPresent(ServedRevision.self, forKey: .revision)) ?? nil
+        if c.contains(.revision) {
+            do { revision = try c.decode(ServedRevision.self, forKey: .revision) }
+            catch { revision = nil; revisionMetadataMalformed = true }
+        }
         requirements = (try? c.decodeIfPresent(PondRequirements.self, forKey: .requirements)) ?? nil
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(title, forKey: .title)
+        try c.encode(status, forKey: .status)
+        try c.encodeIfPresent(projectId, forKey: .projectId)
+        try c.encode(created, forKey: .created)
+        try c.encode(updated, forKey: .updated)
+        try c.encode(payload, forKey: .payload)
+        try c.encodeIfPresent(completedAt, forKey: .completedAt)
+        if revisionMetadataMalformed { try c.encodeNil(forKey: .revision) }
+        else { try c.encodeIfPresent(revision, forKey: .revision) }
+        try c.encodeIfPresent(requirements, forKey: .requirements)
     }
 
     public var instructable: Instructable? { payload.instructable }
@@ -389,6 +430,8 @@ public struct AskDetail: Codable, Sendable, Equatable {
     public var events: [Event]
     /// Every revision, oldest first (Pond 1.1.0); [] from an older Pond or This Mac mode.
     public var revisions: [Revision]
+    /// Malformed present history must not become legacy after lenient decoding.
+    public private(set) var revisionsMetadataMalformed = false
 
     enum CodingKeys: String, CodingKey {
         case item, events, revisions
@@ -398,12 +441,25 @@ public struct AskDetail: Codable, Sendable, Equatable {
         self.item = item; self.events = events; self.revisions = revisions
     }
 
-    /// `revisions` is [] when absent or malformed.
+    /// `revisions` remains [] when absent or malformed; the provenance flag keeps
+    /// malformed history from silently becoming a legacy ask.
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         item = try c.decode(WireItem.self, forKey: .item)
         events = try c.decode([Event].self, forKey: .events)
-        revisions = (try? c.decodeIfPresent([Revision].self, forKey: .revisions)) ?? []
+        revisions = []
+        if c.contains(.revisions) {
+            do { revisions = try c.decode([Revision].self, forKey: .revisions) }
+            catch { revisionsMetadataMalformed = true }
+        }
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(item, forKey: .item)
+        try c.encode(events, forKey: .events)
+        if revisionsMetadataMalformed { try c.encodeNil(forKey: .revisions) }
+        else { try c.encode(revisions, forKey: .revisions) }
     }
 
     /// The owner's replies, oldest first.

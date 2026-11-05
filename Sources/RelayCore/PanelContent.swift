@@ -23,6 +23,8 @@ public enum PanelContent: Equatable, Sendable {
 
 /// The one Notice the panel shows at a time. Texts are display-ready.
 public enum PanelNotice: Equatable, Sendable {
+    /// A phone write whose outcome cannot safely offer replay.
+    case deliveryFailed(reason: String)
     case actionFailed(verdict: Verdict, id: String, title: String, reason: String)
     case reopenFailed(id: String, title: String, reason: String)
     /// No caller yet: a reopen or reply that fails to save already shows its error in its own
@@ -95,7 +97,7 @@ public enum PanelNotice: Equatable, Sendable {
 
     public var kind: NoticeKind {
         switch self {
-        case .actionFailed, .reopenFailed, .storeFailed, .queueMoved, .resumeFailed, .pondOlder,
+        case .deliveryFailed, .actionFailed, .reopenFailed, .storeFailed, .queueMoved, .resumeFailed, .pondOlder,
              .mailboxUpdateFailed, .mailboxUpdateCommandInvalid, .ownerKeyRefused, .historyChanged, .acceptFailed,
              .reviewRecordsChanged, .reviewRecordsUnreadable: return .error
         case .settingsReloaded, .sessionClosed, .noLongerOpen, .offlineCached, .updating, .hookOlder,
@@ -105,6 +107,7 @@ public enum PanelNotice: Equatable, Sendable {
 
     public var text: String {
         switch self {
+        case .deliveryFailed(let reason): return UserFacingError.text(reason)
         case let .actionFailed(verdict, _, title, reason):
             return "Couldn't send \(verdict == .done ? "Done" : "Skip") for “\(Sanitize.revealLine(title))”. \(UserFacingError.text(reason))"
         case let .reopenFailed(_, title, reason):
@@ -177,7 +180,7 @@ public enum PanelNotice: Equatable, Sendable {
         case .newAgents: return "Open Settings"
         case .doneRefused: return "Show"
         case .reviewRecordsUnreadable: return "Reset Review Records…"
-        case .storeFailed, .settingsReloaded, .updating, .resumeFailed, .mailboxUpToDate, .mailboxUpdateFailed,
+        case .deliveryFailed, .storeFailed, .settingsReloaded, .updating, .resumeFailed, .mailboxUpToDate, .mailboxUpdateFailed,
              .mailboxUpdateCommandInvalid, .ownerKeyRefused, .reviewRecordsChanged,
              .doneHeldBack, .acceptFailed, .crashReport:
             return nil

@@ -157,9 +157,10 @@ extension Store {
 
     /// Use Version N: accepts exactly `stamp`, the verified current revision. A change to a
     /// command, link or file (since the baseline, or since rev 1 on a first view) asks for Touch
-    /// ID first. The acceptance is local and sealed before the Pond hears of it: the Pond is
-    /// not trusted for it, so a failed Pond call keeps it and marks the record to resend.
+    /// ID first. Desktop acceptance is sealed before sending and may catch up later. Phone
+    /// acceptance is sealed only after a confirmed response; an uncertain send keeps drafts.
     @discardableResult public func acceptRevision(_ id: String, stamp: RevisionStamp) async -> Bool {
+        guard mutationsAvailable else { return false }
         // One at a time: a second press while Touch ID or the Pond call is up accepts nothing.
         guard !accepting.contains(id) else { return false }
         HookLog.action(.accept)
@@ -180,12 +181,23 @@ extension Store {
             // A poll may have landed during the prompt: accept only what was on screen.
             guard case .pending(_, let still, _) = reviewState(id), still == stamp else { return false }
         }
+        if deliveryPolicy == .phone {
+            guard let source else { return false }
+            let gen = generation
+            do { _ = try await source.accept(id, stamp: stamp) }
+            catch {
+                guard gen == generation else { return false }
+                if !ownerKeyRefused(error) { post(.deliveryFailed(reason: Self.failureReason(error))) }
+                return false
+            }
+            guard gen == generation, case .pending(_, let still, _) = reviewState(id), still == stamp else { return false }
+        }
         var next = record(id) ?? ReviewRecord()
         next.accepted = stamp
         next.seen = stamp
         next.changed = diff.changedIDs + diff.addedIDs
         next.added = diff.addedIDs
-        next.pondAcceptPending = true
+        next.pondAcceptPending = deliveryPolicy == .desktop
         setRecord(next, for: id)
         saveReviewsNow()
         resetAfterAccept(id, before: before, diff: diff)
@@ -193,7 +205,7 @@ extension Store {
         queueInputChanged()
         objectWillChange.send()
 
-        guard let source else { return true }
+        guard deliveryPolicy == .desktop, let source else { return true }
         let gen = generation
         do {
             _ = try await source.accept(id, stamp: stamp)
@@ -252,6 +264,7 @@ extension Store {
     /// Before Done or answers: an acceptance the Pond hasn't taken yet is sent first. Throws
     /// what the Pond answered, and then the act isn't sent.
     func sendPendingAccept(_ id: String, via source: any QueueSource) async throws {
+        guard deliveryPolicy == .desktop else { return }
         guard let record = record(id), record.pondAcceptPending, let accepted = record.accepted else { return }
         _ = try await source.accept(id, stamp: accepted)
         markAcceptSent(id)
@@ -264,6 +277,7 @@ extension Store {
         do {
             try await act()
         } catch QueueError.corrected(let rev, let hash, let acceptedRev) {
+            guard deliveryPolicy == .desktop else { throw QueueError.corrected(rev: rev, hash: hash, acceptedRev: acceptedRev) }
             guard let accepted = record(id)?.accepted, accepted == RevisionStamp(rev: rev, hash: hash),
                   (acceptedRev ?? 0) < accepted.rev else {
                 throw QueueError.corrected(rev: rev, hash: hash, acceptedRev: acceptedRev)
@@ -346,7 +360,8 @@ extension Store {
     public func reviewState(_ id: String) -> ReviewState {
         let state = ReviewGate.resolve(record: record(id), history: histories[id], pond: pond,
                                        served: served[id]?.payload.instructable)
-        guard reviewsLoading else { return state }
+        let phoneSealUnavailable = deliveryPolicy == .phone && (reviewsUnreadable || sealKey == nil)
+        guard reviewsLoading || phoneSealUnavailable else { return state }
         switch state {
         case .pending(_, let current, _), .current(let current): return .waitingForKeychain(current: current)
         case .legacy: return identity.mailbox == nil ? .legacy : .waitingForKeychain(current: nil)
@@ -557,6 +572,7 @@ extension Store {
     /// accepted one). Allowed while locked: it reports on the version shown. Needs the owner key,
     /// so without an approved one nothing is sent.
     public func reportProblem(_ id: String, stepID: String, note: String) async -> ReportResult {
+        guard mutationsAvailable else { return .refused("Offline. Reconnect before sending.") }
         guard ownerKeyApproved(sourceKey, identity.mailbox?.url) else { return .notEnrolled }
         let limits = talk.limits
         let prepared = ProblemReport.prepared(note, limits: limits)
@@ -660,6 +676,7 @@ extension Store {
 
     /// Sends each held note once the owner key is approved; a note whose ask closed goes unsent.
     public func flushHeldReports() async {
+        guard deliveryPolicy == .desktop else { return }
         for (id, note) in heldReports {
             guard canReport(id), reporting[id] != nil else {
                 endReport(id)
@@ -776,7 +793,10 @@ extension Store {
             sealKey = key
             // Pins taken while the read waited join the disk's (`joiningPins`).
             reviews = Self.joiningPins(records, reviews)
-            if tampered || sealReplaced { problem = .reviewRecordsChanged }
+            if tampered || sealReplaced {
+                problem = .reviewRecordsChanged
+                if deliveryPolicy == .phone { reviewsUnreadable = true }
+            }
             if tampered || reviews != records { scheduleReviewSave() }
         }
         if notice, let problem {

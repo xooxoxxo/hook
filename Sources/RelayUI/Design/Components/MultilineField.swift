@@ -1,4 +1,6 @@
+#if os(macOS)
 import AppKit
+#endif
 import RelayCore
 import SwiftUI
 
@@ -46,8 +48,12 @@ public struct MultilineField: View {
     /// A vertical TextField's field editor ends editing on Return; this asks it for the line
     /// break ⌥Return gives, at the caret. False when no field editor has the keys.
     @MainActor static func insertLineBreak() -> Bool {
+#if os(macOS)
         guard let editor = NSApp.keyWindow?.firstResponder as? NSTextView, editor.isFieldEditor else { return false }
         editor.insertNewlineIgnoringFieldEditor(nil)
         return true
+#else
+        return false
+#endif
     }
 }

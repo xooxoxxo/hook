@@ -1,5 +1,10 @@
 import Foundation
 
+/// Transport failures distinguish an explicit safe retry from an uncertain dispatched write.
+public protocol WriteDeliveryFailure: Error {
+    var mayRetryExplicitly: Bool { get }
+}
+
 public enum Verdict: String, Sendable {
     case done
     case declined
@@ -42,6 +47,7 @@ public protocol QueueSource: Sendable {
     func ownerStatus() async throws -> OwnerStatus
     func enroll(keyHash: String, label: String) async throws -> Enrollment
     func enrollment(_ id: String) async throws -> Enrollment
+    func revokeOwnerKey(_ id: String) async throws
     func requireOwnerKey(_ on: Bool) async throws -> OwnerKeyRequirement
 
     // Pond 1.2.0.
@@ -85,6 +91,8 @@ extension QueueSource {
     public func enroll(keyHash: String, label: String) async throws -> Enrollment { throw QueueError.notSupported }
 
     public func enrollment(_ id: String) async throws -> Enrollment { throw QueueError.notSupported }
+
+    public func revokeOwnerKey(_ id: String) async throws { throw QueueError.notSupported }
 
     public func requireOwnerKey(_ on: Bool) async throws -> OwnerKeyRequirement { throw QueueError.notSupported }
 
@@ -157,6 +165,8 @@ public struct PostResult: Sendable, Decodable, Equatable {
 public enum QueueError: Error, Sendable, Equatable, LocalizedError {
     case unreachable(String)
     case unauthorized
+    /// A secure credential source was rejected; phone help must not name a token file.
+    case tokenRejected
     case notFound
     case rejected(status: Int, error: String, details: [String])
     case storeFailed(String)
@@ -180,6 +190,8 @@ public enum QueueError: Error, Sendable, Equatable, LocalizedError {
             return reason
         case .unauthorized:
             return "The Pond rejected the token (check the token file)"
+        case .tokenRejected:
+            return "The Pond rejected the token. Set up the Pond connection again."
         case .notFound:
             return "not found"
         case .rejected(_, let error, let details):

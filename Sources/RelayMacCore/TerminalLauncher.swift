@@ -1,0 +1,238 @@
+import Foundation
+import RelayCore
+
+/// One way to open a terminal. The app layer runs it; nothing here touches the system.
+public enum LaunchStep: Equatable, Sendable {
+    /// Write `body` to a private, executable `.command` file and open it with the app.
+    case commandFile(body: String, bundleID: String)
+    /// `open -na <app> --args …`: a new instance of the app with these arguments.
+    case openNew(bundleID: String, arguments: [String])
+    /// Run `executable` (a path inside the app bundle) with `arguments`. With
+    /// `waits`, a non-zero exit counts as a failure; otherwise it runs detached.
+    case process(bundleID: String, executable: String, arguments: [String], waits: Bool)
+    /// `osascript -e <source> <arguments…>`: the values reach the script as `argv`,
+    /// never as script source.
+    case appleScript(source: String, arguments: [String])
+    /// Write `contents` to `file` (a path under the home folder), then open `url`.
+    case fileThenURL(file: String, contents: String, url: URL)
+}
+
+/// The steps for one resume, tried in order: the next one runs only when the one
+/// before it failed. When all fail, the app shows a Notice and copies the command.
+public struct LaunchPlan: Equatable, Sendable {
+    public var terminal: TerminalKind
+    public var steps: [LaunchStep]
+}
+
+/// Plans a resume for each terminal. Every plan goes through the user's login shell,
+/// so `~/.local/bin` is on PATH, and passes the folder and session as separate
+/// arguments wherever the terminal allows it.
+public enum TerminalLauncher {
+    /// `$0` for the shell's `-c` script.
+    static let scriptName = "hook-resume"
+    /// Run by `<shell> -lc`; `$1` is the folder and `$2` the session.
+    public static let shellScript = #"cd -- "$1" && exec claude --resume "$2""#
+    /// Shells that read `-c script name arg…` the POSIX way.
+    static let posixShells: Set<String> = ["sh", "bash", "zsh", "ksh", "dash"]
+    public static let fallbackShell = "/bin/zsh"
+    /// Warp's tab config, rewritten on each resume so the user's list gets one entry.
+    public static let warpConfigName = "hook-resume"
+    public static let warpConfigFile = ".warp/tab_configs/\(warpConfigName).toml"
+    /// A run's own tab config, so Update Mailbox… never overwrites the resume one.
+    public static let warpRunConfigName = "hook-run"
+    public static let warpRunConfigFile = ".warp/tab_configs/\(warpRunConfigName).toml"
+
+    /// The login shell to run the script with: the user's shell when it is POSIX-like,
+    /// otherwise zsh (fish and others read `-c` arguments differently).
+    public static func shell(_ userShell: String?) -> String {
+        guard let userShell, userShell.hasPrefix("/"),
+              let name = userShell.split(separator: "/").last, posixShells.contains(String(name)) else {
+            return fallbackShell
+        }
+        return userShell
+    }
+
+    /// `<shell> -lc <script> hook-resume <cwd> <session>`.
+    public static func shellCommand(_ target: ResumeTarget, shell: String) -> [String] {
+        [shell, "-lc", shellScript, scriptName, target.cwd, target.session]
+    }
+
+    /// `ghosttyVersion` is the installed app's CFBundleShortVersionString, when known.
+    public static func plan(_ terminal: TerminalKind, target: ResumeTarget, shell userShell: String?,
+                            ghosttyVersion: String? = nil) -> LaunchPlan {
+        let shell = shell(userShell)
+        let command = shellCommand(target, shell: shell)
+        let steps: [LaunchStep]
+        switch terminal {
+        case .terminal, .iterm:
+            steps = [.commandFile(body: commandFileBody(target), bundleID: terminal.bundleID)]
+        case .ghostty:
+            let openNew = LaunchStep.openNew(
+                bundleID: terminal.bundleID,
+                arguments: ["--working-directory=" + target.cwd, "-e"] + command)
+            if supportsGhosttyScripting(ghosttyVersion) {
+                steps = [.appleScript(source: ghosttyScript, arguments: [target.cwd, target.session]), openNew]
+            } else {
+                steps = [openNew]
+            }
+        case .kitty:
+            steps = [.openNew(bundleID: terminal.bundleID, arguments: ["--directory", target.cwd] + command)]
+        case .wezterm:
+            steps = [.process(bundleID: terminal.bundleID, executable: "Contents/MacOS/wezterm",
+                              arguments: ["start", "--cwd", target.cwd, "--"] + command, waits: false)]
+        case .warp:
+            steps = [.fileThenURL(file: warpConfigFile, contents: warpTabConfig(target),
+                                  url: URL(string: "warp://tab_config/\(warpConfigName)?new_window=true")!)]
+        case .alacritty:
+            let tail = ["--working-directory", target.cwd, "-e"] + command
+            steps = [
+                .process(bundleID: terminal.bundleID, executable: "Contents/MacOS/alacritty",
+                         arguments: ["msg", "create-window"] + tail, waits: true),
+                .openNew(bundleID: terminal.bundleID, arguments: tail),
+            ]
+        }
+        return LaunchPlan(terminal: terminal, steps: steps)
+    }
+
+    // MARK: - Running a command
+
+    /// `$0` for a run's `-c` script.
+    static let runScriptName = "hook-run"
+    /// Run by `<shell> -lc`; `$1` is the command and `$2` the done file. The window first
+    /// names the command, which then runs through `eval` in the login shell; the window then
+    /// waits for Return, so the output stays readable after it ends.
+    public static let runScript = #"printf "Hook: running %s\n\n" "$1"; eval "$1"; s=$?; : > "$2"; echo; echo "Hook: the command ended (exit $s). Press Return to close this window."; read -r _; exit $s"#
+
+    /// `<shell> -lc <runScript> hook-run <command> <doneFile>`.
+    public static func shellCommand(_ target: RunTarget, shell: String) -> [String] {
+        [shell, "-lc", runScript, runScriptName, target.command, target.doneFile]
+    }
+
+    /// The steps for running `target` in `terminal`, in the home folder. The command and the
+    /// done file always reach the shell as separate arguments, except in a `.command` file and
+    /// Warp's tab config, which take no arguments and get them single-quoted. Ghostty is
+    /// opened as a new instance: its AppleScript only types input.
+    public static func plan(_ terminal: TerminalKind, run target: RunTarget, shell userShell: String?,
+                            home: String) -> LaunchPlan {
+        let shell = shell(userShell)
+        let command = shellCommand(target, shell: shell)
+        let steps: [LaunchStep]
+        switch terminal {
+        case .terminal, .iterm:
+            steps = [.commandFile(body: commandFileBody(target, shell: shell), bundleID: terminal.bundleID)]
+        case .ghostty:
+            steps = [.openNew(bundleID: terminal.bundleID, arguments: ["--working-directory=" + home, "-e"] + command)]
+        case .kitty:
+            steps = [.openNew(bundleID: terminal.bundleID, arguments: ["--directory", home] + command)]
+        case .wezterm:
+            steps = [.process(bundleID: terminal.bundleID, executable: "Contents/MacOS/wezterm",
+                              arguments: ["start", "--cwd", home, "--"] + command, waits: false)]
+        case .warp:
+            steps = [.fileThenURL(file: warpRunConfigFile, contents: warpTabConfig(target, shell: shell, home: home),
+                                  url: URL(string: "warp://tab_config/\(warpRunConfigName)?new_window=true")!)]
+        case .alacritty:
+            let tail = ["--working-directory", home, "-e"] + command
+            steps = [
+                .process(bundleID: terminal.bundleID, executable: "Contents/MacOS/alacritty",
+                         arguments: ["msg", "create-window"] + tail, waits: true),
+                .openNew(bundleID: terminal.bundleID, arguments: tail),
+            ]
+        }
+        return LaunchPlan(terminal: terminal, steps: steps)
+    }
+
+    /// The run as one shell line, every word single-quoted.
+    static func quotedLine(_ words: [String]) -> String {
+        words.map(singleQuoted).joined(separator: " ")
+    }
+
+    /// A run's `.command` file: removes itself, then hands the command to the login shell.
+    public static func commandFileBody(_ target: RunTarget, shell: String) -> String {
+        """
+        #!/bin/sh
+        rm -f -- "$0"
+        exec \(quotedLine(shellCommand(target, shell: shell)))
+
+        """
+    }
+
+    /// A tab config whose one pane hands the command to the login shell.
+    public static func warpTabConfig(_ target: RunTarget, shell: String, home: String) -> String {
+        """
+        name = "Hook run"
+
+        [[panes]]
+        id = "main"
+        type = "terminal"
+        directory = \(tomlString(home))
+        commands = [\(tomlString(quotedLine(shellCommand(target, shell: shell))))]
+
+        """
+    }
+
+    // MARK: - Terminal and iTerm2
+
+    /// The `.command` file. Terminal and iTerm2 run it from a new window's login shell,
+    /// so it inherits the user's PATH. It removes itself first. A file takes no
+    /// arguments, so the values are single-quoted; AskOrigin has already refused
+    /// control and hidden characters, and the session is letters, digits and dashes.
+    public static func commandFileBody(_ target: ResumeTarget) -> String {
+        """
+        #!/bin/sh
+        rm -f -- "$0"
+        cd -- \(singleQuoted(target.cwd)) || exit 1
+        exec claude --resume \(singleQuoted(target.session))
+
+        """
+    }
+
+    static func singleQuoted(_ value: String) -> String {
+        "'" + value.replacingOccurrences(of: "'", with: #"'\''"#) + "'"
+    }
+
+    // MARK: - Ghostty
+
+    /// Ghostty 1.3 added the AppleScript dictionary.
+    public static func supportsGhosttyScripting(_ version: String?) -> Bool {
+        guard let version else { return false }
+        let parts = version.split(separator: ".").map { Int($0.prefix { $0.isNumber }) ?? 0 }
+        let major = parts.first ?? 0
+        let minor = parts.count > 1 ? parts[1] : 0
+        return major > 1 || (major == 1 && minor >= 3)
+    }
+
+    /// A new window in the session's folder whose login shell gets the resume command
+    /// as typed input. `argv`: the folder, then the session.
+    public static let ghosttyScript = """
+        on run argv
+            tell application id "com.mitchellh.ghostty"
+                set cfg to new surface configuration
+                set initial working directory of cfg to item 1 of argv
+                set initial input of cfg to "claude --resume " & item 2 of argv & linefeed
+                new window with configuration cfg
+                activate
+            end tell
+        end run
+        """
+
+    // MARK: - Warp
+
+    /// A tab config with one pane in the folder that runs the resume command in Warp's shell.
+    public static func warpTabConfig(_ target: ResumeTarget) -> String {
+        """
+        name = "Hook resume"
+
+        [[panes]]
+        id = "main"
+        type = "terminal"
+        directory = \(tomlString(target.cwd))
+        commands = [\(tomlString("claude --resume " + target.session))]
+
+        """
+    }
+
+    /// A TOML basic string. AskOrigin has refused control characters, so only `\` and `"` need escapes.
+    static func tomlString(_ value: String) -> String {
+        "\"" + value.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
+    }
+}

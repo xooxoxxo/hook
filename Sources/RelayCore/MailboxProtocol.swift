@@ -22,6 +22,8 @@ public enum MailboxFeature: String, CaseIterable, Sendable, Comparable {
     /// Messages and problem reports of up to 8000 characters, and problem reports over several
     /// lines (Hook 0.14). Older Ponds keep 1000 and 300, one line.
     case longText
+    /// Shared progress on every ask (Hook iOS and Mac).
+    case sharedProgress
 
     /// The first Pond version that has the feature: everything up to the old protocol level 4
     /// is in 1.0.0.
@@ -32,6 +34,7 @@ public enum MailboxFeature: String, CaseIterable, Sendable, Comparable {
         case .bugs, .messages: return SemVer(major: 1, minor: 2, patch: 0)
         case .requirements: return SemVer(major: 1, minor: 3, patch: 0)
         case .longText: return SemVer(major: 1, minor: 4, patch: 0)
+        case .sharedProgress: return SemVer(major: 1, minor: 5, patch: 0)
         }
     }
 
@@ -39,7 +42,7 @@ public enum MailboxFeature: String, CaseIterable, Sendable, Comparable {
     /// `PondVersion.supports(_:)` and works without it, so the "older Pond" Notice never names it.
     public var gated: Bool {
         switch self {
-        case .bugs, .messages, .requirements, .longText: return true
+        case .bugs, .messages, .requirements, .longText, .sharedProgress: return true
         case .answers, .blocking, .optional, .fileLinks, .corrections: return false
         }
     }
@@ -56,6 +59,7 @@ public enum MailboxFeature: String, CaseIterable, Sendable, Comparable {
         case .messages: return "messages to sessions"
         case .requirements: return "required steps before Done"
         case .longText: return "long messages and reports"
+        case .sharedProgress: return "shared step ticks"
         }
     }
 

@@ -18,7 +18,7 @@ private func check(pond version: String, level: Int? = 5) -> MailboxCheck {
 private func semver(_ text: String) -> PondVersion { .semver(SemVer(strict: text)!) }
 
 private let everyFeature: [MailboxFeature] = [.answers, .blocking, .optional, .fileLinks, .corrections, .bugs, .messages,
-                                              .requirements, .longText]
+                                              .requirements, .longText, .sharedProgress]
 /// The features the Notice can name: the ones this Hook's range needs.
 private let everyNeededFeature: [MailboxFeature] = [.answers, .blocking, .optional, .fileLinks, .corrections]
 
@@ -73,6 +73,17 @@ private let everyNeededFeature: [MailboxFeature] = [.answers, .blocking, .option
         #expect(!semver("1.3.0").supports(.longText))
         #expect(!semver("1.4.0-rc.1").supports(.longText))
         #expect(!PondVersion.legacy(protocol: 5).supports(.longText))
+    }
+
+    @Test func sharedProgressNeeds150WithoutChangingRequiredCompatibility() {
+        #expect(MailboxFeature.sharedProgress.minimumPond == SemVer(major: 1, minor: 5, patch: 0))
+        #expect(MailboxFeature.sharedProgress.gated)
+        #expect(semver("1.5.0").supports(.sharedProgress))
+        #expect(!semver("1.4.9").supports(.sharedProgress))
+        #expect(!semver("1.5.0-rc.1").supports(.sharedProgress))
+        #expect(!PondVersion.legacy(protocol: 5).supports(.sharedProgress))
+        #expect(!MailboxProtocol.missingFeatures(pond: semver("1.4.0")).contains(.sharedProgress))
+        #expect(PondCompat.required == "^1.1.0")
     }
 
     @Test func longTextIsGated() {
