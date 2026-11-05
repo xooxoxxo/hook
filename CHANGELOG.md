@@ -15,6 +15,8 @@ and versions follow Semantic Versioning.
 - The instructables skill and docs say so near the top, and `verify` is optional: only for a real
   check in the world. The examples no longer point at Hook's controls.
 - Settings › Queue › Send a test ask no longer has a "Press Done" verify step.
+<!-- hook:pond=^1.1.0 -->
+<!-- hook:mailbox-protocol=5 -->
 
 ## [0.15.1] - 2026-11-05
 
