@@ -262,7 +262,7 @@ class DriftAskTest(unittest.TestCase):
 
     def edit_both(self):
         self.settings.write_text(ed.json_set(self.settings.read_text(), ["mcpServers", "relay", "args"], ["mine.py"]))
-        self.agents.write_text(self.agents.read_text().replace("send ONE instructable", "send one instructable"))
+        self.agents.write_text(self.agents.read_text().replace("# Owner asks go to Hook", "# Owner asks go to my queue"))
 
     def drift(self):
         return self.hub.last("Choose what to keep")
@@ -351,7 +351,7 @@ class MovedDriftAskTest(DriftAskTest):
         return table
 
     def test_keep_mine_on_a_moved_edit_keeps_nothing(self):
-        text = self.agents.read_text().replace("send ONE instructable", "send one instructable")
+        text = self.agents.read_text().replace("# Owner asks go to Hook", "# Owner asks go to my queue")
         self.agents.write_text(text)
         override = write(self.home / ".alpha" / "AGENTS.override.md", "# Override\n")
         self.sync()

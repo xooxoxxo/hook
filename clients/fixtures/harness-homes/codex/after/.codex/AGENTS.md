@@ -2,13 +2,19 @@
 
 Run the tests before you say done.
 
-<!-- hook:begin id=instructions v=1 sha=018bad20a1c64d69 -->
+<!-- hook:begin id=instructions v=1 sha=677b5b702f336390 -->
 <!-- hook:instructions v=1 app=9.9.9 -->
 # Owner asks go to Hook
 
-The moment a step needs the owner (a key or token, a login, a decision, an approval,
-a manual command, a click only they can do), send ONE instructable to their Hook
-queue. The `instructables` skill has the format and the writing rules.
+Answer explanations, summaries and status questions directly. Keep quick, low-risk
+clarifications in chat when a short answer or multiple choice is enough. Make routine
+choices within the owner's instructions without asking again.
+
+Send ONE instructable to Hook for owner actions (credentials, logins, manual commands,
+clicks only they can do), approvals including every merge or release, consequential
+decisions, and work needing a durable checklist or later follow-up. A short approval
+still goes to Hook. Follow the owner's explicit routing preference. The `instructables`
+skill has the format and writing rules.
 
 - **How:** the MCP tool `relay_post {project, instructable}`. Without MCP:
   `relay post <project> --json - <<'EOF' … EOF`.
