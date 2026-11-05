@@ -672,13 +672,53 @@ class PluginTest(unittest.TestCase):
         self.assertEqual(self.w.piece("claude-code", "skill")["state"], "outdated")
         rc, out, err = self.w.run("sync")
         self.assertEqual(rc, 0, out + err)
-        self.assertEqual([c["argv"][:3] for c in self.w.calls()], [["plugin", "marketplace", "update"]])
+        self.assertEqual([c["argv"] for c in self.w.calls()], [["plugin", "marketplace", "update", "hook"],
+                                                              ["plugin", "update", "hook@hook", "--scope", "user"]])
         self.assertIn('"9.9.10"', (plug / ".claude-plugin" / "plugin.json").read_text())
         (plug / "hooks" / "claude-hooks.json").write_text("{}\n")
         self.assertEqual(self.w.piece("claude-code", "replies")["state"], "drifted")
         rc, out, err = self.w.run("remove", "--harness", "claude-code", "--force")
         self.assertEqual(rc, 0, out + err)
         self.assertFalse(plug.exists())
+
+    def test_a_failed_refresh_keeps_the_new_files_and_runs_again_next_sync(self):
+        self.assertEqual(self.w.run("sync")[0], 0)
+        self.w.build("9.9.10")
+        self.w.config["fail"] = ["claude"]
+        self.w.save_config()
+        self.w.clear_calls()
+        rc, out, err = self.w.run("sync")
+        self.assertEqual(rc, 0, out + err)
+        self.assertIn("files updated, but `claude plugin marketplace update` failed: claude: fake failure", out)
+        self.assertEqual([c["argv"][:3] for c in self.w.calls()], [["plugin", "marketplace", "update"]])
+        plug = self.w.home / ".local" / "share" / "hook" / "plugins" / "claude"
+        self.assertIn('"9.9.10"', (plug / ".claude-plugin" / "plugin.json").read_text())
+        skill = self.w.piece("claude-code", "skill")
+        self.assertEqual(skill["state"], "outdated")
+        self.assertIn("isn't refreshed yet", skill["note"])
+        self.w.config["fail"] = []
+        self.w.save_config()
+        self.w.clear_calls()
+        rc, out, err = self.w.run("sync")
+        self.assertEqual(rc, 0, out + err)
+        self.assertNotIn("drifted", out + err)
+        self.assertEqual([c["argv"][:3] for c in self.w.calls()], [["plugin", "marketplace", "update"],
+                                                                   ["plugin", "update", "hook@hook"]])
+        self.assertEqual(self.w.harness("claude-code")["state"], "installed")
+        self.w.clear_calls()
+        self.assertEqual(self.w.run("sync")[0], 0)
+        self.assertEqual(self.w.calls(), [])
+
+    def test_a_missing_claude_doesnt_fail_the_update(self):
+        self.assertEqual(self.w.run("sync")[0], 0)
+        self.w.build("9.9.10")
+        self.w.drop_cli("claude")
+        rc, out, err = self.w.run("sync")
+        self.assertEqual(rc, 0, out + err)
+        self.assertIn("`claude` isn't on PATH to refresh the installed plugin; the next sync tries again", out)
+        plug = self.w.home / ".local" / "share" / "hook" / "plugins" / "claude"
+        self.assertIn('"9.9.10"', (plug / ".claude-plugin" / "plugin.json").read_text())
+        self.assertEqual(self.w.piece("claude-code", "skill")["state"], "outdated")
 
     def test_remove_all_keeps_the_plugin_folder_when_the_uninstall_fails(self):
         rc, out, err = self.w.run("sync")

@@ -2,7 +2,7 @@
 
 Ask before deleting files.
 
-<!-- hook:begin id=instructions v=1 sha=f3ffe7cf4485df2c -->
+<!-- hook:begin id=instructions v=1 sha=018bad20a1c64d69 -->
 <!-- hook:instructions v=1 app=9.9.9 -->
 # Owner asks go to Hook
 
@@ -18,7 +18,11 @@ queue. The `instructables` skill has the format and the writing rules.
 - **If your agent doesn't show `Hook:` lines with each prompt,** call `relay_list` at the
   start of a session and `relay_status {id}` before you wait on an ask.
 - If your work waits on the answer, run `relay wait <id>` in the background.
-- **Solved it yourself:** `relay done <id> "<what happened>"`.
+- **Wrong or missing step in your open ask:** correct it in place with
+  `relay_amend {id, reason, instructable}` (CLI: `relay amend <id> --reason "…" --json <file>`).
+  Send the whole fixed ask and keep every step's `id`. Never close it and post a new one;
+  that loses the owner's ticks and answers. Repost only if the correction is refused.
+- **Solved it yourself, so the need is gone:** `relay done <id> "<what happened>"`.
 - Never put a secret or its value in an ask; add a step that stores it in the Keychain.
 - Mention the ask and its id in chat too.
 <!-- hook:end -->
