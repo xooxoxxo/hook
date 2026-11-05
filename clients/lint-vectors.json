@@ -627,7 +627,7 @@
     "title": "Lint vector",
     "steps": [
      {
-      "do": "The brief runs at 08:10 every day; it takes about 5 min, or 1 h at most"
+      "do": "It runs at 08:10 daily and takes 5 min, or 1 h at most"
      }
     ]
    },
@@ -2283,6 +2283,359 @@
     }
    },
    "expect": []
+  },
+  {
+   "name": "do-title-leasekey",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Install the Leasekey client on the Mac, create the Claude agent's token and add its rules on the server",
+      "where": "Mac terminal",
+      "code": "cd ~/leasekey-deploy && ./agent.sh",
+      "lang": "bash",
+      "expect": "It ends with: Next: ./install-host.sh web-1"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"Install the Leasekey client…\" names more than one action: keep do to the owner's one action and move the rest to detail, or split into steps"
+    ]
+   ]
+  },
+  {
+   "name": "do-title-leasekey-rewritten",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Run the Leasekey agent setup",
+      "where": "Mac terminal",
+      "code": "cd ~/leasekey-deploy && ./agent.sh",
+      "lang": "bash",
+      "detail": "It installs the Leasekey client on the Mac, creates the Claude agent's token and adds its rules on the server.",
+      "expect": "It ends with: Next: ./install-host.sh web-1"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "do-title-three-short",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Install Node, create a token and add the rule"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"Install Node, create a token…\" names more than one action: keep do to the owner's one action and move the rest to detail, or split into steps"
+    ]
+   ]
+  },
+  {
+   "name": "do-title-semicolons",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Open the app; sign in; tap Sync"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"Open the app; sign in; tap…\" names more than one action: keep do to the owner's one action and move the rest to detail, or split into steps"
+    ]
+   ]
+  },
+  {
+   "name": "do-title-then-chain",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Quit Hook, then reopen it, then check the menu"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"Quit Hook, then reopen it…\" names more than one action: keep do to the owner's one action and move the rest to detail, or split into steps"
+    ]
+   ]
+  },
+  {
+   "name": "do-title-two-actions-long",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Open the Cloudflare dashboard for the zone and turn on Always Use HTTPS"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"Open the Cloudflare…\" names more than one action: keep do to the owner's one action and move the rest to detail, or split into steps"
+    ]
+   ]
+  },
+  {
+   "name": "do-title-one-action-long",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Run the setup script that installs the client and writes its config file"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "do is 72 characters: keep it under 60 and move the rest to detail"
+    ]
+   ]
+  },
+  {
+   "name": "do-title-61",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Choose the workspaces the Acme brief posts its daily notes to"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "do is 61 characters: keep it under 60 and move the rest to detail"
+    ]
+   ]
+  },
+  {
+   "name": "do-title-60",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Choose the workspace the Acme brief posts its daily notes to"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "do-title-substep",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Set up the Acme bot",
+      "where": "Slack desktop",
+      "substeps": [
+       {
+        "do": "Click Create New App, then From scratch"
+       },
+       {
+        "do": "Name it, pick the workspace and add the chat:write scope",
+        "code": "chat:write",
+        "lang": "text"
+       }
+      ]
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].substeps[1].do",
+     "\"Name it, pick the workspace…\" names more than one action: keep do to the owner's one action and move the rest to detail, or split into steps"
+    ]
+   ]
+  },
+  {
+   "name": "do-title-substep-long",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Set up the Acme bot",
+      "substeps": [
+       {
+        "do": "Choose the workspace where the Acme brief bot will post its daily summary"
+       }
+      ]
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].substeps[0].do",
+     "do is 73 characters: keep it under 60 and move the rest to detail"
+    ]
+   ]
+  },
+  {
+   "name": "do-title-verify-long",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Restart the brief",
+      "code": "launchctl kickstart -k gui/501/com.acme.brief",
+      "lang": "bash"
+     }
+    ],
+    "verify": {
+     "do": "Send the brief bot a message in Slack: it answers with today's brief summary"
+    }
+   },
+   "expect": [
+    [
+     "verify.do",
+     "do is 76 characters: keep it under 60 and move the rest to detail"
+    ]
+   ]
+  },
+  {
+   "name": "do-title-verify-actions",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Create the channel"
+     }
+    ],
+    "verify": {
+     "do": "Reload Slack, open Channels and look for it",
+     "expect": "#acme-brief is listed"
+    }
+   },
+   "expect": []
+  },
+  {
+   "name": "do-title-click-path",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Open Settings and click Save"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "do-title-click-then",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Click + next to Channels, then Create channel",
+      "where": "Slack desktop"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "do-title-type-and-return",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Type this in the channel and press Return",
+      "code": "/invite @acme-bot",
+      "lang": "text"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "do-title-menu-path",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "In Warp, open Settings, then AI, then Rules"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "do-title-ui-path",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Add a reader: Settings › Readers › Add reader"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "do-title-scroll-and-copy",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Scroll down and copy the Channel ID",
+      "where": "Slack desktop › channel name › About"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "do-title-values-first",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Open https://app.example.com/settings, sign in and click Save under Readers"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"https://app.example.com/settings\" is a value to copy: put it in code (or a URL in url)"
+    ]
+   ]
   }
  ]
 }

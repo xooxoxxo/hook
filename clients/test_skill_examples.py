@@ -169,6 +169,15 @@ class SkillExampleTest(unittest.TestCase):
             self.assertIn(phrase, rules)
         self.assertIn("**verify**: optional.", SKILL)
 
+    def test_the_skill_says_do_is_one_action(self):
+        rules = SKILL.split("## How to write it", 1)[1].split("**Every step is work in the world.**", 1)[0]
+        for phrase in ("ONE action", "8 words or fewer", "60 characters", "goes in `detail`", "goes in `expect`",
+                       "separate steps or sub-steps", "Run the Leasekey agent setup", "names more than one action"):
+            self.assertIn(phrase, rules)
+        after = json.loads(FENCE.search(rules).group(1))
+        self.assertEqual(relay_lint.lint_details({"v": 1, "title": "x", "steps": [after]}), [])
+        self.assertIn("## One action", DOCS)
+
     def test_the_form_example_is_one_sub_step_per_field(self):
         for text in (SKILL, DOCS):
             _, steps = examples(text)

@@ -22,6 +22,15 @@ and versions follow Semantic Versioning.
 - The instructables skill and docs say so near the top, and `verify` is optional: only for a real
   check in the world. The examples no longer point at Hook's controls.
 - Settings › Queue › Send a test ask no longer has a "Press Done" verify step.
+- `relay post`, `relay_post` and `relay amend` refuse a `do` that is more than the owner's one
+  action: three or more actions ("Install X, create Y and add Z"), two in more than 60 characters,
+  or any `do` over 60 characters. A short click path ("Open Settings and click Save") passes, and
+  `verify` gets only the length check. Rules: `lint_do_title` in `clients/relay_lint.py`, with new
+  shared vectors.
+- The instructables skill and docs say `do` is the owner's one action in a few words, with what a
+  command does in `detail` and what to see in `expect`. The examples that listed several actions
+  in one `do` are shorter, and so are the Codex, Cursor and Warp owner steps and the CLAUDE.md
+  migration ask's `verify`.
 <!-- hook:pond=^1.1.0 -->
 <!-- hook:mailbox-protocol=5 -->
 

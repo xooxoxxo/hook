@@ -19,6 +19,32 @@ on you" line in chat alone gets lost.
 
 ## How to write it
 
+**`do` is the owner's ONE action, in a few words.** Aim for 8 words or fewer, never more than
+about 60 characters: "Run the Leasekey agent setup", not "Install the Leasekey client on the
+Mac, create the Claude agent's token and add its rules on the server". What a command or a page
+does goes in `detail`; what the owner should see goes in `expect`. When the owner really does
+several things, make separate steps or sub-steps. A short click path is still one action
+("Open Settings and click Save"). Before and after:
+
+```text
+{"do": "Install the Leasekey client on the Mac, create the Claude agent's token and add its rules on the server",
+ "where": "Mac terminal", "code": "cd ~/leasekey-deploy && ./agent.sh", "lang": "bash",
+ "expect": "It ends with: Next: ./install-host.sh web-1"}
+```
+
+```json
+{"do": "Run the Leasekey agent setup", "where": "Mac terminal",
+ "code": "cd ~/leasekey-deploy && ./agent.sh", "lang": "bash",
+ "detail": "It installs the Leasekey client on the Mac, creates the Claude agent's token and adds its rules on the server.",
+ "expect": "It ends with: Next: ./install-host.sh web-1"}
+```
+
+`relay_post` and `relay post` refuse a `do` that names three actions, or two in more than 60
+characters, and any `do` over 60 characters:
+`steps[2].do: "Install the Leasekey client…" names more than one action: keep do to the owner's one action and move the rest to detail, or split into steps`,
+`steps[4].do: do is 96 characters: keep it under 60 and move the rest to detail`.
+`verify` gets only the length check.
+
 **Every step is work in the world.** Never add a step or a `verify` whose only action is to
 reply, answer, pick, press Done or Skip, or look at your own answer ("Pick an answer below",
 "Reply with anything that still looks wrong", "Press Done after answering", "Look at the reply
@@ -108,8 +134,10 @@ a step's `question` or in `reply`, not in a step that points at them. `relay_pos
     "steps": [
       {"do": "Open the staging deploy keys page", "where": "Browser",
        "url": "https://deploy.example.com/staging/keys"},
-      {"do": "Copy the new public key, then paste it under Add key and click Save", "where": "Mac terminal",
-       "code": "pbcopy < ~/.ssh/staging_deploy.pub", "lang": "bash", "expect": "The new key is listed"},
+      {"do": "Copy the new public key", "where": "Mac terminal",
+       "code": "pbcopy < ~/.ssh/staging_deploy.pub", "lang": "bash"},
+      {"do": "Paste it under Add key and click Save", "where": "Browser",
+       "expect": "The new key is listed"},
       {"do": "Delete the old key", "where": "Browser", "required": true,
        "expect": "Only the new key is listed"},
       {"do": "Run this and send me what it prints, in Messages", "where": "Mac terminal",
@@ -119,7 +147,7 @@ a step's `question` or in `reply`, not in a step that points at them. `relay_pos
   }
   ```
 
-  Done turns on once step 3 is ticked and the owner has sent a message; Skip works all along.
+  Done turns on once step 4 is ticked and the owner has sent a message; Skip works all along.
 - **file**: When the owner should read a document, write it as a Markdown file and point to it with `file` (or a link with `path`); Hook opens it rendered. Keep `do` to one action and `detail` to a few lines; never paste a whole document into an ask. `file` and `path` are absolute paths on the owner's Mac (`/…` or `~/…`), not on `verify`.
 - **id**: a stable name for a step or sub-step (`a-z`, `0-9`, `.` and `-`, at most 24 characters,
   unique in the ask), never on `verify`. Give ids on every step or on none; without them the Pond
@@ -162,8 +190,8 @@ When the owner has to give you a secret, write a step that stores it in the Keyc
 then read it from there yourself:
 
 ```text
-{"do": "Store the Acme API token in the Keychain: run this, then paste the token at the prompt (it is not shown)",
- "where": "Mac terminal", "code": "security add-generic-password -a \"$USER\" -s acme-api-token -U -w",
+{"do": "Store the Acme API token in the Keychain", "where": "Mac terminal",
+ "detail": "Run this, then paste the token at the prompt. It is not shown.", "code": "security add-generic-password -a \"$USER\" -s acme-api-token -U -w",
  "lang": "bash", "expect": "The prompt returns with no output"}
 ```
 
@@ -187,11 +215,11 @@ Call `relay_post` with two arguments:
   "why": "The daily Acme brief needs a channel to post into.",
   "urgency": "today",
   "steps": [
-    {"do": "Click + next to Channels in the left sidebar, then Create channel", "where": "Slack desktop"},
-    {"do": "Paste this as the name, choose Private, click Create", "where": "Slack desktop",
+    {"do": "Click + next to Channels, then Create channel", "where": "Slack desktop"},
+    {"do": "Create a Private channel with this name", "where": "Slack desktop",
      "code": "acme-brief", "lang": "text", "expect": "You land in #acme-brief"},
-    {"do": "Click the channel name at the top, open About, scroll down and copy the Channel ID",
-     "where": "Slack desktop", "expect": "An ID that starts with C, like C07ABC123"}
+    {"do": "Scroll down and copy the Channel ID", "where": "Slack desktop › channel name › About",
+     "expect": "An ID that starts with C, like C07ABC123"}
   ],
   "verify": {"do": "Reload Slack and look under Channels", "where": "Slack desktop",
              "expect": "#acme-brief is listed with a lock icon"},
@@ -256,14 +284,13 @@ correction keeps those ids and adds a step without one:
   "why": "The daily Acme brief needs a channel to post into.",
   "urgency": "today",
   "steps": [
-    {"id": "s1", "do": "Click + next to Channels in the left sidebar, then Create channel",
-     "where": "Slack desktop"},
-    {"id": "s2", "do": "Paste this as the name, choose Private, click Create", "where": "Slack desktop",
+    {"id": "s1", "do": "Click + next to Channels, then Create channel", "where": "Slack desktop"},
+    {"id": "s2", "do": "Create a Private channel with this name", "where": "Slack desktop",
      "code": "acme-brief", "lang": "text", "expect": "You land in #acme-brief"},
     {"do": "Type this in the channel and press Return", "where": "Slack desktop",
      "code": "/invite @acme-bot", "lang": "text", "expect": "acme-bot joined #acme-brief"},
-    {"id": "s3", "do": "Click the channel name at the top, open About, scroll down and copy the Channel ID",
-     "where": "Slack desktop", "expect": "An ID that starts with C, like C07ABC123"}
+    {"id": "s3", "do": "Scroll down and copy the Channel ID", "where": "Slack desktop › channel name › About",
+     "expect": "An ID that starts with C, like C07ABC123"}
   ],
   "verify": {"do": "Reload Slack and look under Channels", "where": "Slack desktop",
              "expect": "#acme-brief is listed with a lock icon"},

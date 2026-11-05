@@ -130,9 +130,9 @@
         "steps": [
           {"do": "Start Codex in Terminal", "code": "codex", "lang": "bash", "where": "Mac terminal"},
           {"do": "Open the list of hooks", "code": "/hooks", "lang": "text", "where": "Codex"},
-          {"do": "Select the hook that runs relay hook replies, and choose Trust", "where": "Codex"}
+          {"do": "Select the relay hook replies hook, then choose Trust", "where": "Codex"}
         ],
-        "verify": {"do": "Answer any Hook ask, then send Codex a prompt: it shows a Hook line with your answer"}
+        "verify": {"do": "Send Codex a prompt after you answer an ask", "expect": "It shows a Hook line with your answer"}
       }
     ],
     "smoke": [{"argv": ["codex", "mcp", "list"], "expect": "relay"}],
@@ -388,7 +388,7 @@
             "where": "Cursor"
           }
         ],
-        "verify": {"do": "Start a new Agent chat and ask which Hook tools it has: it lists relay_post"}
+        "verify": {"do": "Ask a new Agent chat which Hook tools it has", "expect": "It lists relay_post"}
       }
     ],
     "smoke": [{"parse": true}],
@@ -1031,9 +1031,9 @@
             "where": "Mac terminal"
           },
           {"do": "Or open the instructions and copy their text", "file": "{{instructions}}", "optional": true},
-          {"do": "In Warp, open Settings, then AI, then Rules, choose Add rule and paste", "where": "Warp"}
+          {"do": "Paste it as a new rule", "where": "Warp › Settings › AI › Rules › Add rule"}
         ],
-        "verify": {"do": "Ask Warp's agent how it sends the owner an ask: it names relay_post"}
+        "verify": {"do": "Ask Warp's agent how it sends the owner an ask", "expect": "It names relay_post"}
       }
     ],
     "smoke": [{"parse": true}],

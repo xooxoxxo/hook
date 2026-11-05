@@ -10,6 +10,8 @@ lint_choice_labels() flags a string choice that asks for words in its label ("Mi
 what)"): from Pond 1.4.0 such a choice is {"label", "text"} with its own field.
 lint_hook_controls() flags a step that only points at Hook's own controls ("Pick an answer
 below", "Press Done") and a verify that only restates the reply or Done.
+lint_do_title() flags a do that is more than the owner's one action: over 60 characters, or
+several actions joined by commas, "and" or "then" ("Install X, create Y and add Z").
 
 The rules live here and nowhere else in Hook. Other clients copy this file's functions and
 test them against clients/lint-vectors.json. Stdlib only, Python 3.9+.
@@ -338,10 +340,97 @@ def lint_hook_controls(doc: Any) -> List[Tuple[str, str]]:
     return problems
 
 
+# --- do is the owner's one action ---
+
+DO_MAX = 60
+# An action is a clause that starts with one of these. Clauses are split at a comma, a
+# semicolon, " and " and " then ", so "Click Create New App, then From scratch" is one
+# action and "Install X, create Y and add Z" is three.
+_ACTION_VERBS = frozenset((
+    "accept", "add", "allow", "answer", "approve", "attach", "build", "change", "check", "choose",
+    "click", "close", "configure", "confirm", "connect", "copy", "create", "delete", "deploy",
+    "disable", "download", "drag", "drop", "edit", "eject", "enable", "enter", "fill", "find",
+    "follow", "generate", "go", "grant", "hold", "insert", "install", "invite", "launch", "log",
+    "look", "make", "mention", "merge", "move", "name", "open", "pair", "paste", "pick", "ping",
+    "plug", "post", "press", "pull", "push", "quit", "read", "reboot", "register", "relaunch",
+    "reload", "remove", "rename", "reopen", "replace", "reply", "restart", "review", "revoke",
+    "rotate", "run", "save", "scroll", "select", "send", "set", "share", "sign", "skip", "start",
+    "stop", "store", "switch", "tap", "toggle", "trust", "turn", "type", "uninstall", "unlock",
+    "unplug", "update", "upgrade", "upload", "use", "verify", "visit", "wait",
+))
+_CLAUSE = re.compile(r"\s*(?:[,;]\s*(?:and\s+|then\s+)?|\s(?:and|then)\s+)", re.IGNORECASE)
+_FIRST_WORD = re.compile(r"[A-Za-z]+")
+
+
+def _actions(text: str) -> int:
+    """How many clauses of text start with an action verb."""
+    count = 0
+    for clause in _CLAUSE.split(text):
+        word = _FIRST_WORD.match(clause.strip())
+        count += bool(word and word.group(0).lower() in _ACTION_VERBS)
+    return count
+
+
+def _opening(text: str, room: int = 28) -> str:
+    """The first words of text, up to room characters, with … when there is more."""
+    if len(text) <= room + 2:
+        return text
+    words, kept = text.split(), ""
+    for word in words:
+        if kept and len(kept) + 1 + len(word) > room:
+            break
+        kept = f"{kept} {word}" if kept else word
+    return kept.rstrip(_TRAILING) + "…"
+
+
+def _title_problem(text: Any, verify: bool) -> str:
+    if not isinstance(text, str):
+        return ""
+    text = text.strip()
+    actions = 0 if verify else _actions(text)
+    if actions >= 3 or (actions >= 2 and len(text) > DO_MAX):
+        return (f"{json.dumps(_opening(text), ensure_ascii=False)} names more than one action: keep do to "
+                "the owner's one action and move the rest to detail, or split into steps")
+    if len(text) > DO_MAX:
+        return f"do is {len(text)} characters: keep it under {DO_MAX} and move the rest to detail"
+    return ""
+
+
+def lint_do_title(doc: Any) -> List[Tuple[str, str]]:
+    """(path, message) for each step or sub-step whose do is more than the owner's one action:
+    three or more actions ("Install X, create Y and add Z"), two over 60 characters, or any do
+    over 60 characters. Two actions within 60 are a click path ("Open Settings and click Save")
+    and pass. verify gets only the length check. A do that already holds a value to copy gets
+    that message alone: moving the values rewrites it, and the next post checks it again."""
+    problems: List[Tuple[str, str]] = []
+    if not isinstance(doc, dict):
+        return problems
+    steps = doc.get("steps") if isinstance(doc.get("steps"), list) else []
+    for i, step in enumerate(steps):
+        if not isinstance(step, dict):
+            continue
+        raw = step.get("substeps") if isinstance(step.get("substeps"), list) else []
+        nodes: List[Tuple[str, Dict[str, Any]]] = [(f"steps[{i}]", step)]
+        nodes += [(f"steps[{i}].substeps[{j}]", sub) for j, sub in enumerate(raw) if isinstance(sub, dict)]
+        codes = [c for _, node in nodes for c in _strings(node, "code")]
+        urls = [u for _, node in nodes for u in _strings(node, "url")]
+        for path, node in nodes:
+            message = "" if lint_do(node.get("do"), codes, urls) else _title_problem(node.get("do"), verify=False)
+            if message:
+                problems.append((f"{path}.do", message))
+    verify = doc.get("verify")
+    if isinstance(verify, dict) and not lint_do(verify.get("do"), _strings(verify, "code"), _strings(verify, "url")):
+        message = _title_problem(verify.get("do"), verify=True)
+        if message:
+            problems.append(("verify.do", message))
+    return problems
+
+
 def lint_instructable(doc: Any) -> List[Tuple[str, str]]:
     """(path, message) for each `do` (step, sub-step, verify) that holds a value the owner
     would have to retype, then lint_requirements' pairs, then lint_choice_labels', then
-    lint_hook_controls'. A step shares its sub-steps' code and url, and they share its."""
+    lint_hook_controls', then lint_do_title's. A step shares its sub-steps' code and url, and
+    they share its."""
     problems: List[Tuple[str, str]] = []
     if not isinstance(doc, dict):
         return problems
@@ -363,7 +452,8 @@ def lint_instructable(doc: Any) -> List[Tuple[str, str]]:
         values = lint_do(verify.get("do"), _strings(verify, "code"), _strings(verify, "url"))
         if values:
             problems.append(("verify.do", _message(values, verify=True)))
-    return problems + lint_requirements(doc) + lint_choice_labels(doc) + lint_hook_controls(doc)
+    return (problems + lint_requirements(doc) + lint_choice_labels(doc) + lint_hook_controls(doc)
+            + lint_do_title(doc))
 
 
 def lint_details(doc: Any) -> List[str]:

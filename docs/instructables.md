@@ -42,7 +42,7 @@ A **Step** is a JSON object with these keys:
 
 | Key | Rule |
 |---|---|
-| `do` | Required, ≤ 300, one line: the action, never a value to copy ([Values to copy](#values-to-copy)) |
+| `do` | Required, ≤ 300, one line: the owner's one action in a few words ([One action](#one-action)), never a value to copy ([Values to copy](#values-to-copy)) |
 | `where` | ≤ 60, one line: the app or place |
 | `detail` | ≤ 1500, line breaks allowed: longer instructions, wrapped under `do` |
 | `code` | ≤ 4000: only the exact text to copy; it wraps |
@@ -130,6 +130,14 @@ A value already in the `code` or `url` of that step or its sub-steps passes. So 
 Every step is work in the world. Hook already shows the reply box, the questions and the Done and Skip buttons, so never add a step or a `verify` that only points at them: "Pick an answer below", "Reply with anything that still looks wrong", "Answer the question", "Press Done after answering", "Look at the reply you sent". A decision goes in a step's `question` or in `reply`. `verify` is optional: use it for a real check, best a command with `expect`, and leave it out when nothing in the world changes.
 
 `relay post` and `relay_post` refuse a step or sub-step whose `do` only points at Hook's controls, unless it has `code`, `url`, `file`, a `question` or sub-steps, or its `where` names another app ("Reply to the Slack thread with the link" is real work): `steps[5].do: "Pick an answer below" only points at Hook's own controls: drop the step; the reply box and questions already show`. They refuse a `verify` that only restates the reply or Done the same way: `verify.do: "Look at the reply you sent" only restates the reply or Done: drop verify; keep it only for a real check, like a command with expect`. Rules: `lint_hook_controls` in [`clients/relay_lint.py`](../clients/relay_lint.py), in the same shared vectors.
+
+## One action
+
+A `do` is the owner's one action in a few words: aim for 8 words or fewer, never more than about 60 characters. What a command or a page does goes in `detail`, and what the owner should see goes in `expect`. When the owner really does several things, make separate steps or sub-steps. A short click path is still one action ("Open Settings and click Save", "Click + next to Channels, then Create channel").
+
+Not `{"do": "Install the Leasekey client on the Mac, create the Claude agent's token and add its rules on the server", "code": "cd ~/leasekey-deploy && ./agent.sh"}`: the step runs one script, but the title lists all it does. Write `{"do": "Run the Leasekey agent setup", "code": "cd ~/leasekey-deploy && ./agent.sh", "detail": "It installs the Leasekey client on the Mac, creates the Claude agent's token and adds its rules on the server.", "expect": "It ends with: Next: ./install-host.sh web-1"}`.
+
+`relay post` and `relay_post` refuse a step or sub-step whose `do` names three or more actions, or two in more than 60 characters, and any `do` over 60 characters. An action is a clause (split at a comma, a semicolon, "and" or "then") that starts with a verb such as Install, Create, Add, Open or Click, so "Click Create New App, then From scratch" is one action. `verify` gets only the length check, and a `do` that already holds a value to copy gets that message alone: `steps[0].do: "Install the Leasekey client…" names more than one action: keep do to the owner's one action and move the rest to detail, or split into steps`, `steps[2].do: do is 72 characters: keep it under 60 and move the rest to detail`. Rules: `lint_do_title` in [`clients/relay_lint.py`](../clients/relay_lint.py), in the same shared vectors.
 
 ## Validation
 
