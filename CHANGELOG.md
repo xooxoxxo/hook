@@ -6,6 +6,8 @@ and versions follow Semantic Versioning.
 ## [Unreleased]
 
 ### Added
+
+- An opt-in synthetic Codex session-delivery proof covering idle turns, active steering, duplicate suppression and runtime restart; it does not attach existing desktop chats.
 - A `hook://` URL scheme next to `relay://`. `hook://show` and `hook://i/<uuid>` bring Hook
   forward; `relay://` links still work, so old links and other Macs keep working. Copy link, the
   context menu and the second-launch hand-off now produce `hook://`. If another app owns
