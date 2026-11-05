@@ -19,6 +19,14 @@ on you" line in chat alone gets lost.
 
 ## How to write it
 
+**Every step is work in the world.** Never add a step or a `verify` whose only action is to
+reply, answer, pick, press Done or Skip, or look at your own answer ("Pick an answer below",
+"Reply with anything that still looks wrong", "Press Done after answering", "Look at the reply
+you sent"). Hook already shows the reply box, the questions and the buttons. A decision goes in
+a step's `question` or in `reply`, not in a step that points at them. `relay_post` and
+`relay post` refuse such a step:
+`steps[5].do: "Pick an answer below" only points at Hook's own controls: drop the step; the reply box and questions already show`.
+
 - **title**: imperative, one line, at most 120 chars, unique, e.g. "Create a Slack channel for Acme".
   The queue dedupes on the title for 24 h, so a different ask needs a different title.
 - **why**: one sentence (at most 300 chars) on what it unblocks.
@@ -137,7 +145,9 @@ on you" line in chat alone gets lost.
   explanations in `code`: `code` is only text to copy exactly. They go in `detail`.
 - **expect**: what the owner should see, on every step that can be checked.
 - **url**: the exact page that step needs (http or https only).
-- **verify**: a final Step that proves it worked. A command with `expect` is best.
+- **verify**: optional. A final Step that proves it worked, with a real check in the world,
+  best a command with `expect`. When nothing in the world changes (a pure decision or a
+  review), leave `verify` out.
 - **reply**: for a decision, `{"prompt": "…", "choices": ["A", "B"]}`, with up to 6 choices of at most 60 chars each.
   Use `"choices": []` to ask for free text. A reply choice can take words too,
   `{"label": "Mix", "text": "What should change?"}` (Pond 1.4.0): the reply arrives as
@@ -204,8 +214,8 @@ It returns `{id, deduped, openUrl, editable}`:
 ```bash
 relay post Acme --json - <<'EOF'
 {"v": 1, "title": "Choose the Acme launch date", "urgency": "whenever",
- "steps": [{"do": "Pick a date for the public launch", "where": "Hook"}],
- "reply": {"prompt": "Which date?", "choices": ["2026-11-02", "2026-11-09", "Later"]}}
+ "steps": [{"do": "Pick a date for the public launch",
+            "question": {"prompt": "Which date?", "choices": ["2026-11-02", "2026-11-09", "Later"]}}]}
 EOF
 ```
 

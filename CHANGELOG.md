@@ -3,6 +3,19 @@
 All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## [Unreleased]
+
+### Changed
+- `relay post`, `relay_post` and `relay amend` refuse a step that only points at Hook's own
+  controls ("Pick an answer below", "Reply with …", "Press Done after answering") and a `verify`
+  that only restates the reply or Done ("Look at the reply you sent"). The reply box, the
+  questions and the Done and Skip buttons already show. A step with `code`, `url`, `file`, a
+  question or sub-steps, or a `where` that names another app, passes. Rules:
+  `lint_hook_controls` in `clients/relay_lint.py`, with new shared vectors.
+- The instructables skill and docs say so near the top, and `verify` is optional: only for a real
+  check in the world. The examples no longer point at Hook's controls.
+- Settings › Queue › Send a test ask no longer has a "Press Done" verify step.
+
 ## [0.15.1] - 2026-11-05
 
 ### Fixed

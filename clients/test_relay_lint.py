@@ -85,6 +85,30 @@ class VectorTests(unittest.TestCase):
                 got = [list(p) for p in relay_lint.lint_choice_labels(case["instructable"])]
                 self.assertEqual(got, [p for p in case["expect"] if ".choices[" in p[0]])
 
+    def test_hook_control_vectors(self):
+        # A step or verify that only points at Hook's own reply box, questions, Done or Skip.
+        cases = {c["name"]: c for c in CASES if c["name"].startswith("controls-")}
+        flagged = [c for c in cases.values() if c["expect"]]
+        self.assertGreaterEqual(len(flagged), 10)
+        self.assertGreaterEqual(len(cases) - len(flagged), 10)
+        self.assertEqual(cases["controls-pick-an-answer"]["expect"], [[
+            "steps[0].do",
+            "\"Pick an answer below\" only points at Hook's own controls: drop the step; "
+            "the reply box and questions already show"]])
+        self.assertEqual(cases["controls-reply-in-another-app"]["expect"], [])
+        for name, case in cases.items():
+            with self.subTest(name):
+                got = [list(p) for p in relay_lint.lint_hook_controls(case["instructable"])]
+                self.assertEqual(got, [p for p in case["expect"] if "Hook's own controls" in p[1]
+                                       or "restates the reply" in p[1]])
+
+    def test_control_pairs_come_last(self):
+        doc = {"v": 1, "title": "x", "done": ["reply"], "steps": [
+            {"do": "Press Done"},
+            {"do": "Go", "question": {"prompt": "How?", "choices": ["Keep", "Changes (reply)"]}}]}
+        self.assertEqual([p[0] for p in relay_lint.lint_instructable(doc)],
+                         ["done", "steps[1].question.choices[1]", "steps[0].do"])
+
     def test_choice_pairs_come_after_the_requirements(self):
         doc = {"v": 1, "title": "x", "done": ["reply"], "steps": [
             {"do": "Go", "question": {"prompt": "How?", "choices": ["Keep", "Changes (reply)"]}}]}

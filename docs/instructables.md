@@ -17,7 +17,7 @@ An ask is a `project` plus an instructable: a JSON object with a title and numbe
       {"do": "Name it Acme Brief and pick the Acme workspace"}
     ]}
   ],
-  "verify": {"do": "Confirm it worked", "expect": "The channel is listed"},
+  "verify": {"do": "Reload Slack and look under Channels", "where": "Slack", "expect": "#acme-brief is listed"},
   "reply": {"prompt": "Which channel?", "choices": ["#acme-brief", "#acme-team"]},
   "links": [{"label": "Spec", "url": "https://example.com/spec"}]
 }
@@ -32,7 +32,7 @@ An ask is a `project` plus an instructable: a JSON object with a title and numbe
 | `why` | ≤ 300 |
 | `urgency` | `now`, `today` (default) or `whenever` |
 | `steps` | Required, 1–20 Steps |
-| `verify` | One Step without `substeps` or `question` |
+| `verify` | Optional. One Step without `substeps` or `question`: a real check in the world, best a command with `expect`. Leave it out for a pure decision or a review ([Hook's own controls](#hooks-own-controls)) |
 | `reply` | `prompt` ≤ 300, `choices` 0–6 strings of ≤ 60, or [choices with words](#choices-with-words) |
 | `done` | 1–3 of `"steps"`, `"reply"` (needs `reply`) and `"message"`: what must happen before the owner's Done turns on ([Before Done](#before-done)). Needs Pond 1.3.0 |
 | `links` | 0–10 `{label ≤ 60, url}` or `{label ≤ 60, path}`. Exactly one of `url` (http(s)) and `path` (a local document, like a Step's `file`) |
@@ -124,6 +124,12 @@ Not `{"do": "Tap Add reader. Kind Ollama, Name studio, URL http://192.0.2.7:1143
 - a token of 12+ characters with letters and digits (and `:` `/` `.` `_` `-`)
 
 A value already in the `code` or `url` of that step or its sub-steps passes. So do versions (`0.11.0`), times, shortcuts (`⌘C`) and UI paths with › or →. The refusal quotes the values: `steps[3].do: "http://192.0.2.7:11434", "qwen2.5:14b-instruct" are values to copy: put each in a sub-step's code (or a URL in url)`. Rules: [`clients/relay_lint.py`](../clients/relay_lint.py); shared test vectors: [`clients/lint-vectors.json`](../clients/lint-vectors.json).
+
+## Hook's own controls
+
+Every step is work in the world. Hook already shows the reply box, the questions and the Done and Skip buttons, so never add a step or a `verify` that only points at them: "Pick an answer below", "Reply with anything that still looks wrong", "Answer the question", "Press Done after answering", "Look at the reply you sent". A decision goes in a step's `question` or in `reply`. `verify` is optional: use it for a real check, best a command with `expect`, and leave it out when nothing in the world changes.
+
+`relay post` and `relay_post` refuse a step or sub-step whose `do` only points at Hook's controls, unless it has `code`, `url`, `file`, a `question` or sub-steps, or its `where` names another app ("Reply to the Slack thread with the link" is real work): `steps[5].do: "Pick an answer below" only points at Hook's own controls: drop the step; the reply box and questions already show`. They refuse a `verify` that only restates the reply or Done the same way: `verify.do: "Look at the reply you sent" only restates the reply or Done: drop verify; keep it only for a real check, like a command with expect`. Rules: `lint_hook_controls` in [`clients/relay_lint.py`](../clients/relay_lint.py), in the same shared vectors.
 
 ## Validation
 

@@ -219,7 +219,6 @@ final class ServerRouting: Sendable {
                 "lang": "bash",
                 "expect": "relay-ok",
             ]],
-            "verify": ["do": "Press Done on this ask in Hook"],
         ]
         guard let data = try? JSONSerialization.data(withJSONObject: instructable, options: [.sortedKeys]) else {
             return .failed("Couldn't build the test ask")
