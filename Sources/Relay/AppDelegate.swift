@@ -19,6 +19,7 @@ import RelayUI
     private var welcome: WelcomeWindowController?
     private var about: AboutWindowController?
     private var notifier: Notifier?
+    private var pendingClosedNotice: PanelNotice?
     private var menuBar: MenuBarController?
     private var sessionLauncher: SessionLauncher?
     /// Asks that arrived while the panel was hidden and haven't been seen: the menu-bar dot.
@@ -138,6 +139,7 @@ import RelayUI
         }
         // A click goes through the same check as a link: closed or unknown → Notice.
         let notifier = Notifier { [weak self] id in self?.openLink(id) }
+        notifier.onOpenClosed = { [weak self] id in self?.showItem(id) }
         notifier.onOpenList = { [weak self] first in
             guard let self, let store = self.store else { return }
             if store.navigation.selectedID != nil { store.back() }
@@ -358,8 +360,8 @@ import RelayUI
     }
 
     /// A link from outside the app (hook://, relay://, the loopback server, a notification click)
-    /// opens an ask in the open queue. An ask confirmed closed shows the list with
-    /// "This ask is no longer open."; one that couldn't be checked (no source yet,
+    /// opens an ask in the open queue. A confirmed closed ask gives native feedback
+    /// without taking focus, with a compact fallback; one that couldn't be checked (no source yet,
     /// a check in the last 5 seconds, an unreachable source) opens directly, and the
     /// detail's not-found view covers it if it is really gone. A config apply still
     /// running is waited for first, so the check runs against the applied source.
@@ -381,10 +383,16 @@ import RelayUI
     }
 
     private func showNoLongerOpen(_ id: String) {
-        guard let store, let panel else { return }
-        if store.navigation.selectedID != nil { store.back() }
-        panel.present(focus: true, animated: true)
-        store.post(.noLongerOpen(id: id, canShowClosed: store.recentlyClosed.contains { $0.id == id }))
+        guard let store else { return }
+        let canShow = store.recentlyClosed.contains { $0.id == id }
+        Task { [weak self] in
+            guard let self else { return }
+            let delivered = await self.notifier?.showClosedAsk(id, canShowClosed: canShow) ?? false
+            guard !delivered else { return }
+            let notice = PanelNotice.noLongerOpen(id: id, canShowClosed: canShow)
+            if self.panel?.isShown == true { store.post(notice) }
+            else { self.pendingClosedNotice = notice }
+        }
     }
 
     func showItem(_ id: String) {
@@ -1014,6 +1022,10 @@ import RelayUI
 
     /// Any show of the panel marks every open ask seen.
     private func panelShown() {
+        if let notice = pendingClosedNotice {
+            pendingClosedNotice = nil
+            store?.post(notice)
+        }
         updateUnseen { $0.panelShown() }
         store?.panelShown()
     }

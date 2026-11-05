@@ -11,6 +11,8 @@ import UserNotifications
     var onOpenList: (@MainActor (_ first: String?) -> Void)?
     /// Authorization was requested in this run (Welcome, Settings or before the first post).
     private var requested = false
+    var onOpenClosed: (@MainActor (String) -> Void)?
+    private var closedRequests: [String: Date] = [:]
     private let onOpen: @MainActor (String) -> Void
     private var policy = NotifyPolicy(settings: NotifySettings())
     private var settings = NotifySettings()
@@ -109,6 +111,25 @@ import UserNotifications
         }
     }
 
+    /// Informational feedback never requests permission or changes the focused window.
+    /// Success means the system accepted the request, not that the owner saw its banner.
+    func showClosedAsk(_ id: String, canShowClosed: Bool) async -> Bool {
+        guard available, !quiet, await permission() == .authorized else { return false }
+        let now = Date()
+        closedRequests = closedRequests.filter { now.timeIntervalSince($0.value) < 3 }
+        if closedRequests[id] != nil { return true }
+        closedRequests[id] = now
+        let note = NotificationContentMaker.closedAsk(id: id, canShowClosed: canShowClosed)
+        do {
+            try await UNUserNotificationCenter.current().add(
+                UNNotificationRequest(identifier: "hook.closed." + id, content: note, trigger: nil))
+            return true
+        } catch {
+            closedRequests.removeValue(forKey: id)
+            return false
+        }
+    }
+
     private func perform(_ action: NotifyAction) {
         switch action {
         case .none:
@@ -161,9 +182,11 @@ import UserNotifications
     ) {
         let id = response.notification.request.content.userInfo["id"] as? String
         let first = response.notification.request.content.userInfo["first"] as? String
+        let closed = response.notification.request.content.userInfo["closedId"] as? String
         completionHandler()
         Task { @MainActor in
-            if let id { self.onOpen(id) } else { self.onOpenList?(first) }
+            if let closed { self.onOpenClosed?(closed) }
+            else if let id { self.onOpen(id) } else { self.onOpenList?(first) }
         }
     }
 

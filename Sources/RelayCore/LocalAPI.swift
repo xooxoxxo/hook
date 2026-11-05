@@ -100,6 +100,7 @@ public actor LocalAPI {
             "service": .string("hook"),
             "version": .string(PondCompat.localVersion),
             "protocol": .int(4),
+            "capabilities": .array([.string("ask-warning")]),
         ]))
     }
 

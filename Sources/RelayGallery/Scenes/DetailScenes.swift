@@ -194,6 +194,7 @@ let blockingJSON = #"""
   "status": "open", "projectId": "Kestrel", "created": "2026-10-16T09:30:00+00:00", "updated": "2026-10-16T09:30:00+00:00",
   "payload": {"instructable": {"v": 1, "title": "Move the Kestrel site to the new host", "urgency": "today",
     "why": "The old host shuts down on Friday. Each step takes a minute or two.",
+            "warning": "Do not run this migration twice. Check the saved result before repeating a step.",
     "steps": [{"do": "Export the site backup", "code": "kestrel export > site.tar"},
               {"do": "Point the domain at the new host", "where": "DNS provider", "blocking": true,
                "detail": "Change the A record to the new address.",

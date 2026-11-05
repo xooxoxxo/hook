@@ -172,16 +172,18 @@ public struct Instructable: Codable, Sendable, Equatable {
     /// Lenient: a non-list is nil, and only its strings are kept; an unknown value stays here
     /// raw and the model ignores it (`DoneRequirement`).
     public var done: [String]?
+    /// A caution above all steps; independent of step ordering.
+    public var warning: String?
 
     enum CodingKeys: String, CodingKey {
-        case v, title, why, urgency, steps, verify, reply, links, from, done
+        case v, title, why, urgency, steps, verify, reply, links, from, done, warning
     }
 
     public init(v: Int? = nil, title: String, why: String? = nil, urgency: String? = nil, steps: [Step],
                 verify: Step? = nil, reply: ReplySpec? = nil, links: [LinkRef]? = nil, from: Origin? = nil,
-                done: [String]? = nil) {
+                done: [String]? = nil, warning: String? = nil) {
         self.v = v; self.title = title; self.why = why; self.urgency = urgency; self.steps = steps
-        self.verify = verify; self.reply = reply; self.links = links; self.from = from; self.done = done
+        self.verify = verify; self.reply = reply; self.links = links; self.from = from; self.done = done; self.warning = warning
     }
 
     /// As the synthesized decoder did, plus a lenient `done`.
@@ -189,6 +191,7 @@ public struct Instructable: Codable, Sendable, Equatable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         v = try c.decodeIfPresent(Int.self, forKey: .v)
         title = try c.decode(String.self, forKey: .title)
+        warning = (try? c.decodeIfPresent(String.self, forKey: .warning)) ?? nil
         why = try c.decodeIfPresent(String.self, forKey: .why)
         urgency = try c.decodeIfPresent(String.self, forKey: .urgency)
         steps = try c.decode([Step].self, forKey: .steps)

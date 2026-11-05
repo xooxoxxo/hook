@@ -53,7 +53,7 @@ PROOF_PREFIX = "relay-proof-v1\n"   # message: PROOF_PREFIX + str(port) + "\n" +
 KEY_MIN_POND = (("id", "1.1.0"), ("optional", "1.0.0"), ("file", "1.0.0"), ("blocking", "1.0.0"),
                 ("warning", "1.0.0"), ("question", "1.0.0"), ("required", "1.3.0"))
 LINK_PATH_KEY, LINK_PATH_POND = "links[].path", "1.0.0"   # a link's `path` (a local file)
-TOP_KEY_MIN_POND = (("done", "1.3.0"),)                    # ask-level keys
+TOP_KEY_MIN_POND = (("done", "1.3.0"), ("warning", "1.6.0"))                    # ask-level keys
 # A choice with the owner's words, {"label", "text"}, in a question or the reply (Pond 1.4.0).
 # This Mac's queue stays Pond 1.0.0, so it refuses it.
 CHOICE_KEY, CHOICE_POND = "choices[].text", "1.4.0"
@@ -226,7 +226,7 @@ def keys_needing_pond(instructable: Any) -> Dict[str, str]:
     while stack:
         step = stack.pop()
         for key, needs in KEY_MIN_POND:
-            if key in step:
+            if key in step and (key not in found or _version_key(needs) > _version_key(found[key])):
                 found[key] = needs
         if _has_choice_object(step.get("question")):
             found[CHOICE_KEY] = CHOICE_POND
@@ -1015,6 +1015,15 @@ class Client:
         pond = self.pond_info()
         if pond is None:
             return
+        # This Mac implements this field without claiming all newer Pond features.
+        if self.local and "warning" in instructable:
+            try:
+                info = self._call("GET", "/version")
+            except NotFound:
+                info = {}
+            capabilities = info.get("capabilities") if isinstance(info, dict) else None
+            if isinstance(capabilities, list) and "ask-warning" in capabilities:
+                needed.pop("warning", None)
         order = [k for k, _ in KEY_MIN_POND] + [LINK_PATH_KEY] + [k for k, _ in TOP_KEY_MIN_POND] + [CHOICE_KEY]
         for key, needs in sorted(needed.items(), key=lambda kv: (_version_key(kv[1]), -order.index(kv[0])),
                                  reverse=True):

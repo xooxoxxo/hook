@@ -136,6 +136,8 @@ let queueClosedHeight: CGFloat = 1120
     panelScene("queue-undo", queueModel(GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false),
                undo: UndoInfo(verdict: .done, title: "Rotate the example token", deadline: Date().addingTimeInterval(8), more: 1)),
                height: queueBarHeight, rules: queueEdgeRules),
+    panelScene("queue-closed-feedback", queueModel(GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false),
+               notice: .noLongerOpen(id: "gallery-closed", canShowClosed: true))),
     panelScene("queue-notice", queueModel(GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false),
                notice: .actionFailed(verdict: .done, id: "gallery-failed", title: "Send the logo image", reason: offlineReason)),
                height: queueHeight, rules: queueEdgeRules),
