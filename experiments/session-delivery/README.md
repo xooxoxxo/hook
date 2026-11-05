@@ -2,7 +2,7 @@
 
 This opt-in experiment delivers fixed synthetic messages to a disposable Codex
 app-server runtime that it creates itself. It never attaches a user chat, reads
-Hook events, installs a channel, or runs a command requested by a model.
+Hook events or installs a channel. Its fixed prompts ask for text replies without tools.
 
 Run with Python 3.9+ and an already installed, authenticated Codex binary:
 
@@ -12,7 +12,7 @@ python3 experiments/session-delivery/proof.py --live-codex /absolute/path/to/cod
 
 A live run uses model calls and the CLI's existing configuration/authentication.
 It creates a temporary working directory, requests a read-only sandbox and no
-approvals, and refuses every server tool request. The successful run archives
+approvals, and refuses server requests for approval. This is not a tool-free sandbox: the CLI's existing configuration still applies. The successful run archives
 its disposable chat. A failed run may leave that chat in the CLI's history.
 Do not attach this adapter to an existing desktop runtime or start a second
 runner for an existing user chat.
