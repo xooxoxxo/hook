@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+<!-- The fish on the hook (Resources/MenuBar/menubar-new.svg) in the app icon's colours, for the
+     thumbnail on a new-ask notification. scripts/menubar-glyphs.sh renders it to PNG. -->
+<defs>
+  <radialGradient id="sky" cx="32" cy="30" r="44" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#f302a2"/><stop offset="0.55" stop-color="#b303a4"/><stop offset="1" stop-color="#290076"/>
+  </radialGradient>
+  <linearGradient id="chrome" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#f9f9fb"/><stop offset="0.55" stop-color="#c9cbe0"/><stop offset="1" stop-color="#6d63ad"/>
+  </linearGradient>
+  <linearGradient id="lime" x1="0" y1="0" x2="0.4" y2="1">
+    <stop offset="0" stop-color="#d5f501"/><stop offset="1" stop-color="#5cce03"/>
+  </linearGradient>
+  <clipPath id="tile"><rect width="64" height="64" rx="14"/></clipPath>
+  <mask id="face"><rect x="-2" y="-4" width="20" height="28" fill="#fff"/><circle cx="8" cy="4.3" r="3.2" fill="#000"/></mask>
+</defs>
+<g clip-path="url(#tile)">
+  <rect width="64" height="64" fill="url(#sky)"/>
+  <path d="M 32 30 L 101.7 23.9 L 101.7 36.1 Z M 32 30 L 98.8 51.0 L 94.1 62.3 Z M 32 30 L 85.6 75.0 L 77.0 83.6 Z M 32 30 L 64.3 92.1 L 53.0 96.8 Z M 32 30 L 38.1 99.7 L 25.9 99.7 Z M 32 30 L 11.0 96.8 L -0.3 92.1 Z M 32 30 L -13.0 83.6 L -21.6 75.0 Z M 32 30 L -30.1 62.3 L -34.8 51.0 Z M 32 30 L -37.7 36.1 L -37.7 23.9 Z M 32 30 L -34.8 9.0 L -30.1 -2.3 Z M 32 30 L -21.6 -15.0 L -13.0 -23.6 Z M 32 30 L -0.3 -32.1 L 11.0 -36.8 Z M 32 30 L 25.9 -39.7 L 38.1 -39.7 Z M 32 30 L 53.0 -36.8 L 64.3 -32.1 Z M 32 30 L 77.0 -23.6 L 85.6 -15.0 Z M 32 30 L 94.1 -2.3 L 98.8 9.0 Z" fill="#ffffff" opacity="0.10"/>
+</g>
+<g clip-path="url(#tile)">
+<g transform="translate(8.8 5) scale(2.9)" stroke-linejoin="round" stroke-linecap="round">
+  <path d="M 0.6 22 L 0.6 18 C 0.6 12.4 2.8 7.6 6.0 6.4 L 10.0 6.4 C 13.2 7.6 15.4 12.4 15.4 18 L 15.4 22 L 0.6 22 Z" transform="translate(0 -0.6)"
+        fill="url(#lime)" stroke="#1c1600" stroke-width="0.55" mask="url(#face)"/>
+  <circle cx="4.6" cy="10.8" r="1.9" fill="#fff" stroke="#1c1600" stroke-width="0.4"/>
+  <circle cx="11.4" cy="10.8" r="1.9" fill="#fff" stroke="#1c1600" stroke-width="0.4"/>
+  <circle cx="4.9" cy="10.5" r="0.95" fill="#1c1600"/><circle cx="11.1" cy="10.5" r="0.95" fill="#1c1600"/>
+  <path d="M 5.4 7.6 Q 8 9.9 10.6 7.6" stroke="#1c1600" stroke-width="0.75" fill="none"/>
+  <path d="M 8 -2 L 8 2.4" stroke="#1c1600" stroke-width="2.2"/>
+  <path d="M 8 -2 L 8 2.4" stroke="#e4e5f2" stroke-width="1.2"/>
+  <circle cx="8" cy="4.3" r="1.85" fill="none" stroke="#1c1600" stroke-width="3.0"/>
+  <circle cx="8" cy="4.3" r="1.85" fill="none" stroke="url(#chrome)" stroke-width="1.9"/>
+</g>
+</g>
+</svg>

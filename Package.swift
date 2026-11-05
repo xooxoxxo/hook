@@ -12,8 +12,8 @@ let package = Package(
             name: "RelayUI",
             dependencies: ["RelayCore"],
             // The document viewer's vendored marked and DOMPurify, and its renderer; the
-            // menu-bar glyphs.
-            resources: [.copy("Resources/Viewer"), .copy("Resources/MenuBar")]
+            // menu-bar glyphs; the new-ask notification's fish.
+            resources: [.copy("Resources/Viewer"), .copy("Resources/MenuBar"), .copy("Resources/Notification")]
         ),
         .executableTarget(name: "Relay", dependencies: ["RelayCore", "RelayUI"]),
         .executableTarget(name: "RelayGallery", dependencies: ["RelayCore", "RelayUI"]),

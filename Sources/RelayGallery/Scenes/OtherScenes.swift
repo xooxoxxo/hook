@@ -39,6 +39,37 @@ final class MenuBarStrip: NSView {
     }
 }
 
+/// The fish that new-ask notifications attach, at a banner thumbnail's size (40 pt) and at
+/// twice that, on the window background.
+final class NotificationFishStrip: NSView {
+    static let sizes: [CGFloat] = [40, 80]
+    static let pad: CGFloat = 12
+    static var frameSize: NSSize {
+        NSSize(width: sizes.reduce(pad) { $0 + $1 + pad }, height: (sizes.max() ?? 0) + 2 * pad)
+    }
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        let image = AskNotificationImage.bundledURL().flatMap(NSImage.init(contentsOf:)) ?? NSImage()
+        var x = Self.pad
+        for side in Self.sizes {
+            let view = NSImageView(image: image)
+            view.imageScaling = .scaleProportionallyUpOrDown
+            view.frame = NSRect(x: x, y: (Self.frameSize.height - side) / 2, width: side, height: side)
+            addSubview(view)
+            x += side + Self.pad
+        }
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("NotificationFishStrip is created in code") }
+
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.windowBackgroundColor.setFill()
+        bounds.fill()
+    }
+}
+
 @MainActor let otherScenes: [GalleryScene] = [
     GalleryScene(
         name: "menubar-glyphs",
@@ -46,6 +77,12 @@ final class MenuBarStrip: NSView {
         standIn: false,
         view: { AnyView(EmptyView()) },
         appKit: { MenuBarStrip(frame: .zero) }),
+    GalleryScene(
+        name: "notification-fish",
+        size: .appKit(NotificationFishStrip.frameSize),
+        standIn: false,
+        view: { AnyView(EmptyView()) },
+        appKit: { NotificationFishStrip(frame: .zero) }),
     setupScene("setup-1-welcome", page: .welcome),
     setupScene("setup-2-source", page: .source,
                settings: SettingsFixtures.snapshot(config: nil)),

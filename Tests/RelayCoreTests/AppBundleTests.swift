@@ -64,5 +64,8 @@ import Testing
         for name in ["menubar-idle.png", "menubar-idle@2x.png", "menubar-new.png", "menubar-new@2x.png"] {
             #expect(FileManager.default.fileExists(atPath: glyphs.appending(path: name).path), "\(name)")
         }
+        #expect(script.contains(#"cp -R "$NOTIFICATION" "$APP/Contents/Resources/Notification""#))
+        let fish = Self.root.appending(path: "Sources/RelayUI/Resources/Notification/ask-fish.png")
+        #expect(FileManager.default.fileExists(atPath: fish.path))
     }
 }
