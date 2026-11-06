@@ -40,20 +40,35 @@ public enum SharedProgress {
         return strings.count == values.count ? strings : nil
     }
 
+    /// Reserved progress identities contain @, which the real step-id grammar
+    /// forbids. Verify and pre-id steps therefore cannot alias a real step id.
+    public static let verifyID = "@verify"
+    public static func legacyID(path: String) -> String { "@legacy:" + path }
+    public static func id(for node: DetailModel.Node) -> String {
+        node.isVerify ? verifyID : node.stepID ?? legacyID(path: node.path)
+    }
+
     /// Preserve every own field, including fields a newer Pond knows but this Hook
-    /// doesn't render. Only id, substeps and required are excluded on the server.
+    /// doesn't render. Only id, substeps and required are excluded for real steps.
+    /// Legacy nodes use their path plus exact content; Verify uses its complete body.
     public static func stepIdentities(in body: JSONValue) -> [String: JSONValue] {
-        guard case .array(let tops)? = body["steps"] else { return [:] }
         var found: [String: JSONValue] = [:]
-        for top in tops {
-            var entries = [top]
-            if case .array(let subs)? = top["substeps"] { entries += subs }
-            for entry in entries {
-                guard let id = entry["id"]?.stringValue, case .object(var fields) = entry else { continue }
-                for key in ["id", "substeps", "required"] { fields[key] = nil }
-                found[id] = .object(fields)
+        func add(_ entry: JSONValue, path: String) {
+            guard case .object(var fields) = entry else { return }
+            let id = entry["id"]?.stringValue ?? legacyID(path: path)
+            for key in ["id", "substeps", "required"] { fields[key] = nil }
+            found[id] = .object(fields)
+        }
+        if case .array(let tops)? = body["steps"] {
+            for (index, top) in tops.enumerated() {
+                let path = String(index + 1)
+                add(top, path: path)
+                if case .array(let subs)? = top["substeps"] {
+                    for (child, sub) in subs.enumerated() { add(sub, path: path + "." + String(child + 1)) }
+                }
             }
         }
+        if case .object? = body["verify"] { found[verifyID] = body["verify"] }
         return found
     }
 }

@@ -463,7 +463,7 @@ private let caret110 = try! SemverRange("^1.1.0")
             }
         }
         let withMailbox = titles(mailbox: true)
-        let index = try? #require(withMailbox.firstIndex(of: "Check for Updates…"))
+        let index = withMailbox.firstIndex(of: "Check for Updates…")
         #expect(index.map { withMailbox[$0 + 1] } == "Update Pond…")
         #expect(!titles(mailbox: false).contains("Update Pond…"))
     }

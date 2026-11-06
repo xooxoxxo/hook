@@ -23,7 +23,7 @@ public struct DetailModel: Sendable, Equatable {
         /// An answer given to an earlier version of this question ("You answered an earlier
         /// version"); it doesn't count.
         public var earlierAnswer: Answer?
-        /// The step's stable id; "verify" for verify; nil for an ask without ids.
+        /// The step's stable id; reserved "@verify" for Verify; nil for an ask without ids.
         public var stepID: String?
         /// `StepIdentity.contentHash`: every field the owner sees, its kind and its parent's id.
         public var contentHash: String
@@ -155,7 +155,7 @@ public struct DetailModel: Sendable, Equatable {
             nodes.append(Node(
                 path: "verify", label: "Verify", kind: .verify, number: steps.count + 1, content: content,
                 fingerprint: StepFingerprint.make(kind: .verify, action: verify.action, place: content.place, code: content.code),
-                stepID: "verify", contentHash: StepIdentity.contentHash(verify, parentID: nil, kind: .verify)))
+                stepID: SharedProgress.verifyID, contentHash: StepIdentity.contentHash(verify, parentID: nil, kind: .verify)))
         }
         return nodes
     }

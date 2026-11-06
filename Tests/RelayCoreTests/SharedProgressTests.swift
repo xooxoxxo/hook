@@ -124,4 +124,17 @@ import Testing
         #expect(try JSONDecoder().decode(Payload.self, from: JSONEncoder().encode(decoded)) == decoded)
     }
 
+    @Test func verifyAndLegacyPathsHaveSeparateContentBoundIdentities() throws {
+        var first = body
+        first.steps[0].id = "verify"  // A legal real id never aliases Verify.
+        first.steps[1].id = nil
+        first.verify = Step(action: "Check final response", code: "check")
+        let ticks = [event(1, #"{"tick":["verify","@verify","@legacy:2"]}"#)]
+        #expect(try SharedProgress.fold(detail: detail([first], events: ticks)) == ["verify", "@verify", "@legacy:2"])
+        var next = first; next.verify?.code = "check corrected"; next.steps[1].action = "New legacy content"
+        #expect(try SharedProgress.fold(detail: detail([first, next], events: ticks)) == ["verify"])
+        next = first; next.steps[0].required = true
+        #expect(try SharedProgress.fold(detail: detail([first, next], events: ticks)) == ["verify", "@verify", "@legacy:2"])
+    }
+
 }

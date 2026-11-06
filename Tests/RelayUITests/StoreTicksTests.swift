@@ -277,6 +277,28 @@ private let sharedIdentity = SourceIdentity(key: "mailbox:pond.example.test#test
         return next
     }
 
+    @Test func verifyAndLegacyTicksSurviveRefreshRelaunchAndAnotherDeviceUntick() async throws {
+        let d1 = TestDefaults(), d2 = TestDefaults(); defer { d1.drop(); d2.drop() }
+        var detail = plain()
+        detail.item.payload.instructable?.steps[0].id = "verify"
+        detail.item.payload.instructable?.steps[1].id = nil
+        detail.item.payload.instructable?.verify = Step(action: "Verify result")
+        let source = SharedTickSource(detail)
+        let mac = await started(d1, source)
+        for path in ["1", "2", "verify"] { mac.toggleTick(path, in: "a") }
+        #expect(await mac.flushProgress("a"))
+        await mac.refresh()
+        #expect(mac.ticks(for: "a") == ["1", "2", "verify"])
+        let relaunched = await started(d1, source), phone = await started(d2, source)
+        #expect(relaunched.ticks(for: "a") == ["1", "2", "verify"])
+        #expect(phone.ticks(for: "a") == ["1", "2", "verify"])
+        phone.toggleTick("verify", in: "a")
+        #expect(await phone.flushProgress("a"))
+        await relaunched.refresh()
+        #expect(relaunched.ticks(for: "a") == ["1", "2"])
+        #expect(try SharedProgress.fold(detail: await source.get("a")) == ["verify", "@legacy:2"])
+    }
+
     @Test func orphanRevisionEnvelopeCannotAdoptOrDiscardLegacyTicks() async throws {
         let defaults = TestDefaults(); defer { defaults.drop() }
         var orphan = revised("a", [idSteps(2)]).detail

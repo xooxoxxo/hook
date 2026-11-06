@@ -391,18 +391,32 @@ enum QueueFixture {
     @Test func theLockWaitIsBounded() async throws {
         let dir = QueueFixture.directory()
         defer { QueueFixture.remove(dir) }
-        let holder = try await QueueFixture.openQueue(dir)
+        let initialized = try await QueueFixture.openQueue(dir)
+        await initialized.close()
+        let fd = open(dir.appending(path: "queue.lock").path, O_RDWR | O_CREAT | O_CLOEXEC, 0o600)
+        #expect(fd >= 0)
+        defer { close(fd) }
+        #expect(flock(fd, LOCK_EX | LOCK_NB) == 0)
         let started = Date()
         await #expect(throws: LocalQueueError.locked) {
             try await LocalQueue(directory: dir, keepDays: 14, lockWait: 0.2).open()
         }
         #expect(Date().timeIntervalSince(started) >= 0.2)
-        Task.detached {
-            try? await Task.sleep(for: .milliseconds(100))
-            await holder.close()
+        // flock polling is synchronous. Release this real competing descriptor on
+        // a dispatch thread, independently of Swift's occupied cooperative pool.
+        let release = DispatchGroup()
+        release.enter()
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.1) {
+            flock(fd, LOCK_UN)
+            release.leave()
         }
-        // Generous on purpose: CI runners can starve the closing task; a lock never released still fails.
-        #expect(try await LocalQueue(directory: dir, keepDays: 14, lockWait: 10).open() == .loaded)
+        let queue = LocalQueue(directory: dir, keepDays: 14, lockWait: 2)
+        let opened = try? await queue.open()
+        await withCheckedContinuation { continuation in
+            release.notify(queue: .global()) { continuation.resume() }
+        }
+        #expect(opened == .loaded)
+        await queue.close()
     }
 
     @Test func retentionDropsOldFinishedAsksAndKeepsOpenOnes() async throws {

@@ -143,7 +143,7 @@ extension Store {
         if let delta = progressOutbox[id] {
             ProgressOverlay(delta: delta, identity: progressIdentities[id]).apply(to: &ticks, identity: progressIdentity(id))
         }
-        return Set(Flow.items(of: stepTree(item)).filter { $0.stepID.map(ticks.contains) ?? false }.map(\.path))
+        return Set(Flow.items(of: stepTree(item)).filter { ticks.contains(SharedProgress.id(for: $0)) }.map(\.path))
     }
 
     /// A late response must not roll back either the event log or the accepted revision.

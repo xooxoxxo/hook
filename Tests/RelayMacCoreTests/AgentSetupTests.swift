@@ -37,6 +37,22 @@ import Testing
         #expect(try String(contentsOfFile: err, encoding: .utf8) == "oops\n")
     }
 
+    @Test func aMissingShellFails() async {
+        let outcome = await LoginShell.run("true", shell: "/nonexistent/shell", timeout: 5)
+        #expect(!outcome.ok && outcome.status == -1)
+    }
+
+    @Test func theShellIsTheUsersWhenAbsolute() {
+        #expect(LoginShell.shell(environment: ["SHELL": "/bin/bash"]) == "/bin/bash")
+        #expect(LoginShell.shell(environment: ["SHELL": "bash"]) == "/bin/zsh")
+        #expect(LoginShell.shell(environment: [:]) == "/bin/zsh")
+    }
+}
+
+/// CI runs this small suite in its own filtered process. The assertions measure
+/// wall time at the caller, so unrelated synchronous tests must not starve its
+/// continuation. Functional tests and the rest of the suite remain concurrent.
+@Suite struct LoginShellTimingTests {
     @Test func aHungCommandTimesOut() async {
         let start = Date()
         let outcome = await LoginShell.run("sleep 20", shell: "/bin/sh", timeout: 0.5)
@@ -75,14 +91,4 @@ import Testing
         #expect(Date().timeIntervalSince(start) < 15)  // well under the 20 s sleep; CI runners are slow
     }
 
-    @Test func aMissingShellFails() async {
-        let outcome = await LoginShell.run("true", shell: "/nonexistent/shell", timeout: 5)
-        #expect(!outcome.ok && outcome.status == -1)
-    }
-
-    @Test func theShellIsTheUsersWhenAbsolute() {
-        #expect(LoginShell.shell(environment: ["SHELL": "/bin/bash"]) == "/bin/bash")
-        #expect(LoginShell.shell(environment: ["SHELL": "bash"]) == "/bin/zsh")
-        #expect(LoginShell.shell(environment: [:]) == "/bin/zsh")
-    }
 }

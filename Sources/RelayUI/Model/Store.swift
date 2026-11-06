@@ -5,6 +5,9 @@ import RelayCore
 /// Phone writes are explicit, never automatically replayed after an uncertain result.
 public enum PendingCloseFlushReason: Sendable { case shutdown, background }
 
+/// Persistent recovery state, independent of a dismissible notice.
+public enum ReviewRecordsRecovery: Equatable, Sendable { case locked, changed, unavailable }
+
 public enum StoreDeliveryPolicy: Sendable {
     case desktop, phone
 }
@@ -360,6 +363,7 @@ public enum LinkCheck: Equatable, Sendable {
     var sealKey: SymmetricKey?
     /// The Keychain refused the seal key: no records loaded, nothing written, corrected asks locked.
     public internal(set) var reviewsUnreadable = false
+    public internal(set) var reviewRecordsRecovery: ReviewRecordsRecovery?
     /// The seal key and the records are being read (`startLoadingReviews`); the Keychain may be
     /// waiting on its prompt. Corrections are `waitingForKeychain` meanwhile.
     public internal(set) var reviewsLoading = false
@@ -551,15 +555,16 @@ public enum LinkCheck: Equatable, Sendable {
         let token = watchGeneration, gen = generation
         return Task { [weak self] in
             let stream = await source.changes()
-            guard !Task.isCancelled, let self, !self.watchingPaused,
-                  token == self.watchGeneration, gen == self.generation else { return }
+            guard !Task.isCancelled, self?.watchingPaused == false,
+                  token == self?.watchGeneration, gen == self?.generation else { return }
             if let stream {
-                await self.refresh()
+                await self?.refresh()
                 for await _ in stream {
-                    guard !Task.isCancelled, token == self.watchGeneration, gen == self.generation else { return }
+                    guard !Task.isCancelled, let self, !self.watchingPaused,
+                          token == self.watchGeneration, gen == self.generation else { return }
                     await self.refresh()
                 }
-            } else {
+            } else if let self {
                 self.polling = true
                 self.watchTask = self.pollTask(every: self.pollSeconds, refreshFirst: true)
             }
@@ -932,7 +937,7 @@ public enum LinkCheck: Equatable, Sendable {
         objectWillChange.send()
         let before = self.ticks(for: id)
         let leaves = ticks.intersection(Flow.items(of: nodes).map(\.path))
-        let delta = Requirements.delta(nodes: nodes, before: before, after: leaves)
+        let delta = Requirements.delta(nodes: nodes, before: before, after: leaves, shared: sharedProgressSupport == true)
         queueProgress(id, tick: delta.tick, untick: delta.untick)
         tickCache[id] = item(for: id).map { (StepSource($0), sharedProgressSupport == true ? renderedStamp(id) : nil, leaves) }
         if sharedProgressSupport != true {

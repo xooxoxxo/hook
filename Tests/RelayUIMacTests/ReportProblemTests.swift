@@ -132,6 +132,26 @@ let traceback: String = {
         #expect(store.detail("a")?.reported == ["2"])
     }
 
+    @Test func aPendingReportNamesTheDisplayedStepAndRefusesANewDisplayedRevision() async {
+        let defaults = TestDefaults(); defer { defaults.drop() }
+        let (store, fake, detail) = await started(defaults, bodies: [idSteps(2), idSteps(3)])
+        store.beginReport("a", path: "2")
+        let stamp = detail.revisions[0].stamp
+        #expect(store.detail("a")?.locked == true)
+        #expect(await store.sendReport("a", note: "The displayed flag is wrong", displayedStamp: stamp, displayedStepID: "s2") == .sent)
+        #expect(await fake.problems.first?.stamp == stamp)
+        #expect(await fake.problems.first?.stepID == "s2")
+        store.beginReport("a", path: "2")
+        store.reportDrafts["a"] = "Keep this report"
+        markAccepted(store, "a", detail.revisions[1].stamp)
+        if case .refused = await store.sendReport("a", note: "Keep this report", displayedStamp: stamp, displayedStepID: "s2") {} else {
+            Issue.record("Changed displayed version must refuse")
+        }
+        #expect(store.reportDrafts["a"] == "Keep this report")
+        #expect(await fake.problems.count == 1)
+        #expect(store.reporting["a"] == "2")
+    }
+
     @Test func aRefusalStaysInTheComposer() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }

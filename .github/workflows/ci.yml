@@ -49,8 +49,11 @@ jobs:
       - name: Gallery builds
         run: swift build --product RelayGallery
 
-      - name: Swift tests
-        run: swift test
+      - name: Swift tests (default concurrency)
+        run: swift test --skip LoginShellTimingTests
+
+      - name: Shell timing tests (dedicated process)
+        run: swift test --skip-build --filter LoginShellTimingTests
 
       - name: Client tests
         run: python3 -m unittest discover -s clients -p 'test_*.py' -v

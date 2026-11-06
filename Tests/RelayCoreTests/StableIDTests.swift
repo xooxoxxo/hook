@@ -30,7 +30,7 @@ private func nodes(_ steps: [Step]) -> [DetailModel.Node] {
         #expect(built[0].stepID == "s1")
         #expect(built[1].stepID == "s2")
         #expect(built[1].children[0].stepID == "s2.1")
-        #expect(built[2].stepID == "verify")
+        #expect(built[2].stepID == "@verify")
         #expect(built[0].contentHash.count == 16)
         #expect(DetailModel.nodes(steps: [Step(action: "A")], verify: nil)[0].stepID == nil)
     }
