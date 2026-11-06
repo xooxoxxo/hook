@@ -155,7 +155,7 @@ public enum UpdateRunner {
     }
 
     /// The files of one release download, checked against its SHA256SUMS.
-    public struct Download {
+    public struct Download: Sendable {
         let dir: URL
         let zip: URL
         let sums: URL
