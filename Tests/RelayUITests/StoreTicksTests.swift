@@ -250,8 +250,11 @@ private let sharedIdentity = SourceIdentity(key: "mailbox:pond.example.test#test
     private func started(_ defaults: TestDefaults, _ source: SharedTickSource, version: PondVersion? = sharedPond) async -> Store {
         let store = Store(defaults: defaults.defaults, sleep: { _ in try await Task.sleep(for: .seconds(3600)) })
         store.swap(to: source, identity: sharedIdentity, pollSeconds: 3600)
-        #expect(await eventually { await source.listCount > 0 })
+        // Explicitly await initialization: these tests exercise progress, while watcher
+        // scheduling is covered by the native LifecycleTests. A wall-clock poll here races the
+        // other MainActor suites under the default concurrent test runner.
         await store.refresh()
+        #expect(await source.listCount > 0)
         store.setPond(version)
         return store
     }
