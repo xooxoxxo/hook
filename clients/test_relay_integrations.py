@@ -176,10 +176,10 @@ class SyncTest(Base):
 
 
 class AppFixtureTest(Base):
-    """The app's sample status (Tests/RelayCoreTests/Fixtures/integrations-status.json) has
+    """The app's sample status (Tests/RelayMacCoreTests/Fixtures/integrations-status.json) has
     the keys a real `status --json` prints, so the Swift model decodes what the CLI says."""
 
-    FIXTURE = Path(__file__).resolve().parent.parent / "Tests" / "RelayCoreTests" / "Fixtures" / "integrations-status.json"
+    FIXTURE = Path(__file__).resolve().parent.parent / "Tests" / "RelayMacCoreTests" / "Fixtures" / "integrations-status.json"
 
     def test_the_app_fixture_matches_the_status_shape(self):
         self.sync()

@@ -12,6 +12,19 @@ public enum TickStore {
     public static let prefix = "relay.ticks.v2."
     public static let prefixV3 = "relay.ticks.v3."
 
+    /// First authoritative 1.5 fetch retires this source's device-local ticks.
+    /// Never upload them: an old cache could undo another device's untick.
+    public static func adoptShared(_ defaults: UserDefaults, sourceKey: String) {
+        let marker = "relay.ticks.shared." + sourceKey
+        guard !defaults.bool(forKey: marker) else { return }
+        let prefixes = [prefix, prefixV3, "relay.ticks."].map { $0 + sourceKey + "." }
+        for key in defaults.dictionaryRepresentation().keys {
+            guard let prefix = prefixes.first(where: key.hasPrefix) else { continue }
+            if !key.dropFirst(prefix.count).contains(".") { defaults.removeObject(forKey: key) }
+        }
+        defaults.set(true, forKey: marker)
+    }
+
     public static func key(sourceKey: String, id: String) -> String {
         prefix + sourceKey + "." + id
     }
@@ -20,7 +33,7 @@ public enum TickStore {
         prefixV3 + sourceKey + "." + id
     }
 
-    /// Every step and sub-step has an id (verify always has "verify").
+    /// Every step and sub-step has an id (Verify always has "@verify").
     static func usesIDs(_ nodes: [DetailModel.Node]) -> Bool {
         !nodes.isEmpty && Flow.flattened(nodes).allSatisfy { $0.stepID != nil }
     }
@@ -93,7 +106,7 @@ public enum TickStore {
     static func loadV3(_ defaults: UserDefaults, sourceKey: String, id: String, nodes: [DetailModel.Node]) -> Set<String> {
         let key = keyV3(sourceKey: sourceKey, id: id)
         let items = Flow.items(of: nodes)
-        guard let stored = defaults.dictionary(forKey: key) as? [String: String] else {
+        guard var stored = defaults.dictionary(forKey: key) as? [String: String] else {
             let v2 = TickStore.key(sourceKey: sourceKey, id: id)
             let old = defaults.dictionary(forKey: v2) as? [String: String]
             let v1 = old == nil ? migrateV1(defaults, sourceKey: sourceKey, id: id, nodes: nodes, write: false) : nil
@@ -107,6 +120,13 @@ public enum TickStore {
             write(defaults, key, entries)
             return Set(items.filter { $0.stepID.map { entries[$0] != nil } ?? false }.map(\.path))
         }
+        let originallyStored = stored
+        // Migrate the old synthetic Verify key only when no real step owns it.
+        // An ambiguous old collision is discarded instead of transferring a tick.
+        if !items.contains(where: { !$0.isVerify && $0.stepID == "verify" }),
+           stored[SharedProgress.verifyID] == nil, let old = stored.removeValue(forKey: "verify") {
+            stored[SharedProgress.verifyID] = old
+        }
         var kept: [String: String] = [:]
         var ticks: Set<String> = []
         for item in items {
@@ -114,7 +134,7 @@ public enum TickStore {
             kept[stepID] = item.contentHash
             ticks.insert(item.path)
         }
-        if kept != stored { write(defaults, key, kept) }
+        if kept != originallyStored { write(defaults, key, kept) }
         return ticks
     }
 

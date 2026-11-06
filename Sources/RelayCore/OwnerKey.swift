@@ -1,6 +1,7 @@
 import CryptoKit
 import Foundation
 import Security
+import os
 
 /// This Mac's owner key (Pond 1.1.0): 32 random bytes, sent as `X-Hook-Owner-Key` on owner
 /// acts once the owner approved this Mac on Telegram. The Pond stores only its SHA-256.
@@ -91,8 +92,18 @@ public enum OwnerKeyVault {
     /// nil when there is no item or its data isn't a record; throws when the Keychain refuses,
     /// and `.foreign` for a record whose mark doesn't verify under `seal` (or with no seal).
     public static func record(_ store: any SecretStore, sourceKey: String, seal: SymmetricKey?) throws -> OwnerKeyRecord? {
-        guard let data = try store.read(.ownerKey(sourceKey: sourceKey)),
-              let record = try? JSONDecoder().decode(OwnerKeyRecord.self, from: data) else { return nil }
+        try record(store, sourceKey: sourceKey, seal: seal, rejectingMalformed: false)
+    }
+
+    /// Phone authentication distinguishes a missing item from an existing item that cannot
+    /// decode. The legacy Mac reader deliberately retains its nil-for-malformed behavior.
+    fileprivate static func record(_ store: any SecretStore, sourceKey: String, seal: SymmetricKey?,
+                                   rejectingMalformed: Bool) throws -> OwnerKeyRecord? {
+        guard let data = try store.read(.ownerKey(sourceKey: sourceKey)) else { return nil }
+        guard let record = try? JSONDecoder().decode(OwnerKeyRecord.self, from: data) else {
+            if rejectingMalformed { throw SecretStoreError.unreadable(errSecDecode) }
+            return nil
+        }
         guard let seal, let mark = record.mark.flatMap({ Data(hex: $0) }),
               HMAC<SHA256>.isValidAuthenticationCode(mark, authenticating: markInput(key: record.key, sourceKey: sourceKey),
                                                      using: seal) else {
@@ -113,10 +124,11 @@ public enum OwnerKeyVault {
         try store.write(.ownerKey(sourceKey: sourceKey), encode(record, sourceKey: sourceKey, seal: seal))
     }
 
-    /// A new key: whatever item is there, Hook's or planted, is deleted and a fresh one added, marked.
+    /// Explicit enrollment: a fresh marked key replaces the old one. Data-protection
+    /// storage refuses replacement when the existing item cannot be read.
     public static func create(_ record: OwnerKeyRecord, _ store: any SecretStore, sourceKey: String,
                               seal: SymmetricKey) throws {
-        try store.create(.ownerKey(sourceKey: sourceKey), encode(record, sourceKey: sourceKey, seal: seal))
+        try store.replace(.ownerKey(sourceKey: sourceKey), encode(record, sourceKey: sourceKey, seal: seal))
     }
 
     private static func markInput(key: String, sourceKey: String) -> Data {
@@ -188,11 +200,15 @@ public enum OwnerKeyState: Equatable, Sendable {
     public private(set) var requireOffPending = false { didSet { if requireOffPending != oldValue { onChange?() } } }
     /// Why the last requirement change failed, as one line.
     public private(set) var requireProblem: String? { didSet { if requireProblem != oldValue { onChange?() } } }
+    public private(set) var revokePendingID: String? { didSet { onChange?() } }
+    public private(set) var revokeProblem: String? { didSet { onChange?() } }
     public var onChange: (@MainActor () -> Void)?
     /// A setup asked for while the record was read (`setUpAfterRead`), now that it reads as
     /// not approved: the app opens Settings › Queue and sets up.
     public var onSetUpAfterRead: (@MainActor () -> Void)?
     private var setUpWanted = false
+    private var revocationGeneration = UUID()
+    private var revokeTask: Task<Void, Never>?
 
     private let secrets: any SecretStore
     /// The review seal that marks this Mac's records (`OwnerKeyVault`); nil before Hook made one.
@@ -207,6 +223,26 @@ public enum OwnerKeyState: Equatable, Sendable {
     /// Its URL, whose scheme a new key is bound to.
     private var url: URL?
     private var source: (any QueueSource)?
+    /// Renewed on every attach, including source/URL changes that later switch back.
+    /// Only this short identity check is locked; Security I/O never holds this lock.
+    private let attachmentGeneration = OSAllocatedUnfairLock(initialState: UUID())
+
+    private struct Attachment: Sendable {
+        let sourceKey: String
+        let url: URL?
+        let generation: UUID
+    }
+
+    private func attachment(for sourceKey: String) -> Attachment? {
+        guard self.sourceKey == sourceKey else { return nil }
+        return Attachment(sourceKey: sourceKey, url: url, generation: attachmentGeneration.withLock { $0 })
+    }
+
+    private func matches(_ attachment: Attachment) -> Bool {
+        sourceKey == attachment.sourceKey && url == attachment.url &&
+            attachmentGeneration.withLock { $0 == attachment.generation }
+    }
+
     /// The read, setup or poll in flight; a second one waits for it to end.
     private var task: Task<Void, Never>?
     /// The last change to the item that runs apart from `task` (a cancel's delete, a refusal),
@@ -249,6 +285,40 @@ public enum OwnerKeyState: Equatable, Sendable {
         }
     }
 
+    /// Phone credential provider. Unlike the legacy Mac provider, Keychain/seal read
+    /// failures and malformed existing records throw, so a signed owner action never
+    /// silently becomes bearer-only.
+    public nonisolated static func authenticatedProvider(_ secrets: any SecretStore, sourceKey: String, url: URL,
+                                                         seal: @escaping @Sendable () throws -> SymmetricKey?,
+                                                         keychain: KeychainQueue = .shared) -> @Sendable () async throws -> String? {
+        {
+            try await keychain.run {
+                guard url.scheme?.lowercased() == "https" else { return nil }
+                let seal = try seal()
+                guard let record = try OwnerKeyVault.record(secrets, sourceKey: sourceKey, seal: seal, rejectingMalformed: true) else { return nil }
+                guard record.v == 1, record.status == .approved, record.scheme == "https", !record.key.isEmpty else {
+                    throw SecretStoreError.foreign
+                }
+                return record.key
+            }
+        }
+    }
+
+    /// Only GET /owner uses this provider. Pending/refused enrollment may inspect bearer
+    /// status without authorizing a mutation; malformed or misbound records still fail closed.
+    public nonisolated static func authenticatedStatusProvider(_ secrets: any SecretStore, sourceKey: String, url: URL,
+                                                               seal: @escaping @Sendable () throws -> SymmetricKey?,
+                                                               keychain: KeychainQueue = .shared) -> @Sendable () async throws -> String? {
+        {
+            try await keychain.run {
+                guard url.scheme?.lowercased() == "https" else { throw SecretStoreError.foreign }
+                guard let record = try OwnerKeyVault.record(secrets, sourceKey: sourceKey, seal: try seal(), rejectingMalformed: true) else { return nil }
+                guard record.v == 1, record.scheme == "https", !record.key.isEmpty else { throw SecretStoreError.foreign }
+                return record.status == .approved ? record.key : nil
+            }
+        }
+    }
+
     /// The flow says approved for this Pond at this URL: what the provider would send a key
     /// to, read from the flow's state, so the main actor never waits on the Keychain for it.
     public func isApproved(sourceKey: String, url: URL?) -> Bool {
@@ -279,7 +349,13 @@ public enum OwnerKeyState: Equatable, Sendable {
     @discardableResult
     public func attach(sourceKey: String?, url: URL?, source: (any QueueSource)?) -> Task<Void, Never>? {
         let urlChanged = url != self.url
+        revokeTask?.cancel()
+        revokeTask = nil
+        attachmentGeneration.withLock { $0 = UUID() }
+        revokePendingID = nil
+        revokeProblem = nil
         self.url = url
+        if urlChanged { status = nil }
         guard sourceKey != self.sourceKey else {
             self.source = source
             // The same Pond on another scheme: an approved key may no longer go to it, or again.
@@ -439,14 +515,53 @@ public enum OwnerKeyState: Equatable, Sendable {
     /// `self: null` says nothing about it.
     @discardableResult
     public func refresh() -> Task<Void, Never>? {
-        guard let source, let sourceKey else { return nil }
+        guard let source, let sourceKey, let attachment = attachment(for: sourceKey) else { return nil }
+        let revocation = revocationGeneration
         return Task {
-            guard let status = try? await source.ownerStatus(), self.sourceKey == sourceKey else { return }
+            guard let status = try? await source.ownerStatus(), self.matches(attachment),
+                  self.revocationGeneration == revocation else { return }
             self.status = status
+            self.revokeProblem = nil
             if !status.required { self.requireOffPending = false }     // the owner tapped Turn off
             guard self.state == .approved, status.self_?.status != "approved" else { return }
-            await self.refuse(sourceKey: sourceKey)
+            await self.refuse(attachment)
         }
+    }
+
+    /// A row remains until the Pond confirms the mutation and a fresh status arrives.
+    /// Late replies from a replaced attachment cannot update this source's devices.
+    @discardableResult
+    public func revokeOwnerKey(_ id: String) -> Task<Void, Never>? {
+        guard let source, let sourceKey, let attachment = attachment(for: sourceKey),
+              state == .approved, status?.self_?.status == "approved", revokePendingID == nil,
+              status?.keys.contains(where: { $0.id == id }) == true else { return nil }
+        revocationGeneration = UUID()  // invalidates any status read started before this mutation
+        revokeProblem = nil
+        revokePendingID = id
+        let revocation = Task {
+            guard self.matches(attachment) else { return }
+            defer {
+                if self.matches(attachment) {
+                    self.revokePendingID = nil
+                    self.revokeTask = nil
+                }
+            }
+            do {
+                try await source.revokeOwnerKey(id)
+                guard self.matches(attachment) else { return }
+                self.revocationGeneration = UUID()  // invalidates reads started while the write was in flight
+                let status = try await source.ownerStatus()
+                guard self.matches(attachment) else { return }
+                self.status = status
+                if !status.required { self.requireOffPending = false }
+                if status.self_?.status != "approved" { await self.refuse(attachment) }
+            } catch {
+                guard self.matches(attachment) else { return }
+                self.revokeProblem = "Couldn't confirm the device revocation. Refresh the devices and try again."
+            }
+        }
+        revokeTask = revocation
+        return revocation
     }
 
     /// The record read again, as `attach` reads it: after the review seal changed (Reset Review
@@ -461,30 +576,31 @@ public enum OwnerKeyState: Equatable, Sendable {
     /// An owner act got 403 "unknown owner key": the next one goes without a key.
     @discardableResult
     public func keyRefused() -> Task<Void, Never>? {
-        guard let sourceKey, state == .approved else { return nil }
-        return afterCleanup { await $0.refuse(sourceKey: sourceKey) }
+        guard let sourceKey, state == .approved, let attachment = attachment(for: sourceKey) else { return nil }
+        return afterCleanup { await $0.refuse(attachment) }
     }
 
     /// On takes effect at once (when `canRequireOwnerKey`); off waits for the Telegram tap.
     @discardableResult
     public func requireOwnerKey(_ on: Bool) -> Task<Void, Never>? {
-        guard let source, let sourceKey, state == .approved, status?.self_?.status == "approved" else { return nil }
+        guard let source, let sourceKey, state == .approved, status?.self_?.status == "approved",
+              let attachment = attachment(for: sourceKey) else { return nil }
         if on && !canRequireOwnerKey { return nil }
         requireProblem = nil
         return Task {
             do {
                 let outcome = try await source.requireOwnerKey(on)
-                guard self.sourceKey == sourceKey else { return }
+                guard self.matches(attachment) else { return }
                 self.requireOffPending = outcome == .pending
                 if outcome != .pending, var status = self.status {
                     status.required = outcome == .on
                     self.status = status
                 }
             } catch QueueError.ownerKeyRefused {
-                guard self.sourceKey == sourceKey else { return }
-                await self.refuse(sourceKey: sourceKey)
+                guard self.matches(attachment) else { return }
+                await self.refuse(attachment)
             } catch {
-                guard self.sourceKey == sourceKey else { return }
+                guard self.matches(attachment) else { return }
                 self.requireProblem = UserFacingError.text(error)
             }
         }
@@ -605,18 +721,27 @@ public enum OwnerKeyState: Equatable, Sendable {
     /// leaves the item in place and only gives `.unavailable`, since the provider sends no key
     /// then and the Pond's answer says nothing about it.
     private func refuse(sourceKey: String) async {
-        let secrets = self.secrets, seal = self.seal
-        let read = await keychain.run { () -> Bool in
+        guard let attachment = attachment(for: sourceKey) else { return }
+        await refuse(attachment)
+    }
+
+    private func refuse(_ attachment: Attachment) async {
+        guard matches(attachment) else { return }
+        let secrets = self.secrets, seal = self.seal, generations = attachmentGeneration
+        let stillAttached: @Sendable () -> Bool = { generations.withLock { $0 == attachment.generation } }
+        let read = await keychain.run { () -> Bool? in
+            guard stillAttached() else { return nil }
             do {
-                if let record = try Self.ownRecord(secrets, seal: seal, sourceKey: sourceKey) {
-                    Self.markRefused(record, secrets, seal: seal, sourceKey: sourceKey)
+                if let record = try Self.ownRecord(secrets, seal: seal, sourceKey: attachment.sourceKey) {
+                    guard Self.markRefused(record, secrets, seal: seal, sourceKey: attachment.sourceKey,
+                                           ifCurrent: stillAttached) else { return nil }
                 }
-                return true
+                return stillAttached() ? true : nil
             } catch {
-                return false
+                return stillAttached() ? false : nil
             }
         }
-        guard self.sourceKey == sourceKey else { return }
+        guard matches(attachment), let read else { return }
         if read { lastRecord = nil }
         state = read ? .refused(Self.noLongerAccepted) : .unavailable(Self.readFailed)
     }
@@ -635,17 +760,24 @@ public enum OwnerKeyState: Equatable, Sendable {
         }
     }
 
-    /// Rewrites a record that read fine as refused; when that write fails, deletes it. Either way
-    /// the provider gives nil. Runs on the Keychain queue.
+    /// Rewrites a record that read fine as refused; when that write fails, deletes it.
+    /// A stale attachment changes nothing. Each store mutation starts only while current;
+    /// an already-started store call cannot be cancelled. Runs on the Keychain queue.
+    @discardableResult
     private nonisolated static func markRefused(_ record: OwnerKeyRecord, _ secrets: any SecretStore,
-                                                seal: @Sendable () throws -> SymmetricKey?, sourceKey: String) {
+                                                seal: @Sendable () throws -> SymmetricKey?, sourceKey: String,
+                                                ifCurrent: @Sendable () -> Bool = { true }) -> Bool {
         var refused = record
         refused.status = .refused
         do {
-            try OwnerKeyVault.save(refused, secrets, sourceKey: sourceKey, seal: markingSeal(seal))
+            let markingKey = try markingSeal(seal)
+            guard ifCurrent() else { return false }
+            try OwnerKeyVault.save(refused, secrets, sourceKey: sourceKey, seal: markingKey)
         } catch {
+            guard ifCurrent() else { return false }
             try? OwnerKeyVault.delete(secrets, sourceKey: sourceKey)
         }
+        return true
     }
 
     /// This Mac's record, verified, read on the Keychain queue. One Hook didn't make

@@ -2,6 +2,16 @@ import CryptoKit
 import Foundation
 import RelayCore
 
+/// Phone writes are explicit, never automatically replayed after an uncertain result.
+public enum PendingCloseFlushReason: Sendable { case shutdown, background }
+
+/// Persistent recovery state, independent of a dismissible notice.
+public enum ReviewRecordsRecovery: Equatable, Sendable { case locked, changed, unavailable }
+
+public enum StoreDeliveryPolicy: Sendable {
+    case desktop, phone
+}
+
 /// What `Store.checkLink(_:)` found for a link's ask.
 public enum LinkCheck: Equatable, Sendable {
     /// In the open queue.
@@ -174,18 +184,26 @@ public enum LinkCheck: Equatable, Sendable {
     /// Tick paths as loaded from TickStore, per ask, with the step source they were loaded
     /// against; dropped when the ask's detail changes, and reloaded when the source differs.
     /// Keyed on the source, not the tree: comparing it is cheap, building the tree hashes every step.
-    var tickCache: [String: (source: StepSource, ticks: Set<String>)] = [:]
+    var tickCache: [String: (source: StepSource, stamp: RevisionStamp?, ticks: Set<String>)] = [:]
     /// How many times a step tree was built; tests check the tick cache saves this work.
     private(set) var stepTreeBuilds = 0
     /// Leaves ticked this session, in order, per ask (for ⇧⌘T).
     private var tickHistory: [String: [String]] = [:]
-    /// Tick changes on asks with requirements not yet sent to the Pond (Pond 1.3.0), per ask.
+    /// Current local tick changes not yet sent; requirements-only before Pond 1.5.
     /// Memory only: a failed send waits here for the next tick, refresh or Done.
     var progressOutbox: [String: ProgressDelta] = [:]
     /// The running debounce per ask; a newer tick restarts it.
     var progressTimers: [String: Task<Void, Never>] = [:]
     /// The progress send in flight per ask, so Done's flush waits for it.
     var progressSends: [String: (token: UUID, task: Task<Void, Never>)] = [:]
+    /// Raw authoritative snapshots, retained separately from the rendered review copy.
+    /// Revision metadata is verified when present; legacy asks have none.
+    var sharedProgressDetails: [String: AskDetail] = [:]
+    var sharedProgressValues: [String: (ticks: Set<String>, identity: [String: JSONValue])] = [:]
+    /// Local sends stay visible until a fetch begun after their successful response arrives.
+    var progressOverlays: [String: [ProgressOverlay]] = [:]
+    var progressConfirmed: [String: Set<UUID>] = [:]
+    var progressIdentities: [String: [String: JSONValue]] = [:]
     /// Each ask's requirement state with the inputs it was built from (`requirementState`), so a
     /// queue rebuild with nothing changed builds no model. Cleared on a source swap.
     var requirementCache: [String: (inputs: RequirementInputs, state: RequirementState)] = [:]
@@ -208,6 +226,7 @@ public enum LinkCheck: Equatable, Sendable {
     @Published public var sendingCloses = 0
     /// Hook's own update is installing (the status reads "Updating…").
     @Published public internal(set) var updating = false
+    #if os(macOS)
     /// The last run crashed: the docked bar, until Not Now or a send (Store+Crash).
     @Published public internal(set) var crashOffer: CrashOffer?
     /// Called with the crash's `handledKey` once it is answered, so it isn't raised again.
@@ -220,11 +239,15 @@ public enum LinkCheck: Equatable, Sendable {
     public var issueSearch: @Sendable (String, String) async -> IssueMatch = { _, _ in .unavailable }
     /// Settings › Privacy's target and whether My Pond is offered, read when the sheet opens.
     public var crashTargets: @MainActor () -> (target: CrashTarget, pondOffered: Bool) = { (.github, false) }
+    #endif
     /// The status bar's profile switcher; AppDelegate sets it on every config apply.
     @Published public internal(set) var profiles = ProfileMenu.empty
     /// The Undo bar as it was when the quit-time sends began; `undoInfo` while they run.
     @Published private var sendingUndo: UndoInfo?
     public var shell = PanelShellActions.none
+    public let deliveryPolicy: StoreDeliveryPolicy
+    /// Phone shell updates this on transport state changes; cached reads stay read-only.
+    public var mutationsAvailable = true
     /// This Mac's host name (HostName.current), cached: the app sets it at launch and when the
     /// panel becomes key. nil until then, which dims Resume Session.
     @Published public private(set) var localHost: String?
@@ -291,6 +314,10 @@ public enum LinkCheck: Equatable, Sendable {
     /// Bumped by every swap; results started under an older value are dropped.
     var generation = 0
     private var watchTask: Task<Void, Never>?
+    private var watchingPaused = false
+    private var watchGeneration = UUID()
+    private var backgroundFlush: UUID?
+    private let timerSleep: @Sendable (Duration) async throws -> Void
     var loadedOnce = false { didSet { queueInputChanged() } }
     private var inFlight: Task<Void, Never>?
     /// Bumped by every refresh that starts a list; only the latest one clears `inFlight`.
@@ -336,6 +363,7 @@ public enum LinkCheck: Equatable, Sendable {
     var sealKey: SymmetricKey?
     /// The Keychain refused the seal key: no records loaded, nothing written, corrected asks locked.
     public internal(set) var reviewsUnreadable = false
+    public internal(set) var reviewRecordsRecovery: ReviewRecordsRecovery?
     /// The seal key and the records are being read (`startLoadingReviews`); the Keychain may be
     /// waiting on its prompt. Corrections are `waitingForKeychain` meanwhile.
     public internal(set) var reviewsLoading = false
@@ -363,13 +391,16 @@ public enum LinkCheck: Equatable, Sendable {
     public init(defaults: UserDefaults = .standard, now: @escaping @MainActor () -> Date = { Date() },
                 sentHold: Duration = .seconds(DS.Motion.sentHold),
                 sleep: (@Sendable (Duration) async throws -> Void)? = nil,
+                timerSleep: (@Sendable (Duration) async throws -> Void)? = nil,
                 timeoutSleep: (@Sendable (Duration) async -> Void)? = nil,
-                reviews: ReviewPersistence? = nil) {
+                reviews: ReviewPersistence? = nil, deliveryPolicy: StoreDeliveryPolicy = .desktop) {
+        self.deliveryPolicy = deliveryPolicy
         self.defaults = defaults
         self.reviewFile = reviews
         self.now = now
         self.sentHold = sentHold
         self.sleep = sleep ?? Store.taskSleep
+        self.timerSleep = timerSleep ?? Store.taskSleep
         self.timeoutSleep = timeoutSleep ?? Store.timeoutTaskSleep
         let grouping = PanelPrefs.grouping(defaults)
         self.grouping = grouping
@@ -389,14 +420,27 @@ public enum LinkCheck: Equatable, Sendable {
         holdingQueue { swapState(to: source, identity: identity, pollSeconds: pollSeconds) }
         guard let source else { return }
         scheduleTimeoutTick()
+        guard !watchingPaused else { return }
         watchTask = watch(source)
     }
 
     private func swapState(to source: (any QueueSource)?, identity: SourceIdentity, pollSeconds: Int) {
         let openID = navigation.selectedID
         // Closes still held back belong to the old source: send them now.
-        flushAll(to: self.source)
+        if deliveryPolicy == .desktop { flushAll(to: self.source) }
+        else {
+            ticker?.cancel(); ticker = nil
+            _ = pending.drainAll()
+            drafts = [:]; pendingChoice = [:]; answerDrafts = [:]; choiceWords = [:]
+            messageDrafts = [:]; reportDrafts = [:]; reportStepDrafts = [:]; heldReports = [:]
+            messageStates = [:]; reportStates = [:]; reporting = [:]; reviewing = [:]
+            accepting = []; choiceFocus = nil; messageFocus = nil; reportFocus = nil
+        }
         generation += 1
+        backgroundFlush = nil
+        draining = []; sendingUndo = nil
+        watchGeneration = UUID()
+        inFlight?.cancel()
         watchTask?.cancel()
         watchTask = nil
         inFlight = nil
@@ -485,36 +529,57 @@ public enum LinkCheck: Equatable, Sendable {
         let seconds = max(1, seconds)
         guard seconds != pollSeconds else { return }
         pollSeconds = seconds
-        guard polling, source != nil else { return }
+        guard polling, source != nil, !watchingPaused else { return }
         watchTask?.cancel()
         watchTask = pollTask(every: seconds, refreshFirst: false)
     }
 
+    /// Stops automatic reads without discarding drafts, held closes or source identity.
+    /// A late changes() result cannot resurrect the old subscription.
+    public func pauseWatching() {
+        watchingPaused = true
+        watchGeneration = UUID()
+        watchTask?.cancel(); watchTask = nil
+        inFlight?.cancel(); inFlight = nil
+        refreshCount += 1; refreshing = false; polling = false
+    }
+
+    public func resumeWatching() {
+        guard watchingPaused else { return }
+        watchingPaused = false
+        guard let source else { return }
+        watchTask = watch(source)
+    }
+
     private func watch(_ source: any QueueSource) -> Task<Void, Never> {
-        Task { [weak self] in
-            if let stream = await source.changes() {
+        let token = watchGeneration, gen = generation
+        return Task { [weak self] in
+            let stream = await source.changes()
+            guard !Task.isCancelled, self?.watchingPaused == false,
+                  token == self?.watchGeneration, gen == self?.generation else { return }
+            if let stream {
                 await self?.refresh()
                 for await _ in stream {
-                    guard !Task.isCancelled, let self else { return }
+                    guard !Task.isCancelled, let self, !self.watchingPaused,
+                          token == self.watchGeneration, gen == self.generation else { return }
                     await self.refresh()
                 }
-            } else {
-                guard !Task.isCancelled, let self else { return }
+            } else if let self {
                 self.polling = true
-                // Read the interval now, not when watch started: a setPollInterval that ran
-                // while `changes()` was pending only stored it (polling was still false).
                 self.watchTask = self.pollTask(every: self.pollSeconds, refreshFirst: true)
             }
         }
     }
 
     private func pollTask(every seconds: Int, refreshFirst: Bool) -> Task<Void, Never> {
-        Task { [weak self] in
+        let token = watchGeneration, gen = generation, sleep = timerSleep
+        return Task { [weak self] in
             var wait = !refreshFirst
             while !Task.isCancelled {
-                if wait { try? await Task.sleep(for: .seconds(seconds)) }
+                if wait { try? await sleep(.seconds(seconds)) }
                 wait = true
-                guard !Task.isCancelled, let self else { return }
+                guard !Task.isCancelled, let self, token == self.watchGeneration,
+                      gen == self.generation, !self.watchingPaused else { return }
                 await self.refresh()
             }
         }
@@ -532,6 +597,7 @@ public enum LinkCheck: Equatable, Sendable {
     /// The list task clears `inFlight` itself as it ends: a caller that joined it may
     /// resume first, and its next refresh must list again, not join the finished one.
     public func refresh() async {
+        guard !Task.isCancelled else { return }
         if let inFlight { return await inFlight.value }
         refreshCount += 1
         let token = refreshCount
@@ -573,21 +639,27 @@ public enum LinkCheck: Equatable, Sendable {
         }
         do {
             let fresh = try await source.list()
-            guard gen == generation else { return }
+            guard !Task.isCancelled, gen == generation else { return }
             let diff = QueueLogic.diff(old: listed, new: fresh)
             holdingQueue { applyList(fresh, diff: diff) }
             // The open ask's detail first, on its own, so it never waits for the others;
             // the rest arrive as one change, not one re-render per ask.
             var toLoad = diff.added + diff.changed
+            // Progress appends events without changing item.updated. On shared-progress
+            // Ponds, unchanged queue rows therefore need their authoritative log too.
+            if sharedProgressSupport == true {
+                let scheduled = Set(toLoad)
+                toLoad += fresh.map(\.id).filter { !scheduled.contains($0) }
+            }
             if let selected = navigation.selectedID {
                 toLoad.removeAll { $0 == selected }
                 await load(selected, from: source, generation: gen)
-                guard gen == generation else { return }
+                guard !Task.isCancelled, gen == generation else { return }
             }
             var fetched: [(id: String, result: DetailFetch)] = []
             for id in toLoad {
                 fetched.append((id, await fetch(id, from: source)))
-                guard gen == generation else { return }
+                guard !Task.isCancelled, gen == generation else { return }
             }
             apply(fetched)
             let announce = diff.added.filter { !quietIDs.contains($0) }
@@ -596,11 +668,11 @@ public enum LinkCheck: Equatable, Sendable {
                 onNewItems?(items.filter { announce.contains($0.id) })
             }
             await loadClosed(from: source, generation: gen)
-            guard gen == generation else { return }
+            guard !Task.isCancelled, gen == generation else { return }
             if !loadedOnce { loadedOnce = true }
             pruneTicks()
         } catch {
-            guard gen == generation else { return }
+            guard !Task.isCancelled, gen == generation else { return }
             listOK = false
             listProblem = error.localizedDescription
             // Once per outage: repeated failed polls don't re-post it.
@@ -782,7 +854,7 @@ public enum LinkCheck: Equatable, Sendable {
     }
 
     /// Ticks key on fingerprints and content hashes only, so their loads pass no events.
-    private func stepTree(_ item: WireItem, events: [Event] = []) -> [DetailModel.Node] {
+    func stepTree(_ item: WireItem, events: [Event] = []) -> [DetailModel.Node] {
         stepTreeBuilds += 1
         return DetailModel.make(item: item, events: events, history: try? histories[item.id]?.get()).nodes
     }
@@ -810,15 +882,19 @@ public enum LinkCheck: Equatable, Sendable {
     private func ticks(_ id: String, item listedItem: WireItem) -> Set<String> {
         let item = details[id]?.item ?? listedItem
         let source = StepSource(item)
-        if let cached = tickCache[id], cached.source == source { return cached.ticks }
-        let loaded = TickStore.load(defaults, sourceKey: sourceKey, id: id, nodes: stepTree(item))
-        tickCache[id] = (source, loaded)
+        let stamp = sharedProgressSupport == true ? renderedStamp(id) : nil
+        if let cached = tickCache[id], cached.source == source, cached.stamp == stamp { return cached.ticks }
+        let loaded = sharedProgressSupport == true
+            ? sharedTicks(id, item: item)
+            : TickStore.load(defaults, sourceKey: sourceKey, id: id, nodes: stepTree(item))
+        tickCache[id] = (source, stamp, loaded)
         return loaded
     }
 
     /// A leaf flips; a parent ticks or unticks all its sub-steps (Flow.toggle). Saves.
     /// A locked step (Flow.lockedPaths) is left as it is, and so are a parent's locked sub-steps.
     public func toggleTick(_ path: String, in id: String) {
+        guard mutationsAvailable else { return }
         guard !isContentLocked(id), let nodes = nodes(for: id), let node = Flow.flattened(nodes).first(where: { $0.path == path }) else { return }
         let before = ticks(for: id)
         let after = Flow.toggle(node, ticks: before, locked: Set(Flow.lockedPaths(nodes: nodes, ticks: before)))
@@ -832,6 +908,7 @@ public enum LinkCheck: Equatable, Sendable {
     /// ⌘T: ticks the current item and returns its path (an optional question's too); nil when
     /// every item is done or the current one is a required question.
     @discardableResult public func tickCurrent(in id: String) -> String? {
+        guard mutationsAvailable else { return nil }
         guard !isContentLocked(id), let nodes = nodes(for: id) else { return nil }
         let result = Flow.tickCurrent(ticks: ticks(for: id), nodes: nodes)
         guard let path = result.path else { return nil }
@@ -843,6 +920,7 @@ public enum LinkCheck: Equatable, Sendable {
 
     /// ⇧⌘T: unticks the leaf ticked last this session, else the last ticked leaf in order.
     @discardableResult public func untickLast(in id: String) -> String? {
+        guard mutationsAvailable else { return nil }
         guard !isContentLocked(id), let nodes = nodes(for: id) else { return nil }
         let ticks = ticks(for: id)
         let result = Flow.untickLast(ticks: ticks, history: tickHistory[id] ?? [], nodes: nodes,
@@ -859,10 +937,12 @@ public enum LinkCheck: Equatable, Sendable {
         objectWillChange.send()
         let before = self.ticks(for: id)
         let leaves = ticks.intersection(Flow.items(of: nodes).map(\.path))
-        let delta = Requirements.delta(nodes: nodes, before: before, after: leaves)
+        let delta = Requirements.delta(nodes: nodes, before: before, after: leaves, shared: sharedProgressSupport == true)
         queueProgress(id, tick: delta.tick, untick: delta.untick)
-        tickCache[id] = item(for: id).map { (StepSource($0), leaves) }
-        TickStore.save(defaults, sourceKey: sourceKey, id: id, ticks: leaves, nodes: nodes)
+        tickCache[id] = item(for: id).map { (StepSource($0), sharedProgressSupport == true ? renderedStamp(id) : nil, leaves) }
+        if sharedProgressSupport != true {
+            TickStore.save(defaults, sourceKey: sourceKey, id: id, ticks: leaves, nodes: nodes)
+        }
         clearChips(id, ticked: Set(Flow.items(of: nodes).filter { leaves.contains($0.path) }.compactMap(\.stepID)))
         queueInputChanged()
     }
@@ -888,6 +968,7 @@ public enum LinkCheck: Equatable, Sendable {
     /// While the ask is locked for review only Skip goes through: Done is refused here, and so
     /// is a Done while the ask's requirements aren't met (the button, ⌘↩ and the context menu).
     public func close(_ id: String, _ verdict: Verdict) {
+        guard mutationsAvailable else { return }
         guard source != nil else { return }
         if verdict == .done, isContentLocked(id) || !requirementsMet(id) { return }
         HookLog.action(verdict == .done ? .done : .skip)
@@ -996,7 +1077,7 @@ public enum LinkCheck: Equatable, Sendable {
         case .reviewRecordsUnreadable:
             // Declined, the lock and its Notice stay.
             if !(await resetReviewRecords()), reviewsUnreadable { post(.reviewRecordsUnreadable) }
-        case .storeFailed, .settingsReloaded, .updating, .resumeFailed, .mailboxUpToDate, .mailboxUpdateFailed,
+        case .deliveryFailed, .storeFailed, .settingsReloaded, .updating, .resumeFailed, .mailboxUpToDate, .mailboxUpdateFailed,
              .mailboxUpdateCommandInvalid, .ownerKeyRefused, .reviewRecordsChanged,
              .doneHeldBack, .acceptFailed, .crashReport:
             break
@@ -1023,7 +1104,13 @@ public enum LinkCheck: Equatable, Sendable {
     /// Before quitting: sends every held-back close at once. The caller caps the wait.
     /// The Undo bar shown while they go ("Sending", Undo disabled) is the one from
     /// before the drain, kept in `sendingUndo` until every send has finished.
-    public func sendAllPending() async {
+    public func sendAllPending(reason: PendingCloseFlushReason = .shutdown,
+                               allowedWhileSuspended: @escaping @MainActor @Sendable () -> Bool = { false }) async {
+        if deliveryPolicy == .phone {
+            guard reason == .background else { return }
+            await flushPhoneCloses(allowedWhileSuspended: allowedWhileSuspended)
+            return
+        }
         guard let source else { return }
         let shown = undoInfo
         let all = pending.drainAll()
@@ -1048,6 +1135,86 @@ public enum LinkCheck: Equatable, Sendable {
         publishState()
     }
 
+    /// Phone suspension is a single dispatch per held close, never an outbox. Cancellation
+    /// cannot unsend an HTTP request, so expiration leaves an uncertainty notice and ignores
+    /// every late result. Foreground refresh reconciles; only the owner initiates another act.
+    private func flushPhoneCloses(allowedWhileSuspended: @escaping @MainActor @Sendable () -> Bool) async {
+        guard backgroundFlush == nil, let source else { return }
+        ticker?.cancel(); ticker = nil
+        let all = pending.drainAll()
+        guard !all.isEmpty else { return }
+        guard mutationsAvailable || allowedWhileSuspended(), !Task.isCancelled else {
+            updateItems()
+            post(.deliveryFailed(reason: "Not sent before suspension. Refresh the asks before deciding what to do next."))
+            return
+        }
+        let token = UUID(), gen = generation
+        backgroundFlush = token
+        draining = Set(all.map(\.id)); sendingUndo = nil
+        updateItems(); publishState()
+        await withTaskGroup(of: Void.self) { group in
+            for close in all {
+                group.addTask { [weak self] in
+                    await self?.dispatchPhoneClose(close, via: source, token: token, generation: gen, allowedWhileSuspended: allowedWhileSuspended)
+                }
+            }
+            await group.waitForAll()
+        }
+        guard gen == generation, backgroundFlush == token else { return }
+        if Task.isCancelled { cancelPendingFlush(); return }
+        backgroundFlush = nil
+        draining = []; updateItems(); publishState()
+    }
+
+    private func dispatchPhoneClose(_ close: PendingClose, via source: any QueueSource, token: UUID, generation gen: Int,
+                                    allowedWhileSuspended: @MainActor @Sendable () -> Bool) async {
+        guard !Task.isCancelled, gen == generation, backgroundFlush == token else { return }
+        let result: Result<WireItem, Error>
+        do {
+            guard mutationsAvailable || allowedWhileSuspended() else {
+                throw QueueError.unreachable("The connection is no longer ready. Refresh before trying again.")
+            }
+            result = .success(try await source.resolve(close.id, verdict: close.verdict, note: close.note, stamp: close.stamp))
+        }
+        catch { result = .failure(error) }
+        phoneCloseFinished(close, result: result, token: token, generation: gen)
+    }
+
+    private func phoneCloseFinished(_ close: PendingClose, result: Result<WireItem, Error>, token: UUID, generation gen: Int) {
+        guard !Task.isCancelled, gen == generation, backgroundFlush == token else { return }
+        draining.remove(close.id)
+        switch result {
+        case .success(let item):
+            listed.removeAll { $0.id == close.id }
+            details[close.id] = nil
+            if item.status != "open" { recentlyClosed.append(item) }
+            onCloseSent?(close.id)
+        case .failure(let error):
+            if !ownerKeyRefused(error) { post(.deliveryFailed(reason: Self.failureReason(error))) }
+        }
+        updateItems(); publishState()
+    }
+
+    /// Prevent the Undo timer dispatching while the phone acquires its background budget.
+    public func pausePendingCloseTimer() { ticker?.cancel(); ticker = nil }
+
+    /// Call synchronously on expiration. includeHeld also abandons work whose finite
+    /// budget expired before dispatch began. Nothing is saved for automatic replay.
+    public func cancelPendingFlush(includeHeld: Bool = false) {
+        guard backgroundFlush != nil || (includeHeld && hasPendingCloses) else { return }
+        let dispatched = !draining.isEmpty
+        backgroundFlush = nil
+        let held = includeHeld ? pending.drainAll() : []
+        if includeHeld { pausePendingCloseTimer() }
+        draining = []; sendingUndo = nil
+        updateItems(); publishState()
+        if dispatched {
+            post(.deliveryFailed(reason: "Not sure the close was sent before suspension. Refresh the ask before deciding what to do next."))
+        } else if !held.isEmpty {
+            post(.deliveryFailed(reason: "Not sent before suspension. Refresh the asks before deciding what to do next."))
+        }
+    }
+
     public var hasPendingCloses: Bool { !pending.isEmpty }
 
     /// Closes that are hidden but not yet resolved: held for Undo, sending, or in the
@@ -1063,6 +1230,7 @@ public enum LinkCheck: Equatable, Sendable {
 
     /// Puts a closed ask back in the open queue, as the owner.
     public func reopen(_ id: String) async {
+        guard mutationsAvailable else { return }
         guard let source else { return }
         let gen = generation
         do {
@@ -1079,6 +1247,9 @@ public enum LinkCheck: Equatable, Sendable {
         } catch {
             guard gen == generation else { return }
             if ownerKeyRefused(error) { return }
+            if deliveryPolicy == .phone, (error as? any WriteDeliveryFailure)?.mayRetryExplicitly != true {
+                post(.deliveryFailed(reason: UserFacingError.text(error))); return
+            }
             post(.reopenFailed(id: id, title: item(for: id)?.title ?? "", reason: UserFacingError.text(error)))
         }
     }
@@ -1087,7 +1258,7 @@ public enum LinkCheck: Equatable, Sendable {
     /// A failed fetch keeps the previous list.
     private func loadClosed(from source: any QueueSource, generation gen: Int) async {
         guard let fresh = try? await source.recentlyClosed(within: Self.closedWindow) else { return }
-        guard gen == generation else { return }
+        guard !Task.isCancelled, gen == generation else { return }
         let open = Set(listed.map(\.id))
         let closed = fresh.filter { !open.contains($0.id) && !pending.contains($0.id) }.map(ingestListed)
         var actors: [String: String] = [:]
@@ -1096,11 +1267,11 @@ public enum LinkCheck: Equatable, Sendable {
             if let known = closedActors[key] {
                 actors[key] = known
             } else if let detail = try? await source.get(item.id) {
-                guard gen == generation else { return }
+                guard !Task.isCancelled, gen == generation else { return }
                 actors[key] = DetailModel.make(detail).closedBy ?? ""
             }
         }
-        guard gen == generation else { return }
+        guard !Task.isCancelled, gen == generation else { return }
         holdingQueue {
             if actors != closedActors { closedActors = actors }
             if closed != recentlyClosed { recentlyClosed = closed }
@@ -1133,8 +1304,8 @@ public enum LinkCheck: Equatable, Sendable {
         guard ticker == nil else { return }
         ticker = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(DS.Timing.holdTick))
-                guard let self else { return }
+                try? await self?.timerSleep(.seconds(DS.Timing.holdTick))
+                guard !Task.isCancelled, let self else { return }
                 if self.sendDue() {
                     self.ticker = nil
                     return
@@ -1166,6 +1337,9 @@ public enum LinkCheck: Equatable, Sendable {
     /// the send has come back; on failure it reappears and a Notice says why.
     private func send(_ close: PendingClose, via source: any QueueSource, generation gen: Int) async {
         do {
+            if deliveryPolicy == .phone, !mutationsAvailable {
+                throw QueueError.unreachable("The connection is no longer ready. Refresh before trying again.")
+            }
             // Ticks the Pond hasn't heard of go first (Pond 1.3.0), then a local acceptance the
             // Pond hasn't heard of, or the Done would be refused.
             if close.verdict == .done {
@@ -1180,6 +1354,9 @@ public enum LinkCheck: Equatable, Sendable {
                 try await sendPendingAccept(close.id, via: source)
             }
             try await withAcceptRecovery(close.id, via: source) {
+                if self.deliveryPolicy == .phone, !self.mutationsAvailable {
+                    throw QueueError.unreachable("The connection is no longer ready. Refresh before trying again.")
+                }
                 _ = try await source.resolve(close.id, verdict: close.verdict, note: close.note, stamp: close.stamp)
             }
             guard gen == generation else { return }
@@ -1201,6 +1378,9 @@ public enum LinkCheck: Equatable, Sendable {
             if case QueueError.requirementsUnmet(let left)? = error as? QueueError {
                 await doneRefused(close, left: left, via: source, generation: gen)
                 return
+            }
+            if deliveryPolicy == .phone, (error as? any WriteDeliveryFailure)?.mayRetryExplicitly != true {
+                post(.deliveryFailed(reason: Self.failureReason(error))); return
             }
             failedCloses[close.id] = close
             post(.actionFailed(verdict: close.verdict, id: close.id, title: close.title, reason: Self.failureReason(error)))
@@ -1259,6 +1439,7 @@ public enum LinkCheck: Equatable, Sendable {
     }
 
     public func sendReply(_ id: String) async -> Bool {
+        guard mutationsAvailable else { return false }
         let text = (drafts[id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, replyStates[id] != .sending, !isContentLocked(id) else { return false }
         return await send(text, for: id) {
@@ -1271,6 +1452,7 @@ public enum LinkCheck: Equatable, Sendable {
     /// under it when it takes them: "choice: Mix · words". Words over `AnswerDrafts.wordsLimit`
     /// are refused and kept, the reason in the reply state.
     public func sendChoice(_ id: String) async -> Bool {
+        guard mutationsAvailable else { return false }
         let spec = item(for: id)?.instructable?.reply
         let choices = spec?.options ?? []
         let index = pendingChoice[id] ?? (replyHasNewWords(id) ? latestSentChoice(for: id) : nil)
@@ -1402,6 +1584,7 @@ public enum LinkCheck: Equatable, Sendable {
     /// and drops the drafts it sent. False when there was nothing to send, a send is already
     /// running, or it failed (the reason is in `answerStates`).
     public func sendAnswers(_ id: String, only: Set<String>? = nil) async -> Bool {
+        guard mutationsAvailable else { return false }
         let unsent = unsentAnswers(for: id, only: only)
         guard unsent.count > 0, answerStates[id] != .sending, !isContentLocked(id) else { return false }
         HookLog.action(.answer)
@@ -1509,6 +1692,7 @@ public enum LinkCheck: Equatable, Sendable {
 
     /// Posts through the current source (Settings' "Send a test ask").
     public func post(project: String, instructable: Data) async throws -> PostResult {
+        guard mutationsAvailable else { throw QueueError.unreachable("Offline. Reconnect before sending.") }
         guard let source else { throw QueueError.unreachable(Self.noSourceProblem) }
         let gen = generation
         let result = try await source.post(project: project, instructable: instructable)
@@ -1528,19 +1712,20 @@ public enum LinkCheck: Equatable, Sendable {
 
     private func load(_ id: String, from source: any QueueSource, generation gen: Int) async {
         let result = await fetch(id, from: source)
-        guard gen == generation else { return }
+        guard !Task.isCancelled, gen == generation else { return }
         apply([(id, result)])
     }
 
     enum DetailFetch {
-        case loaded(AskDetail)
+        case loaded(AskDetail, confirmed: Set<UUID>)
         case notFound
         case failed
     }
 
     private func fetch(_ id: String, from source: any QueueSource) async -> DetailFetch {
+        let confirmed = progressConfirmed[id] ?? []
         do {
-            return .loaded(try await source.get(id))
+            return .loaded(try await source.get(id), confirmed: confirmed)
         } catch QueueError.notFound {
             return .notFound
         } catch {
@@ -1559,8 +1744,10 @@ public enum LinkCheck: Equatable, Sendable {
         var loaded: [String] = []
         for (id, fetch) in fetched {
             switch fetch {
-            case .loaded(let raw):
+            case .loaded(let raw, let confirmed):
+                if sharedProgressSupport != false, staleProgressDetail(raw) { continue }
                 let detail = ingestDetail(raw)
+                receiveSharedProgress(raw, confirmed: confirmed)
                 loaded.append(id)
                 if next[id] != detail {
                     next[id] = detail
@@ -1808,8 +1995,11 @@ extension Store: PanelViewModel {
 
     public func copyLink(_ id: String) {
         HookLog.action(.copy)
-        shell.copy("hook://i/\(id)")
+        shell.copy(QueueContextMenu.link(for: id))
     }
+
+    /// A single explicit detail read, also used to reconcile an uncertain phone write.
+    public func refreshDetail(_ id: String) async { await reload(id) }
 
     public func retryDetail(_ id: String) {
         detailFailed.remove(id)

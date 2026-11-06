@@ -60,12 +60,12 @@ import Testing
         #expect(script.contains(#"cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns""#))
         #expect(script.contains(#"cp Resources/Assets.car "$APP/Contents/Resources/Assets.car""#))
         #expect(script.contains(#"cp -R "$MENUBAR" "$APP/Contents/Resources/MenuBar""#))
-        let glyphs = Self.root.appending(path: "Sources/RelayUI/Resources/MenuBar")
+        let glyphs = Self.root.appending(path: "Sources/RelayUIMac/Resources/MenuBar")
         for name in ["menubar-idle.png", "menubar-idle@2x.png", "menubar-new.png", "menubar-new@2x.png"] {
             #expect(FileManager.default.fileExists(atPath: glyphs.appending(path: name).path), "\(name)")
         }
         #expect(script.contains(#"cp -R "$NOTIFICATION" "$APP/Contents/Resources/Notification""#))
-        let fish = Self.root.appending(path: "Sources/RelayUI/Resources/Notification/ask-fish.png")
+        let fish = Self.root.appending(path: "Sources/RelayUIMac/Resources/Notification/ask-fish.png")
         #expect(FileManager.default.fileExists(atPath: fish.path))
     }
 }

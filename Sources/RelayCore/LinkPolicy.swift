@@ -42,7 +42,7 @@ public enum LinkPolicy {
     }
 }
 
-/// What a hook:// (or legacy relay://) URL asks for.
+/// What a hook:// or legacy relay:// URL asks for.
 public enum RelayURLAction: Equatable, Sendable {
     /// hook://show: present the panel with focus (a second launch sends this).
     case show
@@ -51,17 +51,19 @@ public enum RelayURLAction: Equatable, Sendable {
 }
 
 public enum RelayURL {
-    /// hook://show and hook://i/<uuid>; relay:// is accepted too, so old links keep working
-    /// (case-insensitive scheme and host, id normalized); else nil.
+    /// hook:// and legacy relay:// show or i/<uuid>; no credentials, port, query or fragment.
     public static func parse(_ url: URL) -> RelayURLAction? {
-        guard let scheme = url.scheme?.lowercased(), scheme == "hook" || scheme == "relay",
-              let host = url.host()?.lowercased() else { return nil }
+        guard let scheme = url.scheme?.lowercased(), ["hook", "relay"].contains(scheme),
+              let host = url.host()?.lowercased(), url.user == nil, url.password == nil,
+              url.port == nil, url.query == nil, url.fragment == nil else { return nil }
         let parts = url.path().split(separator: "/", omittingEmptySubsequences: true).map(String.init)
         switch host {
         case "show":
-            return parts.isEmpty ? .show : nil
+            return ["", "/"].contains(url.path()) ? .show : nil
         case "i":
-            guard parts.count == 1, let id = QueueLogic.normalizedID(parts[0]) else { return nil }
+            guard parts.count == 1, url.path() == "/" + parts[0],
+                  let id = QueueLogic.normalizedID(parts[0]),
+                  url.absoluteString.lowercased() == "\(scheme)://i/\(id)" else { return nil }
             return .open(id: id)
         default:
             return nil

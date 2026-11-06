@@ -104,10 +104,11 @@ extension EnvironmentValues {
 
 /// A section heading's badge, after its "?" (Messages, Reply), while `on`: in a row aligned on
 /// the heading's first baseline, its centre sits at the middle of the heading's capitals.
-struct RequiredHeadingBadge: View {
+public struct RequiredHeadingBadge: View {
     let on: Bool
+    public init(on: Bool) { self.on = on }
 
-    var body: some View {
+    public var body: some View {
         if on {
             RequiredBadge()
                 .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + DS.Font.headingCapHeight / 2 }
@@ -118,7 +119,7 @@ struct RequiredHeadingBadge: View {
 extension View {
     /// The required hue behind a whole section (Messages, the reply) while `on`, reaching
     /// `DS.Space.requiredBleed` past it on every side, so its text keeps the gutter.
-    func requiredSection(_ on: Bool) -> some View {
+    public func requiredSection(_ on: Bool) -> some View {
         let bleed = DS.Space.requiredBleed
         return requiredRow(on, bleed: EdgeInsets(top: bleed, leading: bleed, bottom: bleed, trailing: bleed))
     }

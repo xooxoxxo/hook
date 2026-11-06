@@ -1,3 +1,4 @@
+import RelayUIMac
 import AppKit
 import RelayCore
 import RelayUI
@@ -18,6 +19,21 @@ let settingsRules: [AlignmentRule] = [.sameTrailingPerGroup(.settingsTrailing, t
 /// One entry per Settings tab state.
 @MainActor var settingsScenes: [GalleryScene] {
     [
+        GalleryScene(name: "settings-phone-pairing", size: .wide(width: 380, height: nil), standIn: false, view: {
+            AnyView(PhonePairingView(host: "pond.example.test"))
+        }),
+        settingsScene("settings-queue-owner-devices", tab: .queue) {
+            var config = SettingsFixtures.mailboxConfig
+            config.mailboxURL = "https://pond.example.test"
+            config.tokenFile = "unused"
+            let status = OwnerStatus(required: false, keys: [
+                OwnerKeyRow(id: "mac-key", label: "This Mac", status: "approved", created: ""),
+                OwnerKeyRow(id: "phone-key", label: "iPhone", status: "approved", created: ""),
+            ], self_: OwnerSelf(id: "mac-key", status: "approved"))
+            return QueueTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(config: config),
+                draft: MailboxDraft(address: "https://pond.example.test", tokenFile: "unused"), ownerKeyState: .approved,
+                ownerStatus: status, canRequireOwnerKey: true))
+        },
         settingsScene("settings-general", tab: .general) {
             GeneralTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot()))
         },
