@@ -43,3 +43,5 @@ proof = hex(HMAC-SHA256(key: token, message: "relay-proof-v1\n" + <port> + "\n" 
 ```
 
 `<port>` is the decimal port the request reached. Before every call that carries the token, the clients check the proof against the port they connected to. A program squatting on the port, or passing on another port's proof, never gets the token.
+
+The version response advertises `capabilities: ["ask-warning"]` when the local queue supports ask-wide warnings. This does not imply support for other newer Pond features.

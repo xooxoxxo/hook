@@ -303,7 +303,7 @@ private func answer(_ path: String) -> Answer { Answer(step: path, picked: ["EU"
             verify: nil)
         #expect(Flow.warningText(nodes[0]) == Flow.blockingWarning)
         #expect(Flow.warningText(nodes[1]) == "Wait for DNS")
-        #expect(Flow.warningText(nodes[2]) == nil)        // a warning without blocking draws no box
+        #expect(Flow.warningText(nodes[2]) == "careful")
     }
 
     @Test func aLockedStepIsNeverToggled() {

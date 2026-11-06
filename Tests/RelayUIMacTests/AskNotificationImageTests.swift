@@ -61,6 +61,16 @@ import UserNotifications
         #expect(fishIDs(made.content) == [AskNotificationImage.attachmentIdentifier])
     }
 
+    @Test func closedAskFeedbackIsQuietAndContainsNoAskText() {
+        let note = NotificationContentMaker.closedAsk(id: "closed-1", canShowClosed: true)
+        #expect(note.body == "This ask is already closed.")
+        #expect(note.sound == nil && note.attachments.isEmpty)
+        #expect(note.userInfo["closedId"] as? String == "closed-1")
+        #expect(note.userInfo["id"] == nil)
+        let missing = NotificationContentMaker.closedAsk(id: "gone", canShowClosed: false)
+        #expect(missing.userInfo.isEmpty)
+    }
+
     @Test func otherNoticesCarryNothing() {
         #expect(NotificationContentMaker.crashNotice().attachments.isEmpty)
         #expect(NotificationContentMaker.testNotice(sound: true).attachments.isEmpty)

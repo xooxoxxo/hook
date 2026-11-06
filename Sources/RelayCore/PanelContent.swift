@@ -86,6 +86,11 @@ public enum PanelNotice: Equatable, Sendable {
 
     /// A Notice that only reports something and asks nothing of the owner: it goes on its own
     /// after `DS.Motion.noticeHold`, and when the owner opens an ask.
+    public var isCompact: Bool {
+        if case .noLongerOpen = self { return true }
+        return false
+    }
+
     public var isTransient: Bool {
         switch self {
         case .noLongerOpen, .settingsReloaded, .mailboxUpToDate, .crashReport: return true

@@ -250,7 +250,7 @@ struct DetailView<Model: PanelViewModel>: View {
         let reviewing = Self.bar(snapshot, reviewing: model.isReviewing(id)) == .review
         return VStack(alignment: .leading, spacing: DS.Space.section) {
             if let notice = model.notice, !Self.barCovers(notice, snapshot) {
-                Notice(kind: notice.kind, text: notice.text, actionTitle: notice.actionTitle, help: notice.help,
+                Notice(compact: notice.isCompact, kind: notice.kind, text: notice.text, actionTitle: notice.actionTitle, help: notice.help,
                        secondaryTitle: notice.secondaryActionTitle, onSecondary: { model.performNoticeSecondaryAction() },
                        onAction: { model.performNoticeAction() }, onDismiss: { model.dismissNotice() })
                     .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
@@ -261,6 +261,7 @@ struct DetailView<Model: PanelViewModel>: View {
                     Color.clear.preference(key: NodeFramesKey.self,
                                            value: [Self.titleAnchor: geometry.frame(in: .named(detailScrollSpace))])
                 })
+            if let warning = snapshot.model?.warning { WarningBox(warning) }
             if reviewing {
                 DetailReview(page: model.reviewPage(id))
             } else {

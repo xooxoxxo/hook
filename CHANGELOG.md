@@ -6,6 +6,8 @@ and versions follow Semantic Versioning.
 ## [Unreleased]
 
 ### Added
+
+- An opt-in synthetic Codex session-delivery proof covering idle turns, active steering, duplicate suppression and runtime restart; it does not attach existing desktop chats.
 - A `hook://` URL scheme next to `relay://`. `hook://show` and `hook://i/<uuid>` bring Hook
   forward; `relay://` links still work, so old links and other Macs keep working. Copy link, the
   context menu and the second-launch hand-off now produce `hook://`. If another app owns
@@ -17,6 +19,10 @@ and versions follow Semantic Versioning.
   `scripts/menubar-glyphs.sh`, and the gallery shows it (`notification-fish`).
 
 ### Changed
+- Closed-ask links use a quiet system notification without focusing the panel, with compact
+  inline feedback when notifications are unavailable.
+- Ask-wide warnings appear above steps; explicit step warnings appear without blocking
+  and remain visible when completed instructions are revisited. Ask-wide posting needs Pond 1.6.0.
 - Keep quick, low-risk clarifications in chat. The skill and agent rules still route owner
   actions, consequential decisions, merge approvals and release approvals through Hook.
 - Panel controls accept the first click while another app has focus, including the group

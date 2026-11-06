@@ -20,7 +20,7 @@ public enum Validator {
     static let maxProject = 60
     static let urgencies: Set<String> = ["now", "today", "whenever"]
 
-    static let topKeys: Set<String> = ["v", "title", "why", "urgency", "steps", "verify", "reply", "links", "from", "done"]
+    static let topKeys: Set<String> = ["v", "title", "why", "urgency", "steps", "verify", "reply", "links", "from", "done", "warning"]
     /// Verify: a leaf that asks, blocks and opts out of nothing.
     static let verifyKeys: Set<String> = ["do", "where", "code", "lang", "expect", "detail", "url"]
     /// A sub-step.
@@ -87,6 +87,7 @@ public enum Validator {
         }
         text(&errors, "title", object["title"], limit: 120, required: true)
         text(&errors, "why", object["why"], limit: 300, kind: .multi)
+        text(&errors, "warning", object["warning"], limit: warningLimit, kind: .multi)
         if let urgency = present(object["urgency"]),
            urgency.stringValue.map({ urgencies.contains($0) }) != true {
             errors.append("urgency: must be one of now, today, whenever")

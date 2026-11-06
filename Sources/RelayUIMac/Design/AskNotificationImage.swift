@@ -95,6 +95,15 @@ public enum NotificationContentMaker {
         return (note, "relay.away.\(UUID().uuidString)")
     }
 
+    public static func closedAsk(id: String, canShowClosed: Bool) -> UNMutableNotificationContent {
+        let note = UNMutableNotificationContent()
+        note.title = "Hook"
+        note.body = "This ask is already closed."
+        note.threadIdentifier = "hook.closed"
+        if canShowClosed { note.userInfo = ["closedId": id] }
+        return note
+    }
+
     public static func crashNotice() -> UNMutableNotificationContent {
         let note = UNMutableNotificationContent()
         note.title = "Hook quit unexpectedly"

@@ -86,6 +86,7 @@ public struct DetailModel: Sendable, Equatable {
     public var id: String
     public var title: String
     public var why: String?
+    public var warning: String? = nil
     /// Text of a legacy ask's `steps` events; empty for instructables.
     public var notes: [String]
     /// Where the ask came from (`instructable.from`), when it says anything usable.
@@ -221,6 +222,7 @@ public struct DetailModel: Sendable, Equatable {
             id: item.id,
             title: item.title,
             why: why,
+            warning: present(item.instructable?.warning),
             notes: notes,
             origin: origin,
             project: item.projectId ?? "",

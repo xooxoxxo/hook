@@ -221,7 +221,7 @@ public struct RevisionDiff: Equatable, Sendable {
     }
 
     static func topFields(_ ins: Instructable) -> [(String, String?)] {
-        var fields: [(String, String?)] = [("why", ins.why)]
+        var fields: [(String, String?)] = [("why", ins.why), ("warning", ins.warning)]
         let names = Self.fields(Step(action: "")).map(\.0)
         let values: [String?] = ins.verify.map { Self.fields($0).map(\.1) } ?? Array(repeating: nil, count: names.count)
         fields += zip(names, values).map { ("verify." + $0, $1) }

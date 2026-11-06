@@ -127,7 +127,7 @@ a step's `question` or in `reply`, not in a step that points at them. `relay_pos
 
   Bundle related questions into one ask as per-step questions. Don't post one ask per
   question. Use the ask-level `reply` only for one overall answer.
-- **blocking** and **warning**: `blocking: true` marks a step the next steps can't start without; the owner can't open later steps until it is done. Use it only when later steps fail without it, and put the reason in `warning` (≤ 300 chars). `warning` alone shows a caution box. Neither goes on `verify`.
+- **blocking** and **warning**: `blocking: true` marks a step the next steps can't start without; the owner can't open later steps until it is done. Use it only when later steps fail without it, and put the reason in `warning` (≤ 300 chars). `warning` alone shows an orange caution above the step instructions. Use ask-level `warning` for a caution above all steps, such as “Do not run this twice.” Both levels allow 300 characters and do not lock steps. Ask-level warnings need Pond 1.6.0 or This Mac with `ask-warning`; on older queues put the caution in the first step's `warning`. Neither goes on `verify`.
 - **optional**: `optional: true` marks a step the owner may finish without doing or answering, e.g. a feedback question or a nice-to-have; it can't also be blocking. On a step with sub-steps it makes every sub-step optional, so none of them may be blocking.
 - **required** and **done**: `required: true` keeps the owner's Done off until that step is
   finished: ticked, answered (a question), or every sub-step finished (a parent). `done` on the ask

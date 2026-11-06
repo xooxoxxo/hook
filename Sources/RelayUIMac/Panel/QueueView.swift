@@ -114,7 +114,7 @@ struct QueueView<Model: PanelViewModel>: View, Equatable {
         VStack(spacing: 0) {
             header(queue)
             if let notice {
-                Notice(kind: notice.kind, text: notice.text, actionTitle: notice.actionTitle, help: notice.help,
+                Notice(compact: notice.isCompact, kind: notice.kind, text: notice.text, actionTitle: notice.actionTitle, help: notice.help,
                        secondaryTitle: notice.secondaryActionTitle, onSecondary: { model.performNoticeSecondaryAction() },
                        onAction: { model.performNoticeAction() }, onDismiss: { model.dismissNotice() })
                     .padding(.horizontal, DS.Space.gutter)
