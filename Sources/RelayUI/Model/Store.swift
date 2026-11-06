@@ -92,6 +92,8 @@ public enum LinkCheck: Equatable, Sendable {
     }
     /// After Done or Skip in the detail; AppDelegate sets it from config.json.
     public var afterClose: AfterClose = .next
+    /// The configured local listener, used for links that avoid custom-scheme collisions.
+    public var linkPort: Int = 47823
     /// One Notice at a time; the newest replaces the older; only ✕ or its action clears it,
     /// except a Notice about the open ask, which also goes when the owner leaves that ask,
     /// and a transient one, which goes after `DS.Motion.noticeHold` or when an ask opens.
@@ -1808,7 +1810,7 @@ extension Store: PanelViewModel {
 
     public func copyLink(_ id: String) {
         HookLog.action(.copy)
-        shell.copy("hook://i/\(id)")
+        shell.copy("http://127.0.0.1:\(linkPort)/i/\(id)")
     }
 
     public func retryDetail(_ id: String) {
