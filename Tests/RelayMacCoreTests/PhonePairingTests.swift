@@ -18,6 +18,13 @@ private struct PairingPresence: PresenceCheck {
     func open(_ answer: Bool) { continuation?.resume(returning: answer); continuation = nil }
 }
 
+@MainActor private final class PairingActivity {
+    var active: Bool
+    var confirmed = false
+    var checks = 0
+    init(active: Bool = true) { self.active = active }
+}
+
 private final class PairingToken: TokenSource, Sendable {
     private let state = OSAllocatedUnfairLock(initialState: (reads: 0, onMain: false))
     let entered = DispatchSemaphore(value: 0)
@@ -50,9 +57,119 @@ private final class PairingToken: TokenSource, Sendable {
         #expect(!controller.authenticating)
     }
 
+    @Test(arguments: [NSApplication.didResignActiveNotification, NSWindow.willCloseNotification])
+    func systemAuthenticationHandoffDoesNotCancelAnAuthenticatedAttempt(_ event: Notification.Name) async throws {
+        let gate = PairingGate(), token = PairingToken(), notifications = NotificationCenter()
+        let controller = PhonePairingController(presence: PairingPresence { await gate.wait() }, notificationCenter: notifications, isAppActive: { true })
+        controller.configure(settings: settings, tokenSource: token)
+        defer { controller.hide() }
+        let task = Task { try await controller.show() }
+        try await waitFor { gate.waiting }
+        notifications.post(name: event, object: NSObject())
+        #expect(controller.image == nil && token.reads == 0)
+        gate.open(true)
+        try await task.value
+        #expect(controller.image != nil && token.reads == 1)
+    }
+
+    @Test func authenticationWaitsForHookToBecomeActiveBeforeReadingTheToken() async throws {
+        let gate = PairingGate(), token = PairingToken(), notifications = NotificationCenter()
+        let activity = PairingActivity()
+        let controller = PhonePairingController(presence: PairingPresence {
+            let answer = await gate.wait()
+            await MainActor.run { activity.confirmed = true }
+            return answer
+        }, notificationCenter: notifications, isAppActive: { activity.active })
+        controller.configure(settings: settings, tokenSource: token)
+        defer { controller.hide() }
+        let task = Task { try await controller.show() }
+        try await waitFor { gate.waiting }
+        activity.active = false
+        notifications.post(name: NSApplication.didResignActiveNotification, object: nil)
+        gate.open(true)
+        try await waitFor { activity.confirmed }
+        #expect(token.reads == 0 && controller.payload == nil && controller.authenticating)
+        // An unrelated/spurious notification cannot authorize a token read.
+        notifications.post(name: NSApplication.didBecomeActiveNotification, object: nil)
+        #expect(token.reads == 0 && controller.payload == nil)
+        activity.active = true
+        notifications.post(name: NSApplication.didBecomeActiveNotification, object: nil)
+        try await task.value
+        #expect(token.reads == 1 && controller.image != nil)
+    }
+
+    @Test func losingActivationBeforeTheHandoffResumesDoesNotReadTheToken() async throws {
+        let token = PairingToken(), notifications = NotificationCenter()
+        let activity = PairingActivity(active: false)
+        let controller = PhonePairingController(presence: PairingPresence { true },
+            notificationCenter: notifications, isAppActive: { activity.checks += 1; return activity.active })
+        controller.configure(settings: settings, tokenSource: token)
+        let task = Task { try await controller.show() }
+        // The second activity read is in the waiter's MainActor registration.
+        try await waitFor { activity.checks >= 2 }
+        activity.active = true
+        notifications.post(name: NSApplication.didBecomeActiveNotification, object: nil)
+        activity.active = false
+        notifications.post(name: NSApplication.didResignActiveNotification, object: nil)
+        await #expect(throws: PhonePairingController.Failure.cancelled) { try await task.value }
+        checkCleared(controller)
+        #expect(token.reads == 0)
+    }
+
+    @Test(arguments: ["close", "lock", "session", "sleep", "source", "hide", "cancel"])
+    func criticalPrivacyEventsCancelTheAuthenticationHandoff(_ event: String) async throws {
+        let gate = PairingGate(), token = PairingToken(), notifications = NotificationCenter()
+        let activity = PairingActivity()
+        let controller = PhonePairingController(presence: PairingPresence {
+            let answer = await gate.wait()
+            await MainActor.run { activity.confirmed = true }
+            return answer
+        }, notificationCenter: notifications, isAppActive: { false })
+        controller.configure(settings: settings, tokenSource: token)
+        _ = NSApplication.shared
+        let window = NSWindow(contentRect: .zero, styleMask: [], backing: .buffered, defer: true)
+        let task = Task { try await controller.show(in: window) }
+        try await waitFor { gate.waiting }
+        gate.open(true)
+        try await waitFor { activity.confirmed }
+        switch event {
+        case "close": notifications.post(name: NSWindow.willCloseNotification, object: window)
+        case "lock": notifications.post(name: Notification.Name("com.apple.screenIsLocked"), object: nil)
+        case "session": notifications.post(name: NSWorkspace.sessionDidResignActiveNotification, object: nil)
+        case "sleep": notifications.post(name: NSWorkspace.screensDidSleepNotification, object: nil)
+        case "source": controller.configure(settings: nil)
+        case "hide": controller.hide()
+        default: task.cancel()
+        }
+        await #expect(throws: PhonePairingController.Failure.cancelled) { try await task.value }
+        checkCleared(controller)
+        #expect(token.reads == 0)
+    }
+
+    @Test func unrelatedWindowsDoNotDismissTheCodeButDeactivationDuringAReadStillCancels() async throws {
+        let notifications = NotificationCenter()
+        _ = NSApplication.shared
+        let window = NSWindow(contentRect: .zero, styleMask: [], backing: .buffered, defer: true)
+        let other = NSWindow(contentRect: .zero, styleMask: [], backing: .buffered, defer: true)
+        let controller = PhonePairingController(presence: PairingPresence { true }, notificationCenter: notifications, isAppActive: { true })
+        controller.configure(settings: settings, tokenSource: PairingToken())
+        try await controller.show(in: window)
+        notifications.post(name: NSWindow.willCloseNotification, object: other)
+        #expect(controller.image != nil)
+        controller.hide()
+        let token = PairingToken(held: true)
+        controller.configure(settings: settings, tokenSource: token)
+        let task = Task { try await controller.show(in: window) }
+        try await waitFor { token.reads == 1 }
+        notifications.post(name: NSApplication.didResignActiveNotification, object: nil)
+        token.release.signal()
+        await #expect(throws: PhonePairingController.Failure.cancelled) { try await task.value }
+        checkCleared(controller)
+    }
+
     @Test func noQRBeforeAuthenticationAndCancellationNeverReadsTheToken() async throws {
         let gate = PairingGate(), token = PairingToken()
-        let controller = PhonePairingController(presence: PairingPresence { await gate.wait() }, notificationCenter: NotificationCenter())
+        let controller = PhonePairingController(presence: PairingPresence { await gate.wait() }, notificationCenter: NotificationCenter(), isAppActive: { true })
         controller.configure(settings: settings, tokenSource: token)
         let task = Task { try await controller.show() }
         try await waitFor { gate.waiting }
@@ -66,7 +183,7 @@ private final class PairingToken: TokenSource, Sendable {
 
     @Test func successfulAuthenticationCreatesAValidatedCodeOnlyInMemory() async throws {
         let token = PairingToken()
-        let controller = PhonePairingController(presence: PairingPresence { true }, notificationCenter: NotificationCenter())
+        let controller = PhonePairingController(presence: PairingPresence { true }, notificationCenter: NotificationCenter(), isAppActive: { true })
         controller.configure(settings: settings, tokenSource: token)
         defer { controller.hide() }
         try await controller.show()
@@ -90,7 +207,7 @@ private final class PairingToken: TokenSource, Sendable {
     @Test func lateAuthenticationCannotReadAfterHideOrTaskCancellation() async throws {
         for cancelTask in [false, true] {
             let gate = PairingGate(), token = PairingToken()
-            let controller = PhonePairingController(presence: PairingPresence { await gate.wait() }, notificationCenter: NotificationCenter())
+            let controller = PhonePairingController(presence: PairingPresence { await gate.wait() }, notificationCenter: NotificationCenter(), isAppActive: { true })
             controller.configure(settings: settings, tokenSource: token)
             let task = Task { try await controller.show() }
             try await waitFor { gate.waiting }
@@ -104,7 +221,7 @@ private final class PairingToken: TokenSource, Sendable {
 
     @Test func aTokenReadAlreadyInFlightCannotRepublishAfterHide() async throws {
         let token = PairingToken(held: true)
-        let controller = PhonePairingController(presence: PairingPresence { true }, keychain: KeychainQueue(label: "test.pairing.held"), notificationCenter: NotificationCenter())
+        let controller = PhonePairingController(presence: PairingPresence { true }, keychain: KeychainQueue(label: "test.pairing.held"), notificationCenter: NotificationCenter(), isAppActive: { true })
         controller.configure(settings: settings, tokenSource: token)
         let task = Task { try await controller.show() }
         try await waitFor { token.reads == 1 }
@@ -117,7 +234,7 @@ private final class PairingToken: TokenSource, Sendable {
     @Test func hidingCancelsAnAlreadySleepingDisplayTimer() async throws {
         let state = OSAllocatedUnfairLock(initialState: (started: false, cancelled: false))
         let controller = PhonePairingController(presence: PairingPresence { true },
-            notificationCenter: NotificationCenter(), sleep: { duration in
+            notificationCenter: NotificationCenter(), isAppActive: { true }, sleep: { duration in
                 state.withLock { $0.started = true }
                 do { try await Task.sleep(for: duration) }
                 catch { state.withLock { $0.cancelled = true }; throw error }
@@ -132,7 +249,7 @@ private final class PairingToken: TokenSource, Sendable {
 
     @Test func timeoutHidesMaterialAtSixtySecondsWithoutChangingTheCredential() async throws {
         let gate = PairingGate()
-        let controller = PhonePairingController(presence: PairingPresence { true }, notificationCenter: NotificationCenter(), sleep: { duration in
+        let controller = PhonePairingController(presence: PairingPresence { true }, notificationCenter: NotificationCenter(), isAppActive: { true }, sleep: { duration in
             #expect(duration == .seconds(60))
             _ = await gate.wait()
         })
@@ -150,11 +267,13 @@ private final class PairingToken: TokenSource, Sendable {
     @Test func closingDeactivatingLockingAndSourceReplacementClearMaterial() async throws {
         for event in ["close", "deactivate", "lock", "source"] {
             let notifications = NotificationCenter()
-            let controller = PhonePairingController(presence: PairingPresence { true }, notificationCenter: notifications)
+            let controller = PhonePairingController(presence: PairingPresence { true }, notificationCenter: notifications, isAppActive: { true })
             controller.configure(settings: settings, tokenSource: PairingToken())
-            try await controller.show()
+            _ = NSApplication.shared
+            let window = NSWindow(contentRect: .zero, styleMask: [], backing: .buffered, defer: true)
+            try await controller.show(in: window)
             switch event {
-            case "close": notifications.post(name: NSWindow.willCloseNotification, object: nil)
+            case "close": notifications.post(name: NSWindow.willCloseNotification, object: window)
             case "deactivate": notifications.post(name: NSApplication.didResignActiveNotification, object: nil)
             case "lock": notifications.post(name: Notification.Name("com.apple.screenIsLocked"), object: nil)
             default: controller.configure(settings: nil)
@@ -167,7 +286,7 @@ private final class PairingToken: TokenSource, Sendable {
     @Test func pasteFallbackCopiesOnlyAfterAnExplicitActionAndNeverAnOwnerKey() async throws {
         var copies: [String] = []
         let controller = PhonePairingController(presence: PairingPresence { true },
-            notificationCenter: NotificationCenter(), copy: { copies.append($0) })
+            notificationCenter: NotificationCenter(), isAppActive: { true }, copy: { copies.append($0) })
         controller.configure(settings: settings, tokenSource: PairingToken())
         controller.copySetupCode()
         #expect(copies.isEmpty)
@@ -186,7 +305,7 @@ private final class PairingToken: TokenSource, Sendable {
 
     @Test func insecureSourceNeverPromptsOrReads() async throws {
         let token = PairingToken()
-        let controller = PhonePairingController(presence: PairingPresence { Issue.record("Should not authenticate"); return true }, notificationCenter: NotificationCenter())
+        let controller = PhonePairingController(presence: PairingPresence { Issue.record("Should not authenticate"); return true }, notificationCenter: NotificationCenter(), isAppActive: { true })
         controller.configure(settings: MailboxSettings(url: URL(string: "http://pond.example.test")!, tokenFile: "unused", context: "test"), tokenSource: token)
         await #expect(throws: PhonePairingController.Failure.unavailable) { try await controller.show() }
         #expect(token.reads == 0)

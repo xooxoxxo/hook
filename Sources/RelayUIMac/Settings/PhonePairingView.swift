@@ -60,14 +60,16 @@ public struct PhonePairingView: View {
     @ObservedObject var controller: PhonePairingController
     @State private var presented = false
     @State private var problem: String?
+    @State private var presentationWindow = PairingWindowReference()
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 4) {
             Button(controller.authenticating ? "Authenticating…" : "Pair an iPhone…") {
+                guard let window = presentationWindow.window else { return }
                 problem = nil
                 Task {
                     do {
-                        try await controller.show()
+                        try await controller.show(in: window)
                         presented = controller.image != nil
                     } catch PhonePairingController.Failure.cancelled {
                         // Closing or cancelling authentication has no error to resolve.
@@ -76,17 +78,49 @@ public struct PhonePairingView: View {
                     }
                 }
             }
-            .disabled(!controller.available || controller.authenticating)
+            .disabled(!controller.available || controller.authenticating || presentationWindow.window == nil)
             if let problem {
                 Text(verbatim: problem).font(.caption).foregroundStyle(.red)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .background(PairingWindowReader { window in
+            if presentationWindow.window !== window { controller.hide() }
+            presentationWindow = PairingWindowReference(window: window)
+        }.frame(width: 0, height: 0))
         .sheet(isPresented: $presented, onDismiss: controller.hide) {
             PhonePairingSheet(controller: controller, onClose: { presented = false; controller.hide() })
         }
         .onChange(of: controller.image == nil) { _, hidden in if hidden { presented = false } }
         .onDisappear { controller.hide() }
+    }
+}
+
+/// Hold the presenting window weakly so the row cannot keep a closed window alive.
+private struct PairingWindowReference {
+    weak var window: NSWindow?
+}
+
+struct PairingWindowReader: NSViewRepresentable {
+    let changed: @MainActor (NSWindow?) -> Void
+    func makeNSView(context: Context) -> Probe { Probe(changed: changed) }
+    func updateNSView(_ view: Probe, context: Context) {}
+    final class Probe: NSView {
+        private let changed: @MainActor (NSWindow?) -> Void
+        init(changed: @escaping @MainActor (NSWindow?) -> Void) {
+            self.changed = changed
+            super.init(frame: .zero)
+        }
+        required init?(coder: NSCoder) { fatalError("No storyboard") }
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            // Report after AppKit's attachment transaction, using the current
+            // window so a queued old attachment cannot revive a detached host.
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                changed(window)
+            }
+        }
     }
 }
 

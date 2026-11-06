@@ -5,6 +5,34 @@ import Testing
 @testable import RelayUIMac
 
 @Suite @MainActor struct PhonePairingViewTests {
+    @Test func pairingWindowReaderTracksItsActualHostAndDropsAStaleAttachment() async throws {
+        _ = NSApplication.shared
+        let first = NSWindow(contentRect: .zero, styleMask: [], backing: .buffered, defer: true)
+        let second = NSWindow(contentRect: .zero, styleMask: [], backing: .buffered, defer: true)
+        var reported: NSWindow?
+        var calls = 0
+        let probe = PairingWindowReader.Probe { reported = $0; calls += 1 }
+        func settle(_ condition: () -> Bool) async throws {
+            for _ in 0..<10000 {
+                if condition() { return }
+                await Task.yield()
+            }
+            throw CancellationError()
+        }
+        first.contentView?.addSubview(probe)
+        try await settle { reported === first }
+        probe.removeFromSuperview()
+        second.contentView?.addSubview(probe)
+        try await settle { reported === second }
+        probe.removeFromSuperview()
+        try await settle { reported == nil }
+        calls = 0
+        first.contentView?.addSubview(probe)
+        probe.removeFromSuperview()
+        try await settle { calls > 0 }
+        #expect(reported == nil)
+    }
+
     @Test func placeholderSheetFitsTheApproved380PointWidthInBothAppearances() {
         for appearance in [NSAppearance.Name.aqua, .darkAqua] {
             let host = NSHostingController(rootView: PhonePairingView(host: "pond.example.test"))
