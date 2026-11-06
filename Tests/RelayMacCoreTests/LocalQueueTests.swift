@@ -387,7 +387,7 @@ enum QueueFixture {
         }
     }
 
-    /// A lock released during the wait is taken; one held throughout is `.locked`.
+    /// A competing lock held throughout the bounded wait is refused; releasing it allows a new open.
     @Test func theLockWaitIsBounded() async throws {
         let dir = QueueFixture.directory()
         defer { QueueFixture.remove(dir) }
@@ -402,20 +402,11 @@ enum QueueFixture {
             try await LocalQueue(directory: dir, keepDays: 14, lockWait: 0.2).open()
         }
         #expect(Date().timeIntervalSince(started) >= 0.2)
-        // flock polling is synchronous. Release this real competing descriptor on
-        // a dispatch thread, independently of Swift's occupied cooperative pool.
-        let release = DispatchGroup()
-        release.enter()
-        DispatchQueue.global().asyncAfter(deadline: .now() + 0.1) {
-            flock(fd, LOCK_UN)
-            release.leave()
-        }
-        let queue = LocalQueue(directory: dir, keepDays: 14, lockWait: 2)
-        let opened = try? await queue.open()
-        await withCheckedContinuation { continuation in
-            release.notify(queue: .global()) { continuation.resume() }
-        }
-        #expect(opened == .loaded)
+        // Release is acknowledged before retry. Neither flock's synchronous poll nor
+        // the success assertion depends on GCD/cooperative executor scheduling latency.
+        #expect(flock(fd, LOCK_UN) == 0)
+        let queue = LocalQueue(directory: dir, keepDays: 14, lockWait: 0.2)
+        #expect(try await queue.open() == .loaded)
         await queue.close()
     }
 

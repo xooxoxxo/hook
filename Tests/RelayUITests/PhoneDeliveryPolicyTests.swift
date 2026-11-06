@@ -71,6 +71,45 @@ import Testing
         #expect(store.ticks(for: "a").isEmpty)
     }
 
+    @Test func aHeldCloseRechecksAvailabilityAtTimerDispatchAndNeverReplays() async {
+        let defaults = TestDefaults(); defer { defaults.drop() }
+        var now = Date()
+        let store = Store(defaults: defaults.defaults, now: { now },
+            reviews: ReviewPersistence(secrets: MemorySecretStore(), url: reviewsURL()), deliveryPolicy: .phone)
+        await store.reviewsLoaded()
+        let item = WireItem(id: "a", title: "Synthetic", status: "open", created: stamp(minutesAgo: 1), updated: stamp(minutesAgo: 1), payload: Payload())
+        let source = FakeQueueSource(items: [item])
+        await start(store, source, identity: mailboxIdentity)
+        store.close("a", .declined)
+        store.mutationsAvailable = false
+        now = now.addingTimeInterval(11)
+        store.sendDue()
+        #expect(await eventually { store.heldCloseIDs.isEmpty })
+        #expect(await source.count("resolve") == 0)
+        #expect(store.notice?.actionTitle == nil)
+        #expect(store.notice != nil)
+        store.mutationsAvailable = true
+        await store.refresh()
+        store.sendDue()
+        #expect(await source.count("resolve") == 0)
+    }
+
+    @Test(arguments: [false, true]) func backgroundDeliveryNeedsCurrentExplicitAuthorization(_ permitted: Bool) async {
+        let defaults = TestDefaults(); defer { defaults.drop() }
+        let store = await phone(defaults)
+        let item = WireItem(id: "a", title: "Synthetic", status: "open", created: stamp(minutesAgo: 1), updated: stamp(minutesAgo: 1), payload: Payload())
+        let source = FakeQueueSource(items: [item])
+        await start(store, source, identity: mailboxIdentity)
+        store.close("a", .declined)
+        store.mutationsAvailable = false
+        await store.sendAllPending(reason: .background, allowedWhileSuspended: { permitted })
+        #expect(await source.count("resolve") == (permitted ? 1 : 0))
+        #expect(!store.hasPendingCloses)
+        store.mutationsAvailable = true
+        await store.sendAllPending(reason: .background)
+        #expect(await source.count("resolve") == (permitted ? 1 : 0))
+    }
+
     @Test func shutdownDoesNotFlushPhoneButExplicitBackgroundFlushIsOneShot() async {
         let defaults = TestDefaults(); defer { defaults.drop() }
         let store = await phone(defaults)

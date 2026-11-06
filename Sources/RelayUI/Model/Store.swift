@@ -1104,10 +1104,11 @@ public enum LinkCheck: Equatable, Sendable {
     /// Before quitting: sends every held-back close at once. The caller caps the wait.
     /// The Undo bar shown while they go ("Sending", Undo disabled) is the one from
     /// before the drain, kept in `sendingUndo` until every send has finished.
-    public func sendAllPending(reason: PendingCloseFlushReason = .shutdown) async {
+    public func sendAllPending(reason: PendingCloseFlushReason = .shutdown,
+                               allowedWhileSuspended: @escaping @MainActor @Sendable () -> Bool = { false }) async {
         if deliveryPolicy == .phone {
             guard reason == .background else { return }
-            await flushPhoneCloses()
+            await flushPhoneCloses(allowedWhileSuspended: allowedWhileSuspended)
             return
         }
         guard let source else { return }
@@ -1137,12 +1138,12 @@ public enum LinkCheck: Equatable, Sendable {
     /// Phone suspension is a single dispatch per held close, never an outbox. Cancellation
     /// cannot unsend an HTTP request, so expiration leaves an uncertainty notice and ignores
     /// every late result. Foreground refresh reconciles; only the owner initiates another act.
-    private func flushPhoneCloses() async {
+    private func flushPhoneCloses(allowedWhileSuspended: @escaping @MainActor @Sendable () -> Bool) async {
         guard backgroundFlush == nil, let source else { return }
         ticker?.cancel(); ticker = nil
         let all = pending.drainAll()
         guard !all.isEmpty else { return }
-        guard mutationsAvailable, !Task.isCancelled else {
+        guard mutationsAvailable || allowedWhileSuspended(), !Task.isCancelled else {
             updateItems()
             post(.deliveryFailed(reason: "Not sent before suspension. Refresh the asks before deciding what to do next."))
             return
@@ -1154,7 +1155,7 @@ public enum LinkCheck: Equatable, Sendable {
         await withTaskGroup(of: Void.self) { group in
             for close in all {
                 group.addTask { [weak self] in
-                    await self?.dispatchPhoneClose(close, via: source, token: token, generation: gen)
+                    await self?.dispatchPhoneClose(close, via: source, token: token, generation: gen, allowedWhileSuspended: allowedWhileSuspended)
                 }
             }
             await group.waitForAll()
@@ -1165,10 +1166,16 @@ public enum LinkCheck: Equatable, Sendable {
         draining = []; updateItems(); publishState()
     }
 
-    private func dispatchPhoneClose(_ close: PendingClose, via source: any QueueSource, token: UUID, generation gen: Int) async {
+    private func dispatchPhoneClose(_ close: PendingClose, via source: any QueueSource, token: UUID, generation gen: Int,
+                                    allowedWhileSuspended: @MainActor @Sendable () -> Bool) async {
         guard !Task.isCancelled, gen == generation, backgroundFlush == token else { return }
         let result: Result<WireItem, Error>
-        do { result = .success(try await source.resolve(close.id, verdict: close.verdict, note: close.note, stamp: close.stamp)) }
+        do {
+            guard mutationsAvailable || allowedWhileSuspended() else {
+                throw QueueError.unreachable("The connection is no longer ready. Refresh before trying again.")
+            }
+            result = .success(try await source.resolve(close.id, verdict: close.verdict, note: close.note, stamp: close.stamp))
+        }
         catch { result = .failure(error) }
         phoneCloseFinished(close, result: result, token: token, generation: gen)
     }
@@ -1330,6 +1337,9 @@ public enum LinkCheck: Equatable, Sendable {
     /// the send has come back; on failure it reappears and a Notice says why.
     private func send(_ close: PendingClose, via source: any QueueSource, generation gen: Int) async {
         do {
+            if deliveryPolicy == .phone, !mutationsAvailable {
+                throw QueueError.unreachable("The connection is no longer ready. Refresh before trying again.")
+            }
             // Ticks the Pond hasn't heard of go first (Pond 1.3.0), then a local acceptance the
             // Pond hasn't heard of, or the Done would be refused.
             if close.verdict == .done {
@@ -1344,6 +1354,9 @@ public enum LinkCheck: Equatable, Sendable {
                 try await sendPendingAccept(close.id, via: source)
             }
             try await withAcceptRecovery(close.id, via: source) {
+                if self.deliveryPolicy == .phone, !self.mutationsAvailable {
+                    throw QueueError.unreachable("The connection is no longer ready. Refresh before trying again.")
+                }
                 _ = try await source.resolve(close.id, verdict: close.verdict, note: close.note, stamp: close.stamp)
             }
             guard gen == generation else { return }
