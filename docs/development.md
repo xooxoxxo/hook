@@ -81,17 +81,19 @@ A pull request that changes `Sources/RelayUI/` attaches:
    - `<!-- hook:mailbox-protocol=N -->`: the old protocol level, read by 0.9.x updaters (see [Pond protocol](mailbox-protocol.md)).
 
    Before updating, Hook checks the connected Pond against them and offers to update the Pond first. `scripts/release-notes.sh X.Y.Z` prints the section, and fails without the markers.
-6. **Tag.** Run `git tag vX.Y.Z` on that commit and push the tag. Tag only a commit that passed CI.
-7. **Release workflow.** The tag runs [Release](../.github/workflows/release.yml). It checks the tag against `Info.plist` and the notes for both markers, then builds a universal (arm64 and x86_64) Hook.app. `scripts/package-release.sh` packs `Hook-X.Y.Z.zip`: the app and the `support/` payload (`bin/relay`, `clients/`, `mcp/`, `schema/`, `skill/`, `integration/`, `scripts/install.sh`, `scripts/get.sh`, `LICENSE`, `THIRD_PARTY_NOTICES.md`, `VERSION`). The workflow writes `SHA256SUMS` and publishes the release with the CHANGELOG section as its notes. A new release stays a draft until both files are attached, so `get.sh` and the updater never see a release they can't download. A release you made by hand gets the files attached and keeps its notes.
+6. **Candidate approval and tag.** Get owner approval through Hook for the exact green commit before pushing its `vX.Y.Z` tag. The tag runs [Release](../.github/workflows/release.yml), which requires Developer ID signing, notarization and verification of the final ZIP. It creates a **draft**, never a public release. Existing drafts/assets are not overwritten on rerun.
+7. **Publication approval.** Inspect the draft, its `SHA256SUMS`, accepted `notary-result.json`, and clean-Mac/upgrade checks. Request a separate Hook release approval naming the full commit, version and ZIP checksum. After verifying the owner's current answer, dispatch [Publish approved release](../.github/workflows/publish-release.yml) with those values and the approval ask UUID. It downloads and checks the same draft bytes, then publishes without rebuilding. The UUID is an audit reference; the workflow cannot authenticate private Hook answers. Never dispatch without verifying the answer yourself.
+8. **Recovery.** A failed candidate remains unpublished. Inspect the failure and get explicit recovery approval before removing a draft or retrying a tag. Never replace assets of a public release. Retain the previous app and data until the signed upgrade passes; never reset owner keys to resolve a signing prompt.
 
 ### Signing
 
-Without signing secrets, the release is ad-hoc signed, and macOS asks again for Keychain access after every update. A stable identity stops that:
+Production releases require repository secrets `MACOS_SIGN_P12` (base64 Developer ID Application identity with private key), `MACOS_SIGN_PASSWORD`, `APPLE_API_KEY` (base64 App Store Connect team API key), `APPLE_API_KEY_ID` and `APPLE_API_ISSUER_ID`. Set repository variables `APPLE_TEAM_ID` and `MACOS_SIGN_SHA1` (uppercase SHA-1 fingerprint of the intended certificate). No values belong in source, logs, issues or asks. Configure them through the owner's approved credential flow.
 
-- **Self-signed.** `scripts/make-signing-cert.sh` makes a code-signing certificate in `./signing` (git-ignored, `0700`). It prints the two values to store as repository secrets: `MACOS_SIGN_P12` (the base64 `.p12`) and `MACOS_SIGN_PASSWORD`. It uploads nothing. Keep the folder safe: a new certificate is a new identity.
-- **Developer ID.** Store the Developer ID identity the same way. Add an App Store Connect API key as `APPLE_API_KEY` (the base64 `.p8`), `APPLE_API_KEY_ID` and `APPLE_API_ISSUER_ID`. The workflow then signs with the hardened runtime (`Resources/Hook.entitlements`), notarizes and staples, so a browser download opens normally.
+The workflow selects that exact valid Developer ID Application identity, uses hardened runtime and a secure timestamp, requires accepted notarization, staples, and checks the extracted final app's identity, version, entitlements and Gatekeeper assessment. Missing settings or failed checks stop the release. Cleanup runs even after a partial import.
 
-Locally, `SIGN_IDENTITY`, `SIGN_KEYCHAIN`, `HARDENED=1` and `UNIVERSAL=1` do the same for `scripts/build.sh`.
+Ad-hoc and self-signed builds remain development-only. `scripts/make-signing-cert.sh` is not an Apple certificate enrollment tool. Locally, `SIGN_IDENTITY`, `SIGN_KEYCHAIN`, `HARDENED=1`, `BUILD_ONLY=1` and `UNIVERSAL=1` configure `scripts/build.sh` without installing. Run `python3 -m unittest discover -s scripts -p 'test_release_*.py' -v` for credential-free release refusal tests.
+
+Before the first signed release, test a quarantined browser download and an existing-install upgrade on real Macs, including Keychain approval, notifications, terminal automation, integrations and URL handling. A simulator or mocked signing test does not establish Gatekeeper acceptance or migration safety.
 
 ## Layout
 

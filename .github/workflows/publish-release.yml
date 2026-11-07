@@ -1,0 +1,45 @@
+name: Publish approved release
+
+# Dispatch only after checking the owner's current Hook approval for these exact bytes.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing draft tag (vX.Y.Z)
+        required: true
+      commit:
+        description: Approved full commit SHA
+        required: true
+      sha256:
+        description: Approved ZIP SHA-256
+        required: true
+      approval:
+        description: Hook release approval ask UUID
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
+      - name: Verify and publish the approved draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_COMMIT: ${{ inputs.commit }}
+          RELEASE_SHA256: ${{ inputs.sha256 }}
+          APPROVAL_ID: ${{ inputs.approval }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+        run: |
+          python3 scripts/publish-release.py --tag "$RELEASE_TAG" \
+            --commit "$RELEASE_COMMIT" --sha256 "$RELEASE_SHA256" \
+            --team "$APPLE_TEAM_ID" --approval "$APPROVAL_ID"
