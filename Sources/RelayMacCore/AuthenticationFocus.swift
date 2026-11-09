@@ -10,12 +10,12 @@ import AppKit
     private var observers: [(NotificationCenter, NSObjectProtocol)] = []
 
     static func capture() -> AuthenticationFocus {
-        weak var window = NSApp.keyWindow ?? NSApp.mainWindow
+        let window = NSApp.keyWindow ?? NSApp.mainWindow
         let beganActive = NSApp.isActive
-        return AuthenticationFocus(window: window, canRestore: {
+        return AuthenticationFocus(window: window, canRestore: { [weak window] in
             beganActive && !NSApp.isHidden && window?.isVisible == true && window?.isMiniaturized == false
                 && (NSApp.keyWindow == nil || NSApp.keyWindow === window)
-        }, restore: {
+        }, restore: { [weak window] in
             NSApp.activate()
             window?.makeKeyAndOrderFront(nil)
         })
