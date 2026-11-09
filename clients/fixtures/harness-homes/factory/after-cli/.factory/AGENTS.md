@@ -2,7 +2,7 @@
 
 Keep diffs small.
 
-<!-- hook:begin id=instructions v=1 sha=677b5b702f336390 -->
+<!-- hook:begin id=instructions v=1 sha=382337d85c554b2c -->
 <!-- hook:instructions v=1 app=9.9.9 -->
 # Owner asks go to Hook
 
@@ -10,11 +10,13 @@ Answer explanations, summaries and status questions directly. Keep quick, low-ri
 clarifications in chat when a short answer or multiple choice is enough. Make routine
 choices within the owner's instructions without asking again.
 
+Keep single yes/no approval-only requests in chat, including simple merge or release
+approvals. State the exact change or artifact and wait for approval before acting.
 Send ONE instructable to Hook for owner actions (credentials, logins, manual commands,
-clicks only they can do), approvals including every merge or release, consequential
-decisions, and work needing a durable checklist or later follow-up. A short approval
-still goes to Hook. Follow the owner's explicit routing preference. The `instructables`
-skill has the format and writing rules.
+clicks only they can do), approvals bundled with those actions, consequential decisions
+needing context, and work needing a durable checklist or later follow-up. Do not add
+artificial steps to turn a simple approval into an ask. Follow the owner's explicit
+routing preference. The `instructables` skill has the format and writing rules.
 
 - **How:** the MCP tool `relay_post {project, instructable}`. Without MCP:
   `relay post <project> --json - <<'EOF' … EOF`.

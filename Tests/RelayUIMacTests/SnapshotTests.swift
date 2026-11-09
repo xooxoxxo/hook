@@ -93,7 +93,10 @@ private let three = [item("a", urgency: "now", created: stamp(minutesAgo: 10), s
         store.perform(.clearFilter)
         #expect(store.filter == nil)
         store.perform(.copyLink)
-        #expect(copied == ["hook://i/n"])
+        #expect(copied == ["http://127.0.0.1:47823/i/n"])
+        store.linkPort = 47911
+        store.perform(.copyLink)
+        #expect(copied.last == "http://127.0.0.1:47911/i/n")
         store.perform(.openSelection)
         #expect(store.navigation.selectedID == "n")
         store.perform(.pickChoice(1))

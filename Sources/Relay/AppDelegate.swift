@@ -523,6 +523,7 @@ import RelayUI
     private func apply(_ config: RelayConfig?) async {
         guard let model else { return }
         let port = config?.port ?? RelayConfig.defaultPort
+        store?.linkPort = port
         let pollSeconds = config?.pollSeconds ?? RelayConfig.defaultPollSeconds
 
         let resolved = config?.resolvedSource() ?? .incomplete

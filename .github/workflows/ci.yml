@@ -72,3 +72,6 @@ jobs:
 
       - name: Installer tests
         run: ./scripts/test-install.sh && ./scripts/test-get.sh && ./scripts/test-package.sh && ./scripts/test-make-signing-cert.sh
+
+      - name: Release safety tests
+        run: python3 -m unittest discover -s scripts -p "test_release_*.py" -v
