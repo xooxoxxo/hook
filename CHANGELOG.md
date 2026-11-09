@@ -3,6 +3,19 @@
 All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## [0.15.3] - 2026-11-09
+
+### Fixed
+
+- Reports on Verify show the reported indicator after Pond saves them. A numbered step named verify keeps its own report. Reporting on Verify needs a Pond with the matching fix.
+
+### Changed
+
+- Keep simple approval-only requests in chat. Use Hook for owner actions and checklists.
+
+<!-- hook:pond=^1.1.0 -->
+<!-- hook:mailbox-protocol=5 -->
+
 ## [0.15.2] - 2026-11-06
 
 ### Added

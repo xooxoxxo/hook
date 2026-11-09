@@ -164,6 +164,53 @@ let traceback: String = {
         #expect(store.detail("a")?.report == .failed(ProblemReport.secretRefused))
     }
 
+    @Test func aSavedVerifyReportMarksVerifyAndNotTheStepNamedVerify() async throws {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        var ask = idSteps(1, verify: Step(action: "Play the track"))
+        ask.steps[0].id = "verify"
+        let (store, fake, _) = await started(defaults, bodies: [ask])
+        store.beginReport("a", path: "verify")
+
+        let note = "Playback failed. Reference req-123."
+        #expect(await store.sendReport("a", note: note) == .sent)
+        #expect(await fake.problems.first?.stepID == "@verify")
+        #expect(await fake.problems.first?.note == note)
+        let snapshot = try #require(store.detail("a"))
+        #expect(snapshot.reportTarget == nil)
+        let reports = DetailSteps<Store>.reports(snapshot, model: store)
+        #expect(reports.slot("verify").reported)
+        #expect(!reports.slot("1").reported)
+        #expect(!StepRow.showsReportLink(reports.slot("verify"), open: true, locked: false))
+    }
+
+    @Test func aCorrectionToVerifyClearsItsReportedIndicator() throws {
+        let first = idSteps(1, verify: Step(action: "Play the track"))
+        var changed = first
+        changed.verify = Step(action: "Check the seek bar")
+        let event = Event(seq: 1, itemId: "a", kind: "problem", actor: "owner",
+                          text: #"{"id":"@verify","step":"verify","note":"Playback failed."}"#,
+                          at: "2026-10-29T10:00:00+00:00", rev: 1, auth: "owner-key")
+        let history = try #require(RevisionCheck.verify(revised("a", [first, changed]).detail)).get()
+        #expect(ProblemReport.reported(events: [event], history: history, rendered: first, renderedRev: 1) == ["verify"])
+        #expect(ProblemReport.reported(events: [event], history: history, rendered: changed, renderedRev: 2).isEmpty)
+    }
+
+    @Test func anOlderPondRefusalKeepsTheVerifyDraft() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, fake, _) = await started(defaults, bodies: [idSteps(1, verify: Step(action: "Play the track"))])
+        store.beginReport("a", path: "verify")
+        store.reportDrafts["a"] = "Playback failed."
+        await fake.failNext(QueueError.rejected(status: 400, error: "invalid problem", details: ["step: unknown"]),
+                            on: "problem")
+
+        _ = await store.sendReport("a", note: "Playback failed.")
+        #expect(store.detail("a")?.reportTarget == "verify")
+        #expect(store.reportDrafts["a"] == "Playback failed.")
+        #expect(store.detail("a")?.report == .failed("This Pond couldn’t save a Verify report. Use Report on a numbered step."))
+    }
+
     @Test func aHeldNoteSendsOnceTheKeyIsApproved() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }

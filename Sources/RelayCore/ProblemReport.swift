@@ -18,6 +18,9 @@ public enum ReportBoxState: Equatable, Sendable {
 /// quoted report, never as an instruction. Only from Hook. Pond 1.4.0 takes 8000 characters
 /// over several lines; an older one 300 on one line (`TalkLimits`).
 public enum ProblemReport {
+    /// Outside the numbered step ID format. Used only for reports.
+    public static let verifyTarget = "@verify"
+
     public static let menuTitle = "Report a Problem…"
     public static let help = "The session gets this as a quoted report about its step. "
         + "Don't paste secrets; the Pond refuses them."
@@ -77,12 +80,15 @@ public enum ProblemReport {
     }
 
     /// The line for a refused send.
-    public static func refusal(_ error: any Error, limits: TalkLimits) -> String {
+    public static func refusal(_ error: any Error, limits: TalkLimits, target: String? = nil) -> String {
         switch error as? QueueError {
         case .rejected(400, "invalid problem", let details)?:
             if details.contains(where: { $0.hasSuffix("secret-like value") }) { return secretRefused }
             if details.contains(where: { $0.hasSuffix("too long") }) {
                 return "The Pond refused the note: it is over \(limits.report) characters."
+            }
+            if target == verifyTarget && details == ["step: unknown"] {
+                return "This Pond couldn’t save a Verify report. Use Report on a numbered step."
             }
             return "The Pond refused the note: " + details.map(Sanitize.revealLine).joined(separator: ", ") + "."
         case .rejected(409, "too many reports", _)?:
@@ -107,13 +113,24 @@ public enum ProblemReport {
         var out: Set<String> = []
         for event in events where event.kind == "problem" && event.actor == "owner" {
             guard let text = event.text, let body = try? JSONValue.parse(Data(text.utf8)),
-                  let id = body["id"]?.stringValue, let path = paths[id], let step = now[id] else { continue }
+                  let id = body["id"]?.stringValue else { continue }
             let rev = event.rev ?? 1
-            if let then = history?.bodies[rev].flatMap({ ins in StepIdentity.entries(ins).first { $0.step.id == id }?.step }) {
-                if StepIdentity.contentHash(then, parentID: nil, kind: .step)
-                    == StepIdentity.contentHash(step, parentID: nil, kind: .step) { out.insert(path) }
+            let target: (path: String, step: Step, kind: StepFingerprint.Kind)
+            let previous: Step?
+            if id == verifyTarget {
+                guard let verify = rendered.verify else { continue }
+                target = ("verify", verify, .verify)
+                previous = history?.bodies[rev]?.verify
+            } else {
+                guard let path = paths[id], let step = now[id] else { continue }
+                target = (path, step, .step)
+                previous = history?.bodies[rev].flatMap { ins in StepIdentity.entries(ins).first { $0.step.id == id }?.step }
+            }
+            if let previous {
+                if StepIdentity.contentHash(previous, parentID: nil, kind: target.kind)
+                    == StepIdentity.contentHash(target.step, parentID: nil, kind: target.kind) { out.insert(target.path) }
             } else if rev >= (renderedRev ?? 1) {
-                out.insert(path)
+                out.insert(target.path)
             }
         }
         return out
