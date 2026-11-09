@@ -1,7 +1,7 @@
 ---
 name: instructables
 description: >-
-  Send owner actions and approvals to Hook: credentials, logins, manual steps, access changes, merge or release approval, and decisions that need durable follow-up. Keep simple explanations and quick, low-risk clarifications in the current chat when a short answer or multiple choice is enough. Uses the relay_post MCP tool, or `relay post` as a fallback.
+  Send owner actions, checklists, and involved approvals to Hook: credentials, logins, manual steps, access changes, and decisions that need durable follow-up. Keep single yes/no approval-only requests, including simple merge or release approvals, in chat. Keep simple explanations and quick, low-risk clarifications in the current chat when a short answer or multiple choice is enough. Uses the relay_post MCP tool, or `relay post` as a fallback.
 ---
 
 # Instructables
@@ -24,9 +24,12 @@ just because it has choices or the answer is needed to continue.
 
 Send one ask when the owner must act outside the chat: provide credentials, log in,
 click a UI you cannot operate, run a command on an unreachable machine, or unlock access.
-Also use Hook for approvals (including merges and releases), consequential decisions,
-and work that needs a durable checklist or later follow-up. A one-word approval still
-belongs in Hook. Follow any explicit owner preference for where to ask.
+Keep approval-only requests in chat when a single yes/no answer is enough, including
+a simple merge or release approval at the end of a task. State the exact change or
+artifact and wait for approval; this routing rule does not grant permission to act.
+Use Hook for approvals bundled with owner actions, consequential decisions needing
+context, or work needing a durable checklist or later follow-up. Do not add artificial
+steps just to send a simple approval to Hook. Follow explicit owner routing preferences.
 
 Don't save these asks for the end of the session. Bundle related steps and questions
 into one instructable, then keep working on independent tasks.
