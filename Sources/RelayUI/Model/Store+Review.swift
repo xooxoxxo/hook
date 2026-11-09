@@ -573,9 +573,10 @@ extension Store {
             await reload(id)
             return .sent
         } catch {
-            guard gen == generation else { return .refused(ProblemReport.refusal(error, limits: limits)) }
+            let refusal = ProblemReport.refusal(error, limits: limits, target: stepID)
+            guard gen == generation else { return .refused(refusal) }
             if ownerKeyRefused(error) { return .notEnrolled }
-            return .refused(ProblemReport.refusal(error, limits: limits))
+            return .refused(refusal)
         }
     }
 
@@ -623,7 +624,8 @@ extension Store {
     /// approved. Sent, the field closes and the step shows the reported icon.
     @discardableResult public func sendReport(_ id: String, note: String) async -> ReportResult {
         guard let path = reporting[id], reportStates[id] != .sending else { return .refused(Self.noReportOpen) }
-        guard let stepID = nodes(for: id).flatMap({ Flow.flattened($0).first { $0.path == path }?.stepID }) else {
+        guard let node = nodes(for: id).flatMap({ Flow.flattened($0).first { $0.path == path } }),
+              let stepID = node.kind == .verify ? ProblemReport.verifyTarget : node.stepID else {
             return .refused(Self.noReportOpen)
         }
         guard ProblemReport.canSend(note, limits: talk.limits) else {
