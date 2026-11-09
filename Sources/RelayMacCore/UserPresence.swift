@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import LocalAuthentication
 
 /// Proof that the owner is at the Mac before Hook accepts a changed command, link or file, or
@@ -16,10 +16,14 @@ public struct UserPresence: PresenceCheck {
         let context = LAContext()
         var error: NSError?
         guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else { return false }
+        let focus = await AuthenticationFocus.capture()
+        let confirmed: Bool
         do {
-            return try await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason)
+            confirmed = try await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason)
         } catch {
-            return false
+            confirmed = false
         }
+        await focus.finish(confirmed: confirmed && !Task.isCancelled)
+        return confirmed && !Task.isCancelled
     }
 }
