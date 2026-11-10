@@ -408,7 +408,7 @@ import RelayUI
     /// the panel's own actions (hide, dock, Settings, copy, open) come back here.
     private func makePanel(store: Store, model: AppModel) -> SidePanel {
         let ref = PanelRef()
-        let hosting = PanelHostingView(rootView: PanelRoot(model: store).environment(\.panelDragActions, .panel(ref)))
+        let hosting = NSHostingView(rootView: PanelRoot(model: store).environment(\.panelDragActions, .panel(ref)))
         hosting.sizingOptions = []
         // No title-bar inset: the content starts at the panel's top edge.
         hosting.safeAreaRegions = []

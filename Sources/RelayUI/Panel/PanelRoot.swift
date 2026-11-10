@@ -62,14 +62,6 @@ public struct PanelRoot<Model: PanelViewModel>: View {
     }
 
     @ViewBuilder public var body: some View {
-        if #available(macOS 15, *) {
-            content.allowsWindowActivationEvents(true)
-        } else {
-            content
-        }
-    }
-
-    @ViewBuilder private var content: some View {
         // A full-height gallery render sizes the scene to the detail; the queue's List would
         // take every point it is offered (no app path sets fullHeight).
         if gallery.fullHeight == true, let detailID = model.navigation.selectedID {
