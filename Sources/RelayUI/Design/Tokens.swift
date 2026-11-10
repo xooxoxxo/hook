@@ -13,6 +13,14 @@ public enum DS {
         public static let rowInsetH: CGFloat = 0
         /// Stock sidebar section headers start 14 pt from the panel edge (measured); this nudge puts them on the gutter.
         public static let sectionHeaderLead: CGFloat = 2
+        /// A queue section header's top and bottom padding inside its row, the same collapsed or
+        /// expanded, so a header never changes height when its group folds.
+        public static let sectionHeaderV: CGFloat = 4
+        /// Between a collapsed header's name and its peek line (the group's newest ask).
+        public static let headerPeek: CGFloat = 1
+        /// The count pill's padding round its digits.
+        public static let countPillH: CGFloat = 6
+        public static let countPillV: CGFloat = 1
         public static let stepPart: CGFloat = 6
         public static let inline: CGFloat = 8
         public static let marker: CGFloat = 10
@@ -212,6 +220,8 @@ public enum DS {
         /// A crash report preview: a whole report fits the sheet's scroll box.
         public static var report: SwiftUI.Font { style(.caption, .caption1).monospaced() }
         public static var caption: SwiftUI.Font { style(.caption, .caption1) }
+        /// A section header's count pill: semibold digits that keep their width.
+        public static var countPill: SwiftUI.Font { style(.caption, .caption1).weight(.semibold).monospacedDigit() }
         public static var welcomeTitle: SwiftUI.Font { style(.title2, .title2).weight(.semibold) }
         public static var badgeDigit: NSFont { .monospacedDigitSystemFont(ofSize: 9, weight: .bold) }
         /// A queue card's title.
@@ -311,6 +321,8 @@ public enum DS {
         /// no lift (`cardStrokeQuiet` draws its edge); over the light one a little lighter than the panel.
         public static let cardFillQuiet = adaptive(light: .white.withAlphaComponent(0.35), dark: .white.withAlphaComponent(0.015))
         public static let cardStroke = SwiftUI.Color.primary.opacity(0.08)
+        /// A section header's count pill: a soft fill under primary digits.
+        public static let countPillFill = SwiftUI.Color.primary.opacity(0.1)
         /// A recently closed card's hairline. Its fill is close to the panel's, so in light mode
         /// the line is a little firmer than `cardStroke`, or the card's edge would vanish.
         public static let cardStrokeQuiet = adaptive(light: .black.withAlphaComponent(0.14), dark: .white.withAlphaComponent(0.09))

@@ -1730,7 +1730,7 @@ extension Store: PanelViewModel {
 
     public func perform(_ command: PanelCommand) {
         switch command {
-        case .closePopover, .endEditing, .focusReply, .setClosedExpanded:
+        case .closePopover, .endEditing, .focusReply, .setClosedExpanded, .setGroupCollapsed:
             break   // view state: the view handles these before calling perform
         case .back: back()
         case .hide: shell.hide()

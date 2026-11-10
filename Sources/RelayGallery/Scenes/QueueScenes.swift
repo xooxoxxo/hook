@@ -124,6 +124,13 @@ let queueClosedHeight: CGFloat = 1120
     panelScene("queue-closed-open", queueModel(GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: true)),
                height: queueClosedHeight, rules: queueEdgeRules,
                overrides: PanelGalleryOverrides(now: GalleryFixtures.now, closedExpanded: true)),
+    // One project group collapsed (its header on a quiet fill, its cards hidden), the others open.
+    panelScene("queue-collapsed", queueModel(GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false)),
+               height: queueHeight, rules: queueEdgeRules,
+               overrides: PanelGalleryOverrides(now: GalleryFixtures.now, collapsedGroups: ["project:Acme"])),
+    panelScene("queue-urgency-collapsed", queueModel(GalleryFixtures.queue(grouping: .urgency, filter: nil, closedExpanded: false)),
+               height: queueHeight, rules: queueEdgeRules,
+               overrides: PanelGalleryOverrides(now: GalleryFixtures.now, collapsedGroups: ["urgency:today"])),
     panelScene("queue-limits", queueModel(limitsQueue(filter: nil)), height: 1400, rules: queueEdgeRules),
     panelScene("queue-limits-filtered", queueModel(limitsQueue(filter: longProjectName)), rules: queueFlatRules),
     panelScene("queue-filtered", queueModel(GalleryFixtures.queue(grouping: .urgency, filter: "Acme", closedExpanded: false)),

@@ -8,6 +8,8 @@ import SwiftUI
 public struct PanelGalleryOverrides: Equatable, Sendable {
     public var now: Date?
     public var closedExpanded: Bool?
+    /// The collapsed groups' keys (`CollapsedGroups.key`), in place of the stored set.
+    public var collapsedGroups: Set<String>?
     public var fromExpanded: Bool?
     public var fullHeight: Bool?
     /// The reply's History disclosure.
@@ -20,9 +22,10 @@ public struct PanelGalleryOverrides: Equatable, Sendable {
 
     public init(now: Date? = nil, closedExpanded: Bool? = nil, fromExpanded: Bool? = nil, fullHeight: Bool? = nil,
                 historyExpanded: Bool? = nil, locale: Locale? = nil, timeZone: TimeZone? = nil,
-                messagesExpanded: Bool? = nil) {
+                messagesExpanded: Bool? = nil, collapsedGroups: Set<String>? = nil) {
         self.now = now
         self.closedExpanded = closedExpanded
+        self.collapsedGroups = collapsedGroups
         self.fromExpanded = fromExpanded
         self.fullHeight = fullHeight
         self.historyExpanded = historyExpanded

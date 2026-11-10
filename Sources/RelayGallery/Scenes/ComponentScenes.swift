@@ -124,11 +124,13 @@ let sampleClosed = AskRowModel(id: "c1", title: "Store the API key", project: "A
             }
             .font(DS.Font.meta)
         },
-        Sample("SectionHeader · urgency and project, empty name") {
-            MiniList(height: 120) {
-                Section { EmptyView() } header: { SectionHeader(name: "Now", count: 1) }
-                Section { EmptyView() } header: { SectionHeader(name: "Acme", count: 3) }
-                Section { EmptyView() } header: { SectionHeader(name: "", count: 1) }
+        Sample("SectionHeader · urgency and project, empty name, collapsed") {
+            MiniList(height: 170) {
+                Section { EmptyView() } header: { SectionHeader(name: "Now", count: 1) }.collapsible(false)
+                Section { EmptyView() } header: { SectionHeader(name: "Acme", count: 3) }.collapsible(false)
+                Section { EmptyView() } header: { SectionHeader(name: "", count: 1) }.collapsible(false)
+                Section { EmptyView() } header: { SectionHeader(name: "Northwind", count: 12, collapsed: true,
+                                                                 newest: .init(title: "Pick a colour for the dashboard theme", age: "2d")) }.collapsible(false)
             }
         },
         Sample("MonogramBadge · palette, no project, closed") {
@@ -156,9 +158,9 @@ let sampleClosed = AskRowModel(id: "c1", title: "Store the API key", project: "A
             }
         },
         Sample("ClosedGroupHeader · collapsed, expanded") {
-            MiniList(height: 72) {
-                Section { EmptyView() } header: { ClosedGroupHeader(count: 2, expanded: .constant(false)) }
-                Section { EmptyView() } header: { ClosedGroupHeader(count: 2, expanded: .constant(true)) }
+            MiniList(height: 96) {
+                Section { EmptyView() } header: { ClosedGroupHeader(count: 2, expanded: .constant(false)) }.collapsible(false)
+                Section { EmptyView() } header: { ClosedGroupHeader(count: 2, expanded: .constant(true)) }.collapsible(false)
             }
         },
         Sample("EmptyListLine · plain, filtered") {

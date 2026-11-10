@@ -13,13 +13,14 @@ public struct ListHeaderBar: View {
     let filter: Binding<String?>
     let projects: [MenuProject]
     let hidden: HiddenCount
+    let all: CollapseAllActions?
     let onRefresh: () -> Void
     let onHide: () -> Void
     let onDock: (SidebarEdge) -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     public init(title: String, waiting: Int = 0, refreshing: Bool, updated: String, grouping: Binding<QueueGrouping>, filter: Binding<String?>,
-                projects: [MenuProject], hidden: HiddenCount,
+                projects: [MenuProject], hidden: HiddenCount, all: CollapseAllActions? = nil,
                 onRefresh: @escaping () -> Void, onHide: @escaping () -> Void, onDock: @escaping (SidebarEdge) -> Void) {
         self.title = title
         self.waiting = waiting
@@ -29,6 +30,7 @@ public struct ListHeaderBar: View {
         self.filter = filter
         self.projects = projects
         self.hidden = hidden
+        self.all = all
         self.onRefresh = onRefresh
         self.onHide = onHide
         self.onDock = onDock
@@ -48,7 +50,7 @@ public struct ListHeaderBar: View {
                     if refreshing {
                         ProgressView().controlSize(DS.Control.inline).accessibilityLabel("Refreshing")
                     }
-                    QueueMenu(grouping: grouping, filter: filter, projects: projects)
+                    QueueMenu(grouping: grouping, filter: filter, projects: projects, all: all)
                     IconButton(DS.Symbol.refresh, label: "Refresh", help: Self.refreshHelp(updated: updated), action: onRefresh)
                         .keyboardShortcut("r")
                     IconButton(DS.Symbol.hide, label: "Hide Hook", help: "Hide (Esc)", action: onHide)

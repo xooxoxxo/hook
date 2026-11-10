@@ -31,6 +31,8 @@ public struct KeyContext: Equatable, Sendable {
     /// opens it with the Done warning instead of closing it.
     public var selectionHasUnsent: Bool
     public var closedHeaderFocused: Bool
+    /// List: the key (`CollapsedGroups.key`) of the group header that has keyboard focus.
+    public var focusedGroup: String?
     /// Detail: the open ask is open (not closed).
     public var askOpen: Bool
     public var askHasProject: Bool
@@ -58,7 +60,7 @@ public struct KeyContext: Equatable, Sendable {
                 askOpen: Bool = true, askHasProject: Bool = false, choiceCount: Int = 0, hasDraftOrPick: Bool = false,
                 hasUnsentAnswers: Bool = false, doneWarning: Bool = false, hasReplyPrompt: Bool = false,
                 canMessage: Bool = false, messageFieldFocused: Bool = false, reportFieldFocused: Bool = false,
-                choiceWordsFocused: Bool = false) {
+                choiceWordsFocused: Bool = false, focusedGroup: String? = nil) {
         self.mode = mode
         self.textFieldFocused = textFieldFocused
         self.popoverOpen = popoverOpen
@@ -68,6 +70,7 @@ public struct KeyContext: Equatable, Sendable {
         self.selectionHasProject = selectionHasProject
         self.selectionHasUnsent = selectionHasUnsent
         self.closedHeaderFocused = closedHeaderFocused
+        self.focusedGroup = focusedGroup
         self.askOpen = askOpen
         self.askHasProject = askHasProject
         self.choiceCount = choiceCount
@@ -85,6 +88,8 @@ public struct KeyContext: Equatable, Sendable {
 public enum PanelCommand: Equatable, Sendable {
     case closePopover, endEditing, back, hide, refresh, openSettings, undoClose, quit, dock(SidebarEdge), switchGrouping, clearFilter
     case showOnlyProject, openSelection, done, sendAndDone, skip, reopen, copyLink, setClosedExpanded(Bool)
+    /// ← / → on a focused group header: collapse (true) or expand (false) the group with this key.
+    case setGroupCollapsed(String, Bool)
     /// Done with something unsent: the bar shows its warning instead of closing (from the
     /// list, the ask opens with the warning up).
     /// In the warning: `sendAndDone` (Send & Done), `discardAndDone`, and Esc's `cancelDoneWarning`.
@@ -139,7 +144,8 @@ public enum KeyMap {
     private static func listCommand(_ key: PanelKey, _ c: KeyContext) -> PanelCommand? {
         switch key {
         case .returnKey:
-            return !c.textFieldFocused && !c.closedHeaderFocused && c.selectionOpen != nil ? .openSelection : nil
+            return !c.textFieldFocused && !c.closedHeaderFocused && c.focusedGroup == nil && c.selectionOpen != nil
+                ? .openSelection : nil
         case .cmdReturn:
             guard c.selectionOpen == true else { return nil }
             return c.selectionHasUnsent ? .warnUnsent : .done
@@ -147,8 +153,12 @@ public enum KeyMap {
         case .shiftCmdR: return c.selectionOpen == false ? .reopen : nil
         case .shiftCmdL: return c.selectionOpen != nil ? .copyLink : nil
         case .ctrlCmdP: return c.selectionOpen != nil && c.selectionHasProject ? .showOnlyProject : nil
-        case .right: return c.closedHeaderFocused ? .setClosedExpanded(true) : nil
-        case .left: return c.closedHeaderFocused ? .setClosedExpanded(false) : nil
+        case .right:
+            if c.closedHeaderFocused { return .setClosedExpanded(true) }
+            return c.focusedGroup.map { .setGroupCollapsed($0, false) }
+        case .left:
+            if c.closedHeaderFocused { return .setClosedExpanded(false) }
+            return c.focusedGroup.map { .setGroupCollapsed($0, true) }
         default: return nil
         }
     }
