@@ -1,8 +1,9 @@
 import RelayCore
 import SwiftUI
 
-/// Settings → General: shortcut, presence, login and the menu-bar badge, the terminal
-/// for Resume Session, appearance and version, and how updates install. Every control but the login item writes config.json through the model.
+/// Settings → General: shortcut, presence, login and the menu bar, the terminal for
+/// Resume Session, appearance and version, and how updates install. Documents and Privacy
+/// have tabs of their own. Every control but the login item writes config.json through the model.
 public struct GeneralTab<Model: SettingsViewModel>: View {
     @ObservedObject private var model: Model
 
@@ -75,19 +76,6 @@ public struct GeneralTab<Model: SettingsViewModel>: View {
             }
             .environment(\.settingsSection, "Startup and menu bar")
             .disabled(model.settings.readOnly)
-            Section("Documents") {
-                SettingsRow("Open documents in", help: GeneralHelp.documents) {
-                    Picker("Open documents in", selection: documentBinding) {
-                        ForEach(documentOptions) { option in
-                            if option.id == DocumentChoice.otherID { Divider() }
-                            Text(option.title).tag(option.id)
-                        }
-                    }
-                    .pickerStyle(.menu).labelsHidden().fixedSize()
-                }
-            }
-            .environment(\.settingsSection, "Documents")
-            .disabled(model.settings.readOnly)
             Section("Sessions") {
                 SettingsRow("Terminal", help: GeneralHelp.terminal) {
                     Picker("Terminal", selection: model.configBinding(
@@ -99,7 +87,6 @@ public struct GeneralTab<Model: SettingsViewModel>: View {
             }
             .environment(\.settingsSection, "Sessions")
             .disabled(model.settings.readOnly)
-            PrivacySection(model: model)
             Section("Appearance and version") {
                 SettingsRow("Appearance") {
                     Picker("Appearance", selection: model.configBinding(
@@ -140,23 +127,6 @@ public struct GeneralTab<Model: SettingsViewModel>: View {
             ?? (model.settings.login.needsApproval ? "Approve Hook in System Settings → Login Items." : nil)
     }
 
-    private var documentOptions: [DocumentChoice] {
-        DocumentChoice.options(current: model.settings.config?.openDocumentsIn, appName: model.settings.documentAppName)
-    }
-
-    /// Saves the picked target; Other App… opens the app chooser instead (it saves on a pick).
-    private var documentBinding: Binding<String> {
-        Binding(
-            get: { DocumentTarget(config: model.settings.config?.openDocumentsIn).configValue },
-            set: { value in
-                if value == DocumentChoice.otherID {
-                    model.perform(.chooseDocumentApp)
-                } else {
-                    model.save(set: ["openDocumentsIn": value], remove: [])
-                }
-            })
-    }
-
     /// The snapshot's list, or Automatic alone before the app has looked.
     private var terminalOptions: [TerminalChoice] {
         let options = model.settings.terminals
@@ -166,71 +136,10 @@ public struct GeneralTab<Model: SettingsViewModel>: View {
     }
 }
 
-/// Settings › General › Privacy: what happens after a crash, where a report goes, and the log.
-struct PrivacySection<Model: SettingsViewModel>: View {
-    @ObservedObject var model: Model
-
-    private var privacy: PrivacyLine { model.settings.privacy }
-
-    var body: some View {
-        Section("Privacy") {
-            SettingsRow("Crash reports", help: GeneralHelp.crashReports) {
-                Picker("Crash reports", selection: model.configBinding(
-                    "crashReports", \.crashReports, fallback: CrashReportsSetting.ask, encode: { $0.rawValue })) {
-                    Text("Ask Each Time").tag(CrashReportsSetting.ask)
-                    Text("Send Automatically").tag(CrashReportsSetting.auto)
-                    Divider()
-                    Text("Off").tag(CrashReportsSetting.off)
-                }
-                .pickerStyle(.menu).labelsHidden().fixedSize()
-            }
-            SettingsRow("Send to", help: GeneralHelp.sendTo) {
-                Picker("Send to", selection: Binding(
-                    get: { privacy.target },
-                    set: { model.save(set: ["crashReportTarget": $0.rawValue], remove: []) })) {
-                    Text("GitHub").tag(CrashTarget.github)
-                    if privacy.pondOffered {
-                        Text("My Pond").tag(CrashTarget.pond)
-                    }
-                }
-                .pickerStyle(.menu).labelsHidden().fixedSize()
-                .disabled(privacy.reports == .off)
-            }
-            SettingsRow("Activity log", help: GeneralHelp.activityLog) {
-                Text(privacy.sizeText).foregroundStyle(DS.Color.secondary).monospacedDigit()
-            } accessory: {
-                IconButton(DS.Symbol.reveal, label: "Show in Finder",
-                           help: "Show the activity log in Finder") { model.perform(.showLogInFinder) }
-            }
-            SettingsRow("Diagnostics", help: GeneralHelp.diagnostics) {
-                Text(privacy.diagnostics.text).foregroundStyle(DS.Color.secondary)
-                    .lineLimit(1).truncationMode(.middle)
-            } accessory: {
-                IconButton(DS.Symbol.saveDiagnostics, label: GeneralHelp.saveDiagnosticsLabel,
-                           help: GeneralHelp.saveDiagnosticsHelp) { model.perform(.saveDiagnostics) }
-                    .disabled(privacy.diagnostics.collecting)
-            }
-        }
-        .environment(\.settingsSection, "Privacy")
-        .disabled(model.settings.readOnly)
-    }
-}
-
 /// The General tab's "?" texts.
 public enum GeneralHelp {
-    public static let crashReports = "After Hook quits unexpectedly, it offers to send a redacted summary at the next launch: the Hook and macOS versions, the CPU type, the exception and Hook's own frames, and the last 40 lines of the activity log. Ask Each Time shows you exactly what goes out first. Send Automatically sends to your own Pond without asking; GitHub always waits for you to submit the issue yourself. Off sends nothing and shows nothing."
-    public static let sendTo = "GitHub opens a prefilled issue in your browser for you to review and submit; before that, Hook only searches for an existing issue by the crash's signature, a short hash. My Pond files the report as a Hook bug on your Pond, without a Telegram message. It's offered once this Mac's owner key is approved."
-    public static let activityLog = "Hook keeps a small activity log in ~/Library/Logs/Hook: launches and quits with their versions, the screens you open, actions by name (Done, Skip, Reply), the queue source and the Pond's version, and errors with a redacted message (for a failed Pond request, its HTTP status and route, such as asks/{id}/reply). It never records ask ids, titles, steps, replies, notes, file paths inside asks, tokens, the owner key or the Pond's address. It rolls over at 512 KB and stays under 1 MB. It stays on this Mac unless you send a crash report."
-    public static let diagnostics = "Save Diagnostics… writes one text file to attach to an issue when Hook closes "
-        + "and you can't tell why: the Hook and macOS versions, the copies of Hook on this Mac, the LaunchAgent's state, "
-        + "how the last runs ended, the end of the activity and update logs, the names of Hook's crash files, and the "
-        + "last 2 hours of system log lines about Hook. Your home folder shows as ~, your user name as <user>, and this "
-        + "Mac's name, hosts and addresses as <host>. Nothing is sent; you choose where the file goes."
-    public static let saveDiagnosticsLabel = "Save Diagnostics…"
-    public static let saveDiagnosticsHelp = "Save a redacted diagnostics file to attach to an issue"
     public static let shortcut = "Click the field, then press the new keys. Use at least one of ⌘, ⌃ or ⌥ with a letter, a digit, Space, ` or F1–F12. Esc cancels. ⊗ turns the shortcut off."
     public static let presence = "Hook marks you away when the screen locks, the displays sleep, you're connected over Screen Sharing, or you haven't touched the Mac for this long. While you're away, Hook doesn't slide the panel in or show notifications; asks still reach anything your Pond forwards them to. Hook also creates ~/.local/state/relay/away, so other tools can tell. For example, ssh can skip the 1Password agent."
     public static let login = "Hook adds a LaunchAgent so it starts when you log in."
-    public static let documents = "What Open does on a document an ask links to. Hook's viewer shows Markdown (.md, .markdown) rendered and text (.txt) as it is, in a small window, without going online; other files open in their default app. The file's default app and a chosen app open every file. Each file row's ⋯ menu also has Open With, Reveal in Finder and Copy Path. Hook reads a file only when you press Open."
     public static let terminal = "Where Resume Session opens. Right-click an ask, or use the ⋯ menu in an ask, and choose Resume Session: Hook opens a new window in this terminal, goes to the session's folder and runs claude --resume with its session. It works only for sessions on this Mac. Automatic picks the first installed of Ghostty, iTerm2, WezTerm, kitty, Warp and Alacritty, else Terminal. Ghostty may ask once for permission to let Hook control it."
 }

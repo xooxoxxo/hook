@@ -31,6 +31,7 @@ public enum HookLog {
 
     public enum Screen: String, Sendable, CaseIterable {
         case queue, detail, settingsGeneral, settingsPanel, settingsQueue, settingsNotifications, settingsAgents
+        case settingsDocuments, settingsPrivacy
         case welcome, about, crashReport
 
         public init(_ tab: SettingsTabID) {
@@ -40,6 +41,8 @@ public enum HookLog {
             case .queue: self = .settingsQueue
             case .notifications: self = .settingsNotifications
             case .agents: self = .settingsAgents
+            case .documents: self = .settingsDocuments
+            case .privacy: self = .settingsPrivacy
             }
         }
     }

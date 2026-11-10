@@ -190,7 +190,8 @@ private let fixedNow: @Sendable () -> Date = { Date(timeIntervalSince1970: 1_793
 
     @Test func everySettingsTabHasItsScreen() {
         #expect(SettingsTabID.allCases.map { HookLog.Screen($0) }
-            == [.settingsGeneral, .settingsPanel, .settingsQueue, .settingsNotifications, .settingsAgents])
+            == [.settingsGeneral, .settingsPanel, .settingsQueue, .settingsNotifications, .settingsAgents,
+                .settingsDocuments, .settingsPrivacy])
     }
 
     @Test func theTrackerLogsAScreenOnceUntilAnotherOpensOrItResets() {

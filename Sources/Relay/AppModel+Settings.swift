@@ -354,6 +354,8 @@ extension AppModel: SettingsViewModel {
         case .agents:
             Task { @MainActor in await refreshAgents() }
             return SettingsWindowController.hosting(AgentsTab(model: self))
+        case .documents: return SettingsWindowController.hosting(DocumentsTab(model: self))
+        case .privacy: return SettingsWindowController.hosting(PrivacyTab(model: self))
         }
     }
 

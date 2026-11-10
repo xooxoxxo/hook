@@ -32,6 +32,21 @@ private func submenu(_ entries: [MenuEntry], _ title: String) -> [MenuEntry] {
 }
 
 @Suite struct MenuBarMenuTests {
+    @Test func openDocumentsSitUnderShowHook() {
+        var withDocuments = inputs()
+        withDocuments.documents = [MenuDocument(id: "/tmp/a/plan.md", name: "plan.md"),
+                                   MenuDocument(id: "/tmp/b/notes.md", name: "notes.md")]
+        let entries = MenuBarMenu.entries(withDocuments)
+        #expect(Array(titles(entries).prefix(4)) == ["Show Hook", "plan.md", "notes.md", "—"])
+        guard case .item(_, let action, _, _, let enabled, _) = item(entries, "plan.md") else {
+            Issue.record("no plan.md item")
+            return
+        }
+        #expect(action == .showDocument("/tmp/a/plan.md"))
+        #expect(enabled)
+    }
+
+
     @Test func theMenuHasTheSpecTitlesInOrder() {
         #expect(titles(MenuBarMenu.entries(inputs())) == [
             "Show Hook", "—", "Pond · ready · updated 10:42", "Home · active", "Presence ▸", "—",

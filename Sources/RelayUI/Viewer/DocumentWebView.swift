@@ -12,6 +12,8 @@ import WebKit
 @MainActor public final class DocumentWebView: NSObject {
     public let webView: WKWebView
     private let handler: DocumentSchemeHandler
+    /// Hook's own content world, where the viewer's scripts run.
+    static let world = WKContentWorld.world(name: "hook-viewer")
     /// Opens a local document a link in the page points to (in the viewer).
     var onOpenDocument: (URL) -> Void = { _ in }
     /// Called once the page has loaded (the gallery waits on it).
@@ -27,7 +29,7 @@ import WebKit
         configuration.preferences.isElementFullscreenEnabled = false
         configuration.mediaTypesRequiringUserActionForPlayback = .all
         configuration.suppressesIncrementalRendering = true
-        let world = WKContentWorld.world(name: "hook-viewer")
+        let world = Self.world
         for source in DocumentPage.scripts() ?? [] {
             configuration.userContentController.addUserScript(
                 WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: true, in: world))
@@ -50,6 +52,17 @@ import WebKit
             if let list { self.webView.configuration.userContentController.add(list) }
             self.webView.load(URLRequest(url: DocumentPage.pageURL))
         }
+    }
+
+    /// A new stylesheet (the theme changed): the page's `<style>` text is replaced in place,
+    /// from Hook's content world, so the page keeps its scroll position and nothing reloads.
+    /// The served page changes too, should WebKit load it again.
+    public func restyle(_ stylesheet: String) {
+        handler.page = Data(DocumentPage.replacingStylesheet(in: String(decoding: handler.page, as: UTF8.self),
+                                                            with: stylesheet).utf8)
+        webView.callAsyncJavaScript(
+            "var style = document.getElementById(id); if (style) { style.textContent = css; }",
+            arguments: ["id": DocumentPage.styleID, "css": stylesheet], in: nil, in: Self.world) { _ in }
     }
 
     /// Block every load, then let `hook-doc:` through.
@@ -135,7 +148,7 @@ extension DocumentWebView: WKNavigationDelegate, WKUIDelegate {
 
 /// Serves `hook-doc://doc/` (the page) and images inside the document's folder; fails anything else.
 @MainActor final class DocumentSchemeHandler: NSObject, WKURLSchemeHandler {
-    let page: Data
+    var page: Data
     let folder: URL?
 
     init(page: Data, folder: URL?) {

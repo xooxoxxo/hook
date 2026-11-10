@@ -483,6 +483,8 @@ public enum DS {
         public static let tabQueue = "tray"
         public static let tabNotifications = "bell"
         public static let tabAgents = "terminal"
+        public static let tabDocuments = "doc.text"
+        public static let tabPrivacy = "hand.raised"
         /// Settings › Agents: a harness's or a piece's state.
         public static let agentInstalled = "checkmark.circle.fill"
         public static let agentUpdate = "arrow.down.circle.fill"
@@ -493,7 +495,7 @@ public enum DS {
         public static let agentNone = "minus.circle"
         /// Settings' same-line icon buttons: Show in Finder, Check for Updates…, open an app
         /// or a System Settings pane, and show an ask.
-        /// Save Diagnostics… in Settings › General › Privacy.
+        /// Save Diagnostics… in Settings › Privacy.
         public static let saveDiagnostics = "square.and.arrow.down"
         public static let reveal = "folder"
         public static let update = "arrow.down.circle"

@@ -157,12 +157,14 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
     public var crashReports: CrashReportsSetting
     /// Settings › Privacy › Send to: GitHub (the default) or the owner's own Pond.
     public var crashReportTarget: CrashTarget
+    /// Settings › Documents: the viewer's palette, colours, reading width and text size.
+    public var viewer: ViewerTheme
 
     enum CodingKeys: String, CodingKey, CaseIterable {
         case source, mailboxURL, tokenFile, context, port, pollSeconds, hotkey, keepDays
         case showCount, sidebarEdge, appearance, notify, presence, awayAfterMinutes, repoPath
         case sidebarDisplay, afterClose, terminal, onboarding, mailboxUpdateCommand, openDocumentsIn
-        case crashReports, crashReportTarget
+        case crashReports, crashReportTarget, viewer
     }
 
     public init(
@@ -188,7 +190,8 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
         mailboxUpdateCommand: String? = nil,
         openDocumentsIn: String = DocumentTarget.viewerValue,
         crashReports: CrashReportsSetting = .ask,
-        crashReportTarget: CrashTarget = .github
+        crashReportTarget: CrashTarget = .github,
+        viewer: ViewerTheme = ViewerTheme()
     ) {
         self.source = source
         self.mailboxURL = mailboxURL
@@ -213,6 +216,7 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
         self.openDocumentsIn = openDocumentsIn
         self.crashReports = crashReports
         self.crashReportTarget = crashReportTarget
+        self.viewer = viewer
     }
 
     /// A missing, null, wrong-typed or out-of-range key takes its default.
@@ -257,6 +261,7 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
         openDocumentsIn = DocumentTarget(config: c.lenient(String.self, .openDocumentsIn)).configValue
         crashReports = c.lenient(String.self, .crashReports).flatMap(CrashReportsSetting.init(rawValue:)) ?? .ask
         crashReportTarget = c.lenient(String.self, .crashReportTarget).flatMap(CrashTarget.init(rawValue:)) ?? .github
+        viewer = c.lenient(ViewerTheme.self, .viewer) ?? ViewerTheme()
     }
 
     /// The `onboarding` value install.sh writes into a config it creates.

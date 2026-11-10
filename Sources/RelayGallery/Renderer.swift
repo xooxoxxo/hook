@@ -134,6 +134,8 @@ func tabTitle(_ id: SettingsTabID) -> String {
     case .queue: "Queue"
     case .notifications: "Notifications"
     case .agents: "Agents"
+    case .documents: "Documents"
+    case .privacy: "Privacy"
     }
 }
 
@@ -144,6 +146,8 @@ func tabSymbol(_ id: SettingsTabID) -> String {
     case .queue: DS.Symbol.tabQueue
     case .notifications: DS.Symbol.tabNotifications
     case .agents: DS.Symbol.tabAgents
+    case .documents: DS.Symbol.tabDocuments
+    case .privacy: DS.Symbol.tabPrivacy
     }
 }
 
