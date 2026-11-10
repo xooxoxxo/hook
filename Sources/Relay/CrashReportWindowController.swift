@@ -41,6 +41,8 @@ import SwiftUI
     func show() {
         let opening = !window.isVisible
         if opening { window.center() }
+        // A Dock icon while it is open, so ⌘-Tab finds it (as for Settings and the viewer).
+        AppPresence.shared.track(window)
         NSApp.activate()
         window.makeKeyAndOrderFront(nil)
         if opening { onOpen?() }
