@@ -1,7 +1,7 @@
 import Foundation
 import RelayCore
 
-/// The crash bar, its send sheet, and the status bar's profile switcher.
+/// The crash bar, its crash report window, and the status bar's profile switcher.
 extension Store {
     /// The launch check found a crash to offer. A later one replaces it.
     public func offerCrash(_ summary: CrashSummary) {
@@ -18,14 +18,19 @@ extension Store {
         onCrashHandled?(offer.summary.handledKey)
     }
 
-    /// Review…: the sheet with exactly what a send delivers, to Settings › Privacy's target.
+    /// Review…: the crash report window with exactly what a send delivers, to Settings ›
+    /// Privacy's target. While it is open for this crash, Review… only brings it forward,
+    /// keeping the target picked and a failure shown.
     public func reviewCrash() {
         guard let offer = crashOffer else { return }
-        let targets = crashTargets()
-        crashSheet = CrashSheetModel(summary: offer.summary, target: targets.target, pondOffered: targets.pondOffered,
-                                     preview: crashReportText(offer.summary))
-        HookLog.screen(.crashReport)
-        searchIssuesIfNeeded()
+        if crashSheet?.summary != offer.summary {
+            let targets = crashTargets()
+            crashSheet = CrashSheetModel(summary: offer.summary, target: targets.target, pondOffered: targets.pondOffered,
+                                         preview: crashReportText(offer.summary))
+            HookLog.screen(.crashReport)
+            searchIssuesIfNeeded()
+        }
+        shell.showCrashReport()
     }
 
     /// GitHub picked and not searched yet: one search for the signature, the only thing that
@@ -59,7 +64,7 @@ extension Store {
         searchIssuesIfNeeded()
     }
 
-    /// Cancel: the sheet goes, the bar stays.
+    /// Cancel, Esc or the window's close button: the window goes, the bar stays.
     public func closeCrashSheet() {
         crashSheet = nil
     }
@@ -77,7 +82,8 @@ extension Store {
         onShowInFinder?(file.path)
     }
 
-    /// The sheet's primary button, for its target.
+    /// The window's primary button, for its target. A success closes the window; a failure
+    /// shows in it.
     public func sendCrashReport() async {
         guard let sheet = crashSheet, !sheet.sending else { return }
         HookLog.action(.sendCrashReport)
@@ -115,7 +121,7 @@ extension Store {
             : "Review it and submit it there."))
     }
 
-    /// "Check for an Existing Issue": GitHub's issue list for the signature. The sheet stays.
+    /// "Check for an Existing Issue": GitHub's issue list for the signature. The window stays.
     public func checkExistingCrashIssue() {
         guard let sheet = crashSheet else { return }
         shell.openURL(GitHubIssues.searchPageURL(signature: sheet.summary.signature))
@@ -145,7 +151,7 @@ extension Store {
         }
     }
 
-    /// Send Automatically to My Pond: no sheet. A send that fails (or a Pond that isn't
+    /// Send Automatically to My Pond: no window. A send that fails (or a Pond that isn't
     /// connected yet) leaves the bar instead.
     public func sendCrashAutomatically(_ summary: CrashSummary) async {
         // At launch the Pond may not have answered its version check yet.
