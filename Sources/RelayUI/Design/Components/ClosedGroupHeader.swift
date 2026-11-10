@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Design/ClosedGroupHeader: the Recently closed section's header is its
-/// disclosure, laid out like a SectionHeader. The closed rows are the section's own rows.
+/// Design/ClosedGroupHeader: the Recently closed section's header, a CollapsibleHeader that
+/// folds only its own section (⌥-click too; Collapse All never reaches it). The closed rows
+/// are the section's own rows.
 public struct ClosedGroupHeader: View {
     let count: Int
     @Binding var expanded: Bool
@@ -13,29 +14,13 @@ public struct ClosedGroupHeader: View {
     }
 
     public var body: some View {
-        Button {
+        CollapsibleHeader(title: "Recently closed", count: count, collapsed: !expanded,
+                          accessibilityLabel: Self.accessibilityText(count: count),
+                          help: "Asks closed in the last 24 hours") { _ in
             withAnimation(DS.motion(DS.Motion.reveal, reduce: reduceMotion)) {
                 expanded.toggle()
             }
-        } label: {
-            HStack(alignment: .firstTextBaseline, spacing: DS.Space.inline) {
-                Text("Recently closed")
-                    .alignmentProbe(.gutterText)
-                Spacer(minLength: DS.Space.inline)
-                Text("\(count)").monospacedDigit()
-                Image(systemName: expanded ? DS.Symbol.disclosureOpen : DS.Symbol.disclosureClosed)
-                    .imageScale(.small)
-                    .alignmentProbe(.trailingEdge)
-            }
-            .contentShape(.rect)
         }
-        .buttonStyle(.plain)
-        .foregroundStyle(DS.Color.secondary)
-        .padding(.leading, DS.Space.sectionHeaderLead)
-        .padding(.trailing, DS.Space.gutter - DS.Space.sectionHeaderLead)
-        .help("Asks closed in the last 24 hours")
-        .accessibilityLabel(Self.accessibilityText(count: count))
-        .accessibilityValue(TrailingDisclosureStyle.value(expanded: expanded))
     }
 
     public static func accessibilityText(count: Int) -> String {

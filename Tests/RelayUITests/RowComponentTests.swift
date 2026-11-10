@@ -83,6 +83,22 @@ private func row(_ summary: RowSummary = .steps(done: 2, total: 8), urgency: Urg
         #expect(ClosedGroupHeader.accessibilityText(count: 2) == "Recently closed, 2 asks")
     }
 
+    @Test func collapsibleHeaderValueAndHelp() {
+        #expect(CollapsibleHeader.accessibilityValue(collapsed: true) == "Collapsed")
+        #expect(CollapsibleHeader.accessibilityValue(collapsed: false) == "Expanded")
+        #expect(SectionHeader.help(collapsed: false) == "Collapse · ⌥-click for every group")
+        #expect(SectionHeader.help(collapsed: true) == "Expand · ⌥-click for every group")
+    }
+
+    @Test func collapsedHeaderPeekLine() {
+        #expect(CollapsibleHeader.peekText(title: "Rotate the key", age: "3h") == "Newest: Rotate the key · 3h")
+        #expect(CollapsibleHeader.peekText(title: "A\nB", age: "now") == "Newest: A⟨U+000A⟩B · now")
+        let newest = SectionHeader.Newest(title: "Rotate the key", age: "3h")
+        #expect(SectionHeader.accessibilityText(name: "Acme", count: 3, newest: newest)
+            == "Acme, 3 asks, newest: Rotate the key, 3h")
+        #expect(SectionHeader.accessibilityText(name: "Acme", count: 3, newest: nil) == "Acme, 3 asks")
+    }
+
     @Test func emptyLine() {
         #expect(EmptyListLine.text(project: nil) == "Nothing waiting")
         #expect(EmptyListLine.text(project: "Acme") == "Nothing waiting in Acme")

@@ -2,16 +2,20 @@ import RelayCore
 import SwiftUI
 
 /// Design/QueueMenu: the header's one icon-only pull-down, a stock
-/// `Menu` with Group by and Project sections. The symbol fills in the accent while a filter is on.
+/// `Menu` with Group by and Project sections, and Collapse All / Expand All while the queue
+/// shows groups. The symbol fills in the accent while a filter is on.
 public struct QueueMenu: View {
     let grouping: Binding<QueueGrouping>
     let filter: Binding<String?>
     let projects: [MenuProject]
+    let all: CollapseAllActions?
 
-    public init(grouping: Binding<QueueGrouping>, filter: Binding<String?>, projects: [MenuProject]) {
+    public init(grouping: Binding<QueueGrouping>, filter: Binding<String?>, projects: [MenuProject],
+                all: CollapseAllActions? = nil) {
         self.grouping = grouping
         self.filter = filter
         self.projects = projects
+        self.all = all
     }
 
     public var body: some View {
@@ -23,6 +27,9 @@ public struct QueueMenu: View {
                     Text("Urgency").tag(QueueGrouping.urgency)
                 }
                 .pickerStyle(.inline).labelsHidden()
+            }
+            if let all {
+                Section { CollapseAllItems(all) }
             }
             Section("Project") {
                 Picker("Project", selection: filter) {

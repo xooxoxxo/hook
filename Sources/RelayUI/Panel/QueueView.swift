@@ -8,10 +8,21 @@ struct ClosedHeaderFocusedKey: FocusedValueKey {
     typealias Value = Bool
 }
 
+/// The key (`CollapsedGroups.key`) of the group header that has keyboard focus; PanelKeys
+/// turns ← / → into collapse / expand of that group.
+struct GroupHeaderFocusedKey: FocusedValueKey {
+    typealias Value = String
+}
+
 extension FocusedValues {
     var relayClosedHeaderFocused: Bool? {
         get { self[ClosedHeaderFocusedKey.self] }
         set { self[ClosedHeaderFocusedKey.self] = newValue }
+    }
+
+    var relayGroupHeaderFocused: String? {
+        get { self[GroupHeaderFocusedKey.self] }
+        set { self[GroupHeaderFocusedKey.self] = newValue }
     }
 }
 
@@ -19,7 +30,9 @@ extension FocusedValues {
 /// as its row background, the card content inset by `cardInsetH`/`cardInsetV`), so card text
 /// starts at `cardText` and ends at panelWidth − `cardText`. Section headers and the other
 /// rows keep zero horizontal inset, so their text starts on the gutter and their counts end
-/// at panelWidth − gutter. Nothing in the List is a DisclosureGroup.
+/// at panelWidth − gutter. Nothing in the List is a DisclosureGroup: every header is a
+/// CollapsibleHeader that folds its section by leaving the section's rows out, and every
+/// Section is `.collapsible(false)`, so AppKit adds no disclosure button of its own.
 ///
 /// It doesn't observe the model: PanelRoot hands it the values it draws, and as an
 /// EquatableView it re-renders only when one of them changes, so a draft keystroke, a
@@ -37,12 +50,17 @@ struct QueueView<Model: PanelViewModel>: View, Equatable {
     private let listSelection: String?
     private let selectedID: String?
     @AppStorage("relay.closedToday.expanded") private var storedClosedExpanded = false
+    /// The collapsed project and urgency groups (`CollapsedGroups`, a JSON array of keys).
+    @AppStorage(CollapsedGroups.defaultsKey) private var storedCollapsed = "[]"
     @FocusState private var listFocused: Bool
     /// The Recently closed header's focus, published by the List as `relayClosedHeaderFocused`.
     /// Never set a focused value inside a List row: on macOS each row has its own hosting
     /// view, and a focused value there leaves every row needing constraints after each layout
     /// pass, until AppKit stops the loop by raising an exception.
     @FocusState private var closedHeaderFocused: Bool
+    /// The focused group header's key, published by the List as `relayGroupHeaderFocused`
+    /// (on the List, never in a row, for the reason above).
+    @FocusState private var groupHeaderFocused: String?
     /// Rows the List has on screen (List rows appear and disappear as they scroll); Back
     /// scrolls only when the row it returns to isn't one of them. A reference, so rows
     /// scrolling in and out never invalidate the view.
@@ -101,6 +119,26 @@ struct QueueView<Model: PanelViewModel>: View, Equatable {
                 set: { storedClosedExpanded = $0 })
     }
 
+    private var collapsed: CollapsedGroups {
+        gallery.collapsedGroups.map { CollapsedGroups(keys: $0) } ?? CollapsedGroups(json: storedCollapsed)
+    }
+
+    private func changeCollapsed(_ change: (inout CollapsedGroups) -> Void) {
+        var groups = collapsed
+        change(&groups)
+        withAnimation(DS.motion(DS.Motion.reveal, reduce: reduceMotion)) { storedCollapsed = groups.json }
+    }
+
+    /// Collapse All / Expand All over the groups on screen; nil for a flat list.
+    private func collapseAll(_ queue: QueueSnapshot) -> CollapseAllActions? {
+        let headers = CollapsedGroups.headers(queue.sections)
+        guard !headers.isEmpty else { return nil }
+        let groups = collapsed
+        return CollapseAllActions(canCollapse: groups.canCollapseAll(headers), canExpand: groups.canExpandAll(headers)) { all in
+            changeCollapsed { $0.setAll(headers, collapsed: all) }
+        }
+    }
+
     /// Only the List calls this setter (a click or an arrow key); a left click also opens.
     private var selection: Binding<String?> {
         Binding(get: { model.listSelection }, set: { id in
@@ -156,7 +194,7 @@ struct QueueView<Model: PanelViewModel>: View, Equatable {
             // The snapshot this render holds, not `model.queue`: the header reads these often.
             grouping: Binding(get: { queue.grouping }, set: { model.setGrouping($0) }),
             filter: Binding(get: { queue.filter }, set: { model.setFilter($0) }),
-            projects: queue.projects, hidden: queue.hidden,
+            projects: queue.projects, hidden: queue.hidden, all: collapseAll(queue),
             onRefresh: { model.refresh() },
             onHide: { model.shell.hide() },
             onDock: { model.shell.dock($0) })
@@ -197,6 +235,7 @@ struct QueueView<Model: PanelViewModel>: View, Equatable {
                 .environment(\.defaultMinListRowHeight, DS.Metric.rowMinHeight)
                 .focused($listFocused)
                 .focusedValue(\.relayClosedHeaderFocused, closedHeaderFocused)
+                .focusedValue(\.relayGroupHeaderFocused, groupHeaderFocused)
                 .contextMenu(forSelectionType: String.self) { ids in
                     if let id = ids.first, let row = Self.rowModel(id, in: queue) {
                         RowContextMenu(entries: QueueContextMenu.entries(for: row, filter: queue.filter,
@@ -257,15 +296,32 @@ struct QueueView<Model: PanelViewModel>: View, Equatable {
 
     @ViewBuilder private func sectionView(_ section: QueueSection, queue: QueueSnapshot, now: Date) -> some View {
         if let header = section.header {
+            let groups = collapsed
+            let isCollapsed = groups.isCollapsed(header)
             Section {
-                rows(section, queue: queue, now: now)
+                if !isCollapsed { rows(section, queue: queue, now: now) }
             } header: {
-                SectionHeader(name: Self.headerName(header), count: section.items.count)
+                SectionHeader(name: Self.headerName(header), count: section.items.count, collapsed: isCollapsed,
+                              newest: Self.newest(section, queue: queue, now: now),
+                              all: collapseAll(queue)) { all in
+                    // ⌥-click: every group takes the state this one is going to.
+                    let headers = all ? CollapsedGroups.headers(queue.sections) : [header]
+                    changeCollapsed { $0.setAll(headers, collapsed: !isCollapsed) }
+                }
+                .focused($groupHeaderFocused, equals: CollapsedGroups.key(header))
             }
+            .collapsible(false)
         } else {
             Section {
                 rows(section, queue: queue, now: now)
             }
+        }
+    }
+
+    /// The section's newest ask for its collapsed header's peek line, with the cards' compact age.
+    static func newest(_ section: QueueSection, queue: QueueSnapshot, now: Date) -> SectionHeader.Newest? {
+        CollapsedGroups.newest(section.items.compactMap { queue.rows[$0.id] }).map {
+            SectionHeader.Newest(title: $0.title, age: RelativeAge.compact(created: $0.createdDate, now: now))
         }
     }
 
@@ -320,6 +376,7 @@ struct QueueView<Model: PanelViewModel>: View, Equatable {
             ClosedGroupHeader(count: closed.count, expanded: closedExpanded)
                 .focused($closedHeaderFocused)
         }
+        .collapsible(false)
         .animation(DS.motion(DS.Motion.reveal, reduce: reduceMotion), value: closedExpanded.wrappedValue)
     }
 }
