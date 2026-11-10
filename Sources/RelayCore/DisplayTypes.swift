@@ -307,4 +307,7 @@ public struct ReplyLine: Equatable, Sendable, Identifiable {
 
 /// Settings tabs, saved by identifier in `relay.settings.tabID`. Agents was Connect before
 /// 0.13; `SettingsTabID(stored:)` reads a saved "connect" as Agents.
-public enum SettingsTabID: String, CaseIterable, Sendable { case general, panel, queue, notifications, agents }
+/// Documents and Privacy came out of General later; they follow the older tabs, so ⌘1–⌘5 keep their tabs.
+public enum SettingsTabID: String, CaseIterable, Sendable {
+    case general, panel, queue, notifications, agents, documents, privacy
+}

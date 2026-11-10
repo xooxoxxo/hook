@@ -106,6 +106,21 @@ The beta goes to **everyone** on Friday. Read the *rollback* section first, and 
 2. Friday: public beta.
 """#
 
+/// A wide table, as plans carry them: long cells that must wrap between words.
+let viewerTableMarkdown = #"""
+# Rollout
+
+The table follows the window: cells wrap between words, and only a table that can't fit scrolls.
+
+| Step | Owner | What happens | Notes |
+| --- | --- | --- | --- |
+| Freeze | Release | The build is frozen and tagged for the beta channel | Nothing merges after this point |
+| Beta | Everyone | The public beta goes out to every tester on the list | Watch the crash reports for a day |
+| Rollback | On call | Pull the beta from the channel and post the known issues | Only if the crash rate doubles |
+
+> Keep the `beta` flag on until Monday.
+"""#
+
 /// Front matter that isn't the subset Hook reads: an unclosed list and a stray line.
 let viewerMalformedFrontMatterMarkdown = #"""
 ---
@@ -121,13 +136,14 @@ The beta goes to **everyone** on Friday.
 /// The viewer window's content: `text` rendered as `kind`, at the window's first width or
 /// `width`. `expandFront` opens the front matter's "N more", as a click would.
 @MainActor func viewerScene(_ name: String, text: String, kind: DocumentKind, height: CGFloat,
-                            width: CGFloat? = nil, expandFront: Bool = false) -> GalleryScene {
+                            width: CGFloat? = nil, expandFront: Bool = false,
+                            theme: ViewerTheme = ViewerTheme()) -> GalleryScene {
     GalleryScene(
         name: name, size: .web(NSSize(width: width ?? DS.Viewer.windowWidth, height: height)), standIn: false,
         view: { AnyView(EmptyView()) },
         web: {
             var page = DocumentPage.html(text: text, kind: kind, title: "release-plan.md",
-                                         stylesheet: DS.Viewer.stylesheet())
+                                         stylesheet: DS.Viewer.stylesheet(theme: theme))
             if expandFront {
                 page = page.replacingOccurrences(of: "<details class=\"front\">", with: "<details class=\"front\" open>")
             }
@@ -148,6 +164,22 @@ The beta goes to **everyone** on Friday.
                 expandFront: true),
     viewerScene("viewer-front-matter-narrow", text: viewerFrontMatterMarkdown, kind: .markdown, height: 360,
                 width: DS.Viewer.windowMinWidth),
+    // A table at the narrowest window, at the first width, and in a wide window (the column
+    // fills it), then the same page under each preset and with the owner's own colours.
+    viewerScene("viewer-table-narrow", text: viewerTableMarkdown, kind: .markdown, height: 520,
+                width: DS.Viewer.windowMinWidth),
+    viewerScene("viewer-table", text: viewerTableMarkdown, kind: .markdown, height: 420),
+    viewerScene("viewer-table-wide", text: viewerTableMarkdown, kind: .markdown, height: 360, width: 1200),
+    viewerScene("viewer-table-wide-narrow-column", text: viewerTableMarkdown, kind: .markdown, height: 420,
+                width: 1200, theme: ViewerTheme(width: .narrow)),
+    viewerScene("viewer-theme-paper", text: viewerSampleMarkdown, kind: .markdown, height: 520,
+                theme: ViewerTheme(preset: .paper)),
+    viewerScene("viewer-theme-sepia", text: viewerSampleMarkdown, kind: .markdown, height: 520,
+                theme: ViewerTheme(preset: .sepia)),
+    viewerScene("viewer-theme-night", text: viewerSampleMarkdown, kind: .markdown, height: 520,
+                theme: ViewerTheme(preset: .night)),
+    viewerScene("viewer-theme-custom", text: viewerTableMarkdown, kind: .markdown, height: 420,
+                theme: ViewerTheme(preset: .sepia, colors: [.headings: "#7a2e0e", .links: "#1f5f8b"], textSize: 1)),
     viewerScene("viewer-front-matter-malformed", text: viewerMalformedFrontMatterMarkdown, kind: .markdown,
                 height: 240),
 ]

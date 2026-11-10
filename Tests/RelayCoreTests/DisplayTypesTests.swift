@@ -55,7 +55,8 @@ import Testing
         #expect(UnsentKind.reply.caption == "You have an unsent reply")
         #expect(HiddenCount.zero == HiddenCount(total: 0, now: 0))
         #expect(MenuProject(name: "Acme", open: 3).id == "Acme")
-        #expect(SettingsTabID.allCases.map(\.rawValue) == ["general", "panel", "queue", "notifications", "agents"])
+        #expect(SettingsTabID.allCases.map(\.rawValue) == ["general", "panel", "queue", "notifications", "agents",
+                                                       "documents", "privacy"])
         let open = AskRowModel(id: "a", title: "T", project: "Acme", urgency: .now, created: "c", summary: .reply)
         #expect(open.isOpen && !open.hasDraft && open.resumeCommand == nil)
         var closed = open

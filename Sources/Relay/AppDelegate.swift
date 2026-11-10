@@ -746,7 +746,8 @@ import RelayUI
             },
             pinned: model?.config?.sidebarDisplay,
             updateVersion: updateStarted ? nil : updates.state.availableVersion,
-            mailbox: mailbox.isMailbox)
+            mailbox: mailbox.isMailbox,
+            documents: DocumentViewer.shared.openDocuments.map { MenuDocument(id: $0.path, name: $0.name) })
     }
 
     private func perform(_ action: MenuAction) {
@@ -759,6 +760,7 @@ import RelayUI
         case .pinDisplay(let id):
             if let id { model?.save(set: ["sidebarDisplay": id]) } else { model?.save(set: [:], remove: ["sidebarDisplay"]) }
         case .redock: panel?.redock()
+        case .showDocument(let path): DocumentViewer.shared.bringForward(path)
         case .settings: showSettings(nil)
         case .about: showAbout()
         case .update: confirmUpdate()
@@ -954,6 +956,7 @@ import RelayUI
     /// `sidebarEdge` are applied at the end of `apply(_:)`.
     private func applyGeneral(_ config: RelayConfig?) {
         refreshProfiles()
+        DocumentViewer.shared.theme = config?.viewer ?? ViewerTheme()
         presence.configure(
             mode: config?.presence ?? .auto,
             awayAfterMinutes: config?.awayAfterMinutes ?? PresenceLogic.defaultAwayAfterMinutes)

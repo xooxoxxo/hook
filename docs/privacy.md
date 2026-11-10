@@ -4,7 +4,7 @@ What Hook records about itself, what a crash report holds, and where it can go. 
 
 ## The activity log
 
-- **Where:** `~/Library/Logs/Hook/hook.log`. Settings › General › Privacy › Activity log shows its size, with a Finder button. Each line also goes to the system log (subsystem `Hook`).
+- **Where:** `~/Library/Logs/Hook/hook.log`. Settings › Privacy › Activity log shows its size, with a Finder button. Each line also goes to the system log (subsystem `Hook`).
 - **What it records:** one line per typed event, so free text can't slip in:
   - launch and quit, with the Hook and macOS versions and the CPU type. A quit line says if the quit was clean, and its cause. The cause is your Quit command, the updater, the installer, a second copy, logout, restart, shutdown, another app's quit request or Hook's own code. A SIGTERM or SIGHUP adds the sender's process id and name;
   - MetricKit's diagnostics for Hook, one line each: crashes, hangs, CPU and disk-write exceptions, with numbers and the version only;
@@ -21,7 +21,7 @@ What Hook records about itself, what a crash report holds, and where it can go. 
 
 ## Save Diagnostics
 
-Settings › General › Privacy › **Save Diagnostics…** writes one text file, wherever you choose, to attach to an issue. It holds:
+Settings › Privacy › **Save Diagnostics…** writes one text file, wherever you choose, to attach to an issue. It holds:
 
 - the Hook and macOS versions, and the copies of Hook that LaunchServices and Spotlight know;
 - the LaunchAgent's state, last exit code and run count;
@@ -53,7 +53,7 @@ Nothing else is added. The redactor runs over the whole text a second time befor
 
 ## Sending a report
 
-After a crash, a bar docks at the bottom of the panel: **Hook quit unexpectedly**, with **Not Now** and **Review…**. If notifications are allowed, one points to the bar. A crash never asks for notification permission. **Review…** opens **Send a Crash Report**. Settings › General › Privacy › **Send to** picks where the report goes.
+After a crash, a bar docks at the bottom of the panel: **Hook quit unexpectedly**, with **Not Now** and **Review…**. If notifications are allowed, one points to the bar. A crash never asks for notification permission. **Review…** opens **Send a Crash Report**. Settings › Privacy › **Send to** picks where the report goes.
 
 ### GitHub (the default)
 
@@ -76,7 +76,7 @@ Offered once your queue is a Pond and this Mac's owner key is approved. **Send t
 
 ## Settings
 
-Settings › General › Privacy, saved in [config.json](configuration.md):
+Settings › Privacy, saved in [config.json](configuration.md):
 
 | Setting | Key | Values |
 |---|---|---|

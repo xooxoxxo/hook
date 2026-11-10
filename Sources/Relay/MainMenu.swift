@@ -1,6 +1,6 @@
 import AppKit
 
-/// The main menu. Hook has no Dock icon, so it is never seen, but its key
+/// The main menu. Hook has no Dock icon most of the time, so it is rarely seen, but its key
 /// equivalents reach Hook's windows: Edit for text fields, ⌘, for Settings and
 /// ⌘Q for Quit, so Settings and Welcome get them too. The panel's own keys
 /// (⌘R, ⌘W, ⌘Q, …) are handled first by SidePanel.
@@ -31,7 +31,14 @@ enum MainMenu {
         edit.addItem(entry("Select All", #selector(NSText.selectAll(_:)), "a"))
         main.addItem(holder(edit))
 
+        // Seen while a viewer or Settings makes Hook a regular app (`AppPresence`): AppKit
+        // lists Hook's open windows here.
+        let window = NSMenu(title: "Window")
+        window.addItem(entry("Minimize", #selector(NSWindow.performMiniaturize(_:)), "m"))
+        main.addItem(holder(window))
+
         NSApp.mainMenu = main
+        NSApp.windowsMenu = window
     }
 
     /// `target` nil sends the action down the responder chain (the Edit items).

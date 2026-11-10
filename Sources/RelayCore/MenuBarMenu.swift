@@ -4,6 +4,8 @@ import Foundation
 public enum MenuAction: Equatable, Sendable {
     case setUp, togglePanel, setPresence(PresenceMode), refresh, dock(SidebarEdge), pinDisplay(String?), redock
     case settings, about, update, checkForUpdates, updateMailbox, quit
+    /// Bring an open document viewer window forward, by the file's path.
+    case showDocument(String)
 }
 
 public indirect enum MenuEntry: Equatable, Sendable {
@@ -15,6 +17,16 @@ public indirect enum MenuEntry: Equatable, Sendable {
 }
 
 public struct MenuDisplay: Equatable, Sendable {
+    public var id: String
+    public var name: String
+    public init(id: String, name: String) {
+        self.id = id
+        self.name = name
+    }
+}
+
+/// An open document viewer window: the file's path and its name.
+public struct MenuDocument: Equatable, Sendable {
     public var id: String
     public var name: String
     public init(id: String, name: String) {
@@ -36,10 +48,12 @@ public struct MenuInputs: Equatable, Sendable {
     public var updateVersion: String?
     /// Asks come from a mailbox, so Update Mailbox… is offered.
     public var mailbox: Bool
+    /// The open document viewer windows, in the order to list them.
+    public var documents: [MenuDocument]
 
     public init(notSetUp: Bool, panelVisible: Bool, shortcut: HotkeySpec?, statusLine: String,
                 presenceLine: String, presence: PresenceMode, displays: [MenuDisplay], pinned: String?,
-                updateVersion: String? = nil, mailbox: Bool = false) {
+                updateVersion: String? = nil, mailbox: Bool = false, documents: [MenuDocument] = []) {
         self.notSetUp = notSetUp
         self.panelVisible = panelVisible
         self.shortcut = shortcut
@@ -50,6 +64,7 @@ public struct MenuInputs: Equatable, Sendable {
         self.pinned = pinned
         self.updateVersion = updateVersion
         self.mailbox = mailbox
+        self.documents = documents
     }
 }
 
@@ -74,6 +89,10 @@ public enum MenuBarMenu {
             entries.append(action(toggle, .togglePanel, key: key.key, modifiers: key.modifiers))
         } else {
             entries.append(action(toggle, .togglePanel))
+        }
+        // Each open viewer window, under Show Hook: a way back to it from anywhere.
+        for document in inputs.documents {
+            entries.append(action(Sanitize.revealLine(document.name), .showDocument(document.id)))
         }
         entries.append(.separator)
         entries.append(info(inputs.statusLine))

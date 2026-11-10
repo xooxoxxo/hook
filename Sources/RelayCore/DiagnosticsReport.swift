@@ -1,6 +1,6 @@
 import Foundation
 
-/// Settings › General › Privacy › Save Diagnostics…: one redacted text file with what is
+/// Settings › Privacy › Save Diagnostics…: one redacted text file with what is
 /// needed to tell why Hook closed on a Mac, ready to attach to an issue. The app collects
 /// the parts (`Parts`); this builds and redacts the text.
 public enum DiagnosticsReport {

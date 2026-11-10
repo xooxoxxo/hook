@@ -56,6 +56,8 @@ import RelayUI
         isFloatingPanel = true
         level = .floating
         hidesOnDeactivate = false
+        // Not in the Window menu while a viewer or Settings makes Hook a regular app.
+        isExcludedFromWindowsMenu = true
         isReleasedWhenClosed = false
         hasShadow = true
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]

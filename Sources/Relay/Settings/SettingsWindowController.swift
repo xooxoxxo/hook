@@ -3,8 +3,9 @@ import RelayCore
 import RelayUI
 import SwiftUI
 
-/// Settings: a stock toolbar-tab window with five tabs, 600 pt content, the window
-/// title = the tab name. The tab is remembered by id; ⌘1–⌘5 switch tabs, ⌘W closes.
+/// Settings: a stock toolbar-tab window with seven tabs, 600 pt content, the window
+/// title = the tab name. The tab is remembered by id; ⌘1–⌘7 switch tabs, ⌘W closes.
+/// While it is open Hook is a regular app (`AppPresence`): ⌘-Tab and ⌘-` find it.
 /// Tabs are built on first show from `AppModel.settingsTab(_:)`.
 @MainActor final class SettingsWindowController: NSObject, NSWindowDelegate {
     /// Lets tabs pick this window's `willCloseNotification` out of every window's.
@@ -45,6 +46,7 @@ import SwiftUI
         model.refreshSettings()
         model.refreshOwnerStatus()
         if !window.isVisible { window.center() }
+        AppPresence.shared.track(window)
         NSApp.activate()
         window.makeKeyAndOrderFront(nil)
     }
@@ -116,7 +118,7 @@ import SwiftUI
     }
 }
 
-/// ⌘1–⌘5 pick a tab and ⌘W closes, with no menu holding them.
+/// ⌘1–⌘7 pick a tab and ⌘W closes, with no menu holding them.
 final class SettingsWindow: NSWindow {
     var onTab: (@MainActor (SettingsTabID) -> Void)?
 
