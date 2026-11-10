@@ -9,14 +9,14 @@ import SwiftUI
                          home: "/Users/me", user: "me")
 }
 
-/// The send sheet on its own, panel wide, as macOS shows it attached to the panel.
-@MainActor func crashSheetScene(_ name: String, _ sheet: CrashSheetModel) -> GalleryScene {
+/// The crash report window's content at the window's width (the title bar is macOS's own).
+@MainActor func crashReportScene(_ name: String, _ sheet: CrashSheetModel) -> GalleryScene {
     let model = FixturePanelModel(queue: GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false),
                                   status: readyStatus, crashOffer: CrashOffer(summary: sheet.summary))
     model.crashSheet = sheet
     let overrides = PanelGalleryOverrides(now: GalleryFixtures.now, locale: galleryGB, timeZone: galleryUTC)
-    return GalleryScene(name: name, size: .wide(width: DS.Metric.panelWidth, height: nil), standIn: false,
-                        view: { AnyView(CrashReportSheet(model: model).environment(\.panelGallery, overrides)
+    return GalleryScene(name: name, size: .wide(width: DS.Metric.crashReportWidth, height: nil), standIn: false,
+                        view: { AnyView(CrashReportView(model: model).environment(\.panelGallery, overrides)
                             .background(DS.Color.panelStandInOpaque)) })
 }
 
@@ -31,18 +31,18 @@ import SwiftUI
     }
     let issue = URL(string: "https://github.com/xooxoxxo/hook/issues/42")!
     return [
-        crashSheetScene("crash-sheet-pond",
+        crashReportScene("crash-report-pond",
                         CrashSheetModel(summary: withFile, target: .pond, pondOffered: true, preview: galleryReport(withFile))),
-        crashSheetScene("crash-sheet-pond-failed", failed),
-        crashSheetScene("crash-sheet-github-checking", github(nil)),
-        crashSheetScene("crash-sheet-github-new", github(IssueMatch.none)),
-        crashSheetScene("crash-sheet-github-open", github(.open(number: 42, title: GalleryFixtures.crash.title, url: issue))),
-        crashSheetScene("crash-sheet-github-fixed", github(.closedFixed(number: 42, version: SemVer(major: 0, minor: 12, patch: 1)))),
-        crashSheetScene("crash-sheet-offline", github(.unavailable)),
-        crashSheetScene("crash-sheet-closed",
+        crashReportScene("crash-report-pond-failed", failed),
+        crashReportScene("crash-report-github-checking", github(nil)),
+        crashReportScene("crash-report-github-new", github(IssueMatch.none)),
+        crashReportScene("crash-report-github-open", github(.open(number: 42, title: GalleryFixtures.crash.title, url: issue))),
+        crashReportScene("crash-report-github-fixed", github(.closedFixed(number: 42, version: SemVer(major: 0, minor: 12, patch: 1)))),
+        crashReportScene("crash-report-offline", github(.unavailable)),
+        crashReportScene("crash-report-closed",
                         CrashSheetModel(summary: GalleryFixtures.closedRun, target: .github, pondOffered: false,
                                         preview: galleryReport(GalleryFixtures.closedRun, pond: nil), match: IssueMatch.none)),
-        crashSheetScene("crash-sheet-no-report",
+        crashReportScene("crash-report-no-report",
                         CrashSheetModel(summary: GalleryFixtures.hang, target: .pond, pondOffered: true,
                                         preview: galleryReport(GalleryFixtures.hang))),
     ]

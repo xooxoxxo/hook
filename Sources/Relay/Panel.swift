@@ -3,8 +3,8 @@ import QuartzCore
 import RelayCore
 import RelayUI
 
-/// Non-activating, borderless floating panel docked flush to the left or right edge of its pinned display (config `sidebarDisplay`, else the main display), on a sidebar-material background. Square corners; no window buttons; the content starts at the top edge. It re-docks after display changes, wakes and Space switches.
-@MainActor final class SidePanel: NSPanel {
+/// Non-activating, borderless floating panel (a FirstClickPanel: its first click acts) docked flush to the left or right edge of its pinned display (config `sidebarDisplay`, else the main display), on a sidebar-material background. Square corners; no window buttons; the content starts at the top edge. It re-docks after display changes, wakes and Space switches.
+@MainActor final class SidePanel: FirstClickPanel {
     static var width: CGFloat { DS.Metric.panelWidth }
 
     /// The edge from config `sidebarEdge`, set through `dock(edge:)`.

@@ -18,6 +18,8 @@ import RelayUI
     private var settings: SettingsWindowController?
     private var welcome: WelcomeWindowController?
     private var about: AboutWindowController?
+    /// Send a Crash Report's own window, made on the first Review….
+    private var crashReport: CrashReportWindowController?
     private var notifier: Notifier?
     private var pendingClosedNotice: PanelNotice?
     private var menuBar: MenuBarController?
@@ -408,7 +410,7 @@ import RelayUI
     /// the panel's own actions (hide, dock, Settings, copy, open) come back here.
     private func makePanel(store: Store, model: AppModel) -> SidePanel {
         let ref = PanelRef()
-        let hosting = PanelHostingView(rootView: PanelRoot(model: store).environment(\.panelDragActions, .panel(ref)))
+        let hosting = NSHostingView(rootView: PanelRoot(model: store).environment(\.panelDragActions, .panel(ref)))
         hosting.sizingOptions = []
         // No title-bar inset: the content starts at the panel's top edge.
         hosting.safeAreaRegions = []
@@ -446,6 +448,10 @@ import RelayUI
             self?.showSettings(tab: .queue)
             self?.ownerKey?.setUp()
         }
+        // Review… on the crash bar opens the crash report's own window; the Store closes it
+        // when the report ends.
+        store.shell.showCrashReport = { [weak self] in self?.showCrashReport() }
+        store.shell.closeCrashReport = { [weak self] in self?.crashReport?.close() }
         // The profile switch saves `source` the way Settings › Queue does; the reload swaps.
         store.shell.switchSource = { [weak model] kind in model?.save(set: ["source": kind.rawValue]) }
         let presence: any PresenceCheck = UserPresence()
@@ -902,6 +908,15 @@ import RelayUI
     /// Settings… from ⌘,, the status-item menu and the sidebar footer.
     @objc func showSettings(_ sender: Any?) {
         settings?.show()
+    }
+
+    /// Review… on the crash bar: the crash report window, or the open one brought forward.
+    private func showCrashReport() {
+        guard let store else { return }
+        if crashReport == nil {
+            crashReport = CrashReportWindowController(store: store)
+        }
+        crashReport?.show()
     }
 
     /// About Hook…: the About window, whose Run Setup Again… opens the setup window.

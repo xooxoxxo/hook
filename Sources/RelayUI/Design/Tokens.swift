@@ -37,7 +37,7 @@ public enum DS {
         public static let barStackV: CGFloat = 10
         /// Between a docked bar's title and its caption (the crash bar).
         public static let barCaption: CGFloat = 1
-        /// A sheet's edge inset, and the gap between its sections (the crash report sheet).
+        /// A sheet's or dialog window's edge inset, and the gap between its sections (the crash report window).
         public static let sheet: CGFloat = 20
         public static let sheetSection: CGFloat = 14
         /// GroupBox content inset (5 pt, measured) + currentStep: the current step's box bleeds out by this
@@ -99,6 +99,8 @@ public enum DS {
         public static let panelWidth: CGFloat = 380
         /// The crash report preview's scroll box.
         public static let reportPreview: CGFloat = 220
+        /// The crash report window's content width (it's its own window, not panel-wide).
+        public static let crashReportWidth: CGFloat = 520
         public static let header: CGFloat = 44
         public static let filterRow: CGFloat = 32
         public static let filterTokenMax: CGFloat = 160
@@ -217,7 +219,7 @@ public enum DS {
         public static var meta: SwiftUI.Font { style(.subheadline, .subheadline) }
         public static var prose: SwiftUI.Font { style(.callout, .callout) }
         public static var code: SwiftUI.Font { style(.callout, .callout).monospaced() }
-        /// A crash report preview: a whole report fits the sheet's scroll box.
+        /// A crash report preview: a whole report fits the window's scroll box.
         public static var report: SwiftUI.Font { style(.caption, .caption1).monospaced() }
         public static var caption: SwiftUI.Font { style(.caption, .caption1) }
         /// A section header's count pill: semibold digits that keep their width.
@@ -230,7 +232,7 @@ public enum DS {
         public static var monogram: SwiftUI.Font { .system(size: 8, weight: .bold) }
         /// The symbol on the app icon placeholder, sized to `Metric.appIcon`.
         public static var appSymbol: SwiftUI.Font { .system(size: 34, weight: .semibold) }
-        /// A sheet's leading symbol (the crash report sheet's warning).
+        /// A sheet's or dialog window's leading symbol (the crash report window's warning).
         public static var sheetSymbol: SwiftUI.Font { .system(size: 28) }
         /// The Done page's hero symbol.
         public static var heroSymbol: SwiftUI.Font { .system(size: 52, weight: .regular) }

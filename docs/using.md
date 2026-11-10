@@ -104,8 +104,8 @@ On a Pond, you can send the session that posted an ask a note without opening it
 After Hook quits unexpectedly, the next launch shows a bar: **Hook quit unexpectedly** ("report ready, nothing sent"). If notifications are allowed, one notification points to it.
 
 - **Not Now** drops the report, and Hook won't ask about that crash again.
-- **Review…** opens **Send a Crash Report**. It shows when Hook quit, **Send to** (GitHub, or My Pond once the owner key is set up) and **What's sent**, with redacted values tinted. You can copy that text, or show the macOS crash file in Finder (Hook never sends it). Cancel keeps the bar.
-- **GitHub** opens a prefilled issue in your browser for you to submit. For a known crash, it opens that issue and puts a comment on the clipboard. If a newer release fixed it, the sheet says "Fixed in 0.x. Update Hook." instead.
+- **Review…** opens **Send a Crash Report** in its own window, like Settings. It shows when Hook quit, **Send to** (GitHub, or My Pond once the owner key is set up) and **What's sent**, with redacted values tinted. You can copy that text, or show the macOS crash file in Finder (Hook never sends it). Cancel, or closing the window, keeps the bar.
+- **GitHub** opens a prefilled issue in your browser for you to submit. For a known crash, it opens that issue and puts a comment on the clipboard. If a newer release fixed it, the window says "Fixed in 0.x. Update Hook." instead.
 - **Send to Pond** files it on your Pond as a Hook bug, without a Telegram message. A Notice says "Sent to your Pond." or how often that crash was reported.
 
 Settings › Privacy sets whether Hook asks each time, sends to your Pond automatically, or does nothing. [Privacy](privacy.md) lists what each report holds and sends.
