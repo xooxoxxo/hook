@@ -236,9 +236,11 @@ pid_age() {
 
 # PIDs of running copies of this app that started before this install began.
 old_pids() {
-  since=$(( $(date +%s) - INSTALL_STARTED ))
   for pid in $(our_pids); do
     age="$(pid_age "$pid")"
+    # Process discovery and ps can be slow. Compare with a time sampled after the
+    # age query, or a newly started copy can look older than a stale install age.
+    since=$(( $(date +%s) - INSTALL_STARTED ))
     if [ -n "$age" ] && [ "$age" -gt "$since" ]; then echo "$pid"; fi
   done
 }
