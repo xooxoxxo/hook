@@ -35,18 +35,18 @@ cp Resources/Info.plist "$APP/Contents/Info.plist"
 # Package.swift copies them unchanged (.copy), so they come straight from the source tree: where
 # SwiftPM puts its resource bundle differs between build systems (.build/out/Products/Release with
 # the newer one), and the app reads them from Contents/Resources/Viewer.
-VIEWER="$ROOT/Sources/RelayUI/Resources/Viewer"
+VIEWER="$ROOT/Sources/RelayUIMac/Resources/Viewer"
 [ -f "$VIEWER/marked.umd.js" ] || { echo "build.sh: no viewer resources at $VIEWER" >&2; exit 1; }
 mkdir -p "$APP/Contents/Resources"
 cp -R "$VIEWER" "$APP/Contents/Resources/Viewer"
 # The menu-bar glyphs (template PNGs at @1x and @2x), read from Contents/Resources/MenuBar,
 # and the app icon: Assets.car (CFBundleIconName, compiled from Resources/AppIcon.icon by
 # scripts/app-icon.sh) and AppIcon.icns (CFBundleIconFile).
-MENUBAR="$ROOT/Sources/RelayUI/Resources/MenuBar"
+MENUBAR="$ROOT/Sources/RelayUIMac/Resources/MenuBar"
 [ -f "$MENUBAR/menubar-idle.png" ] || { echo "build.sh: no menu-bar glyphs at $MENUBAR" >&2; exit 1; }
 cp -R "$MENUBAR" "$APP/Contents/Resources/MenuBar"
 # The colour fish on the hook that new-ask notifications attach, from Contents/Resources/Notification.
-NOTIFICATION="$ROOT/Sources/RelayUI/Resources/Notification"
+NOTIFICATION="$ROOT/Sources/RelayUIMac/Resources/Notification"
 [ -f "$NOTIFICATION/ask-fish.png" ] || { echo "build.sh: no notification image at $NOTIFICATION" >&2; exit 1; }
 cp -R "$NOTIFICATION" "$APP/Contents/Resources/Notification"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"

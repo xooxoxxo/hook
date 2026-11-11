@@ -19,6 +19,12 @@ and versions follow Semantic Versioning.
 ## [0.15.2] - 2026-11-06
 
 ### Added
+- Portable `RelayCore` and `RelayUI` libraries support macOS 14 and iOS 17. Mac-only
+  filesystem, Keychain, integration and window capabilities stay in separate modules.
+- Settings can show a short-lived phone setup code after authentication and manage
+  independently approved device keys, including revocation.
+- Pond 1.5 shared progress keeps ticks and unticks consistent between devices, with
+  revision validation and protection against stale reads and source replacement.
 
 - An opt-in synthetic Codex session-delivery proof covering idle turns, active steering, duplicate suppression and runtime restart; it does not attach existing desktop chats.
 - A `hook://` URL scheme next to `relay://`. `hook://show` and `hook://i/<uuid>` bring Hook

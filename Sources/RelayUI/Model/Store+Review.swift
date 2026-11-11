@@ -157,9 +157,10 @@ extension Store {
 
     /// Use Version N: accepts exactly `stamp`, the verified current revision. A change to a
     /// command, link or file (since the baseline, or since rev 1 on a first view) asks for Touch
-    /// ID first. The acceptance is local and sealed before the Pond hears of it: the Pond is
-    /// not trusted for it, so a failed Pond call keeps it and marks the record to resend.
+    /// ID first. Desktop acceptance is sealed before sending and may catch up later. Phone
+    /// acceptance is sealed only after a confirmed response; an uncertain send keeps drafts.
     @discardableResult public func acceptRevision(_ id: String, stamp: RevisionStamp) async -> Bool {
+        guard mutationsAvailable else { return false }
         // One at a time: a second press while Touch ID or the Pond call is up accepts nothing.
         guard !accepting.contains(id) else { return false }
         HookLog.action(.accept)
@@ -180,12 +181,23 @@ extension Store {
             // A poll may have landed during the prompt: accept only what was on screen.
             guard case .pending(_, let still, _) = reviewState(id), still == stamp else { return false }
         }
+        if deliveryPolicy == .phone {
+            guard let source else { return false }
+            let gen = generation
+            do { _ = try await source.accept(id, stamp: stamp) }
+            catch {
+                guard gen == generation else { return false }
+                if !ownerKeyRefused(error) { post(.deliveryFailed(reason: Self.failureReason(error))) }
+                return false
+            }
+            guard gen == generation, case .pending(_, let still, _) = reviewState(id), still == stamp else { return false }
+        }
         var next = record(id) ?? ReviewRecord()
         next.accepted = stamp
         next.seen = stamp
         next.changed = diff.changedIDs + diff.addedIDs
         next.added = diff.addedIDs
-        next.pondAcceptPending = true
+        next.pondAcceptPending = deliveryPolicy == .desktop
         setRecord(next, for: id)
         saveReviewsNow()
         resetAfterAccept(id, before: before, diff: diff)
@@ -193,7 +205,7 @@ extension Store {
         queueInputChanged()
         objectWillChange.send()
 
-        guard let source else { return true }
+        guard deliveryPolicy == .desktop, let source else { return true }
         let gen = generation
         do {
             _ = try await source.accept(id, stamp: stamp)
@@ -252,6 +264,7 @@ extension Store {
     /// Before Done or answers: an acceptance the Pond hasn't taken yet is sent first. Throws
     /// what the Pond answered, and then the act isn't sent.
     func sendPendingAccept(_ id: String, via source: any QueueSource) async throws {
+        guard deliveryPolicy == .desktop else { return }
         guard let record = record(id), record.pondAcceptPending, let accepted = record.accepted else { return }
         _ = try await source.accept(id, stamp: accepted)
         markAcceptSent(id)
@@ -264,6 +277,7 @@ extension Store {
         do {
             try await act()
         } catch QueueError.corrected(let rev, let hash, let acceptedRev) {
+            guard deliveryPolicy == .desktop else { throw QueueError.corrected(rev: rev, hash: hash, acceptedRev: acceptedRev) }
             guard let accepted = record(id)?.accepted, accepted == RevisionStamp(rev: rev, hash: hash),
                   (acceptedRev ?? 0) < accepted.rev else {
                 throw QueueError.corrected(rev: rev, hash: hash, acceptedRev: acceptedRev)
@@ -278,11 +292,14 @@ extension Store {
     /// the read (and its prompt); a refusal again leaves the records unreadable, with no Notice
     /// (the caller posts its own).
     func retryReviewKey() async {
-        guard reviewsUnreadable, !reviewsLoading else { return }
+        guard reviewsUnreadable, reviewRecordsRecovery != .changed, !reviewsLoading else { return }
         reviewsUnreadable = false
         startLoadingReviews(notice: false)
         await reviewsLoaded()
     }
+
+    /// Retry a locked/unavailable review key; changed records need authenticated reset.
+    public func retryReviewRecords() async { await retryReviewKey() }
 
     /// The item with its payload replaced by the body the gate names, else the last body
     /// rendered from a verified revision, else a stand-in with the title and no steps. Works on
@@ -346,7 +363,8 @@ extension Store {
     public func reviewState(_ id: String) -> ReviewState {
         let state = ReviewGate.resolve(record: record(id), history: histories[id], pond: pond,
                                        served: served[id]?.payload.instructable)
-        guard reviewsLoading else { return state }
+        let phoneSealUnavailable = deliveryPolicy == .phone && (reviewsUnreadable || sealKey == nil)
+        guard reviewsLoading || phoneSealUnavailable else { return state }
         switch state {
         case .pending(_, let current, _), .current(let current): return .waitingForKeychain(current: current)
         case .legacy: return identity.mailbox == nil ? .legacy : .waitingForKeychain(current: nil)
@@ -557,6 +575,7 @@ extension Store {
     /// accepted one). Allowed while locked: it reports on the version shown. Needs the owner key,
     /// so without an approved one nothing is sent.
     public func reportProblem(_ id: String, stepID: String, note: String) async -> ReportResult {
+        guard mutationsAvailable else { return .refused("Offline. Reconnect before sending.") }
         guard ownerKeyApproved(sourceKey, identity.mailbox?.url) else { return .notEnrolled }
         let limits = talk.limits
         let prepared = ProblemReport.prepared(note, limits: limits)
@@ -622,11 +641,22 @@ extension Store {
     /// The field's Send (and ⌘Return in it). Without an approved owner key the note is held in
     /// memory, Settings › Queue opens and the setup starts; the note goes once the key is
     /// approved. Sent, the field closes and the step shows the reported icon.
-    @discardableResult public func sendReport(_ id: String, note: String) async -> ReportResult {
+    @discardableResult public func sendReport(_ id: String, note: String, displayedStamp: RevisionStamp? = nil,
+                           displayedStepID: String? = nil) async -> ReportResult {
         guard let path = reporting[id], reportStates[id] != .sending else { return .refused(Self.noReportOpen) }
         guard let node = nodes(for: id).flatMap({ Flow.flattened($0).first { $0.path == path } }),
               let stepID = node.kind == .verify ? ProblemReport.verifyTarget : node.stepID else {
             return .refused(Self.noReportOpen)
+        }
+        if let displayedStamp, displayedStamp != renderedStamp(id) {
+            let reason = "The displayed version changed. Reopen the report before sending; your draft is kept."
+            reportStates[id] = .failed(reason)
+            return .refused(reason)
+        }
+        if let displayedStepID, displayedStepID != stepID {
+            let reason = "The displayed step changed. Reopen the report before sending; your draft is kept."
+            reportStates[id] = .failed(reason)
+            return .refused(reason)
         }
         guard ProblemReport.canSend(note, limits: talk.limits) else {
             return .refused(Self.noteLength(talk.limits))
@@ -662,6 +692,7 @@ extension Store {
 
     /// Sends each held note once the owner key is approved; a note whose ask closed goes unsent.
     public func flushHeldReports() async {
+        guard deliveryPolicy == .desktop else { return }
         for (id, note) in heldReports {
             guard canReport(id), reporting[id] != nil else {
                 endReport(id)
@@ -720,6 +751,8 @@ extension Store {
         case loaded(key: SymmetricKey, records: [String: ReviewRecord], tampered: Bool, sealReplaced: Bool)
         /// A refused read, or a key Hook didn't make.
         case unreadable
+        /// The record file or seal identity cannot be trusted.
+        case untrusted
         /// A new key couldn't be saved: records stay in memory only.
         case failed(String)
     }
@@ -735,9 +768,10 @@ extension Store {
         guard let reviewFile else { return }
         reviewsLoading = true
         let previous = reviewLoad
+        let strict = deliveryPolicy == .phone
         reviewLoad = Task { @MainActor [weak self] in
             await previous?.value
-            let outcome = await reviewFile.keychain.run { Self.readReviews(reviewFile) }
+            let outcome = await reviewFile.keychain.run { Self.readReviews(reviewFile, strict: strict) }
             self?.finishLoadingReviews(outcome, notice: notice)
         }
     }
@@ -747,13 +781,20 @@ extension Store {
         await reviewLoad?.value
     }
 
-    nonisolated static func readReviews(_ file: ReviewPersistence) -> ReviewLoad {
+    nonisolated static func readReviews(_ file: ReviewPersistence, strict: Bool = false) -> ReviewLoad {
         let hadFile = FileManager.default.fileExists(atPath: file.url.path)
         let seal: (key: SymmetricKey, created: Bool)
         do {
-            seal = try ReviewSeal.open(file.secrets, file: file.url)
-        } catch SecretStoreError.unreadable, SecretStoreError.foreign {
+            if strict, hadFile {
+                // A missing/replaced seal must not silently rewrite an existing
+                // phone record file before the owner chooses recovery.
+                guard let key = try ReviewSeal.load(file.secrets, file: file.url) else { return .untrusted }
+                seal = (key, false)
+            } else { seal = try ReviewSeal.open(file.secrets, file: file.url) }
+        } catch SecretStoreError.unreadable {
             return .unreadable
+        } catch SecretStoreError.foreign {
+            return .untrusted
         } catch {
             return .failed(error.localizedDescription)
         }
@@ -771,14 +812,31 @@ extension Store {
             // A refused read, or a key Hook didn't make, whose maker could seal records: trust
             // none, and replace nothing (Reset Review Records… is the owner's).
             reviewsUnreadable = true
+            reviewRecordsRecovery = .locked
             problem = .reviewRecordsUnreadable
+        case .untrusted:
+            reviewsUnreadable = true
+            reviewRecordsRecovery = .changed
+            problem = deliveryPolicy == .phone ? .reviewRecordsChanged : .reviewRecordsUnreadable
         case .failed(let text):
+            if deliveryPolicy == .phone {
+                reviewsUnreadable = true
+                reviewRecordsRecovery = .unavailable
+                problem = .reviewRecordsUnreadable
+            }
             HookLog.error("ReviewSeal", "couldn't save the review seal key; reviews stay in memory: " + text)
         case .loaded(let key, let records, let tampered, let sealReplaced):
             sealKey = key
+            reviewRecordsRecovery = nil
             // Pins taken while the read waited join the disk's (`joiningPins`).
             reviews = Self.joiningPins(records, reviews)
-            if tampered || sealReplaced { problem = .reviewRecordsChanged }
+            if tampered || sealReplaced {
+                problem = .reviewRecordsChanged
+                if deliveryPolicy == .phone {
+                    reviewsUnreadable = true
+                    reviewRecordsRecovery = .changed
+                }
+            }
             if tampered || reviews != records { scheduleReviewSave() }
         }
         if notice, let problem {
@@ -807,6 +865,7 @@ extension Store {
         }
         sealKey = key
         reviewsUnreadable = false
+        reviewRecordsRecovery = nil
         reviews = Self.joiningPins([:], reviews)
         saveReviewsNow()
         holdingQueue {

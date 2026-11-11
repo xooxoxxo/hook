@@ -1,4 +1,8 @@
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 import RelayCore
 import SwiftUI
 
@@ -178,11 +182,15 @@ public enum DS {
         /// Gallery-only text multiplier for --xl. macOS ignores .dynamicTypeSize for text styles, so RelayGallery sets this once before rendering. Hook never sets it, and at 1 every token is exactly its stock text style.
         nonisolated(unsafe) public static var galleryScale: CGFloat = 1
 
-        /// The stock text style `s`, or under `galleryScale` the same style's NSFont scaled, which keeps its weight (headline's bold).
-        static func style(_ s: SwiftUI.Font.TextStyle, _ ns: NSFont.TextStyle) -> SwiftUI.Font {
+        /// The stock text style `s`, or under `galleryScale` the same style's PlatformFont scaled, which keeps its weight (headline's bold).
+        static func style(_ s: SwiftUI.Font.TextStyle, _ ns: PlatformFont.TextStyle) -> SwiftUI.Font {
+            #if os(macOS)
             if galleryScale == 1 { return SwiftUI.Font.system(s) }
-            let base = NSFont.preferredFont(forTextStyle: ns)
+            let base = PlatformFont.preferredFont(forTextStyle: ns)
             return SwiftUI.Font(base.withSize(base.pointSize * galleryScale) as CTFont)
+            #else
+            return SwiftUI.Font.system(s)
+            #endif
         }
 
         public static var listTitle: SwiftUI.Font { style(.headline, .headline) }
@@ -190,11 +198,11 @@ public enum DS {
         public static var heading: SwiftUI.Font { style(.headline, .headline) }
         /// The heading font's cap height, for a mark centred on a heading's capitals.
         public static var headingCapHeight: CGFloat {
-            NSFont.preferredFont(forTextStyle: .headline).capHeight * galleryScale
+            PlatformFont.preferredFont(forTextStyle: .headline).capHeight * galleryScale
         }
         /// The cap height of a label in `style`, for a "?" centred on that label's capitals.
         public static func capHeight(_ style: HelpLabelStyle) -> CGFloat {
-            let ns: NSFont.TextStyle
+            let ns: PlatformFont.TextStyle
             switch style {
             case .body: ns = .body
             case .heading: ns = .headline
@@ -202,7 +210,7 @@ public enum DS {
             case .caption: ns = .caption1
             case .subheadline: ns = .subheadline
             }
-            return NSFont.preferredFont(forTextStyle: ns).capHeight * galleryScale
+            return PlatformFont.preferredFont(forTextStyle: ns).capHeight * galleryScale
         }
         public static var body: SwiftUI.Font { style(.body, .body) }
         public static var currentAction: SwiftUI.Font { style(.headline, .headline) }
@@ -213,7 +221,7 @@ public enum DS {
         public static var report: SwiftUI.Font { style(.caption, .caption1).monospaced() }
         public static var caption: SwiftUI.Font { style(.caption, .caption1) }
         public static var welcomeTitle: SwiftUI.Font { style(.title2, .title2).weight(.semibold) }
-        public static var badgeDigit: NSFont { .monospacedDigitSystemFont(ofSize: 9, weight: .bold) }
+        public static var badgeDigit: PlatformFont { .monospacedDigitSystemFont(ofSize: 9, weight: .bold) }
         /// A queue card's title.
         public static var cardTitle: SwiftUI.Font { style(.headline, .headline) }
         /// The monogram's two letters, sized to `Metric.monogram`.
@@ -254,7 +262,7 @@ public enum DS {
         public static let redactedText = SwiftUI.Color.accentColor
         public static let redactedFill = SwiftUI.Color.accentColor.opacity(0.14)
         /// A multi-line field drawn like the stock rounded text field.
-        public static let fieldFill = SwiftUI.Color(nsColor: .textBackgroundColor)
+        public static let fieldFill = SwiftUI.Color(platformColor: PlatformPalette.field)
         public static let fieldStroke = SwiftUI.Color.primary.opacity(0.18)
         /// A required item's badge (owner pick 1, RD 25): Done's own accent, so the mark reads as
         /// "this feeds Done".
@@ -265,10 +273,7 @@ public enum DS {
         public static let requiredRowContrast = accentHue(light: RequiredHue.lightContrast, dark: RequiredHue.darkContrast)
         /// The system accent at `light` or `dark` opacity, by appearance.
         static func accentHue(light: CGFloat, dark: CGFloat) -> SwiftUI.Color {
-            SwiftUI.Color(nsColor: NSColor(name: nil) { appearance in
-                let alpha = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light
-                return NSColor.controlAccentColor.withAlphaComponent(alpha)
-            })
+            PlatformPalette.accentHue(light: light, dark: dark)
         }
         public enum RequiredHue {
             public static let light: CGFloat = 0.08
@@ -277,32 +282,30 @@ public enum DS {
             public static let darkContrast: CGFloat = 0.26
         }
         enum TextTint {
-            static let warnLight = NSColor(srgbRed: 0.60, green: 0.29, blue: 0.0, alpha: 1)
-            static let warnDark = NSColor(srgbRed: 1.0, green: 0.72, blue: 0.30, alpha: 1)
-            static let doneLight = NSColor(srgbRed: 0.10, green: 0.45, blue: 0.19, alpha: 1)
-            static let doneDark = NSColor(srgbRed: 0.40, green: 0.88, blue: 0.50, alpha: 1)
-            static let errorLight = NSColor(srgbRed: 0.70, green: 0.15, blue: 0.12, alpha: 1)
-            static let errorDark = NSColor(srgbRed: 1.0, green: 0.70, blue: 0.67, alpha: 1)
+            static let warnLight = PlatformColor(red: 0.60, green: 0.29, blue: 0.0, alpha: 1)
+            static let warnDark = PlatformColor(red: 1.0, green: 0.72, blue: 0.30, alpha: 1)
+            static let doneLight = PlatformColor(red: 0.10, green: 0.45, blue: 0.19, alpha: 1)
+            static let doneDark = PlatformColor(red: 0.40, green: 0.88, blue: 0.50, alpha: 1)
+            static let errorLight = PlatformColor(red: 0.70, green: 0.15, blue: 0.12, alpha: 1)
+            static let errorDark = PlatformColor(red: 1.0, green: 0.70, blue: 0.67, alpha: 1)
         }
         public static let codeFill = AnyShapeStyle(.quaternary.opacity(0.6))
         public static let bar = Material.bar
-        public static var badge: NSColor { .systemRed }
-        public static var badgeText: NSColor { .white }
+        public static var badge: PlatformColor { .systemRed }
+        public static var badgeText: PlatformColor { .white }
         /// Badge alpha while offline.
         public static let badgeDimmedAlpha: CGFloat = 0.5
         /// Gallery stand-in for the panel's sidebar material, which does not render offscreen:
         /// the window background, translucent over `canvas` (which plays the desktop behind the panel).
-        public static let panelStandIn = SwiftUI.Color(nsColor: .windowBackgroundColor).opacity(0.8)
+        public static let panelStandIn = SwiftUI.Color(platformColor: PlatformPalette.window).opacity(0.8)
         /// Gallery stand-in under --reduce-transparency: the opaque window background the
         /// material falls back to.
-        public static let panelStandInOpaque = SwiftUI.Color(nsColor: .windowBackgroundColor)
+        public static let panelStandInOpaque = SwiftUI.Color(platformColor: PlatformPalette.window)
         /// Gallery canvas behind multi-panel scenes.
-        public static let canvas = SwiftUI.Color(nsColor: .underPageBackgroundColor)
+        public static let canvas = SwiftUI.Color(platformColor: PlatformPalette.canvas)
         /// `light` under Aqua, `dark` under Dark Aqua (each with its high-contrast form).
-        static func adaptive(light: NSColor, dark: NSColor) -> SwiftUI.Color {
-            SwiftUI.Color(nsColor: NSColor(name: nil) { appearance in
-                appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light
-            })
+        static func adaptive(light: PlatformColor, dark: PlatformColor) -> SwiftUI.Color {
+            PlatformPalette.adaptive(light: light, dark: dark)
         }
 
         /// A queue card: near-white over the light panel, a faint lift over the dark one.
@@ -338,16 +341,10 @@ public enum DS {
         /// The required badge's ring: the required row's surface made opaque (the window
         /// background, the steps list's lift, then the required hue), so over the row the ring
         /// disappears and over an accent marker it draws a gap.
-        public static let requiredBadgeRing = SwiftUI.Color(nsColor: NSColor(name: nil) { appearance in
-            let dark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-            var base = NSColor.white, accent = NSColor.systemBlue
-            appearance.performAsCurrentDrawingAppearance {
-                base = NSColor.windowBackgroundColor.usingColorSpace(.sRGB) ?? base
-                accent = NSColor.controlAccentColor.usingColorSpace(.sRGB) ?? accent
-            }
-            let lifted = base.blended(withFraction: dark ? GroupLift.dark : GroupLift.light, of: .white) ?? base
-            return lifted.blended(withFraction: dark ? RequiredHue.dark : RequiredHue.light, of: accent) ?? lifted
-        })
+        public static let requiredBadgeRing = PlatformPalette.requiredBadgeRing(
+            groupLight: GroupLift.light, groupDark: GroupLift.dark,
+            hueLight: RequiredHue.light, hueDark: RequiredHue.dark)
+
         public static let groupStroke = SwiftUI.Color.primary.opacity(0.07)
         /// An option list's hairline, and the picked option's tint.
         public static let optionStroke = SwiftUI.Color.primary.opacity(0.14)
@@ -379,27 +376,29 @@ public enum DS {
         /// One colour per harness mark, keyed by the harness table's ids in `HarnessMark`. Each
         /// keeps white letters at 4:1 or better (`HarnessMarkTests`), in both appearances.
         public enum Harness {
-            public static let claudeCode = NSColor(srgbRed: 0.78, green: 0.36, blue: 0.18, alpha: 1)
-            public static let codex = NSColor(srgbRed: 0.30, green: 0.32, blue: 0.36, alpha: 1)
-            public static let geminiCLI = NSColor(srgbRed: 0.15, green: 0.40, blue: 0.85, alpha: 1)
-            public static let antigravity = NSColor(srgbRed: 0.33, green: 0.30, blue: 0.78, alpha: 1)
-            public static let copilotCLI = NSColor(srgbRed: 0.53, green: 0.27, blue: 0.78, alpha: 1)
-            public static let vscodeCopilot = NSColor(srgbRed: 0.0, green: 0.45, blue: 0.75, alpha: 1)
-            public static let cursor = NSColor(srgbRed: 0.25, green: 0.24, blue: 0.58, alpha: 1)
-            public static let opencode = NSColor(srgbRed: 0.0, green: 0.48, blue: 0.48, alpha: 1)
-            public static let zed = NSColor(srgbRed: 0.04, green: 0.42, blue: 0.60, alpha: 1)
-            public static let pi = NSColor(srgbRed: 0.18, green: 0.52, blue: 0.25, alpha: 1)
-            public static let devin = NSColor(srgbRed: 0.0, green: 0.48, blue: 0.36, alpha: 1)
-            public static let factory = NSColor(srgbRed: 0.62, green: 0.42, blue: 0.08, alpha: 1)
-            public static let kiro = NSColor(srgbRed: 0.66, green: 0.20, blue: 0.56, alpha: 1)
-            public static let amp = NSColor(srgbRed: 0.80, green: 0.20, blue: 0.20, alpha: 1)
-            public static let cline = NSColor(srgbRed: 0.36, green: 0.42, blue: 0.52, alpha: 1)
-            public static let goose = NSColor(srgbRed: 0.40, green: 0.46, blue: 0.14, alpha: 1)
-            public static let junie = NSColor(srgbRed: 0.80, green: 0.22, blue: 0.40, alpha: 1)
-            public static let warp = NSColor(srgbRed: 0.50, green: 0.32, blue: 0.22, alpha: 1)
+            public static let claudeCode = PlatformColor(red: 0.78, green: 0.36, blue: 0.18, alpha: 1)
+            public static let codex = PlatformColor(red: 0.30, green: 0.32, blue: 0.36, alpha: 1)
+            public static let geminiCLI = PlatformColor(red: 0.15, green: 0.40, blue: 0.85, alpha: 1)
+            public static let antigravity = PlatformColor(red: 0.33, green: 0.30, blue: 0.78, alpha: 1)
+            public static let copilotCLI = PlatformColor(red: 0.53, green: 0.27, blue: 0.78, alpha: 1)
+            public static let vscodeCopilot = PlatformColor(red: 0.0, green: 0.45, blue: 0.75, alpha: 1)
+            public static let cursor = PlatformColor(red: 0.25, green: 0.24, blue: 0.58, alpha: 1)
+            public static let opencode = PlatformColor(red: 0.0, green: 0.48, blue: 0.48, alpha: 1)
+            public static let zed = PlatformColor(red: 0.04, green: 0.42, blue: 0.60, alpha: 1)
+            public static let pi = PlatformColor(red: 0.18, green: 0.52, blue: 0.25, alpha: 1)
+            public static let devin = PlatformColor(red: 0.0, green: 0.48, blue: 0.36, alpha: 1)
+            public static let factory = PlatformColor(red: 0.62, green: 0.42, blue: 0.08, alpha: 1)
+            public static let kiro = PlatformColor(red: 0.66, green: 0.20, blue: 0.56, alpha: 1)
+            public static let amp = PlatformColor(red: 0.80, green: 0.20, blue: 0.20, alpha: 1)
+            public static let cline = PlatformColor(red: 0.36, green: 0.42, blue: 0.52, alpha: 1)
+            public static let goose = PlatformColor(red: 0.40, green: 0.46, blue: 0.14, alpha: 1)
+            public static let junie = PlatformColor(red: 0.80, green: 0.22, blue: 0.40, alpha: 1)
+            public static let warp = PlatformColor(red: 0.50, green: 0.32, blue: 0.22, alpha: 1)
         }
         /// The panel's backdrop material.
+        #if os(macOS)
         public static var panelMaterial: NSVisualEffectView.Material { .sidebar }
+        #endif
     }
 
     /// Hook's own images, as files in Resources/MenuBar (`MenuBarGlyphImage` loads them).
@@ -598,9 +597,11 @@ public enum DS {
         return seconds == Motion.slideIn ? Motion.fade : 0
     }
 
+    #if os(macOS)
     @MainActor public static func appKitDuration(_ seconds: TimeInterval) -> TimeInterval {
         appKitDuration(seconds, reduce: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
     }
+    #endif
 }
 
 /// Animates `value` changes with `animation`, or with `DS.Motion.reduced` under Reduce Motion.

@@ -12,6 +12,7 @@ extension Store {
     /// ask reloads, so the message shows; a refusal keeps the draft and says why. Nothing else
     /// moves: no reply, answer, tick or close.
     @discardableResult public func sendMessage(_ id: String, text: String) async -> Bool {
+        guard mutationsAvailable else { return false }
         guard canMessage(id), MessageText.canSend(text, limits: talk.limits), messageStates[id] != .sending,
               let source else { return false }
         HookLog.action(.message)

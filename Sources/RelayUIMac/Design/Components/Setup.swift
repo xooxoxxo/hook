@@ -1,0 +1,329 @@
+import RelayUI
+import AppKit
+import RelayCore
+import SwiftUI
+
+// Design/Setup: the setup window's parts. The footer (dots over a full-width Continue,
+// Back beside it after the first page) and the hero; the pages' rows are `SetupRow`s
+// in a grouped Form, System Settings style.
+
+/// Progress dots: the current page in the accent colour. One element for VoiceOver.
+public struct SetupDots: View {
+    let page: Int
+    let count: Int
+
+    public init(page: Int, count: Int) {
+        self.page = page
+        self.count = count
+    }
+
+    public var body: some View {
+        HStack(spacing: DS.Space.inline) {
+            ForEach(1...max(count, 1), id: \.self) { n in
+                Circle()
+                    .fill(n == page ? AnyShapeStyle(DS.Color.dotCurrent) : DS.Color.dotOther)
+                    .frame(width: DS.Metric.setupDot, height: DS.Metric.setupDot)
+            }
+        }
+        .accessibilityElement()
+        .accessibilityLabel(Self.accessibilityText(page: page, count: count))
+    }
+
+    public static func accessibilityText(page: Int, count: Int) -> String { "Page \(page) of \(count)" }
+}
+
+/// The setup footer: dots, then Back (after the first page) and a full-width Continue.
+public struct SetupFooter: View {
+    let page: Int
+    let count: Int
+    let title: String
+    let showsBack: Bool
+    let busy: Bool
+    let onBack: () -> Void
+    let onContinue: () -> Void
+
+    public init(page: Int, count: Int, title: String = "Continue", showsBack: Bool, busy: Bool = false,
+                onBack: @escaping () -> Void, onContinue: @escaping () -> Void) {
+        self.page = page
+        self.count = count
+        self.title = title
+        self.showsBack = showsBack
+        self.busy = busy
+        self.onBack = onBack
+        self.onContinue = onContinue
+    }
+
+    public var body: some View {
+        VStack(spacing: DS.Space.setupFooter) {
+            SetupDots(page: page, count: count)
+            HStack(spacing: DS.Space.inline) {
+                if showsBack {
+                    Button("Back", action: onBack)
+                        .keyboardShortcut(.cancelAction)
+                        .disabled(busy)
+                }
+                Button(action: onContinue) {
+                    HStack(spacing: DS.Space.inline) {
+                        if busy {
+                            ProgressView().controlSize(DS.Control.inline).accessibilityLabel("Connecting")
+                        }
+                        Text(title)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
+                .disabled(busy)
+            }
+            .controlSize(DS.Control.action)
+        }
+        .padding(.horizontal, DS.Space.setupPad)
+        .padding(.bottom, DS.Space.setupPad)
+    }
+}
+
+/// The app icon, or the hook glyph on a gradient tile while the bundle has none (a build run
+/// with `swift run`). The placeholder bounces once on appear, unless Reduce Motion is on.
+public struct SetupAppIcon: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.appIconImage) private var iconOverride
+    @State private var bounce = 0
+
+    public init() {}
+
+    public var body: some View {
+        Group {
+            if let icon = iconOverride ?? (Self.bundleHasIcon ? NSApp.applicationIconImage : nil) {
+                Image(nsImage: icon)
+                    .resizable()
+                    .frame(width: DS.Metric.appIcon, height: DS.Metric.appIcon)
+            } else {
+                RoundedRectangle(cornerRadius: DS.Metric.appIconRadius, style: .continuous)
+                    .fill(LinearGradient(colors: [DS.Color.appIconTop, DS.Color.appIconBottom],
+                                         startPoint: .top, endPoint: .bottom))
+                    .frame(width: DS.Metric.appIcon, height: DS.Metric.appIcon)
+                    .overlay { placeholderGlyph }
+            }
+        }
+        .accessibilityHidden(true)
+        .onAppear { if !reduceMotion { bounce += 1 } }
+    }
+
+    /// The menu bar's idle hook, white; the checklist symbol if the glyph files are missing.
+    @ViewBuilder private var placeholderGlyph: some View {
+        if let glyph = MenuBarGlyphImage.image(.idle) {
+            Image(nsImage: glyph)
+                .renderingMode(.template)
+                .resizable()
+                .interpolation(.high)
+                .scaledToFit()
+                .frame(height: DS.Glyph.appIconPlaceholderHeight)
+                .foregroundStyle(DS.Color.appIconSymbol)
+                .keyframeAnimator(initialValue: CGFloat(1), trigger: bounce) { content, scale in
+                    content.scaleEffect(scale)
+                } keyframes: { _ in
+                    SpringKeyframe(DS.Motion.bounceScale, duration: DS.Motion.bounceUp)
+                    SpringKeyframe(CGFloat(1), duration: DS.Motion.bounceSettle)
+                }
+        } else {
+            Image(systemName: DS.Symbol.menuBarFallback)
+                .font(DS.Font.appSymbol)
+                .foregroundStyle(DS.Color.appIconSymbol)
+                .symbolEffect(.bounce, value: bounce)
+        }
+    }
+
+    static var bundleHasIcon: Bool {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleIconFile") != nil
+            || Bundle.main.object(forInfoDictionaryKey: "CFBundleIconName") != nil
+    }
+}
+
+private struct AppIconImageKey: EnvironmentKey {
+    static var defaultValue: NSImage? { nil }
+}
+
+extension EnvironmentValues {
+    /// An icon `SetupAppIcon` shows instead of the bundle's: the gallery, which runs outside
+    /// Hook.app, passes Resources/AppIcon.icns.
+    public var appIconImage: NSImage? {
+        get { self[AppIconImageKey.self] }
+        set { self[AppIconImageKey.self] = newValue }
+    }
+}
+
+/// A centred page: the icon (or a symbol), the title and one line.
+public struct SetupHero<Icon: View, Extra: View>: View {
+    let title: String
+    let line: String
+    let icon: Icon
+    let extra: Extra
+
+    public init(title: String, line: String, @ViewBuilder icon: () -> Icon, @ViewBuilder extra: () -> Extra) {
+        self.title = title
+        self.line = line
+        self.icon = icon()
+        self.extra = extra()
+    }
+
+    public var body: some View {
+        VStack(spacing: DS.Space.step) {
+            Spacer(minLength: 0)
+            icon
+            Text(title)
+                .font(DS.Font.welcomeTitle)
+                .accessibilityAddTraits(.isHeader)
+            Text(line)
+                .font(DS.Font.prose)
+                .foregroundStyle(DS.Color.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            extra
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, DS.Space.setupPad)
+        .padding(.top, DS.Space.setupPad)
+    }
+}
+
+/// The Done page's symbol: a large tick that bounces once, unless Reduce Motion is on.
+public struct SetupDoneSymbol: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var bounce = 0
+
+    public init() {}
+
+    public var body: some View {
+        Image(systemName: DS.Symbol.setupDone)
+            .font(DS.Font.heroSymbol)
+            .foregroundStyle(DS.Color.done)
+            .symbolEffect(.bounce, value: bounce)
+            .accessibilityHidden(true)
+            .onAppear { if !reduceMotion { bounce += 1 } }
+    }
+}
+
+/// A form page's heading: the title and one line, as the first section's header.
+public struct SetupHeading: View {
+    let title: String
+    let line: String
+
+    public init(_ title: String, line: String) {
+        self.title = title
+        self.line = line
+    }
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: DS.Space.rowLine) {
+            Text(title)
+                .font(DS.Font.welcomeTitle)
+                .foregroundStyle(DS.Color.primary)
+                .accessibilityAddTraits(.isHeader)
+            Text(line)
+                .font(DS.Font.prose)
+                .foregroundStyle(DS.Color.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .textCase(nil)
+        .padding(.bottom, DS.Space.inline)
+    }
+}
+
+/// One setup row: a symbol and the title (its "?" after it), the control on the trailing
+/// edge, and a status or error caption under the control. The label lines up with the
+/// control's vertical centre, not its first baseline, so a tall control (the shortcut
+/// recorder with its clear button) doesn't leave the label at its top; an error caption
+/// under the control doesn't move the label.
+public struct SetupRow<Control: View>: View {
+    let symbol: String
+    let title: String
+    let help: String?
+    let error: String?
+    let control: Control
+
+    public init(_ title: String, symbol: String, help: String? = nil, error: String? = nil,
+                @ViewBuilder control: () -> Control) {
+        self.title = title
+        self.symbol = symbol
+        self.help = help
+        self.error = error
+        self.control = control()
+    }
+
+    public var body: some View {
+        // Not LabeledContent: the grouped Form lines its label up with the content's first
+        // baseline, which left the label at the top of a tall control.
+        HStack(alignment: .setupControlCenter, spacing: DS.Space.inline) {
+            HStack(spacing: DS.Space.inline) {
+                Image(systemName: symbol)
+                    .foregroundStyle(DS.Color.accent)
+                    .frame(width: DS.Metric.setupSymbol)
+                    .accessibilityHidden(true)
+                Text(title)
+                if let help {
+                    HelpButton(rowLabel: title, text: help)
+                }
+            }
+            .helpLabelStyle(.body)
+            .alignmentGuide(.setupControlCenter) { $0[VerticalAlignment.center] }
+            Spacer(minLength: DS.Space.inline)
+            VStack(alignment: .trailing, spacing: DS.Space.rowLine) {
+                control
+                    .alignmentGuide(.setupControlCenter) { $0[VerticalAlignment.center] }
+                if let error {
+                    Text(error)
+                        .font(DS.Font.caption)
+                        .foregroundStyle(DS.Color.error)
+                        .multilineTextAlignment(.trailing)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(title)
+    }
+}
+
+extension VerticalAlignment {
+    /// A setup row's label centre and its control's centre (not the error under it).
+    private enum SetupControlCenter: AlignmentID {
+        static func defaultValue(in context: ViewDimensions) -> CGFloat { context[VerticalAlignment.center] }
+    }
+
+    static let setupControlCenter = VerticalAlignment(SetupControlCenter.self)
+}
+
+/// A row's done mark: a green tick and a word ("Connected", "Installed").
+public struct SetupDone: View {
+    let text: String
+
+    public init(_ text: String) {
+        self.text = text
+    }
+
+    public var body: some View {
+        Label {
+            Text(text).foregroundStyle(DS.Color.secondary)
+        } icon: {
+            Image(systemName: DS.Symbol.answered).foregroundStyle(DS.Color.done)
+        }
+    }
+}
+
+extension View {
+    /// A Welcome form page's end: the page stops `DS.Space.setupFormEnd` above the footer's dots,
+    /// whatever scrolls past its bottom fades out over `DS.Metric.setupFade`, and scrolled to the
+    /// end its last row clears the fade, so a long page (nine agents) reads as scrolling, not cut off.
+    public func setupScrollEnd() -> some View {
+        contentMargins(.bottom, DS.Metric.setupFade, for: .scrollContent)
+            .mask {
+                VStack(spacing: 0) {
+                    Color.black
+                    LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
+                        .frame(height: DS.Metric.setupFade)
+                }
+            }
+            .padding(.bottom, DS.Space.setupFormEnd)
+    }
+}

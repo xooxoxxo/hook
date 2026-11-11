@@ -153,20 +153,29 @@ public enum ReviewSeal {
         // With no marker, `load` didn't look: an item there, even one that can't be read, isn't
         // known to be Hook's, and replacing it would erase every acceptance and pin unasked.
         if ReviewStore.sealMarker(at: file) == nil, itemExists(secrets) { throw SecretStoreError.foreign }
-        return (try create(secrets, file: file), true)
+        return (try make(secrets, file: file, replacing: false), true)
     }
 
-    /// A new seal in a fresh item (whatever item is there is deleted, never filled) and a `file`
-    /// with no records that names it. Every record and every owner key marked under the old seal
-    /// stops verifying: the owner starts it (Reset Review Records…), or `open` on a first launch.
+    /// The owner's explicit reset: a fresh seal item and a `file` with no records that names
+    /// it. Every record and every owner key marked under the old seal stops verifying.
+    /// Data-protection storage refuses this reset while the existing seal cannot be read;
+    /// `open` uses add-only creation on a first launch instead.
     @discardableResult
     public static func create(_ secrets: any SecretStore, file: URL) throws -> SymmetricKey {
+        try make(secrets, file: file, replacing: true)
+    }
+
+    private static func make(_ secrets: any SecretStore, file: URL, replacing: Bool) throws -> SymmetricKey {
         var bytes = [UInt8](repeating: 0, count: 32)
         guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else {
             throw SecretStoreError.writeFailed(errSecAllocate)
         }
         let key = SymmetricKey(data: bytes)
-        try secrets.create(.reviewSeal, Data(bytes))
+        if replacing {
+            try secrets.replace(.reviewSeal, Data(bytes))
+        } else {
+            try secrets.create(.reviewSeal, Data(bytes))
+        }
         try PrivateFile.write(ReviewStore.sealed(records: [:], sealKey: key), to: file)
         return key
     }

@@ -46,7 +46,7 @@ private func decide(_ headers: [String: String], method: String = "GET") -> Link
     #expect(decide(["Host": "127.0.0.1:47823"], method: "POST") == .notFound)
 }
 
-@Suite struct LinkPolicyTests {
+@Suite struct RelayURLTests {
     private func parse(_ text: String) -> RelayURLAction? {
         URL(string: text).flatMap(RelayURL.parse)
     }
@@ -86,5 +86,21 @@ private func decide(_ headers: [String: String], method: String = "GET") -> Link
         #expect(parse("relay://settings") == nil)
         #expect(parse("https://i/" + id) == nil)
         #expect(parse("relay:show") == nil)
+    }
+}
+
+@Test func RelayURLAcceptsPhoneAndLegacyLinks() {
+    let id = "6f1c2b0e-8a1d-4c55-9a77-0d2f3c4b5a61"
+    for scheme in ["hook", "relay", "HOOK", "RELAY"] {
+        #expect(RelayURL.parse(URL(string: "\(scheme)://i/\(id)")!) == .open(id: id))
+        #expect(RelayURL.parse(URL(string: "\(scheme)://show")!) == .show)
+        for suffix in ["?next=https://example.test", "?", "#fragment", "#", "/", "/extra"] {
+            #expect(RelayURL.parse(URL(string: "\(scheme)://i/\(id)\(suffix)")!) == nil)
+        }
+    }
+    #expect(RelayURL.parse(URL(string: "hook://i/%36" + id.dropFirst())!) == nil)
+    for link in ["https://i/", "other://i/", "hook://wrong/", "hook://user@i/",
+                 "hook://i:80/", "hook://i//", "hook://i/%36"] {
+        #expect(RelayURL.parse(URL(string: link + id)!) == nil)
     }
 }

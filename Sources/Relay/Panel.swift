@@ -1,3 +1,4 @@
+import RelayUIMac
 import AppKit
 import QuartzCore
 import RelayCore

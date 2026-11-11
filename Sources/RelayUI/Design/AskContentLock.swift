@@ -172,7 +172,7 @@ struct AskTextSelection: ViewModifier {
 
 extension View {
     /// Ask-supplied text: selectable unless the ask's content is locked.
-    func askTextSelection() -> some View { modifier(AskTextSelection()) }
+    public func askTextSelection() -> some View { modifier(AskTextSelection()) }
 }
 
 /// The lock's rules for the view inputs; static so tests can pin them.

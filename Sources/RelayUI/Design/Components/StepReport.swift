@@ -72,7 +72,7 @@ public struct InlineReportField: View {
             .helpLabelStyle(.caption)
             MultilineField(ProblemReport.placeholder, text: text, lines: DS.Metric.fieldLines, isFocused: $focused)
                 .disabled(slot.state == .held || slot.state == .sending)
-                .onExitCommand { slot.onCancel() }
+                .askExitCommand { slot.onCancel() }
             LimitCaption(count: count, limit: slot.limits.report)
             if let caption = Self.caption(slot.state) {
                 Text(caption)

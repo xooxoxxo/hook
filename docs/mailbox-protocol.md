@@ -165,3 +165,14 @@ A client that sends `X-Hook-Protocol: 6` gets the objects. Below 6, an ask with 
 ## Timestamps
 
 UTC, ISO 8601 with an offset: `2026-10-11T09:30:00+00:00`.
+
+### Shared progress identities (Pond 1.5)
+
+Pond 1.5 accepts ticks on every ask, including Verify and older steps without ids.
+Existing real step ids keep their wire form. The reserved identity `@verify` names
+the Verify node, and `@legacy:1` / `@legacy:2.1` name a step/substep without an id.
+Real ids cannot contain `@`; a real step named `verify` remains independent.
+Each tick is bound to the submitted revision and the node's raw own content.
+Changing Verify content invalidates its tick; a legacy tick remains only at the
+same path with unchanged own content. Lists allow up to 61 identities (60 steps
+plus Verify). The 1.3/1.4 contract above remains limited to 60 real step ids.
