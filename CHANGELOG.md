@@ -3,7 +3,7 @@
 All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
-## [0.15.3] - 2026-11-09
+## [0.15.4] - 2026-11-09
 
 ### Fixed
 
