@@ -1,4 +1,3 @@
-import AppKit
 import RelayCore
 import SwiftUI
 
@@ -48,8 +47,7 @@ public struct OpenLink: View {
             copyLinkAddress.copy(url)
             return
         }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(url.absoluteString, forType: .string)
+        PlatformClipboard.copy(url.absoluteString)
     }
 
     public static func accessibilityText(_ title: String) -> String { title + ", link" }

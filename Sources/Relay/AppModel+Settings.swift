@@ -1,3 +1,5 @@
+import RelayUIMac
+import RelayMacCore
 import AppKit
 import SystemConfiguration
 import RelayCore
@@ -21,6 +23,9 @@ struct SettingsHooks {
 }
 
 extension AppModel: SettingsViewModel {
+    var revokePendingID: String? { ownerKey?.revokePendingID }
+    var revokeProblem: String? { ownerKey?.revokeProblem }
+    func revokeOwnerKey(_ id: String) { ownerKey?.revokeOwnerKey(id) }
     var ownerKeyState: OwnerKeyState { ownerKey?.state ?? .notSetUp }
     var ownerStatus: OwnerStatus? { ownerKey?.status }
     var requireOffPending: Bool { ownerKey?.requireOffPending ?? false }
@@ -324,6 +329,7 @@ extension AppModel: SettingsViewModel {
 
     /// Settings closed: stop polling Settings › Agents' MCP last call.
     func settingsWindowClosed() {
+        phonePairing.hide()
         setLastSeenPolling(false)
         resetDraft()
     }

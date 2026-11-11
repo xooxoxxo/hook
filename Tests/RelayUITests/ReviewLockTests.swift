@@ -7,6 +7,56 @@ import Testing
 /// The review lock: what a corrected, unreviewed ask lets the owner do, and the review
 /// records behind it.
 @Suite @MainActor struct ReviewLockTests {
+    @Test(arguments: ["tampered", "missing", "corrupt", "locked"])
+    func phoneRecoverySurvivesDismissalAndRelaunchAndRequiresPresence(_ damage: String) async throws {
+        let defaults = TestDefaults(); defer { defaults.drop() }
+        let url = reviewsURL(), secrets = MemorySecretStore()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let seal = try ReviewSeal.loadOrCreate(secrets, file: url)
+        let one = revised("a", [idSteps(2)])
+        let key = ReviewStore.key(sourceKey: mailboxIdentity.key, id: "a")
+        let record = ReviewRecord(pins: [1: one.detail.revisions[0].hash])
+        var file = try #require(try JSONSerialization.jsonObject(with: ReviewStore.sealed(records: [key: record], sealKey: seal)) as? [String: Any])
+        if damage == "tampered" {
+            var records = try #require(file["records"] as? [String: [String: Any]])
+            records[key]?["mac"] = String(repeating: "0", count: 64)
+            file["records"] = records
+        }
+        try JSONSerialization.data(withJSONObject: file).write(to: url)
+        if damage == "missing" { try secrets.delete(.reviewSeal) }
+        if damage == "corrupt" { try secrets.write(.reviewSeal, Data([1])) }
+        if damage == "locked" { secrets.readError = .unreadable(-128) }
+        let original = try Data(contentsOf: url)
+        let store = Store(defaults: defaults.defaults, reviews: ReviewPersistence(secrets: secrets, url: url), deliveryPolicy: .phone)
+        await store.reviewsLoaded()
+        let fake = FakeQueueSource(items: [one.item], details: ["a": one.detail])
+        await start(store, fake, identity: mailboxIdentity)
+        await store.refreshDetail("a")
+        store.dismissNotice()
+        #expect(store.reviewsUnreadable)
+        #expect(store.reviewRecordsRecovery == (damage == "locked" ? .locked : .changed))
+        #expect(store.detail("a")?.locked == true)
+        await store.retryReviewRecords()
+        #expect(store.reviewsUnreadable)
+        #expect(try Data(contentsOf: url) == original)
+        let again = Store(defaults: defaults.defaults, reviews: ReviewPersistence(secrets: secrets, url: url), deliveryPolicy: .phone)
+        await again.reviewsLoaded()
+        #expect(again.reviewRecordsRecovery == store.reviewRecordsRecovery)
+        let shell = ShellRecorder(); store.shell = shell.shell
+        shell.presence = false
+        #expect(await store.resetReviewRecords() == false)
+        #expect(try Data(contentsOf: url) == original)
+        secrets.readError = nil
+        shell.presence = true
+        var reset = 0; store.onReviewRecordsReset = { reset += 1 }
+        #expect(await store.resetReviewRecords())
+        #expect(reset == 1 && !store.reviewsUnreadable && store.reviewRecordsRecovery == nil)
+        #expect(store.record("a")?.pins[1] == one.detail.revisions[0].hash)
+        let replacement = try #require(try ReviewSeal.load(secrets, file: url))
+        #expect(ReviewStore.load(from: url, sealKey: replacement).records[key]?.pins[1] == one.detail.revisions[0].hash)
+        #expect(await fake.count("resolve") == 0)
+    }
+
     @Test func openingARev1DetailSetsSeenAndAPendingOneDoesNot() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }

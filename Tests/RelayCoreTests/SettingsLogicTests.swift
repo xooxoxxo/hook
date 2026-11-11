@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import os
 import Testing
 @testable import RelayCore
 
@@ -316,15 +317,26 @@ private actor OwnerPond: QueueSource {
     var polls: [String] = ["approved"]
     var owner = OwnerStatus(required: false, keys: [])
     var requireOutcome: OwnerKeyRequirement = .on
+    var revokeFailure: QueueError?
     private(set) var calls: [String] = []
     private(set) var enrolled: [(keyHash: String, label: String)] = []
     /// Called as the enroll arrives, before it answers.
     private var atEnroll: (@Sendable () -> Void)?
+    private var ownerStatusHeld = false
+    private var ownerStatusWaiter: CheckedContinuation<Void, Never>?
+
+    func holdOwnerStatus() { ownerStatusHeld = true }
+    func releaseOwnerStatus() {
+        ownerStatusHeld = false
+        ownerStatusWaiter?.resume()
+        ownerStatusWaiter = nil
+    }
 
     func set(enroll: Result<Enrollment, QueueError>) { enrollResult = enroll }
     func set(polls: [String]) { self.polls = polls }
     func set(owner: OwnerStatus) { self.owner = owner }
     func set(require: OwnerKeyRequirement) { requireOutcome = require }
+    func set(revokeFailure: QueueError?) { self.revokeFailure = revokeFailure }
     func set(atEnroll: @escaping @Sendable () -> Void) { self.atEnroll = atEnroll }
     func count(_ call: String) -> Int { calls.filter { $0 == call }.count }
 
@@ -353,7 +365,16 @@ private actor OwnerPond: QueueSource {
 
     func ownerStatus() async throws -> OwnerStatus {
         calls.append("owner")
-        return owner
+        let result = owner
+        if ownerStatusHeld { await withCheckedContinuation { ownerStatusWaiter = $0 } }
+        return result
+    }
+
+    func revokeOwnerKey(_ id: String) async throws {
+        calls.append("revoke " + id)
+        if let revokeFailure { throw revokeFailure }
+        owner.keys.removeAll { $0.id == id }
+        if owner.self_?.id == id { owner.self_ = OwnerSelf(id: id, status: "revoked") }
     }
 
     func requireOwnerKey(_ on: Bool) async throws -> OwnerKeyRequirement {
@@ -699,6 +720,50 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
         #expect(second.state == .refused("The Pond no longer accepts this Mac's key."))
     }
 
+    @Test(arguments: [false, true])
+    func aRefusalWaitingOnKeychainCannotChangeANewerURLAttachment(switchBack: Bool) async throws {
+        let secrets = MemorySecretStore(), pond = OwnerPond()
+        let approved = OwnerKeyRecord(key: OwnerKey.generate(), status: .approved, scheme: "https")
+        try OwnerKeyVault.save(approved, secrets, sourceKey: pondKey, seal: ownerSeal)
+        let flow = OwnerKeyFlow(secrets: secrets, seal: { ownerSeal }, label: "Studio",
+                                keychain: KeychainQueue(label: "test.refusal-generation"))
+        await flow.attach(sourceKey: pondKey, url: pondURL, source: pond)?.value
+        #expect(flow.state == .approved)
+        secrets.holdReads()
+        defer { secrets.releaseReads() }
+        let refresh = try #require(flow.refresh())
+        while secrets.waitingReads == 0 { await Task.yield() }
+        let http = URL(string: "http://pond.example:8790")!
+        await flow.attach(sourceKey: pondKey, url: http, source: pond)?.value
+        #expect(flow.state == .notUsedHere(OwnerKeyFlow.notUsedHere(scheme: "https")))
+        if switchBack { await flow.attach(sourceKey: pondKey, url: pondURL, source: pond)?.value }
+        secrets.releaseReads()
+        await refresh.value
+        #expect(flow.state == (switchBack ? .approved : .notUsedHere(OwnerKeyFlow.notUsedHere(scheme: "https"))))
+        #expect(record(secrets) == approved)
+        #expect(flow.status == nil)
+    }
+
+    @Test func aStatusResponseFromAnEarlierSourceAttachmentCannotRefuseTheCurrentKey() async throws {
+        let secrets = MemorySecretStore(), pond = OwnerPond(), other = OwnerPond()
+        let approved = OwnerKeyRecord(key: OwnerKey.generate(), status: .approved, scheme: "https")
+        try OwnerKeyVault.save(approved, secrets, sourceKey: pondKey, seal: ownerSeal)
+        let flow = OwnerKeyFlow(secrets: secrets, seal: { ownerSeal }, label: "Studio",
+                                keychain: KeychainQueue(label: "test.status-generation"))
+        await flow.attach(sourceKey: pondKey, url: pondURL, source: pond)?.value
+        await pond.holdOwnerStatus()
+        let refresh = try #require(flow.refresh())
+        while await pond.count("owner") == 0 { await Task.yield() }
+        await flow.attach(sourceKey: "mailbox:other.example#personal", url: URL(string: "https://other.example.test"), source: other)?.value
+        await flow.attach(sourceKey: pondKey, url: pondURL, source: pond)?.value
+        #expect(flow.state == .approved)
+        await pond.releaseOwnerStatus()
+        await refresh.value
+        #expect(flow.state == .approved)
+        #expect(record(secrets) == approved)
+        #expect(flow.status == nil)
+    }
+
     @Test func aRefusedReadAfterAttachKeepsTheApprovedKey() async throws {
         let approved = OwnerKeyRecord(key: OwnerKey.generate(), enrollID: "e1", status: .approved, scheme: "https")
         let secrets = MemorySecretStore(), pond = OwnerPond()
@@ -918,5 +983,134 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
     @Test(arguments: [(0, "Empty"), (1, "1 KB"), (1024, "1 KB"), (86_016, "84 KB"), (1_048_576, "1.0 MB"), (1_572_864, "1.5 MB")])
     func theLogSize(_ bytes: Int, _ text: String) {
         #expect(PrivacyLine.sizeText(bytes) == text)
+    }
+}
+
+@MainActor @Suite struct OwnerDeviceRevocationTests {
+    private func approvedFlow(_ pond: OwnerPond) async throws -> OwnerKeyFlow {
+        let secrets = MemorySecretStore()
+        try OwnerKeyVault.save(OwnerKeyRecord(key: "synthetic-owner-key", status: .approved, scheme: "https"),
+                               secrets, sourceKey: pondKey, seal: ownerSeal)
+        await pond.set(owner: OwnerStatus(required: false, keys: [approvedRow("mac"), approvedRow("phone")],
+                                         self_: OwnerSelf(id: "mac", status: "approved")))
+        let flow = await makeFlow(secrets, pond: pond)
+        await flow.refresh()?.value
+        return flow
+    }
+
+    @Test func successRefreshesDevicesAndNeverEnablesRequireOwnerKey() async throws {
+        let pond = OwnerPond(), flow = try await approvedFlow(pond)
+        await flow.revokeOwnerKey("phone")?.value
+        #expect(flow.status?.keys.map(\.id) == ["mac"])
+        #expect(flow.revokeProblem == nil && flow.revokePendingID == nil)
+        #expect(flow.status?.required == false)
+        #expect(await pond.count("revoke phone") == 1)
+        #expect(await pond.count("owner") == 2)
+        #expect(await pond.count("require on") == 0)
+    }
+
+    @Test func replacementBeforeDispatchSendsNoRevokeToThePreviousSource() async throws {
+        let pond = OwnerPond(), flow = try await approvedFlow(pond)
+        let task = try #require(flow.revokeOwnerKey("phone"))
+        flow.attach(sourceKey: pondKey, url: pondURL, source: OwnerPond())
+        await task.value
+        #expect(await pond.count("revoke phone") == 0)
+        #expect(flow.revokePendingID == nil && flow.revokeProblem == nil)
+    }
+
+    @Test(arguments: [false, true])
+    func sourceReplacementDuringCredentialReadNeverDispatchesToTheOldPond(holdOwnerKey: Bool) async throws {
+        let owners = MemorySecretStore()
+        try OwnerKeyVault.save(OwnerKeyRecord(key: "synthetic-owner-key", status: .approved, scheme: "https"),
+                               owners, sourceKey: pondKey, seal: ownerSeal)
+        let tokenName = SecretName.pondToken(sourceKey: "synthetic-revoke")
+        let tokens = MemorySecretStore([tokenName: Data("synthetic-token".utf8)])
+        defer { tokens.releaseReads(); owners.releaseReads() }
+        let provider = OwnerKeyFlow.provider(owners, sourceKey: pondKey, url: pondURL, seal: { ownerSeal },
+                                            keychain: KeychainQueue(label: "test.revoke.held-owner"))
+        let requests = OSAllocatedUnfairLock(initialState: [String]())
+        let client = MailboxClient(settings: MailboxSettings(url: pondURL, tokenFile: "unused", context: "test"),
+            tokenSource: KeychainTokenSource(store: tokens, name: tokenName), ownerKey: provider,
+            keychain: KeychainQueue(label: "test.revoke.held-token"), transport: { request in
+                requests.withLock { $0.append(request.url!.path()) }
+                let body = request.url?.path() == "/owner" ?
+                    #"{"required":false,"keys":[{"id":"mac","label":"Mac","status":"approved","created":""},{"id":"phone","label":"iPhone","status":"approved","created":""}],"self":{"id":"mac","status":"approved"}}"# :
+                    #"{"revoked":"phone"}"#
+                return (Data(body.utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+            })
+        let flow = OwnerKeyFlow(secrets: owners, seal: { ownerSeal }, label: "Mac")
+        await flow.attach(sourceKey: pondKey, url: pondURL, source: client)?.value
+        await flow.refresh()?.value
+        #expect(flow.state == .approved)
+        let held = holdOwnerKey ? owners : tokens
+        held.holdReads()
+        let task = try #require(flow.revokeOwnerKey("phone"))
+        while held.waitingReads == 0 { await Task.yield() }
+        let replacement = OwnerPond()
+        await replacement.set(owner: OwnerStatus(required: false, keys: [approvedRow("replacement")],
+                                                 self_: OwnerSelf(id: "mac", status: "approved")))
+        // Same address and source key: only the attachment generation distinguishes it.
+        flow.attach(sourceKey: pondKey, url: pondURL, source: replacement)
+        await flow.refresh()?.value
+        held.releaseReads()
+        await task.value
+        #expect(requests.withLock { $0 } == ["/owner"])
+        #expect(flow.status?.keys.map(\.id) == ["replacement"])
+        #expect(flow.revokePendingID == nil && flow.revokeProblem == nil)
+        #expect(flow.state == .approved)
+    }
+
+    @Test func aFailedRevokeLeavesTheRowIntact() async throws {
+        let pond = OwnerPond(), flow = try await approvedFlow(pond)
+        await pond.set(revokeFailure: .unreachable("offline"))
+        await flow.revokeOwnerKey("phone")?.value
+        #expect(flow.status?.keys.map(\.id) == ["mac", "phone"])
+        #expect(flow.revokeProblem != nil && flow.revokePendingID == nil)
+        #expect(await pond.count("owner") == 1)
+        #expect(flow.revokeOwnerKey("unknown") == nil)
+        await flow.refresh()?.value
+        #expect(flow.revokeProblem == nil)
+        #expect(flow.status?.keys.map(\.id) == ["mac", "phone"])
+    }
+
+    @Test func lateRefreshCannotReplaceANewerAttachmentEvenAtTheSameAddress() async throws {
+        let pond = OwnerPond(), flow = try await approvedFlow(pond)
+        await pond.holdOwnerStatus()
+        let task = try #require(flow.revokeOwnerKey("phone"))
+        while await pond.count("owner") < 2 { await Task.yield() }
+        #expect(flow.revokePendingID == "phone")
+        let replacement = OwnerPond()
+        await replacement.set(owner: OwnerStatus(required: false, keys: [approvedRow("new-device")]))
+        await flow.attach(sourceKey: pondKey, url: pondURL, source: replacement)?.value
+        await flow.refresh()?.value
+        await pond.releaseOwnerStatus()
+        await task.value
+        #expect(flow.status?.keys.map(\.id) == ["new-device"])
+        #expect(flow.revokePendingID == nil && flow.revokeProblem == nil)
+    }
+
+    @Test func aStatusReadStartedBeforeRevocationCannotRestoreOrRefuseADevice() async throws {
+        let pond = OwnerPond(), flow = try await approvedFlow(pond)
+        await pond.set(owner: OwnerStatus(required: true, keys: [approvedRow("stale")], self_: nil))
+        await pond.holdOwnerStatus()
+        let stale = try #require(flow.refresh())
+        while await pond.count("owner") < 2 { await Task.yield() }
+        await pond.set(owner: OwnerStatus(required: false, keys: [approvedRow("mac"), approvedRow("phone")],
+                                         self_: OwnerSelf(id: "mac", status: "approved")))
+        let revoke = try #require(flow.revokeOwnerKey("phone"))
+        await pond.releaseOwnerStatus()
+        await stale.value
+        await revoke.value
+        #expect(flow.state == .approved)
+        #expect(flow.status?.keys.map(\.id) == ["mac"])
+        #expect(flow.status?.required == false)
+    }
+
+    @Test func revokingThisMacRefreshesItsRefusedState() async throws {
+        let pond = OwnerPond(), flow = try await approvedFlow(pond)
+        await flow.revokeOwnerKey("mac")?.value
+        #expect(flow.status?.self_?.status == "revoked")
+        #expect(flow.state == .refused(OwnerKeyFlow.noLongerAccepted))
+        #expect(flow.revokeOwnerKey("phone") == nil)
     }
 }

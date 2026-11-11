@@ -1,4 +1,6 @@
+#if os(macOS)
 import AppKit
+#endif
 import RelayCore
 import SwiftUI
 
@@ -33,7 +35,11 @@ public struct CollapsibleHeader: View {
 
     public var body: some View {
         Button {
+            #if os(macOS)
             onToggle(NSEvent.modifierFlags.contains(.option))
+            #else
+            onToggle(false)
+            #endif
         } label: {
             HStack(alignment: .center, spacing: DS.Space.inline) {
                 VStack(alignment: .leading, spacing: DS.Space.headerPeek) {

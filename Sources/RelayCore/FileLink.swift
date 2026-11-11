@@ -8,7 +8,7 @@ public struct FileLink: Equatable, Sendable {
     /// The path as sent ("/…" or "~/…").
     public let raw: String
     /// The path with a leading "~" expanded and then made canonical without the filesystem
-    /// (`FileAccess.canonical`): what the row shows and what a click checks.
+    /// (`FilePath.canonical`): what the row shows and what a click checks.
     public let path: String
 
     /// Nil unless `raw` is an absolute local path ("/…" or "~/…") on one line, with no
@@ -17,7 +17,7 @@ public struct FileLink: Equatable, Sendable {
         guard raw.hasPrefix("/") || raw.hasPrefix("~/"),
               !raw.unicodeScalars.contains(where: { $0.properties.generalCategory == .control }) else { return nil }
         self.raw = raw
-        path = FileAccess.canonical(TildePath.expand(raw, home: home))
+        path = FilePath.canonical(TildePath.expand(raw, home: home))
     }
 
     public var url: URL { URL(fileURLWithPath: path) }
@@ -86,7 +86,7 @@ public enum FileRowState: Equatable, Sendable {
     case missing
     /// Not a document type (`DocumentPolicy`): Reveal in Finder and Copy Path only.
     case refused
-    /// A network path or a hidden root (`FileAccess.isUntouchable`): Copy Path only, never
+    /// A network path or a hidden root (`FilePath.isUntouchable`): Copy Path only, never
     /// touched.
     case network
     /// From another machine: "On <host>" (or "From another machine"), Copy Path only.
@@ -95,19 +95,9 @@ public enum FileRowState: Equatable, Sendable {
     /// No filesystem: the place, then the path's own rules.
     public static func of(place: FilePlace, link: FileLink) -> FileRowState {
         if case .otherMac(let host) = place { return .otherMac(host) }
-        if FileAccess.isUntouchable(link.path) { return .network }
+        if FilePath.isUntouchable(link.path) { return .network }
         if !DocumentPolicy.allows(fileName: link.path) { return .refused }
         return .available
-    }
-
-    /// The state a click found; nil when the file is a document that opened.
-    public static func after(_ check: FileCheck) -> FileRowState? {
-        switch check {
-        case .document: return nil
-        case .refused: return .refused
-        case .missing: return .missing
-        case .network: return .network
-        }
     }
 
     public static let notFound = "File not found"

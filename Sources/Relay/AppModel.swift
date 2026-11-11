@@ -1,3 +1,4 @@
+import RelayMacCore
 import Foundation
 import os
 import RelayCore
@@ -60,6 +61,7 @@ final class ServerRouting: Sendable {
     weak var notifier: Notifier?
     /// Set by AppDelegate: this Mac's owner key for the connected Pond.
     var ownerKey: OwnerKeyFlow?
+    let phonePairing = PhonePairingController()
     /// Set by AppDelegate on every presence change.
     var presenceLine = "Home · active"
     var away = false

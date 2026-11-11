@@ -139,12 +139,13 @@ public enum Requirements {
         }
     }
 
-    /// The tick changes between two tick sets, as step ids, each list sorted. Paths without a
-    /// step id (an ask posted before Pond 1.1.0) and verify are left out.
+    /// Tick changes as sorted identities. Before shared progress (1.5), only real
+    /// step ids are supported; 1.5 also carries Verify and pre-id legacy nodes.
     public static func delta(nodes: [DetailModel.Node], before: Set<String>,
-                             after: Set<String>) -> (tick: [String], untick: [String]) {
-        let ids = Dictionary(Flow.flattened(nodes).filter { !$0.isVerify }.compactMap { node in
-            node.stepID.map { (node.path, $0) }
+                             after: Set<String>, shared: Bool = false) -> (tick: [String], untick: [String]) {
+        let ids = Dictionary(Flow.flattened(nodes).compactMap { node -> (String, String)? in
+            if shared { return (node.path, SharedProgress.id(for: node)) }
+            return node.isVerify ? nil : node.stepID.map { (node.path, $0) }
         }) { first, _ in first }
         let tick = after.subtracting(before).compactMap { ids[$0] }
         let untick = before.subtracting(after).compactMap { ids[$0] }

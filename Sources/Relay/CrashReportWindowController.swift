@@ -1,6 +1,7 @@
 import AppKit
 import RelayCore
 import RelayUI
+import RelayUIMac
 import SwiftUI
 
 /// Send a Crash Report in its own window, built like Settings: a stock titled, closable

@@ -87,11 +87,7 @@ public struct MailboxSettings: Sendable, Equatable {
 
     /// Reads the bearer token at use time. The value is never logged or stored.
     public func readToken() throws -> String {
-        let path = (tokenFile as NSString).expandingTildeInPath
-        let raw = (try? String(contentsOfFile: path, encoding: .utf8)) ?? ""
-        let token = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !token.isEmpty else { throw ConfigError.unreadableToken(path) }
-        return token
+        try FileTokenSource(path: tokenFile).readToken()
     }
 }
 
@@ -288,6 +284,7 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
         }
     }
 
+    #if os(macOS)
     /// `$RELAY_CONFIG` when set, else `~/.config/relay/config.json`.
     public static func path(
         environment: [String: String] = ProcessInfo.processInfo.environment
@@ -295,7 +292,7 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
         if let custom = environment["RELAY_CONFIG"], !custom.isEmpty {
             return URL(fileURLWithPath: (custom as NSString).expandingTildeInPath)
         }
-        return FileManager.default.homeDirectoryForCurrentUser
+        return URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
             .appending(path: ".config/relay/config.json")
     }
 
@@ -317,6 +314,8 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
     ) -> URL {
         path(environment: environment).deletingLastPathComponent()
     }
+
+    #endif
 
     /// `ConfigError.missing` when the file can't be read; `.invalid(reason)`
     /// when it isn't a JSON object or has a bad port. The reason never quotes the file.

@@ -36,5 +36,15 @@ for bad in 'font(.system(size: 13))' 'RoundedRectangle(cornerRadius: 6)' 'Color(
 done
 rm "$tmp/Sources/RelayUI/Panel/Literal.swift"
 
+mkdir -p "$tmp/Sources/RelayUIMac/Design" "$tmp/Sources/RelayUIMac/Panel"
+printf 'let a = Text("x").padding(12)\n' > "$tmp/Sources/RelayUIMac/Design/Tokens.swift"
+"$lint" "$tmp/Sources/RelayUIMac" >/dev/null 2>&1 || fail "a Mac Design literal failed"
+printf 'let a = Text("x").padding(12)\n' > "$tmp/Sources/RelayUIMac/Panel/Bad.swift"
+if "$lint" "$tmp/Sources/RelayUIMac" >/dev/null 2>&1; then fail "a Mac screen literal passed"; fi
+rm "$tmp/Sources/RelayUIMac/Panel/Bad.swift"
+printf 'let a = Text("x").glassEffect()\n' > "$tmp/Sources/RelayUIMac/Design/Glass.swift"
+if "$lint" "$tmp/Sources/RelayUIMac" >/dev/null 2>&1; then fail "Mac Design glassEffect passed"; fi
+rm "$tmp/Sources/RelayUIMac/Design/Glass.swift"
+
 if "$lint" "$tmp/Sources/Missing" >/dev/null 2>&1; then fail "a missing path passed"; fi
 echo "test-check-tokens: ok"

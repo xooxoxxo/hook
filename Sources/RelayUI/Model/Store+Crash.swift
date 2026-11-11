@@ -3,6 +3,7 @@ import RelayCore
 
 /// The crash bar, its crash report window, and the status bar's profile switcher.
 extension Store {
+#if os(macOS)
     /// The launch check found a crash to offer. A later one replaces it.
     public func offerCrash(_ summary: CrashSummary) {
         let offer = CrashOffer(summary: summary)
@@ -188,6 +189,8 @@ extension Store {
         onCrashHandled?(summary.handledKey)
         post(.crashReport(message: message))
     }
+
+#endif
 
     /// Only on change, so a config reload that keeps the profiles doesn't republish.
     public func setProfiles(_ menu: ProfileMenu) {

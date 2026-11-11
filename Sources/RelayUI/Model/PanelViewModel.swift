@@ -175,6 +175,7 @@ public enum CopyOutcome: Equatable, Sendable {
     func messageSession(_ id: String)
     /// "Trust the Pond's History Again…" (Touch ID): after a Pond restore, re-pin what it serves now.
     func trustHistoryAgain()
+    #if os(macOS)
     /// The last run crashed and the bar offers a report; nil once answered.
     var crashOffer: CrashOffer? { get }
     /// Review…: opens the crash report window, or brings it forward.
@@ -193,6 +194,7 @@ public enum CopyOutcome: Equatable, Sendable {
     func checkExistingCrashIssue()
     /// Not Now: the bar goes and the signature is marked handled.
     func dismissCrash()
+    #endif
     /// The status bar's profile switcher.
     var profiles: ProfileMenu { get }
     func switchProfile(_ kind: SourceKind)

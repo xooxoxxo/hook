@@ -1,0 +1,283 @@
+import RelayUI
+import AppKit
+
+/// A bitmap as 0xRRGGBBAA pixels, row 0 at the top.
+public struct InkBitmap: Sendable {
+    public let width: Int
+    public let height: Int
+    /// Pixels per point.
+    public let scale: CGFloat
+    public let pixels: [UInt32]
+
+    public init(width: Int, height: Int, scale: CGFloat, pixels: [UInt32]) {
+        self.width = width
+        self.height = height
+        self.scale = scale
+        self.pixels = pixels
+    }
+
+    public static func rgba(_ r: UInt8, _ g: UInt8, _ b: UInt8, _ a: UInt8) -> UInt32 {
+        UInt32(r) << 24 | UInt32(g) << 16 | UInt32(b) << 8 | UInt32(a)
+    }
+
+    /// Redraws `rep` into a known RGBA8 layout first, so any capture format works.
+    public init?(_ rep: NSBitmapImageRep) {
+        let w = rep.pixelsWide, h = rep.pixelsHigh
+        guard w > 0, h > 0, rep.size.width > 0,
+              let normal = NSBitmapImageRep(
+                bitmapDataPlanes: nil, pixelsWide: w, pixelsHigh: h, bitsPerSample: 8, samplesPerPixel: 4,
+                hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: w * 4, bitsPerPixel: 32),
+              let context = NSGraphicsContext(bitmapImageRep: normal) else { return nil }
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = context
+        rep.draw(in: NSRect(x: 0, y: 0, width: w, height: h))
+        NSGraphicsContext.restoreGraphicsState()
+        guard let data = normal.bitmapData else { return nil }
+        var pixels = [UInt32](repeating: 0, count: w * h)
+        for y in 0..<h {
+            for x in 0..<w {
+                let i = y * w * 4 + x * 4
+                pixels[y * w + x] = Self.rgba(data[i], data[i + 1], data[i + 2], data[i + 3])
+            }
+        }
+        self.init(width: w, height: h, scale: CGFloat(w) / rep.size.width, pixels: pixels)
+    }
+
+    func differs(_ a: UInt32, _ b: UInt32, threshold: Int) -> Bool {
+        for shift in [24, 16, 8] as [UInt32] {
+            let ca = Int((a >> shift) & 0xFF), cb = Int((b >> shift) & 0xFF)
+            if abs(ca - cb) > threshold { return true }
+        }
+        return false
+    }
+}
+
+/// Where ink starts and ends inside a probe's rect. The rect's top-left pixel is the background.
+/// Pixels inside `excluding` (decorations such as a required badge) never count as ink.
+public enum InkScan {
+    public static func firstInkX(_ bitmap: InkBitmap, in rect: CGRect, threshold: Int,
+                                 excluding: [CGRect] = []) -> CGFloat? {
+        inkColumns(bitmap, rect, threshold, excluding).first.map { CGFloat($0) / bitmap.scale }
+    }
+
+    public static func lastInkX(_ bitmap: InkBitmap, in rect: CGRect, threshold: Int,
+                                excluding: [CGRect] = []) -> CGFloat? {
+        inkColumns(bitmap, rect, threshold, excluding).last.map { CGFloat($0 + 1) / bitmap.scale }
+    }
+
+    public static func centreX(_ bitmap: InkBitmap, in rect: CGRect, threshold: Int,
+                               excluding: [CGRect] = []) -> CGFloat? {
+        guard let first = firstInkX(bitmap, in: rect, threshold: threshold, excluding: excluding),
+              let last = lastInkX(bitmap, in: rect, threshold: threshold, excluding: excluding) else { return nil }
+        return (first + last) / 2
+    }
+
+    /// The pixel rows inside `rect` that hold ink. `background` defaults to the rect's top-left pixel.
+    public static func inkRows(_ bitmap: InkBitmap, in rect: CGRect, threshold: Int,
+                               background: UInt32? = nil) -> [Int] {
+        let x0 = max(0, Int((rect.minX * bitmap.scale).rounded(.down)))
+        let x1 = min(bitmap.width, Int((rect.maxX * bitmap.scale).rounded(.up)))
+        let y0 = max(0, Int((rect.minY * bitmap.scale).rounded(.down)))
+        let y1 = min(bitmap.height, Int((rect.maxY * bitmap.scale).rounded(.up)))
+        guard x0 < x1, y0 < y1 else { return [] }
+        let back = background ?? bitmap.pixels[y0 * bitmap.width + x0]
+        return (y0..<y1).filter { y in
+            (x0..<x1).contains { x in bitmap.differs(bitmap.pixels[y * bitmap.width + x], back, threshold: threshold) }
+        }
+    }
+
+    /// The vertical centre of the ink inside `rect`, in points from the top.
+    public static func centreY(_ bitmap: InkBitmap, in rect: CGRect, threshold: Int,
+                               background: UInt32? = nil) -> CGFloat? {
+        let rows = inkRows(bitmap, in: rect, threshold: threshold, background: background)
+        guard let first = rows.first, let last = rows.last else { return nil }
+        return CGFloat(first + last + 1) / 2 / bitmap.scale
+    }
+
+    static func inkColumns(_ bitmap: InkBitmap, _ rect: CGRect, _ threshold: Int,
+                           _ excluding: [CGRect] = []) -> [Int] {
+        func pixels(_ r: CGRect) -> (x: Range<Int>, y: Range<Int>) {
+            let x0 = max(0, Int((r.minX * bitmap.scale).rounded(.down)))
+            let x1 = min(bitmap.width, Int((r.maxX * bitmap.scale).rounded(.up)))
+            let y0 = max(0, Int((r.minY * bitmap.scale).rounded(.down)))
+            let y1 = min(bitmap.height, Int((r.maxY * bitmap.scale).rounded(.up)))
+            return (x0..<max(x0, x1), y0..<max(y0, y1))
+        }
+        let (xs, ys) = pixels(rect)
+        guard !xs.isEmpty, !ys.isEmpty else { return [] }
+        let skipped = excluding.map(pixels)
+        let background = bitmap.pixels[ys.lowerBound * bitmap.width + xs.lowerBound]
+        return xs.filter { x in
+            ys.contains { y in
+                !skipped.contains { $0.x.contains(x) && $0.y.contains(y) }
+                    && bitmap.differs(bitmap.pixels[y * bitmap.width + x], background, threshold: threshold)
+            }
+        }
+    }
+}
+
+public enum AlignmentRule: Equatable, Sendable {
+    case leading(ProbeRole, x: CGFloat, tolerance: CGFloat)
+    case trailing(ProbeRole, x: CGFloat, tolerance: CGFloat)
+    case sameCentre(ProbeRole, tolerance: CGFloat)
+    case sameLeading(ProbeRole, tolerance: CGFloat)
+    case sameTrailingPerGroup(ProbeRole, tolerance: CGFloat)
+    /// Every probe of the role sits on the line of the `anchor` probe in its group: their
+    /// frames' midY agree. No probe of the role passes (a row without an accessory).
+    case inlineWith(ProbeRole, anchor: ProbeRole, tolerance: CGFloat)
+
+    /// A Settings row's accessory is on its control's line, never under it.
+    public static let settingsAccessoryInline = AlignmentRule.inlineWith(.settingsAccessory, anchor: .settingsControl, tolerance: 1)
+
+    var role: ProbeRole {
+        switch self {
+        case .leading(let r, _, _), .trailing(let r, _, _), .sameCentre(let r, _), .sameLeading(let r, _),
+             .sameTrailingPerGroup(let r, _), .inlineWith(let r, _, _):
+            return r
+        }
+    }
+}
+
+extension AlignmentRule: CustomStringConvertible {
+    public var description: String {
+        let f: (CGFloat) -> String = AlignmentCheck.format
+        switch self {
+        case let .leading(r, x, t): return "leading(\(r.rawValue), x: \(f(x)), tolerance: \(f(t)))"
+        case let .trailing(r, x, t): return "trailing(\(r.rawValue), x: \(f(x)), tolerance: \(f(t)))"
+        case let .sameCentre(r, t): return "sameCentre(\(r.rawValue), tolerance: \(f(t)))"
+        case let .sameLeading(r, t): return "sameLeading(\(r.rawValue), tolerance: \(f(t)))"
+        case let .sameTrailingPerGroup(r, t): return "sameTrailingPerGroup(\(r.rawValue), tolerance: \(f(t)))"
+        case let .inlineWith(r, a, t): return "inlineWith(\(r.rawValue), anchor: \(a.rawValue), tolerance: \(f(t)))"
+        }
+    }
+}
+public struct AlignmentFailure: Equatable, Sendable, CustomStringConvertible {
+    public var rule: AlignmentRule
+    public var detail: String
+
+    public init(rule: AlignmentRule, detail: String) {
+        self.rule = rule
+        self.detail = detail
+    }
+
+    public var description: String { "\(rule): \(detail)" }
+}
+
+public enum AlignmentCheck {
+    /// Ink differs from the background by more than this in some channel (0–255).
+    static let threshold = 48
+
+    /// How far, in points, a probe may overhang the capture and still count as inside it (rounding).
+    static let edgeSlack: CGFloat = 0.5
+
+    /// Roles the `--xl` variant measures by frame: at 1.35x a capital's left side bearing
+    /// (C, P, R) puts the ink past a frame that sits exactly on the rule.
+    public static let xlFrameRoles: Set<ProbeRole> = [.gutterText, .cardText]
+
+    /// The probes with every probe of `roles` measured by its frame; the others keep their measure.
+    public static func measuringByFrame(_ probes: [ProbeFrame], roles: Set<ProbeRole>) -> [ProbeFrame] {
+        probes.map { probe in
+            var probe = probe
+            if roles.contains(probe.role) { probe.measure = .frame }
+            return probe
+        }
+    }
+
+    /// Checks `rules` against the probes, each by its ink or, for a `.frame` probe, by its frame's
+    /// edges. A required badge's ink is left out of every scan: it sits on a marker, not in its column. A probe whose frame runs past the capture's edges (a List
+    /// row cut off at the bottom) is skipped: the visible strip holds no full glyph, so measuring it
+    /// would report a false "no ink". A rule whose probes are all clipped fails.
+    public static func verify(_ probes: [ProbeFrame], bitmap: InkBitmap, rules: [AlignmentRule]) -> [AlignmentFailure] {
+        var failures: [AlignmentFailure] = []
+        let badges = probes.filter { $0.role == .requiredBadge }.map(\.frame)
+        let bounds = CGRect(x: 0, y: 0, width: CGFloat(bitmap.width) / bitmap.scale,
+                            height: CGFloat(bitmap.height) / bitmap.scale)
+            .insetBy(dx: -edgeSlack, dy: -edgeSlack)
+        for rule in rules {
+            if case let .inlineWith(role, anchor, tolerance) = rule {
+                failures += inline(probes, role: role, anchor: anchor, tolerance: tolerance, rule: rule)
+                continue
+            }
+            let ofRole = probes.filter { $0.role == rule.role }
+            let mine = ofRole.filter { bounds.contains($0.frame) }
+            guard !mine.isEmpty else {
+                let detail = ofRole.isEmpty
+                    ? "no \(rule.role.rawValue) probe"
+                    : "no \(rule.role.rawValue) probe inside the capture (\(ofRole.count) clipped)"
+                failures.append(AlignmentFailure(rule: rule, detail: detail))
+                continue
+            }
+            /// Each probe's value: its ink by `scan`, or its frame by `edge` for a `.frame` probe.
+            func measure(_ scan: (InkBitmap, CGRect, Int) -> CGFloat?,
+                         _ edge: (CGRect) -> CGFloat) -> [(ProbeFrame, CGFloat)]? {
+                var values: [(ProbeFrame, CGFloat)] = []
+                for p in mine {
+                    if p.measure == .frame {
+                        values.append((p, edge(p.frame)))
+                        continue
+                    }
+                    guard let value = scan(bitmap, p.frame, threshold) else {
+                        failures.append(AlignmentFailure(rule: rule, detail: "no ink in \(p.role.rawValue) at \(format(rect: p.frame))"))
+                        return nil
+                    }
+                    values.append((p, value))
+                }
+                return values
+            }
+            switch rule {
+            case let .leading(_, x, tolerance):
+                for (p, value) in measure({ InkScan.firstInkX($0, in: $1, threshold: $2, excluding: badges) },
+                                          \.minX) ?? [] where abs(value - x) > tolerance {
+                    failures.append(AlignmentFailure(rule: rule, detail: "starts at \(format(value)), expected \(format(x)) ± \(format(tolerance)) (\(format(rect: p.frame)))"))
+                }
+            case let .trailing(_, x, tolerance):
+                for (p, value) in measure({ InkScan.lastInkX($0, in: $1, threshold: $2, excluding: badges) },
+                                          \.maxX) ?? [] where abs(value - x) > tolerance {
+                    failures.append(AlignmentFailure(rule: rule, detail: "ends at \(format(value)), expected \(format(x)) ± \(format(tolerance)) (\(format(rect: p.frame)))"))
+                }
+            case let .sameCentre(_, tolerance):
+                let values = measure({ InkScan.centreX($0, in: $1, threshold: $2, excluding: badges) }, \.midX)
+                spread(values, tolerance, rule, "centres", &failures)
+            case let .sameLeading(_, tolerance):
+                let values = measure({ InkScan.firstInkX($0, in: $1, threshold: $2, excluding: badges) }, \.minX)
+                spread(values, tolerance, rule, "starts", &failures)
+            case let .sameTrailingPerGroup(_, tolerance):
+                guard let values = measure({ InkScan.lastInkX($0, in: $1, threshold: $2, excluding: badges) },
+                                           \.maxX) else { continue }
+                for group in Set(values.map(\.0.group)).sorted() {
+                    spread(values.filter { $0.0.group == group }, tolerance, rule, "ends in \(group)", &failures)
+                }
+            case .inlineWith:
+                break   // checked above, by frame
+            }
+        }
+        return failures
+    }
+
+    /// Each `role` probe against the `anchor` probe of its group, by frame midY.
+    private static func inline(_ probes: [ProbeFrame], role: ProbeRole, anchor: ProbeRole, tolerance: CGFloat,
+                               rule: AlignmentRule) -> [AlignmentFailure] {
+        probes.filter { $0.role == role }.compactMap { probe in
+            guard let line = probes.first(where: { $0.role == anchor && $0.group == probe.group }) else {
+                return AlignmentFailure(rule: rule, detail: "no \(anchor.rawValue) probe in \(probe.group)")
+            }
+            let delta = abs(probe.frame.midY - line.frame.midY)
+            guard delta > tolerance else { return nil }
+            return AlignmentFailure(rule: rule, detail: "\(probe.group): midY \(format(probe.frame.midY)), its line \(format(line.frame.midY))")
+        }
+    }
+
+    private static func spread(_ values: [(ProbeFrame, CGFloat)]?, _ tolerance: CGFloat, _ rule: AlignmentRule,
+                               _ what: String, _ failures: inout [AlignmentFailure]) {
+        guard let values, let low = values.map(\.1).min(), let high = values.map(\.1).max() else { return }
+        if high - low > tolerance {
+            failures.append(AlignmentFailure(rule: rule, detail: "\(what) range \(format(low))–\(format(high)), more than \(format(tolerance)) apart"))
+        }
+    }
+
+    static func format(_ value: CGFloat) -> String { String(format: "%.1f", Double(value)) }
+
+    static func format(rect: CGRect) -> String {
+        "(\(format(rect.minX)), \(format(rect.minY)), \(format(rect.width))×\(format(rect.height)))"
+    }
+}

@@ -1,6 +1,7 @@
 import AppKit
 import RelayCore
 import RelayUI
+import RelayUIMac
 import SwiftUI
 
 /// Settings: a stock toolbar-tab window with seven tabs, 600 pt content, the window

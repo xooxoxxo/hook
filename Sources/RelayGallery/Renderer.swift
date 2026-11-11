@@ -1,3 +1,4 @@
+import RelayUIMac
 import AppKit
 import RelayCore
 import RelayUI
@@ -100,7 +101,7 @@ func write(_ rep: NSBitmapImageRep, to path: String) {
 @MainActor func hostedCapture(_ scene: GalleryScene, width: CGFloat, height: CGFloat?, options: GalleryOptions,
                               appearance: NSAppearance?) -> (rep: NSBitmapImageRep, probes: [ProbeFrame]) {
     let sink = AlignmentProbeSink()
-    let root = decorated(scene.view(), options: options, standIn: scene.standIn, sink: sink)
+    let root = decorated(AnyView(scene.view().macFileRows()), options: options, standIn: scene.standIn, sink: sink)
     let h: CGFloat
     if let height {
         h = height
@@ -170,7 +171,7 @@ func tabSymbol(_ id: SettingsTabID) -> String {
         let rooted: AnyView = index == selected
             // A scene with no rules collects no probes: Settings › Agents nests its Form beside a
             // List, where probe frames aren't in the frame view's space.
-            ? AnyView(decorated(scene.view(), options: options, standIn: false,
+            ? AnyView(decorated(AnyView(scene.view().macFileRows()), options: options, standIn: false,
                                 sink: scene.rules.isEmpty ? nil : sink).frame(width: width))
             : AnyView(EmptyView())
         let controller = NSHostingController(rootView: rooted)

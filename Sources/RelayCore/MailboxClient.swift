@@ -49,8 +49,8 @@ final class NoRedirectDelegate: NSObject, URLSessionTaskDelegate, Sendable {
                     newRequest request: URLRequest) async -> URLRequest? { nil }
 }
 
-/// The mailbox service as a `QueueSource`. The token is read from the token file
-/// on every request, so it is never kept in memory longer than one call; so is the owner key.
+/// The mailbox service as a `QueueSource`. Credentials are read on every request,
+/// never retained between calls. Synchronous token reads run on `KeychainQueue`.
 public struct MailboxClient: QueueSource {
     /// What every request says this client reads: revision histories (Pond 1.1.0; without it a
     /// corrected ask is served as a stub), and from 6 choice objects (Pond 1.4.0; below 6 an ask
@@ -67,13 +67,32 @@ public struct MailboxClient: QueueSource {
     /// Read on each owner act, never stored: it returns this Mac's key only while the Pond
     /// has approved it (`OwnerKeyVault.approvedKey`). Async: it reads the Keychain on
     /// `KeychainQueue`, which may be waiting on a prompt.
-    private let ownerKey: (@Sendable () async -> String?)?
+    private let ownerKey: (@Sendable () async throws -> String?)?
+    private let ownerStatusKey: (@Sendable () async throws -> String?)?
+    private let tokenSource: any TokenSource
+    private let keychain: KeychainQueue
+    private let transport: (@Sendable (URLRequest) async throws -> (Data, URLResponse))?
 
     public init(settings: MailboxSettings, session: URLSession = .shared,
                 ownerKey: (@Sendable () async -> String?)? = nil) {
+        self.init(settings: settings, session: session, tokenSource: nil, ownerKey: ownerKey)
+    }
+
+    /// An injected source defaults to HTTPS. FileTokenSource retains legacy HTTP support.
+    /// Phone callers use `OwnerKeyFlow.authenticatedProvider`: read failures stop owner acts
+    /// before any request is sent, rather than downgrading to bearer-only authentication.
+    public init(settings: MailboxSettings, session: URLSession = .shared,
+                tokenSource: (any TokenSource)?, ownerKey: (@Sendable () async throws -> String?)? = nil,
+                keychain: KeychainQueue = .shared,
+                ownerStatusKey: (@Sendable () async throws -> String?)? = nil,
+                transport: (@Sendable (URLRequest) async throws -> (Data, URLResponse))? = nil) {
         self.settings = settings
         self.session = session
         self.ownerKey = ownerKey
+        self.tokenSource = tokenSource ?? FileTokenSource(path: settings.tokenFile)
+        self.keychain = keychain
+        self.transport = transport
+        self.ownerStatusKey = ownerStatusKey
     }
 
     public init(baseURL: URL, tokenFile: String, context: String, session: URLSession = .shared) {
@@ -213,6 +232,11 @@ public struct MailboxClient: QueueSource {
         try await send("GET", "owner/enroll/\(id)")
     }
 
+    /// Revokes one device, authenticated with this device's approved owner key.
+    public func revokeOwnerKey(_ id: String) async throws {
+        let _: JSONValue = try await send("POST", "owner/revoke", body: Self.encode(["id": id]), owner: true)
+    }
+
     /// `POST /owner/require`: on takes effect at once; off waits for the owner's tap on
     /// Telegram (202 → `.pending`).
     public func requireOwnerKey(_ on: Bool) async throws -> OwnerKeyRequirement {
@@ -331,7 +355,7 @@ public struct MailboxClient: QueueSource {
     static func logged(_ error: QueueError) -> (status: Int?, message: String) {
         switch error {
         case .unreachable(let reason): return (nil, reason)
-        case .unauthorized: return (401, "unauthorized")
+        case .unauthorized, .tokenRejected: return (401, "unauthorized")
         case .notFound: return (404, "not found")
         case .corrected: return (409, "ask was corrected")
         case .ownerKeyRefused: return (403, "unknown owner key")
@@ -357,43 +381,69 @@ public struct MailboxClient: QueueSource {
         body: Data?,
         owner: Bool
     ) async throws -> T {
+        let revokingOwnerKey = method == "POST" && path == "owner/revoke"
+        if revokingOwnerKey { try Task.checkCancellation() }
         var components = URLComponents(
             url: settings.url.appending(path: path), resolvingAgainstBaseURL: false)
         if !query.isEmpty { components?.queryItems = query }
         guard let url = components?.url else { throw QueueError.unreachable("the Pond URL is not valid") }
 
+        guard !tokenSource.requiresHTTPS || (url.scheme?.lowercased() == "https" && url.host != nil && url.user == nil && url.password == nil) else {
+            throw QueueError.unreachable("The Pond token needs a valid URL that starts with https.")
+        }
         let token: String
         do {
-            token = try settings.readToken()
+            let source = tokenSource
+            token = try await keychain.run { try source.readToken() }
         } catch {
-            // The error names the file's path, never its content; the log gets neither.
-            throw Transport(error: .unreachable(error.localizedDescription), logText: "couldn't read the token file")
+            // File source errors preserve the Mac's path-based help; Keychain errors name
+            // only the token. Logs contain neither paths nor credential values.
+            throw Transport(error: .unreachable(error.localizedDescription), logText: "couldn't read the Pond token")
         }
 
+        if revokingOwnerKey { try Task.checkCancellation() }
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.timeoutInterval = 10
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue(Self.clientProtocol, forHTTPHeaderField: Self.protocolHeader)
         // Never over plain http to another host, whatever the provider says.
-        if owner, OwnerKey.mayCarry(url), let key = await ownerKey?() {
-            request.setValue(key, forHTTPHeaderField: Self.ownerKeyHeader)
+        if owner, OwnerKey.mayCarry(url) {
+            do {
+                let provider = method == "GET" && path == "owner" ? (ownerStatusKey ?? ownerKey) : ownerKey
+                if let key = try await provider?() { request.setValue(key, forHTTPHeaderField: Self.ownerKeyHeader) }
+            } catch {
+                throw QueueError.unreachable("Hook couldn't read its owner key from the Keychain. Unlock this device and try again.")
+            }
+        }
+        // Device revocation always needs an approved owner key, even while the Pond
+        // permits bearer-only owner acts. A stale UI approval must not downgrade it.
+        if method == "POST", path == "owner/revoke",
+           request.value(forHTTPHeaderField: Self.ownerKeyHeader)?.isEmpty != false {
+            throw QueueError.ownerKeyRefused
         }
         if let body {
             request.httpBody = body
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
 
+        // OwnerKeyFlow cancels this task when its source attachment changes. Reads
+        // above may ignore cancellation, so fence the destructive request at dispatch.
+        if revokingOwnerKey { try Task.checkCancellation() }
         let result: (Data, URLResponse)
-        do {
-            result = try await session.data(for: request, delegate: NoRedirectDelegate.shared)
-        } catch let error as URLError {
-            // A TLS error's text names the host: the log gets the code only. A request
-            // cancelled by a source swap is no failure.
-            throw Transport(error: .unreachable(error.localizedDescription),
-                            logText: error.code == .cancelled ? nil : "request failed (URLError \(error.code.rawValue))")
-        } catch {
-            throw QueueError.unreachable("the request failed")
+        if let transport {
+            result = try await transport(request)
+        } else {
+            do {
+                result = try await session.data(for: request, delegate: NoRedirectDelegate.shared)
+            } catch let error as URLError {
+                // A TLS error's text names the host: the log gets the code only. A request
+                // cancelled by a source swap is no failure.
+                throw Transport(error: .unreachable(error.localizedDescription),
+                                logText: error.code == .cancelled ? nil : "request failed (URLError \(error.code.rawValue))")
+            } catch {
+                throw QueueError.unreachable("the request failed")
+            }
         }
         let (data, response) = result
         guard let http = response as? HTTPURLResponse else {
@@ -409,7 +459,7 @@ public struct MailboxClient: QueueSource {
         case 300..<400:
             throw QueueError.unreachable("the Pond answered with a redirect (\(http.statusCode)); not following it")
         case 401:
-            throw QueueError.unauthorized
+            throw tokenSource.requiresHTTPS ? QueueError.tokenRejected : QueueError.unauthorized
         case 404:
             throw QueueError.notFound
         default:

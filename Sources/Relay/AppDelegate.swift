@@ -1,3 +1,5 @@
+import RelayUIMac
+import RelayMacCore
 import AppKit
 import CryptoKit
 import SwiftUI
@@ -531,7 +533,12 @@ import RelayUI
         let pollSeconds = config?.pollSeconds ?? RelayConfig.defaultPollSeconds
 
         let resolved = config?.resolvedSource() ?? .incomplete
-        if case .mailbox = resolved {} else { attachOwnerKey(nil, url: nil, nil) }
+        if case .mailbox(let settings) = resolved {
+            model.phonePairing.configure(settings: settings)
+        } else {
+            model.phonePairing.configure(settings: nil)
+            attachOwnerKey(nil, url: nil, nil)
+        }
         switch resolved {
         case .local:
             let keepDays = config?.keepDays ?? RelayConfig.defaultKeepDays

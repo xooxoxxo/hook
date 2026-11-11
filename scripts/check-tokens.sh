@@ -1,11 +1,11 @@
 #!/bin/bash
-# Checks the UI code for hard-coded styling: outside Sources/RelayUI/Design/ there
+# Checks UI code for hard-coded styling: outside either UI module's Design/ there
 # must be no literal sizes, colours, durations or custom shapes (they belong in the
 # design tokens), and nowhere a switch-style toggle or a Liquid Glass call. Prints path:line:text per hit.
 # Exit 0 clean, 1 on any hit, 2 when a path doesn't exist.
 set -u
 cd "$(dirname "$0")/.." || exit 2
-if [ "$#" -gt 0 ]; then paths=("$@"); else paths=(Sources/RelayUI Sources/Relay); fi
+if [ "$#" -gt 0 ]; then paths=("$@"); else paths=(Sources/RelayUI Sources/RelayUIMac Sources/Relay); fi
 for p in "${paths[@]}"; do
   [ -e "$p" ] || { echo "check-tokens: no such path: $p" >&2; exit 2; }
 done
@@ -13,7 +13,7 @@ literals='font\(\.system\(size:|\.padding\([^)]*[0-9]|cornerRadius: *[0-9]|Color
 banned='\.toggleStyle\(\.switch\)|glassEffect'
 hits="$(
   {
-    grep -rnE --include='*.swift' "$literals" "${paths[@]}" | grep -vE '(^|/)Sources/RelayUI/Design/'
+    grep -rnE --include='*.swift' "$literals" "${paths[@]}" | grep -vE '(^|/)Sources/Relay(UI|UIMac)/Design/'
     grep -rnE --include='*.swift' "$banned" "${paths[@]}"
   } | sort -u
 )"

@@ -109,7 +109,7 @@ public struct OptionRows: View {
                 } label: {
                     Text(verbatim: line(prompt))
                 }
-                .pickerStyle(.radioGroup)
+                .askChoicePickerStyle()
                 .disabled(disabled)
             }
         }
@@ -174,7 +174,7 @@ public struct OptionRows: View {
                 Toggle(isOn: Binding(get: { isOn }, set: { _ in onPick(i) })) {
                     Text(verbatim: Self.accessibilityText(index: i, option: options[i], sent: sent.contains(i), numbered: numbered))
                 }
-                .toggleStyle(.checkbox)
+                .askChoiceToggleStyle()
                 .disabled(disabled)
             }
         } else {

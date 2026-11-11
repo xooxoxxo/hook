@@ -1,3 +1,4 @@
+import RelayMacCore
 import AppKit
 
 /// The main menu. Hook has no Dock icon most of the time, so it is rarely seen, but its key
