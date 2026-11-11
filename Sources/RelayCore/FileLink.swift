@@ -121,7 +121,7 @@ public enum FileRowState: Equatable, Sendable {
     public var canReveal: Bool { self == .available || self == .refused }
 }
 
-/// Settings › General › "Open documents in", stored as config.json `openDocumentsIn`.
+/// Settings › Documents › "Open documents in", stored as config.json `openDocumentsIn`.
 public enum DocumentTarget: Equatable, Sendable {
     /// Hook's viewer for Markdown and text; any other file opens in its default app.
     case viewer

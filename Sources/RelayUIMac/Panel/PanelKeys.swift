@@ -36,6 +36,7 @@ public enum KeyResponder {
 public struct PanelKeys: ViewModifier {
     private let model: any PanelViewModel
     @FocusedValue(\.relayClosedHeaderFocused) private var closedHeaderFocused
+    @FocusedValue(\.relayGroupHeaderFocused) private var groupHeaderFocused
 
     public init(model: some PanelViewModel) {
         self.model = model
@@ -63,8 +64,9 @@ public struct PanelKeys: ViewModifier {
                 return .ignored
             }
             let window = NSApp.keyWindow
-            let context = model.keyContext(textFieldFocused: KeyResponder.textFieldFocused(window), popoverOpen: false,
+            var context = model.keyContext(textFieldFocused: KeyResponder.textFieldFocused(window), popoverOpen: false,
                                            closedHeaderFocused: closedHeaderFocused ?? false)
+            context.focusedGroup = groupHeaderFocused
             guard let command = KeyMap.command(for: key, in: context) else { return .ignored }
             switch command {
             case .endEditing:
@@ -73,6 +75,8 @@ public struct PanelKeys: ViewModifier {
                 NotificationCenter.default.post(name: .relayFocusReply, object: nil)
             case .setClosedExpanded(let expanded):
                 UserDefaults.standard.set(expanded, forKey: "relay.closedToday.expanded")
+            case .setGroupCollapsed(let key, let collapsed):
+                CollapsedGroups.update(.standard) { $0.set(key: key, collapsed: collapsed) }
             default:
                 model.perform(command)
             }

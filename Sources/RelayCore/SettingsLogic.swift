@@ -45,7 +45,7 @@ extension SettingsTabID {
         defaults.set(rawValue, forKey: Self.defaultsKey)
     }
 
-    /// ⌘1 … ⌘5, left to right.
+    /// ⌘1 … ⌘7, left to right.
     public init?(shortcutDigit: Int) {
         guard (1...Self.allCases.count).contains(shortcutDigit) else { return nil }
         self = Self.allCases[shortcutDigit - 1]
@@ -58,6 +58,8 @@ extension SettingsTabID {
         case .queue: "Queue"
         case .notifications: "Notifications"
         case .agents: "Agents"
+        case .documents: "Documents"
+        case .privacy: "Privacy"
         }
     }
 
@@ -68,6 +70,8 @@ extension SettingsTabID {
         case .queue: "tray"
         case .notifications: "bell"
         case .agents: "terminal"
+        case .documents: "doc.text"
+        case .privacy: "hand.raised"
         }
     }
 }
@@ -247,7 +251,7 @@ public struct SettingsSnapshot: Equatable {
     public var documentAppName: String?
     /// Settings › General › Updates: how Hook was installed, so what an update does.
     public var install: InstallLine?
-    /// Settings › General › Privacy.
+    /// Settings › Privacy.
     public var privacy: PrivacyLine
     public var now: Date
 
@@ -287,7 +291,7 @@ public struct SettingsSnapshot: Equatable {
     }
 }
 
-/// Settings › General › Privacy: the crash settings as they read, and the activity log's size.
+/// Settings › Privacy: the crash settings as they read, and the activity log's size.
 public struct PrivacyLine: Equatable, Sendable {
     public var reports: CrashReportsSetting
     /// The saved target as it reads: a saved `pond` without My Pond on offer is GitHub.
@@ -328,7 +332,7 @@ public struct PrivacyLine: Equatable, Sendable {
     }
 }
 
-/// Settings › General › Privacy › Diagnostics: the row's text after Save Diagnostics….
+/// Settings › Privacy › Diagnostics: the row's text after Save Diagnostics….
 public enum DiagnosticsState: Equatable, Sendable {
     case idle
     /// The system log read can take a while (it stops after 30 s).
@@ -361,13 +365,13 @@ public enum SettingsAction: Equatable {
     case refreshAgents, integration(IntegrationCommand), agentAction(HarnessAction)
     /// Settings › Queue: read the mailbox's version now; run Update Mailbox….
     case checkMailbox, updateMailbox
-    /// Settings › General › Open documents in › Other App…: pick an app and save it.
+    /// Settings › Documents › Open documents in › Other App…: pick an app and save it.
     case chooseDocumentApp
     /// Settings › General › Updates: Check for Updates….
     case checkForUpdates
-    /// Settings › General › Privacy › Activity log: reveal hook.log in Finder.
+    /// Settings › Privacy › Activity log: reveal hook.log in Finder.
     case showLogInFinder
-    /// Settings › General › Privacy › Diagnostics: Save Diagnostics… (a save panel, then the file).
+    /// Settings › Privacy › Diagnostics: Save Diagnostics… (a save panel, then the file).
     case saveDiagnostics
 }
 

@@ -6,11 +6,46 @@ import WebKit
 
 /// Hook's document viewer: one small window per file, titled with the file name, with
 /// ⌘F (find), ⌘G / ⇧⌘G (next and previous match) and ⌘W (close). Opening a file that is
-/// already open brings its window forward with the file read again.
+/// already open brings its window forward with the file read again. While any viewer
+/// window is open Hook is a regular app (`AppPresence`), so ⌘-Tab and ⌘-` find it.
 @MainActor public final class DocumentViewer {
     public static let shared = DocumentViewer()
 
     private var windows: [String: DocumentWindowController] = [:]
+
+    /// The look (Settings › Documents). Open windows take a new one at once, in place.
+    public var theme = ViewerTheme() {
+        didSet {
+            guard theme != oldValue else { return }
+            let stylesheet = DS.Viewer.stylesheet(theme: theme)
+            for controller in windows.values { controller.restyle(stylesheet, theme: theme) }
+        }
+    }
+
+    /// The open documents, by file name: the menu-bar menu lists them.
+    public var openDocuments: [OpenDocument] {
+        windows.map { OpenDocument(path: $0.key, name: $0.value.window?.title ?? "") }
+            .sorted { a, b in
+                switch a.name.localizedStandardCompare(b.name) {
+                case .orderedAscending: true
+                case .orderedDescending: false
+                case .orderedSame: a.path < b.path
+                }
+            }
+    }
+
+    public struct OpenDocument: Equatable, Sendable {
+        public let path: String
+        public let name: String
+    }
+
+    /// Brings the open window for `path` forward; false when none is open.
+    @discardableResult
+    public func bringForward(_ path: String) -> Bool {
+        guard let controller = windows[path] else { return false }
+        controller.present()
+        return true
+    }
 
     /// Shows `contents` (the bytes a click's check read from `file`) as `kind`; `file` only
     /// names the window. False when the bytes are too many for the viewer (the caller opens
@@ -18,13 +53,13 @@ import WebKit
     @discardableResult
     public func show(_ file: URL, contents: Data, kind: DocumentKind) -> Bool {
         let key = file.standardizedFileURL.path
-        guard let page = Self.page(file, contents: contents, kind: kind) else { return false }
+        guard let page = Self.page(file, contents: contents, kind: kind, theme: theme) else { return false }
         let content = DocumentWebView(page: page, folder: file.deletingLastPathComponent())
         content.onOpenDocument = { [weak self] url in self?.openLinked(url) }
         if let existing = windows[key] {
             existing.replace(content)
         } else {
-            let controller = DocumentWindowController(file: file, content: content)
+            let controller = DocumentWindowController(file: file, content: content, theme: theme)
             controller.onClose = { [weak self] in self?.windows[key] = nil }
             windows[key] = controller
         }
@@ -34,10 +69,10 @@ import WebKit
     }
 
     /// The page for bytes already read; nil when there are more than `DocumentPage.maxBytes`.
-    static func page(_ file: URL, contents: Data, kind: DocumentKind) -> String? {
+    static func page(_ file: URL, contents: Data, kind: DocumentKind, theme: ViewerTheme = ViewerTheme()) -> String? {
         guard contents.count <= DocumentPage.maxBytes else { return nil }
         return DocumentPage.html(text: DocumentPage.text(contents), kind: kind, title: file.lastPathComponent,
-                                 stylesheet: DS.Viewer.stylesheet())
+                                 stylesheet: DS.Viewer.stylesheet(theme: theme))
     }
 
     /// A link in a page to another document in its folder: checked and read the way a file
@@ -63,7 +98,7 @@ import WebKit
 
     static let searchID = NSToolbarItem.Identifier("hook.viewer.search")
 
-    init(file: URL, content: DocumentWebView) {
+    init(file: URL, content: DocumentWebView, theme: ViewerTheme) {
         self.content = content
         let window = DocumentWindow(
             contentRect: NSRect(x: 0, y: 0, width: DS.Viewer.windowWidth, height: DS.Viewer.windowHeight),
@@ -74,6 +109,7 @@ import WebKit
         window.isReleasedWhenClosed = false
         window.minSize = NSSize(width: DS.Viewer.windowMinWidth, height: DS.Viewer.windowMinHeight)
         window.contentView = content.webView
+        window.appearance = DS.Viewer.appearance(theme).flatMap(NSAppearance.init(named:))
         window.setFrameAutosaveName("HookDocumentViewer")
         super.init(window: window)
         window.delegate = self
@@ -101,10 +137,17 @@ import WebKit
     }
 
     func present() {
+        if let window { AppPresence.shared.track(window) }
         showWindow(nil)
         window?.makeKeyAndOrderFront(nil)
         window?.makeFirstResponder(content.webView)
         NSApp.activate()
+    }
+
+    /// A new theme: the page's stylesheet in place, and the title bar light or dark to match.
+    func restyle(_ stylesheet: String, theme: ViewerTheme) {
+        window?.appearance = DS.Viewer.appearance(theme).flatMap(NSAppearance.init(named:))
+        content.restyle(stylesheet)
     }
 
     func windowWillClose(_ notification: Notification) { onClose() }

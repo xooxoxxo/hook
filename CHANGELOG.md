@@ -3,6 +3,30 @@
 All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## [Unreleased]
+
+### Added
+
+- Every queue group (project or urgency) collapses: click anywhere on its header. ⌥-click collapses or expands every group, and Collapse All and Expand All are in the queue menu and a group header's context menu. Recently closed keeps its own state. Groups stay collapsed across launches.
+- A collapsed group shows its newest ask under its name. Section counts are pills.
+- Settings › Documents › Viewer: pick a theme (System, Paper, Sepia, Night), your own colours for the background, text, headings, links and code, and a reading width (Full, Wide, Narrow). Open viewer windows change at once.
+- While a viewer, Settings or crash report window is open, Hook shows a Dock icon, so ⌘-Tab and ⌘-` bring it back. The menu-bar menu lists open documents.
+
+### Changed
+
+- Section headers no longer have a chevron; the whole header row toggles.
+- Settings: Documents and Privacy have their own tabs (⌘6, ⌘7); General is shorter.
+- Review… on the crash bar opens Send a Crash Report in its own window, like Settings, instead of a sheet on the panel. Closing the window keeps the bar.
+
+### Fixed
+
+- Clicking the Recently closed arrow did nothing.
+- The first click on an ask in the panel opens it while another app has focus. Before, it only focused the panel.
+- The document viewer fills its window and reflows as you resize it. Tables wrap between words and scroll sideways only when they can't fit.
+
+<!-- hook:pond=^1.1.0 -->
+<!-- hook:mailbox-protocol=5 -->
+
 ## [0.15.4] - 2026-11-09
 
 ### Fixed

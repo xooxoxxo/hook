@@ -2,10 +2,11 @@ import RelayUI
 import RelayCore
 import SwiftUI
 
-/// The crash report's modal sheet (pick 2 A): where it goes, exactly what is sent, and the
-/// send. Nothing leaves this Mac until the primary button: My Pond files a Hook bug, GitHub
-/// opens a prefilled issue for the owner to submit.
-public struct CrashReportSheet<Model: PanelViewModel>: View {
+/// The crash report window's content (Review… on the crash bar): where it goes, exactly what
+/// is sent, and the send. Nothing leaves this Mac until the primary button: My Pond files a
+/// Hook bug, GitHub opens a prefilled issue for the owner to submit. The window is the app's
+/// own (like Settings), not a sheet on the panel; closing it is Cancel.
+public struct CrashReportView<Model: PanelViewModel>: View {
     @ObservedObject var model: Model
     @Environment(\.panelGallery) private var gallery
 
@@ -34,7 +35,7 @@ public struct CrashReportSheet<Model: PanelViewModel>: View {
             footer(sheet)
         }
         .padding(DS.Space.sheet)
-        .frame(width: DS.Metric.panelWidth)
+        .frame(width: DS.Metric.crashReportWidth)
     }
 
     private func header(_ sheet: CrashSheetModel) -> some View {
@@ -130,8 +131,7 @@ public struct CrashReportSheet<Model: PanelViewModel>: View {
         }
     }
 
-    /// Copy and Show in Finder as icon buttons on the left (the sheet is panel-wide), then
-    /// Cancel and the primary button.
+    /// Copy and Show in Finder as icon buttons on the left, then Cancel and the primary button.
     private func footer(_ sheet: CrashSheetModel) -> some View {
         HStack(spacing: DS.Space.inline) {
             IconButton(DS.Symbol.copy, label: "Copy", help: "Copy the report") { model.copyCrashReport() }

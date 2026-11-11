@@ -24,6 +24,9 @@ public enum DocumentPage {
         "default-src 'none'; img-src \(scheme):; style-src 'unsafe-inline'; script-src 'none'; "
         + "form-action 'none'; base-uri 'none'; frame-src 'none'"
 
+    /// The page's one `<style>` element; a theme change replaces its text in place.
+    public static let styleID = "hook-style"
+
     /// The page for `text`, as `kind`, titled `title`, styled with `stylesheet`.
     public static func html(text: String, kind: DocumentKind, title: String, stylesheet: String) -> String {
         let body: String
@@ -45,7 +48,7 @@ public enum DocumentPage {
         <meta http-equiv="Content-Security-Policy" content="\(contentSecurityPolicy)">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>\(escape(title))</title>
-        <style>
+        <style id="\(styleID)">
         \(stylesheet)
         </style>
         </head>
@@ -54,6 +57,15 @@ public enum DocumentPage {
         </body>
         </html>
         """
+    }
+
+    /// `page` (one `html(...)` made) with its stylesheet swapped for `stylesheet`. The
+    /// document's text is escaped, so the first `</style>` after the opening tag is Hook's.
+    public static func replacingStylesheet(in page: String, with stylesheet: String) -> String {
+        let open = "<style id=\"\(styleID)\">\n"
+        guard let start = page.range(of: open),
+              let end = page.range(of: "\n</style>", range: start.upperBound..<page.endIndex) else { return page }
+        return page.replacingCharacters(in: start.upperBound..<end.lowerBound, with: stylesheet)
     }
 
     /// The summary of a front matter block Hook couldn't read.

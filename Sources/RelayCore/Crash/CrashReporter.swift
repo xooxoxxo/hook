@@ -2,7 +2,7 @@ import Foundation
 
 /// Settings › Privacy › Crash reports.
 public enum CrashReportsSetting: String, Codable, Sendable, CaseIterable {
-    /// Ask Each Time (the default): the bar, then the sheet.
+    /// Ask Each Time (the default): the bar, then the crash report window.
     case ask
     /// Send Automatically: straight to the owner's Pond; GitHub still needs a review.
     case auto
@@ -54,7 +54,7 @@ public struct HandledCrashes: Equatable, Sendable {
 public enum CrashDecision: Equatable, Sendable {
     /// Off, or already raised: the log line only.
     case ignore
-    /// The docked bar (and the sheet on Review…).
+    /// The docked bar (and the crash report window on Review…).
     case offer
     /// Send Automatically to the owner's own Pond.
     case sendToPond

@@ -17,6 +17,14 @@ public enum DS {
         public static let rowInsetH: CGFloat = 0
         /// Stock sidebar section headers start 14 pt from the panel edge (measured); this nudge puts them on the gutter.
         public static let sectionHeaderLead: CGFloat = 2
+        /// A queue section header's top and bottom padding inside its row, the same collapsed or
+        /// expanded, so a header never changes height when its group folds.
+        public static let sectionHeaderV: CGFloat = 4
+        /// Between a collapsed header's name and its peek line (the group's newest ask).
+        public static let headerPeek: CGFloat = 1
+        /// The count pill's padding round its digits.
+        public static let countPillH: CGFloat = 6
+        public static let countPillV: CGFloat = 1
         public static let stepPart: CGFloat = 6
         public static let inline: CGFloat = 8
         public static let marker: CGFloat = 10
@@ -33,7 +41,7 @@ public enum DS {
         public static let barStackV: CGFloat = 10
         /// Between a docked bar's title and its caption (the crash bar).
         public static let barCaption: CGFloat = 1
-        /// A sheet's edge inset, and the gap between its sections (the crash report sheet).
+        /// A sheet's or dialog window's edge inset, and the gap between its sections (the crash report window).
         public static let sheet: CGFloat = 20
         public static let sheetSection: CGFloat = 14
         /// GroupBox content inset (5 pt, measured) + currentStep: the current step's box bleeds out by this
@@ -95,6 +103,8 @@ public enum DS {
         public static let panelWidth: CGFloat = 380
         /// The crash report preview's scroll box.
         public static let reportPreview: CGFloat = 220
+        /// The crash report window's content width (it's its own window, not panel-wide).
+        public static let crashReportWidth: CGFloat = 520
         public static let header: CGFloat = 44
         public static let filterRow: CGFloat = 32
         public static let filterTokenMax: CGFloat = 160
@@ -217,9 +227,11 @@ public enum DS {
         public static var meta: SwiftUI.Font { style(.subheadline, .subheadline) }
         public static var prose: SwiftUI.Font { style(.callout, .callout) }
         public static var code: SwiftUI.Font { style(.callout, .callout).monospaced() }
-        /// A crash report preview: a whole report fits the sheet's scroll box.
+        /// A crash report preview: a whole report fits the window's scroll box.
         public static var report: SwiftUI.Font { style(.caption, .caption1).monospaced() }
         public static var caption: SwiftUI.Font { style(.caption, .caption1) }
+        /// A section header's count pill: semibold digits that keep their width.
+        public static var countPill: SwiftUI.Font { style(.caption, .caption1).weight(.semibold).monospacedDigit() }
         public static var welcomeTitle: SwiftUI.Font { style(.title2, .title2).weight(.semibold) }
         public static var badgeDigit: PlatformFont { .monospacedDigitSystemFont(ofSize: 9, weight: .bold) }
         /// A queue card's title.
@@ -228,7 +240,7 @@ public enum DS {
         public static var monogram: SwiftUI.Font { .system(size: 8, weight: .bold) }
         /// The symbol on the app icon placeholder, sized to `Metric.appIcon`.
         public static var appSymbol: SwiftUI.Font { .system(size: 34, weight: .semibold) }
-        /// A sheet's leading symbol (the crash report sheet's warning).
+        /// A sheet's or dialog window's leading symbol (the crash report window's warning).
         public static var sheetSymbol: SwiftUI.Font { .system(size: 28) }
         /// The Done page's hero symbol.
         public static var heroSymbol: SwiftUI.Font { .system(size: 52, weight: .regular) }
@@ -314,6 +326,8 @@ public enum DS {
         /// no lift (`cardStrokeQuiet` draws its edge); over the light one a little lighter than the panel.
         public static let cardFillQuiet = adaptive(light: .white.withAlphaComponent(0.35), dark: .white.withAlphaComponent(0.015))
         public static let cardStroke = SwiftUI.Color.primary.opacity(0.08)
+        /// A section header's count pill: a soft fill under primary digits.
+        public static let countPillFill = SwiftUI.Color.primary.opacity(0.1)
         /// A recently closed card's hairline. Its fill is close to the panel's, so in light mode
         /// the line is a little firmer than `cardStroke`, or the card's edge would vanish.
         public static let cardStrokeQuiet = adaptive(light: .black.withAlphaComponent(0.14), dark: .white.withAlphaComponent(0.09))
@@ -482,6 +496,8 @@ public enum DS {
         public static let tabQueue = "tray"
         public static let tabNotifications = "bell"
         public static let tabAgents = "terminal"
+        public static let tabDocuments = "doc.text"
+        public static let tabPrivacy = "hand.raised"
         /// Settings › Agents: a harness's or a piece's state.
         public static let agentInstalled = "checkmark.circle.fill"
         public static let agentUpdate = "arrow.down.circle.fill"
@@ -492,7 +508,7 @@ public enum DS {
         public static let agentNone = "minus.circle"
         /// Settings' same-line icon buttons: Show in Finder, Check for Updates…, open an app
         /// or a System Settings pane, and show an ask.
-        /// Save Diagnostics… in Settings › General › Privacy.
+        /// Save Diagnostics… in Settings › Privacy.
         public static let saveDiagnostics = "square.and.arrow.down"
         public static let reveal = "folder"
         public static let update = "arrow.down.circle"

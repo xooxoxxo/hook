@@ -55,7 +55,11 @@ A "now" ask slides the hidden panel in on that ask, without taking focus from yo
 
 A step, or a link under **Links**, can point to a document on your Mac. Its row shows the file's icon, name and folder, an **Open** button and a ⋯ menu with **Open With**, **Reveal in Finder** and **Copy Path**. Open With lists the apps for that kind of file, default first, and **Other…**. It never lists a terminal, Script Editor, Automator, Python Launcher, or an app saved from Script Editor or Automator.
 
-**Open** shows Markdown (`.md`, `.markdown`) rendered, and `.txt` as plain text, in Hook's own viewer. The viewer window has ⌘F to find, ⌘G for the next match and ⌘W to close. It never goes online: scripts don't run, web links open in your browser, and images load only from the document's folder. Other files open in their default app, or in the app set in Settings › General › **Open documents in**.
+**Open** shows Markdown (`.md`, `.markdown`) rendered, and `.txt` as plain text, in Hook's own viewer. The viewer window has ⌘F to find, ⌘G for the next match and ⌘W to close. The text fills the window and reflows as you resize it; tables wrap between words and scroll sideways only when they can't fit. It never goes online: scripts don't run, web links open in your browser, and images load only from the document's folder. Other files open in their default app, or in the app set in Settings › Documents › **Open documents in**.
+
+While a viewer window or Settings is open, Hook shows a Dock icon, so ⌘-Tab and ⌘-` bring the window back after you switch away. The menu-bar menu also lists each open document under **Show Hook**. The Dock icon goes away once the last of those windows closes and you switch to another app.
+
+Settings › Documents › **Viewer** sets the viewer's look: a theme (System follows light and dark; Paper, Sepia and Night keep their colours), your own colour for the background, text, headings, links and code background, and the reading width (Full fills the window; Wide and Narrow centre a shorter line). The sample below the rows shows the result, and open viewer windows change at once. **Reset to Theme** drops your colours.
 
 Hook judges a file by its type, and opens only these:
 
@@ -100,11 +104,11 @@ On a Pond, you can send the session that posted an ask a note without opening it
 After Hook quits unexpectedly, the next launch shows a bar: **Hook quit unexpectedly** ("report ready, nothing sent"). If notifications are allowed, one notification points to it.
 
 - **Not Now** drops the report, and Hook won't ask about that crash again.
-- **Review…** opens **Send a Crash Report**. It shows when Hook quit, **Send to** (GitHub, or My Pond once the owner key is set up) and **What's sent**, with redacted values tinted. You can copy that text, or show the macOS crash file in Finder (Hook never sends it). Cancel keeps the bar.
-- **GitHub** opens a prefilled issue in your browser for you to submit. For a known crash, it opens that issue and puts a comment on the clipboard. If a newer release fixed it, the sheet says "Fixed in 0.x. Update Hook." instead.
+- **Review…** opens **Send a Crash Report** in its own window, like Settings. It shows when Hook quit, **Send to** (GitHub, or My Pond once the owner key is set up) and **What's sent**, with redacted values tinted. You can copy that text, or show the macOS crash file in Finder (Hook never sends it). Cancel, or closing the window, keeps the bar.
+- **GitHub** opens a prefilled issue in your browser for you to submit. For a known crash, it opens that issue and puts a comment on the clipboard. If a newer release fixed it, the window says "Fixed in 0.x. Update Hook." instead.
 - **Send to Pond** files it on your Pond as a Hook bug, without a Telegram message. A Notice says "Sent to your Pond." or how often that crash was reported.
 
-Settings › General › Privacy sets whether Hook asks each time, sends to your Pond automatically, or does nothing. [Privacy](privacy.md) lists what each report holds and sends.
+Settings › Privacy sets whether Hook asks each time, sends to your Pond automatically, or does nothing. [Privacy](privacy.md) lists what each report holds and sends.
 
 ## Corrected asks
 
@@ -165,7 +169,7 @@ The key goes only over https, or plain http to this Mac itself, and only to the 
 | Reply field | Return / ⌥Return | Send / new line |
 | Report field | ⌘↩ / Return / Esc | Send / new line / cancel |
 | Messages field | ⌘↩ / Return | Send / new line |
-| Settings | ⌘1 … ⌘5 | General, Panel, Queue, Notifications, Agents |
+| Settings | ⌘1 … ⌘7 | General, Panel, Queue, Notifications, Agents, Documents, Privacy |
 
 ## Away mode
 
@@ -181,12 +185,14 @@ Hook checks GitHub for a release a minute after launch, then once a day. **Check
 
 ## Settings
 
-Settings writes the [config file](configuration.md). Its tabs are General, Panel, Queue, Notifications, Agents (⌘1 … ⌘5):
+Settings writes the [config file](configuration.md). Its tabs are General, Panel, Queue, Notifications, Agents, Documents, Privacy (⌘1 … ⌘7):
 
-- **General:** shortcut, presence and away time, Start Hook when I log in, where documents open, and the terminal for Resume Session. Also Privacy (crash reports, log size), appearance, version and updates.
+- **General:** shortcut, presence and away time, Start Hook when I log in, the terminal for Resume Session, appearance, version and updates.
 - **Panel:** edge, display, Re-dock Now, whether "now" asks slide the panel in, and what follows Done or Skip.
 - **Queue:** This Mac only or Pond, and how long closed asks stay. The Pond URL, token file, context and check interval, saved with the Connect button. The connection, whether the Pond's version suits this Hook, Send a Test Ask, and the [owner key](#the-owner-key).
 - **Notifications:** which urgencies notify, sound, permission, and a test notification.
 - **Agents:** the coding agents on this Mac and what Hook set up in each. That is the MCP server, the skill, the instructions and the replies hook. For Claude Code, the instructions are the Hook plugin and `~/.claude/rules/hook.md`. A piece you edited says **Edited by you** and stays until you choose. Here too: **Reinstall All**, and whether Hook sets up new agents by itself. `relay integrations` does the same in a terminal ([Agents](agents.md)).
+- **Documents:** where a file row's Open goes, and the viewer's theme, colours and reading width.
+- **Privacy:** crash reports and where they go, the activity log, and Save Diagnostics….
 
 Each "?" button explains its row. A row's second action, such as Show in Finder, is a small icon button after the value; hover it for its name.

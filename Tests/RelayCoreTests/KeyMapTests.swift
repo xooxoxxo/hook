@@ -89,6 +89,15 @@ private func typing(_ c: KeyContext) -> KeyContext { var c = c; c.textFieldFocus
         #expect(cmd(.right, list) == nil)
     }
 
+    @Test func listGroupHeaderArrows() {
+        var header = list
+        header.focusedGroup = "project:Acme"
+        #expect(cmd(.left, header) == .setGroupCollapsed("project:Acme", true))
+        #expect(cmd(.right, header) == .setGroupCollapsed("project:Acme", false))
+        #expect(cmd(.returnKey, header) == nil)
+        #expect(cmd(.left, list) == nil)
+    }
+
     // Detail
     @Test func detailBack() {
         #expect(cmd(.cmdLeftBracket, detail) == .back)

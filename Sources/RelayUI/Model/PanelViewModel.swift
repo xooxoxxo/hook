@@ -28,6 +28,10 @@ public struct PanelShellActions: Sendable {
     public var isShown: @MainActor @Sendable () -> Bool = { true }
     /// A refused key (⌘↩ while Done is off): the system beep.
     public var beep: @MainActor @Sendable () -> Void = {}
+    /// Review… on the crash bar: opens the crash report window, or brings it forward.
+    public var showCrashReport: @MainActor @Sendable () -> Void = {}
+    /// The crash report is over (sent, cancelled or dropped): its window closes.
+    public var closeCrashReport: @MainActor @Sendable () -> Void = {}
 
     public init(hide: @escaping @MainActor @Sendable () -> Void, setUp: @escaping @MainActor @Sendable () -> Void,
                 quit: @escaping @MainActor @Sendable () -> Void, dock: @escaping @MainActor @Sendable (SidebarEdge) -> Void,
@@ -174,18 +178,18 @@ public enum CopyOutcome: Equatable, Sendable {
     #if os(macOS)
     /// The last run crashed and the bar offers a report; nil once answered.
     var crashOffer: CrashOffer? { get }
-    /// Review…: opens the send sheet.
+    /// Review…: opens the crash report window, or brings it forward.
     func reviewCrash()
-    /// The send sheet: target, exactly what is sent, the send's state; nil while closed.
+    /// The crash report window: target, exactly what is sent, the send's state; nil while closed.
     var crashSheet: CrashSheetModel? { get }
     /// The sheet's primary button, for its target.
     func sendCrashReport()
     func setCrashTarget(_ target: CrashTarget)
-    /// Cancel: the sheet goes, the bar stays.
+    /// Cancel, or closing the window: the report goes, the bar stays.
     func closeCrashSheet()
     func copyCrashReport()
     func showCrashReportInFinder()
-    /// GitHub couldn't be searched: open a new issue, or look by hand (the sheet stays).
+    /// GitHub couldn't be searched: open a new issue, or look by hand (the window stays).
     func openNewCrashIssue()
     func checkExistingCrashIssue()
     /// Not Now: the bar goes and the signature is marked handled.

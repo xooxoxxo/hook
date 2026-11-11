@@ -48,7 +48,7 @@ public enum CrashOfferGuard {
 
     /// The back-off Notice: at most once for each offer that killed a run.
     public static let backOffNotice = "Hook closed while offering a crash report at its last start, so it won't offer "
-        + "that one again. Save Diagnostics… in Settings › General › Privacy collects what happened."
+        + "that one again. Save Diagnostics… in Settings › Privacy collects what happened."
 
     public static func read(_ url: URL) -> CrashOfferRecord? {
         guard let data = try? Data(contentsOf: url) else { return nil }
@@ -99,8 +99,8 @@ public enum LaunchHistory {
     }
 
     public static let safeModeNotice = "Hook closed soon after starting 3 times in a row, so this start skipped the "
-        + "crash report check, the update check and the agents sync. Save Diagnostics… in Settings › General › "
-        + "Privacy collects what happened."
+        + "crash report check, the update check and the agents sync. Save Diagnostics… in Settings › Privacy "
+        + "collects what happened."
 
     /// Adds this run and returns the runs before it. A file that can't be read starts over.
     @discardableResult

@@ -233,8 +233,11 @@ public enum LinkCheck: Equatable, Sendable {
     @Published public internal(set) var crashOffer: CrashOffer?
     /// Called with the crash's `handledKey` once it is answered, so it isn't raised again.
     public var onCrashHandled: (@MainActor (String) -> Void)?
-    /// The send sheet (Review…), until it is sent or cancelled.
-    @Published public internal(set) var crashSheet: CrashSheetModel?
+    /// The crash report window's state (Review…), until it is sent or cancelled. Going to nil
+    /// closes the window, however it ends.
+    @Published public internal(set) var crashSheet: CrashSheetModel? {
+        didSet { if oldValue != nil, crashSheet == nil { shell.closeCrashReport() } }
+    }
     /// The activity log's last lines for a report; the app reads `HookLog`, tests pass their own.
     public var crashLog: @MainActor () -> [String] = { [] }
     /// GitHub's search for a signature (and the version that crashed); the app sets the real one.
@@ -1917,7 +1920,7 @@ extension Store: PanelViewModel {
 
     public func perform(_ command: PanelCommand) {
         switch command {
-        case .closePopover, .endEditing, .focusReply, .setClosedExpanded:
+        case .closePopover, .endEditing, .focusReply, .setClosedExpanded, .setGroupCollapsed:
             break   // view state: the view handles these before calling perform
         case .back: back()
         case .hide: shell.hide()

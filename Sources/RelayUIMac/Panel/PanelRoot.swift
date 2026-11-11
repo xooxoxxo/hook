@@ -22,14 +22,6 @@ public struct PanelRoot<Model: PanelViewModel>: View {
     }
 
     @ViewBuilder public var body: some View {
-        if #available(macOS 15, *) {
-            content.allowsWindowActivationEvents(true)
-        } else {
-            content
-        }
-    }
-
-    @ViewBuilder private var content: some View {
         // A full-height gallery render sizes the scene to the detail; the queue's List would
         // take every point it is offered (no app path sets fullHeight).
         if gallery.fullHeight == true, let detailID = model.navigation.selectedID {
@@ -57,9 +49,5 @@ public struct PanelRoot<Model: PanelViewModel>: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .animation(DS.motion(DS.Motion.push, reduce: reduceMotion), value: detailID)
         .modifier(PanelKeys(model: model))
-        // The crash report's send sheet (Review… on the crash bar).
-        .sheet(isPresented: Binding(get: { model.crashSheet != nil }, set: { if !$0 { model.closeCrashSheet() } })) {
-            CrashReportSheet(model: model)
-        }
     }
 }

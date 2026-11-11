@@ -43,40 +43,59 @@ let settingsRules: [AlignmentRule] = [.sameTrailingPerGroup(.settingsTrailing, t
             snapshot.install = InstallKind.checkout(repo: "/Users/me/src/hook").line(home: "/Users/me")
             return GeneralTab(model: FixtureSettingsModel(settings: snapshot))
         },
+        // Documents: Open in Hook's viewer, the System theme, full width.
+        settingsScene("settings-documents", tab: .documents) {
+            DocumentsTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot()))
+        },
+        // Sepia with the owner's own heading and link colours, a narrow column, text one step up.
+        settingsScene("settings-documents-themed", tab: .documents) {
+            var config = SettingsFixtures.mailboxConfig
+            config.viewer = ViewerTheme(preset: .sepia, colors: [.headings: "#7a2e0e", .links: "#1f5f8b"],
+                                        width: .narrow, textSize: 1)
+            return DocumentsTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(config: config)))
+        },
+        settingsScene("settings-documents-night", tab: .documents) {
+            var config = SettingsFixtures.mailboxConfig
+            config.viewer = ViewerTheme(preset: .night)
+            return DocumentsTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(config: config)))
+        },
         // "Open documents in" set to a chosen app, named in the picker.
-        settingsScene("settings-general-document-app", tab: .general) {
+        settingsScene("settings-documents-app", tab: .documents) {
             var config = SettingsFixtures.mailboxConfig
             config.openDocumentsIn = "com.example.writer"
             var snapshot = SettingsFixtures.snapshot(config: config)
             snapshot.documentAppName = "Writer"
-            return GeneralTab(model: FixtureSettingsModel(settings: snapshot))
+            return DocumentsTab(model: FixtureSettingsModel(settings: snapshot))
         },
         // Privacy with My Pond on offer (a Pond and an approved owner key), sending there.
-        settingsScene("settings-privacy", tab: .general) {
+        settingsScene("settings-privacy", tab: .privacy) {
             var config = SettingsFixtures.mailboxConfig
             config.crashReportTarget = .pond
-            return GeneralTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(config: config)))
+            return PrivacyTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(config: config)))
         },
         // No owner key yet: Send to offers GitHub only, and a saved pond reads as GitHub.
-        settingsScene("settings-privacy-no-pond", tab: .general) {
+        settingsScene("settings-privacy-no-pond", tab: .privacy) {
             var config = SettingsFixtures.mailboxConfig
             config.crashReportTarget = .pond
-            return GeneralTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(
+            return PrivacyTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(
                 config: config, ownerKey: .notSetUp, logSize: 2_048)))
         },
         // Save Diagnostics… on the Privacy row's line: collecting (the button waits), then saved.
-        settingsScene("settings-privacy-diagnostics-collecting", tab: .general) {
+        settingsScene("settings-privacy-diagnostics-collecting", tab: .privacy) {
             var snapshot = SettingsFixtures.snapshot()
             snapshot.privacy.diagnostics = .collecting
-            return GeneralTab(model: FixtureSettingsModel(settings: snapshot))
+            return PrivacyTab(model: FixtureSettingsModel(settings: snapshot))
         },
-        settingsScene("settings-privacy-diagnostics-saved", tab: .general) {
+        settingsScene("settings-privacy-diagnostics-saved", tab: .privacy) {
             var snapshot = SettingsFixtures.snapshot()
             snapshot.privacy.diagnostics = .saved("hook-diagnostics-2026-10-16-0940.txt")
-            return GeneralTab(model: FixtureSettingsModel(settings: snapshot))
+            return PrivacyTab(model: FixtureSettingsModel(settings: snapshot))
         },
         settingsScene("settings-readonly", tab: .general) {
             GeneralTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(readOnly: true)))
+        },
+        settingsScene("settings-documents-readonly", tab: .documents) {
+            DocumentsTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(readOnly: true)))
         },
         settingsScene("settings-general-shortcut-unsupported", tab: .general) {
             GeneralTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(shortcutProblem: .unsupportedKey)))

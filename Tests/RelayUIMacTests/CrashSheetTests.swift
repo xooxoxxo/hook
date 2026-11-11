@@ -111,7 +111,7 @@ private let log = ["2026-10-15T22:13:58Z launch hook=0.12.0 macos=15.6.0 cpu=arm
         #expect(store.crashOffer != nil)
     }
 
-    @Test func anotherFailureStaysInTheSheet() async {
+    @Test func anotherFailureStaysInTheWindow() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }
         let (store, source) = await crashStore(defaults)
@@ -120,6 +120,49 @@ private let log = ["2026-10-15T22:13:58Z launch hook=0.12.0 macos=15.6.0 cpu=arm
         await store.sendCrashReport()
         #expect(store.crashSheet?.send == .failed("The Pond didn't answer within 10 seconds."))
         #expect(store.crashOffer != nil)
+    }
+
+    /// Review… opens the window; a second Review… while it is open only brings it forward,
+    /// so the target picked and a shown failure stay.
+    @Test func reviewOpensTheWindowAndAgainOnlyBringsItForward() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, source) = await crashStore(defaults)
+        let shown = SentValues<Bool>()
+        store.shell.showCrashReport = { shown.items.append(true) }
+        store.reviewCrash()
+        #expect(shown.items.count == 1)
+        await source.failNext(QueueError.unreachable("The Pond didn't answer within 10 seconds."), on: "postBug")
+        await store.sendCrashReport()
+        store.reviewCrash()
+        #expect(shown.items.count == 2)
+        #expect(store.crashSheet?.send == .failed("The Pond didn't answer within 10 seconds."))
+        store.setCrashTarget(.github)
+        store.reviewCrash()
+        #expect(store.crashSheet?.target == .github)
+    }
+
+    /// The window closes once whenever the report ends: Cancel, Not Now, or a send.
+    @Test func theWindowClosesWhenTheReportEnds() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, _) = await crashStore(defaults)
+        let closed = SentValues<Bool>()
+        store.shell.closeCrashReport = { closed.items.append(true) }
+        store.reviewCrash()
+        store.setCrashTarget(.github)
+        #expect(closed.items.isEmpty)
+        store.closeCrashSheet()
+        store.closeCrashSheet()
+        #expect(closed.items.count == 1)
+        store.reviewCrash()
+        store.dismissCrash()
+        #expect(closed.items.count == 2)
+        store.offerCrash(crashWithReport)
+        store.reviewCrash()
+        await store.sendCrashReport()
+        #expect(store.notice == .crashReport(message: "Sent to your Pond."))
+        #expect(closed.items.count == 3)
     }
 
     @Test func cancelKeepsTheBar() async {

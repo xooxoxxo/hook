@@ -87,15 +87,19 @@ private func screen(_ id: String, primary: Bool) -> DockScreen {
         #expect(SettingsTabID.restore(defaults) == .queue)
     }
 
-    @Test func commandDigitsPickTheFiveTabsInOrder() {
-        #expect((1...5).compactMap(SettingsTabID.init(shortcutDigit:)) == [.general, .panel, .queue, .notifications, .agents])
+    /// Documents and Privacy follow the older tabs, so ⌘1–⌘5 keep the tabs they had.
+    @Test func commandDigitsPickTheSevenTabsInOrder() {
+        #expect((1...7).compactMap(SettingsTabID.init(shortcutDigit:))
+            == [.general, .panel, .queue, .notifications, .agents, .documents, .privacy])
         #expect(SettingsTabID(shortcutDigit: 0) == nil)
-        #expect(SettingsTabID(shortcutDigit: 6) == nil)
+        #expect(SettingsTabID(shortcutDigit: 8) == nil)
     }
 
     @Test func titlesAndSymbols() {
-        #expect(SettingsTabID.allCases.map(\.title) == ["General", "Panel", "Queue", "Notifications", "Agents"])
-        #expect(SettingsTabID.allCases.map(\.symbol) == ["gearshape", "sidebar.right", "tray", "bell", "terminal"])
+        #expect(SettingsTabID.allCases.map(\.title) == ["General", "Panel", "Queue", "Notifications", "Agents",
+                                                           "Documents", "Privacy"])
+        #expect(SettingsTabID.allCases.map(\.symbol) == ["gearshape", "sidebar.right", "tray", "bell", "terminal",
+                                                            "doc.text", "hand.raised"])
     }
 
     @Test func anEmptyDraftAndSnapshotStartBlank() {
