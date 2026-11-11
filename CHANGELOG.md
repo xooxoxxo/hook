@@ -20,6 +20,7 @@ and versions follow Semantic Versioning.
 
 ### Fixed
 
+- The queue no longer enters an AppKit layout loop when undo expires while a section header is hovered and the panel regains focus.
 - Clicking the Recently closed arrow did nothing.
 - The first click on an ask in the panel opens it while another app has focus. Before, it only focused the panel.
 - The document viewer fills its window and reflows as you resize it. Tables wrap between words and scroll sideways only when they can't fit.
