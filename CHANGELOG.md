@@ -27,7 +27,7 @@ and versions follow Semantic Versioning.
 <!-- hook:pond=^1.1.0 -->
 <!-- hook:mailbox-protocol=5 -->
 
-## [0.15.3] - 2026-11-09
+## [0.15.4] - 2026-11-09
 
 ### Fixed
 

@@ -20,12 +20,20 @@ printf '%s' "$MACOS_SIGN_P12" | base64 --decode > "$RUNNER_TEMP/signing.p12"
 security import "$RUNNER_TEMP/signing.p12" -k "$kc" -P "$MACOS_SIGN_PASSWORD" -T /usr/bin/codesign >/dev/null
 rm -f "$RUNNER_TEMP/signing.p12"
 security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$pass" "$kc" >/dev/null
+# Make the CI identity visible to the signing service as well as security find-identity.
+security list-keychains -d user -s "$kc"
 security find-identity -v -p codesigning "$kc" | python3 -c '
 import os, re, sys
 pattern = r"\s*\d+\) " + re.escape(os.environ["MACOS_SIGN_SHA1"]) + r" \"Developer ID Application: [^\n]+ \(" + re.escape(os.environ["APPLE_TEAM_ID"]) + r"\)\"\s*"
 if not any(re.fullmatch(pattern, line) for line in sys.stdin):
     sys.exit("Required valid Developer ID Application identity is unavailable")
 '
+# Exercise the actual signing operation before spending time on a universal build.
+probe=$(mktemp "$RUNNER_TEMP/hook-signing-probe.XXXXXX")
+trap 'rm -f "$probe"' EXIT
+cp /usr/bin/true "$probe"
+codesign --force --sign "$MACOS_SIGN_SHA1" --keychain "$kc" --options runtime --timestamp "$probe"
+codesign --verify --strict "$probe"
 printf '%s' "$APPLE_API_KEY" | base64 --decode > "$RUNNER_TEMP/notary-key.p8"
 {
   printf 'SIGN_IDENTITY=%s\n' "$MACOS_SIGN_SHA1"

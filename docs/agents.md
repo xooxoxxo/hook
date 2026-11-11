@@ -128,7 +128,7 @@ Every command starts Hook if it isn't running, except `relay replies --hook`, `r
 | `relay replies [--new] [--hook]` | One line per new owner answer |
 | `relay wait <id> [--timeout SECONDS] [--interval SECONDS] [--after SEQ]` | See [relay wait](#relay-wait) |
 | `relay amend <id> --reason TEXT [--base REV] [--json FILE\|-]` | `corrected <id> → version N (changed: step 2; added: step 4). The owner must review it in Hook before acting.` See [Correcting an ask](#correcting-an-ask) |
-| `relay --version` | `relay 0.15.3` (`hook --version` prints `hook 0.15.3`) |
+| `relay --version` | `relay 0.15.4` (`hook --version` prints `hook 0.15.4`) |
 
 Exit codes of these commands: 0 success, 1 refused or not found, 2 no config or Hook unreachable, 3 `relay wait` timed out.
 
