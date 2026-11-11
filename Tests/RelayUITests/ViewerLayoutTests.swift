@@ -28,7 +28,8 @@ import WebKit
         var loaded = false
         content.onLoaded = { loaded = true }
         content.load()
-        let deadline = Date().addingTimeInterval(10)
+        // The first load starts WebKit's processes, which takes over 10 s on a cold CI runner.
+        let deadline = Date().addingTimeInterval(30)
         while !loaded, Date() < deadline { try await Task.sleep(for: .milliseconds(50)) }
         try #require(loaded)
         try await Task.sleep(for: .milliseconds(200))

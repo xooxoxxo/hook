@@ -24,6 +24,9 @@ and versions follow Semantic Versioning.
 - The first click on an ask in the panel opens it while another app has focus. Before, it only focused the panel.
 - The document viewer fills its window and reflows as you resize it. Tables wrap between words and scroll sideways only when they can't fit.
 
+<!-- hook:pond=^1.1.0 -->
+<!-- hook:mailbox-protocol=5 -->
+
 ## [0.15.3] - 2026-11-09
 
 ### Fixed
