@@ -748,6 +748,148 @@
           "untick": ["@legacy:1"]
         }
       }
+    },
+    {
+      "name": "flow-blocking-parent-unfinished",
+      "note": "an unfinished blocking parent keeps its own sub-steps open and locks what follows its last one",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {
+            "do": "Prepare",
+            "id": "s1",
+            "blocking": true,
+            "substeps": [
+              {"do": "Revoke the old key", "id": "s1.1"},
+              {"do": "Make the new key", "id": "s1.2"}
+            ]
+          },
+          {"do": "Rotate the key", "id": "s2"}
+        ],
+        "verify": {"do": "The deploy passes"}
+      },
+      "events": [],
+      "ticks": ["1.1"],
+      "expect": {
+        "current": "1.2",
+        "done": 1,
+        "total": 4,
+        "tickable": ["1.1", "1.2", "2", "verify"],
+        "locked": ["2", "verify"],
+        "left": [],
+        "ready": true
+      }
+    },
+    {
+      "name": "flow-blocking-and-optional",
+      "note": "a step that says both blocking and optional is only blocking",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {"do": "Revoke the old key", "id": "s1", "blocking": true, "optional": true},
+          {"do": "Rotate the key", "id": "s2"}
+        ]
+      },
+      "events": [],
+      "ticks": [],
+      "expect": {
+        "current": "1",
+        "done": 0,
+        "total": 2,
+        "tickable": ["1", "2"],
+        "locked": ["2"],
+        "left": [],
+        "ready": true
+      }
+    },
+    {
+      "name": "flow-optional-parent-own-question",
+      "note": "an optional parent's own question can be ticked by the parent's path",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {
+            "do": "Tidy up",
+            "id": "s1",
+            "optional": true,
+            "question": {"prompt": "Which environment?", "choices": ["Staging", "Production"]},
+            "substeps": [{"do": "Remove the old key file", "id": "s1.1"}]
+          },
+          {"do": "Rotate the key", "id": "s2"}
+        ]
+      },
+      "events": [],
+      "ticks": ["1"],
+      "expect": {
+        "current": "1.1",
+        "done": 1,
+        "total": 3,
+        "tickable": ["1", "1.1", "2"],
+        "locked": [],
+        "left": [],
+        "ready": true
+      }
+    },
+    {
+      "name": "flow-done-reply-message-not-owner",
+      "note": "a reply and a message by the session, not the owner, finish nothing",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "done": ["reply", "message"],
+        "reply": {"prompt": "Which key name did you use?"},
+        "steps": [{"do": "Rotate the key", "id": "s1"}]
+      },
+      "events": [
+        {"seq": 1, "kind": "reply", "actor": "session", "text": "staging-2026"},
+        {"seq": 2, "kind": "message", "actor": "session", "text": "Rotated."}
+      ],
+      "ticks": ["1"],
+      "expect": {
+        "current": null,
+        "done": 1,
+        "total": 1,
+        "tickable": ["1"],
+        "locked": [],
+        "left": [{"kind": "reply"}, {"kind": "message"}],
+        "ready": false
+      }
+    },
+    {
+      "name": "flow-answered-question-no-ids",
+      "note": "on an ask without step ids an answer maps by its path",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {
+            "do": "Pick the environment",
+            "question": {"prompt": "Which environment?", "choices": ["Staging", "Production"]}
+          },
+          {"do": "Rotate the key"}
+        ]
+      },
+      "events": [
+        {
+          "seq": 1,
+          "kind": "answer",
+          "actor": "owner",
+          "text": "{\"step\":\"1\",\"picked\":[\"Staging\"]}"
+        }
+      ],
+      "ticks": [],
+      "expect": {
+        "current": "2",
+        "done": 1,
+        "total": 2,
+        "tickable": ["2"],
+        "locked": [],
+        "left": [],
+        "ready": true
+      }
     }
   ]
 }

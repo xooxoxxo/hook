@@ -370,7 +370,7 @@
       "count": 100,
       "limit": 8000,
       "shows": false,
-      "text": "100 / 8 000",
+      "text": "100 / 8\u202F000",
       "over": null
     },
     {
@@ -379,7 +379,7 @@
       "count": 6400,
       "limit": 8000,
       "shows": false,
-      "text": "6 400 / 8 000",
+      "text": "6\u202F400 / 8\u202F000",
       "over": null
     },
     {
@@ -388,7 +388,7 @@
       "count": 6401,
       "limit": 8000,
       "shows": true,
-      "text": "6 401 / 8 000",
+      "text": "6\u202F401 / 8\u202F000",
       "over": null
     },
     {
@@ -397,7 +397,7 @@
       "count": 1000,
       "limit": 1000,
       "shows": true,
-      "text": "1 000 / 1 000",
+      "text": "1\u202F000 / 1\u202F000",
       "over": null
     },
     {
@@ -406,7 +406,7 @@
       "count": 8001,
       "limit": 8000,
       "shows": true,
-      "text": "8 001 / 8 000",
+      "text": "8\u202F001 / 8\u202F000",
       "over": "Trim 1 character to send."
     },
     {
@@ -415,8 +415,8 @@
       "count": 9204,
       "limit": 8000,
       "shows": true,
-      "text": "9 204 / 8 000",
-      "over": "Trim 1 204 characters to send."
+      "text": "9\u202F204 / 8\u202F000",
+      "over": "Trim 1\u202F204 characters to send."
     },
     {
       "name": "counter-report-old-pond",

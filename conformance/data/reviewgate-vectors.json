@@ -316,6 +316,29 @@
       "pond": "1.5.0",
       "served": null,
       "expect": {"state": "pending", "locked": true, "shown": 1, "action": "review"}
+    },
+    {
+      "name": "gate-no-history-pin-above-1-no-pond",
+      "note": "pinned at rev 2, before the version check, the Pond serves the rev 1 body without revisions: a correction was dropped",
+      "record": {"pins": {"1": "h1", "2": "h2"}, "firstBody": "first"},
+      "history": {"kind": "none"},
+      "pond": null,
+      "served": "first",
+      "expect": {
+        "state": "historyChanged",
+        "locked": true,
+        "problem": "missing",
+        "action": "trustHistory"
+      }
+    },
+    {
+      "name": "gate-accepted-current-rev-other-hash",
+      "note": "accepted names the current rev with another hash than the history holds for it",
+      "record": {"accepted": {"rev": 2, "hash": "h2x"}, "pins": {"1": "h1"}},
+      "history": {"kind": "ok", "stamps": {"1": "h1", "2": "h2"}, "current": 2, "acceptedOnPond": 1},
+      "pond": "1.5.0",
+      "served": null,
+      "expect": {"state": "pending", "locked": true, "shown": null, "action": "review"}
     }
   ]
 }

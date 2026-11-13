@@ -322,6 +322,18 @@
         }
       },
       "expect": {"stub": false}
+    },
+    {
+      "name": "stub-why-longer-single-stub-step",
+      "note": "the stub's single step with a why that is the stub sentence plus more words is not a stub: the why must match exactly",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "urgency": "today",
+        "why": "This ask was corrected after it was posted. Update Hook to see the corrected steps; don't press Done here. Thanks.",
+        "steps": [{"do": "Update Hook: menu bar › Check for Updates…", "id": "s1"}]
+      },
+      "expect": {"stub": false}
     }
   ]
 }

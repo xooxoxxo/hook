@@ -176,6 +176,18 @@
       "note": "one byte over the limit",
       "pad": {"bytes": 16385},
       "expect": {"ok": false, "failure": "tooLarge"}
+    },
+    {
+      "name": "pairing-token-zero-width-space",
+      "note": "the token ends in U+200B, a format character",
+      "payload": "{\"v\":1,\"url\":\"https://pond.example.test\",\"token\":\"synthetic-token-for-tests\\u200B\",\"context\":\"Example\"}",
+      "expect": {"ok": false, "failure": "credentials"}
+    },
+    {
+      "name": "pairing-token-bidi-override",
+      "note": "the token ends in U+202E, a bidi override",
+      "payload": "{\"v\":1,\"url\":\"https://pond.example.test\",\"token\":\"synthetic-token-for-tests\\u202E\",\"context\":\"Example\"}",
+      "expect": {"ok": false, "failure": "credentials"}
     }
   ]
 }

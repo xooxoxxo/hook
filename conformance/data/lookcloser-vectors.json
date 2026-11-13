@@ -1,7 +1,7 @@
 {
   "version": 1,
   "source": "Tests/RelayCoreTests/ConformanceTests.swift",
-  "format": "{name, note, old?, new, cwd?, flags: [{kind, location, text}]}. The review's Look closer flags for the text `new` added or changed since `old` (every text of `new` when `old` is absent: a first view). A text is a step's or sub-step's code, url, detail or file, verify's the same, a link's url or path, or why; a text whose location holds the same value in `old` is skipped. Hosts and paths count as new only when `old` names them nowhere. location: \"step <id or path> code|url|detail|file\", \"verify code|…\", \"link <n> url|path\", \"why\". kind: pipeToShell, sudo, rmRf, decode, eval (command patterns, in code only), nonASCII (in code; in a host outside code), newHost (every http(s) host), absolutePathOutsideCwd (a file or link path starting with / or ~ outside `cwd`). text: the matched part, the host, the path, or the text with each non-ASCII character as ⟨U+XXXX⟩. Flags come per text in that order, each text's flags in the order of the kinds above, except newHost and a host's nonASCII, which follow the command patterns. An empty list is the no-match result, which the review shows as \"No pattern matched. These checks are incomplete.\"",
+  "format": "{name, note, old?, new, cwd?, flags: [{kind, location, text}]}. The review's Look closer flags for the text `new` added or changed since `old` (every text of `new` when `old` is absent: a first view). A text is a step's or sub-step's code, url, detail or file, verify's the same, a link's url or path, or why; a text whose location holds the same value in `old` is skipped. Hosts and paths count as new only when `old` names them nowhere. location: \"step <id or path> code|url|detail|file\", \"verify code|…\", \"link <n> url|path\", \"why\". kind: pipeToShell, sudo, rmRf, decode, eval (command patterns, in code only), nonASCII (in code; in a host outside code), newHost (every http(s) host), absolutePathOutsideCwd (a file or link path starting with / or ~ outside `cwd`). text: the matched part, the host, the path, or the text with each non-ASCII character as ⟨U+XXXX⟩. Flags come per text in that order. Within a text: the command patterns in the order above, then the code's nonASCII, then for each host its newHost and (outside code) its nonASCII, then the path. An empty list is the no-match result, which the review shows as \"No pattern matched. These checks are incomplete.\"",
   "cases": [
     {
       "name": "look-no-match",
@@ -347,6 +347,64 @@
       },
       "cwd": "~/code/app",
       "flags": []
+    },
+    {
+      "name": "look-non-ascii-host-in-code",
+      "note": "a non-ASCII host inside code: the code text gets one nonASCII flag, the host none of its own",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {
+            "do": "Check the health page",
+            "id": "s1",
+            "code": "curl -sI https://deplöy.example.test/health"
+          }
+        ]
+      },
+      "flags": [
+        {
+          "kind": "nonASCII",
+          "location": "step s1 code",
+          "text": "curl -sI https://depl⟨U+00F6⟩y.example.test/health"
+        },
+        {"kind": "newHost", "location": "step s1 code", "text": "deplöy.example.test"}
+      ]
+    },
+    {
+      "name": "look-relative-file",
+      "note": "a relative file path is not absolute, so never outside the working folder",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [{"do": "Read the notes", "id": "s1", "file": "docs/rotation.md"}]
+      },
+      "cwd": "~/code/app",
+      "flags": []
+    },
+    {
+      "name": "look-cwd-trailing-slash",
+      "note": "a working folder given with a trailing slash, a path inside it",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [{"do": "Read the notes", "id": "s1", "file": "~/code/app/docs/rotation.md"}]
+      },
+      "cwd": "~/code/app/",
+      "flags": []
+    },
+    {
+      "name": "look-cwd-trailing-slash-path-is-folder",
+      "note": "a working folder given with a trailing slash, the path naming the folder itself without one",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [{"do": "Open the folder", "id": "s1", "file": "~/code/app"}]
+      },
+      "cwd": "~/code/app/",
+      "flags": [
+        {"kind": "absolutePathOutsideCwd", "location": "step s1 file", "text": "~/code/app"}
+      ]
     }
   ]
 }

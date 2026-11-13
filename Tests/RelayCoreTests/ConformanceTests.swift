@@ -79,8 +79,9 @@ private indirect enum Out {
         }
     }
 
-    /// A JSON string token: `/` and non-ASCII as they are, every hidden character (as code
-    /// sees them) and every control character as a `\u` escape, so the file stays readable.
+    /// A JSON string token: `/` and non-ASCII as they are; every hidden character (as code
+    /// sees them), every control character and every space other than U+0020 (such as the
+    /// U+202F in a counter) as a `\u` escape, so the file shows what it holds.
     static func token(_ text: String) -> String {
         var out = "\""
         for scalar in text.unicodeScalars {
@@ -91,7 +92,8 @@ private indirect enum Out {
             case "\t": out += "\\t"
             case "\r": out += "\\r"
             default:
-                if scalar.value < 0x20 || Sanitize.isHidden(scalar, as: .code) {
+                if scalar.value < 0x20 || Sanitize.isHidden(scalar, as: .code)
+                    || (scalar.properties.generalCategory == .spaceSeparator && scalar != " ") {
                     if scalar.value > 0xFFFF {
                         let v = scalar.value - 0x10000
                         out += String(format: "\\u%04X\\u%04X", 0xD800 + (v >> 10), 0xDC00 + (v & 0x3FF))
@@ -128,7 +130,8 @@ private enum Recorder {
         }
         for position in cases.indices {
             let item = try JSONValue.parse(Data(inline(cases[position]).utf8))
-            guard let fields = try fill(item, parsed) else { continue }
+            // A case for other clients keeps its hand-written expectation.
+            guard Conformance.runsHere(item), let fields = try fill(item, parsed) else { continue }
             for (key, value) in fields { cases[position].setMember(key, value.ordered) }
         }
         members[index].value = .array(cases)
@@ -397,7 +400,6 @@ private enum Reference {
     }
 
     static func stub(_ item: JSONValue, _ root: JSONValue) throws -> [(String, Out)]? {
-        guard Conformance.runsHere(item) else { return nil }
         let ins = try #require(item["instructable"])
         let result: Out = isPondStub(ins)
             ? .object([("stub", .bool(true)), ("reason", .string("pondStub"))])
@@ -463,7 +465,7 @@ private enum Reference {
 private func check(_ file: String, _ name: String) throws {
     let item = try Conformance.named(file, name)
     let root = try #require(Conformance.root(file))
-    guard let fields = try Reference.fill(file)(item, root) else { return }
+    guard Conformance.runsHere(item), let fields = try Reference.fill(file)(item, root) else { return }
     for (key, value) in fields {
         #expect(item[key] == value.json, "\(file) \(name): \(key)")
     }
@@ -544,7 +546,7 @@ private func check(_ file: String, _ name: String) throws {
                                                       "hash": .string(history.current.hash)])])
             }
         }
-        #expect(actual == item["expect"], "\(name)")
+        #expect(actual == item["expect"], "history-vectors.json \(name)")
     }
 
     /// progress-vectors.json: SharedProgress.fold, sorted.
@@ -553,7 +555,7 @@ private func check(_ file: String, _ name: String) throws {
         let item = try Conformance.named("progress-vectors.json", name)
         let detail = try decode(AskDetail.self, item["detail"])
         let ticked = try SharedProgress.fold(detail: detail).sorted()
-        #expect(ticked == strings(item["ticked"]), "\(name)")
+        #expect(ticked == strings(item["ticked"]), "progress-vectors.json \(name)")
     }
 
     /// strictjson-vectors.json: the strict parse the core uses for revision bodies.
@@ -575,7 +577,7 @@ private func check(_ file: String, _ name: String) throws {
         }
         let parses = (try? JSONValue.parse(data)) != nil
             && (try? OrderedJSON.parse(data)).map { !OrderedJSON.hasDuplicateKeys($0) } == true
-        #expect(parses == (item["parses"] == .bool(true)), "\(name): parses")
+        #expect(parses == (item["parses"] == .bool(true)), "strictjson-vectors.json \(name): parses")
 
         // A revision body arrives as a JSON string, so it is always UTF-8; bytes that aren't
         // can't reach RevisionBody.parse and are invalid.
@@ -587,7 +589,7 @@ private func check(_ file: String, _ name: String) throws {
         } else {
             problem = "invalid"
         }
-        #expect((problem == nil) == (item["body"] == .bool(true)), "\(name): body")
-        #expect(problem == item["problem"]?.stringValue, "\(name): problem")
+        #expect((problem == nil) == (item["body"] == .bool(true)), "strictjson-vectors.json \(name): body")
+        #expect(problem == item["problem"]?.stringValue, "strictjson-vectors.json \(name): problem")
     }
 }
