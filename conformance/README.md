@@ -42,8 +42,8 @@ An implementation runs every file, and every case, whose roles include one it pl
 
 - `suite`: the manifest's format version.
 - `path`: the file, relative to this folder.
-- `pond`: the first Pond version whose behaviour the file covers. A client that talks to an older Pond skips it.
-- `feature`: a short name for what the file covers.
+- `pond`: the first Pond version whose behaviour the file covers. A client that talks to an older Pond skips it. A file's own `pond` header names the Pond it was recorded on, which can be newer than this value; a client uses the manifest's `pond` to decide whether to run the file.
+- `feature`: a short name for what the file covers. Where a file covers a named Pond feature, `feature` is that feature's name exactly as the Pond and the clients spell it (`corrections`, `messages`, `requirements`, `longText`, `sharedProgress`, `bugs`, `answers`, `blocking`, `optional`). Other files use one plain lowercase word.
 - `roles`: the roles that run the file.
 - `kinds`: only on a file whose cases carry a `kind` field with different roles. It maps each `kind` to its roles. Every `kind` in the file must be listed.
 - `copies`: other paths in this repo that must hold the same bytes. Empty when there are none.
@@ -123,4 +123,4 @@ These three `data/` files hold cases a reader checks against what the Pond serve
 
 `data/progress-vectors.json`: each case is `{name, note, detail, ticked}`. `ticked` is the sorted list of steps that count as ticked, folded from the item's progress and owner events against the accepted revision (or the posted instructable when there are no revisions). Some cases add or edit an event the Pond never serves, to test that a client filters it out; their note says so.
 
-`data/strictjson-vectors.json`: each case is `{name, note, text | hex, parses, body, problem?, pond?}`. `text` is the exact UTF-8 text, or `hex` the raw bytes when they are not UTF-8. `parses` says whether a strict JSON parser accepts it: a key named twice in one object, and a lone surrogate escape, are refused. `body` says whether it is a valid revision body: strict JSON, a top-level object and a valid instructable. When `body` is false, `problem` is `duplicateKey` for otherwise valid JSON that names a key twice, else `invalid`. `pond`, where present, is the Pond's own answer where it differs from the protocol document.
+`data/strictjson-vectors.json`: each case is `{name, note, text | hex, parses, body, problem?, pond?}`. `text` is the exact UTF-8 text, or `hex` the raw bytes when they are not UTF-8. `parses` says whether a strict JSON parser accepts it: a key named twice in one object, with keys compared after unescaping (for example `"a"` and `"\u0061"`), and a lone surrogate escape, are refused. `body` says whether it is a valid revision body: strict JSON, a top-level object and a valid instructable. When `body` is false, `problem` is `duplicateKey` for otherwise valid JSON that names a key twice, else `invalid`. `pond`, where present, is the Pond's own answer where it differs from the protocol document.
