@@ -27,7 +27,7 @@ struct OwnerKeySection<Model: SettingsViewModel>: View {
                     }
                 }
             }
-            SettingsRow("iPhone") { PhonePairingRow(controller: model.phonePairing) }
+            SettingsRow("Phone") { PhonePairingRow(controller: model.phonePairing) }
             if !others.isEmpty {
                 SettingsRow("Other devices") {
                     VStack(alignment: .trailing, spacing: 2) {
