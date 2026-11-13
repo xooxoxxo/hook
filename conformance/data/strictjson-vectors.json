@@ -1,0 +1,156 @@
+{
+ "version": 1,
+ "pond": "1.7.0",
+ "source": "mailbox/tests/gen_phone_vectors.py",
+ "format": "{name, note, text | hex, parses, body, problem?, pond?}. `text` is the exact UTF-8 text; `hex` the raw bytes when they are not UTF-8. `parses`: a strict JSON parser accepts it (a key named twice in one object, after escapes, and a lone surrogate escape are refused). `body`: it is a revision body: it parses strictly, is a top-level object and is a valid instructable. `problem` (when body is false): duplicateKey when the text is otherwise JSON but names a key twice, else invalid. `pond`, only where present, is the Pond's own answer where it differs from docs/mailbox-protocol.md.",
+ "cases": [
+  {
+   "name": "strict-valid-body",
+   "note": "a plain instructable",
+   "text": "{\"v\":1,\"title\":\"Rotate the staging deploy key\",\"why\":\"The key is 90 days old.\",\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\"}]}",
+   "parses": true,
+   "body": true
+  },
+  {
+   "name": "strict-valid-pair",
+   "note": "a surrogate pair escape is one character",
+   "text": "{\"v\":1,\"title\":\"Rotate the staging deploy key\",\"why\":\"Done \\ud83d\\ude00\",\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\"}]}",
+   "parses": true,
+   "body": true
+  },
+  {
+   "name": "strict-lone-high-surrogate",
+   "note": "a high surrogate escape alone",
+   "text": "{\"v\":1,\"title\":\"Rotate the staging deploy key\",\"why\":\"Done \\ud83d\",\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\"}]}",
+   "parses": false,
+   "body": false,
+   "problem": "invalid"
+  },
+  {
+   "name": "strict-lone-low-surrogate",
+   "note": "a low surrogate escape alone",
+   "text": "{\"v\":1,\"title\":\"Rotate the staging deploy key\",\"why\":\"Done \\ude00\",\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\"}]}",
+   "parses": false,
+   "body": false,
+   "problem": "invalid"
+  },
+  {
+   "name": "strict-reversed-pair",
+   "note": "low then high: two lone surrogates",
+   "text": "{\"v\":1,\"title\":\"Rotate the staging deploy key\",\"why\":\"Done \\ude00\\ud83d\",\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\"}]}",
+   "parses": false,
+   "body": false,
+   "problem": "invalid"
+  },
+  {
+   "name": "strict-lone-surrogate-key",
+   "note": "a lone surrogate in a key",
+   "text": "{\"\\ud800\":1}",
+   "parses": false,
+   "body": false,
+   "problem": "invalid"
+  },
+  {
+   "name": "strict-duplicate-top-level",
+   "note": "title named twice at the top",
+   "text": "{\"v\":1,\"title\":\"Rotate the staging deploy key\",\"title\":\"Rotate the production deploy key\",\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\"}]}",
+   "parses": false,
+   "body": false,
+   "problem": "duplicateKey"
+  },
+  {
+   "name": "strict-duplicate-nested",
+   "note": "a key named twice in a nested object",
+   "text": "{\"v\":1,\"title\":\"Rotate the staging deploy key\",\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\"}],\"verify\":{\"do\":\"The deploy passes\",\"do\":\"The deploy fails\"}}",
+   "parses": false,
+   "body": false,
+   "problem": "duplicateKey"
+  },
+  {
+   "name": "strict-duplicate-in-array",
+   "note": "a key named twice in an object inside an array",
+   "text": "{\"v\":1,\"title\":\"Rotate the staging deploy key\",\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"code\":\"deploy-key show\",\"code\":\"deploy-key delete\"}]}",
+   "parses": false,
+   "body": false,
+   "problem": "duplicateKey"
+  },
+  {
+   "name": "strict-duplicate-escaped",
+   "note": "\"a\" and \"\\u0061\" are the same key",
+   "text": "{\"a\":1,\"\\u0061\":2}",
+   "parses": false,
+   "body": false,
+   "problem": "duplicateKey"
+  },
+  {
+   "name": "strict-duplicate-escaped-title",
+   "note": "title spelled once with an escape",
+   "text": "{\"v\":1,\"title\":\"Rotate the staging deploy key\",\"\\u0074itle\":\"Rotate the production deploy key\",\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\"}]}",
+   "parses": false,
+   "body": false,
+   "problem": "duplicateKey"
+  },
+  {
+   "name": "strict-same-key-different-objects",
+   "note": "one key in two objects is no duplicate",
+   "text": "{\"v\":1,\"title\":\"Rotate the staging deploy key\",\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\"},{\"do\":\"Rotate the key\",\"id\":\"s2\"}]}",
+   "parses": true,
+   "body": true
+  },
+  {
+   "name": "strict-trailing-text",
+   "note": "text after the value",
+   "text": "{\"v\":1,\"title\":\"Rotate the staging deploy key\",\"why\":\"The key is 90 days old.\",\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\"}]} x",
+   "parses": false,
+   "body": false,
+   "problem": "invalid"
+  },
+  {
+   "name": "strict-trailing-space",
+   "note": "white space after the value is fine",
+   "text": "{\"v\":1,\"title\":\"Rotate the staging deploy key\",\"why\":\"The key is 90 days old.\",\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\"}]} \n",
+   "parses": true,
+   "body": true
+  },
+  {
+   "name": "strict-broken",
+   "note": "the object never closes",
+   "text": "{\"v\":1,\"title\":\"Rotate the staging deploy key\"",
+   "parses": false,
+   "body": false,
+   "problem": "invalid"
+  },
+  {
+   "name": "strict-not-utf8",
+   "note": "raw bytes that are not UTF-8: {\"a\":\"<FF>\"}",
+   "hex": "7b2261223a22ff227d",
+   "parses": false,
+   "body": false,
+   "problem": "invalid"
+  },
+  {
+   "name": "strict-top-level-array",
+   "note": "JSON, but not an object",
+   "text": "[{\"v\":1}]",
+   "parses": true,
+   "body": false,
+   "problem": "invalid"
+  },
+  {
+   "name": "strict-top-level-string",
+   "note": "JSON, but not an object",
+   "text": "\"Rotate the staging deploy key\"",
+   "parses": true,
+   "body": false,
+   "problem": "invalid"
+  },
+  {
+   "name": "strict-not-instructable",
+   "note": "an object, but no instructable",
+   "text": "{\"a\":1}",
+   "parses": true,
+   "body": false,
+   "problem": "invalid"
+  }
+ ]
+}

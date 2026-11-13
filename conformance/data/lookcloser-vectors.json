@@ -1,0 +1,558 @@
+{
+  "version": 1,
+  "source": "Tests/RelayCoreTests/ConformanceTests.swift",
+  "format": "{name, note, old?, new, cwd?, flags: [{kind, location, text}]}. The review's Look closer flags for the text `new` added or changed since `old` (every text of `new` when `old` is absent: a first view). A text is a step's or sub-step's code, url, detail or file, verify's the same, a link's url or path, or why; a text whose location holds the same value in `old` is skipped. Hosts and paths count as new only when `old` names them nowhere. location: \"step <id or path> code|url|detail|file\", \"verify code|…\", \"link <n> url|path\", \"why\". kind: pipeToShell, sudo, rmRf, decode, eval (command patterns, in code only), nonASCII (in code; in a host outside code), newHost (every http(s) host), absolutePathOutsideCwd (a file or link path starting with / or ~ outside `cwd`). text: the matched part, the host, the path, or the text with each non-ASCII character as ⟨U+XXXX⟩. Flags come per text in that order. Within a text: the command patterns in the order above, then the code's nonASCII, then for each host its newHost and (outside code) its nonASCII, then the path. An empty list is the no-match result, which the review shows as \"No pattern matched. These checks are incomplete.\"",
+  "cases": [
+    {
+      "name": "look-no-match",
+      "note": "plain text: no flag",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "why": "The key is 90 days old.",
+        "steps": [{"do": "Rotate the key", "id": "s1", "code": "deploy-key rotate --env staging"}]
+      },
+      "flags": []
+    },
+    {
+      "name": "look-first-view-new-host",
+      "note": "a first view flags every host",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {
+            "do": "Open the deploy settings",
+            "id": "s1",
+            "url": "https://deploy.example.test/settings"
+          }
+        ],
+        "links": [{"label": "Runbook", "url": "https://docs.example.test/runbook"}]
+      },
+      "flags": [
+        {"kind": "newHost", "location": "step s1 url", "text": "deploy.example.test"},
+        {"kind": "newHost", "location": "link 1 url", "text": "docs.example.test"}
+      ]
+    },
+    {
+      "name": "look-host-already-named",
+      "note": "a host the old version names anywhere is not new, though the text naming it is",
+      "old": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {
+            "do": "Open the deploy settings",
+            "id": "s1",
+            "url": "https://deploy.example.test/settings"
+          }
+        ]
+      },
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {
+            "do": "Open the deploy settings",
+            "id": "s1",
+            "url": "https://deploy.example.test/settings"
+          },
+          {
+            "do": "Check the health page",
+            "id": "s2",
+            "detail": "It lives at https://deploy.example.test/health and https://status.example.test."
+          }
+        ]
+      },
+      "flags": [{"kind": "newHost", "location": "step s2 detail", "text": "status.example.test."}]
+    },
+    {
+      "name": "look-unchanged-text",
+      "note": "a text the old version holds unchanged at the same place is never flagged",
+      "old": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [{"do": "Install it", "id": "s1", "code": "sudo make install"}]
+      },
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {"do": "Install it", "id": "s1", "code": "sudo make install"},
+          {"do": "Rotate the key", "id": "s2"}
+        ]
+      },
+      "flags": []
+    },
+    {
+      "name": "look-pattern-already-in-old",
+      "note": "a changed code text is flagged again for a pattern its old value held",
+      "old": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [{"do": "Install it", "id": "s1", "code": "sudo make install"}]
+      },
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [{"do": "Install it", "id": "s1", "code": "sudo make install && sudo reboot"}]
+      },
+      "flags": [
+        {"kind": "sudo", "location": "step s1 code", "text": "sudo"},
+        {"kind": "sudo", "location": "step s1 code", "text": "sudo"}
+      ]
+    },
+    {
+      "name": "look-pipe-to-shell-curl",
+      "note": "curl piped into sh",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {
+            "do": "Install the tool",
+            "id": "s1",
+            "code": "curl -fsSL https://get.example.test/install.sh | sh"
+          }
+        ]
+      },
+      "flags": [
+        {
+          "kind": "pipeToShell",
+          "location": "step s1 code",
+          "text": "curl -fsSL https://get.example.test/install.sh | sh"
+        },
+        {"kind": "newHost", "location": "step s1 code", "text": "get.example.test"}
+      ]
+    },
+    {
+      "name": "look-pipe-to-shell-process-substitution",
+      "note": "bash reading curl through process substitution",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {
+            "do": "Install the tool",
+            "id": "s1",
+            "code": "bash <(curl -fsSL https://get.example.test/install.sh)"
+          }
+        ]
+      },
+      "flags": [
+        {"kind": "pipeToShell", "location": "step s1 code", "text": "bash <(curl"},
+        {"kind": "newHost", "location": "step s1 code", "text": "get.example.test"}
+      ]
+    },
+    {
+      "name": "look-sudo",
+      "note": "sudo at the start and after a separator",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {
+            "do": "Restart the service",
+            "id": "s1",
+            "code": "sudo systemctl restart web; sudo systemctl status web"
+          }
+        ]
+      },
+      "flags": [
+        {"kind": "sudo", "location": "step s1 code", "text": "sudo"},
+        {"kind": "sudo", "location": "step s1 code", "text": "sudo"}
+      ]
+    },
+    {
+      "name": "look-rm-rf",
+      "note": "rm with -rf and with -fr",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [{"do": "Clean up", "id": "s1", "code": "rm -rf build\nrm -fr cache"}]
+      },
+      "flags": [
+        {"kind": "rmRf", "location": "step s1 code", "text": "rm -rf"},
+        {"kind": "rmRf", "location": "step s1 code", "text": "rm -fr"}
+      ]
+    },
+    {
+      "name": "look-decode",
+      "note": "base64 -d, openssl base64 -d and xxd -r",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {
+            "do": "Decode the key",
+            "id": "s1",
+            "code": "echo a2V5 | base64 -d > key\nopenssl base64 -d -in key.b64\nxxd -r key.hex"
+          }
+        ]
+      },
+      "flags": [
+        {"kind": "decode", "location": "step s1 code", "text": "base64 -d"},
+        {"kind": "decode", "location": "step s1 code", "text": "base64 -d"},
+        {"kind": "decode", "location": "step s1 code", "text": "openssl base64 -d"},
+        {"kind": "decode", "location": "step s1 code", "text": "xxd -r"}
+      ]
+    },
+    {
+      "name": "look-eval",
+      "note": "eval of a command substitution",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [{"do": "Start the agent", "id": "s1", "code": "eval \"$(ssh-agent -s)\""}]
+      },
+      "flags": [{"kind": "eval", "location": "step s1 code", "text": "eval \"$("}]
+    },
+    {
+      "name": "look-non-ascii-code",
+      "note": "a non-ASCII character in code, here a Cyrillic а in place of a Latin a",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [{"do": "Rotate the key", "id": "s1", "code": "deploy-key rotаte --env staging"}]
+      },
+      "flags": [
+        {
+          "kind": "nonASCII",
+          "location": "step s1 code",
+          "text": "deploy-key rot⟨U+0430⟩te --env staging"
+        }
+      ]
+    },
+    {
+      "name": "look-non-ascii-host",
+      "note": "a non-ASCII host in a link outside code",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [{"do": "Rotate the key", "id": "s1"}],
+        "links": [{"label": "Settings", "url": "https://deplöy.example.test/settings"}]
+      },
+      "flags": [
+        {"kind": "newHost", "location": "link 1 url", "text": "deplöy.example.test"},
+        {"kind": "nonASCII", "location": "link 1 url", "text": "depl⟨U+00F6⟩y.example.test"}
+      ]
+    },
+    {
+      "name": "look-verify-and-why",
+      "note": "verify code and why are checked too",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "why": "See https://status.example.test first.",
+        "steps": [{"do": "Rotate the key", "id": "s1"}],
+        "verify": {"do": "The deploy passes", "code": "sudo deploy-key check"}
+      },
+      "flags": [
+        {"kind": "sudo", "location": "verify code", "text": "sudo"},
+        {"kind": "newHost", "location": "why", "text": "status.example.test"}
+      ]
+    },
+    {
+      "name": "look-substep-location",
+      "note": "a sub-step's text is placed by its own id",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {
+            "do": "Restart the services",
+            "id": "s1",
+            "substeps": [
+              {"do": "Restart the web service", "id": "s1.1", "code": "sudo systemctl restart web"}
+            ]
+          }
+        ]
+      },
+      "flags": [{"kind": "sudo", "location": "step s1.1 code", "text": "sudo"}]
+    },
+    {
+      "name": "look-no-ids-location",
+      "note": "a step without an id is placed by its path",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {"do": "Open the deploy settings"},
+          {"do": "Restart the web service", "code": "sudo systemctl restart web"}
+        ]
+      },
+      "flags": [{"kind": "sudo", "location": "step 2 code", "text": "sudo"}]
+    },
+    {
+      "name": "look-path-outside-cwd",
+      "note": "a file and a link path outside the working folder",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [{"do": "Read the notes", "id": "s1", "file": "/etc/deploy/notes.md"}],
+        "links": [{"label": "Key notes", "path": "~/notes/keys.md"}]
+      },
+      "cwd": "~/code/app",
+      "flags": [
+        {
+          "kind": "absolutePathOutsideCwd",
+          "location": "step s1 file",
+          "text": "/etc/deploy/notes.md"
+        },
+        {"kind": "absolutePathOutsideCwd", "location": "link 1 path", "text": "~/notes/keys.md"}
+      ]
+    },
+    {
+      "name": "look-path-inside-cwd",
+      "note": "a file inside the working folder is not flagged",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [{"do": "Read the notes", "id": "s1", "file": "~/code/app/docs/rotation.md"}]
+      },
+      "cwd": "~/code/app",
+      "flags": []
+    },
+    {
+      "name": "look-path-no-cwd",
+      "note": "without a working folder every absolute path is outside it",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [{"do": "Read the notes", "id": "s1", "file": "~/code/app/docs/rotation.md"}]
+      },
+      "flags": [
+        {
+          "kind": "absolutePathOutsideCwd",
+          "location": "step s1 file",
+          "text": "~/code/app/docs/rotation.md"
+        }
+      ]
+    },
+    {
+      "name": "look-path-already-named",
+      "note": "a path the old version names is not flagged again",
+      "old": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [{"do": "Read the notes", "id": "s1", "file": "/etc/deploy/notes.md"}]
+      },
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {"do": "Read the notes first", "id": "s1"},
+          {"do": "Then read them again", "id": "s2", "file": "/etc/deploy/notes.md"}
+        ]
+      },
+      "cwd": "~/code/app",
+      "flags": []
+    },
+    {
+      "name": "look-non-ascii-host-in-code",
+      "note": "a non-ASCII host inside code: the code text gets one nonASCII flag, the host none of its own",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {
+            "do": "Check the health page",
+            "id": "s1",
+            "code": "curl -sI https://deplöy.example.test/health"
+          }
+        ]
+      },
+      "flags": [
+        {
+          "kind": "nonASCII",
+          "location": "step s1 code",
+          "text": "curl -sI https://depl⟨U+00F6⟩y.example.test/health"
+        },
+        {"kind": "newHost", "location": "step s1 code", "text": "deplöy.example.test"}
+      ]
+    },
+    {
+      "name": "look-relative-file",
+      "note": "a relative file path is not absolute, so never outside the working folder",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [{"do": "Read the notes", "id": "s1", "file": "docs/rotation.md"}]
+      },
+      "cwd": "~/code/app",
+      "flags": []
+    },
+    {
+      "name": "look-cwd-trailing-slash",
+      "note": "a working folder given with a trailing slash, a path inside it",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [{"do": "Read the notes", "id": "s1", "file": "~/code/app/docs/rotation.md"}]
+      },
+      "cwd": "~/code/app/",
+      "flags": []
+    },
+    {
+      "name": "look-cwd-trailing-slash-path-is-folder",
+      "note": "a working folder given with a trailing slash, the path naming the folder itself without one",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [{"do": "Open the folder", "id": "s1", "file": "~/code/app"}]
+      },
+      "cwd": "~/code/app/",
+      "flags": [
+        {"kind": "absolutePathOutsideCwd", "location": "step s1 file", "text": "~/code/app"}
+      ]
+    },
+    {
+      "name": "look-sudo-keeps-newlines",
+      "note": "a sudo match keeps the newline its white space took, and a separator before it",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {"do": "Install it", "id": "s1", "code": "make\nsudo\nreboot"},
+          {"do": "Install it again", "id": "s2", "code": "make;sudo reboot"}
+        ]
+      },
+      "flags": [
+        {"kind": "sudo", "location": "step s1 code", "text": "\nsudo\n"},
+        {"kind": "sudo", "location": "step s2 code", "text": ";sudo"}
+      ]
+    },
+    {
+      "name": "look-no-break-space",
+      "note": "a no-break space after sudo counts as white space and is trimmed from the match",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [{"do": "Restart the host", "id": "s1", "code": "sudo\u00A0reboot"}]
+      },
+      "flags": [
+        {"kind": "sudo", "location": "step s1 code", "text": "sudo"},
+        {"kind": "nonASCII", "location": "step s1 code", "text": "sudo⟨U+00A0⟩reboot"}
+      ]
+    },
+    {
+      "name": "look-letter-before-curl",
+      "note": "a non-ASCII letter right before curl is a word character, so no word boundary",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [{"do": "Install the tool", "id": "s1", "code": "\u00E9curl -s x | sh"}]
+      },
+      "flags": [{"kind": "nonASCII", "location": "step s1 code", "text": "⟨U+00E9⟩curl -s x | sh"}]
+    },
+    {
+      "name": "look-zero-width-space-before-curl",
+      "note": "a zero-width space between two words is no word boundary; at the start of a text it is one",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {"do": "Install the tool", "id": "s1", "code": "x\u200Bcurl -s x | sh"},
+          {"do": "Install it again", "id": "s2", "code": "\u200Bcurl -s x | sh"}
+        ]
+      },
+      "flags": [
+        {"kind": "nonASCII", "location": "step s1 code", "text": "x⟨U+200B⟩curl -s x | sh"},
+        {"kind": "pipeToShell", "location": "step s2 code", "text": "curl -s x | sh"},
+        {"kind": "nonASCII", "location": "step s2 code", "text": "⟨U+200B⟩curl -s x | sh"}
+      ]
+    },
+    {
+      "name": "look-normal-form-unchanged",
+      "note": "a text or host that only changed its Unicode normal form is unchanged",
+      "old": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "why": "https://caf\u00E9.example.test",
+        "steps": [{"do": "Install it", "id": "s1", "code": "sudo caf\u00E9"}]
+      },
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {"do": "Install it", "id": "s1", "code": "sudo cafe\u0301"},
+          {"do": "Open the page", "id": "s2", "detail": "https://cafe\u0301.example.test"}
+        ]
+      },
+      "flags": []
+    },
+    {
+      "name": "look-host-lowercased-per-character",
+      "note": "a host is lowercased one character at a time, with no final-sigma rule",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [{"do": "Rotate the key", "id": "s1"}],
+        "links": [{"label": "Settings", "url": "https://\u0391\u03A3/x"}]
+      },
+      "flags": [
+        {"kind": "newHost", "location": "link 1 url", "text": "\u03B1\u03C3"},
+        {"kind": "nonASCII", "location": "link 1 url", "text": "⟨U+03B1⟩⟨U+03C3⟩"}
+      ]
+    },
+    {
+      "name": "look-combining-mark-after-slashes",
+      "note": "a combining mark after the second slash joins it, so that slash stays in the host",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [{"do": "Rotate the key", "id": "s1"}],
+        "links": [{"label": "Settings", "url": "https://\u0301x.example.test"}]
+      },
+      "flags": [
+        {"kind": "newHost", "location": "link 1 url", "text": "/\u0301x.example.test"},
+        {"kind": "nonASCII", "location": "link 1 url", "text": "/⟨U+0301⟩x.example.test"}
+      ]
+    },
+    {
+      "name": "look-combining-mark-on-slash",
+      "note": "a combining mark on a slash ends a path's prefix match, both for the working folder and for being absolute",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {"do": "Read the notes", "id": "s1", "file": "~/app/\u0301x"},
+          {"do": "Read the config", "id": "s2", "file": "/\u0301etc/x"}
+        ]
+      },
+      "cwd": "~/app",
+      "flags": [{"kind": "absolutePathOutsideCwd", "location": "step s1 file", "text": "~/app/\u0301x"}]
+    },
+    {
+      "name": "look-grapheme-extender-before-curl",
+      "note": "a word boundary steps back over a Unicode 16 grapheme extender, here U+0CC0, before curl",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {"do": "Install the tool", "id": "s1", "code": " \u0CC0curl x | sh"},
+          {"do": "Install it again", "id": "s2", "code": "\u0CC0curl x | sh"}
+        ]
+      },
+      "flags": [
+        {"kind": "pipeToShell", "location": "step s1 code", "text": "curl x | sh"},
+        {"kind": "nonASCII", "location": "step s1 code", "text": " ⟨U+0CC0⟩curl x | sh"},
+        {"kind": "pipeToShell", "location": "step s2 code", "text": "curl x | sh"},
+        {"kind": "nonASCII", "location": "step s2 code", "text": "⟨U+0CC0⟩curl x | sh"}
+      ]
+    },
+    {
+      "name": "look-grapheme-extender-before-eval",
+      "note": "a word boundary steps back over a Unicode 16 grapheme extender, here U+0CC0, before eval",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [{"do": "Start the agent", "id": "s1", "code": " \u0CC0eval $(x)"}]
+      },
+      "flags": [
+        {"kind": "eval", "location": "step s1 code", "text": "eval $("},
+        {"kind": "nonASCII", "location": "step s1 code", "text": " ⟨U+0CC0⟩eval $(x)"}
+      ]
+    }
+  ]
+}

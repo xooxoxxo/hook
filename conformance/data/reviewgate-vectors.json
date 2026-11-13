@@ -1,0 +1,344 @@
+{
+  "version": 1,
+  "source": "Tests/RelayCoreTests/ConformanceTests.swift",
+  "format": "{name, note, record, history, pond, served, expect: {state, locked, shown?, problem?, action}}. `record` is this device's review record for the ask, or null for none: {accepted?: {rev, hash}, seen?: {rev, hash}, pins: {\"<rev>\": \"<hash>\"}, firstBody?: \"first\" | \"other\"}, where firstBody sets firstBodyHash to the body hash of that header instructable. `history` is the verified history: {kind: \"none\"} when the ask came without revisions, {kind: \"ok\", stamps: {\"<rev>\": \"<hash>\"}, current: <rev>, acceptedOnPond: <rev>} (every rev's body is `first`), or {kind: \"problem\", problem: \"<wire>\"} with the problem names of history-vectors.json. `pond` is the Pond's version (\"1.1.0\", or \"protocol <n>\" for an old Pond), or null before the version check. `served` names the header instructable the Pond served as the plain payload, or null. Hashes are synthetic: the gate compares them and never recomputes one. expect: state legacy, current, pending or historyChanged; locked; shown (pending only) the rev shown, or null when none; problem (historyChanged only); action review, trustHistory or null.",
+  "first": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "urgency": "today",
+    "steps": [{"do": "Open the deploy settings", "id": "s1"}, {"do": "Rotate the key", "id": "s2"}]
+  },
+  "other": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "urgency": "today",
+    "steps": [
+      {"do": "Open the deploy settings", "id": "s1"},
+      {"do": "Paste the new key", "id": "s2"}
+    ]
+  },
+  "cases": [
+    {
+      "name": "gate-no-history-no-record",
+      "note": "an ask without revisions, never seen here",
+      "record": null,
+      "history": {"kind": "none"},
+      "pond": "1.5.0",
+      "served": "first",
+      "expect": {"state": "legacy", "locked": false, "action": null}
+    },
+    {
+      "name": "gate-no-history-no-pins",
+      "note": "a record that pinned nothing",
+      "record": {"pins": {}},
+      "history": {"kind": "none"},
+      "pond": "1.5.0",
+      "served": "first",
+      "expect": {"state": "legacy", "locked": false, "action": null}
+    },
+    {
+      "name": "gate-no-history-pin-above-1",
+      "note": "this device pinned rev 2, and the Pond now serves no revisions",
+      "record": {"pins": {"1": "h1", "2": "h2"}},
+      "history": {"kind": "none"},
+      "pond": "1.5.0",
+      "served": "first",
+      "expect": {
+        "state": "historyChanged",
+        "locked": true,
+        "problem": "missing",
+        "action": "trustHistory"
+      }
+    },
+    {
+      "name": "gate-no-history-rev1-pin-current-pond",
+      "note": "pinned at rev 1 only, on a Pond that serves revisions: a dropped revision is a swap",
+      "record": {"pins": {"1": "h1"}, "firstBody": "first"},
+      "history": {"kind": "none"},
+      "pond": "1.1.0",
+      "served": "first",
+      "expect": {
+        "state": "historyChanged",
+        "locked": true,
+        "problem": "missing",
+        "action": "trustHistory"
+      }
+    },
+    {
+      "name": "gate-no-history-rev1-pin-old-pond-same-body",
+      "note": "pinned at rev 1, an older Pond serves exactly the rev 1 body",
+      "record": {"pins": {"1": "h1"}, "firstBody": "first"},
+      "history": {"kind": "none"},
+      "pond": "1.0.0",
+      "served": "first",
+      "expect": {"state": "legacy", "locked": false, "action": null}
+    },
+    {
+      "name": "gate-no-history-rev1-pin-old-pond-other-body",
+      "note": "pinned at rev 1, an older Pond serves another body",
+      "record": {"pins": {"1": "h1"}, "firstBody": "first"},
+      "history": {"kind": "none"},
+      "pond": "1.0.0",
+      "served": "other",
+      "expect": {
+        "state": "historyChanged",
+        "locked": true,
+        "problem": "missing",
+        "action": "trustHistory"
+      }
+    },
+    {
+      "name": "gate-no-history-rev1-pin-protocol-pond-same-body",
+      "note": "pinned at rev 1, a dated Pond (protocol 4, read as 1.0.0) serves the rev 1 body",
+      "record": {"pins": {"1": "h1"}, "firstBody": "first"},
+      "history": {"kind": "none"},
+      "pond": "protocol 4",
+      "served": "first",
+      "expect": {"state": "legacy", "locked": false, "action": null}
+    },
+    {
+      "name": "gate-no-history-rev1-pin-no-pond-same-body",
+      "note": "pinned at rev 1, before the version check, the rev 1 body",
+      "record": {"pins": {"1": "h1"}, "firstBody": "first"},
+      "history": {"kind": "none"},
+      "pond": null,
+      "served": "first",
+      "expect": {"state": "legacy", "locked": false, "action": null}
+    },
+    {
+      "name": "gate-no-history-rev1-pin-no-pond-other-body",
+      "note": "pinned at rev 1, before the version check, another body",
+      "record": {"pins": {"1": "h1"}, "firstBody": "first"},
+      "history": {"kind": "none"},
+      "pond": null,
+      "served": "other",
+      "expect": {
+        "state": "historyChanged",
+        "locked": true,
+        "problem": "missing",
+        "action": "trustHistory"
+      }
+    },
+    {
+      "name": "gate-no-history-rev1-pin-no-pond-not-served",
+      "note": "pinned at rev 1, before the version check, no payload to compare",
+      "record": {"pins": {"1": "h1"}, "firstBody": "first"},
+      "history": {"kind": "none"},
+      "pond": null,
+      "served": null,
+      "expect": {
+        "state": "historyChanged",
+        "locked": true,
+        "problem": "missing",
+        "action": "trustHistory"
+      }
+    },
+    {
+      "name": "gate-no-history-rev1-pin-no-first-body",
+      "note": "pinned at rev 1 without a first body hash: nothing to compare the payload with",
+      "record": {"pins": {"1": "h1"}},
+      "history": {"kind": "none"},
+      "pond": "1.0.0",
+      "served": "first",
+      "expect": {
+        "state": "historyChanged",
+        "locked": true,
+        "problem": "missing",
+        "action": "trustHistory"
+      }
+    },
+    {
+      "name": "gate-corrected-on-old-pond",
+      "note": "a corrected record (pin above rev 1) on a Pond below 1.1.0, even with a history",
+      "record": {"pins": {"1": "h1", "2": "h2"}},
+      "history": {"kind": "ok", "stamps": {"1": "h1", "2": "h2"}, "current": 2, "acceptedOnPond": 1},
+      "pond": "1.0.0",
+      "served": null,
+      "expect": {
+        "state": "historyChanged",
+        "locked": true,
+        "problem": "missing",
+        "action": "trustHistory"
+      }
+    },
+    {
+      "name": "gate-history-bad-hash",
+      "note": "the history failed its checks",
+      "record": null,
+      "history": {"kind": "problem", "problem": "badHash:2"},
+      "pond": "1.5.0",
+      "served": null,
+      "expect": {
+        "state": "historyChanged",
+        "locked": true,
+        "problem": "badHash:2",
+        "action": "trustHistory"
+      }
+    },
+    {
+      "name": "gate-history-fixed-field",
+      "note": "the history failed its checks with a record present",
+      "record": {"pins": {"1": "h1"}},
+      "history": {"kind": "problem", "problem": "fixedFieldChanged:2"},
+      "pond": "1.5.0",
+      "served": null,
+      "expect": {
+        "state": "historyChanged",
+        "locked": true,
+        "problem": "fixedFieldChanged:2",
+        "action": "trustHistory"
+      }
+    },
+    {
+      "name": "gate-pin-other-hash",
+      "note": "a pinned rev now has another hash",
+      "record": {"pins": {"1": "h1", "2": "h2x"}},
+      "history": {"kind": "ok", "stamps": {"1": "h1", "2": "h2"}, "current": 2, "acceptedOnPond": 1},
+      "pond": "1.5.0",
+      "served": null,
+      "expect": {
+        "state": "historyChanged",
+        "locked": true,
+        "problem": "rolledBack",
+        "action": "trustHistory"
+      }
+    },
+    {
+      "name": "gate-current-below-highest-pin",
+      "note": "this device pinned rev 3, the history ends at rev 2",
+      "record": {"pins": {"1": "h1", "2": "h2", "3": "h3"}},
+      "history": {"kind": "ok", "stamps": {"1": "h1", "2": "h2"}, "current": 2, "acceptedOnPond": 1},
+      "pond": "1.5.0",
+      "served": null,
+      "expect": {
+        "state": "historyChanged",
+        "locked": true,
+        "problem": "rolledBack",
+        "action": "trustHistory"
+      }
+    },
+    {
+      "name": "gate-rev1-current",
+      "note": "an ask never corrected",
+      "record": null,
+      "history": {"kind": "ok", "stamps": {"1": "h1"}, "current": 1, "acceptedOnPond": 1},
+      "pond": "1.5.0",
+      "served": null,
+      "expect": {"state": "current", "locked": false, "action": null}
+    },
+    {
+      "name": "gate-accepted-is-current",
+      "note": "the owner accepted the current rev on this device",
+      "record": {"accepted": {"rev": 2, "hash": "h2"}, "pins": {"1": "h1", "2": "h2"}},
+      "history": {"kind": "ok", "stamps": {"1": "h1", "2": "h2"}, "current": 2, "acceptedOnPond": 2},
+      "pond": "1.5.0",
+      "served": null,
+      "expect": {"state": "current", "locked": false, "action": null}
+    },
+    {
+      "name": "gate-accepted-older",
+      "note": "accepted rev 2, rev 3 is current: pending, rev 2 shown",
+      "record": {"accepted": {"rev": 2, "hash": "h2"}, "pins": {"1": "h1", "2": "h2"}},
+      "history": {
+        "kind": "ok",
+        "stamps": {"1": "h1", "2": "h2", "3": "h3"},
+        "current": 3,
+        "acceptedOnPond": 2
+      },
+      "pond": "1.5.0",
+      "served": null,
+      "expect": {"state": "pending", "locked": true, "shown": 2, "action": "review"}
+    },
+    {
+      "name": "gate-seen-older",
+      "note": "only seen rev 1, rev 2 is current: pending, rev 1 shown",
+      "record": {"seen": {"rev": 1, "hash": "h1"}, "pins": {"1": "h1"}},
+      "history": {"kind": "ok", "stamps": {"1": "h1", "2": "h2"}, "current": 2, "acceptedOnPond": 1},
+      "pond": "1.5.0",
+      "served": null,
+      "expect": {"state": "pending", "locked": true, "shown": 1, "action": "review"}
+    },
+    {
+      "name": "gate-accepted-wins-over-seen",
+      "note": "accepted rev 2 and seen rev 1, rev 3 current: the accepted one is shown",
+      "record": {
+        "accepted": {"rev": 2, "hash": "h2"},
+        "seen": {"rev": 1, "hash": "h1"},
+        "pins": {"1": "h1", "2": "h2"}
+      },
+      "history": {
+        "kind": "ok",
+        "stamps": {"1": "h1", "2": "h2", "3": "h3"},
+        "current": 3,
+        "acceptedOnPond": 1
+      },
+      "pond": "1.5.0",
+      "served": null,
+      "expect": {"state": "pending", "locked": true, "shown": 2, "action": "review"}
+    },
+    {
+      "name": "gate-no-record-rev2-current",
+      "note": "first sight of a corrected ask: pending with nothing shown",
+      "record": null,
+      "history": {"kind": "ok", "stamps": {"1": "h1", "2": "h2"}, "current": 2, "acceptedOnPond": 1},
+      "pond": "1.5.0",
+      "served": null,
+      "expect": {"state": "pending", "locked": true, "shown": null, "action": "review"}
+    },
+    {
+      "name": "gate-accepted-stamp-gone",
+      "note": "accepted names a hash the history no longer holds at that rev, nothing seen",
+      "record": {"accepted": {"rev": 2, "hash": "h2x"}, "pins": {"1": "h1"}},
+      "history": {
+        "kind": "ok",
+        "stamps": {"1": "h1", "2": "h2", "3": "h3"},
+        "current": 3,
+        "acceptedOnPond": 1
+      },
+      "pond": "1.5.0",
+      "served": null,
+      "expect": {"state": "pending", "locked": true, "shown": null, "action": "review"}
+    },
+    {
+      "name": "gate-accepted-stamp-gone-seen-kept",
+      "note": "accepted names a stamp the history no longer holds, seen rev 1 still holds",
+      "record": {
+        "accepted": {"rev": 2, "hash": "h2x"},
+        "seen": {"rev": 1, "hash": "h1"},
+        "pins": {"1": "h1"}
+      },
+      "history": {
+        "kind": "ok",
+        "stamps": {"1": "h1", "2": "h2", "3": "h3"},
+        "current": 3,
+        "acceptedOnPond": 1
+      },
+      "pond": "1.5.0",
+      "served": null,
+      "expect": {"state": "pending", "locked": true, "shown": 1, "action": "review"}
+    },
+    {
+      "name": "gate-no-history-pin-above-1-no-pond",
+      "note": "pinned at rev 2, before the version check, the Pond serves the rev 1 body without revisions: a correction was dropped",
+      "record": {"pins": {"1": "h1", "2": "h2"}, "firstBody": "first"},
+      "history": {"kind": "none"},
+      "pond": null,
+      "served": "first",
+      "expect": {
+        "state": "historyChanged",
+        "locked": true,
+        "problem": "missing",
+        "action": "trustHistory"
+      }
+    },
+    {
+      "name": "gate-accepted-current-rev-other-hash",
+      "note": "accepted names the current rev with another hash than the history holds for it",
+      "record": {"accepted": {"rev": 2, "hash": "h2x"}, "pins": {"1": "h1"}},
+      "history": {"kind": "ok", "stamps": {"1": "h1", "2": "h2"}, "current": 2, "acceptedOnPond": 1},
+      "pond": "1.5.0",
+      "served": null,
+      "expect": {"state": "pending", "locked": true, "shown": null, "action": "review"}
+    }
+  ]
+}

@@ -55,6 +55,9 @@ jobs:
       - name: Shell timing tests (dedicated process)
         run: swift test --skip-build --filter LoginShellTimingTests
 
+      - name: Conformance suite
+        run: python3 -m unittest scripts/test_check_conformance.py -v && python3 scripts/check-conformance.py
+
       - name: Client tests
         run: python3 -m unittest discover -s clients -p 'test_*.py' -v
 

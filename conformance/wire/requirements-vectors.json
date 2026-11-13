@@ -1,0 +1,1490 @@
+{
+ "version": 1,
+ "pond": "1.3.0",
+ "source": "mailbox/tests/gen_pond_vectors.py, recorded from the Pond over loopback",
+ "format": "{name, note, request: {method, path, ownerKey, protocol, body}, response: {status, body}, binds?}\n\n`ownerKey` true sends an approved X-Hook-Owner-Key; `protocol` is the\nX-Hook-Protocol sent, or null for none (a 1.1.0 client or older). `binds` names\nthe item id the response carries ({\"bug1\": \"item.id\"}), and later paths and bodies\nuse it as {bug1}. In responses every item id is its {name} and every ISO-8601\ntimestamp is {time}; everything else is exactly what the Pond answers.",
+ "cases": [
+  {
+   "name": "requirements-post",
+   "note": "an ask with a required step and done [reply, message]: 201",
+   "request": {
+    "method": "POST",
+    "path": "/asks",
+    "ownerKey": false,
+    "protocol": 5,
+    "body": {
+     "project": "Example",
+     "context": "personal",
+     "instructable": {
+      "v": 1,
+      "title": "Rotate the staging deploy key",
+      "urgency": "today",
+      "steps": [
+       {
+        "do": "Open the deploy settings"
+       },
+       {
+        "do": "Rotate the key",
+        "required": true
+       },
+       {
+        "do": "Note the rotation time",
+        "optional": true
+       }
+      ],
+      "reply": {
+       "prompt": "Did the deploy pass?",
+       "choices": [
+        "Yes",
+        "No"
+       ]
+      },
+      "done": [
+       "reply",
+       "message"
+      ]
+     }
+    }
+   },
+   "response": {
+    "status": 201,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Rotate the staging deploy key",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "2a1f6852e7100fb6",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "done": [
+         "reply",
+         "message"
+        ],
+        "reply": {
+         "choices": [
+          "Yes",
+          "No"
+         ],
+         "prompt": "Did the deploy pass?"
+        },
+        "steps": [
+         {
+          "do": "Open the deploy settings",
+          "id": "s1"
+         },
+         {
+          "do": "Rotate the key",
+          "id": "s2",
+          "required": true
+         },
+         {
+          "do": "Note the rotation time",
+          "id": "s3",
+          "optional": true
+         }
+        ],
+        "title": "Rotate the staging deploy key",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "revision": {
+       "rev": 1,
+       "hash": "f9248e373fca797d0270249d0603f947b7a0b4a9515e5ce98cdfd341e576b7d3",
+       "prev": "",
+       "at": "{time}",
+       "reason": "",
+       "body": "{\"done\":[\"reply\",\"message\"],\"reply\":{\"choices\":[\"Yes\",\"No\"],\"prompt\":\"Did the deploy pass?\"},\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\"},{\"do\":\"Rotate the key\",\"id\":\"s2\",\"required\":true},{\"do\":\"Note the rotation time\",\"id\":\"s3\",\"optional\":true}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1}",
+       "acceptedRev": 1
+      }
+     },
+     "revision": {
+      "rev": 1,
+      "hash": "f9248e373fca797d0270249d0603f947b7a0b4a9515e5ce98cdfd341e576b7d3"
+     },
+     "editable": false
+    }
+   },
+   "binds": {
+    "ask1": "item.id"
+   }
+  },
+  {
+   "name": "requirements-detail-left",
+   "note": "GET /asks/{id} carries requirements: everything left",
+   "request": {
+    "method": "GET",
+    "path": "/asks/{ask1}",
+    "ownerKey": false,
+    "protocol": 5,
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Rotate the staging deploy key",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "2a1f6852e7100fb6",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "done": [
+         "reply",
+         "message"
+        ],
+        "reply": {
+         "choices": [
+          "Yes",
+          "No"
+         ],
+         "prompt": "Did the deploy pass?"
+        },
+        "steps": [
+         {
+          "do": "Open the deploy settings",
+          "id": "s1"
+         },
+         {
+          "do": "Rotate the key",
+          "id": "s2",
+          "required": true
+         },
+         {
+          "do": "Note the rotation time",
+          "id": "s3",
+          "optional": true
+         }
+        ],
+        "title": "Rotate the staging deploy key",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "revision": {
+       "rev": 1,
+       "hash": "f9248e373fca797d0270249d0603f947b7a0b4a9515e5ce98cdfd341e576b7d3",
+       "prev": "",
+       "at": "{time}",
+       "reason": "",
+       "body": "{\"done\":[\"reply\",\"message\"],\"reply\":{\"choices\":[\"Yes\",\"No\"],\"prompt\":\"Did the deploy pass?\"},\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\"},{\"do\":\"Rotate the key\",\"id\":\"s2\",\"required\":true},{\"do\":\"Note the rotation time\",\"id\":\"s3\",\"optional\":true}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1}",
+       "acceptedRev": 1
+      },
+      "requirements": {
+       "left": [
+        {
+         "kind": "step",
+         "id": "s2",
+         "path": "2"
+        },
+        {
+         "kind": "reply"
+        },
+        {
+         "kind": "message"
+        }
+       ],
+       "ready": false
+      }
+     },
+     "events": [
+      {
+       "seq": 1,
+       "itemId": "{ask1}",
+       "kind": "posted",
+       "actor": "session",
+       "text": null,
+       "at": "{time}",
+       "rev": null,
+       "auth": null
+      }
+     ],
+     "revisions": [
+      {
+       "rev": 1,
+       "hash": "f9248e373fca797d0270249d0603f947b7a0b4a9515e5ce98cdfd341e576b7d3",
+       "prev": "",
+       "at": "{time}",
+       "reason": "",
+       "body": "{\"done\":[\"reply\",\"message\"],\"reply\":{\"choices\":[\"Yes\",\"No\"],\"prompt\":\"Did the deploy pass?\"},\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\"},{\"do\":\"Rotate the key\",\"id\":\"s2\",\"required\":true},{\"do\":\"Note the rotation time\",\"id\":\"s3\",\"optional\":true}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1}"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "requirements-list",
+   "note": "GET /asks never carries requirements",
+   "request": {
+    "method": "GET",
+    "path": "/asks",
+    "ownerKey": false,
+    "protocol": 5,
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "items": [
+      {
+       "id": "{ask1}",
+       "source": "xo-mailbox",
+       "title": "Rotate the staging deploy key",
+       "status": "open",
+       "priority": 1,
+       "pinned": false,
+       "rolling": false,
+       "payloadType": "xo.ask",
+       "payload": {
+        "key": "2a1f6852e7100fb6",
+        "why": null,
+        "cmd": null,
+        "link": null,
+        "tg_chat_id": 12345,
+        "tg_message_id": 2,
+        "note": null,
+        "instructable": {
+         "done": [
+          "reply",
+          "message"
+         ],
+         "reply": {
+          "choices": [
+           "Yes",
+           "No"
+          ],
+          "prompt": "Did the deploy pass?"
+         },
+         "steps": [
+          {
+           "do": "Open the deploy settings",
+           "id": "s1"
+          },
+          {
+           "do": "Rotate the key",
+           "id": "s2",
+           "required": true
+          },
+          {
+           "do": "Note the rotation time",
+           "id": "s3",
+           "optional": true
+          }
+         ],
+         "title": "Rotate the staging deploy key",
+         "urgency": "today",
+         "v": 1
+        }
+       },
+       "links": [],
+       "created": "{time}",
+       "updated": "{time}",
+       "anchor": null,
+       "recurrence": null,
+       "snoozeUntil": null,
+       "projectId": "Example",
+       "lane": "personal",
+       "completedAt": null,
+       "revision": {
+        "rev": 1,
+        "hash": "f9248e373fca797d0270249d0603f947b7a0b4a9515e5ce98cdfd341e576b7d3",
+        "prev": "",
+        "at": "{time}",
+        "reason": "",
+        "body": "{\"done\":[\"reply\",\"message\"],\"reply\":{\"choices\":[\"Yes\",\"No\"],\"prompt\":\"Did the deploy pass?\"},\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\"},{\"do\":\"Rotate the key\",\"id\":\"s2\",\"required\":true},{\"do\":\"Note the rotation time\",\"id\":\"s3\",\"optional\":true}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1}",
+        "acceptedRev": 1
+       }
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "requirements-progress-tick",
+   "note": "the owner ticks step 2: one progress event, step 2 done",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/progress",
+    "ownerKey": true,
+    "protocol": 5,
+    "body": {
+     "tick": [
+      "s2"
+     ],
+     "untick": [],
+     "rev": 1
+    }
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Rotate the staging deploy key",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "2a1f6852e7100fb6",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "done": [
+         "reply",
+         "message"
+        ],
+        "reply": {
+         "choices": [
+          "Yes",
+          "No"
+         ],
+         "prompt": "Did the deploy pass?"
+        },
+        "steps": [
+         {
+          "do": "Open the deploy settings",
+          "id": "s1"
+         },
+         {
+          "do": "Rotate the key",
+          "id": "s2",
+          "required": true
+         },
+         {
+          "do": "Note the rotation time",
+          "id": "s3",
+          "optional": true
+         }
+        ],
+        "title": "Rotate the staging deploy key",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "revision": {
+       "rev": 1,
+       "hash": "f9248e373fca797d0270249d0603f947b7a0b4a9515e5ce98cdfd341e576b7d3",
+       "prev": "",
+       "at": "{time}",
+       "reason": "",
+       "body": "{\"done\":[\"reply\",\"message\"],\"reply\":{\"choices\":[\"Yes\",\"No\"],\"prompt\":\"Did the deploy pass?\"},\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\"},{\"do\":\"Rotate the key\",\"id\":\"s2\",\"required\":true},{\"do\":\"Note the rotation time\",\"id\":\"s3\",\"optional\":true}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1}",
+       "acceptedRev": 1
+      },
+      "requirements": {
+       "left": [
+        {
+         "kind": "reply"
+        },
+        {
+         "kind": "message"
+        }
+       ],
+       "ready": false
+      }
+     }
+    }
+   }
+  },
+  {
+   "name": "requirements-progress-noop",
+   "note": "the same tick again changes nothing: 200, no event",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/progress",
+    "ownerKey": true,
+    "protocol": 5,
+    "body": {
+     "tick": [
+      "s2"
+     ],
+     "rev": 1
+    }
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Rotate the staging deploy key",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "2a1f6852e7100fb6",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "done": [
+         "reply",
+         "message"
+        ],
+        "reply": {
+         "choices": [
+          "Yes",
+          "No"
+         ],
+         "prompt": "Did the deploy pass?"
+        },
+        "steps": [
+         {
+          "do": "Open the deploy settings",
+          "id": "s1"
+         },
+         {
+          "do": "Rotate the key",
+          "id": "s2",
+          "required": true
+         },
+         {
+          "do": "Note the rotation time",
+          "id": "s3",
+          "optional": true
+         }
+        ],
+        "title": "Rotate the staging deploy key",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "revision": {
+       "rev": 1,
+       "hash": "f9248e373fca797d0270249d0603f947b7a0b4a9515e5ce98cdfd341e576b7d3",
+       "prev": "",
+       "at": "{time}",
+       "reason": "",
+       "body": "{\"done\":[\"reply\",\"message\"],\"reply\":{\"choices\":[\"Yes\",\"No\"],\"prompt\":\"Did the deploy pass?\"},\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\"},{\"do\":\"Rotate the key\",\"id\":\"s2\",\"required\":true},{\"do\":\"Note the rotation time\",\"id\":\"s3\",\"optional\":true}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1}",
+       "acceptedRev": 1
+      },
+      "requirements": {
+       "left": [
+        {
+         "kind": "reply"
+        },
+        {
+         "kind": "message"
+        }
+       ],
+       "ready": false
+      }
+     }
+    }
+   }
+  },
+  {
+   "name": "requirements-progress-invalid",
+   "note": "an unknown id, and an id in both lists: field paths only",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/progress",
+    "ownerKey": true,
+    "protocol": 5,
+    "body": {
+     "tick": [
+      "s9",
+      "s1"
+     ],
+     "untick": [
+      "s1"
+     ]
+    }
+   },
+   "response": {
+    "status": 400,
+    "body": {
+     "error": "invalid progress",
+     "details": [
+      "tick[0]: unknown step",
+      "untick[0]: also in tick"
+     ]
+    }
+   }
+  },
+  {
+   "name": "requirements-done-unmet",
+   "note": "the owner's Done while the reply and a message are left: 409",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/resolve",
+    "ownerKey": true,
+    "protocol": 5,
+    "body": {
+     "verdict": "done",
+     "actor": "owner",
+     "rev": 1
+    }
+   },
+   "response": {
+    "status": 409,
+    "body": {
+     "error": "requirements_unmet",
+     "left": [
+      {
+       "kind": "reply"
+      },
+      {
+       "kind": "message"
+      }
+     ],
+     "details": [
+      "the reply",
+      "a message"
+     ]
+    }
+   }
+  },
+  {
+   "name": "requirements-reply",
+   "note": "the reply prompt answered: the reply is done",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/reply",
+    "ownerKey": true,
+    "protocol": 5,
+    "body": {
+     "text": "Yes"
+    }
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Rotate the staging deploy key",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "2a1f6852e7100fb6",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "urgency": "today",
+        "steps": [
+         {
+          "do": "Open the deploy settings",
+          "id": "s1"
+         },
+         {
+          "do": "Rotate the key",
+          "required": true,
+          "id": "s2"
+         },
+         {
+          "do": "Note the rotation time",
+          "optional": true,
+          "id": "s3"
+         }
+        ],
+        "reply": {
+         "prompt": "Did the deploy pass?",
+         "choices": [
+          "Yes",
+          "No"
+         ]
+        },
+        "done": [
+         "reply",
+         "message"
+        ]
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "requirements": {
+       "left": [
+        {
+         "kind": "message"
+        }
+       ],
+       "ready": false
+      }
+     }
+    }
+   }
+  },
+  {
+   "name": "requirements-message",
+   "note": "a message to the session: nothing left",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/reply",
+    "ownerKey": true,
+    "protocol": 5,
+    "body": {
+     "text": "Rotated, the old key is revoked.",
+     "kind": "message"
+    }
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Rotate the staging deploy key",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "2a1f6852e7100fb6",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "urgency": "today",
+        "steps": [
+         {
+          "do": "Open the deploy settings",
+          "id": "s1"
+         },
+         {
+          "do": "Rotate the key",
+          "required": true,
+          "id": "s2"
+         },
+         {
+          "do": "Note the rotation time",
+          "optional": true,
+          "id": "s3"
+         }
+        ],
+        "reply": {
+         "prompt": "Did the deploy pass?",
+         "choices": [
+          "Yes",
+          "No"
+         ]
+        },
+        "done": [
+         "reply",
+         "message"
+        ]
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "requirements": {
+       "left": [],
+       "ready": true
+      }
+     }
+    }
+   }
+  },
+  {
+   "name": "requirements-detail-ready",
+   "note": "ready; the progress event is in the detail, ids only",
+   "request": {
+    "method": "GET",
+    "path": "/asks/{ask1}",
+    "ownerKey": false,
+    "protocol": 5,
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Rotate the staging deploy key",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "2a1f6852e7100fb6",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "done": [
+         "reply",
+         "message"
+        ],
+        "reply": {
+         "choices": [
+          "Yes",
+          "No"
+         ],
+         "prompt": "Did the deploy pass?"
+        },
+        "steps": [
+         {
+          "do": "Open the deploy settings",
+          "id": "s1"
+         },
+         {
+          "do": "Rotate the key",
+          "id": "s2",
+          "required": true
+         },
+         {
+          "do": "Note the rotation time",
+          "id": "s3",
+          "optional": true
+         }
+        ],
+        "title": "Rotate the staging deploy key",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "revision": {
+       "rev": 1,
+       "hash": "f9248e373fca797d0270249d0603f947b7a0b4a9515e5ce98cdfd341e576b7d3",
+       "prev": "",
+       "at": "{time}",
+       "reason": "",
+       "body": "{\"done\":[\"reply\",\"message\"],\"reply\":{\"choices\":[\"Yes\",\"No\"],\"prompt\":\"Did the deploy pass?\"},\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\"},{\"do\":\"Rotate the key\",\"id\":\"s2\",\"required\":true},{\"do\":\"Note the rotation time\",\"id\":\"s3\",\"optional\":true}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1}",
+       "acceptedRev": 1
+      },
+      "requirements": {
+       "left": [],
+       "ready": true
+      }
+     },
+     "events": [
+      {
+       "seq": 1,
+       "itemId": "{ask1}",
+       "kind": "posted",
+       "actor": "session",
+       "text": null,
+       "at": "{time}",
+       "rev": null,
+       "auth": null
+      },
+      {
+       "seq": 2,
+       "itemId": "{ask1}",
+       "kind": "progress",
+       "actor": "owner",
+       "text": "{\"tick\":[\"s2\"],\"untick\":[]}",
+       "at": "{time}",
+       "rev": 1,
+       "auth": "owner-key"
+      },
+      {
+       "seq": 3,
+       "itemId": "{ask1}",
+       "kind": "reply",
+       "actor": "owner",
+       "text": "Yes",
+       "at": "{time}",
+       "rev": null,
+       "auth": "owner-key"
+      },
+      {
+       "seq": 4,
+       "itemId": "{ask1}",
+       "kind": "message",
+       "actor": "owner",
+       "text": "Rotated, the old key is revoked.",
+       "at": "{time}",
+       "rev": 1,
+       "auth": "owner-key"
+      }
+     ],
+     "revisions": [
+      {
+       "rev": 1,
+       "hash": "f9248e373fca797d0270249d0603f947b7a0b4a9515e5ce98cdfd341e576b7d3",
+       "prev": "",
+       "at": "{time}",
+       "reason": "",
+       "body": "{\"done\":[\"reply\",\"message\"],\"reply\":{\"choices\":[\"Yes\",\"No\"],\"prompt\":\"Did the deploy pass?\"},\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\"},{\"do\":\"Rotate the key\",\"id\":\"s2\",\"required\":true},{\"do\":\"Note the rotation time\",\"id\":\"s3\",\"optional\":true}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1}"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "requirements-done-owner",
+   "note": "the owner's Done once nothing is left: 200",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/resolve",
+    "ownerKey": true,
+    "protocol": 5,
+    "body": {
+     "verdict": "done",
+     "actor": "owner",
+     "rev": 1
+    }
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Rotate the staging deploy key",
+      "status": "done",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "2a1f6852e7100fb6",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "done": [
+         "reply",
+         "message"
+        ],
+        "reply": {
+         "choices": [
+          "Yes",
+          "No"
+         ],
+         "prompt": "Did the deploy pass?"
+        },
+        "steps": [
+         {
+          "do": "Open the deploy settings",
+          "id": "s1"
+         },
+         {
+          "do": "Rotate the key",
+          "id": "s2",
+          "required": true
+         },
+         {
+          "do": "Note the rotation time",
+          "id": "s3",
+          "optional": true
+         }
+        ],
+        "title": "Rotate the staging deploy key",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": "{time}",
+      "revision": {
+       "rev": 1,
+       "hash": "f9248e373fca797d0270249d0603f947b7a0b4a9515e5ce98cdfd341e576b7d3",
+       "prev": "",
+       "at": "{time}",
+       "reason": "",
+       "body": "{\"done\":[\"reply\",\"message\"],\"reply\":{\"choices\":[\"Yes\",\"No\"],\"prompt\":\"Did the deploy pass?\"},\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\"},{\"do\":\"Rotate the key\",\"id\":\"s2\",\"required\":true},{\"do\":\"Note the rotation time\",\"id\":\"s3\",\"optional\":true}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1}",
+       "acceptedRev": 1
+      },
+      "requirements": {
+       "left": [],
+       "ready": true
+      }
+     }
+    }
+   }
+  },
+  {
+   "name": "requirements-progress-closed",
+   "note": "no progress on a closed ask",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/progress",
+    "ownerKey": true,
+    "protocol": 5,
+    "body": {
+     "untick": [
+      "s2"
+     ]
+    }
+   },
+   "response": {
+    "status": 409,
+    "body": {
+     "error": "ask is closed"
+    }
+   }
+  },
+  {
+   "name": "requirements-post-second",
+   "note": "a second ask like it",
+   "request": {
+    "method": "POST",
+    "path": "/asks",
+    "ownerKey": false,
+    "protocol": 5,
+    "body": {
+     "project": "Example",
+     "context": "personal",
+     "instructable": {
+      "v": 1,
+      "title": "Rotate the preview deploy key",
+      "urgency": "today",
+      "steps": [
+       {
+        "do": "Open the deploy settings"
+       },
+       {
+        "do": "Rotate the key",
+        "required": true
+       },
+       {
+        "do": "Note the rotation time",
+        "optional": true
+       }
+      ],
+      "reply": {
+       "prompt": "Did the deploy pass?",
+       "choices": [
+        "Yes",
+        "No"
+       ]
+      },
+      "done": [
+       "reply",
+       "message"
+      ]
+     }
+    }
+   },
+   "response": {
+    "status": 201,
+    "body": {
+     "item": {
+      "id": "{ask2}",
+      "source": "xo-mailbox",
+      "title": "Rotate the preview deploy key",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "fd24143f92a0a374",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 3,
+       "note": null,
+       "instructable": {
+        "done": [
+         "reply",
+         "message"
+        ],
+        "reply": {
+         "choices": [
+          "Yes",
+          "No"
+         ],
+         "prompt": "Did the deploy pass?"
+        },
+        "steps": [
+         {
+          "do": "Open the deploy settings",
+          "id": "s1"
+         },
+         {
+          "do": "Rotate the key",
+          "id": "s2",
+          "required": true
+         },
+         {
+          "do": "Note the rotation time",
+          "id": "s3",
+          "optional": true
+         }
+        ],
+        "title": "Rotate the preview deploy key",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "revision": {
+       "rev": 1,
+       "hash": "10105aac05c24d3298b0d47ac86171429a3c40f9f9b80f33b3341720db005354",
+       "prev": "",
+       "at": "{time}",
+       "reason": "",
+       "body": "{\"done\":[\"reply\",\"message\"],\"reply\":{\"choices\":[\"Yes\",\"No\"],\"prompt\":\"Did the deploy pass?\"},\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\"},{\"do\":\"Rotate the key\",\"id\":\"s2\",\"required\":true},{\"do\":\"Note the rotation time\",\"id\":\"s3\",\"optional\":true}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1}",
+       "acceptedRev": 1
+      }
+     },
+     "revision": {
+      "rev": 1,
+      "hash": "10105aac05c24d3298b0d47ac86171429a3c40f9f9b80f33b3341720db005354"
+     },
+     "editable": false
+    }
+   },
+   "binds": {
+    "ask2": "item.id"
+   }
+  },
+  {
+   "name": "requirements-done-session",
+   "note": "the session's own Done is never gated: 200 with all left",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask2}/resolve",
+    "ownerKey": false,
+    "protocol": 5,
+    "body": {
+     "verdict": "done",
+     "actor": "session"
+    }
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask2}",
+      "source": "xo-mailbox",
+      "title": "Rotate the preview deploy key",
+      "status": "done",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "fd24143f92a0a374",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 3,
+       "note": null,
+       "instructable": {
+        "done": [
+         "reply",
+         "message"
+        ],
+        "reply": {
+         "choices": [
+          "Yes",
+          "No"
+         ],
+         "prompt": "Did the deploy pass?"
+        },
+        "steps": [
+         {
+          "do": "Open the deploy settings",
+          "id": "s1"
+         },
+         {
+          "do": "Rotate the key",
+          "id": "s2",
+          "required": true
+         },
+         {
+          "do": "Note the rotation time",
+          "id": "s3",
+          "optional": true
+         }
+        ],
+        "title": "Rotate the preview deploy key",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": "{time}",
+      "revision": {
+       "rev": 1,
+       "hash": "10105aac05c24d3298b0d47ac86171429a3c40f9f9b80f33b3341720db005354",
+       "prev": "",
+       "at": "{time}",
+       "reason": "",
+       "body": "{\"done\":[\"reply\",\"message\"],\"reply\":{\"choices\":[\"Yes\",\"No\"],\"prompt\":\"Did the deploy pass?\"},\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\"},{\"do\":\"Rotate the key\",\"id\":\"s2\",\"required\":true},{\"do\":\"Note the rotation time\",\"id\":\"s3\",\"optional\":true}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1}",
+       "acceptedRev": 1
+      },
+      "requirements": {
+       "left": [
+        {
+         "kind": "step",
+         "id": "s2",
+         "path": "2"
+        },
+        {
+         "kind": "reply"
+        },
+        {
+         "kind": "message"
+        }
+       ],
+       "ready": false
+      }
+     }
+    }
+   }
+  },
+  {
+   "name": "requirements-post-third",
+   "note": "a third ask like it",
+   "request": {
+    "method": "POST",
+    "path": "/asks",
+    "ownerKey": false,
+    "protocol": 5,
+    "body": {
+     "project": "Example",
+     "context": "personal",
+     "instructable": {
+      "v": 1,
+      "title": "Rotate the production deploy key",
+      "urgency": "today",
+      "steps": [
+       {
+        "do": "Open the deploy settings"
+       },
+       {
+        "do": "Rotate the key",
+        "required": true
+       },
+       {
+        "do": "Note the rotation time",
+        "optional": true
+       }
+      ],
+      "reply": {
+       "prompt": "Did the deploy pass?",
+       "choices": [
+        "Yes",
+        "No"
+       ]
+      },
+      "done": [
+       "reply",
+       "message"
+      ]
+     }
+    }
+   },
+   "response": {
+    "status": 201,
+    "body": {
+     "item": {
+      "id": "{ask3}",
+      "source": "xo-mailbox",
+      "title": "Rotate the production deploy key",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "806b0cbbf54f267d",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 4,
+       "note": null,
+       "instructable": {
+        "done": [
+         "reply",
+         "message"
+        ],
+        "reply": {
+         "choices": [
+          "Yes",
+          "No"
+         ],
+         "prompt": "Did the deploy pass?"
+        },
+        "steps": [
+         {
+          "do": "Open the deploy settings",
+          "id": "s1"
+         },
+         {
+          "do": "Rotate the key",
+          "id": "s2",
+          "required": true
+         },
+         {
+          "do": "Note the rotation time",
+          "id": "s3",
+          "optional": true
+         }
+        ],
+        "title": "Rotate the production deploy key",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "revision": {
+       "rev": 1,
+       "hash": "34f38cd6bd25e1012f525413cf3c88e0070e21ffe0c78b745ba374db2d1b334e",
+       "prev": "",
+       "at": "{time}",
+       "reason": "",
+       "body": "{\"done\":[\"reply\",\"message\"],\"reply\":{\"choices\":[\"Yes\",\"No\"],\"prompt\":\"Did the deploy pass?\"},\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\"},{\"do\":\"Rotate the key\",\"id\":\"s2\",\"required\":true},{\"do\":\"Note the rotation time\",\"id\":\"s3\",\"optional\":true}],\"title\":\"Rotate the production deploy key\",\"urgency\":\"today\",\"v\":1}",
+       "acceptedRev": 1
+      }
+     },
+     "revision": {
+      "rev": 1,
+      "hash": "34f38cd6bd25e1012f525413cf3c88e0070e21ffe0c78b745ba374db2d1b334e"
+     },
+     "editable": false
+    }
+   },
+   "binds": {
+    "ask3": "item.id"
+   }
+  },
+  {
+   "name": "requirements-skip-owner",
+   "note": "the owner's Skip is never gated: 200",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask3}/resolve",
+    "ownerKey": true,
+    "protocol": 5,
+    "body": {
+     "verdict": "declined",
+     "actor": "owner"
+    }
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask3}",
+      "source": "xo-mailbox",
+      "title": "Rotate the production deploy key",
+      "status": "dismissed",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "806b0cbbf54f267d",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 4,
+       "note": null,
+       "instructable": {
+        "done": [
+         "reply",
+         "message"
+        ],
+        "reply": {
+         "choices": [
+          "Yes",
+          "No"
+         ],
+         "prompt": "Did the deploy pass?"
+        },
+        "steps": [
+         {
+          "do": "Open the deploy settings",
+          "id": "s1"
+         },
+         {
+          "do": "Rotate the key",
+          "id": "s2",
+          "required": true
+         },
+         {
+          "do": "Note the rotation time",
+          "id": "s3",
+          "optional": true
+         }
+        ],
+        "title": "Rotate the production deploy key",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": "{time}",
+      "revision": {
+       "rev": 1,
+       "hash": "34f38cd6bd25e1012f525413cf3c88e0070e21ffe0c78b745ba374db2d1b334e",
+       "prev": "",
+       "at": "{time}",
+       "reason": "",
+       "body": "{\"done\":[\"reply\",\"message\"],\"reply\":{\"choices\":[\"Yes\",\"No\"],\"prompt\":\"Did the deploy pass?\"},\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\"},{\"do\":\"Rotate the key\",\"id\":\"s2\",\"required\":true},{\"do\":\"Note the rotation time\",\"id\":\"s3\",\"optional\":true}],\"title\":\"Rotate the production deploy key\",\"urgency\":\"today\",\"v\":1}",
+       "acceptedRev": 1
+      },
+      "requirements": {
+       "left": [
+        {
+         "kind": "step",
+         "id": "s2",
+         "path": "2"
+        },
+        {
+         "kind": "reply"
+        },
+        {
+         "kind": "message"
+        }
+       ],
+       "ready": false
+      }
+     }
+    }
+   }
+  }
+ ]
+}

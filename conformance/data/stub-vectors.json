@@ -1,0 +1,339 @@
+{
+  "version": 1,
+  "source": "Tests/RelayCoreTests/ConformanceTests.swift",
+  "format": "{name, note, instructable, clients?, expect: {stub, reason?}}. `instructable` is the raw object a Pond serves as an ask's payload. stub true means the client shows the ask only as an update stub, with Skip and nothing else; reason says why. pondStub: the Pond's own stub for a client too old to read a correction, recognised by its exact why (\"This ask was corrected after it was posted. Update Hook to see the corrected steps; don't press Done here.\") and its single step (do \"Update Hook: menu bar › Check for Updates…\"), as kind stub of revision-vectors.json writes it. unknownKey:<path>: the first key in document order that the client does not know, at a path such as steps[2].substeps[0].shell. unknownDone:<value>: a done value the client does not know, checked after every key. Known keys: ask v title why warning urgency steps verify reply done links from; step, sub-step and verify do where detail code lang expect url substeps question blocking warning optional required id file; question prompt choices multi; choice object label text; reply prompt choices; link label url path; from session host cwd. Known done values: steps reply message. The Swift core has no unknown-key check yet, so every unknownKey and unknownDone case, and the stub-false cases there only to contrast with them, carry clients [\"android\"] and a hand-written expect.",
+  "cases": [
+    {
+      "name": "stub-pond-with-from",
+      "note": "the Pond's stub, keeping the ask's from",
+      "instructable": {
+        "v": 1,
+        "title": "Deploy the release",
+        "urgency": "today",
+        "why": "This ask was corrected after it was posted. Update Hook to see the corrected steps; don't press Done here.",
+        "steps": [{"do": "Update Hook: menu bar › Check for Updates…", "id": "s1"}],
+        "from": {
+          "session": "0c1d2e3f-4a5b-4c6d-8e7f-001122334455",
+          "host": "studio",
+          "cwd": "~/code/app"
+        }
+      },
+      "expect": {"stub": true, "reason": "pondStub"}
+    },
+    {
+      "name": "stub-pond-without-from",
+      "note": "the Pond's stub of an ask without from",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the key",
+        "urgency": "now",
+        "why": "This ask was corrected after it was posted. Update Hook to see the corrected steps; don't press Done here.",
+        "steps": [{"do": "Update Hook: menu bar › Check for Updates…", "id": "s1"}]
+      },
+      "expect": {"stub": true, "reason": "pondStub"}
+    },
+    {
+      "name": "stub-ordinary-ask",
+      "note": "an ordinary ask is not a stub",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "urgency": "today",
+        "why": "The deploy key is 90 days old.",
+        "steps": [
+          {"do": "Open the deploy settings", "id": "s1"},
+          {"do": "Rotate the key", "id": "s2"}
+        ]
+      },
+      "expect": {"stub": false}
+    },
+    {
+      "name": "stub-why-contains-sentence",
+      "note": "a why that holds the stub sentence and more, with other steps, is not a stub",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "urgency": "today",
+        "why": "This ask was corrected after it was posted. Update Hook to see the corrected steps; don't press Done here. The new key is below.",
+        "steps": [
+          {"do": "Update Hook: menu bar › Check for Updates…", "id": "s1"},
+          {"do": "Rotate the key", "id": "s2"}
+        ]
+      },
+      "expect": {"stub": false}
+    },
+    {
+      "name": "stub-why-exact-two-steps",
+      "note": "the stub's why with a second step is not a stub",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "urgency": "today",
+        "why": "This ask was corrected after it was posted. Update Hook to see the corrected steps; don't press Done here.",
+        "steps": [
+          {"do": "Update Hook: menu bar › Check for Updates…", "id": "s1"},
+          {"do": "Rotate the key", "id": "s2"}
+        ]
+      },
+      "expect": {"stub": false}
+    },
+    {
+      "name": "stub-why-exact-other-step",
+      "note": "the stub's why with another single step is not a stub",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "urgency": "today",
+        "why": "This ask was corrected after it was posted. Update Hook to see the corrected steps; don't press Done here.",
+        "steps": [{"do": "Rotate the key", "id": "s1"}]
+      },
+      "expect": {"stub": false}
+    },
+    {
+      "name": "stub-unknown-key-top",
+      "note": "an unknown key on the ask",
+      "clients": ["android"],
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "shell": "zsh",
+        "steps": [{"do": "Rotate the key", "id": "s1"}]
+      },
+      "expect": {"stub": true, "reason": "unknownKey:shell"}
+    },
+    {
+      "name": "stub-unknown-key-step",
+      "note": "an unknown key on the third step",
+      "clients": ["android"],
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {"do": "Open the deploy settings", "id": "s1"},
+          {"do": "Rotate the key", "id": "s2"},
+          {"do": "Restart the services", "id": "s3", "shell": "zsh"}
+        ]
+      },
+      "expect": {"stub": true, "reason": "unknownKey:steps[2].shell"}
+    },
+    {
+      "name": "stub-unknown-key-substep",
+      "note": "an unknown key on the third step's first sub-step",
+      "clients": ["android"],
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {"do": "Open the deploy settings", "id": "s1"},
+          {"do": "Rotate the key", "id": "s2"},
+          {
+            "do": "Restart the services",
+            "id": "s3",
+            "substeps": [{"do": "Restart the web service", "id": "s3.1", "shell": "zsh"}]
+          }
+        ]
+      },
+      "expect": {"stub": true, "reason": "unknownKey:steps[2].substeps[0].shell"}
+    },
+    {
+      "name": "stub-unknown-key-question",
+      "note": "an unknown key on a question",
+      "clients": ["android"],
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {
+            "do": "Pick the environment",
+            "id": "s1",
+            "question": {
+              "prompt": "Which environment?",
+              "kind": "radio",
+              "choices": ["Staging", "Production"]
+            }
+          }
+        ]
+      },
+      "expect": {"stub": true, "reason": "unknownKey:steps[0].question.kind"}
+    },
+    {
+      "name": "stub-unknown-key-choice",
+      "note": "an unknown key on a choice object",
+      "clients": ["android"],
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {
+            "do": "Pick the environment",
+            "id": "s1",
+            "question": {
+              "prompt": "Which environment?",
+              "choices": ["Staging", {"label": "Production", "tone": "danger"}]
+            }
+          }
+        ]
+      },
+      "expect": {"stub": true, "reason": "unknownKey:steps[0].question.choices[1].tone"}
+    },
+    {
+      "name": "stub-unknown-key-verify",
+      "note": "an unknown key on verify",
+      "clients": ["android"],
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [{"do": "Rotate the key", "id": "s1"}],
+        "verify": {"do": "The deploy passes", "shell": "zsh"}
+      },
+      "expect": {"stub": true, "reason": "unknownKey:verify.shell"}
+    },
+    {
+      "name": "stub-unknown-key-reply",
+      "note": "an unknown key on reply",
+      "clients": ["android"],
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [{"do": "Rotate the key", "id": "s1"}],
+        "reply": {"prompt": "Which key name did you use?", "kind": "short"}
+      },
+      "expect": {"stub": true, "reason": "unknownKey:reply.kind"}
+    },
+    {
+      "name": "stub-unknown-key-link",
+      "note": "an unknown key on the first link",
+      "clients": ["android"],
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [{"do": "Rotate the key", "id": "s1"}],
+        "links": [{"label": "Runbook", "url": "https://docs.example.test/runbook", "icon": "book"}]
+      },
+      "expect": {"stub": true, "reason": "unknownKey:links[0].icon"}
+    },
+    {
+      "name": "stub-unknown-key-from",
+      "note": "an unknown key on from",
+      "clients": ["android"],
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [{"do": "Rotate the key", "id": "s1"}],
+        "from": {"session": "0c1d2e3f-4a5b-4c6d-8e7f-001122334455", "host": "studio", "pid": 4242}
+      },
+      "expect": {"stub": true, "reason": "unknownKey:from.pid"}
+    },
+    {
+      "name": "stub-unknown-key-document-order",
+      "note": "of two unknown keys the first in document order decides, here the step's before the ask's",
+      "clients": ["android"],
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [{"do": "Rotate the key", "id": "s1", "shell": "zsh"}],
+        "color": "red"
+      },
+      "expect": {"stub": true, "reason": "unknownKey:steps[0].shell"}
+    },
+    {
+      "name": "stub-unknown-done",
+      "note": "an unknown done value",
+      "clients": ["android"],
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "done": ["steps", "later"],
+        "steps": [{"do": "Rotate the key", "id": "s1"}]
+      },
+      "expect": {"stub": true, "reason": "unknownDone:later"}
+    },
+    {
+      "name": "stub-unknown-key-before-unknown-done",
+      "note": "unknown keys are checked before unknown done values, whatever their order",
+      "clients": ["android"],
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "done": ["later"],
+        "steps": [{"do": "Rotate the key", "id": "s1"}],
+        "shell": "zsh"
+      },
+      "expect": {"stub": true, "reason": "unknownKey:shell"}
+    },
+    {
+      "name": "stub-every-known-key",
+      "note": "every known key at once, every known done value: not a stub",
+      "clients": ["android"],
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "why": "The deploy key is 90 days old.",
+        "warning": "The site is down for a minute.",
+        "urgency": "today",
+        "steps": [
+          {
+            "do": "Open the deploy settings",
+            "where": "deploy.example.test",
+            "detail": "Sign in first.",
+            "url": "https://deploy.example.test/settings",
+            "id": "s1",
+            "blocking": true,
+            "warning": "Do this first."
+          },
+          {
+            "do": "Rotate the key",
+            "code": "deploy-key rotate --env staging",
+            "lang": "sh",
+            "expect": "rotated",
+            "id": "s2",
+            "required": true,
+            "question": {
+              "prompt": "Which environment?",
+              "choices": ["Staging", {"label": "Production", "text": "Why production?"}],
+              "multi": false
+            }
+          },
+          {
+            "do": "Restart the services",
+            "id": "s3",
+            "substeps": [
+              {"do": "Restart the web service", "id": "s3.1", "optional": true},
+              {"do": "Read the notes", "id": "s3.2", "file": "~/code/app/docs/rotation.md"}
+            ]
+          }
+        ],
+        "verify": {
+          "do": "The deploy passes",
+          "code": "curl -sI https://deploy.example.test/health",
+          "lang": "sh",
+          "expect": "200"
+        },
+        "reply": {"prompt": "Anything else?", "choices": ["No", {"label": "Yes", "text": "What?"}]},
+        "done": ["steps", "reply", "message"],
+        "links": [
+          {"label": "Runbook", "url": "https://docs.example.test/runbook"},
+          {"label": "Notes", "path": "~/code/app/docs/notes.md"}
+        ],
+        "from": {
+          "session": "0c1d2e3f-4a5b-4c6d-8e7f-001122334455",
+          "host": "studio",
+          "cwd": "~/code/app"
+        }
+      },
+      "expect": {"stub": false}
+    },
+    {
+      "name": "stub-why-longer-single-stub-step",
+      "note": "the stub's single step with a why that is the stub sentence plus more words is not a stub: the why must match exactly",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "urgency": "today",
+        "why": "This ask was corrected after it was posted. Update Hook to see the corrected steps; don't press Done here. Thanks.",
+        "steps": [{"do": "Update Hook: menu bar › Check for Updates…", "id": "s1"}]
+      },
+      "expect": {"stub": false}
+    }
+  ]
+}

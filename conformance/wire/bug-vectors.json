@@ -1,0 +1,942 @@
+{
+ "version": 1,
+ "pond": "1.2.0",
+ "source": "mailbox/tests/gen_pond_vectors.py, recorded from the Pond over loopback",
+ "format": "{name, note, request: {method, path, ownerKey, protocol, body}, response: {status, body}, binds?}\n\n`ownerKey` true sends an approved X-Hook-Owner-Key; `protocol` is the\nX-Hook-Protocol sent, or null for none (a 1.1.0 client or older). `binds` names\nthe item id the response carries ({\"bug1\": \"item.id\"}), and later paths and bodies\nuse it as {bug1}. In responses every item id is its {name} and every ISO-8601\ntimestamp is {time}; everything else is exactly what the Pond answers.",
+ "cases": [
+  {
+   "name": "bug-new",
+   "note": "a new signature files a bug: 201, never sent to Telegram",
+   "request": {
+    "method": "POST",
+    "path": "/asks",
+    "ownerKey": true,
+    "protocol": 5,
+    "body": {
+     "project": "Hook",
+     "context": "personal",
+     "kind": "bug",
+     "signature": "a3f9c2e17b04",
+     "instructable": {
+      "v": 1,
+      "title": "Hook crash: EXC_BAD_ACCESS in SettingsWindow.open (a3f9c2e17b04)",
+      "urgency": "whenever",
+      "why": "Hook quit unexpectedly. The report holds only the allowed fields.",
+      "steps": [
+       {
+        "do": "Read the crash report",
+        "code": "Crash signature: hook-crash-a3f9c2e17b04\nHook 0.12.0, macOS 15.6, arm64\nException: EXC_BAD_ACCESS (SIGSEGV)\n0 Hook SettingsWindow.open\n1 Hook AppDelegate.showSettings",
+        "lang": "text"
+       }
+      ]
+     }
+    }
+   },
+   "response": {
+    "status": 201,
+    "body": {
+     "item": {
+      "id": "{bug1}",
+      "source": "xo-mailbox",
+      "title": "Hook crash: EXC_BAD_ACCESS in SettingsWindow.open (a3f9c2e17b04)",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "bug-a3f9c2e17b04",
+       "why": "Hook quit unexpectedly. The report holds only the allowed fields.",
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": null,
+       "note": null,
+       "instructable": {
+        "steps": [
+         {
+          "code": "Crash signature: hook-crash-a3f9c2e17b04\nHook 0.12.0, macOS 15.6, arm64\nException: EXC_BAD_ACCESS (SIGSEGV)\n0 Hook SettingsWindow.open\n1 Hook AppDelegate.showSettings",
+          "do": "Read the crash report",
+          "id": "s1",
+          "lang": "text"
+         }
+        ],
+        "title": "Hook crash: EXC_BAD_ACCESS in SettingsWindow.open (a3f9c2e17b04)",
+        "urgency": "whenever",
+        "v": 1,
+        "why": "Hook quit unexpectedly. The report holds only the allowed fields."
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Hook",
+      "lane": "personal",
+      "completedAt": null,
+      "kind": "bug",
+      "bug": {
+       "signature": "a3f9c2e17b04",
+       "count": 1,
+       "firstSeen": "{time}",
+       "lastSeen": "{time}"
+      },
+      "revision": {
+       "rev": 1,
+       "hash": "436144071a6191dc44dd456ff4a6123b1e229d95f4e4404c6913d94d8d1f03a4",
+       "prev": "",
+       "at": "{time}",
+       "reason": "",
+       "body": "{\"steps\":[{\"code\":\"Crash signature: hook-crash-a3f9c2e17b04\\nHook 0.12.0, macOS 15.6, arm64\\nException: EXC_BAD_ACCESS (SIGSEGV)\\n0 Hook SettingsWindow.open\\n1 Hook AppDelegate.showSettings\",\"do\":\"Read the crash report\",\"id\":\"s1\",\"lang\":\"text\"}],\"title\":\"Hook crash: EXC_BAD_ACCESS in SettingsWindow.open (a3f9c2e17b04)\",\"urgency\":\"whenever\",\"v\":1,\"why\":\"Hook quit unexpectedly. The report holds only the allowed fields.\"}",
+       "acceptedRev": 1
+      }
+     },
+     "occurrences": 1,
+     "revision": {
+      "rev": 1,
+      "hash": "436144071a6191dc44dd456ff4a6123b1e229d95f4e4404c6913d94d8d1f03a4"
+     },
+     "editable": false
+    }
+   },
+   "binds": {
+    "bug1": "item.id"
+   }
+  },
+  {
+   "name": "bug-repeat",
+   "note": "the same signature while the bug is open: an occurrence, no new item",
+   "request": {
+    "method": "POST",
+    "path": "/asks",
+    "ownerKey": true,
+    "protocol": 5,
+    "body": {
+     "project": "Hook",
+     "context": "personal",
+     "kind": "bug",
+     "signature": "a3f9c2e17b04",
+     "instructable": {
+      "v": 1,
+      "title": "Hook crash: EXC_BAD_ACCESS in SettingsWindow.open (a3f9c2e17b04)",
+      "urgency": "whenever",
+      "why": "Hook quit unexpectedly. The report holds only the allowed fields.",
+      "steps": [
+       {
+        "do": "Read the crash report",
+        "code": "Crash signature: hook-crash-a3f9c2e17b04\nHook 0.12.0, macOS 15.6, arm64\nException: EXC_BAD_ACCESS (SIGSEGV)\n0 Hook SettingsWindow.open\n1 Hook AppDelegate.showSettings",
+        "lang": "text"
+       }
+      ]
+     }
+    }
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{bug1}",
+      "source": "xo-mailbox",
+      "title": "Hook crash: EXC_BAD_ACCESS in SettingsWindow.open (a3f9c2e17b04)",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "bug-a3f9c2e17b04",
+       "why": "Hook quit unexpectedly. The report holds only the allowed fields.",
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": null,
+       "note": null,
+       "instructable": {
+        "steps": [
+         {
+          "code": "Crash signature: hook-crash-a3f9c2e17b04\nHook 0.12.0, macOS 15.6, arm64\nException: EXC_BAD_ACCESS (SIGSEGV)\n0 Hook SettingsWindow.open\n1 Hook AppDelegate.showSettings",
+          "do": "Read the crash report",
+          "id": "s1",
+          "lang": "text"
+         }
+        ],
+        "title": "Hook crash: EXC_BAD_ACCESS in SettingsWindow.open (a3f9c2e17b04)",
+        "urgency": "whenever",
+        "v": 1,
+        "why": "Hook quit unexpectedly. The report holds only the allowed fields."
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Hook",
+      "lane": "personal",
+      "completedAt": null,
+      "kind": "bug",
+      "bug": {
+       "signature": "a3f9c2e17b04",
+       "count": 2,
+       "firstSeen": "{time}",
+       "lastSeen": "{time}"
+      },
+      "revision": {
+       "rev": 1,
+       "hash": "436144071a6191dc44dd456ff4a6123b1e229d95f4e4404c6913d94d8d1f03a4",
+       "prev": "",
+       "at": "{time}",
+       "reason": "",
+       "body": "{\"steps\":[{\"code\":\"Crash signature: hook-crash-a3f9c2e17b04\\nHook 0.12.0, macOS 15.6, arm64\\nException: EXC_BAD_ACCESS (SIGSEGV)\\n0 Hook SettingsWindow.open\\n1 Hook AppDelegate.showSettings\",\"do\":\"Read the crash report\",\"id\":\"s1\",\"lang\":\"text\"}],\"title\":\"Hook crash: EXC_BAD_ACCESS in SettingsWindow.open (a3f9c2e17b04)\",\"urgency\":\"whenever\",\"v\":1,\"why\":\"Hook quit unexpectedly. The report holds only the allowed fields.\"}",
+       "acceptedRev": 1
+      }
+     },
+     "deduped": true,
+     "occurrences": 2,
+     "revision": {
+      "rev": 1,
+      "hash": "436144071a6191dc44dd456ff4a6123b1e229d95f4e4404c6913d94d8d1f03a4"
+     },
+     "editable": false
+    }
+   }
+  },
+  {
+   "name": "bug-plain-ask",
+   "note": "a plain ask beside it, for the kind filter",
+   "request": {
+    "method": "POST",
+    "path": "/asks",
+    "ownerKey": false,
+    "protocol": 5,
+    "body": {
+     "project": "Example",
+     "context": "personal",
+     "instructable": {
+      "v": 1,
+      "title": "Rotate the deploy key",
+      "urgency": "today",
+      "steps": [
+       {
+        "do": "Open the deploy settings"
+       },
+       {
+        "do": "Rotate the key",
+        "code": "deploy-key rotate"
+       }
+      ]
+     }
+    }
+   },
+   "response": {
+    "status": 201,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Rotate the deploy key",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "49146ed24389aed4",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "steps": [
+         {
+          "do": "Open the deploy settings",
+          "id": "s1"
+         },
+         {
+          "code": "deploy-key rotate",
+          "do": "Rotate the key",
+          "id": "s2"
+         }
+        ],
+        "title": "Rotate the deploy key",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "revision": {
+       "rev": 1,
+       "hash": "8d747e65b59da67d7192023d87109c97e2fa3f9f6934b6732d053d50aaff5ed3",
+       "prev": "",
+       "at": "{time}",
+       "reason": "",
+       "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\"},{\"code\":\"deploy-key rotate\",\"do\":\"Rotate the key\",\"id\":\"s2\"}],\"title\":\"Rotate the deploy key\",\"urgency\":\"today\",\"v\":1}",
+       "acceptedRev": 1
+      }
+     },
+     "revision": {
+      "rev": 1,
+      "hash": "8d747e65b59da67d7192023d87109c97e2fa3f9f6934b6732d053d50aaff5ed3"
+     },
+     "editable": false
+    }
+   },
+   "binds": {
+    "ask1": "item.id"
+   }
+  },
+  {
+   "name": "bug-list-kind-bug",
+   "note": "GET /asks?kind=bug: bugs only",
+   "request": {
+    "method": "GET",
+    "path": "/asks?kind=bug",
+    "ownerKey": false,
+    "protocol": 5,
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "items": [
+      {
+       "id": "{bug1}",
+       "source": "xo-mailbox",
+       "title": "Hook crash: EXC_BAD_ACCESS in SettingsWindow.open (a3f9c2e17b04)",
+       "status": "open",
+       "priority": 1,
+       "pinned": false,
+       "rolling": false,
+       "payloadType": "xo.ask",
+       "payload": {
+        "key": "bug-a3f9c2e17b04",
+        "why": "Hook quit unexpectedly. The report holds only the allowed fields.",
+        "cmd": null,
+        "link": null,
+        "tg_chat_id": 12345,
+        "tg_message_id": null,
+        "note": null,
+        "instructable": {
+         "steps": [
+          {
+           "code": "Crash signature: hook-crash-a3f9c2e17b04\nHook 0.12.0, macOS 15.6, arm64\nException: EXC_BAD_ACCESS (SIGSEGV)\n0 Hook SettingsWindow.open\n1 Hook AppDelegate.showSettings",
+           "do": "Read the crash report",
+           "id": "s1",
+           "lang": "text"
+          }
+         ],
+         "title": "Hook crash: EXC_BAD_ACCESS in SettingsWindow.open (a3f9c2e17b04)",
+         "urgency": "whenever",
+         "v": 1,
+         "why": "Hook quit unexpectedly. The report holds only the allowed fields."
+        }
+       },
+       "links": [],
+       "created": "{time}",
+       "updated": "{time}",
+       "anchor": null,
+       "recurrence": null,
+       "snoozeUntil": null,
+       "projectId": "Hook",
+       "lane": "personal",
+       "completedAt": null,
+       "kind": "bug",
+       "bug": {
+        "signature": "a3f9c2e17b04",
+        "count": 2,
+        "firstSeen": "{time}",
+        "lastSeen": "{time}"
+       },
+       "revision": {
+        "rev": 1,
+        "hash": "436144071a6191dc44dd456ff4a6123b1e229d95f4e4404c6913d94d8d1f03a4",
+        "prev": "",
+        "at": "{time}",
+        "reason": "",
+        "body": "{\"steps\":[{\"code\":\"Crash signature: hook-crash-a3f9c2e17b04\\nHook 0.12.0, macOS 15.6, arm64\\nException: EXC_BAD_ACCESS (SIGSEGV)\\n0 Hook SettingsWindow.open\\n1 Hook AppDelegate.showSettings\",\"do\":\"Read the crash report\",\"id\":\"s1\",\"lang\":\"text\"}],\"title\":\"Hook crash: EXC_BAD_ACCESS in SettingsWindow.open (a3f9c2e17b04)\",\"urgency\":\"whenever\",\"v\":1,\"why\":\"Hook quit unexpectedly. The report holds only the allowed fields.\"}",
+        "acceptedRev": 1
+       }
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "bug-list-kind-ask",
+   "note": "GET /asks?kind=ask: everything but bugs",
+   "request": {
+    "method": "GET",
+    "path": "/asks?kind=ask",
+    "ownerKey": false,
+    "protocol": 5,
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "items": [
+      {
+       "id": "{ask1}",
+       "source": "xo-mailbox",
+       "title": "Rotate the deploy key",
+       "status": "open",
+       "priority": 1,
+       "pinned": false,
+       "rolling": false,
+       "payloadType": "xo.ask",
+       "payload": {
+        "key": "49146ed24389aed4",
+        "why": null,
+        "cmd": null,
+        "link": null,
+        "tg_chat_id": 12345,
+        "tg_message_id": 2,
+        "note": null,
+        "instructable": {
+         "steps": [
+          {
+           "do": "Open the deploy settings",
+           "id": "s1"
+          },
+          {
+           "code": "deploy-key rotate",
+           "do": "Rotate the key",
+           "id": "s2"
+          }
+         ],
+         "title": "Rotate the deploy key",
+         "urgency": "today",
+         "v": 1
+        }
+       },
+       "links": [],
+       "created": "{time}",
+       "updated": "{time}",
+       "anchor": null,
+       "recurrence": null,
+       "snoozeUntil": null,
+       "projectId": "Example",
+       "lane": "personal",
+       "completedAt": null,
+       "revision": {
+        "rev": 1,
+        "hash": "8d747e65b59da67d7192023d87109c97e2fa3f9f6934b6732d053d50aaff5ed3",
+        "prev": "",
+        "at": "{time}",
+        "reason": "",
+        "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\"},{\"code\":\"deploy-key rotate\",\"do\":\"Rotate the key\",\"id\":\"s2\"}],\"title\":\"Rotate the deploy key\",\"urgency\":\"today\",\"v\":1}",
+        "acceptedRev": 1
+       }
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "bug-detail-protocol-5",
+   "note": "the detail a Hook 0.12 reads",
+   "request": {
+    "method": "GET",
+    "path": "/asks/{bug1}",
+    "ownerKey": false,
+    "protocol": 5,
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{bug1}",
+      "source": "xo-mailbox",
+      "title": "Hook crash: EXC_BAD_ACCESS in SettingsWindow.open (a3f9c2e17b04)",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "bug-a3f9c2e17b04",
+       "why": "Hook quit unexpectedly. The report holds only the allowed fields.",
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": null,
+       "note": null,
+       "instructable": {
+        "steps": [
+         {
+          "code": "Crash signature: hook-crash-a3f9c2e17b04\nHook 0.12.0, macOS 15.6, arm64\nException: EXC_BAD_ACCESS (SIGSEGV)\n0 Hook SettingsWindow.open\n1 Hook AppDelegate.showSettings",
+          "do": "Read the crash report",
+          "id": "s1",
+          "lang": "text"
+         }
+        ],
+        "title": "Hook crash: EXC_BAD_ACCESS in SettingsWindow.open (a3f9c2e17b04)",
+        "urgency": "whenever",
+        "v": 1,
+        "why": "Hook quit unexpectedly. The report holds only the allowed fields."
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Hook",
+      "lane": "personal",
+      "completedAt": null,
+      "kind": "bug",
+      "bug": {
+       "signature": "a3f9c2e17b04",
+       "count": 2,
+       "firstSeen": "{time}",
+       "lastSeen": "{time}"
+      },
+      "revision": {
+       "rev": 1,
+       "hash": "436144071a6191dc44dd456ff4a6123b1e229d95f4e4404c6913d94d8d1f03a4",
+       "prev": "",
+       "at": "{time}",
+       "reason": "",
+       "body": "{\"steps\":[{\"code\":\"Crash signature: hook-crash-a3f9c2e17b04\\nHook 0.12.0, macOS 15.6, arm64\\nException: EXC_BAD_ACCESS (SIGSEGV)\\n0 Hook SettingsWindow.open\\n1 Hook AppDelegate.showSettings\",\"do\":\"Read the crash report\",\"id\":\"s1\",\"lang\":\"text\"}],\"title\":\"Hook crash: EXC_BAD_ACCESS in SettingsWindow.open (a3f9c2e17b04)\",\"urgency\":\"whenever\",\"v\":1,\"why\":\"Hook quit unexpectedly. The report holds only the allowed fields.\"}",
+       "acceptedRev": 1
+      }
+     },
+     "events": [
+      {
+       "seq": 1,
+       "itemId": "{bug1}",
+       "kind": "posted",
+       "actor": "hook",
+       "text": null,
+       "at": "{time}",
+       "rev": null,
+       "auth": null
+      },
+      {
+       "seq": 2,
+       "itemId": "{bug1}",
+       "kind": "occurrence",
+       "actor": "hook",
+       "text": "{\"count\": 2}",
+       "at": "{time}",
+       "rev": null,
+       "auth": null
+      }
+     ],
+     "revisions": [
+      {
+       "rev": 1,
+       "hash": "436144071a6191dc44dd456ff4a6123b1e229d95f4e4404c6913d94d8d1f03a4",
+       "prev": "",
+       "at": "{time}",
+       "reason": "",
+       "body": "{\"steps\":[{\"code\":\"Crash signature: hook-crash-a3f9c2e17b04\\nHook 0.12.0, macOS 15.6, arm64\\nException: EXC_BAD_ACCESS (SIGSEGV)\\n0 Hook SettingsWindow.open\\n1 Hook AppDelegate.showSettings\",\"do\":\"Read the crash report\",\"id\":\"s1\",\"lang\":\"text\"}],\"title\":\"Hook crash: EXC_BAD_ACCESS in SettingsWindow.open (a3f9c2e17b04)\",\"urgency\":\"whenever\",\"v\":1,\"why\":\"Hook quit unexpectedly. The report holds only the allowed fields.\"}"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "bug-detail-old-client",
+   "note": "a 1.1.0 client (no X-Hook-Protocol): an ordinary ask with extra keys",
+   "request": {
+    "method": "GET",
+    "path": "/asks/{bug1}",
+    "ownerKey": false,
+    "protocol": null,
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{bug1}",
+      "source": "xo-mailbox",
+      "title": "Hook crash: EXC_BAD_ACCESS in SettingsWindow.open (a3f9c2e17b04)",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "bug-a3f9c2e17b04",
+       "why": "Hook quit unexpectedly. The report holds only the allowed fields.",
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": null,
+       "note": null,
+       "instructable": {
+        "v": 1,
+        "title": "Hook crash: EXC_BAD_ACCESS in SettingsWindow.open (a3f9c2e17b04)",
+        "urgency": "whenever",
+        "why": "Hook quit unexpectedly. The report holds only the allowed fields.",
+        "steps": [
+         {
+          "do": "Read the crash report",
+          "code": "Crash signature: hook-crash-a3f9c2e17b04\nHook 0.12.0, macOS 15.6, arm64\nException: EXC_BAD_ACCESS (SIGSEGV)\n0 Hook SettingsWindow.open\n1 Hook AppDelegate.showSettings",
+          "lang": "text",
+          "id": "s1"
+         }
+        ]
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Hook",
+      "lane": "personal",
+      "completedAt": null,
+      "kind": "bug",
+      "bug": {
+       "signature": "a3f9c2e17b04",
+       "count": 2,
+       "firstSeen": "{time}",
+       "lastSeen": "{time}"
+      }
+     },
+     "events": [
+      {
+       "seq": 1,
+       "itemId": "{bug1}",
+       "kind": "posted",
+       "actor": "hook",
+       "text": null,
+       "at": "{time}",
+       "rev": null,
+       "auth": null
+      },
+      {
+       "seq": 2,
+       "itemId": "{bug1}",
+       "kind": "occurrence",
+       "actor": "hook",
+       "text": "{\"count\": 2}",
+       "at": "{time}",
+       "rev": null,
+       "auth": null
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "bug-no-owner-key",
+   "note": "only Hook files bugs: the owner key always",
+   "request": {
+    "method": "POST",
+    "path": "/asks",
+    "ownerKey": false,
+    "protocol": 5,
+    "body": {
+     "project": "Hook",
+     "context": "personal",
+     "kind": "bug",
+     "signature": "a3f9c2e17b04",
+     "instructable": {
+      "v": 1,
+      "title": "Hook crash: EXC_BAD_ACCESS in SettingsWindow.open (a3f9c2e17b04)",
+      "urgency": "whenever",
+      "why": "Hook quit unexpectedly. The report holds only the allowed fields.",
+      "steps": [
+       {
+        "do": "Read the crash report",
+        "code": "Crash signature: hook-crash-a3f9c2e17b04\nHook 0.12.0, macOS 15.6, arm64\nException: EXC_BAD_ACCESS (SIGSEGV)\n0 Hook SettingsWindow.open\n1 Hook AppDelegate.showSettings",
+        "lang": "text"
+       }
+      ]
+     }
+    }
+   },
+   "response": {
+    "status": 403,
+    "body": {
+     "error": "owner key required"
+    }
+   }
+  },
+  {
+   "name": "bug-bad-signature",
+   "note": "12 lowercase hex only",
+   "request": {
+    "method": "POST",
+    "path": "/asks",
+    "ownerKey": true,
+    "protocol": 5,
+    "body": {
+     "project": "Hook",
+     "context": "personal",
+     "kind": "bug",
+     "signature": "hook-crash-a3f9c2e17b04",
+     "instructable": {
+      "v": 1,
+      "title": "Hook crash: EXC_BAD_ACCESS in SettingsWindow.open (a3f9c2e17b04)",
+      "urgency": "whenever",
+      "why": "Hook quit unexpectedly. The report holds only the allowed fields.",
+      "steps": [
+       {
+        "do": "Read the crash report",
+        "code": "Crash signature: hook-crash-a3f9c2e17b04\nHook 0.12.0, macOS 15.6, arm64\nException: EXC_BAD_ACCESS (SIGSEGV)\n0 Hook SettingsWindow.open\n1 Hook AppDelegate.showSettings",
+        "lang": "text"
+       }
+      ]
+     }
+    }
+   },
+   "response": {
+    "status": 400,
+    "body": {
+     "error": "invalid signature"
+    }
+   }
+  },
+  {
+   "name": "bug-bad-kind",
+   "note": "kind is ask or bug",
+   "request": {
+    "method": "POST",
+    "path": "/asks",
+    "ownerKey": true,
+    "protocol": 5,
+    "body": {
+     "project": "Hook",
+     "context": "personal",
+     "kind": "crash",
+     "signature": "a3f9c2e17b04",
+     "instructable": {
+      "v": 1,
+      "title": "Hook crash: EXC_BAD_ACCESS in SettingsWindow.open (a3f9c2e17b04)",
+      "urgency": "whenever",
+      "why": "Hook quit unexpectedly. The report holds only the allowed fields.",
+      "steps": [
+       {
+        "do": "Read the crash report",
+        "code": "Crash signature: hook-crash-a3f9c2e17b04\nHook 0.12.0, macOS 15.6, arm64\nException: EXC_BAD_ACCESS (SIGSEGV)\n0 Hook SettingsWindow.open\n1 Hook AppDelegate.showSettings",
+        "lang": "text"
+       }
+      ]
+     }
+    }
+   },
+   "response": {
+    "status": 400,
+    "body": {
+     "error": "invalid kind"
+    }
+   }
+  },
+  {
+   "name": "bug-list-bad-kind",
+   "note": "an unknown kind filter",
+   "request": {
+    "method": "GET",
+    "path": "/asks?kind=crash",
+    "ownerKey": false,
+    "protocol": 5,
+    "body": null
+   },
+   "response": {
+    "status": 400,
+    "body": {
+     "error": "invalid query"
+    }
+   }
+  },
+  {
+   "name": "bug-resolve",
+   "note": "a session resolves it with a note; Telegram is not touched",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{bug1}/resolve",
+    "ownerKey": false,
+    "protocol": 5,
+    "body": {
+     "verdict": "done",
+     "note": "Fixed in 0.12.1"
+    }
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{bug1}",
+      "source": "xo-mailbox",
+      "title": "Hook crash: EXC_BAD_ACCESS in SettingsWindow.open (a3f9c2e17b04)",
+      "status": "done",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "bug-a3f9c2e17b04",
+       "why": "Hook quit unexpectedly. The report holds only the allowed fields.",
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": null,
+       "note": null,
+       "instructable": {
+        "steps": [
+         {
+          "code": "Crash signature: hook-crash-a3f9c2e17b04\nHook 0.12.0, macOS 15.6, arm64\nException: EXC_BAD_ACCESS (SIGSEGV)\n0 Hook SettingsWindow.open\n1 Hook AppDelegate.showSettings",
+          "do": "Read the crash report",
+          "id": "s1",
+          "lang": "text"
+         }
+        ],
+        "title": "Hook crash: EXC_BAD_ACCESS in SettingsWindow.open (a3f9c2e17b04)",
+        "urgency": "whenever",
+        "v": 1,
+        "why": "Hook quit unexpectedly. The report holds only the allowed fields."
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Hook",
+      "lane": "personal",
+      "completedAt": "{time}",
+      "kind": "bug",
+      "bug": {
+       "signature": "a3f9c2e17b04",
+       "count": 2,
+       "firstSeen": "{time}",
+       "lastSeen": "{time}"
+      },
+      "revision": {
+       "rev": 1,
+       "hash": "436144071a6191dc44dd456ff4a6123b1e229d95f4e4404c6913d94d8d1f03a4",
+       "prev": "",
+       "at": "{time}",
+       "reason": "",
+       "body": "{\"steps\":[{\"code\":\"Crash signature: hook-crash-a3f9c2e17b04\\nHook 0.12.0, macOS 15.6, arm64\\nException: EXC_BAD_ACCESS (SIGSEGV)\\n0 Hook SettingsWindow.open\\n1 Hook AppDelegate.showSettings\",\"do\":\"Read the crash report\",\"id\":\"s1\",\"lang\":\"text\"}],\"title\":\"Hook crash: EXC_BAD_ACCESS in SettingsWindow.open (a3f9c2e17b04)\",\"urgency\":\"whenever\",\"v\":1,\"why\":\"Hook quit unexpectedly. The report holds only the allowed fields.\"}",
+       "acceptedRev": 1
+      }
+     }
+    }
+   }
+  },
+  {
+   "name": "bug-after-close",
+   "note": "the signature of a closed bug files a new bug",
+   "request": {
+    "method": "POST",
+    "path": "/asks",
+    "ownerKey": true,
+    "protocol": 5,
+    "body": {
+     "project": "Hook",
+     "context": "personal",
+     "kind": "bug",
+     "signature": "a3f9c2e17b04",
+     "instructable": {
+      "v": 1,
+      "title": "Hook crash: EXC_BAD_ACCESS in SettingsWindow.open (a3f9c2e17b04)",
+      "urgency": "whenever",
+      "why": "Hook quit unexpectedly. The report holds only the allowed fields.",
+      "steps": [
+       {
+        "do": "Read the crash report",
+        "code": "Crash signature: hook-crash-a3f9c2e17b04\nHook 0.12.0, macOS 15.6, arm64\nException: EXC_BAD_ACCESS (SIGSEGV)\n0 Hook SettingsWindow.open\n1 Hook AppDelegate.showSettings",
+        "lang": "text"
+       }
+      ]
+     }
+    }
+   },
+   "response": {
+    "status": 201,
+    "body": {
+     "item": {
+      "id": "{bug2}",
+      "source": "xo-mailbox",
+      "title": "Hook crash: EXC_BAD_ACCESS in SettingsWindow.open (a3f9c2e17b04)",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "bug-a3f9c2e17b04",
+       "why": "Hook quit unexpectedly. The report holds only the allowed fields.",
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": null,
+       "note": null,
+       "instructable": {
+        "steps": [
+         {
+          "code": "Crash signature: hook-crash-a3f9c2e17b04\nHook 0.12.0, macOS 15.6, arm64\nException: EXC_BAD_ACCESS (SIGSEGV)\n0 Hook SettingsWindow.open\n1 Hook AppDelegate.showSettings",
+          "do": "Read the crash report",
+          "id": "s1",
+          "lang": "text"
+         }
+        ],
+        "title": "Hook crash: EXC_BAD_ACCESS in SettingsWindow.open (a3f9c2e17b04)",
+        "urgency": "whenever",
+        "v": 1,
+        "why": "Hook quit unexpectedly. The report holds only the allowed fields."
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Hook",
+      "lane": "personal",
+      "completedAt": null,
+      "kind": "bug",
+      "bug": {
+       "signature": "a3f9c2e17b04",
+       "count": 1,
+       "firstSeen": "{time}",
+       "lastSeen": "{time}"
+      },
+      "revision": {
+       "rev": 1,
+       "hash": "436144071a6191dc44dd456ff4a6123b1e229d95f4e4404c6913d94d8d1f03a4",
+       "prev": "",
+       "at": "{time}",
+       "reason": "",
+       "body": "{\"steps\":[{\"code\":\"Crash signature: hook-crash-a3f9c2e17b04\\nHook 0.12.0, macOS 15.6, arm64\\nException: EXC_BAD_ACCESS (SIGSEGV)\\n0 Hook SettingsWindow.open\\n1 Hook AppDelegate.showSettings\",\"do\":\"Read the crash report\",\"id\":\"s1\",\"lang\":\"text\"}],\"title\":\"Hook crash: EXC_BAD_ACCESS in SettingsWindow.open (a3f9c2e17b04)\",\"urgency\":\"whenever\",\"v\":1,\"why\":\"Hook quit unexpectedly. The report holds only the allowed fields.\"}",
+       "acceptedRev": 1
+      }
+     },
+     "occurrences": 1,
+     "revision": {
+      "rev": 1,
+      "hash": "436144071a6191dc44dd456ff4a6123b1e229d95f4e4404c6913d94d8d1f03a4"
+     },
+     "editable": false
+    }
+   },
+   "binds": {
+    "bug2": "item.id"
+   }
+  }
+ ]
+}

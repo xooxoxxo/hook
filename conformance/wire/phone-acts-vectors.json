@@ -1,0 +1,1891 @@
+{
+ "version": 1,
+ "pond": "1.7.0",
+ "source": "mailbox/tests/gen_phone_vectors.py",
+ "format": "{name, note, act: {kind, args}, request: {method, path, ownerKey, token?, protocol, body}, response: {status, body}, outcome, binds?}. The cases run in order against one fresh Pond (the Telegram fake, a pinned clock). Asks, keys and session acts a case does not show were made through the Pond's own API before the first case, unless a case's note says they happened since. `act` is what the phone was asked to do; `request` is exactly what it sends: `ownerKey` true sends the approved X-Hook-Owner-Key, false none, \"unknown\" a key the Pond never approved; `token` \"wrong\" sends a wrong Pond token (absent: the right one); `protocol` is the X-Hook-Protocol sent. `outcome` maps the response: 2xx ok, 401 unauthorized, 404 notFound, 403 \"owner key required\" ownerKeyRequired, 403 \"unknown owner key\" ownerKeyRefused, 409 \"ask was corrected\" corrected, 409 \"requirements_unmet\" requirementsUnmet, 409 \"ask is closed\" askClosed, 409 \"too many messages\" tooManyMessages, any other 4xx invalid. `binds` names an id the response carries ({\"ask1\": \"items.0.id\"}, a number indexes a list); later paths and args use it as {ask1}. In responses every bound id is its {name} and every ISO-8601 timestamp is {time}, except a revision's `at`, kept as recorded because its hash covers it. `rev` and `hash` in a request body and in act.args are the real values the Pond accepts.",
+ "cases": [
+  {
+   "name": "acts-list",
+   "note": "the open asks, newest first",
+   "act": {
+    "kind": "list",
+    "args": {}
+   },
+   "request": {
+    "method": "GET",
+    "path": "/asks?status=open&days=36500",
+    "ownerKey": false,
+    "protocol": 6,
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "items": [
+      {
+       "id": "{ask2}",
+       "source": "xo-mailbox",
+       "title": "Rotate the preview deploy key",
+       "status": "open",
+       "priority": 1,
+       "pinned": false,
+       "rolling": false,
+       "payloadType": "xo.ask",
+       "payload": {
+        "key": "fd24143f92a0a374",
+        "why": null,
+        "cmd": null,
+        "link": null,
+        "tg_chat_id": 12345,
+        "tg_message_id": 3,
+        "note": null,
+        "instructable": {
+         "steps": [
+          {
+           "code": "deploy-key rotate --env preview",
+           "do": "Rotate the key",
+           "id": "s1"
+          }
+         ],
+         "title": "Rotate the preview deploy key",
+         "urgency": "whenever",
+         "v": 1
+        }
+       },
+       "links": [],
+       "created": "{time}",
+       "updated": "{time}",
+       "anchor": null,
+       "recurrence": null,
+       "snoozeUntil": null,
+       "projectId": "Example",
+       "lane": "personal",
+       "completedAt": null,
+       "revision": {
+        "rev": 1,
+        "hash": "a255b4ec63e5b60918ffae6be49bb07f31dd51885e32cdb4db0690140a0b9bdb",
+        "prev": "",
+        "at": "2026-11-03T09:00:02+00:00",
+        "reason": "",
+        "body": "{\"steps\":[{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"whenever\",\"v\":1}",
+        "acceptedRev": 1
+       }
+      },
+      {
+       "id": "{ask1}",
+       "source": "xo-mailbox",
+       "title": "Rotate the staging deploy key",
+       "status": "open",
+       "priority": 1,
+       "pinned": false,
+       "rolling": false,
+       "payloadType": "xo.ask",
+       "payload": {
+        "key": "2a1f6852e7100fb6",
+        "why": "The staging key is 90 days old.",
+        "cmd": null,
+        "link": null,
+        "tg_chat_id": 12345,
+        "tg_message_id": 2,
+        "note": null,
+        "instructable": {
+         "reply": {
+          "choices": [
+           "Yes",
+           "No"
+          ],
+          "prompt": "Did the deploy pass?"
+         },
+         "steps": [
+          {
+           "do": "Open the deploy settings",
+           "id": "s1",
+           "where": "deploy.example.test"
+          },
+          {
+           "do": "Pick the target",
+           "id": "s2",
+           "question": {
+            "choices": [
+             "Staging",
+             "Production"
+            ],
+            "prompt": "Which environment?"
+           }
+          },
+          {
+           "do": "Set the expiry",
+           "id": "s3",
+           "question": {
+            "choices": [
+             "Keep",
+             {
+              "label": "Change it",
+              "text": "What should change?"
+             }
+            ],
+            "prompt": "Keep the expiry?"
+           }
+          },
+          {
+           "do": "Note the rotation time",
+           "id": "s4",
+           "question": {
+            "choices": [],
+            "prompt": "When did you rotate it?"
+           }
+          }
+         ],
+         "title": "Rotate the staging deploy key",
+         "urgency": "today",
+         "v": 1,
+         "verify": {
+          "code": "curl -sI https://deploy.example.test/health",
+          "do": "The deploy passes"
+         },
+         "why": "The staging key is 90 days old."
+        }
+       },
+       "links": [],
+       "created": "{time}",
+       "updated": "{time}",
+       "anchor": null,
+       "recurrence": null,
+       "snoozeUntil": null,
+       "projectId": "Example",
+       "lane": "personal",
+       "completedAt": null,
+       "revision": {
+        "rev": 1,
+        "hash": "28568b5e37a6da8ce32073c55ed59c3f28b76c705c055e5070441fc9c409dfe5",
+        "prev": "",
+        "at": "2026-11-03T09:00:01+00:00",
+        "reason": "",
+        "body": "{\"reply\":{\"choices\":[\"Yes\",\"No\"],\"prompt\":\"Did the deploy pass?\"},\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"do\":\"Pick the target\",\"id\":\"s2\",\"question\":{\"choices\":[\"Staging\",\"Production\"],\"prompt\":\"Which environment?\"}},{\"do\":\"Set the expiry\",\"id\":\"s3\",\"question\":{\"choices\":[\"Keep\",{\"label\":\"Change it\",\"text\":\"What should change?\"}],\"prompt\":\"Keep the expiry?\"}},{\"do\":\"Note the rotation time\",\"id\":\"s4\",\"question\":{\"choices\":[],\"prompt\":\"When did you rotate it?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The staging key is 90 days old.\"}",
+        "acceptedRev": 1
+       }
+      }
+     ]
+    }
+   },
+   "outcome": "ok",
+   "binds": {
+    "ask2": "items.0.id",
+    "ask1": "items.1.id"
+   }
+  },
+  {
+   "name": "acts-detail",
+   "note": "the ask with its events and revisions",
+   "act": {
+    "kind": "detail",
+    "args": {
+     "id": "{ask1}"
+    }
+   },
+   "request": {
+    "method": "GET",
+    "path": "/asks/{ask1}",
+    "ownerKey": false,
+    "protocol": 6,
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Rotate the staging deploy key",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "2a1f6852e7100fb6",
+       "why": "The staging key is 90 days old.",
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "reply": {
+         "choices": [
+          "Yes",
+          "No"
+         ],
+         "prompt": "Did the deploy pass?"
+        },
+        "steps": [
+         {
+          "do": "Open the deploy settings",
+          "id": "s1",
+          "where": "deploy.example.test"
+         },
+         {
+          "do": "Pick the target",
+          "id": "s2",
+          "question": {
+           "choices": [
+            "Staging",
+            "Production"
+           ],
+           "prompt": "Which environment?"
+          }
+         },
+         {
+          "do": "Set the expiry",
+          "id": "s3",
+          "question": {
+           "choices": [
+            "Keep",
+            {
+             "label": "Change it",
+             "text": "What should change?"
+            }
+           ],
+           "prompt": "Keep the expiry?"
+          }
+         },
+         {
+          "do": "Note the rotation time",
+          "id": "s4",
+          "question": {
+           "choices": [],
+           "prompt": "When did you rotate it?"
+          }
+         }
+        ],
+        "title": "Rotate the staging deploy key",
+        "urgency": "today",
+        "v": 1,
+        "verify": {
+         "code": "curl -sI https://deploy.example.test/health",
+         "do": "The deploy passes"
+        },
+        "why": "The staging key is 90 days old."
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "revision": {
+       "rev": 1,
+       "hash": "28568b5e37a6da8ce32073c55ed59c3f28b76c705c055e5070441fc9c409dfe5",
+       "prev": "",
+       "at": "2026-11-03T09:00:01+00:00",
+       "reason": "",
+       "body": "{\"reply\":{\"choices\":[\"Yes\",\"No\"],\"prompt\":\"Did the deploy pass?\"},\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"do\":\"Pick the target\",\"id\":\"s2\",\"question\":{\"choices\":[\"Staging\",\"Production\"],\"prompt\":\"Which environment?\"}},{\"do\":\"Set the expiry\",\"id\":\"s3\",\"question\":{\"choices\":[\"Keep\",{\"label\":\"Change it\",\"text\":\"What should change?\"}],\"prompt\":\"Keep the expiry?\"}},{\"do\":\"Note the rotation time\",\"id\":\"s4\",\"question\":{\"choices\":[],\"prompt\":\"When did you rotate it?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The staging key is 90 days old.\"}",
+       "acceptedRev": 1
+      }
+     },
+     "events": [
+      {
+       "seq": 1,
+       "itemId": "{ask1}",
+       "kind": "posted",
+       "actor": "session",
+       "text": null,
+       "at": "{time}",
+       "rev": null,
+       "auth": null
+      }
+     ],
+     "revisions": [
+      {
+       "rev": 1,
+       "hash": "28568b5e37a6da8ce32073c55ed59c3f28b76c705c055e5070441fc9c409dfe5",
+       "prev": "",
+       "at": "2026-11-03T09:00:01+00:00",
+       "reason": "",
+       "body": "{\"reply\":{\"choices\":[\"Yes\",\"No\"],\"prompt\":\"Did the deploy pass?\"},\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"do\":\"Pick the target\",\"id\":\"s2\",\"question\":{\"choices\":[\"Staging\",\"Production\"],\"prompt\":\"Which environment?\"}},{\"do\":\"Set the expiry\",\"id\":\"s3\",\"question\":{\"choices\":[\"Keep\",{\"label\":\"Change it\",\"text\":\"What should change?\"}],\"prompt\":\"Keep the expiry?\"}},{\"do\":\"Note the rotation time\",\"id\":\"s4\",\"question\":{\"choices\":[],\"prompt\":\"When did you rotate it?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The staging key is 90 days old.\"}"
+      }
+     ]
+    }
+   },
+   "outcome": "ok"
+  },
+  {
+   "name": "acts-tick-s1",
+   "note": "tick step 1",
+   "act": {
+    "kind": "progress",
+    "args": {
+     "id": "{ask1}",
+     "tick": [
+      "s1"
+     ],
+     "untick": [],
+     "rev": 1,
+     "hash": "28568b5e37a6da8ce32073c55ed59c3f28b76c705c055e5070441fc9c409dfe5"
+    }
+   },
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/progress",
+    "ownerKey": true,
+    "protocol": 6,
+    "body": {
+     "tick": [
+      "s1"
+     ],
+     "untick": [],
+     "rev": 1,
+     "hash": "28568b5e37a6da8ce32073c55ed59c3f28b76c705c055e5070441fc9c409dfe5"
+    }
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Rotate the staging deploy key",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "2a1f6852e7100fb6",
+       "why": "The staging key is 90 days old.",
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "reply": {
+         "choices": [
+          "Yes",
+          "No"
+         ],
+         "prompt": "Did the deploy pass?"
+        },
+        "steps": [
+         {
+          "do": "Open the deploy settings",
+          "id": "s1",
+          "where": "deploy.example.test"
+         },
+         {
+          "do": "Pick the target",
+          "id": "s2",
+          "question": {
+           "choices": [
+            "Staging",
+            "Production"
+           ],
+           "prompt": "Which environment?"
+          }
+         },
+         {
+          "do": "Set the expiry",
+          "id": "s3",
+          "question": {
+           "choices": [
+            "Keep",
+            {
+             "label": "Change it",
+             "text": "What should change?"
+            }
+           ],
+           "prompt": "Keep the expiry?"
+          }
+         },
+         {
+          "do": "Note the rotation time",
+          "id": "s4",
+          "question": {
+           "choices": [],
+           "prompt": "When did you rotate it?"
+          }
+         }
+        ],
+        "title": "Rotate the staging deploy key",
+        "urgency": "today",
+        "v": 1,
+        "verify": {
+         "code": "curl -sI https://deploy.example.test/health",
+         "do": "The deploy passes"
+        },
+        "why": "The staging key is 90 days old."
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "revision": {
+       "rev": 1,
+       "hash": "28568b5e37a6da8ce32073c55ed59c3f28b76c705c055e5070441fc9c409dfe5",
+       "prev": "",
+       "at": "2026-11-03T09:00:01+00:00",
+       "reason": "",
+       "body": "{\"reply\":{\"choices\":[\"Yes\",\"No\"],\"prompt\":\"Did the deploy pass?\"},\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"do\":\"Pick the target\",\"id\":\"s2\",\"question\":{\"choices\":[\"Staging\",\"Production\"],\"prompt\":\"Which environment?\"}},{\"do\":\"Set the expiry\",\"id\":\"s3\",\"question\":{\"choices\":[\"Keep\",{\"label\":\"Change it\",\"text\":\"What should change?\"}],\"prompt\":\"Keep the expiry?\"}},{\"do\":\"Note the rotation time\",\"id\":\"s4\",\"question\":{\"choices\":[],\"prompt\":\"When did you rotate it?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The staging key is 90 days old.\"}",
+       "acceptedRev": 1
+      }
+     }
+    }
+   },
+   "outcome": "ok"
+  },
+  {
+   "name": "acts-tick-verify",
+   "note": "tick Verify",
+   "act": {
+    "kind": "progress",
+    "args": {
+     "id": "{ask1}",
+     "tick": [
+      "@verify"
+     ],
+     "untick": [],
+     "rev": 1,
+     "hash": "28568b5e37a6da8ce32073c55ed59c3f28b76c705c055e5070441fc9c409dfe5"
+    }
+   },
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/progress",
+    "ownerKey": true,
+    "protocol": 6,
+    "body": {
+     "tick": [
+      "@verify"
+     ],
+     "untick": [],
+     "rev": 1,
+     "hash": "28568b5e37a6da8ce32073c55ed59c3f28b76c705c055e5070441fc9c409dfe5"
+    }
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Rotate the staging deploy key",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "2a1f6852e7100fb6",
+       "why": "The staging key is 90 days old.",
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "reply": {
+         "choices": [
+          "Yes",
+          "No"
+         ],
+         "prompt": "Did the deploy pass?"
+        },
+        "steps": [
+         {
+          "do": "Open the deploy settings",
+          "id": "s1",
+          "where": "deploy.example.test"
+         },
+         {
+          "do": "Pick the target",
+          "id": "s2",
+          "question": {
+           "choices": [
+            "Staging",
+            "Production"
+           ],
+           "prompt": "Which environment?"
+          }
+         },
+         {
+          "do": "Set the expiry",
+          "id": "s3",
+          "question": {
+           "choices": [
+            "Keep",
+            {
+             "label": "Change it",
+             "text": "What should change?"
+            }
+           ],
+           "prompt": "Keep the expiry?"
+          }
+         },
+         {
+          "do": "Note the rotation time",
+          "id": "s4",
+          "question": {
+           "choices": [],
+           "prompt": "When did you rotate it?"
+          }
+         }
+        ],
+        "title": "Rotate the staging deploy key",
+        "urgency": "today",
+        "v": 1,
+        "verify": {
+         "code": "curl -sI https://deploy.example.test/health",
+         "do": "The deploy passes"
+        },
+        "why": "The staging key is 90 days old."
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "revision": {
+       "rev": 1,
+       "hash": "28568b5e37a6da8ce32073c55ed59c3f28b76c705c055e5070441fc9c409dfe5",
+       "prev": "",
+       "at": "2026-11-03T09:00:01+00:00",
+       "reason": "",
+       "body": "{\"reply\":{\"choices\":[\"Yes\",\"No\"],\"prompt\":\"Did the deploy pass?\"},\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"do\":\"Pick the target\",\"id\":\"s2\",\"question\":{\"choices\":[\"Staging\",\"Production\"],\"prompt\":\"Which environment?\"}},{\"do\":\"Set the expiry\",\"id\":\"s3\",\"question\":{\"choices\":[\"Keep\",{\"label\":\"Change it\",\"text\":\"What should change?\"}],\"prompt\":\"Keep the expiry?\"}},{\"do\":\"Note the rotation time\",\"id\":\"s4\",\"question\":{\"choices\":[],\"prompt\":\"When did you rotate it?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The staging key is 90 days old.\"}",
+       "acceptedRev": 1
+      }
+     }
+    }
+   },
+   "outcome": "ok"
+  },
+  {
+   "name": "acts-untick-s1",
+   "note": "untick step 1",
+   "act": {
+    "kind": "progress",
+    "args": {
+     "id": "{ask1}",
+     "tick": [],
+     "untick": [
+      "s1"
+     ],
+     "rev": 1,
+     "hash": "28568b5e37a6da8ce32073c55ed59c3f28b76c705c055e5070441fc9c409dfe5"
+    }
+   },
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/progress",
+    "ownerKey": true,
+    "protocol": 6,
+    "body": {
+     "tick": [],
+     "untick": [
+      "s1"
+     ],
+     "rev": 1,
+     "hash": "28568b5e37a6da8ce32073c55ed59c3f28b76c705c055e5070441fc9c409dfe5"
+    }
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Rotate the staging deploy key",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "2a1f6852e7100fb6",
+       "why": "The staging key is 90 days old.",
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "reply": {
+         "choices": [
+          "Yes",
+          "No"
+         ],
+         "prompt": "Did the deploy pass?"
+        },
+        "steps": [
+         {
+          "do": "Open the deploy settings",
+          "id": "s1",
+          "where": "deploy.example.test"
+         },
+         {
+          "do": "Pick the target",
+          "id": "s2",
+          "question": {
+           "choices": [
+            "Staging",
+            "Production"
+           ],
+           "prompt": "Which environment?"
+          }
+         },
+         {
+          "do": "Set the expiry",
+          "id": "s3",
+          "question": {
+           "choices": [
+            "Keep",
+            {
+             "label": "Change it",
+             "text": "What should change?"
+            }
+           ],
+           "prompt": "Keep the expiry?"
+          }
+         },
+         {
+          "do": "Note the rotation time",
+          "id": "s4",
+          "question": {
+           "choices": [],
+           "prompt": "When did you rotate it?"
+          }
+         }
+        ],
+        "title": "Rotate the staging deploy key",
+        "urgency": "today",
+        "v": 1,
+        "verify": {
+         "code": "curl -sI https://deploy.example.test/health",
+         "do": "The deploy passes"
+        },
+        "why": "The staging key is 90 days old."
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "revision": {
+       "rev": 1,
+       "hash": "28568b5e37a6da8ce32073c55ed59c3f28b76c705c055e5070441fc9c409dfe5",
+       "prev": "",
+       "at": "2026-11-03T09:00:01+00:00",
+       "reason": "",
+       "body": "{\"reply\":{\"choices\":[\"Yes\",\"No\"],\"prompt\":\"Did the deploy pass?\"},\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"do\":\"Pick the target\",\"id\":\"s2\",\"question\":{\"choices\":[\"Staging\",\"Production\"],\"prompt\":\"Which environment?\"}},{\"do\":\"Set the expiry\",\"id\":\"s3\",\"question\":{\"choices\":[\"Keep\",{\"label\":\"Change it\",\"text\":\"What should change?\"}],\"prompt\":\"Keep the expiry?\"}},{\"do\":\"Note the rotation time\",\"id\":\"s4\",\"question\":{\"choices\":[],\"prompt\":\"When did you rotate it?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The staging key is 90 days old.\"}",
+       "acceptedRev": 1
+      }
+     }
+    }
+   },
+   "outcome": "ok"
+  },
+  {
+   "name": "acts-pick",
+   "note": "a pick",
+   "act": {
+    "kind": "answers",
+    "args": {
+     "id": "{ask1}",
+     "answers": [
+      {
+       "step": "2",
+       "picked": [
+        "Staging"
+       ]
+      }
+     ],
+     "rev": 1,
+     "hash": "28568b5e37a6da8ce32073c55ed59c3f28b76c705c055e5070441fc9c409dfe5"
+    }
+   },
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/answers",
+    "ownerKey": true,
+    "protocol": 6,
+    "body": {
+     "answers": [
+      {
+       "step": "2",
+       "picked": [
+        "Staging"
+       ]
+      }
+     ],
+     "rev": 1,
+     "hash": "28568b5e37a6da8ce32073c55ed59c3f28b76c705c055e5070441fc9c409dfe5"
+    }
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Rotate the staging deploy key",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "2a1f6852e7100fb6",
+       "why": "The staging key is 90 days old.",
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "reply": {
+         "choices": [
+          "Yes",
+          "No"
+         ],
+         "prompt": "Did the deploy pass?"
+        },
+        "steps": [
+         {
+          "do": "Open the deploy settings",
+          "id": "s1",
+          "where": "deploy.example.test"
+         },
+         {
+          "do": "Pick the target",
+          "id": "s2",
+          "question": {
+           "choices": [
+            "Staging",
+            "Production"
+           ],
+           "prompt": "Which environment?"
+          }
+         },
+         {
+          "do": "Set the expiry",
+          "id": "s3",
+          "question": {
+           "choices": [
+            "Keep",
+            {
+             "label": "Change it",
+             "text": "What should change?"
+            }
+           ],
+           "prompt": "Keep the expiry?"
+          }
+         },
+         {
+          "do": "Note the rotation time",
+          "id": "s4",
+          "question": {
+           "choices": [],
+           "prompt": "When did you rotate it?"
+          }
+         }
+        ],
+        "title": "Rotate the staging deploy key",
+        "urgency": "today",
+        "v": 1,
+        "verify": {
+         "code": "curl -sI https://deploy.example.test/health",
+         "do": "The deploy passes"
+        },
+        "why": "The staging key is 90 days old."
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "revision": {
+       "rev": 1,
+       "hash": "28568b5e37a6da8ce32073c55ed59c3f28b76c705c055e5070441fc9c409dfe5",
+       "prev": "",
+       "at": "2026-11-03T09:00:01+00:00",
+       "reason": "",
+       "body": "{\"reply\":{\"choices\":[\"Yes\",\"No\"],\"prompt\":\"Did the deploy pass?\"},\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"do\":\"Pick the target\",\"id\":\"s2\",\"question\":{\"choices\":[\"Staging\",\"Production\"],\"prompt\":\"Which environment?\"}},{\"do\":\"Set the expiry\",\"id\":\"s3\",\"question\":{\"choices\":[\"Keep\",{\"label\":\"Change it\",\"text\":\"What should change?\"}],\"prompt\":\"Keep the expiry?\"}},{\"do\":\"Note the rotation time\",\"id\":\"s4\",\"question\":{\"choices\":[],\"prompt\":\"When did you rotate it?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The staging key is 90 days old.\"}",
+       "acceptedRev": 1
+      }
+     }
+    }
+   },
+   "outcome": "ok"
+  },
+  {
+   "name": "acts-pick-with-words",
+   "note": "a pick of a choice that takes words, with the words",
+   "act": {
+    "kind": "answers",
+    "args": {
+     "id": "{ask1}",
+     "answers": [
+      {
+       "step": "3",
+       "picked": [
+        "Change it"
+       ],
+       "text": "Use a 30 day expiry"
+      }
+     ],
+     "rev": 1,
+     "hash": "28568b5e37a6da8ce32073c55ed59c3f28b76c705c055e5070441fc9c409dfe5"
+    }
+   },
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/answers",
+    "ownerKey": true,
+    "protocol": 6,
+    "body": {
+     "answers": [
+      {
+       "step": "3",
+       "picked": [
+        "Change it"
+       ],
+       "text": "Use a 30 day expiry"
+      }
+     ],
+     "rev": 1,
+     "hash": "28568b5e37a6da8ce32073c55ed59c3f28b76c705c055e5070441fc9c409dfe5"
+    }
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Rotate the staging deploy key",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "2a1f6852e7100fb6",
+       "why": "The staging key is 90 days old.",
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "reply": {
+         "choices": [
+          "Yes",
+          "No"
+         ],
+         "prompt": "Did the deploy pass?"
+        },
+        "steps": [
+         {
+          "do": "Open the deploy settings",
+          "id": "s1",
+          "where": "deploy.example.test"
+         },
+         {
+          "do": "Pick the target",
+          "id": "s2",
+          "question": {
+           "choices": [
+            "Staging",
+            "Production"
+           ],
+           "prompt": "Which environment?"
+          }
+         },
+         {
+          "do": "Set the expiry",
+          "id": "s3",
+          "question": {
+           "choices": [
+            "Keep",
+            {
+             "label": "Change it",
+             "text": "What should change?"
+            }
+           ],
+           "prompt": "Keep the expiry?"
+          }
+         },
+         {
+          "do": "Note the rotation time",
+          "id": "s4",
+          "question": {
+           "choices": [],
+           "prompt": "When did you rotate it?"
+          }
+         }
+        ],
+        "title": "Rotate the staging deploy key",
+        "urgency": "today",
+        "v": 1,
+        "verify": {
+         "code": "curl -sI https://deploy.example.test/health",
+         "do": "The deploy passes"
+        },
+        "why": "The staging key is 90 days old."
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "revision": {
+       "rev": 1,
+       "hash": "28568b5e37a6da8ce32073c55ed59c3f28b76c705c055e5070441fc9c409dfe5",
+       "prev": "",
+       "at": "2026-11-03T09:00:01+00:00",
+       "reason": "",
+       "body": "{\"reply\":{\"choices\":[\"Yes\",\"No\"],\"prompt\":\"Did the deploy pass?\"},\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"do\":\"Pick the target\",\"id\":\"s2\",\"question\":{\"choices\":[\"Staging\",\"Production\"],\"prompt\":\"Which environment?\"}},{\"do\":\"Set the expiry\",\"id\":\"s3\",\"question\":{\"choices\":[\"Keep\",{\"label\":\"Change it\",\"text\":\"What should change?\"}],\"prompt\":\"Keep the expiry?\"}},{\"do\":\"Note the rotation time\",\"id\":\"s4\",\"question\":{\"choices\":[],\"prompt\":\"When did you rotate it?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The staging key is 90 days old.\"}",
+       "acceptedRev": 1
+      }
+     }
+    }
+   },
+   "outcome": "ok"
+  },
+  {
+   "name": "acts-free-text",
+   "note": "a free-text answer",
+   "act": {
+    "kind": "answers",
+    "args": {
+     "id": "{ask1}",
+     "answers": [
+      {
+       "step": "4",
+       "text": "Rotated at nine"
+      }
+     ],
+     "rev": 1,
+     "hash": "28568b5e37a6da8ce32073c55ed59c3f28b76c705c055e5070441fc9c409dfe5"
+    }
+   },
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/answers",
+    "ownerKey": true,
+    "protocol": 6,
+    "body": {
+     "answers": [
+      {
+       "step": "4",
+       "text": "Rotated at nine"
+      }
+     ],
+     "rev": 1,
+     "hash": "28568b5e37a6da8ce32073c55ed59c3f28b76c705c055e5070441fc9c409dfe5"
+    }
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Rotate the staging deploy key",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "2a1f6852e7100fb6",
+       "why": "The staging key is 90 days old.",
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "reply": {
+         "choices": [
+          "Yes",
+          "No"
+         ],
+         "prompt": "Did the deploy pass?"
+        },
+        "steps": [
+         {
+          "do": "Open the deploy settings",
+          "id": "s1",
+          "where": "deploy.example.test"
+         },
+         {
+          "do": "Pick the target",
+          "id": "s2",
+          "question": {
+           "choices": [
+            "Staging",
+            "Production"
+           ],
+           "prompt": "Which environment?"
+          }
+         },
+         {
+          "do": "Set the expiry",
+          "id": "s3",
+          "question": {
+           "choices": [
+            "Keep",
+            {
+             "label": "Change it",
+             "text": "What should change?"
+            }
+           ],
+           "prompt": "Keep the expiry?"
+          }
+         },
+         {
+          "do": "Note the rotation time",
+          "id": "s4",
+          "question": {
+           "choices": [],
+           "prompt": "When did you rotate it?"
+          }
+         }
+        ],
+        "title": "Rotate the staging deploy key",
+        "urgency": "today",
+        "v": 1,
+        "verify": {
+         "code": "curl -sI https://deploy.example.test/health",
+         "do": "The deploy passes"
+        },
+        "why": "The staging key is 90 days old."
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "revision": {
+       "rev": 1,
+       "hash": "28568b5e37a6da8ce32073c55ed59c3f28b76c705c055e5070441fc9c409dfe5",
+       "prev": "",
+       "at": "2026-11-03T09:00:01+00:00",
+       "reason": "",
+       "body": "{\"reply\":{\"choices\":[\"Yes\",\"No\"],\"prompt\":\"Did the deploy pass?\"},\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"do\":\"Pick the target\",\"id\":\"s2\",\"question\":{\"choices\":[\"Staging\",\"Production\"],\"prompt\":\"Which environment?\"}},{\"do\":\"Set the expiry\",\"id\":\"s3\",\"question\":{\"choices\":[\"Keep\",{\"label\":\"Change it\",\"text\":\"What should change?\"}],\"prompt\":\"Keep the expiry?\"}},{\"do\":\"Note the rotation time\",\"id\":\"s4\",\"question\":{\"choices\":[],\"prompt\":\"When did you rotate it?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The staging key is 90 days old.\"}",
+       "acceptedRev": 1
+      }
+     }
+    }
+   },
+   "outcome": "ok"
+  },
+  {
+   "name": "acts-reply-text",
+   "note": "a text reply",
+   "act": {
+    "kind": "reply",
+    "args": {
+     "id": "{ask1}",
+     "text": "Rotated, the old key is revoked."
+    }
+   },
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/reply",
+    "ownerKey": true,
+    "protocol": 6,
+    "body": {
+     "text": "Rotated, the old key is revoked."
+    }
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Rotate the staging deploy key",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "2a1f6852e7100fb6",
+       "why": "The staging key is 90 days old.",
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "urgency": "today",
+        "why": "The staging key is 90 days old.",
+        "steps": [
+         {
+          "do": "Open the deploy settings",
+          "where": "deploy.example.test",
+          "id": "s1"
+         },
+         {
+          "do": "Pick the target",
+          "question": {
+           "prompt": "Which environment?",
+           "choices": [
+            "Staging",
+            "Production"
+           ]
+          },
+          "id": "s2"
+         },
+         {
+          "do": "Set the expiry",
+          "question": {
+           "prompt": "Keep the expiry?",
+           "choices": [
+            "Keep",
+            {
+             "label": "Change it",
+             "text": "What should change?"
+            }
+           ]
+          },
+          "id": "s3"
+         },
+         {
+          "do": "Note the rotation time",
+          "question": {
+           "prompt": "When did you rotate it?",
+           "choices": []
+          },
+          "id": "s4"
+         }
+        ],
+        "verify": {
+         "do": "The deploy passes",
+         "code": "curl -sI https://deploy.example.test/health"
+        },
+        "reply": {
+         "prompt": "Did the deploy pass?",
+         "choices": [
+          "Yes",
+          "No"
+         ]
+        }
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null
+     }
+    }
+   },
+   "outcome": "ok"
+  },
+  {
+   "name": "acts-reply-choice",
+   "note": "a choice of the reply prompt",
+   "act": {
+    "kind": "reply",
+    "args": {
+     "id": "{ask1}",
+     "text": "choice: Yes"
+    }
+   },
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/reply",
+    "ownerKey": true,
+    "protocol": 6,
+    "body": {
+     "text": "choice: Yes"
+    }
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Rotate the staging deploy key",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "2a1f6852e7100fb6",
+       "why": "The staging key is 90 days old.",
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "urgency": "today",
+        "why": "The staging key is 90 days old.",
+        "steps": [
+         {
+          "do": "Open the deploy settings",
+          "where": "deploy.example.test",
+          "id": "s1"
+         },
+         {
+          "do": "Pick the target",
+          "question": {
+           "prompt": "Which environment?",
+           "choices": [
+            "Staging",
+            "Production"
+           ]
+          },
+          "id": "s2"
+         },
+         {
+          "do": "Set the expiry",
+          "question": {
+           "prompt": "Keep the expiry?",
+           "choices": [
+            "Keep",
+            {
+             "label": "Change it",
+             "text": "What should change?"
+            }
+           ]
+          },
+          "id": "s3"
+         },
+         {
+          "do": "Note the rotation time",
+          "question": {
+           "prompt": "When did you rotate it?",
+           "choices": []
+          },
+          "id": "s4"
+         }
+        ],
+        "verify": {
+         "do": "The deploy passes",
+         "code": "curl -sI https://deploy.example.test/health"
+        },
+        "reply": {
+         "prompt": "Did the deploy pass?",
+         "choices": [
+          "Yes",
+          "No"
+         ]
+        }
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null
+     }
+    }
+   },
+   "outcome": "ok"
+  },
+  {
+   "name": "acts-message",
+   "note": "a message to the session, on two lines",
+   "act": {
+    "kind": "message",
+    "args": {
+     "id": "{ask1}",
+     "text": "Use the staging key first.\nThen production."
+    }
+   },
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/reply",
+    "ownerKey": true,
+    "protocol": 6,
+    "body": {
+     "text": "Use the staging key first.\nThen production.",
+     "kind": "message"
+    }
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Rotate the staging deploy key",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "2a1f6852e7100fb6",
+       "why": "The staging key is 90 days old.",
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "urgency": "today",
+        "why": "The staging key is 90 days old.",
+        "steps": [
+         {
+          "do": "Open the deploy settings",
+          "where": "deploy.example.test",
+          "id": "s1"
+         },
+         {
+          "do": "Pick the target",
+          "question": {
+           "prompt": "Which environment?",
+           "choices": [
+            "Staging",
+            "Production"
+           ]
+          },
+          "id": "s2"
+         },
+         {
+          "do": "Set the expiry",
+          "question": {
+           "prompt": "Keep the expiry?",
+           "choices": [
+            "Keep",
+            {
+             "label": "Change it",
+             "text": "What should change?"
+            }
+           ]
+          },
+          "id": "s3"
+         },
+         {
+          "do": "Note the rotation time",
+          "question": {
+           "prompt": "When did you rotate it?",
+           "choices": []
+          },
+          "id": "s4"
+         }
+        ],
+        "verify": {
+         "do": "The deploy passes",
+         "code": "curl -sI https://deploy.example.test/health"
+        },
+        "reply": {
+         "prompt": "Did the deploy pass?",
+         "choices": [
+          "Yes",
+          "No"
+         ]
+        }
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null
+     }
+    }
+   },
+   "outcome": "ok"
+  },
+  {
+   "name": "acts-done",
+   "note": "Done, bound to the revision shown",
+   "act": {
+    "kind": "done",
+    "args": {
+     "id": "{ask1}",
+     "rev": 1,
+     "hash": "28568b5e37a6da8ce32073c55ed59c3f28b76c705c055e5070441fc9c409dfe5"
+    }
+   },
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/resolve",
+    "ownerKey": true,
+    "protocol": 6,
+    "body": {
+     "verdict": "done",
+     "actor": "owner",
+     "rev": 1,
+     "hash": "28568b5e37a6da8ce32073c55ed59c3f28b76c705c055e5070441fc9c409dfe5"
+    }
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Rotate the staging deploy key",
+      "status": "done",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "2a1f6852e7100fb6",
+       "why": "The staging key is 90 days old.",
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "reply": {
+         "choices": [
+          "Yes",
+          "No"
+         ],
+         "prompt": "Did the deploy pass?"
+        },
+        "steps": [
+         {
+          "do": "Open the deploy settings",
+          "id": "s1",
+          "where": "deploy.example.test"
+         },
+         {
+          "do": "Pick the target",
+          "id": "s2",
+          "question": {
+           "choices": [
+            "Staging",
+            "Production"
+           ],
+           "prompt": "Which environment?"
+          }
+         },
+         {
+          "do": "Set the expiry",
+          "id": "s3",
+          "question": {
+           "choices": [
+            "Keep",
+            {
+             "label": "Change it",
+             "text": "What should change?"
+            }
+           ],
+           "prompt": "Keep the expiry?"
+          }
+         },
+         {
+          "do": "Note the rotation time",
+          "id": "s4",
+          "question": {
+           "choices": [],
+           "prompt": "When did you rotate it?"
+          }
+         }
+        ],
+        "title": "Rotate the staging deploy key",
+        "urgency": "today",
+        "v": 1,
+        "verify": {
+         "code": "curl -sI https://deploy.example.test/health",
+         "do": "The deploy passes"
+        },
+        "why": "The staging key is 90 days old."
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": "{time}",
+      "revision": {
+       "rev": 1,
+       "hash": "28568b5e37a6da8ce32073c55ed59c3f28b76c705c055e5070441fc9c409dfe5",
+       "prev": "",
+       "at": "2026-11-03T09:00:01+00:00",
+       "reason": "",
+       "body": "{\"reply\":{\"choices\":[\"Yes\",\"No\"],\"prompt\":\"Did the deploy pass?\"},\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"do\":\"Pick the target\",\"id\":\"s2\",\"question\":{\"choices\":[\"Staging\",\"Production\"],\"prompt\":\"Which environment?\"}},{\"do\":\"Set the expiry\",\"id\":\"s3\",\"question\":{\"choices\":[\"Keep\",{\"label\":\"Change it\",\"text\":\"What should change?\"}],\"prompt\":\"Keep the expiry?\"}},{\"do\":\"Note the rotation time\",\"id\":\"s4\",\"question\":{\"choices\":[],\"prompt\":\"When did you rotate it?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The staging key is 90 days old.\"}",
+       "acceptedRev": 1
+      }
+     }
+    }
+   },
+   "outcome": "ok"
+  },
+  {
+   "name": "acts-skip",
+   "note": "Skip carries no rev or hash",
+   "act": {
+    "kind": "skip",
+    "args": {
+     "id": "{ask2}"
+    }
+   },
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask2}/resolve",
+    "ownerKey": true,
+    "protocol": 6,
+    "body": {
+     "verdict": "declined",
+     "actor": "owner"
+    }
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask2}",
+      "source": "xo-mailbox",
+      "title": "Rotate the preview deploy key",
+      "status": "dismissed",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "fd24143f92a0a374",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 3,
+       "note": null,
+       "instructable": {
+        "steps": [
+         {
+          "code": "deploy-key rotate --env preview",
+          "do": "Rotate the key",
+          "id": "s1"
+         }
+        ],
+        "title": "Rotate the preview deploy key",
+        "urgency": "whenever",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": "{time}",
+      "revision": {
+       "rev": 1,
+       "hash": "a255b4ec63e5b60918ffae6be49bb07f31dd51885e32cdb4db0690140a0b9bdb",
+       "prev": "",
+       "at": "2026-11-03T09:00:02+00:00",
+       "reason": "",
+       "body": "{\"steps\":[{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"whenever\",\"v\":1}",
+       "acceptedRev": 1
+      }
+     }
+    }
+   },
+   "outcome": "ok"
+  },
+  {
+   "name": "acts-detail-after",
+   "note": "the closed ask with every act above as an event",
+   "act": {
+    "kind": "detail",
+    "args": {
+     "id": "{ask1}"
+    }
+   },
+   "request": {
+    "method": "GET",
+    "path": "/asks/{ask1}",
+    "ownerKey": false,
+    "protocol": 6,
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Rotate the staging deploy key",
+      "status": "done",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "2a1f6852e7100fb6",
+       "why": "The staging key is 90 days old.",
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "reply": {
+         "choices": [
+          "Yes",
+          "No"
+         ],
+         "prompt": "Did the deploy pass?"
+        },
+        "steps": [
+         {
+          "do": "Open the deploy settings",
+          "id": "s1",
+          "where": "deploy.example.test"
+         },
+         {
+          "do": "Pick the target",
+          "id": "s2",
+          "question": {
+           "choices": [
+            "Staging",
+            "Production"
+           ],
+           "prompt": "Which environment?"
+          }
+         },
+         {
+          "do": "Set the expiry",
+          "id": "s3",
+          "question": {
+           "choices": [
+            "Keep",
+            {
+             "label": "Change it",
+             "text": "What should change?"
+            }
+           ],
+           "prompt": "Keep the expiry?"
+          }
+         },
+         {
+          "do": "Note the rotation time",
+          "id": "s4",
+          "question": {
+           "choices": [],
+           "prompt": "When did you rotate it?"
+          }
+         }
+        ],
+        "title": "Rotate the staging deploy key",
+        "urgency": "today",
+        "v": 1,
+        "verify": {
+         "code": "curl -sI https://deploy.example.test/health",
+         "do": "The deploy passes"
+        },
+        "why": "The staging key is 90 days old."
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": "{time}",
+      "revision": {
+       "rev": 1,
+       "hash": "28568b5e37a6da8ce32073c55ed59c3f28b76c705c055e5070441fc9c409dfe5",
+       "prev": "",
+       "at": "2026-11-03T09:00:01+00:00",
+       "reason": "",
+       "body": "{\"reply\":{\"choices\":[\"Yes\",\"No\"],\"prompt\":\"Did the deploy pass?\"},\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"do\":\"Pick the target\",\"id\":\"s2\",\"question\":{\"choices\":[\"Staging\",\"Production\"],\"prompt\":\"Which environment?\"}},{\"do\":\"Set the expiry\",\"id\":\"s3\",\"question\":{\"choices\":[\"Keep\",{\"label\":\"Change it\",\"text\":\"What should change?\"}],\"prompt\":\"Keep the expiry?\"}},{\"do\":\"Note the rotation time\",\"id\":\"s4\",\"question\":{\"choices\":[],\"prompt\":\"When did you rotate it?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The staging key is 90 days old.\"}",
+       "acceptedRev": 1
+      }
+     },
+     "events": [
+      {
+       "seq": 1,
+       "itemId": "{ask1}",
+       "kind": "posted",
+       "actor": "session",
+       "text": null,
+       "at": "{time}",
+       "rev": null,
+       "auth": null
+      },
+      {
+       "seq": 3,
+       "itemId": "{ask1}",
+       "kind": "progress",
+       "actor": "owner",
+       "text": "{\"tick\":[\"s1\"],\"untick\":[]}",
+       "at": "{time}",
+       "rev": 1,
+       "auth": "owner-key"
+      },
+      {
+       "seq": 4,
+       "itemId": "{ask1}",
+       "kind": "progress",
+       "actor": "owner",
+       "text": "{\"tick\":[\"@verify\"],\"untick\":[]}",
+       "at": "{time}",
+       "rev": 1,
+       "auth": "owner-key"
+      },
+      {
+       "seq": 5,
+       "itemId": "{ask1}",
+       "kind": "progress",
+       "actor": "owner",
+       "text": "{\"tick\":[],\"untick\":[\"s1\"]}",
+       "at": "{time}",
+       "rev": 1,
+       "auth": "owner-key"
+      },
+      {
+       "seq": 6,
+       "itemId": "{ask1}",
+       "kind": "answer",
+       "actor": "owner",
+       "text": "{\"step\":\"2\",\"id\":\"s2\",\"picked\":[\"Staging\"]}",
+       "at": "{time}",
+       "rev": 1,
+       "auth": "owner-key"
+      },
+      {
+       "seq": 7,
+       "itemId": "{ask1}",
+       "kind": "answer",
+       "actor": "owner",
+       "text": "{\"step\":\"3\",\"id\":\"s3\",\"picked\":[\"Change it\"],\"text\":\"Use a 30 day expiry\"}",
+       "at": "{time}",
+       "rev": 1,
+       "auth": "owner-key"
+      },
+      {
+       "seq": 8,
+       "itemId": "{ask1}",
+       "kind": "answer",
+       "actor": "owner",
+       "text": "{\"step\":\"4\",\"id\":\"s4\",\"text\":\"Rotated at nine\"}",
+       "at": "{time}",
+       "rev": 1,
+       "auth": "owner-key"
+      },
+      {
+       "seq": 9,
+       "itemId": "{ask1}",
+       "kind": "reply",
+       "actor": "owner",
+       "text": "Rotated, the old key is revoked.",
+       "at": "{time}",
+       "rev": null,
+       "auth": "owner-key"
+      },
+      {
+       "seq": 10,
+       "itemId": "{ask1}",
+       "kind": "reply",
+       "actor": "owner",
+       "text": "choice: Yes",
+       "at": "{time}",
+       "rev": null,
+       "auth": "owner-key"
+      },
+      {
+       "seq": 11,
+       "itemId": "{ask1}",
+       "kind": "message",
+       "actor": "owner",
+       "text": "Use the staging key first.\nThen production.",
+       "at": "{time}",
+       "rev": 1,
+       "auth": "owner-key"
+      },
+      {
+       "seq": 12,
+       "itemId": "{ask1}",
+       "kind": "resolved",
+       "actor": "owner",
+       "text": null,
+       "at": "{time}",
+       "rev": 1,
+       "auth": "owner-key"
+      }
+     ],
+     "revisions": [
+      {
+       "rev": 1,
+       "hash": "28568b5e37a6da8ce32073c55ed59c3f28b76c705c055e5070441fc9c409dfe5",
+       "prev": "",
+       "at": "2026-11-03T09:00:01+00:00",
+       "reason": "",
+       "body": "{\"reply\":{\"choices\":[\"Yes\",\"No\"],\"prompt\":\"Did the deploy pass?\"},\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"do\":\"Pick the target\",\"id\":\"s2\",\"question\":{\"choices\":[\"Staging\",\"Production\"],\"prompt\":\"Which environment?\"}},{\"do\":\"Set the expiry\",\"id\":\"s3\",\"question\":{\"choices\":[\"Keep\",{\"label\":\"Change it\",\"text\":\"What should change?\"}],\"prompt\":\"Keep the expiry?\"}},{\"do\":\"Note the rotation time\",\"id\":\"s4\",\"question\":{\"choices\":[],\"prompt\":\"When did you rotate it?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The staging key is 90 days old.\"}"
+      }
+     ]
+    }
+   },
+   "outcome": "ok"
+  }
+ ]
+}

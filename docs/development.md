@@ -70,6 +70,10 @@ A pull request that changes `Sources/RelayUI/` attaches:
 
 [Release](../.github/workflows/release.yml) runs on a `vX.Y.Z` tag: see [Releasing](#releasing).
 
+## Conformance suite
+
+[`conformance/`](../conformance/README.md) holds the canonical JSON test vectors that the Swift core, other client cores and the Pond all run. `conformance/manifest.json` lists each file, the roles that run it and the paths that hold copies of it, such as `Tests/RelayCoreTests/Fixtures/`. Edit a vector in `conformance/`, copy it over each path in `copies`, then run `python3 scripts/check-conformance.py`. It fails when a copy differs or a file is missing from the manifest. CI runs it.
+
 ## Releasing
 
 1. **Version.** Bump it in the three places that carry it: `CFBundleShortVersionString` and `CFBundleVersion` in `Resources/Info.plist`, `VERSION` in `clients/relay_client.py`, and the `relay --version` row in [docs/agents.md](agents.md). Hook's version stays 0.x.
