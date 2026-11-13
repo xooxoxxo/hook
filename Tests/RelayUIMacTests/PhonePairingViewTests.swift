@@ -43,6 +43,15 @@ import Testing
         }
     }
 
+    @Test func saysPhoneNotIPhoneBecauseTheCodePairsAndroidToo() {
+        #expect(PhonePairingView.title == "Pair a phone")
+        #expect(PhonePairingView.pairButton == "Pair a phone…")
+        for text in [PhonePairingView.title, PhonePairingView.pairButton, PhonePairingView.instruction,
+                     PhonePairingView.copyHelp, PhonePairingView.privacyText] {
+            #expect(!text.contains("iPhone"), "\(text)")
+        }
+    }
+
     @Test func explainsLoginPrivacyWithoutClaimingCredentialExpiry() {
         #expect(PhonePairingView.privacyText.contains("Pond login remains valid"))
         #expect(PhonePairingView.privacyText.contains("60 seconds"))

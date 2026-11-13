@@ -11,7 +11,7 @@ import os
         case unavailable, cancelled, credentials, image
         public var errorDescription: String? {
             switch self {
-            case .unavailable: "Connect to an HTTPS Pond before pairing an iPhone."
+            case .unavailable: "Connect to an HTTPS Pond before pairing a phone."
             case .cancelled: "Setup was cancelled."
             case .credentials: "Hook couldn't read a valid Pond login. Check the connection and try again."
             case .image: "Hook couldn't create the setup code. Try again."
@@ -75,7 +75,7 @@ import os
         phase = .authenticating
         observe(window: window)
         authenticating = true
-        let confirmed = await presence.confirm(reason: "Show the Pond login to pair your iPhone")
+        let confirmed = await presence.confirm(reason: "Show the Pond login to pair your phone")
         guard generation.withLock({ $0 == current }) else { throw Failure.cancelled }
         guard !Task.isCancelled else { hide(); throw Failure.cancelled }
         guard confirmed else { hide(); throw Failure.cancelled }

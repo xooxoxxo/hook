@@ -20,8 +20,8 @@ public struct PhonePairingView: View {
 
     public var body: some View {
         VStack(spacing: 16) {
-            Text("Pair an iPhone").font(.title2.bold())
-            Text("Open Hook on your iPhone and scan this code.")
+            Text(Self.title).font(.title2.bold())
+            Text(Self.instruction)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
             Group {
@@ -45,7 +45,7 @@ public struct PhonePairingView: View {
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
             Button("Copy Setup Code", action: onCopy)
-                .help("Copies the Pond login so you can paste it into Hook on your iPhone.")
+                .help(Self.copyHelp)
             Button("Done", action: onClose).keyboardShortcut(.defaultAction)
         }
         .padding(DS.Space.section)
@@ -53,7 +53,12 @@ public struct PhonePairingView: View {
         .background(Color(nsColor: .windowBackgroundColor))
     }
 
-    public static let privacyText = "This code contains your Pond login. Keep it private. It hides after 60 seconds; the Pond login remains valid. Your iPhone creates its own owner key."
+    public static let title = "Pair a phone"
+    /// The Settings › Queue › Owner Key button that opens this sheet.
+    public static let pairButton = "Pair a phone…"
+    public static let instruction = "Open Hook on your phone and scan this code."
+    public static let copyHelp = "Copies the Pond login so you can paste it into Hook on your phone."
+    public static let privacyText = "This code contains your Pond login. Keep it private. It hides after 60 seconds; the Pond login remains valid. Your phone creates its own owner key."
 }
 
 @MainActor struct PhonePairingRow: View {
@@ -64,7 +69,7 @@ public struct PhonePairingView: View {
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 4) {
-            Button(controller.authenticating ? "Authenticating…" : "Pair an iPhone…") {
+            Button(controller.authenticating ? "Authenticating…" : PhonePairingView.pairButton) {
                 guard let window = presentationWindow.window else { return }
                 problem = nil
                 Task {
