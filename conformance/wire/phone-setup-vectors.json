@@ -1,0 +1,226 @@
+{
+ "version": 1,
+ "pond": "1.6.0",
+ "source": "mailbox/tests/gen_phone_vectors.py",
+ "format": "{name, note, act: {kind, args}, request: {method, path, ownerKey, token?, protocol, body}, response: {status, body}, outcome, binds?}. The cases run in order against one fresh Pond (the Telegram fake, a pinned clock). Asks, keys and session acts a case does not show were made through the Pond's own API before the first case, unless a case's note says they happened since. `act` is what the phone was asked to do; `request` is exactly what it sends: `ownerKey` true sends the approved X-Hook-Owner-Key, false none, \"unknown\" a key the Pond never approved; `token` \"wrong\" sends a wrong Pond token (absent: the right one); `protocol` is the X-Hook-Protocol sent. `outcome` maps the response: 2xx ok, 401 unauthorized, 404 notFound, 403 \"owner key required\" ownerKeyRequired, 403 \"unknown owner key\" ownerKeyRefused, 409 \"ask was corrected\" corrected, 409 \"requirements_unmet\" requirementsUnmet, 409 \"ask is closed\" askClosed, 409 \"too many messages\" tooManyMessages, any other 4xx invalid. `binds` names an id the response carries ({\"ask1\": \"items.0.id\"}, a number indexes a list); later paths and args use it as {ask1}. In responses every bound id is its {name} and every ISO-8601 timestamp is {time}, except a revision's `at`, kept as recorded because its hash covers it. `rev` and `hash` in a request body and in act.args are the real values the Pond accepts.",
+ "cases": [
+  {
+   "name": "setup-version",
+   "note": "the Pond's release, before anything else",
+   "act": {
+    "kind": "version",
+    "args": {}
+   },
+   "request": {
+    "method": "GET",
+    "path": "/version",
+    "ownerKey": false,
+    "protocol": 6,
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "service": "pond",
+     "version": "1.6.0",
+     "protocol": 5
+    }
+   },
+   "outcome": "ok"
+  },
+  {
+   "name": "setup-owner-status-before",
+   "note": "no key yet: self is null",
+   "act": {
+    "kind": "ownerStatus",
+    "args": {}
+   },
+   "request": {
+    "method": "GET",
+    "path": "/owner",
+    "ownerKey": false,
+    "protocol": 6,
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "required": false,
+     "keys": [],
+     "self": null
+    }
+   },
+   "outcome": "ok"
+  },
+  {
+   "name": "setup-enroll",
+   "note": "the phone sends its key's hash: pending, with the code to compare",
+   "act": {
+    "kind": "enroll",
+    "args": {
+     "keyHash": "1d966215467c1bb22963f971137599e0de15455d303a36d0d07830279b14fbe9",
+     "label": "Android"
+    }
+   },
+   "request": {
+    "method": "POST",
+    "path": "/owner/enroll",
+    "ownerKey": false,
+    "protocol": 6,
+    "body": {
+     "keyHash": "1d966215467c1bb22963f971137599e0de15455d303a36d0d07830279b14fbe9",
+     "label": "Android"
+    }
+   },
+   "response": {
+    "status": 201,
+    "body": {
+     "id": "{enroll1}",
+     "code": "471900",
+     "expires": "{time}",
+     "status": "pending"
+    }
+   },
+   "outcome": "ok",
+   "binds": {
+    "enroll1": "id"
+   }
+  },
+  {
+   "name": "setup-enrollment-pending",
+   "note": "polled before the owner answers",
+   "act": {
+    "kind": "enrollment",
+    "args": {
+     "id": "{enroll1}"
+    }
+   },
+   "request": {
+    "method": "GET",
+    "path": "/owner/enroll/{enroll1}",
+    "ownerKey": false,
+    "protocol": 6,
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "id": "{enroll1}",
+     "status": "pending"
+    }
+   },
+   "outcome": "ok"
+  },
+  {
+   "name": "setup-enrollment-approved",
+   "note": "polled after the owner tapped Approve on Telegram",
+   "act": {
+    "kind": "enrollment",
+    "args": {
+     "id": "{enroll1}"
+    }
+   },
+   "request": {
+    "method": "GET",
+    "path": "/owner/enroll/{enroll1}",
+    "ownerKey": false,
+    "protocol": 6,
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "id": "{enroll1}",
+     "status": "approved"
+    }
+   },
+   "outcome": "ok"
+  },
+  {
+   "name": "setup-owner-status",
+   "note": "with the approved key: self names it",
+   "act": {
+    "kind": "ownerStatus",
+    "args": {}
+   },
+   "request": {
+    "method": "GET",
+    "path": "/owner",
+    "ownerKey": true,
+    "protocol": 6,
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "required": false,
+     "keys": [
+      {
+       "id": "{enroll1}",
+       "label": "Android",
+       "status": "approved",
+       "created": "{time}",
+       "approvedAt": "{time}"
+      }
+     ],
+     "self": {
+      "id": "{enroll1}",
+      "status": "approved"
+     }
+    }
+   },
+   "outcome": "ok"
+  },
+  {
+   "name": "setup-enroll-bad-label",
+   "note": "a label on two lines",
+   "act": {
+    "kind": "enroll",
+    "args": {
+     "keyHash": "82c7d9faff0f2bc23dfb41c2d2acf72998f422eed98b324659fa979e859216b4",
+     "label": "Android\nPhone"
+    }
+   },
+   "request": {
+    "method": "POST",
+    "path": "/owner/enroll",
+    "ownerKey": false,
+    "protocol": 6,
+    "body": {
+     "keyHash": "82c7d9faff0f2bc23dfb41c2d2acf72998f422eed98b324659fa979e859216b4",
+     "label": "Android\nPhone"
+    }
+   },
+   "response": {
+    "status": 400,
+    "body": {
+     "error": "invalid label"
+    }
+   },
+   "outcome": "invalid"
+  },
+  {
+   "name": "setup-version-wrong-token",
+   "note": "a wrong Pond token",
+   "act": {
+    "kind": "version",
+    "args": {}
+   },
+   "request": {
+    "method": "GET",
+    "path": "/version",
+    "ownerKey": false,
+    "token": "wrong",
+    "protocol": 6,
+    "body": null
+   },
+   "response": {
+    "status": 401,
+    "body": {
+     "error": "unauthorized"
+    }
+   },
+   "outcome": "unauthorized"
+  }
+ ]
+}

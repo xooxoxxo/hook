@@ -67,4 +67,60 @@ Each wire file repeats this in its own `format` key.
 
 ## Phone transcripts
 
-Phone transcripts are added in a later change.
+`wire/phone-setup-vectors.json`, `wire/phone-acts-vectors.json` and `wire/phone-errors-vectors.json` record what a phone client does as the owner. The cases in each file run in order against one fresh Pond. Each case is:
+
+```
+{name, note, act: {kind, args}, request: {method, path, ownerKey, token?, protocol, body}, response: {status, body}, outcome, binds?}
+```
+
+`act` is what the phone was asked to do. `request` is exactly what it must send for that act. `args` holds exactly the keys below, no others. Ids are the transcript's own placeholders (`{ask1}`, `{enroll1}`), as in request paths.
+
+| kind | args | request it must produce |
+|---|---|---|
+| `version` | `{}` | `GET /version` |
+| `enroll` | `{"keyHash": "<64 hex>", "label": "Android"}` | `POST /owner/enroll` body `{keyHash, label}`, no owner key header |
+| `enrollment` | `{"id": "{enroll1}"}` | `GET /owner/enroll/{enroll1}`, no owner key header |
+| `ownerStatus` | `{}` | `GET /owner`, owner key header when the client has an approved key |
+| `list` | `{}` | `GET /asks?status=open&days=36500` |
+| `detail` | `{"id": "{ask1}"}` | `GET /asks/{ask1}` |
+| `progress` | `{"id", "tick": [..], "untick": [..], "rev": n or null, "hash": "…" or null}` | `POST /asks/{id}/progress` body `{tick, untick}` plus `rev`, `hash` when not null |
+| `answers` | `{"id", "answers": [..], "rev", "hash"}` | `POST /asks/{id}/answers` body `{answers}` plus `rev`, `hash` when not null |
+| `reply` | `{"id", "text"}` | `POST /asks/{id}/reply` body `{text}` |
+| `message` | `{"id", "text"}` | `POST /asks/{id}/reply` body `{text, "kind": "message"}` |
+| `done` | `{"id", "rev", "hash"}` | `POST /asks/{id}/resolve` body `{"verdict": "done", "actor": "owner"}` plus `rev`, `hash` when not null |
+| `skip` | `{"id"}` | `POST /asks/{id}/resolve` body `{"verdict": "declined", "actor": "owner"}`, never `rev` or `hash` |
+
+The request fields:
+
+- `method`, and `path` with the query string when the route has one.
+- `ownerKey`: `true` sends the approved `X-Hook-Owner-Key`, `false` sends none, `"unknown"` sends a key the Pond never approved.
+- `token`: `"ok"` or `"wrong"`. `"wrong"` sends a wrong Pond token. Absent means ok.
+- `protocol`: the `X-Hook-Protocol` sent. Always 6.
+- `body`: the JSON body. `rev` and `hash` in a body and in `act.args` are the real values the Pond accepts.
+
+`outcome` is what the client must make of the response:
+
+| response | outcome |
+|---|---|
+| any 2xx | `ok` |
+| 401 | `unauthorized` |
+| 404 | `notFound` |
+| 403 "owner key required" | `ownerKeyRequired` |
+| 403 "unknown owner key" | `ownerKeyRefused` |
+| 409 "ask was corrected" | `corrected` |
+| 409 "requirements_unmet" | `requirementsUnmet` |
+| 409 "ask is closed" | `askClosed` |
+| 409 "too many messages" | `tooManyMessages` |
+| any other 4xx | `invalid` |
+
+`binds` works as in other transcripts, and a number in its path indexes a list (`{"ask1": "items.0.id"}`). In responses every bound id is its `{name}` and every timestamp is `{time}`, except a revision's `at`: it stays as recorded, because the revision hash covers it.
+
+## History, progress and strict JSON
+
+These three `data/` files hold cases a reader checks against what the Pond serves. Each file repeats its case shape in its own `format` key.
+
+`data/history-vectors.json`: each case is `{name, note, detail: {item, events, revisions}, pins, expect: {ok, problem?, current?: {rev, hash}, acceptedOnPond?}}`. `detail` is `GET /asks/{id}` as the Pond serves it to protocol 6. `pins` maps a revision number to a hash the client saw before. The client checks the whole revision history: every revision from 1 to the newest, each hash, each link to the previous one, each body, the fixed fields (title, urgency, sender), and then the pins. A tampered case breaks exactly one of these, and `problem` names it: `badHash:<rev>`, `badChain:<rev>`, `unreadable:<rev>`, `missing`, `fixedFieldChanged:<rev>` or `rolledBack`. A passing case gives the current revision and `acceptedOnPond`.
+
+`data/progress-vectors.json`: each case is `{name, note, detail, ticked}`. `ticked` is the sorted list of steps that count as ticked, folded from the item's progress and owner events against the accepted revision (or the posted instructable when there are no revisions). Some cases add or edit an event the Pond never serves, to test that a client filters it out; their note says so.
+
+`data/strictjson-vectors.json`: each case is `{name, note, text | hex, parses, body, problem?, pond?}`. `text` is the exact UTF-8 text, or `hex` the raw bytes when they are not UTF-8. `parses` says whether a strict JSON parser accepts it: a key named twice in one object, and a lone surrogate escape, are refused. `body` says whether it is a valid revision body: strict JSON, a top-level object and a valid instructable. When `body` is false, `problem` is `duplicateKey` for otherwise valid JSON that names a key twice, else `invalid`. `pond`, where present, is the Pond's own answer where it differs from the protocol document.

@@ -73,6 +73,27 @@
       "copies": []
     },
     {
+      "path": "data/history-vectors.json",
+      "pond": "1.1.0",
+      "feature": "corrections",
+      "roles": ["reader"],
+      "copies": []
+    },
+    {
+      "path": "data/progress-vectors.json",
+      "pond": "1.5.0",
+      "feature": "sharedProgress",
+      "roles": ["reader"],
+      "copies": []
+    },
+    {
+      "path": "data/strictjson-vectors.json",
+      "pond": "1.1.0",
+      "feature": "corrections",
+      "roles": ["reader"],
+      "copies": []
+    },
+    {
       "path": "wire/choice-vectors.json",
       "pond": "1.4.0",
       "feature": "choices",
@@ -105,6 +126,27 @@
       "pond": "1.2.0",
       "feature": "bug-reports",
       "roles": ["server"],
+      "copies": []
+    },
+    {
+      "path": "wire/phone-setup-vectors.json",
+      "pond": "1.5.0",
+      "feature": "phone",
+      "roles": ["reader", "actor"],
+      "copies": []
+    },
+    {
+      "path": "wire/phone-acts-vectors.json",
+      "pond": "1.5.0",
+      "feature": "phone",
+      "roles": ["reader", "actor"],
+      "copies": []
+    },
+    {
+      "path": "wire/phone-errors-vectors.json",
+      "pond": "1.5.0",
+      "feature": "phone",
+      "roles": ["reader", "actor"],
       "copies": []
     }
   ]

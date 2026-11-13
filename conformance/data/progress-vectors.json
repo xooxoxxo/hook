@@ -1,0 +1,1618 @@
+{
+ "version": 1,
+ "pond": "1.6.0",
+ "source": "mailbox/tests/gen_phone_vectors.py",
+ "format": "{name, note, detail, ticked}. `detail` is GET /asks/{id} as served to X-Hook-Protocol: 6 (a case whose note says so adds or edits an event the Pond never serves, to test a client's filter). `ticked` is the sorted set of ticked step identities the Pond's requirements.ticked folds from the progress/owner events of this item against the accepted revision (no revisions: the posted instructable).",
+ "cases": [
+  {
+   "name": "progress-tick",
+   "note": "one tick of step 1",
+   "detail": {
+    "item": {
+     "id": "00000000-0000-4000-8000-000000000002",
+     "source": "xo-mailbox",
+     "title": "Rotate the staging deploy key",
+     "status": "open",
+     "priority": 1,
+     "pinned": false,
+     "rolling": false,
+     "payloadType": "xo.ask",
+     "payload": {
+      "key": "2a1f6852e7100fb6",
+      "why": "The deploy key is 90 days old.",
+      "cmd": null,
+      "link": null,
+      "tg_chat_id": 12345,
+      "tg_message_id": 2,
+      "note": null,
+      "instructable": {
+       "steps": [
+        {
+         "do": "Open the deploy settings",
+         "id": "s1",
+         "where": "deploy.example.test"
+        },
+        {
+         "code": "deploy-key rotate --env staging",
+         "do": "Rotate the key",
+         "id": "s2"
+        },
+        {
+         "do": "Restart the services",
+         "id": "s3",
+         "substeps": [
+          {
+           "do": "Restart the web service",
+           "id": "s3.1"
+          },
+          {
+           "do": "Restart the worker",
+           "id": "s3.2"
+          }
+         ]
+        }
+       ],
+       "title": "Rotate the staging deploy key",
+       "urgency": "today",
+       "v": 1,
+       "verify": {
+        "code": "curl -sI https://deploy.example.test/health",
+        "do": "The deploy passes"
+       },
+       "why": "The deploy key is 90 days old."
+      }
+     },
+     "links": [],
+     "created": "2026-11-03T09:00:01+00:00",
+     "updated": "2026-11-03T09:00:01+00:00",
+     "anchor": null,
+     "recurrence": null,
+     "snoozeUntil": null,
+     "projectId": "Example",
+     "lane": "personal",
+     "completedAt": null,
+     "revision": {
+      "rev": 1,
+      "hash": "a0ffe233ef7310706081eb02bd1baee3ab7b43c41c693c2e63d9e5a2e6692961",
+      "prev": "",
+      "at": "2026-11-03T09:00:01+00:00",
+      "reason": "",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env staging\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
+      "acceptedRev": 1
+     }
+    },
+    "events": [
+     {
+      "seq": 1,
+      "itemId": "00000000-0000-4000-8000-000000000002",
+      "kind": "posted",
+      "actor": "session",
+      "text": null,
+      "at": "2026-11-03T09:00:01+00:00",
+      "rev": null,
+      "auth": null
+     },
+     {
+      "seq": 2,
+      "itemId": "00000000-0000-4000-8000-000000000002",
+      "kind": "progress",
+      "actor": "owner",
+      "text": "{\"tick\":[\"s1\"],\"untick\":[]}",
+      "at": "2026-11-03T09:00:01+00:00",
+      "rev": 1,
+      "auth": "owner-key"
+     }
+    ],
+    "revisions": [
+     {
+      "rev": 1,
+      "hash": "a0ffe233ef7310706081eb02bd1baee3ab7b43c41c693c2e63d9e5a2e6692961",
+      "prev": "",
+      "at": "2026-11-03T09:00:01+00:00",
+      "reason": "",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env staging\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
+     }
+    ]
+   },
+   "ticked": [
+    "s1"
+   ]
+  },
+  {
+   "name": "progress-untick",
+   "note": "steps 1 and 2 ticked, then step 1 unticked",
+   "detail": {
+    "item": {
+     "id": "00000000-0000-4000-8000-000000000003",
+     "source": "xo-mailbox",
+     "title": "Rotate the preview deploy key",
+     "status": "open",
+     "priority": 1,
+     "pinned": false,
+     "rolling": false,
+     "payloadType": "xo.ask",
+     "payload": {
+      "key": "fd24143f92a0a374",
+      "why": "The deploy key is 90 days old.",
+      "cmd": null,
+      "link": null,
+      "tg_chat_id": 12345,
+      "tg_message_id": 3,
+      "note": null,
+      "instructable": {
+       "steps": [
+        {
+         "do": "Open the deploy settings",
+         "id": "s1",
+         "where": "deploy.example.test"
+        },
+        {
+         "code": "deploy-key rotate --env staging",
+         "do": "Rotate the key",
+         "id": "s2"
+        },
+        {
+         "do": "Restart the services",
+         "id": "s3",
+         "substeps": [
+          {
+           "do": "Restart the web service",
+           "id": "s3.1"
+          },
+          {
+           "do": "Restart the worker",
+           "id": "s3.2"
+          }
+         ]
+        }
+       ],
+       "title": "Rotate the preview deploy key",
+       "urgency": "today",
+       "v": 1,
+       "verify": {
+        "code": "curl -sI https://deploy.example.test/health",
+        "do": "The deploy passes"
+       },
+       "why": "The deploy key is 90 days old."
+      }
+     },
+     "links": [],
+     "created": "2026-11-03T09:00:02+00:00",
+     "updated": "2026-11-03T09:00:02+00:00",
+     "anchor": null,
+     "recurrence": null,
+     "snoozeUntil": null,
+     "projectId": "Example",
+     "lane": "personal",
+     "completedAt": null,
+     "revision": {
+      "rev": 1,
+      "hash": "ea3228ea9f53420e699e004025298107e4a3f772cfef6d05dbaf8da0ffad5dd0",
+      "prev": "",
+      "at": "2026-11-03T09:00:02+00:00",
+      "reason": "",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env staging\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
+      "acceptedRev": 1
+     }
+    },
+    "events": [
+     {
+      "seq": 3,
+      "itemId": "00000000-0000-4000-8000-000000000003",
+      "kind": "posted",
+      "actor": "session",
+      "text": null,
+      "at": "2026-11-03T09:00:02+00:00",
+      "rev": null,
+      "auth": null
+     },
+     {
+      "seq": 4,
+      "itemId": "00000000-0000-4000-8000-000000000003",
+      "kind": "progress",
+      "actor": "owner",
+      "text": "{\"tick\":[\"s1\",\"s2\"],\"untick\":[]}",
+      "at": "2026-11-03T09:00:02+00:00",
+      "rev": 1,
+      "auth": "owner-key"
+     },
+     {
+      "seq": 5,
+      "itemId": "00000000-0000-4000-8000-000000000003",
+      "kind": "progress",
+      "actor": "owner",
+      "text": "{\"tick\":[],\"untick\":[\"s1\"]}",
+      "at": "2026-11-03T09:00:02+00:00",
+      "rev": 1,
+      "auth": "owner-key"
+     }
+    ],
+    "revisions": [
+     {
+      "rev": 1,
+      "hash": "ea3228ea9f53420e699e004025298107e4a3f772cfef6d05dbaf8da0ffad5dd0",
+      "prev": "",
+      "at": "2026-11-03T09:00:02+00:00",
+      "reason": "",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env staging\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
+     }
+    ]
+   },
+   "ticked": [
+    "s2"
+   ]
+  },
+  {
+   "name": "progress-substep",
+   "note": "a sub-step ticked by its id",
+   "detail": {
+    "item": {
+     "id": "00000000-0000-4000-8000-000000000004",
+     "source": "xo-mailbox",
+     "title": "Rotate the review deploy key",
+     "status": "open",
+     "priority": 1,
+     "pinned": false,
+     "rolling": false,
+     "payloadType": "xo.ask",
+     "payload": {
+      "key": "ac505bda63144413",
+      "why": "The deploy key is 90 days old.",
+      "cmd": null,
+      "link": null,
+      "tg_chat_id": 12345,
+      "tg_message_id": 4,
+      "note": null,
+      "instructable": {
+       "steps": [
+        {
+         "do": "Open the deploy settings",
+         "id": "s1",
+         "where": "deploy.example.test"
+        },
+        {
+         "code": "deploy-key rotate --env staging",
+         "do": "Rotate the key",
+         "id": "s2"
+        },
+        {
+         "do": "Restart the services",
+         "id": "s3",
+         "substeps": [
+          {
+           "do": "Restart the web service",
+           "id": "s3.1"
+          },
+          {
+           "do": "Restart the worker",
+           "id": "s3.2"
+          }
+         ]
+        }
+       ],
+       "title": "Rotate the review deploy key",
+       "urgency": "today",
+       "v": 1,
+       "verify": {
+        "code": "curl -sI https://deploy.example.test/health",
+        "do": "The deploy passes"
+       },
+       "why": "The deploy key is 90 days old."
+      }
+     },
+     "links": [],
+     "created": "2026-11-03T09:00:03+00:00",
+     "updated": "2026-11-03T09:00:03+00:00",
+     "anchor": null,
+     "recurrence": null,
+     "snoozeUntil": null,
+     "projectId": "Example",
+     "lane": "personal",
+     "completedAt": null,
+     "revision": {
+      "rev": 1,
+      "hash": "8508cdea1a8fe616a7483b5a1284ef5a75754dc68e5adfbe0933e53e0e1dfeb6",
+      "prev": "",
+      "at": "2026-11-03T09:00:03+00:00",
+      "reason": "",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env staging\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]}],\"title\":\"Rotate the review deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
+      "acceptedRev": 1
+     }
+    },
+    "events": [
+     {
+      "seq": 6,
+      "itemId": "00000000-0000-4000-8000-000000000004",
+      "kind": "posted",
+      "actor": "session",
+      "text": null,
+      "at": "2026-11-03T09:00:03+00:00",
+      "rev": null,
+      "auth": null
+     },
+     {
+      "seq": 7,
+      "itemId": "00000000-0000-4000-8000-000000000004",
+      "kind": "progress",
+      "actor": "owner",
+      "text": "{\"tick\":[\"s3.1\"],\"untick\":[]}",
+      "at": "2026-11-03T09:00:03+00:00",
+      "rev": 1,
+      "auth": "owner-key"
+     }
+    ],
+    "revisions": [
+     {
+      "rev": 1,
+      "hash": "8508cdea1a8fe616a7483b5a1284ef5a75754dc68e5adfbe0933e53e0e1dfeb6",
+      "prev": "",
+      "at": "2026-11-03T09:00:03+00:00",
+      "reason": "",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env staging\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]}],\"title\":\"Rotate the review deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
+     }
+    ]
+   },
+   "ticked": [
+    "s3.1"
+   ]
+  },
+  {
+   "name": "progress-dropped-by-correction",
+   "note": "step 2 ticked at rev 1; accepted rev 2 changed it: dropped",
+   "detail": {
+    "item": {
+     "id": "00000000-0000-4000-8000-000000000005",
+     "source": "xo-mailbox",
+     "title": "Rotate the demo deploy key",
+     "status": "open",
+     "priority": 1,
+     "pinned": false,
+     "rolling": false,
+     "payloadType": "xo.ask",
+     "payload": {
+      "key": "d9cd68a7662513d5",
+      "why": "The deploy key is 90 days old.",
+      "cmd": null,
+      "link": null,
+      "tg_chat_id": 12345,
+      "tg_message_id": 5,
+      "note": null,
+      "instructable": {
+       "steps": [
+        {
+         "do": "Open the deploy settings",
+         "id": "s1",
+         "where": "deploy.example.test"
+        },
+        {
+         "code": "deploy-key rotate --env demo",
+         "do": "Rotate the key",
+         "id": "s2"
+        },
+        {
+         "do": "Restart the services",
+         "id": "s3",
+         "substeps": [
+          {
+           "do": "Restart the web service",
+           "id": "s3.1"
+          },
+          {
+           "do": "Restart the worker",
+           "id": "s3.2"
+          }
+         ]
+        }
+       ],
+       "title": "Rotate the demo deploy key",
+       "urgency": "today",
+       "v": 1,
+       "verify": {
+        "code": "curl -sI https://deploy.example.test/health",
+        "do": "The deploy passes"
+       },
+       "why": "The deploy key is 90 days old."
+      }
+     },
+     "links": [],
+     "created": "2026-11-03T09:00:04+00:00",
+     "updated": "2026-11-03T09:01:05+00:00",
+     "anchor": null,
+     "recurrence": null,
+     "snoozeUntil": null,
+     "projectId": "Example",
+     "lane": "personal",
+     "completedAt": null,
+     "revision": {
+      "rev": 2,
+      "hash": "b0e359c3ddd08096e31795723f7365f6117dca227af1983c56c91fbf6c842507",
+      "prev": "10df375f9d224bbe66fcbea0b0b090b32458780459818cd69488595bdfd15ae5",
+      "at": "2026-11-03T09:01:05+00:00",
+      "reason": "The rotate command was wrong",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env demo\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]}],\"title\":\"Rotate the demo deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
+      "acceptedRev": 2
+     }
+    },
+    "events": [
+     {
+      "seq": 8,
+      "itemId": "00000000-0000-4000-8000-000000000005",
+      "kind": "posted",
+      "actor": "session",
+      "text": null,
+      "at": "2026-11-03T09:00:04+00:00",
+      "rev": null,
+      "auth": null
+     },
+     {
+      "seq": 9,
+      "itemId": "00000000-0000-4000-8000-000000000005",
+      "kind": "progress",
+      "actor": "owner",
+      "text": "{\"tick\":[\"s2\"],\"untick\":[]}",
+      "at": "2026-11-03T09:00:04+00:00",
+      "rev": 1,
+      "auth": "owner-key"
+     },
+     {
+      "seq": 10,
+      "itemId": "00000000-0000-4000-8000-000000000005",
+      "kind": "revised",
+      "actor": "session",
+      "text": "{\"hash\":\"b0e359c3ddd08096e31795723f7365f6117dca227af1983c56c91fbf6c842507\",\"reason\":\"The rotate command was wrong\"}",
+      "at": "2026-11-03T09:01:05+00:00",
+      "rev": 2,
+      "auth": null
+     },
+     {
+      "seq": 11,
+      "itemId": "00000000-0000-4000-8000-000000000005",
+      "kind": "accepted",
+      "actor": "owner",
+      "text": null,
+      "at": "2026-11-03T09:01:05+00:00",
+      "rev": 2,
+      "auth": "owner-key"
+     }
+    ],
+    "revisions": [
+     {
+      "rev": 1,
+      "hash": "10df375f9d224bbe66fcbea0b0b090b32458780459818cd69488595bdfd15ae5",
+      "prev": "",
+      "at": "2026-11-03T09:00:04+00:00",
+      "reason": "",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env staging\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]}],\"title\":\"Rotate the demo deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
+     },
+     {
+      "rev": 2,
+      "hash": "b0e359c3ddd08096e31795723f7365f6117dca227af1983c56c91fbf6c842507",
+      "prev": "10df375f9d224bbe66fcbea0b0b090b32458780459818cd69488595bdfd15ae5",
+      "at": "2026-11-03T09:01:05+00:00",
+      "reason": "The rotate command was wrong",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env demo\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]}],\"title\":\"Rotate the demo deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
+     }
+    ]
+   },
+   "ticked": []
+  },
+  {
+   "name": "progress-kept-when-moved",
+   "note": "step s2 ticked at rev 1; accepted rev 2 only moved it: kept",
+   "detail": {
+    "item": {
+     "id": "00000000-0000-4000-8000-000000000006",
+     "source": "xo-mailbox",
+     "title": "Rotate the test deploy key",
+     "status": "open",
+     "priority": 1,
+     "pinned": false,
+     "rolling": false,
+     "payloadType": "xo.ask",
+     "payload": {
+      "key": "80d822654f325809",
+      "why": "The deploy key is 90 days old.",
+      "cmd": null,
+      "link": null,
+      "tg_chat_id": 12345,
+      "tg_message_id": 7,
+      "note": null,
+      "instructable": {
+       "steps": [
+        {
+         "do": "Tell the team first",
+         "id": "r2-1"
+        },
+        {
+         "do": "Open the deploy settings",
+         "id": "s1",
+         "where": "deploy.example.test"
+        },
+        {
+         "code": "deploy-key rotate --env staging",
+         "do": "Rotate the key",
+         "id": "s2"
+        },
+        {
+         "do": "Restart the services",
+         "id": "s3",
+         "substeps": [
+          {
+           "do": "Restart the web service",
+           "id": "s3.1"
+          },
+          {
+           "do": "Restart the worker",
+           "id": "s3.2"
+          }
+         ]
+        }
+       ],
+       "title": "Rotate the test deploy key",
+       "urgency": "today",
+       "v": 1,
+       "verify": {
+        "code": "curl -sI https://deploy.example.test/health",
+        "do": "The deploy passes"
+       },
+       "why": "The deploy key is 90 days old."
+      }
+     },
+     "links": [],
+     "created": "2026-11-03T09:01:06+00:00",
+     "updated": "2026-11-03T09:02:07+00:00",
+     "anchor": null,
+     "recurrence": null,
+     "snoozeUntil": null,
+     "projectId": "Example",
+     "lane": "personal",
+     "completedAt": null,
+     "revision": {
+      "rev": 2,
+      "hash": "acf984bc5a01db9329f2c0092991a3b592d79fc7de2e6c55c329a068180ce96c",
+      "prev": "9cc954027a843ac23e3ee7450813a1579ad1d3c0b75db71f81bd47e7ae838798",
+      "at": "2026-11-03T09:02:07+00:00",
+      "reason": "A first step was missing",
+      "body": "{\"steps\":[{\"do\":\"Tell the team first\",\"id\":\"r2-1\"},{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env staging\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]}],\"title\":\"Rotate the test deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
+      "acceptedRev": 2
+     }
+    },
+    "events": [
+     {
+      "seq": 12,
+      "itemId": "00000000-0000-4000-8000-000000000006",
+      "kind": "posted",
+      "actor": "session",
+      "text": null,
+      "at": "2026-11-03T09:01:06+00:00",
+      "rev": null,
+      "auth": null
+     },
+     {
+      "seq": 13,
+      "itemId": "00000000-0000-4000-8000-000000000006",
+      "kind": "progress",
+      "actor": "owner",
+      "text": "{\"tick\":[\"s2\"],\"untick\":[]}",
+      "at": "2026-11-03T09:01:06+00:00",
+      "rev": 1,
+      "auth": "owner-key"
+     },
+     {
+      "seq": 14,
+      "itemId": "00000000-0000-4000-8000-000000000006",
+      "kind": "revised",
+      "actor": "session",
+      "text": "{\"hash\":\"acf984bc5a01db9329f2c0092991a3b592d79fc7de2e6c55c329a068180ce96c\",\"reason\":\"A first step was missing\"}",
+      "at": "2026-11-03T09:02:07+00:00",
+      "rev": 2,
+      "auth": null
+     },
+     {
+      "seq": 15,
+      "itemId": "00000000-0000-4000-8000-000000000006",
+      "kind": "accepted",
+      "actor": "owner",
+      "text": null,
+      "at": "2026-11-03T09:02:07+00:00",
+      "rev": 2,
+      "auth": "owner-key"
+     }
+    ],
+    "revisions": [
+     {
+      "rev": 1,
+      "hash": "9cc954027a843ac23e3ee7450813a1579ad1d3c0b75db71f81bd47e7ae838798",
+      "prev": "",
+      "at": "2026-11-03T09:01:06+00:00",
+      "reason": "",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env staging\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]}],\"title\":\"Rotate the test deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
+     },
+     {
+      "rev": 2,
+      "hash": "acf984bc5a01db9329f2c0092991a3b592d79fc7de2e6c55c329a068180ce96c",
+      "prev": "9cc954027a843ac23e3ee7450813a1579ad1d3c0b75db71f81bd47e7ae838798",
+      "at": "2026-11-03T09:02:07+00:00",
+      "reason": "A first step was missing",
+      "body": "{\"steps\":[{\"do\":\"Tell the team first\",\"id\":\"r2-1\"},{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env staging\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]}],\"title\":\"Rotate the test deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
+     }
+    ]
+   },
+   "ticked": [
+    "s2"
+   ]
+  },
+  {
+   "name": "progress-kept-when-required-toggled",
+   "note": "rev 2 only marks the step required: the tick is kept",
+   "detail": {
+    "item": {
+     "id": "00000000-0000-4000-8000-000000000007",
+     "source": "xo-mailbox",
+     "title": "Rotate the batch deploy key",
+     "status": "open",
+     "priority": 1,
+     "pinned": false,
+     "rolling": false,
+     "payloadType": "xo.ask",
+     "payload": {
+      "key": "73e4c7f2a304b77f",
+      "why": "The deploy key is 90 days old.",
+      "cmd": null,
+      "link": null,
+      "tg_chat_id": 12345,
+      "tg_message_id": 9,
+      "note": null,
+      "instructable": {
+       "steps": [
+        {
+         "do": "Open the deploy settings",
+         "id": "s1",
+         "required": true,
+         "where": "deploy.example.test"
+        },
+        {
+         "code": "deploy-key rotate --env staging",
+         "do": "Rotate the key",
+         "id": "s2"
+        },
+        {
+         "do": "Restart the services",
+         "id": "s3",
+         "substeps": [
+          {
+           "do": "Restart the web service",
+           "id": "s3.1"
+          },
+          {
+           "do": "Restart the worker",
+           "id": "s3.2"
+          }
+         ]
+        }
+       ],
+       "title": "Rotate the batch deploy key",
+       "urgency": "today",
+       "v": 1,
+       "verify": {
+        "code": "curl -sI https://deploy.example.test/health",
+        "do": "The deploy passes"
+       },
+       "why": "The deploy key is 90 days old."
+      }
+     },
+     "links": [],
+     "created": "2026-11-03T09:02:08+00:00",
+     "updated": "2026-11-03T09:03:09+00:00",
+     "anchor": null,
+     "recurrence": null,
+     "snoozeUntil": null,
+     "projectId": "Example",
+     "lane": "personal",
+     "completedAt": null,
+     "revision": {
+      "rev": 2,
+      "hash": "4df49c00b38af654e2f68526dab936ee740445e44fa2087c0e7c58b6f2069913",
+      "prev": "295ed7d83d7b0fd22b8c0ffff49f287198c1f6b6dd9e2515250da80bbadf740b",
+      "at": "2026-11-03T09:03:09+00:00",
+      "reason": "Step 1 must be done before Done",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"required\":true,\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env staging\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]}],\"title\":\"Rotate the batch deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
+      "acceptedRev": 2
+     },
+     "requirements": {
+      "left": [],
+      "ready": true
+     }
+    },
+    "events": [
+     {
+      "seq": 16,
+      "itemId": "00000000-0000-4000-8000-000000000007",
+      "kind": "posted",
+      "actor": "session",
+      "text": null,
+      "at": "2026-11-03T09:02:08+00:00",
+      "rev": null,
+      "auth": null
+     },
+     {
+      "seq": 17,
+      "itemId": "00000000-0000-4000-8000-000000000007",
+      "kind": "progress",
+      "actor": "owner",
+      "text": "{\"tick\":[\"s1\"],\"untick\":[]}",
+      "at": "2026-11-03T09:02:08+00:00",
+      "rev": 1,
+      "auth": "owner-key"
+     },
+     {
+      "seq": 18,
+      "itemId": "00000000-0000-4000-8000-000000000007",
+      "kind": "revised",
+      "actor": "session",
+      "text": "{\"hash\":\"4df49c00b38af654e2f68526dab936ee740445e44fa2087c0e7c58b6f2069913\",\"reason\":\"Step 1 must be done before Done\"}",
+      "at": "2026-11-03T09:03:09+00:00",
+      "rev": 2,
+      "auth": null
+     },
+     {
+      "seq": 19,
+      "itemId": "00000000-0000-4000-8000-000000000007",
+      "kind": "accepted",
+      "actor": "owner",
+      "text": null,
+      "at": "2026-11-03T09:03:09+00:00",
+      "rev": 2,
+      "auth": "owner-key"
+     }
+    ],
+    "revisions": [
+     {
+      "rev": 1,
+      "hash": "295ed7d83d7b0fd22b8c0ffff49f287198c1f6b6dd9e2515250da80bbadf740b",
+      "prev": "",
+      "at": "2026-11-03T09:02:08+00:00",
+      "reason": "",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env staging\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]}],\"title\":\"Rotate the batch deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
+     },
+     {
+      "rev": 2,
+      "hash": "4df49c00b38af654e2f68526dab936ee740445e44fa2087c0e7c58b6f2069913",
+      "prev": "295ed7d83d7b0fd22b8c0ffff49f287198c1f6b6dd9e2515250da80bbadf740b",
+      "at": "2026-11-03T09:03:09+00:00",
+      "reason": "Step 1 must be done before Done",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"required\":true,\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env staging\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]}],\"title\":\"Rotate the batch deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
+     }
+    ]
+   },
+   "ticked": [
+    "s1"
+   ]
+  },
+  {
+   "name": "progress-correction-not-accepted",
+   "note": "rev 2 changed step 2 but is not accepted: rev 1 is in force",
+   "detail": {
+    "item": {
+     "id": "00000000-0000-4000-8000-000000000008",
+     "source": "xo-mailbox",
+     "title": "Rotate the mirror deploy key",
+     "status": "open",
+     "priority": 1,
+     "pinned": false,
+     "rolling": false,
+     "payloadType": "xo.ask",
+     "payload": {
+      "key": "2941c8b90a245cc5",
+      "why": "The deploy key is 90 days old.",
+      "cmd": null,
+      "link": null,
+      "tg_chat_id": 12345,
+      "tg_message_id": 11,
+      "note": null,
+      "instructable": {
+       "steps": [
+        {
+         "do": "Open the deploy settings",
+         "id": "s1",
+         "where": "deploy.example.test"
+        },
+        {
+         "code": "deploy-key rotate --env mirror",
+         "do": "Rotate the key",
+         "id": "s2"
+        },
+        {
+         "do": "Restart the services",
+         "id": "s3",
+         "substeps": [
+          {
+           "do": "Restart the web service",
+           "id": "s3.1"
+          },
+          {
+           "do": "Restart the worker",
+           "id": "s3.2"
+          }
+         ]
+        }
+       ],
+       "title": "Rotate the mirror deploy key",
+       "urgency": "today",
+       "v": 1,
+       "verify": {
+        "code": "curl -sI https://deploy.example.test/health",
+        "do": "The deploy passes"
+       },
+       "why": "The deploy key is 90 days old."
+      }
+     },
+     "links": [],
+     "created": "2026-11-03T09:03:10+00:00",
+     "updated": "2026-11-03T09:04:11+00:00",
+     "anchor": null,
+     "recurrence": null,
+     "snoozeUntil": null,
+     "projectId": "Example",
+     "lane": "personal",
+     "completedAt": null,
+     "revision": {
+      "rev": 2,
+      "hash": "412eaab29348ebf18385b3befb3f3e764edeab48c273196fbea4167d612ee750",
+      "prev": "33977175bcbddd0c6517e466f88145313b94d6fba14167c39fb422ca988385b1",
+      "at": "2026-11-03T09:04:11+00:00",
+      "reason": "The rotate command was wrong",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env mirror\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]}],\"title\":\"Rotate the mirror deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
+      "acceptedRev": 1
+     }
+    },
+    "events": [
+     {
+      "seq": 20,
+      "itemId": "00000000-0000-4000-8000-000000000008",
+      "kind": "posted",
+      "actor": "session",
+      "text": null,
+      "at": "2026-11-03T09:03:10+00:00",
+      "rev": null,
+      "auth": null
+     },
+     {
+      "seq": 21,
+      "itemId": "00000000-0000-4000-8000-000000000008",
+      "kind": "progress",
+      "actor": "owner",
+      "text": "{\"tick\":[\"s2\"],\"untick\":[]}",
+      "at": "2026-11-03T09:03:10+00:00",
+      "rev": 1,
+      "auth": "owner-key"
+     },
+     {
+      "seq": 22,
+      "itemId": "00000000-0000-4000-8000-000000000008",
+      "kind": "revised",
+      "actor": "session",
+      "text": "{\"hash\":\"412eaab29348ebf18385b3befb3f3e764edeab48c273196fbea4167d612ee750\",\"reason\":\"The rotate command was wrong\"}",
+      "at": "2026-11-03T09:04:11+00:00",
+      "rev": 2,
+      "auth": null
+     }
+    ],
+    "revisions": [
+     {
+      "rev": 1,
+      "hash": "33977175bcbddd0c6517e466f88145313b94d6fba14167c39fb422ca988385b1",
+      "prev": "",
+      "at": "2026-11-03T09:03:10+00:00",
+      "reason": "",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env staging\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]}],\"title\":\"Rotate the mirror deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
+     },
+     {
+      "rev": 2,
+      "hash": "412eaab29348ebf18385b3befb3f3e764edeab48c273196fbea4167d612ee750",
+      "prev": "33977175bcbddd0c6517e466f88145313b94d6fba14167c39fb422ca988385b1",
+      "at": "2026-11-03T09:04:11+00:00",
+      "reason": "The rotate command was wrong",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env mirror\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]}],\"title\":\"Rotate the mirror deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
+     }
+    ]
+   },
+   "ticked": [
+    "s2"
+   ]
+  },
+  {
+   "name": "progress-malformed-event",
+   "note": "two unreadable progress events are skipped",
+   "detail": {
+    "item": {
+     "id": "00000000-0000-4000-8000-000000000009",
+     "source": "xo-mailbox",
+     "title": "Rotate the cache deploy key",
+     "status": "open",
+     "priority": 1,
+     "pinned": false,
+     "rolling": false,
+     "payloadType": "xo.ask",
+     "payload": {
+      "key": "8e7fb574e9c4b141",
+      "why": "The deploy key is 90 days old.",
+      "cmd": null,
+      "link": null,
+      "tg_chat_id": 12345,
+      "tg_message_id": 13,
+      "note": null,
+      "instructable": {
+       "steps": [
+        {
+         "do": "Open the deploy settings",
+         "id": "s1",
+         "where": "deploy.example.test"
+        },
+        {
+         "code": "deploy-key rotate --env staging",
+         "do": "Rotate the key",
+         "id": "s2"
+        },
+        {
+         "do": "Restart the services",
+         "id": "s3",
+         "substeps": [
+          {
+           "do": "Restart the web service",
+           "id": "s3.1"
+          },
+          {
+           "do": "Restart the worker",
+           "id": "s3.2"
+          }
+         ]
+        }
+       ],
+       "title": "Rotate the cache deploy key",
+       "urgency": "today",
+       "v": 1,
+       "verify": {
+        "code": "curl -sI https://deploy.example.test/health",
+        "do": "The deploy passes"
+       },
+       "why": "The deploy key is 90 days old."
+      }
+     },
+     "links": [],
+     "created": "2026-11-03T09:04:12+00:00",
+     "updated": "2026-11-03T09:04:12+00:00",
+     "anchor": null,
+     "recurrence": null,
+     "snoozeUntil": null,
+     "projectId": "Example",
+     "lane": "personal",
+     "completedAt": null,
+     "revision": {
+      "rev": 1,
+      "hash": "e8b59840ac081002bc45ede97ec62550fb51eb221b44f4616e03fbbbaf06ac02",
+      "prev": "",
+      "at": "2026-11-03T09:04:12+00:00",
+      "reason": "",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env staging\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]}],\"title\":\"Rotate the cache deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
+      "acceptedRev": 1
+     }
+    },
+    "events": [
+     {
+      "seq": 23,
+      "itemId": "00000000-0000-4000-8000-000000000009",
+      "kind": "posted",
+      "actor": "session",
+      "text": null,
+      "at": "2026-11-03T09:04:12+00:00",
+      "rev": null,
+      "auth": null
+     },
+     {
+      "seq": 24,
+      "itemId": "00000000-0000-4000-8000-000000000009",
+      "kind": "progress",
+      "actor": "owner",
+      "text": "{\"tick\":[\"s1\"],\"untick\":[]}",
+      "at": "2026-11-03T09:04:12+00:00",
+      "rev": 1,
+      "auth": "owner-key"
+     },
+     {
+      "seq": 25,
+      "itemId": "00000000-0000-4000-8000-000000000009",
+      "kind": "progress",
+      "actor": "owner",
+      "text": "{\"tick\":\"s2\"}",
+      "at": "2026-11-03T09:04:12+00:00",
+      "rev": 1,
+      "auth": "owner-key"
+     },
+     {
+      "seq": 26,
+      "itemId": "00000000-0000-4000-8000-000000000009",
+      "kind": "progress",
+      "actor": "owner",
+      "text": "not json",
+      "at": "2026-11-03T09:04:12+00:00",
+      "rev": 1,
+      "auth": "owner-key"
+     }
+    ],
+    "revisions": [
+     {
+      "rev": 1,
+      "hash": "e8b59840ac081002bc45ede97ec62550fb51eb221b44f4616e03fbbbaf06ac02",
+      "prev": "",
+      "at": "2026-11-03T09:04:12+00:00",
+      "reason": "",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env staging\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]}],\"title\":\"Rotate the cache deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
+     }
+    ]
+   },
+   "ticked": [
+    "s1"
+   ]
+  },
+  {
+   "name": "progress-session-event-ignored",
+   "note": "a progress event whose actor is not the owner counts for nothing",
+   "detail": {
+    "item": {
+     "id": "00000000-0000-4000-8000-00000000000a",
+     "source": "xo-mailbox",
+     "title": "Rotate the search deploy key",
+     "status": "open",
+     "priority": 1,
+     "pinned": false,
+     "rolling": false,
+     "payloadType": "xo.ask",
+     "payload": {
+      "key": "7fdcf70ef9531fd7",
+      "why": "The deploy key is 90 days old.",
+      "cmd": null,
+      "link": null,
+      "tg_chat_id": 12345,
+      "tg_message_id": 14,
+      "note": null,
+      "instructable": {
+       "steps": [
+        {
+         "do": "Open the deploy settings",
+         "id": "s1",
+         "where": "deploy.example.test"
+        },
+        {
+         "code": "deploy-key rotate --env staging",
+         "do": "Rotate the key",
+         "id": "s2"
+        },
+        {
+         "do": "Restart the services",
+         "id": "s3",
+         "substeps": [
+          {
+           "do": "Restart the web service",
+           "id": "s3.1"
+          },
+          {
+           "do": "Restart the worker",
+           "id": "s3.2"
+          }
+         ]
+        }
+       ],
+       "title": "Rotate the search deploy key",
+       "urgency": "today",
+       "v": 1,
+       "verify": {
+        "code": "curl -sI https://deploy.example.test/health",
+        "do": "The deploy passes"
+       },
+       "why": "The deploy key is 90 days old."
+      }
+     },
+     "links": [],
+     "created": "2026-11-03T09:04:13+00:00",
+     "updated": "2026-11-03T09:04:13+00:00",
+     "anchor": null,
+     "recurrence": null,
+     "snoozeUntil": null,
+     "projectId": "Example",
+     "lane": "personal",
+     "completedAt": null,
+     "revision": {
+      "rev": 1,
+      "hash": "b28ddc5df4041b0c08d611e1dce43748603782816339727ed9f2e00d5cf9ad06",
+      "prev": "",
+      "at": "2026-11-03T09:04:13+00:00",
+      "reason": "",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env staging\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]}],\"title\":\"Rotate the search deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
+      "acceptedRev": 1
+     }
+    },
+    "events": [
+     {
+      "seq": 27,
+      "itemId": "00000000-0000-4000-8000-00000000000a",
+      "kind": "posted",
+      "actor": "session",
+      "text": null,
+      "at": "2026-11-03T09:04:13+00:00",
+      "rev": null,
+      "auth": null
+     },
+     {
+      "seq": 28,
+      "itemId": "00000000-0000-4000-8000-00000000000a",
+      "kind": "progress",
+      "actor": "session",
+      "text": "{\"tick\":[\"s1\"],\"untick\":[]}",
+      "at": "2026-11-03T09:04:13+00:00",
+      "rev": 1,
+      "auth": null
+     }
+    ],
+    "revisions": [
+     {
+      "rev": 1,
+      "hash": "b28ddc5df4041b0c08d611e1dce43748603782816339727ed9f2e00d5cf9ad06",
+      "prev": "",
+      "at": "2026-11-03T09:04:13+00:00",
+      "reason": "",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env staging\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]}],\"title\":\"Rotate the search deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
+     }
+    ]
+   },
+   "ticked": []
+  },
+  {
+   "name": "progress-other-item-event",
+   "note": "edited: a tick of another item's step s1 added to the events; the Pond never serves it, and it counts for nothing",
+   "detail": {
+    "item": {
+     "id": "00000000-0000-4000-8000-00000000000b",
+     "source": "xo-mailbox",
+     "title": "Rotate the queue deploy key",
+     "status": "open",
+     "priority": 1,
+     "pinned": false,
+     "rolling": false,
+     "payloadType": "xo.ask",
+     "payload": {
+      "key": "edca074c36d0ab25",
+      "why": "The deploy key is 90 days old.",
+      "cmd": null,
+      "link": null,
+      "tg_chat_id": 12345,
+      "tg_message_id": 15,
+      "note": null,
+      "instructable": {
+       "steps": [
+        {
+         "do": "Open the deploy settings",
+         "id": "s1",
+         "where": "deploy.example.test"
+        },
+        {
+         "code": "deploy-key rotate --env staging",
+         "do": "Rotate the key",
+         "id": "s2"
+        },
+        {
+         "do": "Restart the services",
+         "id": "s3",
+         "substeps": [
+          {
+           "do": "Restart the web service",
+           "id": "s3.1"
+          },
+          {
+           "do": "Restart the worker",
+           "id": "s3.2"
+          }
+         ]
+        }
+       ],
+       "title": "Rotate the queue deploy key",
+       "urgency": "today",
+       "v": 1,
+       "verify": {
+        "code": "curl -sI https://deploy.example.test/health",
+        "do": "The deploy passes"
+       },
+       "why": "The deploy key is 90 days old."
+      }
+     },
+     "links": [],
+     "created": "2026-11-03T09:04:14+00:00",
+     "updated": "2026-11-03T09:04:14+00:00",
+     "anchor": null,
+     "recurrence": null,
+     "snoozeUntil": null,
+     "projectId": "Example",
+     "lane": "personal",
+     "completedAt": null,
+     "revision": {
+      "rev": 1,
+      "hash": "5738c82af191a967d9be3751685bc5f38b75956c827706da95ea5e36454f9a25",
+      "prev": "",
+      "at": "2026-11-03T09:04:14+00:00",
+      "reason": "",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env staging\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]}],\"title\":\"Rotate the queue deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
+      "acceptedRev": 1
+     }
+    },
+    "events": [
+     {
+      "seq": 29,
+      "itemId": "00000000-0000-4000-8000-00000000000b",
+      "kind": "posted",
+      "actor": "session",
+      "text": null,
+      "at": "2026-11-03T09:04:14+00:00",
+      "rev": null,
+      "auth": null
+     },
+     {
+      "seq": 129,
+      "itemId": "00000000-0000-4000-8000-000000000002",
+      "kind": "progress",
+      "actor": "owner",
+      "text": "{\"tick\":[\"s1\"],\"untick\":[]}",
+      "at": "2026-11-03T09:00:01+00:00",
+      "rev": 1,
+      "auth": "owner-key"
+     }
+    ],
+    "revisions": [
+     {
+      "rev": 1,
+      "hash": "5738c82af191a967d9be3751685bc5f38b75956c827706da95ea5e36454f9a25",
+      "prev": "",
+      "at": "2026-11-03T09:04:14+00:00",
+      "reason": "",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env staging\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]}],\"title\":\"Rotate the queue deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
+     }
+    ]
+   },
+   "ticked": []
+  },
+  {
+   "name": "progress-verify",
+   "note": "Verify ticked as @verify",
+   "detail": {
+    "item": {
+     "id": "00000000-0000-4000-8000-00000000000c",
+     "source": "xo-mailbox",
+     "title": "Rotate the backup deploy key",
+     "status": "open",
+     "priority": 1,
+     "pinned": false,
+     "rolling": false,
+     "payloadType": "xo.ask",
+     "payload": {
+      "key": "f0fed78b7f9e0620",
+      "why": "The deploy key is 90 days old.",
+      "cmd": null,
+      "link": null,
+      "tg_chat_id": 12345,
+      "tg_message_id": 16,
+      "note": null,
+      "instructable": {
+       "steps": [
+        {
+         "do": "Open the deploy settings",
+         "id": "s1",
+         "where": "deploy.example.test"
+        },
+        {
+         "code": "deploy-key rotate --env staging",
+         "do": "Rotate the key",
+         "id": "s2"
+        },
+        {
+         "do": "Restart the services",
+         "id": "s3",
+         "substeps": [
+          {
+           "do": "Restart the web service",
+           "id": "s3.1"
+          },
+          {
+           "do": "Restart the worker",
+           "id": "s3.2"
+          }
+         ]
+        }
+       ],
+       "title": "Rotate the backup deploy key",
+       "urgency": "today",
+       "v": 1,
+       "verify": {
+        "code": "curl -sI https://deploy.example.test/health",
+        "do": "The deploy passes"
+       },
+       "why": "The deploy key is 90 days old."
+      }
+     },
+     "links": [],
+     "created": "2026-11-03T09:04:15+00:00",
+     "updated": "2026-11-03T09:04:15+00:00",
+     "anchor": null,
+     "recurrence": null,
+     "snoozeUntil": null,
+     "projectId": "Example",
+     "lane": "personal",
+     "completedAt": null,
+     "revision": {
+      "rev": 1,
+      "hash": "0e4f929fc612c6c005040fa5510688f97d9744a7699457489bf4feadf1762acd",
+      "prev": "",
+      "at": "2026-11-03T09:04:15+00:00",
+      "reason": "",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env staging\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]}],\"title\":\"Rotate the backup deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
+      "acceptedRev": 1
+     }
+    },
+    "events": [
+     {
+      "seq": 30,
+      "itemId": "00000000-0000-4000-8000-00000000000c",
+      "kind": "posted",
+      "actor": "session",
+      "text": null,
+      "at": "2026-11-03T09:04:15+00:00",
+      "rev": null,
+      "auth": null
+     },
+     {
+      "seq": 31,
+      "itemId": "00000000-0000-4000-8000-00000000000c",
+      "kind": "progress",
+      "actor": "owner",
+      "text": "{\"tick\":[\"@verify\"],\"untick\":[]}",
+      "at": "2026-11-03T09:04:15+00:00",
+      "rev": 1,
+      "auth": "owner-key"
+     }
+    ],
+    "revisions": [
+     {
+      "rev": 1,
+      "hash": "0e4f929fc612c6c005040fa5510688f97d9744a7699457489bf4feadf1762acd",
+      "prev": "",
+      "at": "2026-11-03T09:04:15+00:00",
+      "reason": "",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env staging\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]}],\"title\":\"Rotate the backup deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
+     }
+    ]
+   },
+   "ticked": [
+    "@verify"
+   ]
+  },
+  {
+   "name": "progress-verify-changed",
+   "note": "@verify ticked at rev 1; accepted rev 2 changed Verify: dropped",
+   "detail": {
+    "item": {
+     "id": "00000000-0000-4000-8000-00000000000d",
+     "source": "xo-mailbox",
+     "title": "Rotate the archive deploy key",
+     "status": "open",
+     "priority": 1,
+     "pinned": false,
+     "rolling": false,
+     "payloadType": "xo.ask",
+     "payload": {
+      "key": "22b06a22bb308e6a",
+      "why": "The deploy key is 90 days old.",
+      "cmd": null,
+      "link": null,
+      "tg_chat_id": 12345,
+      "tg_message_id": 17,
+      "note": null,
+      "instructable": {
+       "steps": [
+        {
+         "do": "Open the deploy settings",
+         "id": "s1",
+         "where": "deploy.example.test"
+        },
+        {
+         "code": "deploy-key rotate --env staging",
+         "do": "Rotate the key",
+         "id": "s2"
+        },
+        {
+         "do": "Restart the services",
+         "id": "s3",
+         "substeps": [
+          {
+           "do": "Restart the web service",
+           "id": "s3.1"
+          },
+          {
+           "do": "Restart the worker",
+           "id": "s3.2"
+          }
+         ]
+        }
+       ],
+       "title": "Rotate the archive deploy key",
+       "urgency": "today",
+       "v": 1,
+       "verify": {
+        "code": "curl -sI https://deploy.example.test/ready",
+        "do": "The deploy passes"
+       },
+       "why": "The deploy key is 90 days old."
+      }
+     },
+     "links": [],
+     "created": "2026-11-03T09:04:16+00:00",
+     "updated": "2026-11-03T09:05:17+00:00",
+     "anchor": null,
+     "recurrence": null,
+     "snoozeUntil": null,
+     "projectId": "Example",
+     "lane": "personal",
+     "completedAt": null,
+     "revision": {
+      "rev": 2,
+      "hash": "656614490e2c5aa4a3998d21af048973db637e03c610af806e219a186f8b8f19",
+      "prev": "e8bbed71b4289e86739af7d82d5d57f0b5c7d6ec72af3f9089ccb13bad6f9c19",
+      "at": "2026-11-03T09:05:17+00:00",
+      "reason": "The check URL was wrong",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env staging\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]}],\"title\":\"Rotate the archive deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/ready\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
+      "acceptedRev": 2
+     }
+    },
+    "events": [
+     {
+      "seq": 32,
+      "itemId": "00000000-0000-4000-8000-00000000000d",
+      "kind": "posted",
+      "actor": "session",
+      "text": null,
+      "at": "2026-11-03T09:04:16+00:00",
+      "rev": null,
+      "auth": null
+     },
+     {
+      "seq": 33,
+      "itemId": "00000000-0000-4000-8000-00000000000d",
+      "kind": "progress",
+      "actor": "owner",
+      "text": "{\"tick\":[\"@verify\"],\"untick\":[]}",
+      "at": "2026-11-03T09:04:16+00:00",
+      "rev": 1,
+      "auth": "owner-key"
+     },
+     {
+      "seq": 34,
+      "itemId": "00000000-0000-4000-8000-00000000000d",
+      "kind": "revised",
+      "actor": "session",
+      "text": "{\"hash\":\"656614490e2c5aa4a3998d21af048973db637e03c610af806e219a186f8b8f19\",\"reason\":\"The check URL was wrong\"}",
+      "at": "2026-11-03T09:05:17+00:00",
+      "rev": 2,
+      "auth": null
+     },
+     {
+      "seq": 35,
+      "itemId": "00000000-0000-4000-8000-00000000000d",
+      "kind": "accepted",
+      "actor": "owner",
+      "text": null,
+      "at": "2026-11-03T09:05:17+00:00",
+      "rev": 2,
+      "auth": "owner-key"
+     }
+    ],
+    "revisions": [
+     {
+      "rev": 1,
+      "hash": "e8bbed71b4289e86739af7d82d5d57f0b5c7d6ec72af3f9089ccb13bad6f9c19",
+      "prev": "",
+      "at": "2026-11-03T09:04:16+00:00",
+      "reason": "",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env staging\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]}],\"title\":\"Rotate the archive deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
+     },
+     {
+      "rev": 2,
+      "hash": "656614490e2c5aa4a3998d21af048973db637e03c610af806e219a186f8b8f19",
+      "prev": "e8bbed71b4289e86739af7d82d5d57f0b5c7d6ec72af3f9089ccb13bad6f9c19",
+      "at": "2026-11-03T09:05:17+00:00",
+      "reason": "The check URL was wrong",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env staging\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]}],\"title\":\"Rotate the archive deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/ready\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
+     }
+    ]
+   },
+   "ticked": []
+  },
+  {
+   "name": "progress-legacy-substep",
+   "note": "an ask stored without step ids or revisions (before Pond 1.1.0): sub-step 2.1 as @legacy:2.1",
+   "detail": {
+    "item": {
+     "id": "00000000-0000-4000-8000-00000000000e",
+     "source": "xo-mailbox",
+     "title": "Rotate the legacy deploy key",
+     "status": "open",
+     "priority": 1,
+     "pinned": false,
+     "rolling": false,
+     "payloadType": "xo.ask",
+     "payload": {
+      "key": "legacy-00000000-0000-4000-8000-00000000000e",
+      "why": "The deploy key is 90 days old.",
+      "cmd": null,
+      "link": null,
+      "tg_chat_id": 12345,
+      "tg_message_id": null,
+      "note": null,
+      "instructable": {
+       "v": 1,
+       "title": "Rotate the legacy deploy key",
+       "urgency": "today",
+       "why": "The deploy key is 90 days old.",
+       "steps": [
+        {
+         "do": "Open the deploy settings"
+        },
+        {
+         "do": "Restart the services",
+         "substeps": [
+          {
+           "do": "Restart the web service"
+          },
+          {
+           "do": "Restart the worker"
+          }
+         ]
+        }
+       ]
+      }
+     },
+     "links": [],
+     "created": "2026-11-03T09:05:18+00:00",
+     "updated": "2026-11-03T09:05:18+00:00",
+     "anchor": null,
+     "recurrence": null,
+     "snoozeUntil": null,
+     "projectId": "Example",
+     "lane": "personal",
+     "completedAt": null
+    },
+    "events": [
+     {
+      "seq": 36,
+      "itemId": "00000000-0000-4000-8000-00000000000e",
+      "kind": "posted",
+      "actor": "session",
+      "text": null,
+      "at": "2026-11-03T09:05:18+00:00",
+      "rev": null,
+      "auth": null
+     },
+     {
+      "seq": 37,
+      "itemId": "00000000-0000-4000-8000-00000000000e",
+      "kind": "progress",
+      "actor": "owner",
+      "text": "{\"tick\":[\"@legacy:2.1\"],\"untick\":[]}",
+      "at": "2026-11-03T09:05:18+00:00",
+      "rev": null,
+      "auth": "owner-key"
+     }
+    ]
+   },
+   "ticked": [
+    "@legacy:2.1"
+   ]
+  }
+ ]
+}
