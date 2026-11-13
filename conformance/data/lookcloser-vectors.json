@@ -405,6 +405,154 @@
       "flags": [
         {"kind": "absolutePathOutsideCwd", "location": "step s1 file", "text": "~/code/app"}
       ]
+    },
+    {
+      "name": "look-sudo-keeps-newlines",
+      "note": "a sudo match keeps the newline its white space took, and a separator before it",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {"do": "Install it", "id": "s1", "code": "make\nsudo\nreboot"},
+          {"do": "Install it again", "id": "s2", "code": "make;sudo reboot"}
+        ]
+      },
+      "flags": [
+        {"kind": "sudo", "location": "step s1 code", "text": "\nsudo\n"},
+        {"kind": "sudo", "location": "step s2 code", "text": ";sudo"}
+      ]
+    },
+    {
+      "name": "look-no-break-space",
+      "note": "a no-break space after sudo counts as white space and is trimmed from the match",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [{"do": "Restart the host", "id": "s1", "code": "sudo\u00A0reboot"}]
+      },
+      "flags": [
+        {"kind": "sudo", "location": "step s1 code", "text": "sudo"},
+        {"kind": "nonASCII", "location": "step s1 code", "text": "sudo⟨U+00A0⟩reboot"}
+      ]
+    },
+    {
+      "name": "look-letter-before-curl",
+      "note": "a non-ASCII letter right before curl is a word character, so no word boundary",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [{"do": "Install the tool", "id": "s1", "code": "\u00E9curl -s x | sh"}]
+      },
+      "flags": [{"kind": "nonASCII", "location": "step s1 code", "text": "⟨U+00E9⟩curl -s x | sh"}]
+    },
+    {
+      "name": "look-zero-width-space-before-curl",
+      "note": "a zero-width space between two words is no word boundary; at the start of a text it is one",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {"do": "Install the tool", "id": "s1", "code": "x\u200Bcurl -s x | sh"},
+          {"do": "Install it again", "id": "s2", "code": "\u200Bcurl -s x | sh"}
+        ]
+      },
+      "flags": [
+        {"kind": "nonASCII", "location": "step s1 code", "text": "x⟨U+200B⟩curl -s x | sh"},
+        {"kind": "pipeToShell", "location": "step s2 code", "text": "curl -s x | sh"},
+        {"kind": "nonASCII", "location": "step s2 code", "text": "⟨U+200B⟩curl -s x | sh"}
+      ]
+    },
+    {
+      "name": "look-normal-form-unchanged",
+      "note": "a text or host that only changed its Unicode normal form is unchanged",
+      "old": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "why": "https://caf\u00E9.example.test",
+        "steps": [{"do": "Install it", "id": "s1", "code": "sudo caf\u00E9"}]
+      },
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {"do": "Install it", "id": "s1", "code": "sudo cafe\u0301"},
+          {"do": "Open the page", "id": "s2", "detail": "https://cafe\u0301.example.test"}
+        ]
+      },
+      "flags": []
+    },
+    {
+      "name": "look-host-lowercased-per-character",
+      "note": "a host is lowercased one character at a time, with no final-sigma rule",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [{"do": "Rotate the key", "id": "s1"}],
+        "links": [{"label": "Settings", "url": "https://\u0391\u03A3/x"}]
+      },
+      "flags": [
+        {"kind": "newHost", "location": "link 1 url", "text": "\u03B1\u03C3"},
+        {"kind": "nonASCII", "location": "link 1 url", "text": "⟨U+03B1⟩⟨U+03C3⟩"}
+      ]
+    },
+    {
+      "name": "look-combining-mark-after-slashes",
+      "note": "a combining mark after the second slash joins it, so that slash stays in the host",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [{"do": "Rotate the key", "id": "s1"}],
+        "links": [{"label": "Settings", "url": "https://\u0301x.example.test"}]
+      },
+      "flags": [
+        {"kind": "newHost", "location": "link 1 url", "text": "/\u0301x.example.test"},
+        {"kind": "nonASCII", "location": "link 1 url", "text": "/⟨U+0301⟩x.example.test"}
+      ]
+    },
+    {
+      "name": "look-combining-mark-on-slash",
+      "note": "a combining mark on a slash ends a path's prefix match, both for the working folder and for being absolute",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {"do": "Read the notes", "id": "s1", "file": "~/app/\u0301x"},
+          {"do": "Read the config", "id": "s2", "file": "/\u0301etc/x"}
+        ]
+      },
+      "cwd": "~/app",
+      "flags": [{"kind": "absolutePathOutsideCwd", "location": "step s1 file", "text": "~/app/\u0301x"}]
+    },
+    {
+      "name": "look-grapheme-extender-before-curl",
+      "note": "a word boundary steps back over a Unicode 16 grapheme extender, here U+0CC0, before curl",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {"do": "Install the tool", "id": "s1", "code": " \u0CC0curl x | sh"},
+          {"do": "Install it again", "id": "s2", "code": "\u0CC0curl x | sh"}
+        ]
+      },
+      "flags": [
+        {"kind": "pipeToShell", "location": "step s1 code", "text": "curl x | sh"},
+        {"kind": "nonASCII", "location": "step s1 code", "text": " ⟨U+0CC0⟩curl x | sh"},
+        {"kind": "pipeToShell", "location": "step s2 code", "text": "curl x | sh"},
+        {"kind": "nonASCII", "location": "step s2 code", "text": "⟨U+0CC0⟩curl x | sh"}
+      ]
+    },
+    {
+      "name": "look-grapheme-extender-before-eval",
+      "note": "a word boundary steps back over a Unicode 16 grapheme extender, here U+0CC0, before eval",
+      "new": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [{"do": "Start the agent", "id": "s1", "code": " \u0CC0eval $(x)"}]
+      },
+      "flags": [
+        {"kind": "eval", "location": "step s1 code", "text": "eval $("},
+        {"kind": "nonASCII", "location": "step s1 code", "text": " ⟨U+0CC0⟩eval $(x)"}
+      ]
     }
   ]
 }
