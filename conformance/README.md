@@ -145,7 +145,7 @@ Six `data/` files cover logic that lives only in the clients. Their inputs are w
 - reply: `prompt choices`; link: `label url path`; from: `session host cwd`
 - `done` values: `steps reply message`
 
-The first unknown key in document order decides. Its path names objects by key and list items by 0-based index, joined by dots: `shell`, `steps[2].shell`, `steps[0].question.choices[1].tone`, `from.pid`. Unknown keys are checked before unknown `done` values, wherever each appears.
+The first unknown key in document order decides. Its path joins object keys with dots and writes a list item's 0-based index in square brackets right after the list's key: `shell`, `steps[2].shell`, `steps[0].question.choices[1].tone`, `from.pid`. Unknown keys are checked before unknown `done` values, wherever each appears.
 
 The Swift core has no unknown-key check yet, so those cases, and the cases there only to contrast with them, carry `"clients": ["android"]` and a hand-written `expect`.
 
