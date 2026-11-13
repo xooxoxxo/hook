@@ -94,6 +94,48 @@
       "copies": []
     },
     {
+      "path": "data/pairing-vectors.json",
+      "pond": "1.5.0",
+      "feature": "phone",
+      "roles": ["actor"],
+      "copies": []
+    },
+    {
+      "path": "data/reviewgate-vectors.json",
+      "pond": "1.1.0",
+      "feature": "corrections",
+      "roles": ["reader"],
+      "copies": []
+    },
+    {
+      "path": "data/flow-vectors.json",
+      "pond": "1.3.0",
+      "feature": "requirements",
+      "roles": ["reader", "actor"],
+      "copies": []
+    },
+    {
+      "path": "data/lookcloser-vectors.json",
+      "pond": "1.1.0",
+      "feature": "corrections",
+      "roles": ["reader"],
+      "copies": []
+    },
+    {
+      "path": "data/stub-vectors.json",
+      "pond": "1.1.0",
+      "feature": "corrections",
+      "roles": ["reader"],
+      "copies": []
+    },
+    {
+      "path": "data/display-vectors.json",
+      "pond": "1.0.0",
+      "feature": "display",
+      "roles": ["reader", "actor"],
+      "copies": []
+    },
+    {
       "path": "wire/choice-vectors.json",
       "pond": "1.4.0",
       "feature": "choices",

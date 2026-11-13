@@ -1,0 +1,753 @@
+{
+  "version": 1,
+  "source": "Tests/RelayCoreTests/ConformanceTests.swift",
+  "format": "{name, note, instructable, events: [{seq, kind, actor, text?, rev?}], ticks: [\"<path>\"], expect: {current, done, total, tickable, locked, left, ready, delta?}}. The instructable is the payload of an open ask with these events; `ticks` are the step paths this device has ticked (\"2\", \"3.1\", \"verify\"). current: the path of the first item not done (an unanswered question stops it), or null. done and total: the \"N of M\" count over the leaves plus each parent's own question. tickable: the paths a tick applies to. locked: the paths after the first unfinished blocking step. left: what Done still waits for, in document order: {kind: \"step\", path}, {kind: \"reply\"}, {kind: \"message\"}; ready is true when left is empty. delta, where a case gives it, holds the input paths before and after and the shared-progress identities ticked and unticked between them, sorted: a step's id, @verify for Verify, @legacy:<path> for a step without an id.",
+  "cases": [
+    {
+      "name": "flow-plain-none-ticked",
+      "note": "three plain steps, none ticked",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {"do": "Open the deploy settings", "id": "s1"},
+          {"do": "Rotate the key", "id": "s2"},
+          {"do": "Restart the services", "id": "s3"}
+        ]
+      },
+      "events": [],
+      "ticks": [],
+      "expect": {
+        "current": "1",
+        "done": 0,
+        "total": 3,
+        "tickable": ["1", "2", "3"],
+        "locked": [],
+        "left": [],
+        "ready": true
+      }
+    },
+    {
+      "name": "flow-plain-some-ticked",
+      "note": "steps 1 and 3 ticked: step 2 is current",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {"do": "Open the deploy settings", "id": "s1"},
+          {"do": "Rotate the key", "id": "s2"},
+          {"do": "Restart the services", "id": "s3"}
+        ]
+      },
+      "events": [],
+      "ticks": ["1", "3"],
+      "expect": {
+        "current": "2",
+        "done": 2,
+        "total": 3,
+        "tickable": ["1", "2", "3"],
+        "locked": [],
+        "left": [],
+        "ready": true
+      }
+    },
+    {
+      "name": "flow-plain-all-ticked",
+      "note": "every step ticked: nothing is current",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {"do": "Open the deploy settings", "id": "s1"},
+          {"do": "Rotate the key", "id": "s2"},
+          {"do": "Restart the services", "id": "s3"}
+        ]
+      },
+      "events": [],
+      "ticks": ["1", "2", "3"],
+      "expect": {
+        "current": null,
+        "done": 3,
+        "total": 3,
+        "tickable": ["1", "2", "3"],
+        "locked": [],
+        "left": [],
+        "ready": true
+      }
+    },
+    {
+      "name": "flow-substeps",
+      "note": "a parent's sub-steps count, the parent itself does not",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {"do": "Open the deploy settings", "id": "s1"},
+          {
+            "do": "Restart the services",
+            "id": "s2",
+            "substeps": [
+              {"do": "Restart the web service", "id": "s2.1"},
+              {"do": "Restart the worker", "id": "s2.2"}
+            ]
+          },
+          {"do": "Check the logs", "id": "s3"}
+        ]
+      },
+      "events": [],
+      "ticks": ["1", "2.1"],
+      "expect": {
+        "current": "2.2",
+        "done": 2,
+        "total": 4,
+        "tickable": ["1", "2.1", "2.2", "3"],
+        "locked": [],
+        "left": [],
+        "ready": true
+      }
+    },
+    {
+      "name": "flow-parent-own-question",
+      "note": "a parent's own question is one more item, before its sub-steps; ticking the sub-steps leaves it current",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {
+            "do": "Restart the services",
+            "id": "s1",
+            "question": {"prompt": "Which environment?", "choices": ["Staging", "Production"]},
+            "substeps": [
+              {"do": "Restart the web service", "id": "s1.1"},
+              {"do": "Restart the worker", "id": "s1.2"}
+            ]
+          }
+        ]
+      },
+      "events": [],
+      "ticks": ["1.1", "1.2"],
+      "expect": {
+        "current": "1",
+        "done": 2,
+        "total": 3,
+        "tickable": ["1.1", "1.2"],
+        "locked": [],
+        "left": [],
+        "ready": true
+      }
+    },
+    {
+      "name": "flow-unanswered-question-blocks-current",
+      "note": "an unanswered question stays current although a later step is ticked",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {
+            "do": "Pick the environment",
+            "id": "s1",
+            "question": {"prompt": "Which environment?", "choices": ["Staging", "Production"]}
+          },
+          {"do": "Rotate the key", "id": "s2"}
+        ]
+      },
+      "events": [],
+      "ticks": ["2"],
+      "expect": {
+        "current": "1",
+        "done": 1,
+        "total": 2,
+        "tickable": ["2"],
+        "locked": [],
+        "left": [],
+        "ready": true
+      }
+    },
+    {
+      "name": "flow-answered-question",
+      "note": "an owner answer event finishes the question",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {
+            "do": "Pick the environment",
+            "id": "s1",
+            "question": {"prompt": "Which environment?", "choices": ["Staging", "Production"]}
+          },
+          {"do": "Rotate the key", "id": "s2"}
+        ]
+      },
+      "events": [
+        {
+          "seq": 1,
+          "kind": "answer",
+          "actor": "owner",
+          "text": "{\"step\":\"1\",\"picked\":[\"Staging\"]}"
+        }
+      ],
+      "ticks": [],
+      "expect": {
+        "current": "2",
+        "done": 1,
+        "total": 2,
+        "tickable": ["2"],
+        "locked": [],
+        "left": [],
+        "ready": true
+      }
+    },
+    {
+      "name": "flow-optional-question-ticked",
+      "note": "an optional question can be ticked instead of answered",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {
+            "do": "Say how it went",
+            "id": "s1",
+            "optional": true,
+            "question": {"prompt": "Anything odd?"}
+          },
+          {"do": "Rotate the key", "id": "s2"}
+        ]
+      },
+      "events": [],
+      "ticks": ["1"],
+      "expect": {
+        "current": "2",
+        "done": 1,
+        "total": 2,
+        "tickable": ["1", "2"],
+        "locked": [],
+        "left": [],
+        "ready": true
+      }
+    },
+    {
+      "name": "flow-optional-parent",
+      "note": "an optional parent makes its sub-steps optional, questions included",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {
+            "do": "Tidy up",
+            "id": "s1",
+            "optional": true,
+            "substeps": [
+              {"do": "Remove the old key file", "id": "s1.1"},
+              {
+                "do": "Note the rotation",
+                "id": "s1.2",
+                "question": {"prompt": "Where did you note it?"}
+              }
+            ]
+          },
+          {"do": "Rotate the key", "id": "s2"}
+        ]
+      },
+      "events": [],
+      "ticks": ["1.1"],
+      "expect": {
+        "current": "1.2",
+        "done": 1,
+        "total": 3,
+        "tickable": ["1.1", "1.2", "2"],
+        "locked": [],
+        "left": [],
+        "ready": true
+      }
+    },
+    {
+      "name": "flow-blocking-unfinished",
+      "note": "an unfinished blocking step locks everything after it, verify included",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {"do": "Revoke the old key", "id": "s1", "blocking": true},
+          {"do": "Rotate the key", "id": "s2"}
+        ],
+        "verify": {"do": "The deploy passes"}
+      },
+      "events": [],
+      "ticks": [],
+      "expect": {
+        "current": "1",
+        "done": 0,
+        "total": 3,
+        "tickable": ["1", "2", "verify"],
+        "locked": ["2", "verify"],
+        "left": [],
+        "ready": true
+      }
+    },
+    {
+      "name": "flow-blocking-finished",
+      "note": "a finished blocking step locks nothing",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {"do": "Revoke the old key", "id": "s1", "blocking": true},
+          {"do": "Rotate the key", "id": "s2"}
+        ],
+        "verify": {"do": "The deploy passes"}
+      },
+      "events": [],
+      "ticks": ["1"],
+      "expect": {
+        "current": "2",
+        "done": 1,
+        "total": 3,
+        "tickable": ["1", "2", "verify"],
+        "locked": [],
+        "left": [],
+        "ready": true
+      }
+    },
+    {
+      "name": "flow-blocking-substep",
+      "note": "a blocking sub-step locks its later siblings, the steps after its parent and verify",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {
+            "do": "Prepare",
+            "id": "s1",
+            "substeps": [
+              {"do": "Revoke the old key", "id": "s1.1", "blocking": true},
+              {"do": "Make the new key", "id": "s1.2"}
+            ]
+          },
+          {"do": "Rotate the key", "id": "s2"}
+        ],
+        "verify": {"do": "The deploy passes"}
+      },
+      "events": [],
+      "ticks": [],
+      "expect": {
+        "current": "1.1",
+        "done": 0,
+        "total": 4,
+        "tickable": ["1.1", "1.2", "2", "verify"],
+        "locked": ["1.2", "2", "verify"],
+        "left": [],
+        "ready": true
+      }
+    },
+    {
+      "name": "flow-required-unticked",
+      "note": "a required step not ticked is left",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {"do": "Open the deploy settings", "id": "s1"},
+          {"do": "Rotate the key", "id": "s2", "required": true}
+        ]
+      },
+      "events": [],
+      "ticks": [],
+      "expect": {
+        "current": "1",
+        "done": 0,
+        "total": 2,
+        "tickable": ["1", "2"],
+        "locked": [],
+        "left": [{"kind": "step", "path": "2"}],
+        "ready": false
+      }
+    },
+    {
+      "name": "flow-required-ticked",
+      "note": "a required step ticked is finished",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {"do": "Open the deploy settings", "id": "s1"},
+          {"do": "Rotate the key", "id": "s2", "required": true}
+        ]
+      },
+      "events": [],
+      "ticks": ["2"],
+      "expect": {
+        "current": "1",
+        "done": 1,
+        "total": 2,
+        "tickable": ["1", "2"],
+        "locked": [],
+        "left": [],
+        "ready": true
+      }
+    },
+    {
+      "name": "flow-required-question-unanswered",
+      "note": "a required question without an answer is left",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {
+            "do": "Name the new key",
+            "id": "s1",
+            "required": true,
+            "question": {"prompt": "What is the new key called?"}
+          },
+          {"do": "Rotate the key", "id": "s2"}
+        ]
+      },
+      "events": [],
+      "ticks": ["2"],
+      "expect": {
+        "current": "1",
+        "done": 1,
+        "total": 2,
+        "tickable": ["2"],
+        "locked": [],
+        "left": [{"kind": "step", "path": "1"}],
+        "ready": false
+      }
+    },
+    {
+      "name": "flow-required-question-answered",
+      "note": "a required question with an owner answer is finished",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {
+            "do": "Name the new key",
+            "id": "s1",
+            "required": true,
+            "question": {"prompt": "What is the new key called?"}
+          },
+          {"do": "Rotate the key", "id": "s2"}
+        ]
+      },
+      "events": [
+        {
+          "seq": 1,
+          "kind": "answer",
+          "actor": "owner",
+          "text": "{\"step\":\"1\",\"text\":\"staging-2026\"}"
+        }
+      ],
+      "ticks": ["2"],
+      "expect": {
+        "current": null,
+        "done": 2,
+        "total": 2,
+        "tickable": ["2"],
+        "locked": [],
+        "left": [],
+        "ready": true
+      }
+    },
+    {
+      "name": "flow-required-parent-unfinished",
+      "note": "a required parent waits for its sub-steps that are not optional",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {
+            "do": "Restart the services",
+            "id": "s1",
+            "required": true,
+            "substeps": [
+              {"do": "Restart the web service", "id": "s1.1"},
+              {"do": "Restart the worker", "id": "s1.2", "optional": true}
+            ]
+          }
+        ]
+      },
+      "events": [],
+      "ticks": [],
+      "expect": {
+        "current": "1.1",
+        "done": 0,
+        "total": 2,
+        "tickable": ["1.1", "1.2"],
+        "locked": [],
+        "left": [{"kind": "step", "path": "1"}],
+        "ready": false
+      }
+    },
+    {
+      "name": "flow-required-parent-optional-substep",
+      "note": "a required parent is finished without its optional sub-step",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {
+            "do": "Restart the services",
+            "id": "s1",
+            "required": true,
+            "substeps": [
+              {"do": "Restart the web service", "id": "s1.1"},
+              {"do": "Restart the worker", "id": "s1.2", "optional": true}
+            ]
+          }
+        ]
+      },
+      "events": [],
+      "ticks": ["1.1"],
+      "expect": {
+        "current": "1.2",
+        "done": 1,
+        "total": 2,
+        "tickable": ["1.1", "1.2"],
+        "locked": [],
+        "left": [],
+        "ready": true
+      }
+    },
+    {
+      "name": "flow-done-steps",
+      "note": "done: [\"steps\"] makes every top-level step that is not optional required",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "done": ["steps"],
+        "steps": [
+          {"do": "Open the deploy settings", "id": "s1"},
+          {"do": "Rotate the key", "id": "s2"},
+          {"do": "Tell the team", "id": "s3", "optional": true}
+        ]
+      },
+      "events": [],
+      "ticks": ["1"],
+      "expect": {
+        "current": "2",
+        "done": 1,
+        "total": 3,
+        "tickable": ["1", "2", "3"],
+        "locked": [],
+        "left": [{"kind": "step", "path": "2"}],
+        "ready": false
+      }
+    },
+    {
+      "name": "flow-done-unknown-value",
+      "note": "an unknown done value is ignored, a known one still counts",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "done": ["steps", "later"],
+        "steps": [
+          {"do": "Open the deploy settings", "id": "s1"},
+          {"do": "Rotate the key", "id": "s2"}
+        ]
+      },
+      "events": [],
+      "ticks": ["1"],
+      "expect": {
+        "current": "2",
+        "done": 1,
+        "total": 2,
+        "tickable": ["1", "2"],
+        "locked": [],
+        "left": [{"kind": "step", "path": "2"}],
+        "ready": false
+      }
+    },
+    {
+      "name": "flow-done-reply-without-reply",
+      "note": "done: [\"reply\"] waits for an owner reply",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "done": ["reply"],
+        "reply": {"prompt": "Which key name did you use?"},
+        "steps": [{"do": "Rotate the key", "id": "s1"}]
+      },
+      "events": [],
+      "ticks": ["1"],
+      "expect": {
+        "current": null,
+        "done": 1,
+        "total": 1,
+        "tickable": ["1"],
+        "locked": [],
+        "left": [{"kind": "reply"}],
+        "ready": false
+      }
+    },
+    {
+      "name": "flow-done-reply-with-reply",
+      "note": "an owner reply event finishes it",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "done": ["reply"],
+        "reply": {"prompt": "Which key name did you use?"},
+        "steps": [{"do": "Rotate the key", "id": "s1"}]
+      },
+      "events": [{"seq": 1, "kind": "reply", "actor": "owner", "text": "staging-2026"}],
+      "ticks": ["1"],
+      "expect": {
+        "current": null,
+        "done": 1,
+        "total": 1,
+        "tickable": ["1"],
+        "locked": [],
+        "left": [],
+        "ready": true
+      }
+    },
+    {
+      "name": "flow-done-message-without-message",
+      "note": "done: [\"message\"] waits for an owner message",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "done": ["message"],
+        "steps": [{"do": "Rotate the key", "id": "s1"}]
+      },
+      "events": [],
+      "ticks": ["1"],
+      "expect": {
+        "current": null,
+        "done": 1,
+        "total": 1,
+        "tickable": ["1"],
+        "locked": [],
+        "left": [{"kind": "message"}],
+        "ready": false
+      }
+    },
+    {
+      "name": "flow-done-message-with-message",
+      "note": "an owner message event finishes it",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "done": ["message"],
+        "steps": [{"do": "Rotate the key", "id": "s1"}]
+      },
+      "events": [
+        {"seq": 1, "kind": "message", "actor": "owner", "text": "Rotated, restarting now."}
+      ],
+      "ticks": ["1"],
+      "expect": {
+        "current": null,
+        "done": 1,
+        "total": 1,
+        "tickable": ["1"],
+        "locked": [],
+        "left": [],
+        "ready": true
+      }
+    },
+    {
+      "name": "flow-verify-present",
+      "note": "verify is one more item, last",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {"do": "Open the deploy settings", "id": "s1"},
+          {"do": "Rotate the key", "id": "s2"},
+          {"do": "Restart the services", "id": "s3"}
+        ],
+        "verify": {"do": "The deploy passes", "code": "curl -sI https://deploy.example.test/health"}
+      },
+      "events": [],
+      "ticks": ["1", "2", "3"],
+      "expect": {
+        "current": "verify",
+        "done": 3,
+        "total": 4,
+        "tickable": ["1", "2", "3", "verify"],
+        "locked": [],
+        "left": [],
+        "ready": true
+      }
+    },
+    {
+      "name": "flow-delta-real-id",
+      "note": "ticks sent as the steps' own ids",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {"do": "Open the deploy settings", "id": "s1"},
+          {"do": "Rotate the key", "id": "s2"},
+          {"do": "Restart the services", "id": "s3"}
+        ]
+      },
+      "events": [],
+      "ticks": ["2", "3"],
+      "expect": {
+        "current": "1",
+        "done": 2,
+        "total": 3,
+        "tickable": ["1", "2", "3"],
+        "locked": [],
+        "left": [],
+        "ready": true,
+        "delta": {"before": ["1"], "after": ["2", "3"], "tick": ["s2", "s3"], "untick": ["s1"]}
+      }
+    },
+    {
+      "name": "flow-delta-verify",
+      "note": "Verify is sent as @verify",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [{"do": "Open the deploy settings", "id": "s1"}],
+        "verify": {"do": "The deploy passes"}
+      },
+      "events": [],
+      "ticks": ["1", "verify"],
+      "expect": {
+        "current": null,
+        "done": 2,
+        "total": 2,
+        "tickable": ["1", "verify"],
+        "locked": [],
+        "left": [],
+        "ready": true,
+        "delta": {"before": ["1"], "after": ["1", "verify"], "tick": ["@verify"], "untick": []}
+      }
+    },
+    {
+      "name": "flow-delta-no-id",
+      "note": "steps without ids are sent as @legacy:<path>",
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {"do": "Open the deploy settings"},
+          {
+            "do": "Restart the services",
+            "substeps": [{"do": "Restart the web service"}, {"do": "Restart the worker"}]
+          }
+        ]
+      },
+      "events": [],
+      "ticks": ["2.1"],
+      "expect": {
+        "current": "1",
+        "done": 1,
+        "total": 3,
+        "tickable": ["1", "2.1", "2.2"],
+        "locked": [],
+        "left": [],
+        "ready": true,
+        "delta": {
+          "before": ["1"],
+          "after": ["2.1"],
+          "tick": ["@legacy:2.1"],
+          "untick": ["@legacy:1"]
+        }
+      }
+    }
+  ]
+}
