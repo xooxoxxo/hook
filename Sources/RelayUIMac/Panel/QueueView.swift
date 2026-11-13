@@ -230,7 +230,9 @@ struct QueueView<Model: PanelViewModel>: View, Equatable {
                         closedSection(queue.closed, now: now)
                     }
                 }
-                .listStyle(.sidebar)
+                // Source-list hover accessories can repeatedly invalidate header constraints
+                // as undo expires and the panel regains focus. Cards own the queue's styling.
+                .listStyle(.inset)
                 .scrollContentBackground(.hidden)
                 .cardListHighlightOff()
                 .environment(\.defaultMinListRowHeight, DS.Metric.rowMinHeight)
