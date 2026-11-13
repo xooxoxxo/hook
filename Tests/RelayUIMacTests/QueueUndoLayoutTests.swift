@@ -43,7 +43,7 @@ import Testing
             #expect(store.navigation.selectedID == nil)
             #expect(store.undoInfo != nil)
             panel.makeFirstResponder(table)
-            settle(panel)
+            await settle(panel)
             try checkStyle(table)
 
             clock.advance(11)
@@ -52,7 +52,7 @@ import Testing
             await store.refresh()
             panel.makeFirstResponder(nil)
             panel.makeFirstResponder(table)
-            settle(panel)
+            await settle(panel)
             #expect(store.undoInfo == nil)
             #expect(store.queue.closed.contains { $0.id == id })
             try checkStyle(table)
@@ -71,8 +71,9 @@ import Testing
         return view.subviews.lazy.compactMap { findTable(in: $0) }.first
     }
 
-    private func settle(_ panel: NSPanel) {
-        RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+    private func settle(_ panel: NSPanel) async {
+        // Let animation frames and other main-actor tests run during the wait.
+        try? await Task.sleep(for: .milliseconds(400))
         panel.layoutIfNeeded()
         func dirty(_ view: NSView) -> [String] {
             let here = view.needsLayout || view.needsUpdateConstraints ? ["\(type(of: view))"] : []
