@@ -1,6 +1,6 @@
 {
  "version": 1,
- "pond": "1.6.0",
+ "pond": "1.7.0",
  "source": "mailbox/tests/gen_phone_vectors.py",
  "format": "{name, note, act: {kind, args}, request: {method, path, ownerKey, token?, protocol, body}, response: {status, body}, outcome, binds?}. The cases run in order against one fresh Pond (the Telegram fake, a pinned clock). Asks, keys and session acts a case does not show were made through the Pond's own API before the first case, unless a case's note says they happened since. `act` is what the phone was asked to do; `request` is exactly what it sends: `ownerKey` true sends the approved X-Hook-Owner-Key, false none, \"unknown\" a key the Pond never approved; `token` \"wrong\" sends a wrong Pond token (absent: the right one); `protocol` is the X-Hook-Protocol sent. `outcome` maps the response: 2xx ok, 401 unauthorized, 404 notFound, 403 \"owner key required\" ownerKeyRequired, 403 \"unknown owner key\" ownerKeyRefused, 409 \"ask was corrected\" corrected, 409 \"requirements_unmet\" requirementsUnmet, 409 \"ask is closed\" askClosed, 409 \"too many messages\" tooManyMessages, any other 4xx invalid. `binds` names an id the response carries ({\"ask1\": \"items.0.id\"}, a number indexes a list); later paths and args use it as {ask1}. In responses every bound id is its {name} and every ISO-8601 timestamp is {time}, except a revision's `at`, kept as recorded because its hash covers it. `rev` and `hash` in a request body and in act.args are the real values the Pond accepts.",
  "cases": [
@@ -22,7 +22,7 @@
     "status": 200,
     "body": {
      "service": "pond",
-     "version": "1.6.0",
+     "version": "1.7.0",
      "protocol": 5
     }
    },

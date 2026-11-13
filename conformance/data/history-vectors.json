@@ -1,6 +1,6 @@
 {
  "version": 1,
- "pond": "1.6.0",
+ "pond": "1.7.0",
  "source": "mailbox/tests/gen_phone_vectors.py",
  "format": "{name, note, detail: {item, events, revisions}, pins: {\"<rev>\": \"<hash>\"}, expect: {ok, problem?, current?: {rev, hash}, acceptedOnPond?}}. `detail` is GET /asks/{id} as the Pond answers a client sending X-Hook-Protocol: 6, ids and timestamps as recorded (the clock was pinned; hashes cover `at`). A tampered case edits that JSON and recomputes exactly the hashes it must, so the client's check (every rev 1..N, each hash, each prev, each body strict, title/urgency/from unchanged, the newest the item's revision, then the pins) fails for `problem` and no earlier reason. problem: badHash:<rev>, badChain:<rev>, unreadable:<rev>, missing, fixedFieldChanged:<rev>, rolledBack. acceptedOnPond is min(max(item.revision.acceptedRev, 1), current rev).",
  "cases": [

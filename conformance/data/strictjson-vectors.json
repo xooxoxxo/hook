@@ -1,6 +1,6 @@
 {
  "version": 1,
- "pond": "1.6.0",
+ "pond": "1.7.0",
  "source": "mailbox/tests/gen_phone_vectors.py",
  "format": "{name, note, text | hex, parses, body, problem?, pond?}. `text` is the exact UTF-8 text; `hex` the raw bytes when they are not UTF-8. `parses`: a strict JSON parser accepts it (a key named twice in one object, after escapes, and a lone surrogate escape are refused). `body`: it is a revision body: it parses strictly, is a top-level object and is a valid instructable. `problem` (when body is false): duplicateKey when the text is otherwise JSON but names a key twice, else invalid. `pond`, only where present, is the Pond's own answer where it differs from docs/mailbox-protocol.md.",
  "cases": [

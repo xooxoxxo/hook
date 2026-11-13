@@ -1,6 +1,6 @@
 {
  "version": 1,
- "pond": "1.6.0",
+ "pond": "1.7.0",
  "source": "mailbox/tests/gen_phone_vectors.py",
  "format": "{name, note, detail, ticked}. `detail` is GET /asks/{id} as served to X-Hook-Protocol: 6 (a case whose note says so adds or edits an event the Pond never serves, to test a client's filter). `ticked` is the sorted set of ticked step identities the Pond's requirements.ticked folds from the progress/owner events of this item against the accepted revision (no revisions: the posted instructable).",
  "cases": [
