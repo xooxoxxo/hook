@@ -1,0 +1,111 @@
+{
+  "suite": 1,
+  "files": [
+    {
+      "path": "data/semver-vectors.json",
+      "pond": "1.0.0",
+      "feature": "pond-versions",
+      "roles": ["reader"],
+      "copies": ["Tests/RelayCoreTests/Fixtures/semver-vectors.json"]
+    },
+    {
+      "path": "data/revision-vectors.json",
+      "pond": "1.1.0",
+      "feature": "corrections",
+      "roles": ["reader", "actor", "writer", "server"],
+      "kinds": {"hash": ["reader"], "duplicateKey": ["reader"], "answerRule": ["reader"], "stub": ["reader"], "enrollCode": ["actor"], "keyHash": ["actor"], "canonical": ["writer", "server"], "assign": ["server"], "amend": ["writer", "server"]},
+      "copies": ["Tests/RelayCoreTests/Fixtures/revision-vectors.json"]
+    },
+    {
+      "path": "data/answers-vectors.json",
+      "pond": "1.0.0",
+      "feature": "answers",
+      "roles": ["reader", "actor", "server"],
+      "copies": ["Tests/RelayCoreTests/Fixtures/answers-vectors.json"]
+    },
+    {
+      "path": "data/instructable-vectors.json",
+      "pond": "1.0.0",
+      "feature": "instructables",
+      "roles": ["writer", "server"],
+      "copies": ["Tests/RelayCoreTests/Fixtures/instructable-vectors.json"]
+    },
+    {
+      "path": "data/lint-vectors.json",
+      "pond": "1.0.0",
+      "feature": "lint",
+      "roles": ["writer", "server"],
+      "copies": ["clients/lint-vectors.json"]
+    },
+    {
+      "path": "data/blocking-vectors.json",
+      "pond": "1.0.0",
+      "feature": "blocking",
+      "roles": ["writer", "server"],
+      "copies": []
+    },
+    {
+      "path": "data/optional-vectors.json",
+      "pond": "1.0.0",
+      "feature": "optional",
+      "roles": ["writer", "server"],
+      "copies": []
+    },
+    {
+      "path": "data/questions-vectors.json",
+      "pond": "1.0.0",
+      "feature": "questions",
+      "roles": ["writer", "server"],
+      "copies": []
+    },
+    {
+      "path": "data/required-vectors.json",
+      "pond": "1.3.0",
+      "feature": "required-before-done",
+      "roles": ["writer", "server"],
+      "copies": []
+    },
+    {
+      "path": "data/substeps-vectors.json",
+      "pond": "1.0.0",
+      "feature": "substeps",
+      "roles": ["writer", "server"],
+      "copies": []
+    },
+    {
+      "path": "wire/choice-vectors.json",
+      "pond": "1.4.0",
+      "feature": "choices",
+      "roles": ["reader", "actor"],
+      "copies": ["Tests/RelayCoreTests/Fixtures/choice-vectors.json"]
+    },
+    {
+      "path": "wire/limits-vectors.json",
+      "pond": "1.4.0",
+      "feature": "long-text",
+      "roles": ["reader", "actor"],
+      "copies": ["Tests/RelayCoreTests/Fixtures/limits-vectors.json"]
+    },
+    {
+      "path": "wire/message-vectors.json",
+      "pond": "1.2.0",
+      "feature": "messages",
+      "roles": ["reader", "actor"],
+      "copies": ["Tests/RelayCoreTests/Fixtures/message-vectors.json"]
+    },
+    {
+      "path": "wire/requirements-vectors.json",
+      "pond": "1.3.0",
+      "feature": "required-before-done",
+      "roles": ["reader", "actor"],
+      "copies": ["Tests/RelayCoreTests/Fixtures/requirements-vectors.json"]
+    },
+    {
+      "path": "wire/bug-vectors.json",
+      "pond": "1.2.0",
+      "feature": "bug-reports",
+      "roles": ["server"],
+      "copies": []
+    }
+  ]
+}

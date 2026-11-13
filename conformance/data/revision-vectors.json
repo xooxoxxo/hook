@@ -1,0 +1,5068 @@
+{
+ "version": 1,
+ "cases": [
+  {
+   "name": "hash-rev1",
+   "kind": "hash",
+   "rev": 1,
+   "prev": "",
+   "at": "2026-10-29T10:00:00+00:00",
+   "reason": "",
+   "body": "{\"steps\":[{\"code\":\"make build\",\"do\":\"Build it\",\"id\":\"s1\"},{\"do\":\"Check the logs\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Open the dashboard\",\"id\":\"s2.1\"},{\"do\":\"Look for errors\",\"id\":\"s2.2\"}]},{\"code\":\"deploy --env X\",\"do\":\"Pick the target\",\"id\":\"s3\",\"question\":{\"choices\":[\"Staging\",\"Prod\"],\"prompt\":\"Env?\"}}],\"title\":\"Deploy the release\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://example.com\",\"do\":\"The site answers\"},\"why\":\"The release is tagged and waiting.\"}",
+   "hash": "f74cb2cc0193c97cfe6a3d59318d22b632ddb645e41a501738fa4683e3105716"
+  },
+  {
+   "name": "hash-rev2",
+   "kind": "hash",
+   "rev": 2,
+   "prev": "f74cb2cc0193c97cfe6a3d59318d22b632ddb645e41a501738fa4683e3105716",
+   "at": "2026-10-29T10:05:00+00:00",
+   "reason": "The deploy flag was wrong",
+   "body": "{\"steps\":[{\"code\":\"make build\",\"do\":\"Build it\",\"id\":\"s1\"},{\"do\":\"Check the logs\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Open the dashboard\",\"id\":\"s2.1\"},{\"do\":\"Look for errors\",\"id\":\"s2.2\"}]},{\"code\":\"deploy --env Y\",\"do\":\"Pick the target\",\"id\":\"s3\",\"question\":{\"choices\":[\"Staging\",\"Prod\"],\"prompt\":\"Env?\"}}],\"title\":\"Deploy the release\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://example.com\",\"do\":\"The site answers\"},\"why\":\"The release is tagged and waiting.\"}",
+   "hash": "147315353419026e3add60ee009e96402cf98af78ff6a3abd8572530918dd47c"
+  },
+  {
+   "name": "hash-minimal-body",
+   "kind": "hash",
+   "rev": 1,
+   "prev": "",
+   "at": "2026-10-29T10:00:00+00:00",
+   "reason": "",
+   "body": "{\"a\":1}",
+   "hash": "c3c04ee9b53a76aa2a65015063f2b53c94691d2d82e8558e425d806cd3c253cf"
+  },
+  {
+   "name": "hash-non-ascii-reason",
+   "kind": "hash",
+   "rev": 2,
+   "prev": "f74cb2cc0193c97cfe6a3d59318d22b632ddb645e41a501738fa4683e3105716",
+   "at": "2026-10-29T10:05:00+00:00",
+   "reason": "Düzeltme: port 8443 → 9443",
+   "body": "{\"title\":\"Gör\"}",
+   "hash": "f05c1d5b20f504c1f8d985a4107191d792cd7984f712778cf9aed3493aed385b"
+  },
+  {
+   "name": "hash-non-ascii-body",
+   "kind": "hash",
+   "rev": 1,
+   "prev": "",
+   "at": "2026-10-29T10:00:00+00:00",
+   "reason": "",
+   "body": "{\"steps\":[{\"do\":\"é\"}],\"title\":\"Café ☕ 日本\",\"v\":1}",
+   "hash": "eedf75a9d9a774d20aa0669af57500f369f7c0ab72f0657b208f7b4c45dbd882"
+  },
+  {
+   "name": "hash-slash-and-escapes",
+   "kind": "hash",
+   "rev": 1,
+   "prev": "",
+   "at": "2026-10-29T10:00:00+00:00",
+   "reason": "",
+   "body": "{\"code\":\"a/b \\\"q\\\" \\\\ \\n\\t\"}",
+   "hash": "e4df16c62db2c0f2b4345a25b61718ba4bcb777b032e46720126d3f3ea984b95"
+  },
+  {
+   "name": "hash-line-separator",
+   "kind": "hash",
+   "rev": 1,
+   "prev": "",
+   "at": "2026-10-29T10:00:00+00:00",
+   "reason": "",
+   "body": "{\"do\":\"a b c\"}",
+   "hash": "aa5ecd41122d8d87be13d7837d4e19818e0b768982a825c04bd15d8d466ace73"
+  },
+  {
+   "name": "hash-emoji-body",
+   "kind": "hash",
+   "rev": 3,
+   "prev": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+   "at": "2026-10-29T23:59:59+00:00",
+   "reason": "Emoji 👍🏽 fix",
+   "body": "{\"do\":\"👩‍💻\"}",
+   "hash": "cf72831eb1128a3844b36ad828a0cd3ded8c326f91bfa236f41e7c6c904b3954"
+  },
+  {
+   "name": "hash-rev11",
+   "kind": "hash",
+   "rev": 11,
+   "prev": "0000000000000000000000000000000000000000000000000000000000000000",
+   "at": "2026-10-29T10:05:00+00:00",
+   "reason": "The last correction",
+   "body": "{\"v\":1}",
+   "hash": "eb2d11ee48367a591ee21c5586d62831c601ed3c9cbf0bbc2f3a70555d8c38db"
+  },
+  {
+   "name": "hash-empty-body",
+   "kind": "hash",
+   "rev": 1,
+   "prev": "",
+   "at": "2026-10-29T10:00:00+00:00",
+   "reason": "",
+   "body": "",
+   "hash": "2d7e8a2c9fb21f31ab6cc7c8194c66e8ffe01924e34287448f1a95da4ef312b7"
+  },
+  {
+   "name": "canonical-sorted-keys",
+   "kind": "canonical",
+   "input": {
+    "b": 1,
+    "a": 2,
+    "c": 3
+   },
+   "body": "{\"a\":2,\"b\":1,\"c\":3}"
+  },
+  {
+   "name": "canonical-nested-key-order",
+   "kind": "canonical",
+   "input": {
+    "z": {
+     "b": [
+      1,
+      {
+       "d": 1,
+       "c": 2
+      }
+     ],
+     "a": null
+    },
+    "a": {
+     "y": true,
+     "x": false
+    }
+   },
+   "body": "{\"a\":{\"x\":false,\"y\":true},\"z\":{\"a\":null,\"b\":[1,{\"c\":2,\"d\":1}]}}"
+  },
+  {
+   "name": "canonical-array-order-kept",
+   "kind": "canonical",
+   "input": {
+    "list": [
+     3,
+     1,
+     2,
+     "b",
+     "a"
+    ]
+   },
+   "body": "{\"list\":[3,1,2,\"b\",\"a\"]}"
+  },
+  {
+   "name": "canonical-non-ascii-kept",
+   "kind": "canonical",
+   "input": {
+    "title": "Gör ölçü",
+    "why": "Café 日本"
+   },
+   "body": "{\"title\":\"Gör ölçü\",\"why\":\"Café 日本\"}"
+  },
+  {
+   "name": "canonical-slash-not-escaped",
+   "kind": "canonical",
+   "input": {
+    "url": "https://example.com/a/b?c=d&e=f"
+   },
+   "body": "{\"url\":\"https://example.com/a/b?c=d&e=f\"}"
+  },
+  {
+   "name": "canonical-quotes-and-backslashes",
+   "kind": "canonical",
+   "input": {
+    "code": "echo \"$HOME\" \\ done"
+   },
+   "body": "{\"code\":\"echo \\\"$HOME\\\" \\\\ done\"}"
+  },
+  {
+   "name": "canonical-control-escapes",
+   "kind": "canonical",
+   "input": {
+    "code": "a\nb\tc\r\u0001\u001f"
+   },
+   "body": "{\"code\":\"a\\nb\\tc\\r\\u0001\\u001f\"}"
+  },
+  {
+   "name": "canonical-line-separators-raw",
+   "kind": "canonical",
+   "input": {
+    "do": "a b c"
+   },
+   "body": "{\"do\":\"a b c\"}"
+  },
+  {
+   "name": "canonical-emoji-and-joiners",
+   "kind": "canonical",
+   "input": {
+    "do": "👩‍💻 ✔️ 🇹🇷"
+   },
+   "body": "{\"do\":\"👩‍💻 ✔️ 🇹🇷\"}"
+  },
+  {
+   "name": "canonical-numbers-and-literals",
+   "kind": "canonical",
+   "input": {
+    "n": 0,
+    "m": -12,
+    "big": 12345678901234,
+    "t": true,
+    "f": false,
+    "z": null
+   },
+   "body": "{\"big\":12345678901234,\"f\":false,\"m\":-12,\"n\":0,\"t\":true,\"z\":null}"
+  },
+  {
+   "name": "canonical-empty-containers",
+   "kind": "canonical",
+   "input": {
+    "a": {},
+    "b": [],
+    "c": ""
+   },
+   "body": "{\"a\":{},\"b\":[],\"c\":\"\"}"
+  },
+  {
+   "name": "canonical-instructable-with-ids",
+   "kind": "canonical",
+   "input": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "body": "{\"steps\":[{\"code\":\"make build\",\"do\":\"Build it\",\"id\":\"s1\"},{\"do\":\"Check the logs\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Open the dashboard\",\"id\":\"s2.1\"},{\"do\":\"Look for errors\",\"id\":\"s2.2\"}]},{\"code\":\"deploy --env X\",\"do\":\"Pick the target\",\"id\":\"s3\",\"question\":{\"choices\":[\"Staging\",\"Prod\"],\"prompt\":\"Env?\"}}],\"title\":\"Deploy the release\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://example.com\",\"do\":\"The site answers\"},\"why\":\"The release is tagged and waiting.\"}"
+  },
+  {
+   "name": "assign-none-given",
+   "kind": "assign",
+   "input": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard"
+       },
+       {
+        "do": "Look for errors"
+       }
+      ]
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      }
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "output": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "errors": []
+  },
+  {
+   "name": "assign-full-set-kept",
+   "kind": "assign",
+   "input": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "x0"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard"
+       },
+       {
+        "do": "Look for errors"
+       }
+      ],
+      "id": "x1"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "x2"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "output": null,
+   "errors": [
+    "steps: ids must be given for every step or for none"
+   ]
+  },
+  {
+   "name": "assign-partial-refused",
+   "kind": "assign",
+   "input": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "first"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard"
+       },
+       {
+        "do": "Look for errors"
+       }
+      ]
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      }
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "output": null,
+   "errors": [
+    "steps: ids must be given for every step or for none"
+   ]
+  },
+  {
+   "name": "assign-substep-missing-refused",
+   "kind": "assign",
+   "input": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "x0"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard"
+       },
+       {
+        "do": "Look for errors"
+       }
+      ],
+      "id": "x1"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "x2"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "output": null,
+   "errors": [
+    "steps: ids must be given for every step or for none"
+   ]
+  },
+  {
+   "name": "assign-twenty-steps",
+   "kind": "assign",
+   "input": {
+    "v": 1,
+    "title": "Twenty steps",
+    "steps": [
+     {
+      "do": "Step 1"
+     },
+     {
+      "do": "Step 2"
+     },
+     {
+      "do": "Step 3"
+     },
+     {
+      "do": "Step 4"
+     },
+     {
+      "do": "Step 5"
+     },
+     {
+      "do": "Step 6"
+     },
+     {
+      "do": "Step 7"
+     },
+     {
+      "do": "Step 8"
+     },
+     {
+      "do": "Step 9"
+     },
+     {
+      "do": "Step 10"
+     },
+     {
+      "do": "Step 11"
+     },
+     {
+      "do": "Step 12"
+     },
+     {
+      "do": "Step 13"
+     },
+     {
+      "do": "Step 14"
+     },
+     {
+      "do": "Step 15"
+     },
+     {
+      "do": "Step 16"
+     },
+     {
+      "do": "Step 17"
+     },
+     {
+      "do": "Step 18"
+     },
+     {
+      "do": "Step 19"
+     },
+     {
+      "do": "Step 20"
+     }
+    ]
+   },
+   "output": {
+    "v": 1,
+    "title": "Twenty steps",
+    "steps": [
+     {
+      "do": "Step 1",
+      "id": "s1"
+     },
+     {
+      "do": "Step 2",
+      "id": "s2"
+     },
+     {
+      "do": "Step 3",
+      "id": "s3"
+     },
+     {
+      "do": "Step 4",
+      "id": "s4"
+     },
+     {
+      "do": "Step 5",
+      "id": "s5"
+     },
+     {
+      "do": "Step 6",
+      "id": "s6"
+     },
+     {
+      "do": "Step 7",
+      "id": "s7"
+     },
+     {
+      "do": "Step 8",
+      "id": "s8"
+     },
+     {
+      "do": "Step 9",
+      "id": "s9"
+     },
+     {
+      "do": "Step 10",
+      "id": "s10"
+     },
+     {
+      "do": "Step 11",
+      "id": "s11"
+     },
+     {
+      "do": "Step 12",
+      "id": "s12"
+     },
+     {
+      "do": "Step 13",
+      "id": "s13"
+     },
+     {
+      "do": "Step 14",
+      "id": "s14"
+     },
+     {
+      "do": "Step 15",
+      "id": "s15"
+     },
+     {
+      "do": "Step 16",
+      "id": "s16"
+     },
+     {
+      "do": "Step 17",
+      "id": "s17"
+     },
+     {
+      "do": "Step 18",
+      "id": "s18"
+     },
+     {
+      "do": "Step 19",
+      "id": "s19"
+     },
+     {
+      "do": "Step 20",
+      "id": "s20"
+     }
+    ]
+   },
+   "errors": []
+  },
+  {
+   "name": "assign-verify-gets-none",
+   "kind": "assign",
+   "input": {
+    "v": 1,
+    "title": "One",
+    "steps": [
+     {
+      "do": "a"
+     }
+    ],
+    "verify": {
+     "do": "check"
+    }
+   },
+   "output": {
+    "v": 1,
+    "title": "One",
+    "steps": [
+     {
+      "do": "a",
+      "id": "s1"
+     }
+    ],
+    "verify": {
+     "do": "check"
+    }
+   },
+   "errors": []
+  },
+  {
+   "name": "assign-null-ids-are-absent",
+   "kind": "assign",
+   "input": {
+    "v": 1,
+    "title": "Nulls",
+    "steps": [
+     {
+      "do": "a",
+      "id": null
+     },
+     {
+      "do": "b"
+     }
+    ]
+   },
+   "output": {
+    "v": 1,
+    "title": "Nulls",
+    "steps": [
+     {
+      "do": "a",
+      "id": "s1"
+     },
+     {
+      "do": "b",
+      "id": "s2"
+     }
+    ]
+   },
+   "errors": []
+  },
+  {
+   "name": "amend-code-change",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "new": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env Y",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "usedIds": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 2,
+   "reason": "The deploy flag was wrong",
+   "output": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env Y",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "summary": {
+    "changed": [
+     {
+      "id": "s3",
+      "path": "3",
+      "fields": [
+       "code"
+      ]
+     }
+    ],
+    "added": [],
+    "removed": [],
+    "moved": [],
+    "top": []
+   },
+   "errors": []
+  },
+  {
+   "name": "amend-new-step-gets-rev-id",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "new": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Tag it"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "usedIds": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 2,
+   "reason": "A step was missing",
+   "output": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Tag it",
+      "id": "r2-1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "summary": {
+    "changed": [],
+    "added": [
+     {
+      "id": "r2-1",
+      "path": "2"
+     }
+    ],
+    "removed": [],
+    "moved": [
+     {
+      "id": "s2",
+      "from": "2",
+      "to": "3"
+     },
+     {
+      "id": "s2.1",
+      "from": "2.1",
+      "to": "3.1"
+     },
+     {
+      "id": "s2.2",
+      "from": "2.2",
+      "to": "3.2"
+     },
+     {
+      "id": "s3",
+      "from": "3",
+      "to": "4"
+     }
+    ],
+    "top": []
+   },
+   "errors": []
+  },
+  {
+   "name": "amend-two-new-steps",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "new": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     },
+     {
+      "do": "Tell the team"
+     },
+     {
+      "do": "Close"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "usedIds": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 2,
+   "reason": "Two steps were missing",
+   "output": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     },
+     {
+      "do": "Tell the team",
+      "id": "r2-1"
+     },
+     {
+      "do": "Close",
+      "id": "r2-2"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "summary": {
+    "changed": [],
+    "added": [
+     {
+      "id": "r2-1",
+      "path": "4"
+     },
+     {
+      "id": "r2-2",
+      "path": "5"
+     }
+    ],
+    "removed": [],
+    "moved": [],
+    "top": []
+   },
+   "errors": []
+  },
+  {
+   "name": "amend-new-id-skips-a-used-one",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     },
+     {
+      "do": "Old",
+      "id": "r3-1"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "new": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     },
+     {
+      "do": "Old",
+      "id": "r3-1"
+     },
+     {
+      "do": "New"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "usedIds": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3",
+    "r3-1"
+   ],
+   "rev": 3,
+   "reason": "Another step",
+   "output": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     },
+     {
+      "do": "Old",
+      "id": "r3-1"
+     },
+     {
+      "do": "New",
+      "id": "r3-2"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "summary": {
+    "changed": [],
+    "added": [
+     {
+      "id": "r3-2",
+      "path": "5"
+     }
+    ],
+    "removed": [],
+    "moved": [],
+    "top": []
+   },
+   "errors": []
+  },
+  {
+   "name": "amend-step-removed",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "new": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "usedIds": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 2,
+   "reason": "Already built",
+   "output": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "summary": {
+    "changed": [],
+    "added": [],
+    "removed": [
+     {
+      "id": "s1",
+      "path": "1"
+     }
+    ],
+    "moved": [
+     {
+      "id": "s2",
+      "from": "2",
+      "to": "1"
+     },
+     {
+      "id": "s2.1",
+      "from": "2.1",
+      "to": "1.1"
+     },
+     {
+      "id": "s2.2",
+      "from": "2.2",
+      "to": "1.2"
+     },
+     {
+      "id": "s3",
+      "from": "3",
+      "to": "2"
+     }
+    ],
+    "top": []
+   },
+   "errors": []
+  },
+  {
+   "name": "amend-steps-moved",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "new": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "usedIds": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 2,
+   "reason": "Wrong order",
+   "output": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "summary": {
+    "changed": [],
+    "added": [],
+    "removed": [],
+    "moved": [
+     {
+      "id": "s1",
+      "from": "1",
+      "to": "3"
+     },
+     {
+      "id": "s3",
+      "from": "3",
+      "to": "1"
+     }
+    ],
+    "top": []
+   },
+   "errors": []
+  },
+  {
+   "name": "amend-substep-list-changed",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "new": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "usedIds": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 2,
+   "reason": "One check is enough",
+   "output": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "summary": {
+    "changed": [
+     {
+      "id": "s2",
+      "path": "2",
+      "fields": [
+       "substeps"
+      ]
+     }
+    ],
+    "added": [],
+    "removed": [
+     {
+      "id": "s2.2",
+      "path": "2.2"
+     }
+    ],
+    "moved": [],
+    "top": []
+   },
+   "errors": []
+  },
+  {
+   "name": "amend-inside-a-substep",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "new": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1",
+        "where": "Grafana"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "usedIds": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 2,
+   "reason": "Name the dashboard",
+   "output": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1",
+        "where": "Grafana"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "summary": {
+    "changed": [
+     {
+      "id": "s2.1",
+      "path": "2.1",
+      "fields": [
+       "where"
+      ]
+     }
+    ],
+    "added": [],
+    "removed": [],
+    "moved": [],
+    "top": []
+   },
+   "errors": []
+  },
+  {
+   "name": "amend-question-changed",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "new": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod",
+        "Dev"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "usedIds": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 2,
+   "reason": "Dev is a target too",
+   "output": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod",
+        "Dev"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "summary": {
+    "changed": [
+     {
+      "id": "s3",
+      "path": "3",
+      "fields": [
+       "question"
+      ]
+     }
+    ],
+    "added": [],
+    "removed": [],
+    "moved": [],
+    "top": []
+   },
+   "errors": []
+  },
+  {
+   "name": "amend-top-keys",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "new": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "It is urgent now.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "Check again"
+    },
+    "links": [
+     {
+      "label": "Runbook",
+      "url": "https://example.com/rb"
+     }
+    ]
+   },
+   "usedIds": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 2,
+   "reason": "Better context",
+   "output": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "It is urgent now.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "Check again"
+    },
+    "links": [
+     {
+      "label": "Runbook",
+      "url": "https://example.com/rb"
+     }
+    ]
+   },
+   "summary": {
+    "changed": [],
+    "added": [],
+    "removed": [],
+    "moved": [],
+    "top": [
+     "why",
+     "verify",
+     "links"
+    ]
+   },
+   "errors": []
+  },
+  {
+   "name": "amend-several-fields",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "new": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1",
+      "expect": "build ok",
+      "lang": "sh",
+      "detail": "Takes a minute.",
+      "warning": "Uses the CI cache."
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "usedIds": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 2,
+   "reason": "More detail",
+   "output": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1",
+      "expect": "build ok",
+      "lang": "sh",
+      "detail": "Takes a minute.",
+      "warning": "Uses the CI cache."
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "summary": {
+    "changed": [
+     {
+      "id": "s1",
+      "path": "1",
+      "fields": [
+       "lang",
+       "expect",
+       "detail",
+       "warning"
+      ]
+     }
+    ],
+    "added": [],
+    "removed": [],
+    "moved": [],
+    "top": []
+   },
+   "errors": []
+  },
+  {
+   "name": "amend-from-filled-in",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    },
+    "from": {
+     "session": "0c1d2e3f-4a5b-4c6d-8e7f-001122334455",
+     "host": "studio",
+     "cwd": "~/code/app"
+    }
+   },
+   "new": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make all",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "usedIds": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 2,
+   "reason": "Build everything",
+   "output": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make all",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    },
+    "from": {
+     "session": "0c1d2e3f-4a5b-4c6d-8e7f-001122334455",
+     "host": "studio",
+     "cwd": "~/code/app"
+    }
+   },
+   "summary": {
+    "changed": [
+     {
+      "id": "s1",
+      "path": "1",
+      "fields": [
+       "code"
+      ]
+     }
+    ],
+    "added": [],
+    "removed": [],
+    "moved": [],
+    "top": []
+   },
+   "errors": []
+  },
+  {
+   "name": "amend-from-changed",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    },
+    "from": {
+     "session": "0c1d2e3f-4a5b-4c6d-8e7f-001122334455",
+     "host": "studio",
+     "cwd": "~/code/app"
+    }
+   },
+   "new": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    },
+    "from": {
+     "session": "0c1d2e3f-4a5b-4c6d-8e7f-001122334455",
+     "host": "other",
+     "cwd": "~/code/app"
+    }
+   },
+   "usedIds": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 2,
+   "reason": "Another host",
+   "output": null,
+   "summary": null,
+   "errors": [
+    "from: cannot change"
+   ]
+  },
+  {
+   "name": "amend-title-cannot-change",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "new": {
+    "v": 1,
+    "title": "Deploy it now",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "usedIds": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 2,
+   "reason": "Clearer",
+   "output": null,
+   "summary": null,
+   "errors": [
+    "title: cannot change"
+   ]
+  },
+  {
+   "name": "amend-urgency-cannot-change",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "new": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "now",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "usedIds": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 2,
+   "reason": "Sooner",
+   "output": null,
+   "summary": null,
+   "errors": [
+    "urgency: cannot change"
+   ]
+  },
+  {
+   "name": "amend-id-used-before",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "new": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "usedIds": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 3,
+   "reason": "Bring it back",
+   "output": null,
+   "summary": null,
+   "errors": [
+    "steps[0].id: used before"
+   ]
+  },
+  {
+   "name": "amend-id-duplicate",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "new": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s1"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "usedIds": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 2,
+   "reason": "Same id",
+   "output": null,
+   "summary": null,
+   "errors": [
+    "steps[1].id: duplicate"
+   ]
+  },
+  {
+   "name": "amend-id-bad-pattern",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "new": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "S1x"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "usedIds": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 2,
+   "reason": "Upper case",
+   "output": null,
+   "summary": null,
+   "errors": [
+    "steps[0].id: must match [a-z0-9][a-z0-9.-]{0,23}"
+   ]
+  },
+  {
+   "name": "amend-id-step-number",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "new": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "2"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "usedIds": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 2,
+   "reason": "A number",
+   "output": null,
+   "summary": null,
+   "errors": [
+    "steps[0].id: must not look like a step number"
+   ]
+  },
+  {
+   "name": "amend-reason-missing",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "new": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "usedIds": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 2,
+   "reason": "",
+   "output": null,
+   "summary": null,
+   "errors": [
+    "reason: missing"
+   ]
+  },
+  {
+   "name": "amend-reason-too-long",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "new": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "usedIds": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 2,
+   "reason": "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+   "output": null,
+   "summary": null,
+   "errors": [
+    "reason: too long"
+   ]
+  },
+  {
+   "name": "amend-reason-200",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "new": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "usedIds": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 2,
+   "reason": "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+   "output": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "summary": {
+    "changed": [
+     {
+      "id": "s1",
+      "path": "1",
+      "fields": [
+       "code"
+      ]
+     }
+    ],
+    "added": [],
+    "removed": [],
+    "moved": [],
+    "top": []
+   },
+   "errors": []
+  },
+  {
+   "name": "amend-reason-two-lines",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "new": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "usedIds": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 2,
+   "reason": "one\ntwo",
+   "output": null,
+   "summary": null,
+   "errors": [
+    "reason: must be a single line"
+   ]
+  },
+  {
+   "name": "amend-reason-hidden",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "new": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "usedIds": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 2,
+   "reason": "a‮b",
+   "output": null,
+   "summary": null,
+   "errors": [
+    "reason: contains hidden or control characters (U+202E)"
+   ]
+  },
+  {
+   "name": "amend-reason-secret",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "new": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "usedIds": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 2,
+   "reason": "use ghp_example now",
+   "output": null,
+   "summary": null,
+   "errors": [
+    "reason: secret-like value"
+   ]
+  },
+  {
+   "name": "amend-reason-not-string",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "new": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "usedIds": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 2,
+   "reason": 5,
+   "output": null,
+   "summary": null,
+   "errors": [
+    "reason: must be a string"
+   ]
+  },
+  {
+   "name": "amend-no-change",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "new": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "The release is tagged and waiting.",
+    "steps": [
+     {
+      "do": "Build it",
+      "code": "make build",
+      "id": "s1"
+     },
+     {
+      "do": "Check the logs",
+      "substeps": [
+       {
+        "do": "Open the dashboard",
+        "id": "s2.1"
+       },
+       {
+        "do": "Look for errors",
+        "id": "s2.2"
+       }
+      ],
+      "id": "s2"
+     },
+     {
+      "do": "Pick the target",
+      "code": "deploy --env X",
+      "question": {
+       "prompt": "Env?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      },
+      "id": "s3"
+     }
+    ],
+    "verify": {
+     "do": "The site answers",
+     "code": "curl -sI https://example.com"
+    }
+   },
+   "usedIds": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 2,
+   "reason": "Nothing really",
+   "output": null,
+   "summary": null,
+   "errors": [
+    "no change"
+   ]
+  },
+  {
+   "name": "answer-rev1-counted",
+   "kind": "answerRule",
+   "revisions": [
+    {
+     "rev": 1,
+     "body": "{\"steps\":[{\"code\":\"make build\",\"do\":\"Build it\",\"id\":\"s1\"},{\"do\":\"Check the logs\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Open the dashboard\",\"id\":\"s2.1\"},{\"do\":\"Look for errors\",\"id\":\"s2.2\"}]},{\"code\":\"deploy --env X\",\"do\":\"Pick the target\",\"id\":\"s3\",\"question\":{\"choices\":[\"Staging\",\"Prod\"],\"prompt\":\"Env?\"}}],\"title\":\"Deploy the release\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://example.com\",\"do\":\"The site answers\"},\"why\":\"The release is tagged and waiting.\"}"
+    }
+   ],
+   "inForce": 1,
+   "events": [
+    {
+     "seq": 1,
+     "kind": "answer",
+     "actor": "owner",
+     "at": "2026-10-29T11:00:01+00:00",
+     "text": "{\"step\":\"3\",\"picked\":[\"Prod\"]}",
+     "rev": null
+    }
+   ],
+   "counted": {
+    "s3": {
+     "step": "3",
+     "picked": [
+      "Prod"
+     ],
+     "id": "s3",
+     "at": "2026-10-29T11:00:01+00:00",
+     "seq": 1,
+     "rev": null
+    }
+   },
+   "earlier": {}
+  },
+  {
+   "name": "answer-rev1-explicit-rev",
+   "kind": "answerRule",
+   "revisions": [
+    {
+     "rev": 1,
+     "body": "{\"steps\":[{\"code\":\"make build\",\"do\":\"Build it\",\"id\":\"s1\"},{\"do\":\"Check the logs\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Open the dashboard\",\"id\":\"s2.1\"},{\"do\":\"Look for errors\",\"id\":\"s2.2\"}]},{\"code\":\"deploy --env X\",\"do\":\"Pick the target\",\"id\":\"s3\",\"question\":{\"choices\":[\"Staging\",\"Prod\"],\"prompt\":\"Env?\"}}],\"title\":\"Deploy the release\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://example.com\",\"do\":\"The site answers\"},\"why\":\"The release is tagged and waiting.\"}"
+    }
+   ],
+   "inForce": 1,
+   "events": [
+    {
+     "seq": 1,
+     "kind": "answer",
+     "actor": "owner",
+     "at": "2026-10-29T11:00:01+00:00",
+     "text": "{\"step\":\"3\",\"picked\":[\"Prod\"]}",
+     "rev": 1
+    }
+   ],
+   "counted": {
+    "s3": {
+     "step": "3",
+     "picked": [
+      "Prod"
+     ],
+     "id": "s3",
+     "at": "2026-10-29T11:00:01+00:00",
+     "seq": 1,
+     "rev": 1
+    }
+   },
+   "earlier": {}
+  },
+  {
+   "name": "answer-choices-changed-earlier",
+   "kind": "answerRule",
+   "revisions": [
+    {
+     "rev": 1,
+     "body": "{\"steps\":[{\"code\":\"make build\",\"do\":\"Build it\",\"id\":\"s1\"},{\"do\":\"Check the logs\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Open the dashboard\",\"id\":\"s2.1\"},{\"do\":\"Look for errors\",\"id\":\"s2.2\"}]},{\"code\":\"deploy --env X\",\"do\":\"Pick the target\",\"id\":\"s3\",\"question\":{\"choices\":[\"Staging\",\"Prod\"],\"prompt\":\"Env?\"}}],\"title\":\"Deploy the release\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://example.com\",\"do\":\"The site answers\"},\"why\":\"The release is tagged and waiting.\"}"
+    },
+    {
+     "rev": 2,
+     "body": "{\"steps\":[{\"code\":\"make build\",\"do\":\"Build it\",\"id\":\"s1\"},{\"do\":\"Check the logs\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Open the dashboard\",\"id\":\"s2.1\"},{\"do\":\"Look for errors\",\"id\":\"s2.2\"}]},{\"code\":\"deploy --env X\",\"do\":\"Pick the target\",\"id\":\"s3\",\"question\":{\"choices\":[\"Staging\",\"Prod\",\"Dev\"],\"prompt\":\"Env?\"}}],\"title\":\"Deploy the release\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://example.com\",\"do\":\"The site answers\"},\"why\":\"The release is tagged and waiting.\"}"
+    }
+   ],
+   "inForce": 2,
+   "events": [
+    {
+     "seq": 1,
+     "kind": "answer",
+     "actor": "owner",
+     "at": "2026-10-29T11:00:01+00:00",
+     "text": "{\"step\":\"3\",\"picked\":[\"Prod\"]}",
+     "rev": null
+    }
+   ],
+   "counted": {},
+   "earlier": {
+    "s3": {
+     "step": "3",
+     "picked": [
+      "Prod"
+     ],
+     "id": "s3",
+     "at": "2026-10-29T11:00:01+00:00",
+     "seq": 1,
+     "rev": null
+    }
+   }
+  },
+  {
+   "name": "answer-code-only-change-counted",
+   "kind": "answerRule",
+   "revisions": [
+    {
+     "rev": 1,
+     "body": "{\"steps\":[{\"code\":\"make build\",\"do\":\"Build it\",\"id\":\"s1\"},{\"do\":\"Check the logs\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Open the dashboard\",\"id\":\"s2.1\"},{\"do\":\"Look for errors\",\"id\":\"s2.2\"}]},{\"code\":\"deploy --env X\",\"do\":\"Pick the target\",\"id\":\"s3\",\"question\":{\"choices\":[\"Staging\",\"Prod\"],\"prompt\":\"Env?\"}}],\"title\":\"Deploy the release\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://example.com\",\"do\":\"The site answers\"},\"why\":\"The release is tagged and waiting.\"}"
+    },
+    {
+     "rev": 2,
+     "body": "{\"steps\":[{\"code\":\"make build\",\"do\":\"Build it\",\"id\":\"s1\"},{\"do\":\"Check the logs\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Open the dashboard\",\"id\":\"s2.1\"},{\"do\":\"Look for errors\",\"id\":\"s2.2\"}]},{\"code\":\"deploy --env Z\",\"do\":\"Pick the target\",\"id\":\"s3\",\"question\":{\"choices\":[\"Staging\",\"Prod\"],\"prompt\":\"Env?\"}}],\"title\":\"Deploy the release\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://example.com\",\"do\":\"The site answers\"},\"why\":\"The release is tagged and waiting.\"}"
+    }
+   ],
+   "inForce": 2,
+   "events": [
+    {
+     "seq": 1,
+     "kind": "answer",
+     "actor": "owner",
+     "at": "2026-10-29T11:00:01+00:00",
+     "text": "{\"step\":\"3\",\"picked\":[\"Prod\"]}",
+     "rev": null
+    }
+   ],
+   "counted": {
+    "s3": {
+     "step": "3",
+     "picked": [
+      "Prod"
+     ],
+     "id": "s3",
+     "at": "2026-10-29T11:00:01+00:00",
+     "seq": 1,
+     "rev": null
+    }
+   },
+   "earlier": {}
+  },
+  {
+   "name": "answer-follows-a-moved-step",
+   "kind": "answerRule",
+   "revisions": [
+    {
+     "rev": 1,
+     "body": "{\"steps\":[{\"code\":\"make build\",\"do\":\"Build it\",\"id\":\"s1\"},{\"do\":\"Check the logs\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Open the dashboard\",\"id\":\"s2.1\"},{\"do\":\"Look for errors\",\"id\":\"s2.2\"}]},{\"code\":\"deploy --env X\",\"do\":\"Pick the target\",\"id\":\"s3\",\"question\":{\"choices\":[\"Staging\",\"Prod\"],\"prompt\":\"Env?\"}}],\"title\":\"Deploy the release\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://example.com\",\"do\":\"The site answers\"},\"why\":\"The release is tagged and waiting.\"}"
+    },
+    {
+     "rev": 2,
+     "body": "{\"steps\":[{\"do\":\"New first step\",\"id\":\"r2-1\"},{\"code\":\"make build\",\"do\":\"Build it\",\"id\":\"s1\"},{\"do\":\"Check the logs\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Open the dashboard\",\"id\":\"s2.1\"},{\"do\":\"Look for errors\",\"id\":\"s2.2\"}]},{\"code\":\"deploy --env X\",\"do\":\"Pick the target\",\"id\":\"s3\",\"question\":{\"choices\":[\"Staging\",\"Prod\"],\"prompt\":\"Env?\"}}],\"title\":\"Deploy the release\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://example.com\",\"do\":\"The site answers\"},\"why\":\"The release is tagged and waiting.\"}"
+    }
+   ],
+   "inForce": 2,
+   "events": [
+    {
+     "seq": 1,
+     "kind": "answer",
+     "actor": "owner",
+     "at": "2026-10-29T11:00:01+00:00",
+     "text": "{\"step\":\"3\",\"picked\":[\"Prod\"]}",
+     "rev": 1
+    }
+   ],
+   "counted": {
+    "s3": {
+     "step": "3",
+     "picked": [
+      "Prod"
+     ],
+     "id": "s3",
+     "at": "2026-10-29T11:00:01+00:00",
+     "seq": 1,
+     "rev": 1
+    }
+   },
+   "earlier": {}
+  },
+  {
+   "name": "answer-by-id-after-a-move",
+   "kind": "answerRule",
+   "revisions": [
+    {
+     "rev": 1,
+     "body": "{\"steps\":[{\"code\":\"make build\",\"do\":\"Build it\",\"id\":\"s1\"},{\"do\":\"Check the logs\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Open the dashboard\",\"id\":\"s2.1\"},{\"do\":\"Look for errors\",\"id\":\"s2.2\"}]},{\"code\":\"deploy --env X\",\"do\":\"Pick the target\",\"id\":\"s3\",\"question\":{\"choices\":[\"Staging\",\"Prod\"],\"prompt\":\"Env?\"}}],\"title\":\"Deploy the release\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://example.com\",\"do\":\"The site answers\"},\"why\":\"The release is tagged and waiting.\"}"
+    },
+    {
+     "rev": 2,
+     "body": "{\"steps\":[{\"do\":\"New first step\",\"id\":\"r2-1\"},{\"code\":\"make build\",\"do\":\"Build it\",\"id\":\"s1\"},{\"do\":\"Check the logs\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Open the dashboard\",\"id\":\"s2.1\"},{\"do\":\"Look for errors\",\"id\":\"s2.2\"}]},{\"code\":\"deploy --env X\",\"do\":\"Pick the target\",\"id\":\"s3\",\"question\":{\"choices\":[\"Staging\",\"Prod\"],\"prompt\":\"Env?\"}}],\"title\":\"Deploy the release\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://example.com\",\"do\":\"The site answers\"},\"why\":\"The release is tagged and waiting.\"}"
+    }
+   ],
+   "inForce": 2,
+   "events": [
+    {
+     "seq": 1,
+     "kind": "answer",
+     "actor": "owner",
+     "at": "2026-10-29T11:00:01+00:00",
+     "text": "{\"step\":\"4\",\"id\":\"s3\",\"picked\":[\"Staging\"]}",
+     "rev": 2
+    }
+   ],
+   "counted": {
+    "s3": {
+     "step": "4",
+     "id": "s3",
+     "picked": [
+      "Staging"
+     ],
+     "at": "2026-10-29T11:00:01+00:00",
+     "seq": 1,
+     "rev": 2
+    }
+   },
+   "earlier": {}
+  },
+  {
+   "name": "answer-step-gone-earlier",
+   "kind": "answerRule",
+   "revisions": [
+    {
+     "rev": 1,
+     "body": "{\"steps\":[{\"code\":\"make build\",\"do\":\"Build it\",\"id\":\"s1\"},{\"do\":\"Check the logs\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Open the dashboard\",\"id\":\"s2.1\"},{\"do\":\"Look for errors\",\"id\":\"s2.2\"}]},{\"code\":\"deploy --env X\",\"do\":\"Pick the target\",\"id\":\"s3\",\"question\":{\"choices\":[\"Staging\",\"Prod\"],\"prompt\":\"Env?\"}}],\"title\":\"Deploy the release\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://example.com\",\"do\":\"The site answers\"},\"why\":\"The release is tagged and waiting.\"}"
+    },
+    {
+     "rev": 2,
+     "body": "{\"steps\":[{\"code\":\"make build\",\"do\":\"Build it\",\"id\":\"s1\"},{\"do\":\"Check the logs\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Open the dashboard\",\"id\":\"s2.1\"},{\"do\":\"Look for errors\",\"id\":\"s2.2\"}]}],\"title\":\"Deploy the release\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://example.com\",\"do\":\"The site answers\"},\"why\":\"The release is tagged and waiting.\"}"
+    }
+   ],
+   "inForce": 2,
+   "events": [
+    {
+     "seq": 1,
+     "kind": "answer",
+     "actor": "owner",
+     "at": "2026-10-29T11:00:01+00:00",
+     "text": "{\"step\":\"3\",\"picked\":[\"Prod\"]}",
+     "rev": 1
+    }
+   ],
+   "counted": {},
+   "earlier": {
+    "s3": {
+     "step": "3",
+     "picked": [
+      "Prod"
+     ],
+     "id": "s3",
+     "at": "2026-10-29T11:00:01+00:00",
+     "seq": 1,
+     "rev": 1
+    }
+   }
+  },
+  {
+   "name": "answer-accepted-still-rev1",
+   "kind": "answerRule",
+   "revisions": [
+    {
+     "rev": 1,
+     "body": "{\"steps\":[{\"code\":\"make build\",\"do\":\"Build it\",\"id\":\"s1\"},{\"do\":\"Check the logs\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Open the dashboard\",\"id\":\"s2.1\"},{\"do\":\"Look for errors\",\"id\":\"s2.2\"}]},{\"code\":\"deploy --env X\",\"do\":\"Pick the target\",\"id\":\"s3\",\"question\":{\"choices\":[\"Staging\",\"Prod\"],\"prompt\":\"Env?\"}}],\"title\":\"Deploy the release\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://example.com\",\"do\":\"The site answers\"},\"why\":\"The release is tagged and waiting.\"}"
+    },
+    {
+     "rev": 2,
+     "body": "{\"steps\":[{\"code\":\"make build\",\"do\":\"Build it\",\"id\":\"s1\"},{\"do\":\"Check the logs\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Open the dashboard\",\"id\":\"s2.1\"},{\"do\":\"Look for errors\",\"id\":\"s2.2\"}]},{\"code\":\"deploy --env X\",\"do\":\"Pick the target\",\"id\":\"s3\",\"question\":{\"choices\":[\"Staging\",\"Prod\",\"Dev\"],\"prompt\":\"Env?\"}}],\"title\":\"Deploy the release\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://example.com\",\"do\":\"The site answers\"},\"why\":\"The release is tagged and waiting.\"}"
+    }
+   ],
+   "inForce": 1,
+   "events": [
+    {
+     "seq": 1,
+     "kind": "answer",
+     "actor": "owner",
+     "at": "2026-10-29T11:00:01+00:00",
+     "text": "{\"step\":\"3\",\"picked\":[\"Prod\"]}",
+     "rev": 1
+    }
+   ],
+   "counted": {
+    "s3": {
+     "step": "3",
+     "picked": [
+      "Prod"
+     ],
+     "id": "s3",
+     "at": "2026-10-29T11:00:01+00:00",
+     "seq": 1,
+     "rev": 1
+    }
+   },
+   "earlier": {}
+  },
+  {
+   "name": "answer-latest-wins",
+   "kind": "answerRule",
+   "revisions": [
+    {
+     "rev": 1,
+     "body": "{\"steps\":[{\"code\":\"make build\",\"do\":\"Build it\",\"id\":\"s1\"},{\"do\":\"Check the logs\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Open the dashboard\",\"id\":\"s2.1\"},{\"do\":\"Look for errors\",\"id\":\"s2.2\"}]},{\"code\":\"deploy --env X\",\"do\":\"Pick the target\",\"id\":\"s3\",\"question\":{\"choices\":[\"Staging\",\"Prod\"],\"prompt\":\"Env?\"}}],\"title\":\"Deploy the release\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://example.com\",\"do\":\"The site answers\"},\"why\":\"The release is tagged and waiting.\"}"
+    }
+   ],
+   "inForce": 1,
+   "events": [
+    {
+     "seq": 1,
+     "kind": "answer",
+     "actor": "owner",
+     "at": "2026-10-29T11:00:01+00:00",
+     "text": "{\"step\":\"3\",\"picked\":[\"Prod\"]}",
+     "rev": null
+    },
+    {
+     "seq": 2,
+     "kind": "answer",
+     "actor": "owner",
+     "at": "2026-10-29T11:00:02+00:00",
+     "text": "{\"step\":\"3\",\"picked\":[\"Staging\"]}",
+     "rev": 1
+    }
+   ],
+   "counted": {
+    "s3": {
+     "step": "3",
+     "picked": [
+      "Staging"
+     ],
+     "id": "s3",
+     "at": "2026-10-29T11:00:02+00:00",
+     "seq": 2,
+     "rev": 1
+    }
+   },
+   "earlier": {}
+  },
+  {
+   "name": "answer-latest-wins-by-seq",
+   "kind": "answerRule",
+   "revisions": [
+    {
+     "rev": 1,
+     "body": "{\"steps\":[{\"code\":\"make build\",\"do\":\"Build it\",\"id\":\"s1\"},{\"do\":\"Check the logs\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Open the dashboard\",\"id\":\"s2.1\"},{\"do\":\"Look for errors\",\"id\":\"s2.2\"}]},{\"code\":\"deploy --env X\",\"do\":\"Pick the target\",\"id\":\"s3\",\"question\":{\"choices\":[\"Staging\",\"Prod\"],\"prompt\":\"Env?\"}}],\"title\":\"Deploy the release\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://example.com\",\"do\":\"The site answers\"},\"why\":\"The release is tagged and waiting.\"}"
+    }
+   ],
+   "inForce": 1,
+   "events": [
+    {
+     "seq": 5,
+     "kind": "answer",
+     "actor": "owner",
+     "at": "2026-10-29T11:00:05+00:00",
+     "text": "{\"step\":\"3\",\"picked\":[\"Staging\"]}",
+     "rev": 1
+    },
+    {
+     "seq": 2,
+     "kind": "answer",
+     "actor": "owner",
+     "at": "2026-10-29T11:00:02+00:00",
+     "text": "{\"step\":\"3\",\"picked\":[\"Prod\"]}",
+     "rev": 1
+    }
+   ],
+   "counted": {
+    "s3": {
+     "step": "3",
+     "picked": [
+      "Staging"
+     ],
+     "id": "s3",
+     "at": "2026-10-29T11:00:05+00:00",
+     "seq": 5,
+     "rev": 1
+    }
+   },
+   "earlier": {}
+  },
+  {
+   "name": "answer-reanswered-after-change",
+   "kind": "answerRule",
+   "revisions": [
+    {
+     "rev": 1,
+     "body": "{\"steps\":[{\"code\":\"make build\",\"do\":\"Build it\",\"id\":\"s1\"},{\"do\":\"Check the logs\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Open the dashboard\",\"id\":\"s2.1\"},{\"do\":\"Look for errors\",\"id\":\"s2.2\"}]},{\"code\":\"deploy --env X\",\"do\":\"Pick the target\",\"id\":\"s3\",\"question\":{\"choices\":[\"Staging\",\"Prod\"],\"prompt\":\"Env?\"}}],\"title\":\"Deploy the release\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://example.com\",\"do\":\"The site answers\"},\"why\":\"The release is tagged and waiting.\"}"
+    },
+    {
+     "rev": 2,
+     "body": "{\"steps\":[{\"code\":\"make build\",\"do\":\"Build it\",\"id\":\"s1\"},{\"do\":\"Check the logs\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Open the dashboard\",\"id\":\"s2.1\"},{\"do\":\"Look for errors\",\"id\":\"s2.2\"}]},{\"code\":\"deploy --env X\",\"do\":\"Pick the target\",\"id\":\"s3\",\"question\":{\"choices\":[\"Staging\",\"Prod\",\"Dev\"],\"prompt\":\"Env?\"}}],\"title\":\"Deploy the release\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://example.com\",\"do\":\"The site answers\"},\"why\":\"The release is tagged and waiting.\"}"
+    }
+   ],
+   "inForce": 2,
+   "events": [
+    {
+     "seq": 1,
+     "kind": "answer",
+     "actor": "owner",
+     "at": "2026-10-29T11:00:01+00:00",
+     "text": "{\"step\":\"3\",\"picked\":[\"Prod\"]}",
+     "rev": 1
+    },
+    {
+     "seq": 2,
+     "kind": "answer",
+     "actor": "owner",
+     "at": "2026-10-29T11:00:02+00:00",
+     "text": "{\"step\":\"3\",\"picked\":[\"Dev\"]}",
+     "rev": 2
+    }
+   ],
+   "counted": {
+    "s3": {
+     "step": "3",
+     "picked": [
+      "Dev"
+     ],
+     "id": "s3",
+     "at": "2026-10-29T11:00:02+00:00",
+     "seq": 2,
+     "rev": 2
+    }
+   },
+   "earlier": {}
+  },
+  {
+   "name": "answer-session-events-ignored",
+   "kind": "answerRule",
+   "revisions": [
+    {
+     "rev": 1,
+     "body": "{\"steps\":[{\"code\":\"make build\",\"do\":\"Build it\",\"id\":\"s1\"},{\"do\":\"Check the logs\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Open the dashboard\",\"id\":\"s2.1\"},{\"do\":\"Look for errors\",\"id\":\"s2.2\"}]},{\"code\":\"deploy --env X\",\"do\":\"Pick the target\",\"id\":\"s3\",\"question\":{\"choices\":[\"Staging\",\"Prod\"],\"prompt\":\"Env?\"}}],\"title\":\"Deploy the release\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://example.com\",\"do\":\"The site answers\"},\"why\":\"The release is tagged and waiting.\"}"
+    }
+   ],
+   "inForce": 1,
+   "events": [
+    {
+     "seq": 1,
+     "kind": "answer",
+     "actor": "session",
+     "at": "2026-10-29T11:00:01+00:00",
+     "text": "{\"step\":\"3\",\"picked\":[\"Prod\"]}",
+     "rev": 1
+    },
+    {
+     "seq": 2,
+     "kind": "reply",
+     "actor": "owner",
+     "at": "2026-10-29T11:00:02+00:00",
+     "text": "{\"step\":\"3\",\"picked\":[\"Prod\"]}",
+     "rev": 1
+    }
+   ],
+   "counted": {},
+   "earlier": {}
+  },
+  {
+   "name": "answer-unreadable-text-skipped",
+   "kind": "answerRule",
+   "revisions": [
+    {
+     "rev": 1,
+     "body": "{\"steps\":[{\"code\":\"make build\",\"do\":\"Build it\",\"id\":\"s1\"},{\"do\":\"Check the logs\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Open the dashboard\",\"id\":\"s2.1\"},{\"do\":\"Look for errors\",\"id\":\"s2.2\"}]},{\"code\":\"deploy --env X\",\"do\":\"Pick the target\",\"id\":\"s3\",\"question\":{\"choices\":[\"Staging\",\"Prod\"],\"prompt\":\"Env?\"}}],\"title\":\"Deploy the release\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://example.com\",\"do\":\"The site answers\"},\"why\":\"The release is tagged and waiting.\"}"
+    }
+   ],
+   "inForce": 1,
+   "events": [
+    {
+     "seq": 1,
+     "kind": "answer",
+     "actor": "owner",
+     "at": "t",
+     "text": "not json",
+     "rev": 1
+    }
+   ],
+   "counted": {},
+   "earlier": {}
+  },
+  {
+   "name": "answer-unknown-path-skipped",
+   "kind": "answerRule",
+   "revisions": [
+    {
+     "rev": 1,
+     "body": "{\"steps\":[{\"code\":\"make build\",\"do\":\"Build it\",\"id\":\"s1\"},{\"do\":\"Check the logs\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Open the dashboard\",\"id\":\"s2.1\"},{\"do\":\"Look for errors\",\"id\":\"s2.2\"}]},{\"code\":\"deploy --env X\",\"do\":\"Pick the target\",\"id\":\"s3\",\"question\":{\"choices\":[\"Staging\",\"Prod\"],\"prompt\":\"Env?\"}}],\"title\":\"Deploy the release\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://example.com\",\"do\":\"The site answers\"},\"why\":\"The release is tagged and waiting.\"}"
+    }
+   ],
+   "inForce": 1,
+   "events": [
+    {
+     "seq": 1,
+     "kind": "answer",
+     "actor": "owner",
+     "at": "2026-10-29T11:00:01+00:00",
+     "text": "{\"step\":\"9\",\"picked\":[\"Prod\"]}",
+     "rev": 1
+    }
+   ],
+   "counted": {},
+   "earlier": {}
+  },
+  {
+   "name": "answer-free-text",
+   "kind": "answerRule",
+   "revisions": [
+    {
+     "rev": 1,
+     "body": "{\"steps\":[{\"code\":\"make build\",\"do\":\"Build it\",\"id\":\"s1\",\"question\":{\"choices\":[],\"prompt\":\"Notes?\"}},{\"do\":\"Check the logs\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Open the dashboard\",\"id\":\"s2.1\"},{\"do\":\"Look for errors\",\"id\":\"s2.2\"}]},{\"code\":\"deploy --env X\",\"do\":\"Pick the target\",\"id\":\"s3\",\"question\":{\"choices\":[\"Staging\",\"Prod\"],\"prompt\":\"Env?\"}}],\"title\":\"Deploy the release\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://example.com\",\"do\":\"The site answers\"},\"why\":\"The release is tagged and waiting.\"}"
+    }
+   ],
+   "inForce": 1,
+   "events": [
+    {
+     "seq": 1,
+     "kind": "answer",
+     "actor": "owner",
+     "at": "2026-10-29T11:00:01+00:00",
+     "text": "{\"step\":\"1\",\"text\":\"All good\"}",
+     "rev": 1
+    },
+    {
+     "seq": 2,
+     "kind": "answer",
+     "actor": "owner",
+     "at": "2026-10-29T11:00:02+00:00",
+     "text": "{\"step\":\"3\",\"picked\":[\"Prod\"]}",
+     "rev": 1
+    }
+   ],
+   "counted": {
+    "s1": {
+     "step": "1",
+     "text": "All good",
+     "id": "s1",
+     "at": "2026-10-29T11:00:01+00:00",
+     "seq": 1,
+     "rev": 1
+    },
+    "s3": {
+     "step": "3",
+     "picked": [
+      "Prod"
+     ],
+     "id": "s3",
+     "at": "2026-10-29T11:00:02+00:00",
+     "seq": 2,
+     "rev": 1
+    }
+   },
+   "earlier": {}
+  },
+  {
+   "name": "enroll-1",
+   "kind": "enrollCode",
+   "id": "6f1c2d3e-4a5b-4c6d-8e7f-90a1b2c3d4e5",
+   "keyHash": "0f007385b6f9d4b7eeb2748605afe1a984a0a3bfa3f014d09e2a784ce9e5cd1a",
+   "code": "586039"
+  },
+  {
+   "name": "enroll-2",
+   "kind": "enrollCode",
+   "id": "00000000-0000-4000-8000-000000000000",
+   "keyHash": "d6a3cd20f8bcb2a965ff67a04716d64a575f64d2ec821eaf4ea6bfd28590065c",
+   "code": "854129"
+  },
+  {
+   "name": "enroll-3",
+   "kind": "enrollCode",
+   "id": "ffffffff-ffff-4fff-bfff-ffffffffffff",
+   "keyHash": "0000000000000000000000000000000000000000000000000000000000000000",
+   "code": "309549"
+  },
+  {
+   "name": "enroll-4",
+   "kind": "enrollCode",
+   "id": "6f1c2d3e-4a5b-4c6d-8e7f-90a1b2c3d4e5",
+   "keyHash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+   "code": "010322"
+  },
+  {
+   "name": "enroll-5",
+   "kind": "enrollCode",
+   "id": "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
+   "keyHash": "139600069f13860de3506b81126b09ed76e32b1bcac0e86e1134331f7687d887",
+   "code": "940207"
+  },
+  {
+   "name": "key-edit-key",
+   "kind": "keyHash",
+   "secret": "Zm9vYmFyYmF6cXV4cXV1eGNvcmdlZ3JhdWx0Z2FycGx5",
+   "hash": "d6a3cd20f8bcb2a965ff67a04716d64a575f64d2ec821eaf4ea6bfd28590065c"
+  },
+  {
+   "name": "key-owner-key",
+   "kind": "keyHash",
+   "secret": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+   "hash": "0f007385b6f9d4b7eeb2748605afe1a984a0a3bfa3f014d09e2a784ce9e5cd1a"
+  },
+  {
+   "name": "key-dashes-underscores",
+   "kind": "keyHash",
+   "secret": "-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-",
+   "hash": "139600069f13860de3506b81126b09ed76e32b1bcac0e86e1134331f7687d887"
+  },
+  {
+   "name": "key-short",
+   "kind": "keyHash",
+   "secret": "k",
+   "hash": "8254c329a92850f6d539dd376f4816ee2764517da5e0235514af433164480d7a"
+  },
+  {
+   "name": "key-non-ascii",
+   "kind": "keyHash",
+   "secret": "anahtar-ğüşiöç",
+   "hash": "858327a41f163c236874f3a7e328dd0582fe7095e60dafe305ce64a77df9d38f"
+  },
+  {
+   "name": "stub-with-from",
+   "kind": "stub",
+   "title": "Deploy the release",
+   "urgency": "today",
+   "from": {
+    "session": "0c1d2e3f-4a5b-4c6d-8e7f-001122334455",
+    "host": "studio",
+    "cwd": "~/code/app"
+   },
+   "output": {
+    "v": 1,
+    "title": "Deploy the release",
+    "urgency": "today",
+    "why": "This ask was corrected after it was posted. Update Hook to see the corrected steps; don't press Done here.",
+    "steps": [
+     {
+      "do": "Update Hook: menu bar › Check for Updates…",
+      "id": "s1"
+     }
+    ],
+    "from": {
+     "session": "0c1d2e3f-4a5b-4c6d-8e7f-001122334455",
+     "host": "studio",
+     "cwd": "~/code/app"
+    }
+   }
+  },
+  {
+   "name": "stub-without-from",
+   "kind": "stub",
+   "title": "Rotate the key",
+   "urgency": "now",
+   "from": null,
+   "output": {
+    "v": 1,
+    "title": "Rotate the key",
+    "urgency": "now",
+    "why": "This ask was corrected after it was posted. Update Hook to see the corrected steps; don't press Done here.",
+    "steps": [
+     {
+      "do": "Update Hook: menu bar › Check for Updates…",
+      "id": "s1"
+     }
+    ]
+   }
+  },
+  {
+   "name": "stub-whenever-non-ascii",
+   "kind": "stub",
+   "title": "Gör ölçü ☕",
+   "urgency": "whenever",
+   "from": {
+    "host": "studio"
+   },
+   "output": {
+    "v": 1,
+    "title": "Gör ölçü ☕",
+    "urgency": "whenever",
+    "why": "This ask was corrected after it was posted. Update Hook to see the corrected steps; don't press Done here.",
+    "steps": [
+     {
+      "do": "Update Hook: menu bar › Check for Updates…",
+      "id": "s1"
+     }
+    ],
+    "from": {
+     "host": "studio"
+    }
+   }
+  },
+  {
+   "name": "dup-top-level",
+   "kind": "duplicateKey",
+   "raw": "{\"v\":1,\"title\":\"a\",\"title\":\"b\",\"steps\":[{\"do\":\"x\"}]}",
+   "valid": false
+  },
+  {
+   "name": "dup-same-value",
+   "kind": "duplicateKey",
+   "raw": "{\"v\":1,\"v\":1,\"title\":\"a\",\"steps\":[{\"do\":\"x\"}]}",
+   "valid": false
+  },
+  {
+   "name": "dup-in-a-step",
+   "kind": "duplicateKey",
+   "raw": "{\"v\":1,\"title\":\"a\",\"steps\":[{\"do\":\"x\",\"code\":\"ls\",\"code\":\"rm -rf ~\"}]}",
+   "valid": false
+  },
+  {
+   "name": "dup-in-a-substep",
+   "kind": "duplicateKey",
+   "raw": "{\"v\":1,\"title\":\"a\",\"steps\":[{\"do\":\"x\",\"substeps\":[{\"do\":\"y\",\"do\":\"z\"}]}]}",
+   "valid": false
+  },
+  {
+   "name": "dup-step-id",
+   "kind": "duplicateKey",
+   "raw": "{\"v\":1,\"title\":\"a\",\"steps\":[{\"do\":\"x\",\"id\":\"s1\",\"id\":\"s2\"}]}",
+   "valid": false
+  },
+  {
+   "name": "dup-escaped-key",
+   "kind": "duplicateKey",
+   "raw": "{\"v\":1,\"title\":\"a\",\"\\u0074itle\":\"b\",\"steps\":[{\"do\":\"x\"}]}",
+   "valid": false
+  },
+  {
+   "name": "dup-in-verify",
+   "kind": "duplicateKey",
+   "raw": "{\"v\":1,\"title\":\"a\",\"steps\":[{\"do\":\"x\"}],\"verify\":{\"do\":\"c\",\"do\":\"d\"}}",
+   "valid": false
+  },
+  {
+   "name": "dup-null-and-value",
+   "kind": "duplicateKey",
+   "raw": "{\"v\":1,\"title\":\"a\",\"why\":null,\"why\":\"run it\",\"steps\":[{\"do\":\"x\"}]}",
+   "valid": false
+  }
+ ]
+}

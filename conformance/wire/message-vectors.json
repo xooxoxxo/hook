@@ -1,0 +1,647 @@
+{
+ "version": 1,
+ "pond": "1.2.0",
+ "source": "mailbox/tests/gen_pond_vectors.py, recorded from the Pond over loopback",
+ "format": "{name, note, request: {method, path, ownerKey, protocol, body}, response: {status, body}, binds?}\n\n`ownerKey` true sends an approved X-Hook-Owner-Key; `protocol` is the\nX-Hook-Protocol sent, or null for none (a 1.1.0 client or older). `binds` names\nthe item id the response carries ({\"bug1\": \"item.id\"}), and later paths and bodies\nuse it as {bug1}. In responses every item id is its {name} and every ISO-8601\ntimestamp is {time}; everything else is exactly what the Pond answers.",
+ "cases": [
+  {
+   "name": "message-ask",
+   "note": "the ask the messages go to",
+   "request": {
+    "method": "POST",
+    "path": "/asks",
+    "ownerKey": false,
+    "protocol": 5,
+    "body": {
+     "project": "Example",
+     "context": "personal",
+     "instructable": {
+      "v": 1,
+      "title": "Rotate the deploy key",
+      "urgency": "today",
+      "steps": [
+       {
+        "do": "Open the deploy settings"
+       },
+       {
+        "do": "Rotate the key",
+        "code": "deploy-key rotate"
+       }
+      ]
+     }
+    }
+   },
+   "response": {
+    "status": 201,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Rotate the deploy key",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "49146ed24389aed4",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "steps": [
+         {
+          "do": "Open the deploy settings",
+          "id": "s1"
+         },
+         {
+          "code": "deploy-key rotate",
+          "do": "Rotate the key",
+          "id": "s2"
+         }
+        ],
+        "title": "Rotate the deploy key",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "revision": {
+       "rev": 1,
+       "hash": "8d747e65b59da67d7192023d87109c97e2fa3f9f6934b6732d053d50aaff5ed3",
+       "prev": "",
+       "at": "{time}",
+       "reason": "",
+       "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\"},{\"code\":\"deploy-key rotate\",\"do\":\"Rotate the key\",\"id\":\"s2\"}],\"title\":\"Rotate the deploy key\",\"urgency\":\"today\",\"v\":1}",
+       "acceptedRev": 1
+      }
+     },
+     "revision": {
+      "rev": 1,
+      "hash": "8d747e65b59da67d7192023d87109c97e2fa3f9f6934b6732d053d50aaff5ed3"
+     },
+     "editable": false
+    }
+   },
+   "binds": {
+    "ask1": "item.id"
+   }
+  },
+  {
+   "name": "message-send",
+   "note": "a message: kept verbatim, multi-line, never an answer",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/reply",
+    "ownerKey": true,
+    "protocol": 5,
+    "body": {
+     "text": "Use the staging key first.\nThen prod.",
+     "kind": "message"
+    }
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Rotate the deploy key",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "49146ed24389aed4",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "v": 1,
+        "title": "Rotate the deploy key",
+        "urgency": "today",
+        "steps": [
+         {
+          "do": "Open the deploy settings",
+          "id": "s1"
+         },
+         {
+          "do": "Rotate the key",
+          "code": "deploy-key rotate",
+          "id": "s2"
+         }
+        ]
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null
+     }
+    }
+   }
+  },
+  {
+   "name": "message-reply-plain",
+   "note": "an older Hook's reply, no kind: unchanged",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/reply",
+    "ownerKey": false,
+    "protocol": null,
+    "body": {
+     "text": "Go ahead"
+    }
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Rotate the deploy key",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "49146ed24389aed4",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "v": 1,
+        "title": "Rotate the deploy key",
+        "urgency": "today",
+        "steps": [
+         {
+          "do": "Open the deploy settings",
+          "id": "s1"
+         },
+         {
+          "do": "Rotate the key",
+          "code": "deploy-key rotate",
+          "id": "s2"
+         }
+        ]
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null
+     }
+    }
+   }
+  },
+  {
+   "name": "message-reply-kind-reply",
+   "note": "kind reply is the same as no kind",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/reply",
+    "ownerKey": false,
+    "protocol": 5,
+    "body": {
+     "text": "Yes",
+     "kind": "reply"
+    }
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Rotate the deploy key",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "49146ed24389aed4",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "v": 1,
+        "title": "Rotate the deploy key",
+        "urgency": "today",
+        "steps": [
+         {
+          "do": "Open the deploy settings",
+          "id": "s1"
+         },
+         {
+          "do": "Rotate the key",
+          "code": "deploy-key rotate",
+          "id": "s2"
+         }
+        ]
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null
+     }
+    }
+   }
+  },
+  {
+   "name": "message-detail",
+   "note": "the message reaches the detail's events",
+   "request": {
+    "method": "GET",
+    "path": "/asks/{ask1}",
+    "ownerKey": false,
+    "protocol": 5,
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Rotate the deploy key",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "49146ed24389aed4",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "steps": [
+         {
+          "do": "Open the deploy settings",
+          "id": "s1"
+         },
+         {
+          "code": "deploy-key rotate",
+          "do": "Rotate the key",
+          "id": "s2"
+         }
+        ],
+        "title": "Rotate the deploy key",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "revision": {
+       "rev": 1,
+       "hash": "8d747e65b59da67d7192023d87109c97e2fa3f9f6934b6732d053d50aaff5ed3",
+       "prev": "",
+       "at": "{time}",
+       "reason": "",
+       "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\"},{\"code\":\"deploy-key rotate\",\"do\":\"Rotate the key\",\"id\":\"s2\"}],\"title\":\"Rotate the deploy key\",\"urgency\":\"today\",\"v\":1}",
+       "acceptedRev": 1
+      }
+     },
+     "events": [
+      {
+       "seq": 1,
+       "itemId": "{ask1}",
+       "kind": "posted",
+       "actor": "session",
+       "text": null,
+       "at": "{time}",
+       "rev": null,
+       "auth": null
+      },
+      {
+       "seq": 2,
+       "itemId": "{ask1}",
+       "kind": "message",
+       "actor": "owner",
+       "text": "Use the staging key first.\nThen prod.",
+       "at": "{time}",
+       "rev": 1,
+       "auth": "owner-key"
+      },
+      {
+       "seq": 3,
+       "itemId": "{ask1}",
+       "kind": "reply",
+       "actor": "owner",
+       "text": "Go ahead",
+       "at": "{time}",
+       "rev": null,
+       "auth": "token"
+      },
+      {
+       "seq": 4,
+       "itemId": "{ask1}",
+       "kind": "reply",
+       "actor": "owner",
+       "text": "Yes",
+       "at": "{time}",
+       "rev": null,
+       "auth": "token"
+      }
+     ],
+     "revisions": [
+      {
+       "rev": 1,
+       "hash": "8d747e65b59da67d7192023d87109c97e2fa3f9f6934b6732d053d50aaff5ed3",
+       "prev": "",
+       "at": "{time}",
+       "reason": "",
+       "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\"},{\"code\":\"deploy-key rotate\",\"do\":\"Rotate the key\",\"id\":\"s2\"}],\"title\":\"Rotate the deploy key\",\"urgency\":\"today\",\"v\":1}"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "message-events",
+   "note": "and the event stream",
+   "request": {
+    "method": "GET",
+    "path": "/events?after=0&limit=100",
+    "ownerKey": false,
+    "protocol": 5,
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "events": [
+      {
+       "seq": 1,
+       "itemId": "{ask1}",
+       "kind": "posted",
+       "actor": "session",
+       "text": null,
+       "at": "{time}",
+       "rev": null,
+       "auth": null
+      },
+      {
+       "seq": 2,
+       "itemId": "{ask1}",
+       "kind": "message",
+       "actor": "owner",
+       "text": "Use the staging key first.\nThen prod.",
+       "at": "{time}",
+       "rev": 1,
+       "auth": "owner-key"
+      },
+      {
+       "seq": 3,
+       "itemId": "{ask1}",
+       "kind": "reply",
+       "actor": "owner",
+       "text": "Go ahead",
+       "at": "{time}",
+       "rev": null,
+       "auth": "token"
+      },
+      {
+       "seq": 4,
+       "itemId": "{ask1}",
+       "kind": "reply",
+       "actor": "owner",
+       "text": "Yes",
+       "at": "{time}",
+       "rev": null,
+       "auth": "token"
+      }
+     ],
+     "next": 4
+    }
+   }
+  },
+  {
+   "name": "message-bad-kind",
+   "note": "kind is reply or message",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/reply",
+    "ownerKey": false,
+    "protocol": 5,
+    "body": {
+     "text": "x",
+     "kind": "note"
+    }
+   },
+   "response": {
+    "status": 400,
+    "body": {
+     "error": "invalid kind"
+    }
+   }
+  },
+  {
+   "name": "message-secret",
+   "note": "a secret-like text: field paths only, never echoed",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/reply",
+    "ownerKey": false,
+    "protocol": 5,
+    "body": {
+     "text": "the token is ghp_example",
+     "kind": "message"
+    }
+   },
+   "response": {
+    "status": 400,
+    "body": {
+     "error": "invalid message",
+     "details": [
+      "text: secret-like value"
+     ]
+    }
+   }
+  },
+  {
+   "name": "message-too-long",
+   "note": "1,000 characters at most",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/reply",
+    "ownerKey": false,
+    "protocol": 5,
+    "body": {
+     "text": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
+     "kind": "message"
+    }
+   },
+   "response": {
+    "status": 400,
+    "body": {
+     "error": "invalid message",
+     "details": [
+      "text: too long"
+     ]
+    }
+   }
+  },
+  {
+   "name": "message-blank",
+   "note": "no text",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/reply",
+    "ownerKey": false,
+    "protocol": 5,
+    "body": {
+     "text": "  ",
+     "kind": "message"
+    }
+   },
+   "response": {
+    "status": 400,
+    "body": {
+     "error": "missing text"
+    }
+   }
+  },
+  {
+   "name": "message-resolve",
+   "note": "the session closes the ask",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/resolve",
+    "ownerKey": false,
+    "protocol": 5,
+    "body": {
+     "verdict": "done"
+    }
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Rotate the deploy key",
+      "status": "done",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "49146ed24389aed4",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "steps": [
+         {
+          "do": "Open the deploy settings",
+          "id": "s1"
+         },
+         {
+          "code": "deploy-key rotate",
+          "do": "Rotate the key",
+          "id": "s2"
+         }
+        ],
+        "title": "Rotate the deploy key",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": "{time}",
+      "revision": {
+       "rev": 1,
+       "hash": "8d747e65b59da67d7192023d87109c97e2fa3f9f6934b6732d053d50aaff5ed3",
+       "prev": "",
+       "at": "{time}",
+       "reason": "",
+       "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\"},{\"code\":\"deploy-key rotate\",\"do\":\"Rotate the key\",\"id\":\"s2\"}],\"title\":\"Rotate the deploy key\",\"urgency\":\"today\",\"v\":1}",
+       "acceptedRev": 1
+      }
+     }
+    }
+   }
+  },
+  {
+   "name": "message-closed",
+   "note": "no message to a closed ask",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/reply",
+    "ownerKey": false,
+    "protocol": 5,
+    "body": {
+     "text": "One more thing",
+     "kind": "message"
+    }
+   },
+   "response": {
+    "status": 409,
+    "body": {
+     "error": "ask is closed"
+    }
+   }
+  }
+ ]
+}
