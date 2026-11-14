@@ -13,6 +13,9 @@ on:
       sha256:
         description: Approved ZIP SHA-256
         required: true
+      dmg_sha256:
+        description: Approved DMG SHA-256
+        required: true
       approval:
         description: Hook release approval ask UUID
         required: true
@@ -37,9 +40,10 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag }}
           RELEASE_COMMIT: ${{ inputs.commit }}
           RELEASE_SHA256: ${{ inputs.sha256 }}
+          RELEASE_DMG_SHA256: ${{ inputs.dmg_sha256 }}
           APPROVAL_ID: ${{ inputs.approval }}
           APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
         run: |
           python3 scripts/publish-release.py --tag "$RELEASE_TAG" \
-            --commit "$RELEASE_COMMIT" --sha256 "$RELEASE_SHA256" \
+            --commit "$RELEASE_COMMIT" --sha256 "$RELEASE_SHA256" --dmg-sha256 "$RELEASE_DMG_SHA256" \
             --team "$APPLE_TEAM_ID" --approval "$APPROVAL_ID"

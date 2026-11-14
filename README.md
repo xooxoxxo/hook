@@ -25,13 +25,19 @@ For people who run coding agents on a Mac and want one place to answer what thei
 
 You need macOS 14+ and Python 3.9+. Nothing is compiled on your Mac.
 
+1. Download `Hook-<version>.dmg` from the [latest release](https://github.com/xooxoxxo/hook/releases/latest). It is signed and notarized by Apple.
+2. Open it and drag Hook to Applications.
+3. Open Hook from Applications. At its first launch it installs the `relay` command, MCP server and skill to `~/.local/share/hook`, sets up the agents it finds, and opens its setup window. Hook then updates itself (Check for Updates…).
+
+Or install from Terminal:
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/xooxoxxo/hook/main/scripts/get.sh | bash
 ```
 
-It downloads the latest release, checks it against the release's `SHA256SUMS`, and installs Hook.app to `~/Applications` and the `relay` command, MCP server and skill to `~/.local/share/hook`, then sets up the agents it finds. Installer options go after `bash -s --`, for example `| bash -s -- --local`. Hook then updates itself (Check for Updates…).
+It downloads the latest release, checks it against the release's `SHA256SUMS`, and installs Hook.app to `~/Applications` and the rest as above. Installer options go after `bash -s --`, for example `| bash -s -- --local`. To build from source instead, see [development.md](docs/development.md#build-from-source).
 
-Use this command rather than downloading the zip in a browser: macOS blocks a browser download of a build that isn't notarized. To build from source instead, see [development.md](docs/development.md#build-from-source).
+Once Hook runs:
 
 1. Right-click the menu-bar icon and choose Settings… › Agents: each agent and what Hook set up in it. A step only you can do, such as trusting Hook's hook in Codex, arrives as an ask.
 2. In Settings › Queue, click Send a test ask. A badge appears on the menu-bar icon; open the ask and press Done.
