@@ -339,6 +339,8 @@ cat > "$T/fixture-app/Hook.app/Contents/Info.plist" <<PLIST
 PLIST
 printf '#!/bin/sh\nexit 0\n' > "$T/fixture-app/Hook.app/Contents/MacOS/Hook"
 chmod +x "$T/fixture-app/Hook.app/Contents/MacOS/Hook"
+mkdir -p "$T/fixture-app/Hook.app/Contents/Resources"
+"$REPO/scripts/bundle-support.sh" "$T/fixture-app/Hook.app/Contents/Resources/support" >/dev/null
 "$REPO/scripts/package-release.sh" --app "$T/fixture-app/Hook.app" --out "$REL/download/v$VERSION" >/dev/null
 cp "$REL/download/v$VERSION/"* "$REL/latest/download/"
 
@@ -497,6 +499,78 @@ called codex mcp add relay -- python3 "$HC/mcp/relay_mcp.py" || { calls; fail "t
 [ -f "$P/.claude/rules/hook.md" ] && [ -f "$P/.codex/AGENTS.md" ] || fail "the install after --uninstall did not install the instructions"
 [ "$(manifest_key "$P" removed)" = "None" ] || fail "the manifest still lists removed agents: $(manifest_key "$P" removed)"
 ok "an install after --uninstall sets the agents up again"
+
+# 26c. Hook's first launch (a DMG install): the app, dragged to another folder (/Applications
+#      on a real Mac), runs the get.sh it carries with HOOK_BUNDLE. Its payload goes to
+#      ~/.local/share/hook/<version>, the CLI links through current, the config is new with
+#      onboarding "pending" and appPath naming the app, the LaunchAgent opens it there, the
+#      agents are set up, and the app itself is neither changed nor copied to ~/Applications.
+FL="$T/fl-home"
+mkdir -p "$FL/.claude"
+DRAG="$T/fl-Applications/Hook.app"
+mkdir -p "$(dirname "$DRAG")"
+ditto "$T/fixture-app/Hook.app" "$DRAG"
+tree_sum() { (cd "$1" && find . -type f -exec shasum {} + | sort | shasum); }
+DRAG_BEFORE="$(tree_sum "$DRAG")"
+FC="$FL/.local/share/hook/current"
+: > "$FAKE_LOG"
+prun "$FL" env HOOK_BUNDLE="$DRAG" bash "$DRAG/Contents/Resources/support/scripts/get.sh" \
+  || { cat "$OUT"; fail "a first-launch install exited non-zero"; }
+[ "$(readlink "$FC")" = "$VERSION" ] || fail "current is $(readlink "$FC"), not $VERSION"
+[ -f "$FC/VERSION" ] && [ -f "$FC/scripts/install.sh" ] && [ -d "$FC/Hook.app" ] || fail "the payload is not in the version folder"
+grep -q "get: installing Hook $VERSION from $DRAG" "$OUT" || { cat "$OUT"; fail "the bundle install was not reported"; }
+if grep -q 'downloading' "$OUT"; then fail "a first-launch install downloaded"; fi
+grep -qx "app: $DRAG stays where it is" "$OUT" || { cat "$OUT"; fail "the running app was not left in place"; }
+[ ! -e "$FL/Applications/Hook.app" ] || fail "a first-launch install copied the app to ~/Applications"
+[ "$(tree_sum "$DRAG")" = "$DRAG_BEFORE" ] || fail "a first-launch install changed the running app"
+python3 - "$FL/.config/relay/config.json" "$FC" "$DRAG" <<'PY' || fail "config: $(cat "$FL/.config/relay/config.json")"
+import json, sys
+c = json.load(open(sys.argv[1]))
+sys.exit(0 if c == {"source": "local", "onboarding": "pending", "repoPath": sys.argv[2], "appPath": sys.argv[3]} else 1)
+PY
+FPLIST="$FL/Library/LaunchAgents/io.github.xooxoxxo.relay.plist"
+[ "$(plutil -extract ProgramArguments.2 raw "$FPLIST")" = "$DRAG" ] || fail "the LaunchAgent opens $(plutil -extract ProgramArguments.2 raw "$FPLIST")"
+[ "$(readlink "$FL/.local/bin/relay")" = "$FC/bin/relay" ] || fail "CLI link is $(readlink "$FL/.local/bin/relay")"
+grep -qx 'start: skipped (Hook is running; it started this install)' "$OUT" || { cat "$OUT"; fail "a first-launch install tried to start Hook"; }
+grep -qx 'integrations: sync --include-removed --no-asks' "$OUT" || { cat "$OUT"; fail "a first-launch install did not set up the agents"; }
+called codex mcp add relay -- python3 "$FC/mcp/relay_mcp.py" || { calls; fail "a first-launch install did not set up Codex"; }
+"$FL/.local/bin/relay" --version >/dev/null 2>&1 || fail "the linked CLI doesn't run"
+ok "first launch installs from the app's own payload and leaves the app in place"
+
+# 26d. An update after a first launch (get.sh with a release zip, as the updater runs it)
+#      replaces the app where the config's appPath says, not in ~/Applications.
+echo stale > "$DRAG/Contents/stale"
+prun "$FL" bash "$REPO/scripts/get.sh" || { cat "$OUT"; fail "an update after a first launch exited non-zero"; }
+grep -q "app: installed $DRAG" "$OUT" || { cat "$OUT"; fail "the update did not replace the app in place"; }
+[ ! -e "$DRAG/Contents/stale" ] || fail "the update kept the old app's files"
+[ ! -e "$FL/Applications/Hook.app" ] || fail "the update put a second copy in ~/Applications"
+python3 -c 'import json,sys; sys.exit(0 if json.load(open(sys.argv[1])).get("appPath")==sys.argv[2] else 1)' \
+  "$FL/.config/relay/config.json" "$DRAG" || fail "the update dropped appPath: $(cat "$FL/.config/relay/config.json")"
+# An appPath that no longer holds Hook falls back to ~/Applications, and is dropped.
+rm -rf "$DRAG"
+prun "$FL" bash "$REPO/scripts/get.sh" || { cat "$OUT"; fail "an update with a stale appPath exited non-zero"; }
+[ -d "$FL/Applications/Hook.app" ] || fail "a stale appPath did not fall back to ~/Applications"
+python3 -c 'import json,sys; sys.exit(1 if "appPath" in json.load(open(sys.argv[1])) else 0)' \
+  "$FL/.config/relay/config.json" || fail "a stale appPath was kept: $(cat "$FL/.config/relay/config.json")"
+ok "updates replace the app where it lives"
+
+# 26e. --in-place is refused without --app or --prebuilt, and for an app of another version.
+prun "$FL" "$FC/scripts/install.sh" --in-place && fail "--in-place ran without --app"
+grep -q 'needs --app' "$OUT" || { cat "$OUT"; fail "no reason for --in-place without --app"; }
+prun "$FL" "$INSTALL" --app "$FL/Applications/Hook.app" --in-place && fail "--in-place ran from a clone"
+grep -q 'needs --app and a release download' "$OUT" || { cat "$OUT"; fail "no reason for --in-place from a clone"; }
+OLDAPP="$T/fl-old/Hook.app"
+mkdir -p "$OLDAPP/Contents"
+sed "s#<string>$VERSION</string>#<string>0.0.1</string>#" "$T/fixture-app/Hook.app/Contents/Info.plist" > "$OLDAPP/Contents/Info.plist"
+prun "$FL" "$FC/scripts/install.sh" --prebuilt --app "$OLDAPP" --in-place && fail "--in-place ran for another version's app"
+grep -q 'is Hook 0.0.1, but this release is' "$OUT" || { cat "$OUT"; fail "no reason for another version's app"; }
+prun "$FL" "$FC/scripts/install.sh" --app relative/Hook.app && fail "a relative --app was accepted"
+grep -q 'needs the full path' "$OUT" || { cat "$OUT"; fail "no reason for a relative --app"; }
+status=0; prun "$FL" env HOOK_BUNDLE="$T/fl-old/Hook.app" HOOK_VERSION=9.9.9 bash "$REPO/scripts/get.sh" || status=$?
+[ "$status" = "3" ] && grep -q 'is Hook 0.0.1, not 9.9.9' "$OUT" || { cat "$OUT"; fail "a bundle of another version: status $status"; }
+status=0; prun "$FL" env HOOK_BUNDLE="$T/fl-old/Hook.app" bash "$REPO/scripts/get.sh" || status=$?
+[ "$status" = "3" ] && grep -q 'carries no support payload' "$OUT" || { cat "$OUT"; fail "a bundle without a payload: status $status"; }
+ok "--in-place and HOOK_BUNDLE refusals"
 
 # 27. Migration: an install from an older clone (~/relay) moves its links, MCP server and
 #     repoPath to current, and the clone stays, named as no longer used.

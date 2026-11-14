@@ -26,10 +26,10 @@ Check for Updates moves a developer checkout to the newest release tag (from `ma
 swift build && swift test                                   # RelayCore and RelayUI tests (Swift Testing)
 python3 -m unittest discover -s clients -p 'test_*.py' -v   # CLI and client
 python3 -m unittest discover -s mcp -p 'test_*.py' -v       # MCP server
-BUILD_ONLY=1 ./scripts/build.sh                             # assembles ./build/Hook.app, installs nothing
+BUILD_ONLY=1 ./scripts/build.sh                             # assembles ./build/Hook.app (with the support payload inside), installs nothing
 ./scripts/test-install.sh                                   # installer, in a sandbox HOME
 ./scripts/test-get.sh                                       # one-line installer, against fixture releases on file:// and a local http server
-./scripts/test-package.sh                                   # release zip, SHA256SUMS and release notes
+./scripts/test-package.sh                                   # release zip, DMG (where hdiutil runs), SHA256SUMS and release notes
 ./scripts/test-make-signing-cert.sh                         # the signing certificate script, uploads nothing
 ./scripts/smoke-local.sh                                    # This Mac only, end to end
 scripts/gallery.sh [scene…]                                 # renders the UI offscreen to build/gallery/
@@ -81,8 +81,8 @@ A pull request that changes `Sources/RelayUI/` attaches:
    - `<!-- hook:mailbox-protocol=N -->`: the old protocol level, read by 0.9.x updaters (see [Pond protocol](mailbox-protocol.md)).
 
    Before updating, Hook checks the connected Pond against them and offers to update the Pond first. `scripts/release-notes.sh X.Y.Z` prints the section, and fails without the markers.
-6. **Candidate approval and tag.** Get owner approval through Hook for the exact green commit before pushing its `vX.Y.Z` tag. The tag runs [Release](../.github/workflows/release.yml), which requires Developer ID signing, notarization and verification of the final ZIP. It creates a **draft**, never a public release. Existing drafts/assets are not overwritten on rerun.
-7. **Publication approval.** Inspect the draft, its `SHA256SUMS`, accepted `notary-result.json`, and clean-Mac/upgrade checks. Request a separate Hook release approval naming the full commit, version and ZIP checksum. After verifying the owner's current answer, dispatch [Publish approved release](../.github/workflows/publish-release.yml) with those values and the approval ask UUID. It downloads and checks the same draft bytes, then publishes without rebuilding. The UUID is an audit reference; the workflow cannot authenticate private Hook answers. Never dispatch without verifying the answer yourself.
+6. **Candidate approval and tag.** Get owner approval through Hook for the exact green commit before pushing its `vX.Y.Z` tag. The tag runs [Release](../.github/workflows/release.yml), which requires Developer ID signing, notarization and verification of the final ZIP and DMG. It creates a **draft**, never a public release. Existing drafts/assets are not overwritten on rerun.
+7. **Publication approval.** Inspect the draft, its `SHA256SUMS` (the ZIP's line, then the DMG's), the accepted `notary-result.json` (the app) and `notary-result-dmg.json` (the DMG), and clean-Mac/upgrade checks, including a DMG install: drag to `/Applications`, first launch, setup. Request a separate Hook release approval naming the full commit, version, and ZIP and DMG checksums. After verifying the owner's current answer, dispatch [Publish approved release](../.github/workflows/publish-release.yml) with those values (`sha256` the ZIP's, `dmg_sha256` the DMG's) and the approval ask UUID. It downloads and checks the same draft bytes, then publishes without rebuilding. The UUID is an audit reference; the workflow cannot authenticate private Hook answers. Never dispatch without verifying the answer yourself.
 8. **Recovery.** A failed candidate remains unpublished. Inspect the failure and get explicit recovery approval before removing a draft or retrying a tag. Never replace assets of a public release. Retain the previous app and data until the signed upgrade passes; never reset owner keys to resolve a signing prompt.
 
 ### Signing
@@ -90,6 +90,8 @@ A pull request that changes `Sources/RelayUI/` attaches:
 Production releases require repository secrets `MACOS_SIGN_P12` (base64 Developer ID Application identity with private key), `MACOS_SIGN_PASSWORD`, `APPLE_API_KEY` (base64 App Store Connect team API key), `APPLE_API_KEY_ID` and `APPLE_API_ISSUER_ID`. Set repository variables `APPLE_TEAM_ID` and `MACOS_SIGN_SHA1` (uppercase SHA-1 fingerprint of the intended certificate). No values belong in source, logs, issues or asks. Configure them through the owner's approved credential flow.
 
 The workflow selects that exact valid Developer ID Application identity, uses hardened runtime and a secure timestamp, requires accepted notarization, staples, and checks the extracted final app's identity, version, entitlements and Gatekeeper assessment. Missing settings or failed checks stop the release. Cleanup runs even after a partial import.
+
+The support payload (`scripts/bundle-support.sh`: the CLI, clients, MCP server, skill, schema, integration bundle and installer) sits inside the app at `Contents/Resources/support`, so the app's signature seals it and notarization covers it. None of it is Mach-O, so it needs no signature of its own; `test-package.sh` fails on a Mach-O file or a symlink there. The zip carries a copy of it beside the app as `support/`, where `get.sh` and earlier updaters look. `package-release.sh --dmg` then makes `Hook-X.Y.Z.dmg` from the stapled app: Hook.app and a link to `/Applications`. The workflow signs it (Developer ID, secure timestamp), notarizes and staples it, and rewrites `SHA256SUMS` with `package-release.sh --sums`. `verify-release.py --package` checks both files, the app inside each, and that `SHA256SUMS` lists exactly the ZIP, then the DMG.
 
 Ad-hoc and self-signed builds remain development-only. `scripts/make-signing-cert.sh` is not an Apple certificate enrollment tool. Locally, `SIGN_IDENTITY`, `SIGN_KEYCHAIN`, `HARDENED=1`, `BUILD_ONLY=1` and `UNIVERSAL=1` configure `scripts/build.sh` without installing. Run `python3 -m unittest discover -s scripts -p 'test_release_*.py' -v` for credential-free release refusal tests.
 
