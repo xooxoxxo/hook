@@ -1079,13 +1079,13 @@ private struct RequirementVectors {
     }
 }
 
-/// conformance/wire/append-vectors.json, recorded from Pond 1.9.0: every response decodes, and
+/// conformance/wire/append-wire-vectors.json, recorded from Pond 1.9.0: every response decodes, and
 /// every refusal maps to the QueueError Hook acts on. The acts Hook sends (detail, answers,
 /// Done) go through the client and must send what the transcript sent; the session's own calls
 /// (post, append) are only decoded.
 @Suite struct AppendWireReplayTests {
     static let file = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-        .deletingLastPathComponent().appending(path: "conformance/wire/append-vectors.json")
+        .deletingLastPathComponent().appending(path: "conformance/wire/append-wire-vectors.json")
     /// Every `{time}` in a response reads as this.
     static let time = "2026-11-03T09:00:10+00:00"
 
