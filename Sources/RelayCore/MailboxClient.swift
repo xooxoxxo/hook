@@ -437,10 +437,10 @@ public struct MailboxClient: QueueSource {
             do {
                 result = try await session.data(for: request, delegate: NoRedirectDelegate.shared)
             } catch let error as URLError {
-                // A TLS error's text names the host: the log gets the code only. A request
-                // cancelled by a source swap is no failure.
-                throw Transport(error: .unreachable(error.localizedDescription),
-                                logText: error.code == .cancelled ? nil : "request failed (URLError \(error.code.rawValue))")
+                // Retain safe underlying codes, never descriptions, URLs or userInfo
+                // text. A request cancelled by a source swap is no outage.
+                throw Transport(error: .unreachable(PondTransportDiagnostics.message(for: error)),
+                                logText: PondTransportDiagnostics.logMessage(for: error))
             } catch {
                 throw QueueError.unreachable("the request failed")
             }

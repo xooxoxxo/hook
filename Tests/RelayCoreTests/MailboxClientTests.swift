@@ -860,6 +860,68 @@ private struct MessageVectors {
         #expect(!lines.joined().contains(host))
     }
 
+    @Test func offlineFailureDoesNotDiagnoseTheWholeInternetAsOffline() async throws {
+        let (client, _) = try makeClient { _, _ in throw URLError(.notConnectedToInternet) }
+        do {
+            _ = try await client.list()
+            Issue.record("Expected a failed connection")
+        } catch let error as QueueError {
+            #expect(error == .unreachable("Couldn't reach Pond. Check your connection and, for a local Pond, Hook's Local Network access. Then try again."))
+        }
+    }
+
+    @Test func aNetworkConstraintAndUnderlyingCodesAreLoggedWithoutPrivateText() async throws {
+        let (client, _) = try makeClient { _, _ in
+            let posix = NSError(domain: NSPOSIXErrorDomain, code: 50,
+                                userInfo: [NSLocalizedDescriptionKey: "private-endpoint.test tok-example"])
+            throw URLError(.notConnectedToInternet, userInfo: [
+                NSURLErrorNetworkUnavailableReasonKey: URLError.NetworkUnavailableReason.constrained.rawValue,
+                NSUnderlyingErrorKey: NSError(domain: "kCFErrorDomainCFNetwork", code: -1009,
+                                             userInfo: [NSUnderlyingErrorKey: posix]),
+            ])
+        }
+        let lines = try await logged { _ = try await client.list() }
+        let line = try #require(lines.first)
+        #expect(lines.count == 1)
+        #expect(line.contains("network=constrained"))
+        #expect(line.contains("CFNetwork(-1009)"))
+        #expect(line.contains("POSIX(50)"))
+        #expect(!line.contains("private-endpoint") && !line.contains("tok-example"))
+    }
+
+    @Test func unknownErrorDomainsAndDescriptionsCannotBecomeLogText() async throws {
+        let (client, _) = try makeClient { _, _ in
+            throw URLError(.notConnectedToInternet, userInfo: [
+                NSUnderlyingErrorKey: NSError(domain: "https://private-endpoint.test/tok-example", code: -7,
+                                             userInfo: [NSLocalizedDescriptionKey: "a private reply"]),
+            ])
+        }
+        let lines = try await logged { _ = try await client.list() }
+        let line = try #require(lines.first)
+        #expect(line.contains("other(-7)"))
+        #expect(!line.contains("private-endpoint") && !line.contains("tok-example") && !line.contains("private reply"))
+    }
+
+    @Test func underlyingErrorTraversalIsBounded() async throws {
+        let (client, _) = try makeClient { _, _ in
+            var cause = NSError(domain: NSPOSIXErrorDomain, code: 99)
+            for code in (1...5).reversed() {
+                cause = NSError(domain: NSPOSIXErrorDomain, code: code, userInfo: [NSUnderlyingErrorKey: cause])
+            }
+            throw URLError(.notConnectedToInternet, userInfo: [NSUnderlyingErrorKey: cause])
+        }
+        let lines = try await logged { _ = try await client.list() }
+        let line = try #require(lines.first)
+        #expect(line.contains("POSIX(1)>POSIX(2)>POSIX(3)"))
+        #expect(!line.contains("POSIX(4)") && !line.contains("POSIX(99)"))
+    }
+
+    @Test func anAbandonedRequestDoesNotLogAnOutage() async throws {
+        let (client, _) = try makeClient { _, _ in throw URLError(.cancelled) }
+        let lines = try await logged { _ = try await client.list() }
+        #expect(lines.isEmpty)
+    }
+
     @Test func aRepeatedFailureIsWrittenOnceUntilACallSucceeds() async throws {
         let fail = OSAllocatedUnfairLock(initialState: true)
         let (client, _) = try makeClient { _, _ in

@@ -24,11 +24,15 @@ SIGNATURE = ('TeamIdentifier=' + TEAM + '\nAuthority=Developer ID Application: E
 
 
 class AppVerification(unittest.TestCase):
-    def exercise(self, signature=SIGNATURE, debug=False, failed_command=None):
+    def exercise(self, signature=SIGNATURE, debug=False, failed_command=None,
+                 local_network_usage='Hook connects to your Pond on the local network.'):
         with tempfile.TemporaryDirectory() as tmp:
             app = Path(tmp)
             (app / 'Contents').mkdir()
-            (app / 'Contents/Info.plist').write_bytes(plistlib.dumps({'CFBundleIdentifier': 'io.github.xooxoxxo.relay', 'CFBundleShortVersionString': '0.15.2', 'CFBundleVersion': '0.15.2'}))
+            info = {'CFBundleIdentifier': 'io.github.xooxoxxo.relay', 'CFBundleShortVersionString': '0.15.2', 'CFBundleVersion': '0.15.2'}
+            if local_network_usage is not None:
+                info['NSLocalNetworkUsageDescription'] = local_network_usage
+            (app / 'Contents/Info.plist').write_bytes(plistlib.dumps(info))
             def call(argv, **kwargs):
                 if failed_command and failed_command in argv:
                     raise subprocess.CalledProcessError(1, argv)
@@ -43,6 +47,11 @@ class AppVerification(unittest.TestCase):
         self.assertTrue(any('--strict' in c for c in calls))
         self.assertTrue(any('stapler' in c for c in calls))
         self.assertTrue(any('spctl' in c for c in calls))
+
+    def test_release_rejects_a_missing_or_unreadable_local_network_explanation(self):
+        for usage in (None, '', '   ', 15):
+            with self.subTest(usage=usage), self.assertRaisesRegex(ValueError, 'Local Network'):
+                self.exercise(local_network_usage=usage)
 
     def test_wrong_identity_runtime_timestamp_and_debug_rejected(self):
         for signature in (SIGNATURE.replace(TEAM.encode(), b'XXXXXXXXXX'), SIGNATURE.replace(b'Developer ID Application', b'Apple Development'), SIGNATURE.replace(b'runtime', b'none'), SIGNATURE.replace(b'Timestamp=', b'Unsigned=')):

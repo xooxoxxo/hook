@@ -28,6 +28,8 @@
     <true/>
     <key>NSAppleEventsUsageDescription</key>
     <string>Hook opens a new terminal window to resume a Claude Code session.</string>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>Hook connects to your Pond to show your asks and send your answers over your local network.</string>
     <key>CFBundleURLTypes</key>
     <array>
         <dict>

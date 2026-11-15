@@ -21,6 +21,9 @@ def verify_app(app, version, team):
         raise ValueError('Unexpected bundle identity')
     if info.get('CFBundleShortVersionString') != version or info.get('CFBundleVersion') != version:
         raise ValueError('Unexpected app version')
+    local_network_usage = info.get('NSLocalNetworkUsageDescription')
+    if not isinstance(local_network_usage, str) or not local_network_usage.strip():
+        raise ValueError('Local Network usage explanation missing')
     run('codesign', '--verify', '--deep', '--strict', str(app))
     # codesign writes display metadata to stderr, even on success.
     result = subprocess.run(['codesign', '-d', '--verbose=4', str(app)], check=True, capture_output=True)
