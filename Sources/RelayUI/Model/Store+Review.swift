@@ -423,11 +423,18 @@ extension Store {
         scheduleReviewSave()
     }
 
-    /// The connected Pond's version, from the version check. A change renders every ask again.
+    /// The connected Pond's version, from the version check, with no `features` list.
     public func setPond(_ version: PondVersion?) {
-        guard pond != version else { return }
+        setPondCapabilities(version.map { PondCapabilities(version: $0) })
+    }
+
+    /// The connected Pond's version and `features` list, from the version check. A change renders
+    /// every ask again.
+    public func setPondCapabilities(_ capabilities: PondCapabilities?) {
+        guard pondCapabilities != capabilities || pond != capabilities?.version else { return }
         objectWillChange.send()
-        pond = version
+        pondCapabilities = capabilities
+        pond = capabilities?.version
         let ids = Set(listed.map(\.id)).union(details.keys).union(recentlyClosed.map(\.id))
         holdingQueue { ids.forEach(rerender) }
         progressSupportChanged()

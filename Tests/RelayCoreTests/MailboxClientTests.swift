@@ -367,6 +367,16 @@ final class StatusLog: @unchecked Sendable {
         #expect(sent.request.value(forHTTPHeaderField: "Authorization") == "Bearer tok-example")
     }
 
+    @Test func versionReadsTheFeaturesList() async throws {
+        let (client, _) = try makeClient { _, _ in
+            (200, #"{"service":"pond","version":"1.9.0","protocol":5,"features":["appendSteps"]}"#)
+        }
+        let version = try await client.version()
+        #expect(version.features == ["appendSteps"])
+        #expect(version.capabilities.supports(.appendSteps))
+        #expect(MailboxVersion.legacy.features == nil)
+    }
+
     @Test func aMailboxWithoutVersionIsLevelOne() async throws {
         let (client, _) = try makeClient { _, _ in (404, #"{"error":"not found"}"#) }
         #expect(try await client.version() == .legacy)

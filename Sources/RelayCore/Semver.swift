@@ -261,6 +261,24 @@ public enum PondVersion: Equatable, Sendable {
     }
 }
 
+/// What a Pond can do: its version and the `features` list its `GET /version` sent (nil when
+/// it sent none). A `listedOnly` feature needs its name in the list; every other feature is
+/// read from the version.
+public struct PondCapabilities: Equatable, Sendable {
+    public var version: PondVersion
+    public var features: Set<String>?
+
+    public init(version: PondVersion, features: Set<String>? = nil) {
+        self.version = version
+        self.features = features
+    }
+
+    public func supports(_ feature: MailboxFeature) -> Bool {
+        if feature.listedOnly { return features?.contains(feature.rawValue) == true }
+        return version.supports(feature)
+    }
+}
+
 /// The Pond range this Hook needs, and what This Mac mode's built-in queue implements.
 public enum PondCompat {
     public static let required = "^1.1.0"

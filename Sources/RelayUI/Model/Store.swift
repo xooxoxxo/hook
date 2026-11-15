@@ -380,6 +380,8 @@ public enum LinkCheck: Equatable, Sendable {
     public internal(set) var pond: PondVersion? {
         didSet { if pond != nil { resumePondWaiters() } }
     }
+    /// The connected Pond's version and `features` list (MailboxCheck.capabilities); nil with `pond`.
+    public internal(set) var pondCapabilities: PondCapabilities?
     /// The review state each open ask's Notice was last posted for, so a poll doesn't repost it.
     var reviewNoticed: [String: ReviewState] = [:]
 
@@ -496,6 +498,7 @@ public enum LinkCheck: Equatable, Sendable {
         lastRendered = [:]
         reviewNoticed = [:]
         pond = nil
+        pondCapabilities = nil
         stateTimers.values.forEach { $0.cancel() }
         stateTimers = [:]
         notFoundID = nil

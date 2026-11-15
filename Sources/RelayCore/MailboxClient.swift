@@ -286,8 +286,8 @@ public struct MailboxClient: QueueSource {
             .map(\.item)
     }
 
-    /// `GET /version`: the Pond's version. A Pond from before `/version` answers 404, which
-    /// counts as protocol 1.
+    /// `GET /version`: the Pond's version and its `features` list. A Pond from before `/version`
+    /// answers 404, which counts as protocol 1 with no list.
     public func version() async throws -> MailboxVersion {
         do {
             return try await send("GET", "version", expected: [404])

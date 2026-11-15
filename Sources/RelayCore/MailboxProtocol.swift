@@ -24,6 +24,9 @@ public enum MailboxFeature: String, CaseIterable, Sendable, Comparable {
     case longText
     /// Shared progress on every ask (Hook iOS and Mac).
     case sharedProgress
+    /// `POST /asks/{id}/append`: steps added to the end of an open ask without a review lock.
+    /// Read from the Pond's `features` list only (`listedOnly`), never from its version.
+    case appendSteps
 
     /// The first Pond version that has the feature: everything up to the old protocol level 4
     /// is in 1.0.0.
@@ -35,14 +38,19 @@ public enum MailboxFeature: String, CaseIterable, Sendable, Comparable {
         case .requirements: return SemVer(major: 1, minor: 3, patch: 0)
         case .longText: return SemVer(major: 1, minor: 4, patch: 0)
         case .sharedProgress: return SemVer(major: 1, minor: 5, patch: 0)
+        // Only for ordering: `PondCapabilities.supports` reads the list for it.
+        case .appendSteps: return SemVer(major: 1, minor: 9, patch: 0)
         }
     }
+
+    /// The Pond has it only when its `GET /version` lists the raw value in `features`.
+    public var listedOnly: Bool { self == .appendSteps }
 
     /// Past what this Hook needs (`PondCompat.required`): Hook checks each one with
     /// `PondVersion.supports(_:)` and works without it, so the "older Pond" Notice never names it.
     public var gated: Bool {
         switch self {
-        case .bugs, .messages, .requirements, .longText, .sharedProgress: return true
+        case .bugs, .messages, .requirements, .longText, .sharedProgress, .appendSteps: return true
         case .answers, .blocking, .optional, .fileLinks, .corrections: return false
         }
     }
@@ -60,6 +68,7 @@ public enum MailboxFeature: String, CaseIterable, Sendable, Comparable {
         case .requirements: return "required steps before Done"
         case .longText: return "long messages and reports"
         case .sharedProgress: return "shared step ticks"
+        case .appendSteps: return "adding steps to an open ask"
         }
     }
 
@@ -99,7 +108,7 @@ public enum MailboxProtocol {
     }
 }
 
-/// `GET /version`'s reply: `{"service": "pond", "version": "1.1.0", "protocol": 5}`.
+/// `GET /version`'s reply: `{"service": "pond", "version": "1.9.0", "protocol": 5, "features": ["appendSteps"]}`.
 public struct MailboxVersion: Equatable, Sendable, Codable {
     public var service: String?
     /// The server's own version string: semver from Pond 1.0.0 on, dated before; nil for a
@@ -107,16 +116,20 @@ public struct MailboxVersion: Equatable, Sendable, Codable {
     public var version: String?
     /// `protocol`: kept by Pond 1.x for 0.9.x Hooks; new code reads `version` first.
     public var level: Int?
+    /// `features`: the named features the Pond has (Pond 1.8.0 on). nil when absent or not an
+    /// array; entries that aren't strings are skipped.
+    public var features: [String]?
 
     enum CodingKeys: String, CodingKey {
-        case service, version
+        case service, version, features
         case level = "protocol"
     }
 
-    public init(service: String? = nil, version: String? = nil, level: Int?) {
+    public init(service: String? = nil, version: String? = nil, level: Int?, features: [String]? = nil) {
         self.service = service
         self.version = version
         self.level = level
+        self.features = features
     }
 
     /// A Pond that answered 404: no `/version`, so protocol 1.
@@ -129,10 +142,14 @@ public struct MailboxVersion: Equatable, Sendable, Codable {
         level = c.lenient(Int.self, .level).flatMap { $0 >= 1 ? $0 : nil }
         service = c.lenient(String.self, .service)
         version = c.lenient(String.self, .version)
+        features = c.lenient([JSONValue].self, .features).map { $0.compactMap(\.stringValue) }
     }
 
     /// The Pond's version: semver when `version` is strict, else an old Pond by `protocol`.
     public var pond: PondVersion { .from(version: version, protocol: level) }
+
+    /// The version and the `features` list together, which every feature gate reads.
+    public var capabilities: PondCapabilities { PondCapabilities(version: pond, features: features.map(Set.init)) }
 }
 
 /// How a Pond's version fits the range this Hook needs.
@@ -177,6 +194,12 @@ public struct MailboxCheck: Equatable, Sendable {
     /// The Pond's version; nil when the check failed.
     public var pond: PondVersion? {
         if case .version(let version) = result { return version.pond }
+        return nil
+    }
+
+    /// The Pond's version and `features`; nil when the check failed.
+    public var capabilities: PondCapabilities? {
+        if case .version(let version) = result { return version.capabilities }
         return nil
     }
 
