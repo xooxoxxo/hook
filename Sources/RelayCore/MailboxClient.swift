@@ -34,6 +34,9 @@ struct ErrorBody: Decodable {
     let acceptedRev: Int?
     /// With "requirements_unmet" (Pond 1.3.0): what the owner's Done still waits for.
     let left: [PondRequirement]?
+    /// With "waiting_for_steps": when the wait ends, and the question's step path.
+    let until: String?
+    let path: String?
 }
 
 struct RequireResponse: Decodable {
@@ -361,6 +364,8 @@ public struct MailboxClient: QueueSource {
         case .ownerKeyRefused: return (403, "unknown owner key")
         case .askClosed: return (409, "ask is closed")
         case .requirementsUnmet: return (409, "requirements_unmet")
+        case .stepsAdded: return (409, "steps_added")
+        case .waitingForSteps: return (409, "waiting_for_steps")
         case .storeFailed: return (nil, "store failed")
         case .rejected(let status, let text, _):
             let phrase = text.range(of: "^[a-z][a-z ]{0,59}$", options: .regularExpression) != nil
@@ -469,6 +474,13 @@ public struct MailboxClient: QueueSource {
             }
             if http.statusCode == 409, body?.error == "requirements_unmet" {
                 throw QueueError.requirementsUnmet(left: body?.left ?? [])
+            }
+            if http.statusCode == 409, body?.error == "steps_added", let rev = body?.rev, let hash = body?.hash {
+                throw QueueError.stepsAdded(rev: rev, hash: hash)
+            }
+            if http.statusCode == 409, body?.error == "waiting_for_steps",
+               let until = body?.until.flatMap(Timestamp.date) {
+                throw QueueError.waitingForSteps(until: until)
             }
             if http.statusCode == 403, body?.error == "unknown owner key" {
                 throw QueueError.ownerKeyRefused

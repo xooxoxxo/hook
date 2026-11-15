@@ -1033,3 +1033,48 @@ private struct RequirementVectors {
         #expect(lines == [#"error type=Pond status=409 route=asks/{id}/resolve message="requirements_unmet""#])
     }
 }
+
+/// Steps added to an open ask: the owner's Done refused while the session adds steps, or bound to
+/// a revision the session has since added steps to.
+@Suite struct MailboxClientAppendTests {
+    @Test func stepsAddedMaps() async throws {
+        let body = #"{"error":"steps_added","rev":3,"hash":"abc123"}"#
+        let (client, _) = try makeClient { _, _ in (409, body) }
+        await #expect(throws: QueueError.stepsAdded(rev: 3, hash: "abc123")) {
+            try await client.resolve(askID, verdict: .done, note: nil, stamp: RevisionStamp(rev: 2, hash: "old"))
+        }
+        #expect(QueueError.stepsAdded(rev: 3, hash: "abc123").errorDescription
+            == "New steps were added. Open the ask to see them.")
+        #expect(MailboxClient.logged(.stepsAdded(rev: 3, hash: "x")) == (409, "steps_added"))
+        // Without rev and hash it is no steps_added.
+        let (bare, _) = try makeClient { _, _ in (409, #"{"error":"steps_added"}"#) }
+        await #expect(throws: QueueError.rejected(status: 409, error: "steps_added", details: [])) {
+            try await bare.resolve(askID, verdict: .done, note: nil, stamp: nil)
+        }
+    }
+
+    @Test func waitingForStepsMaps() async throws {
+        let body = #"{"error":"waiting_for_steps","until":"2026-11-14T10:12:00+00:00","path":"3"}"#
+        let (client, _) = try makeClient { _, _ in (409, body) }
+        let until = try #require(Timestamp.date("2026-11-14T10:12:00+00:00"))
+        await #expect(throws: QueueError.waitingForSteps(until: until)) {
+            try await client.resolve(askID, verdict: .done, note: nil, stamp: nil)
+        }
+        #expect(QueueError.waitingForSteps(until: until).errorDescription == "Waiting for next steps…")
+        #expect(MailboxClient.logged(.waitingForSteps(until: until)) == (409, "waiting_for_steps"))
+        let (bad, _) = try makeClient { _, _ in (409, #"{"error":"waiting_for_steps","until":"soon"}"#) }
+        await #expect(throws: QueueError.rejected(status: 409, error: "waiting_for_steps", details: [])) {
+            try await bad.resolve(askID, verdict: .done, note: nil, stamp: nil)
+        }
+    }
+
+    @Test func theItemCarriesThePondsStepWait() throws {
+        let json = #"{"id":"a","title":"T","status":"open","created":"2026-11-14T10:00:00+00:00","#
+            + #""updated":"2026-11-14T10:00:00+00:00","payload":{},"#
+            + #""stepWait":{"id":"s3","path":"3","until":"2026-11-14T10:12:00+00:00"}}"#
+        let item = try JSONDecoder().decode(WireItem.self, from: Data(json.utf8))
+        #expect(item.stepWait == ServedStepWait(id: "s3", path: "3", until: "2026-11-14T10:12:00+00:00"))
+        let odd = json.replacingOccurrences(of: #""path":"3""#, with: #""path":3"#)
+        #expect(try JSONDecoder().decode(WireItem.self, from: Data(odd.utf8)).stepWait == nil)
+    }
+}

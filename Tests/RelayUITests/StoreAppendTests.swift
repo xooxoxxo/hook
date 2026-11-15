@@ -176,3 +176,30 @@ import Testing
         #expect(store.appendMarkers("a").first?.addedTopLevel == 1)
     }
 }
+
+/// The owner's Done refused because the session added steps or may still add them: the words
+/// the plan gives, no Retry, and the detail fetched again.
+@Suite @MainActor struct StoreAppendDoneTests {
+    @Test(arguments: [(QueueError.stepsAdded(rev: 2, hash: "abc"), "New steps were added. Open the ask to see them."),
+                      (QueueError.waitingForSteps(until: fixedNow.addingTimeInterval(300)), "Waiting for next steps…")])
+    func aRefusedDoneSaysWhy(_ error: QueueError, _ words: String) async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let clock = TestClock()
+        let store = Store(defaults: defaults.defaults, now: { clock.now })
+        let fake = FakeQueueSource(items: [item("a", created: stamp(minutesAgo: 5), steps: 2)])
+        await start(store, fake)
+        await fake.failNext(error, on: "resolve")
+        store.close("a", .done)
+        let loads = await fake.count("get a")
+        clock.advance(11)
+        store.sendDue()
+        #expect(await eventually { store.notice == .deliveryFailed(reason: words) })
+        #expect(store.notice?.text == words)
+        #expect(store.notice?.actionTitle == nil)
+        #expect(store.items.map(\.id) == ["a"])
+        #expect(await eventually { await fake.count("get a") > loads })
+        try? await Task.sleep(for: .milliseconds(30))
+        #expect(await fake.count("resolve") == 1)
+    }
+}

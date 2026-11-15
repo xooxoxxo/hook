@@ -1390,6 +1390,16 @@ public enum LinkCheck: Equatable, Sendable {
                 await doneRefused(close, left: left, via: source, generation: gen)
                 return
             }
+            // The session added steps, or may still add them after an answer: the words say so,
+            // with no Retry, and the detail is fetched again to show them.
+            switch error as? QueueError {
+            case .stepsAdded?, .waitingForSteps?:
+                post(.deliveryFailed(reason: UserFacingError.text(error)))
+                await reload(close.id)
+                return
+            default:
+                break
+            }
             if deliveryPolicy == .phone, (error as? any WriteDeliveryFailure)?.mayRetryExplicitly != true {
                 post(.deliveryFailed(reason: Self.failureReason(error))); return
             }

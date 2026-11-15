@@ -104,7 +104,12 @@
             ]
           }
         },
-        "multi": { "type": "boolean", "default": false }
+        "multi": { "type": "boolean", "default": false },
+        "then": {
+          "type": "string",
+          "enum": ["steps"],
+          "description": "\"steps\": after the owner answers, Done waits up to 10 minutes for the session to add the next steps. Needs a Pond that lists appendSteps."
+        }
       }
     },
     "verify": {

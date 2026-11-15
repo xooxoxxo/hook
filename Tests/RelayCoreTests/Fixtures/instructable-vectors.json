@@ -7422,6 +7422,186 @@
    "pyBytes": 186
   },
   {
+   "name": "questions-valid-then-steps",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which environment?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ],
+       "then": "steps"
+      }
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which environment?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ],
+       "then": "steps"
+      }
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 181
+  },
+  {
+   "name": "questions-valid-then-on-substep",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Deploy",
+      "substeps": [
+       {
+        "do": "Choose where it goes",
+        "question": {
+         "prompt": "Which environment?",
+         "choices": [
+          "Staging",
+          "Prod"
+         ],
+         "then": "steps"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Deploy",
+      "substeps": [
+       {
+        "do": "Choose where it goes",
+        "question": {
+         "prompt": "Which environment?",
+         "choices": [
+          "Staging",
+          "Prod"
+         ],
+         "then": "steps"
+        }
+       }
+      ]
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 213
+  },
+  {
+   "name": "questions-then-other",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which environment?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ],
+       "then": "later"
+      }
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].question.then: must be \"steps\""
+   ],
+   "cleaned": null,
+   "pyBytes": 181
+  },
+  {
+   "name": "questions-then-not-string",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Choose where it goes",
+      "question": {
+       "prompt": "Which environment?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ],
+       "then": true
+      }
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].question.then: must be \"steps\""
+   ],
+   "cleaned": null,
+   "pyBytes": 178
+  },
+  {
+   "name": "questions-then-on-substep-other",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Pick the deploy target",
+    "steps": [
+     {
+      "do": "Deploy",
+      "substeps": [
+       {
+        "do": "Choose where it goes",
+        "question": {
+         "prompt": "Which environment?",
+         "choices": [
+          "Staging",
+          "Prod"
+         ],
+         "then": "Steps"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].substeps[0].question.then: must be \"steps\""
+   ],
+   "cleaned": null,
+   "pyBytes": 213
+  },
+  {
    "name": "questions-prompt-missing",
    "kind": "instructable",
    "input": {

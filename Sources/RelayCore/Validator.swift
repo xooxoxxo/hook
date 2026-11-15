@@ -35,7 +35,7 @@ public enum Validator {
     static let maxStepTotal = 60
     /// Questions on steps and sub-steps per instructable.
     static let maxQuestions = 20
-    static let questionKeys: Set<String> = ["prompt", "choices", "multi"]
+    static let questionKeys: Set<String> = ["prompt", "choices", "multi", "then"]
     static let replyKeys: Set<String> = ["prompt", "choices"]
     /// A choice object (Pond 1.4.0): a label and the placeholder of the owner's words.
     static let choiceKeys: Set<String> = ["label", "text"]
@@ -511,6 +511,9 @@ public enum Validator {
             if let count, count < 2 { errors.append("\(path).multi: needs at least 2 choices") }
         default:
             errors.append("\(path).multi: must be true or false")
+        }
+        if let then = present(question["then"]), then != .string(StepWait.thenSteps) {
+            errors.append("\(path).then: must be \"steps\"")
         }
     }
 
