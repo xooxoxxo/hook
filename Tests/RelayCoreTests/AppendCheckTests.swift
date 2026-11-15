@@ -23,7 +23,7 @@ private enum AppendVectors {
 }
 
 /// A body text read strictly, as a revision body is.
-private func raw(_ text: String) throws -> JSONValue { try RevisionBody.read(text).raw }
+private func raw(_ text: String) throws -> ExactJSON { try RevisionBody.read(text).raw }
 
 private func int(_ value: JSONValue?) -> Int? {
     if case .int(let number)? = value { return number }
@@ -211,12 +211,31 @@ private func ownerAnswer(at: String, kind: String = "answer", actor: String = "o
     @Test func isAppendNeedsObjectsWithStepArrays() throws {
         let one = try raw(body(["s1"]))
         #expect(!AppendCheck.isAppend(base: .array([]), next: one))
-        #expect(!AppendCheck.isAppend(base: one, next: .object(["steps": .string("x")])))
+        #expect(!AppendCheck.isAppend(base: one, next: .object([.init(key: "steps", value: .string("x"))])))
         // An old step's value changed type (1 to "1"): not an append.
         let number = try raw(#"{"steps":[{"do":"a","n":1}],"title":"T","v":1}"#)
         let text = try raw(#"{"steps":[{"do":"a","n":"1"},{"do":"b"}],"title":"T","v":1}"#)
         #expect(!AppendCheck.isAppend(base: number, next: text))
         let same = try raw(#"{ "v" : 1, "title":"T", "steps":[{"n":1, "do":"a"},{"do":"b"}]}"#)
         #expect(AppendCheck.isAppend(base: number, next: same))
+    }
+
+    /// Strict reading refuses an object whose keys are canonically equivalent (NFC and NFD
+    /// "é"), raw or escaped, so the exact key comparison never meets two keys it would merge.
+    @Test func canonicallyEquivalentKeysAreRefused() {
+        for text in ["{\"caf\u{e9}\":1,\"cafe\u{301}\":1,\"steps\":[],\"title\":\"T\",\"v\":1}",
+                     #"{"caf\u00e9":1,"cafe\u0301":1,"steps":[],"title":"T","v":1}"#] {
+            #expect(throws: RevisionBodyError.duplicateKey) { try RevisionBody.read(text) }
+        }
+    }
+
+    /// Numbers compare by their source text; escaped and raw strings by what they decode to.
+    @Test func numbersByTextStringsByScalars() throws {
+        let one = try raw(#"{"steps":[{"do":"a","n":1}],"title":"T","v":1}"#)
+        #expect(!AppendCheck.isAppend(base: one, next: try raw(#"{"steps":[{"do":"a","n":1.0},{"do":"b"}],"title":"T","v":1}"#)))
+        #expect(!AppendCheck.isAppend(base: one, next: try raw(#"{"steps":[{"do":"a","n":1e0},{"do":"b"}],"title":"T","v":1}"#)))
+        let escaped = try raw(#"{"steps":[{"do":"caf\u00e9"}],"title":"T","v":1}"#)
+        #expect(AppendCheck.isAppend(base: escaped, next: try raw("{\"steps\":[{\"do\":\"caf\u{e9}\"},{\"do\":\"b\"}],\"title\":\"T\",\"v\":1}")))
+        #expect(!AppendCheck.isAppend(base: escaped, next: try raw("{\"steps\":[{\"do\":\"cafe\u{301}\"},{\"do\":\"b\"}],\"title\":\"T\",\"v\":1}")))
     }
 }

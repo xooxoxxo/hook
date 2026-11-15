@@ -20,7 +20,9 @@ FORMAT = {
              'base.steps[i] as a JSON value for every i below base.steps.count (ids, sub-steps and '
              'unknown keys included); every top-level key other than steps is present in both or '
              'absent in both, with equal values. JSON value equality ignores key order and white '
-             'space. Bodies are compared as parsed JSON, never as decoded models. '
+             'space, and is exact: strings and object keys compare by code points (no Unicode '
+             'normalisation), numbers by their exact source text (1 and 1.0 differ), and a boolean '
+             'never equals a number. Bodies are compared as parsed JSON, never as decoded models. '
              'appendedSince(history, base): every revision from base + 1 to the newest is isAppend '
              'of the one before it.'),
     'check': ('{name, note, kind: "check", base, next, expect: {append}}. base and next are body '
@@ -61,20 +63,24 @@ def revision_hash(rev, prev, at, reason, body):
 
 # ---- the reference rule (a check on the hand-written table, not a source of truth) ----
 
+class Num(str):
+    """A JSON number kept as its source text: the rule compares numbers by text."""
+
+
+def _no_constant(name):
+    raise ValueError(f'not JSON: {name}')
+
+
 def json_equal(a, b):
-    """Exact JSON value equality: strings by code point (no normalisation), numbers by value
-    (1 == 1.0), a boolean never equal to a number, objects by key set and values."""
-    if isinstance(a, bool) or isinstance(b, bool):
-        return isinstance(a, bool) and isinstance(b, bool) and a == b
-    if isinstance(a, (int, float)) or isinstance(b, (int, float)):
-        return isinstance(a, (int, float)) and isinstance(b, (int, float)) and a == b
-    if isinstance(a, dict) or isinstance(b, dict):
-        return (isinstance(a, dict) and isinstance(b, dict) and set(a) == set(b)
-                and all(json_equal(a[k], b[k]) for k in a))
-    if isinstance(a, list) or isinstance(b, list):
-        return (isinstance(a, list) and isinstance(b, list) and len(a) == len(b)
-                and all(json_equal(x, y) for x, y in zip(a, b)))
-    return type(a) is type(b) and a == b
+    """Exact JSON value equality on values read by `strict`: strings and keys by code point (no
+    normalisation), numbers (Num) by their source text, a boolean never equal to a number."""
+    if type(a) is not type(b):
+        return False
+    if isinstance(a, dict):
+        return set(a) == set(b) and all(json_equal(a[k], b[k]) for k in a)
+    if isinstance(a, list):
+        return len(a) == len(b) and all(json_equal(x, y) for x, y in zip(a, b))
+    return a == b
 
 
 def is_append(base, nxt):
@@ -95,7 +101,7 @@ def strict(text):
                 raise ValueError('duplicate key')
             out[key] = value
         return out
-    return json.loads(text, object_pairs_hook=pairs)
+    return json.loads(text, object_pairs_hook=pairs, parse_int=Num, parse_float=Num, parse_constant=_no_constant)
 
 
 # ---- bodies ----
@@ -137,9 +143,29 @@ def edit(body, fn):
     return out
 
 
+class Literal(str):
+    """A JSON number to write exactly as this text (Python's json would round a float)."""
+
+
 def text(obj):
-    """A body as served: canonical, so each case differs from its base only where it says."""
-    return canonical(obj)
+    """A body as served: canonical, so each case differs from its base only where it says.
+    A Literal is written as its text, unquoted."""
+    literals = {}
+
+    def mark(value):
+        if isinstance(value, Literal):
+            token = f'@@number-{len(literals)}@@'
+            literals[token] = str(value)
+            return token
+        if isinstance(value, dict):
+            return {k: mark(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [mark(v) for v in value]
+        return value
+    out = canonical(mark(obj))
+    for token, number in literals.items():
+        out = out.replace(json.dumps(token), number)
+    return out
 
 
 def swap_steps(b):
@@ -209,13 +235,31 @@ CHECKS = [
      'and a step added: strings compare by code point, not by Unicode equivalence',
      edit(base_body(), set_key(lambda b: b['steps'][0], 'do', 'Open the caf\u00e9 settings')),
      edit(appended(base_body(), NEW_STEP), set_key(lambda b: b['steps'][0], 'do', 'Open the cafe\u0301 settings')), False),
+    ('old-step-key-normal-form-differs',
+     "an old step's unknown key caf\u00e9 (NFC) renamed to its NFD form, same value, and a step added: "
+     'keys compare by code point too',
+     edit(base_body(), set_key(lambda b: b['steps'][0], 'caf\u00e9', 'open')),
+     edit(appended(base_body(), NEW_STEP), set_key(lambda b: b['steps'][0], 'cafe\u0301', 'open')), False),
     ('old-step-bool-vs-int', "an old step's required: true becomes 1, and a step added: a boolean is never a number",
      edit(base_body(), set_key(lambda b: b['steps'][0], 'required', True)),
      edit(appended(base_body(), NEW_STEP), set_key(lambda b: b['steps'][0], 'required', 1)), False),
     ('old-step-int-vs-float', "an old step's unknown key rank is 1 in the base and 1.0 in the next, and a step "
-     'added: numbers compare by value, so only the spelling differs',
-     edit(base_body(), set_key(lambda b: b['steps'][0], 'rank', 1)),
-     edit(appended(base_body(), NEW_STEP), set_key(lambda b: b['steps'][0], 'rank', 1.0)), True),
+     'added: numbers compare by their exact text, so 1 and 1.0 differ',
+     edit(base_body(), set_key(lambda b: b['steps'][0], 'rank', Literal('1'))),
+     edit(appended(base_body(), NEW_STEP), set_key(lambda b: b['steps'][0], 'rank', Literal('1.0'))), False),
+    ('old-step-big-int-differs', "an old step's unknown key rank goes from 9007199254740993 to 9007199254740992 "
+     '(one double), and a step added: numbers never go through a double',
+     edit(base_body(), set_key(lambda b: b['steps'][0], 'rank', Literal('9007199254740993'))),
+     edit(appended(base_body(), NEW_STEP), set_key(lambda b: b['steps'][0], 'rank', Literal('9007199254740992'))), False),
+    ('old-step-long-decimal-differs', "an old step's unknown key rank goes from 0.10000000000000000001 to 0.1 "
+     '(one double), and a step added: numbers never go through a double',
+     edit(base_body(), set_key(lambda b: b['steps'][0], 'rank', Literal('0.10000000000000000001'))),
+     edit(appended(base_body(), NEW_STEP), set_key(lambda b: b['steps'][0], 'rank', Literal('0.1'))), False),
+    ('old-step-number-text-same', "an old step's unknown key rank is the same long number literal in both, and a "
+     'step added: the same text is the same number',
+     edit(base_body(), set_key(lambda b: b['steps'][0], 'rank', Literal('123456789012345678901234567890.000000000000000000001'))),
+     edit(appended(base_body(), NEW_STEP), set_key(lambda b: b['steps'][0], 'rank',
+                                                   Literal('123456789012345678901234567890.000000000000000000001'))), True),
 ]
 
 

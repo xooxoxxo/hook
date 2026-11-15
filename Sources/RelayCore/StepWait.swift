@@ -77,11 +77,24 @@ public struct StepWait: Equatable, Sendable {
             guard matches else { continue }
             let given = (picked: body["picked"] ?? .null, text: body["text"] ?? .null)
             let unchanged = value.map {
-                AppendCheck.same($0.picked, given.picked) && AppendCheck.same($0.text, given.text)
+                sameValue($0.picked, given.picked) && sameValue($0.text, given.text)
             } ?? false
             if newest == nil || !unchanged { newest = event }
             value = given
         }
         return newest
+    }
+
+    /// Python's == on the answer's values, as the Pond compares them: strings by Unicode
+    /// scalars, numbers by value.
+    private static func sameValue(_ a: JSONValue, _ b: JSONValue) -> Bool {
+        switch (a, b) {
+        case (.string(let x), .string(let y)): return x.unicodeScalars.elementsEqual(y.unicodeScalars)
+        case (.int(let x), .double(let y)), (.double(let y), .int(let x)): return Double(exactly: x) == y
+        case (.array(let x), .array(let y)): return x.count == y.count && zip(x, y).allSatisfy { sameValue($0, $1) }
+        case (.object(let x), .object(let y)):
+            return x.count == y.count && x.allSatisfy { key, value in y[key].map { sameValue(value, $0) } ?? false }
+        default: return a == b
+        }
     }
 }
