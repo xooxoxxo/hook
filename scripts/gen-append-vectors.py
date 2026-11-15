@@ -2,7 +2,7 @@
 """Write conformance/data/append-vectors.json: steps an agent adds to the end of its own open ask.
 
 The cases and their expectations are written by hand in the tables below. The script
-only fills in what follows from them: canonical bodies, revision hashes, assigned ids.
+only fills in what follows from them: canonical bodies and revision hashes.
 It also runs a small reference of the rule over every case and stops (exit 1) when the
 reference disagrees with a hand-written expectation, so a typo in the table can't ship.
 
@@ -284,24 +284,25 @@ def twenty_steps():
     return b
 
 
-# (name, note, current, used, rev, request, expect: ('ok', ids) or ('error', details))
+# (name, note, current, used, rev, request, expect) with expect, written by hand, either
+# ('ok', [(id, path)] of the added steps, {path: [sub-step ids]}) or ('error', details)
 APPENDS = [
     ('ids-assigned', 'two steps without ids at rev 3 get r3-1 and r3-2',
      current_rev2(), USED, 3,
      {'note': 'Two more checks after the answer', 'steps': [{'do': 'Delete the old key'}, {'do': 'Tell the team'}]},
-     ('ok', None)),
+     ('ok', [('r3-1', '3'), ('r3-2', '4')], {})),
     ('ids-given-kept', 'a step that brings an unused id keeps it; the next one is numbered',
      current_rev2(), USED, 3,
      {'note': 'One check and a heads-up', 'steps': [{'id': 'delete-old', 'do': 'Delete the old key'}, {'do': 'Tell the team'}]},
-     ('ok', None)),
+     ('ok', [('delete-old', '3'), ('r3-1', '4')], {})),
     ('ids-skip-taken', 'a given id r3-1 is taken, so the step without an id gets r3-2',
      current_rev2(), USED, 3,
      {'note': 'One check and a heads-up', 'steps': [{'id': 'r3-1', 'do': 'Delete the old key'}, {'do': 'Tell the team'}]},
-     ('ok', None)),
+     ('ok', [('r3-1', '3'), ('r3-2', '4')], {})),
     ('substep-ids-assigned', "a new step's sub-steps are numbered after it, in document order",
      current_rev2(), USED, 3,
      {'note': 'Clean up the old key', 'steps': [{'do': 'Clean up', 'substeps': [{'do': 'Delete the old key'}, {'do': 'Empty the bin'}]}]},
-     ('ok', None)),
+     ('ok', [('r3-1', '3')], {'3': ['r3-2', 'r3-3']})),
     ('id-used-before', 'the step brings id s3, which rev 1 used and the correction removed',
      current_rev2(), USED, 3,
      {'note': 'Bring the question back', 'steps': [{'id': 's3', 'do': 'Pick when the old key stops'}]},
@@ -317,7 +318,7 @@ APPENDS = [
     ('note-at-limit', 'the note is exactly 200 characters',
      current_rev2(), USED, 3,
      {'note': 'x' * 200, 'steps': [{'do': 'Delete the old key'}]},
-     ('ok', None)),
+     ('ok', [('r3-1', '3')], {})),
     ('secret-in-step', "a new step's code holds something shaped like a token",
      current_rev2(), USED, 3,
      {'note': 'Use the new key', 'steps': [{'do': 'Set the key', 'code': 'export DEPLOY_KEY=ghp_example'}]},
@@ -350,16 +351,34 @@ def assign(current, used, rev, steps):
     return new
 
 
-def build_append(current, used, rev, request, expect):
+def build_append(name, current, used, rev, request, expect, problems):
+    """The case's expect, from the hand-written row. The body is built from the row's ids;
+    assign() (the amendment numbering) must give the same ids, or the row is wrong."""
     if expect[0] == 'error':
         return dict(ERROR, details=expect[1])
-    steps = assign(current, used, rev, request['steps'])
-    body = appended(current, *steps)
+    _, added_rows, sub_rows = expect
+    if len(added_rows) != len(request['steps']):
+        problems.append(f'append {name}: the row lists {len(added_rows)} added steps, the request has {len(request["steps"])}')
+        return {}
+    steps = copy.deepcopy(request['steps'])
+    for step, (step_id, path) in zip(steps, added_rows):
+        step['id'] = step_id
+        subs = step.get('substeps', [])
+        sub_ids = sub_rows.get(path, [])
+        if len(sub_ids) != len(subs):
+            problems.append(f'append {name}: step {path} has {len(subs)} sub-steps, the row names {len(sub_ids)} ids')
+            return {}
+        for sub, sub_id in zip(subs, sub_ids):
+            sub['id'] = sub_id
     start = len(current['steps'])
-    added = [{'id': s['id'], 'path': str(start + i + 1)} for i, s in enumerate(steps)]
-    if not is_append(current, body):
-        raise SystemExit('reference: an ok append is not isAppend')
-    return {'ok': True, 'body': canonical(body), 'added': added}
+    for i, (_, path) in enumerate(added_rows):
+        if path != str(start + i + 1):
+            problems.append(f'append {name}: the row puts step {i + 1} at path {path}, the result at {start + i + 1}')
+    if steps != assign(current, used, rev, request['steps']):
+        problems.append(f'append {name}: the row\'s ids differ from the amendment numbering')
+    body = appended(current, *steps)
+    return {'ok': True, 'body': canonical(body),
+            'added': [{'id': step_id, 'path': path} for step_id, path in added_rows]}
 
 
 def main():
@@ -397,7 +416,7 @@ def main():
 
     for name, note, current, used, rev, request, expect in APPENDS:
         cases.append({'name': name, 'note': note, 'kind': 'append', 'current': current, 'used': used,
-                      'rev': rev, 'request': request, 'expect': build_append(current, used, rev, request, expect)})
+                      'rev': rev, 'request': request, 'expect': build_append(name, current, used, rev, request, expect, problems)})
 
     names = [c['name'] for c in cases]
     if len(set(names)) != len(names):
