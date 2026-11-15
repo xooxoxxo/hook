@@ -305,4 +305,65 @@ run bash < "$GET" || { cat "$OUT"; fail "2.0.3 exited non-zero"; }
 if grep -q 'syncing the agent integrations' "$OUT"; then fail "a successful install ran the rollback sync"; fi
 ok "a failed install's rollback syncs the integrations; the cleanup keeps plugins/"
 
+# 14. Since the DMG, a release's SHA256SUMS has two lines: the zip's, then the DMG's
+#     (package-release.sh --dmg). The newest release's version still comes from the zip's
+#     line alone, its hash is the one checked, and HOOK_VERSION and HOOK_ZIP work the same.
+#     A DMG line first, or one with a hash that doesn't match anything, changes nothing.
+with_dmg() {   # with_dmg <version> [dmg first]: adds a DMG and its line to that release
+  local v="$1" d="$REL/download/v$1"
+  printf 'not really a disk image\n' > "$d/Hook-$v.dmg"
+  if [ -n "${2:-}" ]; then
+    (cd "$d" && shasum -a 256 "Hook-$v.dmg" "Hook-$v.zip" > SHA256SUMS)
+  else
+    (cd "$d" && shasum -a 256 "Hook-$v.zip" "Hook-$v.dmg" > SHA256SUMS)
+  fi
+  rm -f "$REL/latest/download/"*
+  cp "$d/"* "$REL/latest/download/"
+}
+rm -rf "$HH"
+release 3.0.0
+with_dmg 3.0.0
+[ "$(wc -l < "$REL/download/v3.0.0/SHA256SUMS" | tr -d ' ')" = "2" ] || fail "test setup: SHA256SUMS is not two lines"
+run bash < "$GET" || { cat "$OUT"; fail "a two-line SHA256SUMS exited non-zero"; }
+[ "$(current)" = "3.0.0" ] || { cat "$OUT"; fail "a two-line SHA256SUMS installed $(current), not 3.0.0"; }
+grep -q 'Hook-3.0.0.zip matches SHA256SUMS' "$OUT" || { cat "$OUT"; fail "the zip's line was not the one checked"; }
+release 3.0.1
+with_dmg 3.0.1 first
+run env HOOK_VERSION=3.0.1 bash < "$GET" || { cat "$OUT"; fail "HOOK_VERSION with the DMG's line first exited non-zero"; }
+[ "$(current)" = "3.0.1" ] || fail "the DMG's line first installed $(current)"
+run bash < "$GET" || { cat "$OUT"; fail "the newest release with the DMG's line first exited non-zero"; }
+[ "$(current)" = "3.0.1" ] || fail "the newest release with the DMG's line first installed $(current)"
+mkdir -p "$T/dl2"
+cp "$REL/download/v3.0.1/"* "$T/dl2/"
+run env HOOK_RELEASES_URL="file://$T/nowhere" HOOK_VERSION=3.0.1 HOOK_ZIP="$T/dl2/Hook-3.0.1.zip" \
+  HOOK_SUMS="$T/dl2/SHA256SUMS" bash < "$GET" || { cat "$OUT"; fail "HOOK_ZIP with a two-line SHA256SUMS exited non-zero"; }
+# A zip that changed still fails with the DMG's line beside it.
+release 3.0.2
+with_dmg 3.0.2
+printf 'x' >> "$REL/download/v3.0.2/Hook-3.0.2.zip"
+cp "$REL/download/v3.0.2/Hook-3.0.2.zip" "$REL/latest/download/"
+status=0; run bash < "$GET" || status=$?
+[ "$status" = "3" ] && grep -q 'Hook-3.0.2.zip does not match SHA256SUMS' "$OUT" || { cat "$OUT"; fail "a changed zip beside a DMG line: status $status"; }
+[ "$(current)" = "3.0.1" ] || fail "a refused release moved current to $(current)"
+# Two zip lines (never made by package-release.sh) are still refused for the newest release.
+(cd "$REL/latest/download" && printf '%s  Hook-9.0.0.zip\n' "$(printf '0%.0s' $(seq 64))" >> SHA256SUMS)
+status=0; run bash < "$GET" || status=$?
+[ "$status" = "3" ] && grep -q "doesn't name one Hook zip" "$OUT" || { cat "$OUT"; fail "two zip lines: status $status"; }
+ok "a SHA256SUMS listing the zip and the DMG"
+
+# 15. HOOK_BUNDLE goes with nothing to download: not with HOOK_ZIP, and only for a folder.
+status=0; run env HOOK_BUNDLE="$T/stage-3.0.1/Hook.app" HOOK_VERSION=3.0.1 HOOK_ZIP="$T/dl2/Hook-3.0.1.zip" HOOK_SUMS="$T/dl2/SHA256SUMS" bash < "$GET" || status=$?
+[ "$status" = "1" ] && grep -q 'choose one of HOOK_BUNDLE and HOOK_ZIP' "$OUT" || { cat "$OUT"; fail "HOOK_BUNDLE with HOOK_ZIP: status $status"; }
+status=0; run env HOOK_BUNDLE="$T/no-such/Hook.app" bash < "$GET" || status=$?
+[ "$status" = "1" ] && grep -q 'is not a folder' "$OUT" || { cat "$OUT"; fail "HOOK_BUNDLE without a folder: status $status"; }
+# An app that carries its payload installs from it, passing --app and --in-place first.
+mkdir -p "$T/dragged"
+ditto "$T/stage-3.0.1/Hook.app" "$T/dragged/Hook.app"
+ditto "$T/stage-3.0.1/support" "$T/dragged/Hook.app/Contents/Resources/support"
+run env HOOK_BUNDLE="$T/dragged/Hook.app" bash < "$GET" -s -- --local || { cat "$OUT"; fail "a HOOK_BUNDLE install exited non-zero"; }
+grep -qx "install-stub 3.0.1 in:$HH/3.0.1 args:--prebuilt --app $T/dragged/Hook.app --in-place --local" "$OUT" \
+  || { cat "$OUT"; fail "install.sh did not get --app and --in-place"; }
+if grep -q 'downloading' "$OUT"; then fail "a HOOK_BUNDLE install downloaded"; fi
+ok "HOOK_BUNDLE"
+
 echo "GET TESTS OK"

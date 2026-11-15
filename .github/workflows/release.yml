@@ -1,6 +1,8 @@
 name: Release
 
-# A tag prepares a signed, notarized DRAFT. Publication is a separate approved action.
+# A tag prepares a signed, notarized DRAFT: Hook-X.Y.Z.zip (get.sh and the updater),
+# Hook-X.Y.Z.dmg (the download people drag to Applications) and SHA256SUMS listing both.
+# Publication is a separate approved action.
 # Required secrets: MACOS_SIGN_P12, MACOS_SIGN_PASSWORD, APPLE_API_KEY,
 # APPLE_API_KEY_ID, APPLE_API_ISSUER_ID. Required repository variables:
 # APPLE_TEAM_ID and MACOS_SIGN_SHA1 (the expected Developer ID Application fingerprint).
@@ -64,7 +66,20 @@ jobs:
           xcrun stapler validate build/Hook.app
 
       - name: Package
-        run: RELEASE_TAG="$GITHUB_REF_NAME" ./scripts/package-release.sh --app build/Hook.app --out dist
+        run: RELEASE_TAG="$GITHUB_REF_NAME" ./scripts/package-release.sh --app build/Hook.app --out dist --dmg
+
+      - name: Sign, notarize and staple the DMG
+        run: |
+          image="dist/Hook-$VERSION.dmg"
+          codesign --force --sign "$SIGN_IDENTITY" --keychain "$SIGN_KEYCHAIN" --timestamp "$image"
+          codesign --verify --strict "$image"
+          xcrun notarytool submit "$image" \
+            --key "$NOTARY_KEY" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER" --wait --output-format json > "$RUNNER_TEMP/notary-result-dmg.json"
+          python3 -c 'import json,sys; sys.exit(0 if json.load(open(sys.argv[1])).get("status") == "Accepted" else "DMG notarization not accepted")' "$RUNNER_TEMP/notary-result-dmg.json"
+          xcrun stapler staple "$image"
+          xcrun stapler validate "$image"
+          # Signing and stapling changed the DMG's bytes: SHA256SUMS lists the final ones.
+          ./scripts/package-release.sh --sums --out dist
 
       - name: Verify the final package
         env:
@@ -78,7 +93,8 @@ jobs:
           # No clobber or automatic publication. Existing tags/drafts require explicit recovery.
           gh release create "$GITHUB_REF_NAME" --verify-tag --draft \
             --title "Hook $VERSION" --notes-file "$RUNNER_TEMP/notes.md" \
-            "dist/Hook-$VERSION.zip" dist/SHA256SUMS "$RUNNER_TEMP/notary-result.json"
+            "dist/Hook-$VERSION.zip" "dist/Hook-$VERSION.dmg" dist/SHA256SUMS \
+            "$RUNNER_TEMP/notary-result.json" "$RUNNER_TEMP/notary-result-dmg.json"
 
       - name: Remove the signing keychain and key
         if: always()

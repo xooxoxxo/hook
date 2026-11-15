@@ -52,6 +52,10 @@ cp -R "$NOTIFICATION" "$APP/Contents/Resources/Notification"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cp Resources/Assets.car "$APP/Contents/Resources/Assets.car"
 cp THIRD_PARTY_NOTICES.md "$APP/Contents/Resources/THIRD_PARTY_NOTICES.md"
+# The support payload (the CLI, MCP server, skill and installer), sealed and notarized with
+# the app: Hook's first launch installs from it, and package-release.sh packs it into the
+# release zip as support/. None of it is Mach-O, so codesign seals it as resources.
+"$ROOT/scripts/bundle-support.sh" "$APP/Contents/Resources/support"
 plutil -lint "$APP/Contents/Info.plist"
 IDENTITY="${SIGN_IDENTITY:--}"
 SIGN_ARGS=(--force -s "$IDENTITY")
