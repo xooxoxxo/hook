@@ -48,6 +48,10 @@ struct DetailView<Model: PanelViewModel>: View {
         var failure: String?
         if case .failed(let reason)? = snapshot.answerState { failure = reason }
         let warning = snapshot.doneWarning ? snapshot.unsentKind?.caption : nil
+        // Done waits for the session's next steps: the bar says so, the why behind its "?".
+        if warning == nil, snapshot.stepWait != nil {
+            return ActionBarAnswers(caption: StepWait.waitingText, failure: failure, help: StepWait.helpText)
+        }
         return ActionBarAnswers(caption: warning ?? snapshot.unansweredCaption, failure: failure)
     }
 
@@ -60,7 +64,7 @@ struct DetailView<Model: PanelViewModel>: View {
 
     static func gate(_ snapshot: DetailSnapshot) -> BarGate {
         BarGate(doneEnabled: snapshot.doneEnabled, discardEnabled: snapshot.discardEnabled,
-                doneHelp: Requirements.doneHelp(snapshot.requirements))
+                doneHelp: snapshot.stepWait != nil ? StepWait.waitingText : Requirements.doneHelp(snapshot.requirements))
     }
 
     /// The ask a header chevron opens; nil at the ends and outside the filter (disabled).

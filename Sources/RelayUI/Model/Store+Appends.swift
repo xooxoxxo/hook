@@ -28,3 +28,36 @@ extension Store {
         queueInputChanged()
     }
 }
+
+/// `then: "steps"`: after the owner answers that question, Done waits for the session's next
+/// steps (a new revision) or 10 minutes. Skip always works.
+extension Store {
+    /// The wait on now for an open ask whose detail is fetched. A Pond that lists `appendSteps`
+    /// decides from the single-item route (the detail's `stepWait`); an older one, the rule here.
+    public func stepWait(_ id: String) -> StepWait? {
+        guard let detail = details[id], detail.item.status == "open", let ins = detail.item.instructable else { return nil }
+        let history = try? histories[id]?.get()
+        let times = history.map { history in history.times.sorted { $0.key < $1.key }.map(\.value) } ?? []
+        return StepWait.current(ins, events: detail.events, revisionTimes: times, now: now(),
+                                pond: detail.item.stepWait.flatMap(StepWait.init),
+                                pondServesWaits: pondCapabilities?.supports(.appendSteps) == true)
+    }
+
+    /// After a fetched detail: one re-render at the wait's end, so Done comes back without a
+    /// poll. A detail without a wait (a new revision ended it) cancels it.
+    func scheduleStepWait(_ id: String) {
+        let until = stepWait(id)?.until
+        guard stepWaitUntil[id] != until || (until != nil && stepWaitTimers[id] == nil) else { return }
+        stepWaitTimers.removeValue(forKey: id)?.cancel()
+        stepWaitUntil[id] = until
+        guard let until else { return }
+        let sleep = timeoutSleep, delay = max(0, until.timeIntervalSince(now()))
+        stepWaitTimers[id] = Task { [weak self] in
+            await sleep(.milliseconds(Int64((delay * 1000).rounded(.up))))
+            guard !Task.isCancelled, let self, self.stepWaitUntil[id] == until else { return }
+            self.stepWaitTimers[id] = nil
+            self.stepWaitUntil[id] = nil
+            self.stateTick += 1
+        }
+    }
+}

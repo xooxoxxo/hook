@@ -168,6 +168,9 @@ public struct DetailSnapshot: Equatable, Sendable {
     public var limits: TalkLimits = .old
     /// While a correction is pending: how many steps it adds to the version shown.
     public var addedSinceShown = 0
+    /// Done waits for the session's next steps (`StepWait`): Done and Discard & Done are off,
+    /// the bar says "Waiting for next steps…", Skip still works.
+    public var stepWait: StepWait?
     /// The revisions that only added steps to the version shown, each drawn as a divider above
     /// its first step (`StepEntries`).
     public var appendMarkers: [AppendMarker] = []

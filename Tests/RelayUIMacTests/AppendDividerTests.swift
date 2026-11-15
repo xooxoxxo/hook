@@ -30,3 +30,31 @@ import Testing
         #expect(!DetailView<Store>.scrollsToNewSteps(nil, scrolled: nil))
     }
 }
+
+/// While Done waits for the session's next steps: the bar's line, its "?", Done off with the
+/// same words, Skip on.
+@MainActor @Suite struct WaitingForStepsBarTests {
+    private func waiting() -> DetailSnapshot {
+        var snapshot = GalleryFixtures.detailSteps
+        snapshot.stepWait = StepWait(stepID: "s2", path: "2", until: Date(timeIntervalSince1970: 1_800_000_000))
+        snapshot.doneEnabled = false
+        snapshot.discardEnabled = false
+        return snapshot
+    }
+
+    @Test func theBarSaysWaiting() {
+        let answers = DetailView<Store>.answers(waiting())
+        #expect(answers.caption == "Waiting for next steps…")
+        #expect(answers.help == "The session said more steps follow your answer. "
+            + "Done comes back when they arrive, or after 10 minutes.")
+        let gate = DetailView<Store>.gate(waiting())
+        #expect(!gate.doneEnabled)
+        #expect(gate.doneHelp == "Waiting for next steps…")
+        let buttons = ActionBar.buttons(DetailView<Store>.actionMode(waiting()), doneEnabled: gate.doneEnabled,
+                                        discardEnabled: gate.discardEnabled, doneHelp: gate.doneHelp)
+        #expect(buttons.map(\.enabled) == [true, false])
+        #expect(buttons.map(\.role) == [.skip, .primary])
+        // Without a wait, the bar keeps its usual caption and no "?".
+        #expect(DetailView<Store>.answers(GalleryFixtures.detailSteps).help == nil)
+    }
+}

@@ -150,6 +150,10 @@ public enum LinkCheck: Equatable, Sendable {
     public internal(set) var unseenAppends = UnseenAppends()
     /// The newest append each ask had when the Store last looked (memory only).
     var appendWatch = AppendWatch()
+    /// When each ask's step wait ends (`StepWait`), with the one re-render scheduled for then.
+    /// A new revision ends the wait and cancels it.
+    public internal(set) var stepWaitUntil: [String: Date] = [:]
+    var stepWaitTimers: [String: Task<Void, Never>] = [:]
     /// The newest append marker rev the detail scrolled to, per ask. Memory only; publishes
     /// nothing, as it changes no drawing.
     public var appendScrolled: [String: Int] = [:]
@@ -278,7 +282,7 @@ public enum LinkCheck: Equatable, Sendable {
     private var swappedAt: Date?
     /// Bumped when a load has waited `DS.Timing.detailLoadTimeout`, so views read the
     /// snapshots again and "Still trying…" / "Couldn't load" show with no other change.
-    @Published public private(set) var stateTick = 0 { didSet { queueInputChanged() } }
+    @Published public internal(set) var stateTick = 0 { didSet { queueInputChanged() } }
     /// The wait behind `stateTick`; tests pass an immediate one.
     let timeoutSleep: @Sendable (Duration) async -> Void
     /// The pending timeout waits, by token; a swap cancels them all.
@@ -492,6 +496,9 @@ public enum LinkCheck: Equatable, Sendable {
         detailAnchor = [:]
         appendScrolled = [:]
         appendWatch.forget()
+        stepWaitTimers.values.forEach { $0.cancel() }
+        stepWaitTimers = [:]
+        stepWaitUntil = [:]
         replyStates = [:]
         answerStates = [:]
         answeredCache = [:]
@@ -997,7 +1004,7 @@ public enum LinkCheck: Equatable, Sendable {
     public func close(_ id: String, _ verdict: Verdict) {
         guard mutationsAvailable else { return }
         guard source != nil else { return }
-        if verdict == .done, isContentLocked(id) || !requirementsMet(id) { return }
+        if verdict == .done, isContentLocked(id) || !requirementsMet(id) || stepWait(id) != nil { return }
         HookLog.action(verdict == .done ? .done : .skip)
         reviewing[id] = nil
         // A new close replaces one whose send failed: the Notice's Retry must not send that too.
@@ -1803,6 +1810,7 @@ public enum LinkCheck: Equatable, Sendable {
         if next != details { details = next }
         loaded.forEach(rerender)
         loaded.forEach(noteAppends)
+        loaded.forEach(scheduleStepWait)
         loaded.forEach(catchUpProgress)
         if let selected = navigation.selectedID, loaded.contains(selected) { noticeReview(selected) }
     }
@@ -1909,6 +1917,12 @@ extension Store: PanelViewModel {
             addedSinceShown: addedSinceShown(id, review: review))
         snapshot.appendPending = isAppendPending(id)
         if snapshot.model != nil { snapshot.appendMarkers = appendMarkers(id) }
+        if let wait = stepWait(id) {
+            // Done waits for the session's next steps; Skip still works.
+            snapshot.stepWait = wait
+            snapshot.doneEnabled = false
+            snapshot.discardEnabled = false
+        }
         snapshot.canMessage = talk.messages
         snapshot.limits = talk.limits
         snapshot.message = messageStates[id] ?? .idle

@@ -20,6 +20,11 @@ public struct StepWait: Equatable, Sendable {
     public static let thenSteps = "steps"
     /// STEP_WAIT_S.
     public static let seconds: TimeInterval = 600
+    /// The action bar's line while Done waits.
+    public static let waitingText = "Waiting for next steps…"
+    /// Behind the bar's "?".
+    public static let helpText = "The session said more steps follow your answer. "
+        + "Done comes back when they arrive, or after 10 minutes."
 
     public var stepID: String?
     public var path: String
