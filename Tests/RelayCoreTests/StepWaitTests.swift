@@ -15,9 +15,10 @@ private func ask(then: String? = "steps") -> Instructable {
     ])
 }
 
-private func answer(_ path: String, at: String, seq: Int = 1, actor: String = "owner", id: String? = nil) -> Event {
-    let text = id.map { #"{"step":"\#(path)","id":"\#($0)","picked":["Staging"]}"# }
-        ?? #"{"step":"\#(path)","picked":["Staging"]}"#
+private func answer(_ path: String, at: String, seq: Int = 1, actor: String = "owner", id: String? = nil,
+                    picked: String = "Staging") -> Event {
+    let text = id.map { #"{"step":"\#(path)","id":"\#($0)","picked":["\#(picked)"]}"# }
+        ?? #"{"step":"\#(path)","picked":["\#(picked)"]}"#
     return Event(seq: seq, itemId: "a", kind: "answer", actor: actor, text: text, at: at, rev: 1)
 }
 
@@ -38,10 +39,23 @@ private func answer(_ path: String, at: String, seq: Int = 1, actor: String = "o
                                  now: t0) == nil)
     }
 
-    /// The newest answer to the question starts the wait.
-    @Test func theNewestAnswerStartsIt() {
+    /// The Pond's rule: the wait starts at the newest answer that changed the question's value.
+    /// The same answer sent again doesn't start it over, so a revision after the first one has
+    /// ended it.
+    @Test func anUnchangedResendDoesNotRestartIt() {
         let later = "2026-11-14T10:05:00+00:00"
-        let wait = StepWait.current(ask(), events: [answer("2", at: answeredAt, seq: 1), answer("2", at: later, seq: 2)],
+        let events = [answer("2", at: answeredAt, seq: 1), answer("2", at: later, seq: 2)]
+        #expect(StepWait.current(ask(), events: events, revisionTimes: ["2026-11-14T10:03:00+00:00"],
+                                 now: t0.addingTimeInterval(400)) == nil)
+        let wait = StepWait.current(ask(), events: events, revisionTimes: [], now: t0.addingTimeInterval(400))
+        #expect(wait?.until == t0.addingTimeInterval(600))
+    }
+
+    /// A changed answer starts the wait again, even after a revision ended the first one.
+    @Test func aChangedAnswerRestartsIt() {
+        let later = "2026-11-14T10:05:00+00:00"
+        let wait = StepWait.current(ask(), events: [answer("2", at: answeredAt, seq: 1),
+                                                    answer("2", at: later, seq: 2, picked: "Prod")],
                                     revisionTimes: ["2026-11-14T10:03:00+00:00"], now: t0.addingTimeInterval(400))
         #expect(wait?.until == t0.addingTimeInterval(300 + 600))
     }

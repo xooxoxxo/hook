@@ -14,8 +14,8 @@ public struct ServedStepWait: Codable, Sendable, Equatable {
 
 /// After the owner answers a `then: "steps"` question, Done waits for the session's next steps:
 /// until a revision later than the answer arrives, or 10 minutes pass. The Pond's rule: the wait
-/// starts at the newest owner `answer` event for that question's path; with several on, the one
-/// that ends first wins. Skip always works.
+/// starts at the newest owner `answer` event for that question that changed its value; with
+/// several on, the one that ends first wins. Skip always works.
 public struct StepWait: Equatable, Sendable {
     public static let thenSteps = "steps"
     /// STEP_WAIT_S.
@@ -63,11 +63,15 @@ public struct StepWait: Equatable, Sendable {
         return best
     }
 
-    /// The owner's answer with the highest seq to the question at `id` / `path`: matched by step
-    /// id when both the step and the answer carry one, else by path. The first of equal seqs wins.
+    /// The owner's newest answer to the question at `id` / `path` that changed its value (the
+    /// Pond's rule): answers are read in seq order, and one whose (`picked`, `text`) equals the
+    /// previous answer's starts nothing new, so an unchanged resend keeps the earlier start.
+    /// Matched by step id when both the step and the answer carry one, else by path.
     static func newestAnswer(_ events: [Event], id: String?, path: String) -> Event? {
+        let ordered = events.enumerated().sorted { ($0.element.seq, $0.offset) < ($1.element.seq, $1.offset) }
         var newest: Event?
-        for event in events where event.kind == "answer" && event.actor == "owner" {
+        var value: (picked: JSONValue, text: JSONValue)?
+        for event in ordered.map(\.element) where event.kind == "answer" && event.actor == "owner" {
             guard let text = event.text, case .object(let body)? = try? JSONValue.parse(Data(text.utf8)) else { continue }
             let matches: Bool
             if let id, case .string(let answered)? = body["id"] {
@@ -75,8 +79,27 @@ public struct StepWait: Equatable, Sendable {
             } else {
                 matches = body["step"] == .string(path)
             }
-            if matches, newest.map({ event.seq > $0.seq }) ?? true { newest = event }
+            guard matches else { continue }
+            let given = (picked: body["picked"] ?? .null, text: body["text"] ?? .null)
+            let unchanged = value.map {
+                sameValue($0.picked, given.picked) && sameValue($0.text, given.text)
+            } ?? false
+            if newest == nil || !unchanged { newest = event }
+            value = given
         }
         return newest
+    }
+
+    /// Python's == on the answer's values, as the Pond compares them: strings by Unicode
+    /// scalars, numbers by value.
+    private static func sameValue(_ a: JSONValue, _ b: JSONValue) -> Bool {
+        switch (a, b) {
+        case (.string(let x), .string(let y)): return x.unicodeScalars.elementsEqual(y.unicodeScalars)
+        case (.int(let x), .double(let y)), (.double(let y), .int(let x)): return Double(exactly: x) == y
+        case (.array(let x), .array(let y)): return x.count == y.count && zip(x, y).allSatisfy { sameValue($0, $1) }
+        case (.object(let x), .object(let y)):
+            return x.count == y.count && x.allSatisfy { key, value in y[key].map { sameValue(value, $0) } ?? false }
+        default: return a == b
+        }
     }
 }
