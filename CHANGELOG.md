@@ -7,6 +7,8 @@ and versions follow Semantic Versioning.
 
 ### Added
 
+- Each release has a signed, notarized `Hook-<version>.dmg`: drag Hook to Applications and open it. At its first launch Hook installs the `relay` command, MCP server and skill from inside the app, sets up your agents and opens setup, with no Terminal step. Opened from the disk image or a temporary copy macOS made, Hook first asks to be moved to Applications, and offers to move itself when it can.
+- Hook can live in /Applications: the config records the place (`appPath`), and updates replace the app there. `install.sh --app <path>` sets it.
 - Every queue group (project or urgency) collapses: click anywhere on its header. ⌥-click collapses or expands every group, and Collapse All and Expand All are in the queue menu and a group header's context menu. Recently closed keeps its own state. Groups stay collapsed across launches.
 - A collapsed group shows its newest ask under its name. Section counts are pills.
 - Settings › Documents › Viewer: pick a theme (System, Paper, Sepia, Night), your own colours for the background, text, headings, links and code, and a reading width (Full, Wide, Narrow). Open viewer windows change at once.
@@ -14,6 +16,7 @@ and versions follow Semantic Versioning.
 
 ### Changed
 
+- The release's `SHA256SUMS` lists the zip and the DMG. The CLI, MCP server and installer are sealed inside Hook.app too.
 - Section headers no longer have a chevron; the whole header row toggles.
 - Settings: Documents and Privacy have their own tabs (⌘6, ⌘7); General is shorter.
 - Review… on the crash bar opens Send a Crash Report in its own window, like Settings, instead of a sheet on the panel. Closing the window keeps the bar.

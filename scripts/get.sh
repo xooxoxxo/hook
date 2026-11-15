@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Hook's one-line installer: downloads the newest release (Hook-<version>.zip and its
-# SHA256SUMS) with curl, checks the hash, and installs it. No git, no compiler.
+# SHA256SUMS) with curl, checks the hash, and installs it. No git, no compiler. SHA256SUMS
+# also lists the release's Hook-<version>.dmg; only the zip's line is read.
 #   curl -fsSL https://raw.githubusercontent.com/xooxoxxo/hook/main/scripts/get.sh | bash
 #   curl -fsSL https://raw.githubusercontent.com/xooxoxxo/hook/main/scripts/get.sh | bash -s -- --local
 # Arguments after `bash -s --` go to install.sh unchanged (see scripts/install.sh --help).
@@ -24,6 +25,10 @@
 #   HOOK_VERSION=X.Y.Z  install that release instead of the newest
 #   HOOK_ZIP, HOOK_SUMS with HOOK_VERSION: install from these downloaded files instead
 #                       (Hook's updater does this; the hash is checked all the same)
+#   HOOK_BUNDLE=<Hook.app>  install the release that app carries (its signed
+#                       Contents/Resources/support), with no download; the app stays where
+#                       it is (install.sh --app <it> --in-place). Hook runs this at its first
+#                       launch, from the copy of get.sh inside it.
 # Test-only switch, used by scripts/test-get.sh and nothing else:
 #   HOOK_RELEASES_URL   the releases base instead of https://github.com/xooxoxxo/hook/releases
 #                       (a file:// folder or a local http server laid out the same way)
@@ -93,6 +98,12 @@ main() {
     [ -n "${HOOK_ZIP:-}" ] && [ -n "${HOOK_SUMS:-}" ] && [ -n "$version" ] \
       || die "HOOK_ZIP and HOOK_SUMS need each other and HOOK_VERSION"
   fi
+  local bundle=""
+  if [ -n "${HOOK_BUNDLE:-}" ]; then
+    [ -z "${HOOK_ZIP:-}" ] || die "choose one of HOOK_BUNDLE and HOOK_ZIP"
+    [ -d "$HOOK_BUNDLE" ] || die "HOOK_BUNDLE: $HOOK_BUNDLE is not a folder"
+    bundle="$(cd "$HOOK_BUNDLE" && pwd -P)"
+  fi
 
   # An install from a developer's clone stays one; it updates with git pull there.
   local link="$HOME/.local/bin/relay" target
@@ -119,39 +130,54 @@ main() {
   trap "rm -rf '$work'" EXIT
 
   local sums="$work/SHA256SUMS" zip
-  if [ -n "${HOOK_ZIP:-}" ]; then
-    cp "$HOOK_SUMS" "$sums" || unchanged "can't read $HOOK_SUMS"
+  if [ -n "$bundle" ]; then
+    # The app's own payload: signed and notarized with it, so there is no hash to check.
+    local bundled="$bundle/Contents/Resources/support" bundle_version
+    bundle_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$bundle/Contents/Info.plist" 2>/dev/null || true)"
+    is_version "$bundle_version" || unchanged "$(tilde "$bundle") is not a Hook release (version ${bundle_version:-none})"
+    [ -z "$version" ] || [ "$version" = "$bundle_version" ] || unchanged "$(tilde "$bundle") is Hook $bundle_version, not $version"
+    version="$bundle_version"
+    [ -d "$bundled" ] || unchanged "$(tilde "$bundle") carries no support payload"
+    mkdir -p "$work/x"
+    ditto "$bundled" "$work/x/support" || unchanged "couldn't copy the support payload out of $(tilde "$bundle")"
+    ditto "$bundle" "$work/x/Hook.app" || unchanged "couldn't copy $(tilde "$bundle")"
+    zip="$(tilde "$bundle")"
+    echo "get: installing Hook $version from $zip"
   else
-    local sums_url="$base/latest/download/SHA256SUMS"
-    [ -z "$version" ] || sums_url="$base/download/v$version/SHA256SUMS"
-    fetch "$sums_url" "$sums" || unchanged "couldn't download $sums_url"
-  fi
-  # SHA256SUMS lines read "<sha256>  Hook-X.Y.Z.zip"; the zip's name gives the version.
-  local listed
-  listed="$(grep -E '^[0-9a-f]{64}  Hook-[0-9]+\.[0-9]+\.[0-9]+\.zip$' "$sums" || true)"
-  if [ -z "$version" ]; then
-    [ "$(printf '%s\n' "$listed" | grep -c .)" = "1" ] || unchanged "the newest release's SHA256SUMS doesn't name one Hook zip"
-    version="$(printf '%s' "$listed" | sed -E 's/.*  Hook-(.*)\.zip$/\1/')"
-    is_version "$version" || unchanged "the newest release's SHA256SUMS names Hook-$version.zip"
-  fi
-  zip="Hook-$version.zip"
-  local expected
-  expected="$(printf '%s\n' "$listed" | awk -v name="$zip" '$2 == name { print $1; exit }')"
-  [ -n "$expected" ] || unchanged "SHA256SUMS has no line for $zip"
+    if [ -n "${HOOK_ZIP:-}" ]; then
+      cp "$HOOK_SUMS" "$sums" || unchanged "can't read $HOOK_SUMS"
+    else
+      local sums_url="$base/latest/download/SHA256SUMS"
+      [ -z "$version" ] || sums_url="$base/download/v$version/SHA256SUMS"
+      fetch "$sums_url" "$sums" || unchanged "couldn't download $sums_url"
+    fi
+    # SHA256SUMS lines read "<sha256>  Hook-X.Y.Z.zip"; the zip's name gives the version.
+    local listed
+    listed="$(grep -E '^[0-9a-f]{64}  Hook-[0-9]+\.[0-9]+\.[0-9]+\.zip$' "$sums" || true)"
+    if [ -z "$version" ]; then
+      [ "$(printf '%s\n' "$listed" | grep -c .)" = "1" ] || unchanged "the newest release's SHA256SUMS doesn't name one Hook zip"
+      version="$(printf '%s' "$listed" | sed -E 's/.*  Hook-(.*)\.zip$/\1/')"
+      is_version "$version" || unchanged "the newest release's SHA256SUMS names Hook-$version.zip"
+    fi
+    zip="Hook-$version.zip"
+    local expected
+    expected="$(printf '%s\n' "$listed" | awk -v name="$zip" '$2 == name { print $1; exit }')"
+    [ -n "$expected" ] || unchanged "SHA256SUMS has no line for $zip"
 
-  if [ -n "${HOOK_ZIP:-}" ]; then
-    cp "$HOOK_ZIP" "$work/$zip" || unchanged "can't read $HOOK_ZIP"
-  else
-    echo "get: downloading Hook $version"
-    fetch "$base/download/v$version/$zip" "$work/$zip" || unchanged "couldn't download $base/download/v$version/$zip"
-  fi
-  local actual
-  actual="$(shasum -a 256 "$work/$zip" | cut -d' ' -f1)"
-  [ "$actual" = "$expected" ] || unchanged "$zip does not match SHA256SUMS (got $actual); refused. Nothing was changed"
-  echo "get: $zip matches SHA256SUMS"
+    if [ -n "${HOOK_ZIP:-}" ]; then
+      cp "$HOOK_ZIP" "$work/$zip" || unchanged "can't read $HOOK_ZIP"
+    else
+      echo "get: downloading Hook $version"
+      fetch "$base/download/v$version/$zip" "$work/$zip" || unchanged "couldn't download $base/download/v$version/$zip"
+    fi
+    local actual
+    actual="$(shasum -a 256 "$work/$zip" | cut -d' ' -f1)"
+    [ "$actual" = "$expected" ] || unchanged "$zip does not match SHA256SUMS (got $actual); refused. Nothing was changed"
+    echo "get: $zip matches SHA256SUMS"
 
-  mkdir -p "$work/x"
-  ditto -x -k "$work/$zip" "$work/x" || unchanged "couldn't unpack $zip"
+    mkdir -p "$work/x"
+    ditto -x -k "$work/$zip" "$work/x" || unchanged "couldn't unpack $zip"
+  fi
   local app="$work/x/Hook.app" support="$work/x/support" id app_version
   id="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Contents/Info.plist" 2>/dev/null || true)"
   app_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist" 2>/dev/null || true)"
@@ -195,8 +221,12 @@ main() {
   ln -sfn "$version" "$hook_home/current"
   echo "get: $(tilde "$hook_home/current") -> $version"
 
+  # From an app's own payload, that app stays where it is: install.sh neither copies nor
+  # quits it (it is the Hook that runs this).
+  local in_place=()
+  [ -z "$bundle" ] || in_place=(--app "$bundle" --in-place)
   local status=0
-  "$hook_home/current/scripts/install.sh" --prebuilt "$@" || status=$?
+  "$hook_home/current/scripts/install.sh" --prebuilt ${in_place[@]+"${in_place[@]}"} "$@" || status=$?
   if [ "$status" -ne 0 ]; then
     # current goes back to the version that worked; nothing is removed.
     if [ -n "$previous" ]; then

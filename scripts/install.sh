@@ -5,6 +5,13 @@
 #   scripts/install.sh --mailbox <dir>  the same, and use the mailbox named by <dir>/mailbox-url and <dir>/mailbox-token
 #   scripts/install.sh --prebuilt       install the release this script came with (scripts/get.sh runs it
 #                                       as ~/.local/share/hook/current/scripts/install.sh); nothing is built
+#   scripts/install.sh --app <path>     Hook.app lives at <path> (such as /Applications/Hook.app)
+#                                       instead of ~/Applications/Hook.app. The config records it
+#                                       (appPath), so later installs and updates replace it there.
+#   scripts/install.sh --prebuilt --app <path> --in-place
+#                                       the app at <path> is this release and is running: it is not
+#                                       copied, quit or started. Hook's first launch runs this, through
+#                                       the get.sh it carries (HOOK_BUNDLE).
 #   scripts/install.sh --uninstall      remove what Hook set up in agent harnesses (relay integrations
 #                                       remove --all), the app (Hook.app and an old Relay.app), LaunchAgent
 #                                       and this install's CLI links (keeps the config, token and queue)
@@ -36,7 +43,8 @@ set -euo pipefail
 INSTALL_STARTED="$(date +%s)"
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
-APP="$HOME/Applications/Hook.app"
+DEFAULT_APP="$HOME/Applications/Hook.app"
+APP="$DEFAULT_APP"   # or --app, or the config's appPath: see "where the app lives" below
 OLD_APP="$HOME/Applications/Relay.app"   # the app before the rename to Hook
 BUNDLE_ID="io.github.xooxoxxo.relay"      # the same for Hook.app and Relay.app
 LABEL="io.github.xooxoxxo.relay"
@@ -59,7 +67,7 @@ TEST_STEP="${RELAY_TEST_STEP:-}"
 
 usage() {
   cat <<'EOF'
-Usage: scripts/install.sh [--local | --mailbox <dir>] [--prebuilt] | --uninstall | --help
+Usage: scripts/install.sh [--local | --mailbox <dir>] [--prebuilt] [--app <path> [--in-place]] | --uninstall | --help
 
   (no flag)        Install Hook. Keeps an existing config;
                    a new install starts in "This Mac only" mode.
@@ -70,7 +78,12 @@ Usage: scripts/install.sh [--local | --mailbox <dir>] [--prebuilt] | --uninstall
                    and <dir>/mailbox-token (only its path is stored; it is never read).
   --prebuilt       Install the release this script came with (get.sh and Hook's
                    updater run it from ~/.local/share/hook/current). Builds nothing.
-  --uninstall      Remove what Hook set up in agent harnesses (MCP server, skill,
+  --app <path>     Hook.app's place, such as /Applications/Hook.app (default
+                   ~/Applications/Hook.app). Recorded in the config, so later
+                   installs and updates use it too.
+  --in-place       With --prebuilt and --app: that app is this release and is
+                   running (Hook's first launch). It isn't copied, quit or started.
+  --uninstall     Remove what Hook set up in agent harnesses (MCP server, skill,
                    instructions, replies hook), then the app, LaunchAgent and CLI
                    links. Keeps the config, token and queue.
 
@@ -85,6 +98,8 @@ mode="keep"
 mailbox_dir=""
 uninstall=0
 prebuilt=0
+app_arg=""
+in_place=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --local)
@@ -96,6 +111,10 @@ while [ $# -gt 0 ]; do
       mode="mailbox"; mailbox_dir="$2"; shift ;;
     --uninstall) uninstall=1 ;;
     --prebuilt) prebuilt=1 ;;
+    --app)
+      [ $# -ge 2 ] || { echo "install: --app needs the path of Hook.app" >&2; exit 2; }
+      app_arg="$2"; shift ;;
+    --in-place) in_place=1 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "install: unknown option: $1 (see --help)" >&2; exit 2 ;;
   esac
@@ -384,6 +403,30 @@ dev_bundle() {
   fi
 }
 
+# --- where the app lives ------------------------------------------------------------
+# ~/Applications/Hook.app, unless --app names another place (Hook's first launch passes the
+# folder it was dragged to, such as /Applications) or the config records one (appPath)
+# that still holds this app. The config step records the place, or drops a default one.
+
+if [ -n "$app_arg" ]; then
+  case "$app_arg" in
+    /*.app|/*.app/) APP="${app_arg%/}" ;;
+    *) die "--app needs the full path of Hook.app, not $app_arg" ;;
+  esac
+elif [ -f "$CONFIG" ]; then
+  recorded_app="$(plutil -extract appPath raw -o - "$CONFIG" 2>/dev/null || true)"
+  case "$recorded_app" in
+    /*.app) if [ -d "$recorded_app" ] && ours "$recorded_app"; then APP="$recorded_app"; fi ;;
+  esac
+fi
+if [ "$in_place" -eq 1 ]; then
+  [ -n "$app_arg" ] && [ "$prebuilt" -eq 1 ] || die "--in-place needs --app and a release download (--prebuilt)"
+  ours "$APP" || die "--in-place: $APP is not Hook (bundle id $(bundle_id "$APP"))"
+  app_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist" 2>/dev/null || true)"
+  [ "$app_version" = "$(cat "$REPO/VERSION")" ] \
+    || die "--in-place: $APP is Hook ${app_version:-?}, but this release is $(cat "$REPO/VERSION")"
+fi
+
 # --- test-only single steps (scripts/test-install.sh) -----------------------------
 
 if [ -n "$TEST_STEP" ]; then
@@ -529,9 +572,9 @@ PY
   fi
 fi
 
-python3 - "$CONFIG" "$mode" "$mailbox_url" "$token_file" "$LINK_ROOT" "$fresh_app" "$update_mode" <<'PY'
+python3 - "$CONFIG" "$mode" "$mailbox_url" "$token_file" "$LINK_ROOT" "$fresh_app" "$update_mode" "$APP" "$DEFAULT_APP" <<'PY'
 import json, os, sys
-path, mode, url, token_file, repo, fresh_app, update_mode = sys.argv[1:8]
+path, mode, url, token_file, repo, fresh_app, update_mode, app, default_app = sys.argv[1:10]
 try:
     with open(path, encoding="utf-8-sig") as f:
         cfg = json.load(f)
@@ -555,7 +598,12 @@ if update_mode:
     cfg["updateMode"] = update_mode
 else:
     cfg.pop("updateMode", None)
-data = (json.dumps(cfg, indent=2, sort_keys=True, ensure_ascii=False) + "\n").encode("utf-8")
+# Where Hook.app lives, when it isn't ~/Applications/Hook.app (a drag to /Applications).
+if app == default_app:
+    cfg.pop("appPath", None)
+else:
+    cfg["appPath"] = app
+data =(json.dumps(cfg, indent=2, sort_keys=True, ensure_ascii=False) + "\n").encode("utf-8")
 tmp = os.path.join(os.path.dirname(path), ".config.json.%d.tmp" % os.getpid())
 fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
 try:
@@ -576,7 +624,15 @@ PY
 
 # --- 3. build (or take the release's app); only then replace the running app -------
 
-if [ "$prebuilt" -eq 1 ] || [ "$SKIP_BUILD" != "1" ]; then
+if [ "$in_place" -eq 1 ]; then
+  # The app that started this install: nothing to copy, and it must keep running.
+  if [ "$SKIP_LAUNCH" != "1" ]; then
+    "$LSREGISTER" -f "$APP"
+    # hook:// and relay:// must open this app, never the release's copy in the payload.
+    "$LSREGISTER" -u "$REPO/Hook.app" 2>/dev/null || true
+  fi
+  echo "app: $APP stays where it is"
+elif [ "$prebuilt" -eq 1 ] || [ "$SKIP_BUILD" != "1" ]; then
   if [ "$prebuilt" -eq 1 ]; then
     NEW_APP="$REPO/Hook.app"
     ours "$NEW_APP" || die "$NEW_APP is not Hook (bundle id $(bundle_id "$NEW_APP"))"
@@ -590,8 +646,12 @@ if [ "$prebuilt" -eq 1 ] || [ "$SKIP_BUILD" != "1" ]; then
   if [ -d "$APP" ] && ! ours "$APP"; then
     die "$APP is another app (bundle id $(bundle_id "$APP")); move it out of ~/Applications and run this again"
   fi
+  # A folder this user can't write (/Applications for a standard account) would let rm
+  # empty the old app and then fail: refuse before anything is quit or removed.
+  mkdir -p "$(dirname "$APP")" 2>/dev/null || true
+  [ -w "$(dirname "$APP")" ] \
+    || die "can't write to $(dirname "$APP"), so $APP can't be replaced; move Hook.app to ~/Applications and run this again"
   if [ "$SKIP_LAUNCH" != "1" ]; then stop_apps; fi
-  mkdir -p "$(dirname "$APP")"
   rm -rf "$APP"
   ditto "$NEW_APP" "$APP"
   if [ "$SKIP_LAUNCH" != "1" ]; then
@@ -692,6 +752,9 @@ EOF
   plutil -lint "$PLIST" >/dev/null
   if [ "$SKIP_LAUNCH" = "1" ]; then
     echo "launchagent: wrote $PLIST (not loaded: RELAY_SKIP_LAUNCH=1)"
+  elif [ "$in_place" -eq 1 ]; then
+    # Loading it now would `open` the running app again; launchd loads it at the next login.
+    echo "launchagent: wrote $PLIST (loads at the next login)"
   else
     launchctl bootout "$GUI/$LABEL" 2>/dev/null || true
     loaded=0
@@ -719,6 +782,13 @@ fi
 new_agents=""
 [ "$first_install" -eq 0 ] || new_agents="--include-removed"
 
+if [ "$in_place" -eq 1 ]; then
+  # The running app syncs again itself shortly after launch, and posts any owner steps then.
+  echo "start: skipped (Hook is running; it started this install)"
+  integrations sync ${new_agents:+"$new_agents"} --no-asks
+  echo "Done. Config: $CONFIG"
+  exit 0
+fi
 if [ "$SKIP_LAUNCH" = "1" ]; then
   echo "start: skipped (RELAY_SKIP_LAUNCH=1)"
   integrations sync ${new_agents:+"$new_agents"} --no-asks

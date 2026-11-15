@@ -85,11 +85,79 @@ import RelayUI
     func applicationDidFinishLaunching(_ notification: Notification) {
         HookLog.start()
         if handOffToRunningRelay() { return }
-        startUp()
+        let fm = FileManager.default
+        switch FirstLaunch.decide(
+            bundlePath: Bundle.main.bundlePath, home: UpdateRunner.home,
+            environment: ProcessInfo.processInfo.environment,
+            fileExists: { fm.fileExists(atPath: $0) }, isWritable: { fm.isWritableFile(atPath: $0) }) {
+        case .nothing:
+            startUp()
+        case .moveToApplications(let offer):
+            offerMove(offer)
+        case .install(let job):
+            // Setup waits for the install: the config it writes would skip setup's first page.
+            startUp(holdingWelcome: true)
+            installFirstLaunch(job)
+        }
+    }
+
+    /// First launch outside Applications (the disk image, a translocated download): asks for the
+    /// move before anything starts, then opens the moved copy, or quits.
+    private func offerMove(_ offer: MoveOffer) {
+        NSApp.activate()
+        let alert = NSAlert()
+        alert.messageText = offer.title
+        alert.informativeText = offer.detail
+        for title in offer.buttons { alert.addButton(withTitle: title) }
+        let first = alert.runModal() == .alertFirstButtonReturn
+        guard first, offer.action != nil else { QuitTracker.shared.exit(.user("move-alert")) }
+        let target: String
+        do {
+            target = try offer.relocate()
+        } catch {
+            HookLog.error("FirstLaunch", "couldn't put Hook in Applications: " + error.localizedDescription)
+            Self.alert("Hook couldn't put itself in Applications.",
+                       "Drag Hook to the Applications folder in Finder, then open it from there. " + UserFacingError.text(error))
+            QuitTracker.shared.exit(.code("move-failed"))
+        }
+        // The new copy hands off to this one while it runs, so this one leaves as soon as it opened.
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.createsNewApplicationInstance = true
+        NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: target), configuration: configuration) { @Sendable _, error in
+            if let error { HookLog.error("FirstLaunch", "couldn't open " + target + ": " + error.localizedDescription) }
+            DispatchQueue.main.async { QuitTracker.shared.exit(QuitCause(.duplicate)) }
+        }
+    }
+
+    /// Runs the bundled installer (get.sh with HOOK_BUNDLE), then shows setup as the config asks.
+    /// A failure says where the log is; setup still opens, since the queue works without it.
+    private func installFirstLaunch(_ job: InstallJob) {
+        Task { @MainActor [weak self] in
+            let status = await job.run()
+            guard let self, let model = self.model else { return }
+            if status != 0 {
+                HookLog.error("FirstLaunch", "the bundled installer failed", status: Int(status))
+                NSApp.activate()
+                let failure = job.failure(status: status)
+                let alert = NSAlert()
+                alert.messageText = failure.title
+                alert.informativeText = failure.detail
+                alert.addButton(withTitle: "Try Again")
+                alert.addButton(withTitle: "Continue")
+                if alert.runModal() == .alertFirstButtonReturn {
+                    self.installFirstLaunch(job)
+                    return
+                }
+            }
+            let load = AppModel.checked(ConfigStore.load(model.configURL))
+            model.reload(load)
+            if WelcomeFlow.showsAtLaunch(load) { self.showWelcome() }
+        }
     }
 
     /// Everything after the single-instance check: the model, panel, menu bar, presence and the first apply.
-    private func startUp() {
+    /// `holdingWelcome`: the first-launch install shows setup once it is done.
+    private func startUp(holdingWelcome: Bool = false) {
         HookLog.record(HookLog.launch(hook: UpdateChecker.runningVersion))
         HookLog.moveOldUpdateLog(home: UpdateRunner.home)
         let hotKeys = HotKeyManager { [weak self] in self?.togglePanel(from: .shortcut) }
@@ -175,7 +243,7 @@ import RelayUI
         }
         let load = model.start()
         if WelcomeFlow.showsAtLaunch(load) {
-            showWelcome()
+            if !holdingWelcome { showWelcome() }
         } else if case .unreadable = load {
             settings?.show(tab: .queue)
         }
