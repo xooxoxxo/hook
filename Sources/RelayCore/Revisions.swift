@@ -25,12 +25,18 @@ public enum RevisionBody {
     /// `JSONValue.parse` (refuses broken JSON and lone surrogates), then the duplicate-key
     /// check over the same bytes, then the lenient `Instructable` decoder.
     public static func parse(_ body: String) throws -> Instructable {
+        try read(body).instructable
+    }
+
+    /// `parse`, keeping the strict parse too: `AppendCheck` compares bodies as JSON values,
+    /// never as decoded models, because the lenient decoder drops keys it doesn't know.
+    public static func read(_ body: String) throws -> (instructable: Instructable, raw: JSONValue) {
         let data = Data(body.utf8)
-        guard case .object? = try? JSONValue.parse(data) else { throw RevisionBodyError.invalid }
+        guard let raw = try? JSONValue.parse(data), case .object = raw else { throw RevisionBodyError.invalid }
         guard let ordered = try? OrderedJSON.parse(data) else { throw RevisionBodyError.invalid }
         if OrderedJSON.hasDuplicateKeys(ordered) { throw RevisionBodyError.duplicateKey }
         guard let ins = try? JSONDecoder().decode(Instructable.self, from: data) else { throw RevisionBodyError.invalid }
-        return ins
+        return (ins, raw)
     }
 }
 
@@ -71,11 +77,14 @@ public struct VerifiedHistory: Equatable, Sendable {
     public var times: [Int: String]
     /// Each rev's `prev`, as served (rev 1's is ""): merge checks a listed rev against it.
     public var prevs: [Int: String]
+    /// Each rev's body as the strict parse read it, which `AppendCheck` compares.
+    public var raw: [Int: JSONValue]
 
     public init(bodies: [Int: Instructable], stamps: [Int: RevisionStamp], current: RevisionStamp, acceptedOnPond: Int,
-                reasons: [Int: String], times: [Int: String] = [:], prevs: [Int: String] = [:]) {
+                reasons: [Int: String], times: [Int: String] = [:], prevs: [Int: String] = [:],
+                raw: [Int: JSONValue] = [:]) {
         self.bodies = bodies; self.stamps = stamps; self.current = current; self.acceptedOnPond = acceptedOnPond
-        self.reasons = reasons; self.times = times; self.prevs = prevs
+        self.reasons = reasons; self.times = times; self.prevs = prevs; self.raw = raw
     }
 
     /// Every rev from 1 to the current one is here.
@@ -103,12 +112,15 @@ public enum RevisionCheck {
         guard !revisions.isEmpty, revisions.map(\.rev) == Array(1...revisions.count) else { return .failure(.missing) }
         var bodies: [Int: Instructable] = [:], stamps: [Int: RevisionStamp] = [:]
         var reasons: [Int: String] = [:], times: [Int: String] = [:], prevs: [Int: String] = [:]
+        var raws: [Int: JSONValue] = [:]
         var previous = ""
         for revision in revisions {
             guard hashes(revision.stamp, prev: revision.prev, at: revision.at, reason: revision.reason,
                          body: revision.body) else { return .failure(.badHash(revision.rev)) }
             guard revision.prev == previous else { return .failure(.badChain(revision.rev)) }
-            guard let body = try? RevisionBody.parse(revision.body) else { return .failure(.unreadable(revision.rev)) }
+            guard let (body, raw) = try? RevisionBody.read(revision.body) else {
+                return .failure(.unreadable(revision.rev))
+            }
             if let first = bodies[1], !RevisionFixedFields.same(first, body) {
                 return .failure(.fixedFieldChanged(revision.rev))
             }
@@ -117,6 +129,7 @@ public enum RevisionCheck {
             reasons[revision.rev] = revision.reason
             times[revision.rev] = revision.at
             prevs[revision.rev] = revision.prev
+            raws[revision.rev] = raw
             previous = revision.hash
         }
         let newest = revisions[revisions.count - 1].stamp
@@ -124,7 +137,7 @@ public enum RevisionCheck {
         guard newest == served.stamp else { return .failure(.badHash(served.rev)) }
         return .success(VerifiedHistory(bodies: bodies, stamps: stamps, current: newest,
                                         acceptedOnPond: accepted(served), reasons: reasons, times: times,
-                                        prevs: prevs))
+                                        prevs: prevs, raw: raws))
     }
 
     /// A list item's current revision on its own; nil for an item without one.
@@ -135,11 +148,11 @@ public enum RevisionCheck {
             return .failure(.badHash(served.rev))
         }
         if served.rev == 1, !served.prev.isEmpty { return .failure(.badChain(1)) }
-        guard let body = try? RevisionBody.parse(served.body) else { return .failure(.unreadable(served.rev)) }
+        guard let (body, raw) = try? RevisionBody.read(served.body) else { return .failure(.unreadable(served.rev)) }
         return .success(VerifiedHistory(bodies: [served.rev: body], stamps: [served.rev: served.stamp],
                                         current: served.stamp, acceptedOnPond: accepted(served),
                                         reasons: [served.rev: served.reason], times: [served.rev: served.at],
-                                        prevs: [served.rev: served.prev]))
+                                        prevs: [served.rev: served.prev], raw: [served.rev: raw]))
     }
 
     /// `.rolledBack` when the current rev is below the highest pin, or a pinned rev the history
@@ -181,6 +194,7 @@ public enum RevisionCheck {
         history.reasons[rev] = latest.reasons[rev]
         history.times[rev] = latest.times[rev]
         history.prevs[rev] = latest.prevs[rev]
+        history.raw[rev] = latest.raw[rev]
         history.current = latest.current
         history.acceptedOnPond = latest.acceptedOnPond
         return .success(history)
