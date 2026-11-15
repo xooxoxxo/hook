@@ -199,6 +199,36 @@
    }
   },
   {
+   "name": "old-step-text-normal-form-differs",
+   "note": "an old step's do written with a composed é (NFC) becomes e plus a combining accent (NFD), and a step added: strings compare by code point, not by Unicode equivalence",
+   "kind": "check",
+   "base": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the café settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "next": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the café settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}},{\"blocking\":true,\"do\":\"Delete the old key\",\"id\":\"r2-1\"}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "expect": {
+    "append": false
+   }
+  },
+  {
+   "name": "old-step-bool-vs-int",
+   "note": "an old step's required: true becomes 1, and a step added: a boolean is never a number",
+   "kind": "check",
+   "base": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"required\":true,\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "next": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"required\":1,\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}},{\"blocking\":true,\"do\":\"Delete the old key\",\"id\":\"r2-1\"}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "expect": {
+    "append": false
+   }
+  },
+  {
+   "name": "old-step-int-vs-float",
+   "note": "an old step's unknown key rank is 1 in the base and 1.0 in the next, and a step added: numbers compare by value, so only the spelling differs",
+   "kind": "check",
+   "base": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"rank\":1,\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "next": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"rank\":1.0,\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}},{\"blocking\":true,\"do\":\"Delete the old key\",\"id\":\"r2-1\"}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "expect": {
+    "append": true
+   }
+  },
+  {
    "name": "key-order-differs",
    "note": "the pure append written with keys in another order and spaces: JSON values are equal",
    "kind": "check",

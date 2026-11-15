@@ -28,14 +28,34 @@ public enum AppendCheck {
     /// True when `next.steps` is longer than `base.steps`, every one of `base.steps` is the same
     /// JSON value at the same index of `next.steps` (ids, sub-steps and unknown keys included),
     /// and every other top-level key is in both or neither, with equal values. JSON value
-    /// equality ignores key order and white space (`JSONValue` ==).
+    /// equality ignores key order and white space (`same`, not `JSONValue` ==).
     public static func isAppend(base: JSONValue, next: JSONValue) -> Bool {
         guard case .object(let old) = base, case .object(let new) = next,
               case .array(let oldSteps)? = old["steps"], case .array(let newSteps)? = new["steps"],
               newSteps.count > oldSteps.count else { return false }
-        guard Array(newSteps.prefix(oldSteps.count)) == oldSteps else { return false }
+        guard zip(oldSteps, newSteps).allSatisfy({ same($0, $1) }) else { return false }
         let oldRest = old.filter { $0.key != "steps" }, newRest = new.filter { $0.key != "steps" }
-        return oldRest == newRest
+        return same(.object(oldRest), .object(newRest))
+    }
+
+    /// Exact JSON value equality, as the Pond and Kotlin compare: strings by Unicode scalars
+    /// (Swift's `String ==` would equate "é" and "e\u{301}"), numbers by value (`1` equals `1.0`),
+    /// a boolean never equal to a number, objects by key set and values, arrays element by element.
+    static func same(_ a: JSONValue, _ b: JSONValue) -> Bool {
+        switch (a, b) {
+        case (.string(let x), .string(let y)):
+            return x.unicodeScalars.elementsEqual(y.unicodeScalars)
+        case (.int(let x), .int(let y)): return x == y
+        case (.double(let x), .double(let y)): return x == y
+        case (.int(let x), .double(let y)), (.double(let y), .int(let x)): return Double(exactly: x) == y
+        case (.bool(let x), .bool(let y)): return x == y
+        case (.null, .null): return true
+        case (.array(let x), .array(let y)):
+            return x.count == y.count && zip(x, y).allSatisfy { same($0, $1) }
+        case (.object(let x), .object(let y)):
+            return x.count == y.count && x.allSatisfy { key, value in y[key].map { same(value, $0) } ?? false }
+        default: return false
+        }
     }
 
     /// True when every revision from `base + 1` to the current one is `isAppend` of the one

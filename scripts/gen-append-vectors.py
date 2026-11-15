@@ -61,14 +61,30 @@ def revision_hash(rev, prev, at, reason, body):
 
 # ---- the reference rule (a check on the hand-written table, not a source of truth) ----
 
+def json_equal(a, b):
+    """Exact JSON value equality: strings by code point (no normalisation), numbers by value
+    (1 == 1.0), a boolean never equal to a number, objects by key set and values."""
+    if isinstance(a, bool) or isinstance(b, bool):
+        return isinstance(a, bool) and isinstance(b, bool) and a == b
+    if isinstance(a, (int, float)) or isinstance(b, (int, float)):
+        return isinstance(a, (int, float)) and isinstance(b, (int, float)) and a == b
+    if isinstance(a, dict) or isinstance(b, dict):
+        return (isinstance(a, dict) and isinstance(b, dict) and set(a) == set(b)
+                and all(json_equal(a[k], b[k]) for k in a))
+    if isinstance(a, list) or isinstance(b, list):
+        return (isinstance(a, list) and isinstance(b, list) and len(a) == len(b)
+                and all(json_equal(x, y) for x, y in zip(a, b)))
+    return type(a) is type(b) and a == b
+
+
 def is_append(base, nxt):
     bs, ns = base.get('steps'), nxt.get('steps')
     if not isinstance(bs, list) or not isinstance(ns, list) or len(ns) <= len(bs):
         return False
-    if any(ns[i] != bs[i] for i in range(len(bs))):
+    if not all(json_equal(ns[i], bs[i]) for i in range(len(bs))):
         return False
     keys = (set(base) | set(nxt)) - {'steps'}
-    return all((k in base) == (k in nxt) and base.get(k) == nxt.get(k) for k in keys)
+    return all((k in base) == (k in nxt) and json_equal(base.get(k), nxt.get(k)) for k in keys)
 
 
 def strict(text):
@@ -188,6 +204,18 @@ CHECKS = [
      base_body(), edit(appended(base_body(), NEW_STEP), set_key(lambda b: b['steps'][0], 'shell', 'zsh')), False),
     ('old-step-id-changed', "an old step's id changed, and a step added",
      base_body(), edit(appended(base_body(), NEW_STEP), set_key(lambda b: b['steps'][0], 'id', 'open')), False),
+    ('old-step-text-normal-form-differs',
+     "an old step's do written with a composed \u00e9 (NFC) becomes e plus a combining accent (NFD), "
+     'and a step added: strings compare by code point, not by Unicode equivalence',
+     edit(base_body(), set_key(lambda b: b['steps'][0], 'do', 'Open the caf\u00e9 settings')),
+     edit(appended(base_body(), NEW_STEP), set_key(lambda b: b['steps'][0], 'do', 'Open the cafe\u0301 settings')), False),
+    ('old-step-bool-vs-int', "an old step's required: true becomes 1, and a step added: a boolean is never a number",
+     edit(base_body(), set_key(lambda b: b['steps'][0], 'required', True)),
+     edit(appended(base_body(), NEW_STEP), set_key(lambda b: b['steps'][0], 'required', 1)), False),
+    ('old-step-int-vs-float', "an old step's unknown key rank is 1 in the base and 1.0 in the next, and a step "
+     'added: numbers compare by value, so only the spelling differs',
+     edit(base_body(), set_key(lambda b: b['steps'][0], 'rank', 1)),
+     edit(appended(base_body(), NEW_STEP), set_key(lambda b: b['steps'][0], 'rank', 1.0)), True),
 ]
 
 
