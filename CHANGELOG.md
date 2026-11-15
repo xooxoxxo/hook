@@ -17,6 +17,7 @@ and versions follow Semantic Versioning.
 - Section headers no longer have a chevron; the whole header row toggles.
 - Settings: Documents and Privacy have their own tabs (⌘6, ⌘7); General is shorter.
 - Review… on the crash bar opens Send a Crash Report in its own window, like Settings, instead of a sheet on the panel. Closing the window keeps the bar.
+- Settings › Queue: “Pair an iPhone” is now “Pair a phone”. The same code sets up Hook on Android.
 
 ### Fixed
 
