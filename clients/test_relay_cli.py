@@ -67,6 +67,13 @@ class FakeClient:
         self._record("resolve", ask_id, verdict, note)
         return {"item": dict(ITEM, status="done" if verdict == "done" else "dismissed")}
 
+    def append(self, ask_id, note, steps, edit_keys=None):
+        self._record("append", ask_id, note, steps)
+        return self.append_result
+
+    append_result = {"id": ITEM_ID, "rev": 2, "hash": "b" * 64,
+                     "added": [{"id": "r2-1", "path": "2"}, {"id": "r2-2", "path": "3"}]}
+
 
 class CliTest(unittest.TestCase):
     def setUp(self):
@@ -377,6 +384,74 @@ class CliTest(unittest.TestCase):
 
     def test_format_status_with_missing_fields(self):
         self.assertEqual(relay_cli.format_status({}), ["? · ? · ?"])
+
+    STEPS = [{"do": "Open the deploy page", "url": "https://pond.example.test/deploy"}, {"do": "Press Deploy"}]
+
+    def test_cli_append_prints_version(self):
+        stdin = io.StringIO(json.dumps(self.STEPS))
+        self.assertEqual(self.run_cli("append", ITEM_ID, "--note", "after your answer", stdin=stdin),
+                         (0, f"added 2 steps to {ITEM_ID} \u2192 version 2\n", ""))
+        self.assertEqual(self.client.calls, [("append", ITEM_ID, "after your answer", self.STEPS)])
+        self.client.append_result = dict(FakeClient.append_result, rev=3, added=[{"id": "r3-1", "path": "4"}],
+                                         warning="ask x was posted from another session")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "steps.json"
+            path.write_text(json.dumps(self.STEPS[:1]))
+            self.assertEqual(self.run_cli("append", ITEM_ID, "--note", "one more", "--json", str(path)),
+                             (0, f"added 1 step to {ITEM_ID} \u2192 version 3\n",
+                              "warning: ask x was posted from another session\n"))
+
+    def test_cli_append_bad_json_exit_1(self):
+        for text, message in (("{nope", "--json input isn't valid JSON"),
+                              ('{"v": 1}', "--json input must be a JSON array of steps"),
+                              ("[]", "--json input must be a JSON array of steps")):
+            with self.subTest(text):
+                code, out, err = self.run_cli("append", ITEM_ID, "--note", "x", stdin=io.StringIO(text))
+                self.assertEqual((code, out), (1, ""))
+                self.assertIn(message, err)
+        self.assertEqual(self.client.calls, [])
+        code, _, err = self.run_cli("append", ITEM_ID, stdin=io.StringIO("[]"))
+        self.assertEqual(code, 2)
+        self.assertIn("--note", err)
+
+    def test_append_limit_detail_printed(self):
+        self.client.error = Refused(400, "invalid steps", ["steps[0].id: used before", "note: too long"])
+        self.assertEqual(self.run_cli("append", ITEM_ID, "--note", "x", stdin=io.StringIO(json.dumps(self.STEPS))),
+                         (1, "", "refused: invalid steps\n  steps[0].id: used before\n  note: too long\n"))
+        self.client.error = Refused(409, relay_client.APPEND_LIMIT)
+        self.assertEqual(self.run_cli("append", ITEM_ID, "--note", "x", stdin=io.StringIO(json.dumps(self.STEPS))),
+                         (1, "", "refused: This ask has had 10 additions. Post a follow-up ask.\n"))
+
+    def test_cli_append_refusals_print_the_client_text(self):
+        for error, line in ((relay_client.AskClosedForAppend(),
+                             "relay: The owner already closed this ask. Post a follow-up ask.\n"),
+                            (relay_client.LocalCantAppend(),
+                             "relay: This Mac's queue can't add steps. Post a follow-up ask.\n"),
+                            (relay_client.PondLacksFeature("1.8.0", "append", "appendSteps"),
+                             "relay: Your Pond (1.8.0) can't add steps to an ask yet. Update the Pond, "
+                             "or post a follow-up ask.\n")):
+            with self.subTest(line):
+                self.client.error = error
+                self.assertEqual(self.run_cli("append", ITEM_ID, "--note", "x",
+                                              stdin=io.StringIO(json.dumps(self.STEPS))), (1, "", line))
+
+    def test_status_has_appends(self):
+        body1 = {"v": 1, "title": "Check Node", "steps": [{"do": "a", "id": "s1"}]}
+        body2 = dict(body1, steps=body1["steps"] + [{"do": "b", "id": "r2-1"}])
+        self.client.detail = {
+            "item": dict(ITEM, payload={"instructable": body2},
+                         revision={"rev": 2, "hash": "b" * 64, "kind": "append", "acceptedRev": 2}),
+            "events": [event(1, "posted", "session")],
+            "revisions": [{"rev": 1, "hash": "a" * 64, "at": "2026-11-15T10:00:00Z", "reason": "",
+                           "body": json.dumps(body1)},
+                          {"rev": 2, "hash": "b" * 64, "at": "2026-11-15T10:05:00Z", "reason": "the next steps",
+                           "body": json.dumps(body2), "kind": "append"}]}
+        code, out, _ = self.run_cli("status", ITEM_ID, "--json")
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(out)["appends"],
+                         [{"rev": 2, "at": "2026-11-15T10:05:00Z", "note": "the next steps", "added": ["r2-1"]}])
+        self.client.detail = {"item": dict(ITEM), "events": []}
+        self.assertEqual(json.loads(self.run_cli("status", ITEM_ID, "--json")[1])["appends"], [])
 
 
 class NoAutolaunchTest(unittest.TestCase):

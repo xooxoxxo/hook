@@ -209,7 +209,7 @@ class RelayMcpTest(StubServerCase):
             self.assertEqual(init["result"]["serverInfo"], {"name": "relay", "version": relay_mcp.relay_client.VERSION})
             s.notify("notifications/initialized")
             tools = {t["name"]: t for t in s.request("tools/list")["result"]["tools"]}
-            self.assertEqual(set(tools), {"relay_post", "relay_status", "relay_list", "relay_amend"})
+            self.assertEqual(set(tools), {"relay_post", "relay_status", "relay_list", "relay_amend", "relay_append"})
             self.assertIn("instructable", tools["relay_post"]["inputSchema"]["properties"])
             self.assertIn("step", tools["relay_post"]["inputSchema"]["$defs"])   # "#/$defs/step" resolves
             detail = tools["relay_post"]["inputSchema"]["$defs"]["step"]["properties"]["detail"]
@@ -634,6 +634,117 @@ class AmendToolTest(StubServerCase):
             self.assertEqual(res["structuredContent"], {"error": message})
 
 
+class StubAppendPond(StubPond):
+    """StubPond at 1.9.0 with appendSteps; the append route answers `append_answer`."""
+    version = {"service": "pond", "version": "1.9.0", "protocol": 5, "features": ["corrections", "appendSteps"]}
+    append_answer = (200, {"item": {"id": ITEM_ID}, "openUrl": OPEN_URL, "revision": {
+        "rev": 2, "hash": H2, "kind": "append", "added": [{"id": "r2-1", "path": "2"}]}})
+
+    def do_POST(self):
+        if self.path == f"/asks/{ITEM_ID}/append":
+            self._record()
+            if not self._authorized():
+                return
+            body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            POSTED.append(body)
+            if hashlib.sha256(body["editKey"].encode()).hexdigest() != StubPond.key_hash:
+                return self._send(403, {"error": "wrong edit key"})
+            return self._send(*StubAppendPond.append_answer)
+        super().do_POST()
+
+
+NEXT = [{"do": "Press Deploy"}]
+
+
+class AppendToolTest(StubServerCase):
+    handler = StubAppendPond
+
+    def tearDown(self):
+        StubAppendPond.append_answer = AppendToolTest.ANSWER
+        super().tearDown()
+
+    ANSWER = StubAppendPond.append_answer
+
+    def test_mcp_append_schema(self):
+        tool = next(t for t in relay_mcp.tool_list() if t["name"] == "relay_append")
+        schema = tool["inputSchema"]
+        self.assertEqual(schema["type"], "object")
+        self.assertEqual(set(schema["properties"]), {"id", "note", "steps"})
+        self.assertEqual(schema["required"], ["id", "note", "steps"])
+        self.assertIs(schema["additionalProperties"], False)
+        self.assertEqual(schema["properties"]["id"]["type"], "string")
+        self.assertEqual((schema["properties"]["note"]["type"], schema["properties"]["note"]["maxLength"]),
+                         ("string", 200))
+        steps = schema["properties"]["steps"]
+        self.assertEqual((steps["type"], steps["minItems"], steps["maxItems"]), ("array", 1, 10))
+        self.assertEqual(steps["items"], relay_mcp.post_input_schema()["properties"]["instructable"]
+                         ["properties"]["steps"]["items"])
+        self.assertEqual(schema["$defs"], relay_mcp.post_input_schema()["$defs"])
+        self.assertEqual(tool["description"],
+                         "Add steps to the end of an open ask you posted, after the owner's answer. Nothing the "
+                         "owner saw changes, so there is no review. To change a step they saw, use relay_amend. "
+                         "If the ask is closed, post a follow-up ask.")
+
+    def test_post_then_append_through_the_server(self):
+        s = Session.mailbox(self.tmp.name, self.url)
+        try:
+            post = s.call("relay_post", {"project": "Acme", "instructable": {"v": 1, "title": "Fix",
+                                                                             "steps": [{"do": "Run it"}]}})
+            self.assertFalse(post["isError"], post)
+            res = s.call("relay_append", {"id": ITEM_ID, "note": "the deploy step", "steps": NEXT})
+            self.assertFalse(res["isError"], res)
+            self.assertEqual(res["structuredContent"], {"id": ITEM_ID, "rev": 2, "hash": H2,
+                                                        "added": [{"id": "r2-1", "path": "2"}], "openUrl": OPEN_URL})
+            record = json.loads((s.keys_dir / f"{ITEM_ID}.json").read_text())
+            self.assertEqual(POSTED[-1], {"editKey": record["key"], "baseRev": 1, "baseHash": H1,
+                                          "note": "the deploy step", "steps": NEXT})
+            self.assertNotIn(record["key"], json.dumps(res))
+        finally:
+            s.close()
+
+    def test_mcp_append_closed_is_error(self):
+        StubAppendPond.append_answer = (409, {"error": "ask is closed"})
+        s = Session.mailbox(self.tmp.name, self.url)
+        try:
+            s.call("relay_post", {"project": "Acme", "instructable": {"v": 1, "title": "Fix",
+                                                                      "steps": [{"do": "Run it"}]}})
+            res = s.call("relay_append", {"id": ITEM_ID, "note": "late", "steps": NEXT})
+            self.assertTrue(res["isError"])
+            self.assertEqual(res["structuredContent"]["error"],
+                             "The owner already closed this ask. Post a follow-up ask.")
+        finally:
+            s.close()
+
+    def test_bad_arguments(self):
+        for args, message in (({"note": "x", "steps": NEXT}, "id must be a non-empty string"),
+                              ({"id": ITEM_ID, "note": " ", "steps": NEXT}, "note must be a non-empty string"),
+                              ({"id": ITEM_ID, "note": "x", "steps": []}, "steps must be a list of 1 to 10 steps"),
+                              ({"id": ITEM_ID, "note": "x", "steps": {"do": "a"}},
+                               "steps must be a list of 1 to 10 steps")):
+            res = relay_mcp.call_tool({"name": "relay_append", "arguments": args})
+            self.assertEqual(res["structuredContent"], {"error": message})
+
+    def test_status_has_appends(self):
+        detail = {"item": {"id": ITEM_ID, "title": "Fix", "status": "open",
+                           "payload": {"instructable": {"v": 1, "title": "Fix", "steps": [
+                               {"do": "Run it", "id": "s1"}, {"do": "Press Deploy", "id": "r2-1"}]}},
+                           "revision": {"rev": 2, "hash": H2, "kind": "append", "acceptedRev": 2}},
+                  "events": [],
+                  "revisions": [
+                      {"rev": 1, "hash": H1, "at": "2026-11-15T10:00:00Z", "reason": "",
+                       "body": json.dumps({"v": 1, "title": "Fix", "steps": [{"do": "Run it", "id": "s1"}]})},
+                      {"rev": 2, "hash": H2, "at": "2026-11-15T10:05:00Z", "reason": "the deploy step",
+                       "kind": "append", "body": json.dumps({"v": 1, "title": "Fix", "steps": [
+                           {"do": "Run it", "id": "s1"}, {"do": "Press Deploy", "id": "r2-1"}]})}]}
+        with mock.patch.dict(os.environ, {"RELAY_EDIT_KEY_DIR": str(Path(self.tmp.name) / "edit-keys")}), \
+                mock.patch.object(relay_mcp, "make_client", lambda: FakeClient(detail)):
+            result = relay_mcp.relay_status({"id": ITEM_ID})
+        self.assertEqual(result["appends"], [{"rev": 2, "at": "2026-11-15T10:05:00Z", "note": "the deploy step",
+                                              "added": ["r2-1"]}])
+        status = next(t for t in relay_mcp.tool_list() if t["name"] == "relay_status")
+        self.assertIn("appends lists the steps you added with relay_append", status["description"])
+
+
 class SessionIdLogTest(unittest.TestCase):
     def start(self, env):
         proc = subprocess.run(SERVER_CMD, input="", capture_output=True, text=True, env=env, timeout=10)
@@ -657,6 +768,8 @@ class DescriptionTest(unittest.TestCase):
         self.assertEqual(project["description"],
                          "Short project name: what the repo's CLAUDE.md names, else the repo folder name.")
         for tool in tools:
+            if tool["name"] == "relay_append":
+                continue        # its wording is fixed by the design (AppendToolTest.test_mcp_append_schema)
             self.assertIn("Hook queue", tool["description"])
 
     def test_post_describes_required_and_ships_the_keys(self):

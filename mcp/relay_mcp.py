@@ -116,6 +116,23 @@ def relay_amend(args: Dict[str, Any]) -> Dict[str, Any]:
     return result
 
 
+APPEND_DESCRIPTION = ("Add steps to the end of an open ask you posted, after the owner's answer. Nothing the owner "
+                      "saw changes, so there is no review. To change a step they saw, use relay_amend. If the ask "
+                      "is closed, post a follow-up ask.")
+
+
+def relay_append(args: Dict[str, Any]) -> Dict[str, Any]:
+    item_id, note, steps = args.get("id"), args.get("note"), args.get("steps")
+    if not isinstance(item_id, str) or not item_id.strip():
+        raise ToolError("id must be a non-empty string")
+    if not isinstance(note, str) or not note.strip():
+        raise ToolError("note must be a non-empty string")
+    if not isinstance(steps, list) or not 1 <= len(steps) <= 10:
+        raise ToolError("steps must be a list of 1 to 10 steps")
+    resp = with_client(lambda c: c.append(item_id.strip(), note, steps))
+    return dict(resp, openUrl=resp.get("openUrl"))
+
+
 def relay_status(args: Dict[str, Any]) -> Dict[str, Any]:
     item_id = args.get("id")
     if not isinstance(item_id, str) or not item_id.strip():
@@ -141,7 +158,8 @@ def relay_status(args: Dict[str, Any]) -> Dict[str, Any]:
             "ownerEvents": owner_events_json(events), "resolvedAt": item.get("completedAt"),
             "messages": relay_client.messages(detail), "requirements": relay_client.requirements_of(detail),
             **answers_json(detail),
-            **revision_json(detail, is_editable(item_id.strip(), env.get("env")))}
+            **revision_json(detail, is_editable(item_id.strip(), env.get("env"))),
+            "appends": relay_client.appends_of(detail)}
 
 
 def _listed(item: Dict[str, Any]) -> Dict[str, Any]:
@@ -165,7 +183,7 @@ def relay_list(args: Dict[str, Any]) -> Dict[str, Any]:
 
 
 HANDLERS = {"relay_post": relay_post, "relay_status": relay_status, "relay_list": relay_list,
-            "relay_amend": relay_amend}
+            "relay_amend": relay_amend, "relay_append": relay_append}
 
 
 def instructable_schema() -> Dict[str, Any]:
@@ -211,6 +229,30 @@ def amend_input_schema() -> Dict[str, Any]:
     }, ["id", "reason", "instructable"])
 
 
+def append_input_schema() -> Dict[str, Any]:
+    """relay_append's inputSchema: steps are the post schema's step objects."""
+    instructable = instructable_schema()
+    defs = instructable.pop("$defs", None)
+    steps = instructable.get("properties", {}).get("steps", {})
+    schema: Dict[str, Any] = {
+        "type": "object",
+        "properties": {
+            "id": {"type": "string", "description": "The id relay_post returned for the ask."},
+            "note": {"type": "string", "minLength": 1, "maxLength": 200,
+                     "description": "What the new steps are for, on one line. The owner sees it above them."},
+            "steps": {"type": "array", "minItems": 1, "maxItems": 10,
+                      "items": steps.get("items", {"type": "object"}),
+                      "description": "The steps to add after the last step, written as in relay_post. Leave "
+                                     "ids out, or give ids no revision of the ask has used."},
+        },
+        "required": ["id", "note", "steps"],
+        "additionalProperties": False,
+    }
+    if defs:
+        schema["$defs"] = defs
+    return schema
+
+
 def tool_list() -> list:
     return [
         {
@@ -249,7 +291,8 @@ def tool_list() -> list:
                             "what the owner must still finish before their Done turns on, on an ask with `required` "
                             "steps or a `done` list: left holds {kind: step, id, path}, {kind: reply} or "
                             "{kind: message}, ready is true once nothing is left; null for an ask without them or "
-                            "on a Pond older than 1.3.0. Skip and your own relay done are never held back."),
+                            "on a Pond older than 1.3.0. Skip and your own relay done are never held back. appends lists "
+                            "the steps you added with relay_append ({rev, at, note, added: step ids}), oldest first."),
             "inputSchema": {"type": "object", "properties": {"id": {"type": "string"}},
                             "required": ["id"], "additionalProperties": False},
         },
@@ -272,6 +315,11 @@ def tool_list() -> list:
                             "posted the ask. At most 10 corrections per ask, 60 s apart. If the Pond answers that "
                             "corrections aren't enabled, close the ask (relay done) and post a new one."),
             "inputSchema": amend_input_schema(),
+        },
+        {
+            "name": "relay_append",
+            "description": APPEND_DESCRIPTION,
+            "inputSchema": append_input_schema(),
         },
     ]
 
