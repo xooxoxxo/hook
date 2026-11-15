@@ -922,6 +922,19 @@ private struct MessageVectors {
         #expect(lines.isEmpty)
     }
 
+    @Test func aFailedOwnerWriteIsNotReplayed() async throws {
+        let dispatches = OSAllocatedUnfairLock(initialState: 0)
+        let (client, _) = try makeClient { _, _ in
+            dispatches.withLock { $0 += 1 }
+            throw URLError(.networkConnectionLost)
+        }
+        do {
+            _ = try await client.reply(askID, text: "synthetic reply")
+            Issue.record("Expected a connection failure")
+        } catch QueueError.unreachable { }
+        #expect(dispatches.withLock { $0 } == 1)
+    }
+
     @Test func aRepeatedFailureIsWrittenOnceUntilACallSucceeds() async throws {
         let fail = OSAllocatedUnfairLock(initialState: true)
         let (client, _) = try makeClient { _, _ in

@@ -52,6 +52,20 @@ final class NoRedirectDelegate: NSObject, URLSessionTaskDelegate, Sendable {
 /// The mailbox service as a `QueueSource`. Credentials are read on every request,
 /// never retained between calls. Synchronous token reads run on `KeychainQueue`.
 public struct MailboxClient: QueueSource {
+    /// A local Pond can become reachable just after the app starts. Wait for that
+    /// connection, but bound the whole request (including the wait and response).
+    /// Reuse the session across polls; callers can still inject their own session.
+    public static let defaultSession: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.waitsForConnectivity = true
+        configuration.timeoutIntervalForRequest = 10
+        configuration.timeoutIntervalForResource = 12
+        configuration.urlCache = nil
+        configuration.httpCookieStorage = nil
+        configuration.urlCredentialStorage = nil
+        return URLSession(configuration: configuration)
+    }()
+
     /// What every request says this client reads: revision histories (Pond 1.1.0; without it a
     /// corrected ask is served as a stub), and from 6 choice objects (Pond 1.4.0; below 6 an ask
     /// with one is served with labels only).
@@ -73,7 +87,7 @@ public struct MailboxClient: QueueSource {
     private let keychain: KeychainQueue
     private let transport: (@Sendable (URLRequest) async throws -> (Data, URLResponse))?
 
-    public init(settings: MailboxSettings, session: URLSession = .shared,
+    public init(settings: MailboxSettings, session: URLSession = MailboxClient.defaultSession,
                 ownerKey: (@Sendable () async -> String?)? = nil) {
         self.init(settings: settings, session: session, tokenSource: nil, ownerKey: ownerKey)
     }
@@ -81,7 +95,7 @@ public struct MailboxClient: QueueSource {
     /// An injected source defaults to HTTPS. FileTokenSource retains legacy HTTP support.
     /// Phone callers use `OwnerKeyFlow.authenticatedProvider`: read failures stop owner acts
     /// before any request is sent, rather than downgrading to bearer-only authentication.
-    public init(settings: MailboxSettings, session: URLSession = .shared,
+    public init(settings: MailboxSettings, session: URLSession = MailboxClient.defaultSession,
                 tokenSource: (any TokenSource)?, ownerKey: (@Sendable () async throws -> String?)? = nil,
                 keychain: KeychainQueue = .shared,
                 ownerStatusKey: (@Sendable () async throws -> String?)? = nil,
@@ -95,7 +109,8 @@ public struct MailboxClient: QueueSource {
         self.ownerStatusKey = ownerStatusKey
     }
 
-    public init(baseURL: URL, tokenFile: String, context: String, session: URLSession = .shared) {
+    public init(baseURL: URL, tokenFile: String, context: String,
+                session: URLSession = MailboxClient.defaultSession) {
         self.init(settings: MailboxSettings(url: baseURL, tokenFile: tokenFile, context: context), session: session)
     }
 
