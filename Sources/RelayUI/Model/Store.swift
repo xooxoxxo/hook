@@ -145,6 +145,11 @@ public enum LinkCheck: Equatable, Sendable {
     @Published public var editingAnswers: [String: Set<String>] = [:]
     /// The path of the top visible node per ask, for the detail's scroll position. Memory only.
     @Published public var detailAnchor: [String: String] = [:]
+    /// Steps added to each ask since the owner last opened it: the card's "+2 steps". Saved in
+    /// the defaults.
+    public internal(set) var unseenAppends = UnseenAppends()
+    /// The newest append each ask had when the Store last looked (memory only).
+    var appendWatch = AppendWatch()
     /// The newest append marker rev the detail scrolled to, per ask. Memory only; publishes
     /// nothing, as it changes no drawing.
     public var appendScrolled: [String: Int] = [:]
@@ -408,6 +413,7 @@ public enum LinkCheck: Equatable, Sendable {
                 reviews: ReviewPersistence? = nil, deliveryPolicy: StoreDeliveryPolicy = .desktop) {
         self.deliveryPolicy = deliveryPolicy
         self.defaults = defaults
+        self.unseenAppends = UnseenAppends.load(defaults)
         self.reviewFile = reviews
         self.now = now
         self.sentHold = sentHold
@@ -482,6 +488,7 @@ public enum LinkCheck: Equatable, Sendable {
         editingAnswers = [:]
         detailAnchor = [:]
         appendScrolled = [:]
+        appendWatch.forget()
         replyStates = [:]
         answerStates = [:]
         answeredCache = [:]
@@ -742,6 +749,7 @@ public enum LinkCheck: Equatable, Sendable {
         }
         reviewNoticed[id] = nil
         noticeReview(id)
+        updateUnseenAppends { $0.opened(id) }
         loadIfMissing(id)
     }
 
@@ -972,6 +980,7 @@ public enum LinkCheck: Equatable, Sendable {
         if let selected = navigation.selectedID { keep.insert(selected) }
         tickCache = tickCache.filter { keep.contains($0.key) }
         pruneReviews(keep: keep)
+        updateUnseenAppends { $0.keep(open: Set(listed.map(\.id))) }
         detailRequestedAt = detailRequestedAt.filter { keep.contains($0.key) }
         guard keep != prunedKeep else { return }
         prunedKeep = keep
@@ -1790,6 +1799,7 @@ public enum LinkCheck: Equatable, Sendable {
         dropStaleReplyChanges(next)
         if next != details { details = next }
         loaded.forEach(rerender)
+        loaded.forEach(noteAppends)
         loaded.forEach(catchUpProgress)
         if let selected = navigation.selectedID, loaded.contains(selected) { noticeReview(selected) }
     }
@@ -1852,6 +1862,7 @@ public enum LinkCheck: Equatable, Sendable {
             hasDraft: { self.draftsWithText.contains($0) },
             closedBy: { self.closedBy($0) }, review: { self.reviewState($0.id) },
             doneBlocked: { !self.doneAllowed($0.id) },
+            addedSteps: { self.unseenAppends.counts[$0.id] ?? 0 },
             sourceKey: sourceKey, loadedOnce: loadedOnce, reachable: reachable, problem: listProblem,
             waitedTenSeconds: swappedAt.map { now().timeIntervalSince($0) >= DS.Timing.detailLoadTimeout } ?? false,
             manualRefreshing: manualRefreshing, updated: lastListAt.map { ClockText.time($0) } ?? "")

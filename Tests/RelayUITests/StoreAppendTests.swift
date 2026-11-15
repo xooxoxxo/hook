@@ -205,3 +205,69 @@ import Testing
         #expect(await fake.count("resolve") == 1)
     }
 }
+
+/// The queue card's "+N steps": counted when the Store sees a new append, cleared when the
+/// owner opens the ask, kept across a restart.
+@Suite @MainActor struct StoreUnseenAppendsTests {
+    @Test func anAppendTagsTheCardUntilOpened() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let url = reviewsURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let store = await reviewingStore(defaults, url: url)
+        let one = revised("a", [idSteps(3)])
+        let fake = FakeQueueSource(items: [one.item], details: ["a": one.detail])
+        await start(store, fake)
+        #expect(store.queue.rows["a"]?.addedSteps == 0)
+
+        let two = revised("a", [idSteps(3), idSteps(5)], reasons: ["Two more checks"])
+        await fake.setItems([two.item])
+        await fake.setDetail(two.detail)
+        await store.refresh()
+        #expect(store.queue.rows["a"]?.addedSteps == 2)
+        #expect(UnseenAppends.load(defaults.defaults).counts == ["a": 2])
+
+        let three = revised("a", [idSteps(3), idSteps(5), idSteps(6)], reasons: ["Two more checks", "One more"])
+        await fake.setItems([three.item])
+        await fake.setDetail(three.detail)
+        await store.refresh()
+        #expect(store.queue.rows["a"]?.addedSteps == 3)
+        // Polls of the same revision add nothing.
+        await store.refresh()
+        #expect(store.queue.rows["a"]?.addedSteps == 3)
+
+        store.open("a")
+        #expect(store.queue.rows["a"]?.addedSteps == 0)
+        #expect(defaults.defaults.object(forKey: UnseenAppends.defaultsKey) == nil)
+    }
+
+    @Test func theFirstLoadTagsNothing() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let url = reviewsURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let store = await reviewingStore(defaults, url: url)
+        let two = revised("a", [idSteps(3), idSteps(5)], reasons: ["Two more checks"])
+        let fake = FakeQueueSource(items: [two.item], details: ["a": two.detail])
+        await start(store, fake)
+        await store.refresh()
+        #expect(store.queue.rows["a"]?.addedSteps == 0)
+    }
+
+    @Test func aRestartKeepsTheTagAndAClosedAskDropsIt() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        var saved = UnseenAppends()
+        saved.added("a", steps: 2)
+        saved.added("gone", steps: 1)
+        saved.save(defaults.defaults)
+        let url = reviewsURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let store = await reviewingStore(defaults, url: url)
+        let one = revised("a", [idSteps(3)])
+        let fake = FakeQueueSource(items: [one.item], details: ["a": one.detail])
+        await start(store, fake)
+        #expect(store.queue.rows["a"]?.addedSteps == 2)
+        #expect(UnseenAppends.load(defaults.defaults).counts == ["a": 2])
+    }
+}
