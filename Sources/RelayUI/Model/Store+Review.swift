@@ -48,6 +48,7 @@ extension Store {
     private func settleHistory(_ id: String) {
         histories[id] = RevisionCheck.merge(fetched: fetchedHistories[id], listed: listedHistories[id])
         pin(id)
+        sealAppends(id)
         holdBackStaleDone(id)
         endReviewIfLeft(id)
     }
@@ -412,6 +413,54 @@ extension Store {
         scheduleReviewSave()
     }
 
+    // MARK: Steps added at the end
+
+    /// The ask is current only because every revision since the accepted one added steps at the
+    /// end (`ReviewGate.resolve`, Hook's own check): its newest revision is sealed as seen and
+    /// accepted, with no review and never Touch ID. The appended steps get no "changed" chip.
+    /// When the Pond is behind, its acceptance is sent once, best effort; `pondAcceptPending`
+    /// keeps it for the next act until it succeeds.
+    func sealAppends(_ id: String) {
+        guard !reviewsUnreadable, !reviewsLoading, case .current(let current) = reviewState(id), current.rev > 1,
+              case .success(let history)? = histories[id] else { return }
+        var next = record(id) ?? ReviewRecord()
+        guard next.accepted != current else { return }
+        let behind = history.acceptedOnPond < current.rev
+        next.accepted = current
+        next.seen = current
+        next.pondAcceptPending = behind && deliveryPolicy == .desktop
+        setRecord(next, for: id)
+        scheduleReviewSave()
+        guard behind else { return }
+        sendAppendAccept(id, stamp: current)
+    }
+
+    private func sendAppendAccept(_ id: String, stamp: RevisionStamp) {
+        guard mutationsAvailable, let source,
+              appendAccepts.insert("\(sourceKey)|\(id)|\(stamp.rev)|\(stamp.hash)").inserted else { return }
+        let gen = generation
+        Task { [weak self] in
+            guard (try? await source.accept(id, stamp: stamp)) != nil else { return }
+            guard let self, gen == self.generation, self.record(id)?.accepted == stamp else { return }
+            self.markAcceptSent(id)
+        }
+    }
+
+    /// The dividers above the steps each append added, for the revision the ask renders: every
+    /// append after the last revision that wasn't one (the one the owner reviewed, else rev 1).
+    public func appendMarkers(_ id: String) -> [AppendMarker] {
+        guard case .success(let history)? = histories[id], let shown = renderedStamp(id) else { return [] }
+        let base = AppendCheck.runStart(history, through: shown.rev)
+        return AppendCheck.markers(history, base: base, events: details[id]?.events ?? [])
+            .filter { $0.rev <= shown.rev }
+    }
+
+    /// Locked only until the detail shows whether the new revisions are appends: no review action.
+    func isAppendPending(_ id: String) -> Bool {
+        guard case .pending = reviewState(id) else { return false }
+        return ReviewGate.isAppendPending(record: record(id), history: histories[id])
+    }
+
     /// The detail rendered `stamp` while it was current: the owner saw it. Called from the
     /// snapshot builder, so it publishes nothing.
     func markSeen(_ id: String, _ stamp: RevisionStamp) {
@@ -560,6 +609,8 @@ extension Store {
     /// The review entry point never depends on it (`DetailSnapshot.reviewAction`).
     func noticeReview(_ id: String) {
         let state = reviewState(id)
+        // An append still being checked: no Notice until the detail settles it.
+        if isAppendPending(id) { return }
         guard reviewNoticed[id] != state else { return }
         reviewNoticed[id] = state
         switch state {

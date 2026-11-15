@@ -133,8 +133,12 @@ public struct DetailSnapshot: Equatable, Sendable {
     /// The whole ask is locked: a correction is unreviewed or its history changed. No copy,
     /// link, file, Done, answer, reply or tick; Skip still works.
     public var locked: Bool { review.isLocked }
-    /// The review entry point, from the state alone, so a later Notice never hides it.
-    public var reviewAction: ReviewAction? { review.action }
+    /// Locked while the list is ahead of the detail and the new revisions may only add steps
+    /// (`ReviewGate.isAppendPending`): there is nothing to review yet.
+    public var appendPending = false
+    /// The review entry point, from the state alone, so a later Notice never hides it; none
+    /// while `appendPending`.
+    public var reviewAction: ReviewAction? { appendPending ? nil : review.action }
     /// After an accept: the paths of steps that changed or were added, until ticked.
     public var changedSteps: [String: StepChip] = [:]
     /// Paths with a problem report the step hasn't been corrected since.
@@ -169,7 +173,7 @@ public struct DetailSnapshot: Equatable, Sendable {
     /// The warning's Discard & Done may be pressed: nothing is left without the drafts.
     public var discardEnabled = true
     /// The bar that replaces the action bar while the ask is locked and not under review.
-    public var lockBar: ReviewLockBar? { ReviewLockBar.make(review) }
+    public var lockBar: ReviewLockBar? { ReviewLockBar.make(review, appendPending: appendPending) }
 
     public static func build(item: WireItem, detail: AskDetail?, ticks: Set<String>, load: DetailLoadState,
                              reply: ReplyBoxState, draft: String?, pendingChoice: Int?, busy: Bool,

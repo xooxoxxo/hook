@@ -54,6 +54,8 @@ public enum ReviewGate {
     ///   (`firstBodyHash`), else historyChanged;
     /// - a failed history or a pin violation → historyChanged;
     /// - current rev 1, or accepted == current → current;
+    /// - every revision after the accepted one (else rev 1) only adds steps at the end
+    ///   (`AppendCheck.appendedSince`, Hook's own check, never the Pond's `kind`) → current;
     /// - otherwise pending, shown = accepted ?? seen (only a stamp the history still holds).
     ///
     /// `served` is the payload as the Pond sent it; it is read only for a pinned ask served
@@ -81,10 +83,34 @@ public enum ReviewGate {
         if let problem = RevisionCheck.checkPins(verified, pins: record?.pins ?? [:]) { return .historyChanged(problem) }
         let current = verified.current
         if current.rev == 1 || record?.accepted == current { return .current(current) }
+        if let base = appendBase(record: record, history: verified),
+           AppendCheck.appendedSince(verified, base: base.rev) == true {
+            return .current(current)
+        }
         let shown = [record?.accepted, record?.seen].compactMap { $0 }.first { stamp in
             verified.stamps[stamp.rev] == stamp && stamp.rev < current.rev
         }
         return .pending(shown: shown, current: current, baseline: shown?.rev)
+    }
+
+    /// The revision the append check starts from: the one this Mac accepted, else rev 1, and
+    /// only while the history holds exactly that stamp.
+    static func appendBase(record: ReviewRecord?, history: VerifiedHistory) -> RevisionStamp? {
+        guard let base = record?.accepted ?? history.stamps[1], history.stamps[base.rev] == base else { return nil }
+        return base
+    }
+
+    /// Locked, but with no review action yet: the append check can't run because a body between
+    /// the base and the newest revision is missing (a list item ahead of its detail), and the
+    /// newest listed revision is an append of the one before it, or that one is missing too. The
+    /// detail fetch the Store starts on a new revision settles it.
+    public static func isAppendPending(record: ReviewRecord?, history: Result<VerifiedHistory, HistoryProblem>?) -> Bool {
+        guard case .success(let verified)? = history, verified.current.rev > 1 else { return false }
+        let base = appendBase(record: record, history: verified)?.rev ?? 1
+        guard base < verified.current.rev, AppendCheck.appendedSince(verified, base: base) == nil else { return false }
+        let newest = verified.current.rev
+        guard let previous = verified.raw[newest - 1], let last = verified.raw[newest] else { return true }
+        return AppendCheck.isAppend(base: previous, next: last)
     }
 
     /// SHA-256 (hex) over the decoded body's sorted-keys JSON without step ids: what the owner

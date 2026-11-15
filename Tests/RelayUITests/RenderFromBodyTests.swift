@@ -31,7 +31,7 @@ import Testing
         defer { defaults.drop() }
         let secrets = MemorySecretStore(), url = reviewsURL()
         defer { try? FileManager.default.removeItem(at: url) }
-        let ask = revised("a", [idSteps(3), idSteps(4)])
+        let ask = revised("a", [idSteps(3), idSteps(4, codes: [2: "run 2 --fixed"])])
         let one = ask.detail.revisions[0], two = ask.detail.revisions[1]
         // This Mac accepted rev 1 earlier: a sealed record on disk.
         let key = try ReviewSeal.loadOrCreate(secrets, file: url)

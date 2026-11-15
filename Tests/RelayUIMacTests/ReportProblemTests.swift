@@ -134,7 +134,7 @@ let traceback: String = {
 
     @Test func aPendingReportNamesTheDisplayedStepAndRefusesANewDisplayedRevision() async {
         let defaults = TestDefaults(); defer { defaults.drop() }
-        let (store, fake, detail) = await started(defaults, bodies: [idSteps(2), idSteps(3)])
+        let (store, fake, detail) = await started(defaults, bodies: [idSteps(2), idSteps(3, codes: [2: "run 2 --fixed"])])
         store.beginReport("a", path: "2")
         let stamp = detail.revisions[0].stamp
         #expect(store.detail("a")?.locked == true)
@@ -461,7 +461,7 @@ let traceback: String = {
     @Test func reportingWorksWhileLocked() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }
-        let (store, fake, detail) = await started(defaults, bodies: [idSteps(3), idSteps(4)])
+        let (store, fake, detail) = await started(defaults, bodies: [idSteps(3), idSteps(4, codes: [2: "run 2 --fixed"])])
         #expect(store.reviewState("a").isLocked)
         #expect(await store.reportProblem("a", stepID: "s1", note: "wrong") == .sent)
         #expect(await fake.problems.first?.stamp == detail.revisions[0].stamp)

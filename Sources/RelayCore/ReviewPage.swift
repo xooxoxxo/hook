@@ -356,8 +356,15 @@ public struct ReviewLockBar: Equatable, Sendable {
     /// The plan's ActionBar line while locked.
     public static let reviewFirst = "Review the correction first."
 
-    /// nil for a legacy or current ask.
-    public static func make(_ state: ReviewState) -> ReviewLockBar? {
+    /// While a newer revision that may only add steps is fetched: locked, nothing to press.
+    public static let appendPending = ReviewLockBar(
+        tone: .correction, title: "Loading the new version",
+        detail: "Copy, links and Done are off until it loads.", action: nil)
+
+    /// nil for a legacy or current ask. `appendPending`: a pending ask whose new revisions may
+    /// only add steps, still being fetched (`ReviewGate.isAppendPending`).
+    public static func make(_ state: ReviewState, appendPending: Bool = false) -> ReviewLockBar? {
+        if appendPending, case .pending = state { return Self.appendPending }
         switch state {
         case .legacy, .current:
             return nil

@@ -52,6 +52,17 @@ public enum AppendCheck {
         return true
     }
 
+    /// The first revision of the run of appends that ends at `rev`: the last revision up to `rev`
+    /// that isn't an append of the one before it (or whose bodies are missing), else 1.
+    public static func runStart(_ history: VerifiedHistory, through rev: Int) -> Int {
+        var start = min(max(rev, 1), history.current.rev)
+        while start > 1, let previous = history.raw[start - 1], let body = history.raw[start],
+              isAppend(base: previous, next: body) {
+            start -= 1
+        }
+        return start
+    }
+
     /// Every append revision after `base`, in rev order, each checked against the revision
     /// before it. A revision whose body, or whose previous body, is missing gets none.
     public static func markers(_ history: VerifiedHistory, base: Int, events: [Event]) -> [AppendMarker] {

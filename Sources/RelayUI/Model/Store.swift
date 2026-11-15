@@ -150,6 +150,8 @@ public enum LinkCheck: Equatable, Sendable {
     @Published public var reviewing: [String: RevisionStamp] = [:]
     /// Asks whose Use Version N is in flight (Touch ID, then the Pond call).
     @Published public internal(set) var accepting: Set<String> = []
+    /// Append acceptances sent to the Pond this run ("source|id|rev|hash"): each goes once.
+    var appendAccepts: Set<String> = []
     /// Report a Problem's inline field, by ask: the step path it reports on. Memory only.
     @Published public var reporting: [String: String] = [:]
     /// The field's send state, by ask, while it isn't idle.
@@ -497,6 +499,7 @@ public enum LinkCheck: Equatable, Sendable {
         listedHistories = [:]
         lastRendered = [:]
         reviewNoticed = [:]
+        appendAccepts = []
         pond = nil
         pondCapabilities = nil
         stateTimers.values.forEach { $0.cancel() }
@@ -1876,6 +1879,7 @@ extension Store: PanelViewModel {
             doneWarning: doneWarnings.contains(id), review: review, stamp: stamp,
             history: try? histories[id]?.get(), chips: chips(id, review: review), reported: reported(id),
             addedSinceShown: addedSinceShown(id, review: review))
+        snapshot.appendPending = isAppendPending(id)
         snapshot.canMessage = talk.messages
         snapshot.limits = talk.limits
         snapshot.message = messageStates[id] ?? .idle

@@ -172,6 +172,16 @@ private func ownerAnswer(at: String, kind: String = "answer", actor: String = "o
         #expect(AppendCheck.appendedSince(verified, base: 2) == true)
     }
 
+    /// The run of appends that ends at a revision starts after the last revision that wasn't one.
+    @Test func runStartFindsTheLastNonAppend() throws {
+        let appends = try history([body(["s1"]), body(["s1", "s2"]), body(["s1", "s2", "s3"])])
+        #expect(AppendCheck.runStart(appends, through: 3) == 1)
+        #expect(AppendCheck.runStart(appends, through: 1) == 1)
+        let fixed = try history([body(["s1"]), body(["s1", "s2"], why: "Changed"), body(["s1", "s2", "s3"], why: "Changed")])
+        #expect(AppendCheck.runStart(fixed, through: 3) == 2)
+        #expect(AppendCheck.runStart(fixed, through: 2) == 2)
+    }
+
     /// A list item merged on top of a fetched rev 1 past a gap: rev 2's body is missing.
     @Test func missingBodyIsNil() throws {
         let fetched = try history([body(["s1"])])
