@@ -150,7 +150,8 @@ struct DetailView<Model: PanelViewModel>: View {
                         noteAnchor(frames, order: [Self.titleAnchor] + Flow.flattened(snapshot.model?.nodes ?? []).map(\.path))
                     }
                 }
-                .onAppear { restoreAnchor(proxy) }
+                .onAppear { restoreAnchor(proxy, newSteps: snapshot.appendMarkers.last?.rev) }
+                .onChange(of: snapshot.appendMarkers.last?.rev) { _, rev in scrollToNewSteps(rev, proxy: proxy) }
                 .onChange(of: snapshot.current) { _, current in scrollToCurrent(current, proxy: proxy) }
                 // The queue row's Report a Problem… can open the field on a step out of sight.
                 .onChange(of: snapshot.reportTarget) { _, target in scrollToCurrent(target, proxy: proxy) }
@@ -182,8 +183,16 @@ struct DetailView<Model: PanelViewModel>: View {
 
     /// Back to where you left this ask. noteAnchor is gated on `restored`, so no frame report
     /// can overwrite the anchor before this scroll is issued, in whichever order they run.
-    private func restoreAnchor(_ proxy: ScrollViewProxy) {
+    private func restoreAnchor(_ proxy: ScrollViewProxy, newSteps rev: Int?) {
         guard !restored else { return }
+        if let rev, Self.scrollsToNewSteps(rev, scrolled: model.appendScrolled[id]) {
+            model.appendScrolled[id] = rev
+            DispatchQueue.main.async {
+                proxy.scrollTo(DetailSteps<Model>.dividerID(rev), anchor: .top)
+                restored = true
+            }
+            return
+        }
         guard let anchor = model.detailAnchor[id] else {
             restored = true
             return
@@ -191,6 +200,25 @@ struct DetailView<Model: PanelViewModel>: View {
         DispatchQueue.main.async {
             proxy.scrollTo(anchor, anchor: .top)
             restored = true
+        }
+    }
+
+    /// The detail scrolls to an append's divider once per marker: when its rev is newer than the
+    /// one it last scrolled to for this ask.
+    static func scrollsToNewSteps(_ rev: Int?, scrolled: Int?) -> Bool {
+        guard let rev else { return false }
+        return rev > (scrolled ?? 0)
+    }
+
+    /// A new append arrived while the ask is open: bring its divider to the top, once.
+    private func scrollToNewSteps(_ rev: Int?, proxy: ScrollViewProxy) {
+        guard let rev, Self.scrollsToNewSteps(rev, scrolled: model.appendScrolled[id]) else { return }
+        model.appendScrolled[id] = rev
+        // After the new rows are laid out.
+        DispatchQueue.main.async {
+            withAnimation(DS.motion(DS.Motion.step, reduce: reduceMotion)) {
+                proxy.scrollTo(DetailSteps<Model>.dividerID(rev), anchor: .top)
+            }
         }
     }
 

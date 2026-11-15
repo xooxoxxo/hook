@@ -164,6 +164,9 @@ public struct DetailSnapshot: Equatable, Sendable {
     public var limits: TalkLimits = .old
     /// While a correction is pending: how many steps it adds to the version shown.
     public var addedSinceShown = 0
+    /// The revisions that only added steps to the version shown, each drawn as a divider above
+    /// its first step (`StepEntries`).
+    public var appendMarkers: [AppendMarker] = []
     /// What the ask needs before Done and what's left (Pond 1.3.0); `.none` without requirements,
     /// before the detail loads, or once closed. The rows' marks read `marks(path)`.
     public var requirements: RequirementState = .none

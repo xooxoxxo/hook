@@ -186,7 +186,7 @@ let nonWebLinksJSON = #"""
     unlockedScene(),
     optionalScene("detail-optional", ticks: ["1"]),
     optionalScene("detail-optional-ticked", ticks: ["1", "2"], open: ["4"]),
-]
+] + appendedScenes()
 
 /// A blocking step with its warning box (current), a locked step after it, and a multi
 /// question further down, locked too; a sub-step blocking its later sibling in step 5.
@@ -319,4 +319,56 @@ let optionalJSON = #"""
         navigation: PanelNavigation(listSelection: snapshot.id, selectedID: snapshot.id), status: readyStatus)
     model.expandedTodo[snapshot.id] = open
     return panelScene(name, model, height: nil, rules: open.isEmpty ? topColumnRules : stepColumnRules, overrides: fullHeight)
+}
+
+/// Two steps, then two the session added after the owner's answer, then one more it added on its
+/// own: a divider above each run, with its note. Generic text only.
+let appendedJSON = #"""
+{"item": {"id": "00000000-0000-4000-8000-0000000000e1", "title": "Set up the staging database",
+  "status": "open", "projectId": "Atlas", "created": "2026-10-16T09:30:00+00:00", "updated": "2026-10-16T10:05:00+00:00",
+  "payload": {"instructable": {"v": 1, "title": "Set up the staging database", "urgency": "today",
+    "why": "The release checks run against staging from Monday.",
+    "steps": [{"id": "s1", "do": "Create the database", "code": "atlas db create staging"},
+              {"id": "s2", "do": "Choose the region",
+               "question": {"prompt": "Which region?", "choices": ["Frankfurt", "Dublin"], "then": "steps"}},
+              {"id": "s3", "do": "Allow the Frankfurt build servers", "where": "Network settings"},
+              {"id": "s4", "do": "Copy the connection string", "code": "atlas db url staging"},
+              {"id": "s5", "do": "Run the first migration", "code": "atlas migrate up"}]}}},
+ "events": [{"seq": 1, "itemId": "00000000-0000-4000-8000-0000000000e1", "kind": "answer", "actor": "owner",
+  "text": "{\"step\": \"2\", \"id\": \"s2\", \"picked\": [\"Frankfurt\"]}", "at": "2026-10-16T09:58:00+00:00", "rev": 1}]}
+"""#
+
+@MainActor func appendedDetail() -> DetailSnapshot {
+    var snapshot = detailSnapshot(decodeDetail(appendedJSON), base: GalleryFixtures.detailSteps, ticks: ["1", "2"])
+    snapshot.appendMarkers = [
+        AppendMarker(rev: 2, at: "2026-10-16T10:02:00+00:00",
+                     note: "Frankfurt needs its build servers allowed before the connection string works.",
+                     firstStepID: "s3", addedTopLevel: 2, afterAnswer: true, firstStepIndex: 2),
+        AppendMarker(rev: 3, at: "2026-10-16T10:05:00+00:00", note: "One more: the first migration.",
+                     firstStepID: "s5", addedTopLevel: 1, afterAnswer: false, firstStepIndex: 4),
+    ]
+    return snapshot
+}
+
+@MainActor func appendedScenes() -> [GalleryScene] {
+    let snapshot = appendedDetail()
+    let model = FixturePanelModel(
+        queue: GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false),
+        details: [snapshot.id: snapshot],
+        navigation: PanelNavigation(listSelection: snapshot.id, selectedID: snapshot.id), status: readyStatus)
+    return [
+        panelScene("detail-appended", model, height: nil, rules: topColumnRules, overrides: fullHeight),
+        // An iPhone SE's width, then a stress width: the divider's title and note wrap, the
+        // time is never cut.
+        appendDividerScene("detail-appended-narrow", width: 320),
+        appendDividerScene("detail-appended-wrap", width: 200),
+    ]
+}
+
+@MainActor func appendDividerScene(_ name: String, width: CGFloat) -> GalleryScene {
+    GalleryScene(name: name, size: .wide(width: width, height: nil), standIn: true, view: {
+        AnyView(AppendDivider(title: "Added after your answer · 14:02",
+                              note: "Frankfurt needs its build servers allowed before the connection string works.")
+            .padding(DS.Space.gutter))
+    })
 }

@@ -150,6 +150,8 @@ import Testing
         #expect(markers.map(\.afterAnswer) == [true, false])
         #expect(markers.map(\.firstStepID) == ["s4", "s5"])
         #expect(markers.map(\.note) == ["After your answer", "And one more"])
+        // The detail draws them: a divider above each run of added steps.
+        #expect(s.store.detail("a")?.appendMarkers == markers)
 
         #expect(s.store.appendMarkers("nope").isEmpty)
     }

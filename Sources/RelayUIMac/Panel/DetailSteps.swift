@@ -106,24 +106,34 @@ struct DetailSteps<Model: PanelViewModel>: View {
                     .foregroundStyle(DS.Color.secondary)
                     .monospacedDigit()
             }
-            StepGroup {
-                let locked = locked, lockText = lockText
-                ForEach(Array(nodes.enumerated()), id: \.element.id) { index, node in
-                    if index > 0 { GroupDivider() }
-                    nodeView(node, locked: locked, lockText: lockText)
-                        .environment(\.stepTag, snapshot.changedSteps[node.path])
-                        .environment(\.stepReport, reports.slot(node.path))
-                        .environment(\.stepRequired, marked.contains(node.path))
-                        .opacity(Self.dims(node, snapshot: snapshot) ? DS.Color.lockedOpacity : 1)
-                        .id(node.path)
-                        .background(GeometryReader { geometry in
-                            Color.clear.preference(key: NodeFramesKey.self,
-                                                   value: [node.path: geometry.frame(in: .named(detailScrollSpace))])
-                        })
-                }
-                if snapshot.locked, snapshot.addedSinceShown > 0 {
-                    GroupDivider()
-                    addedRow(snapshot.addedSinceShown)
+            let segments = Self.segments(StepEntries.make(nodes, markers: snapshot.appendMarkers,
+                                                           timeZone: gallery.timeZone ?? .current))
+            VStack(alignment: .leading, spacing: DS.Space.step) {
+                ForEach(segments) { segment in
+                    if let divider = segment.divider {
+                        AppendDivider(title: divider.title, note: divider.note)
+                            .id(Self.dividerID(segment.id))
+                    }
+                    StepGroup {
+                        let locked = locked, lockText = lockText
+                        ForEach(Array(segment.nodes.enumerated()), id: \.element.id) { index, node in
+                            if index > 0 { GroupDivider() }
+                            nodeView(node, locked: locked, lockText: lockText)
+                                .environment(\.stepTag, snapshot.changedSteps[node.path])
+                                .environment(\.stepReport, reports.slot(node.path))
+                                .environment(\.stepRequired, marked.contains(node.path))
+                                .opacity(Self.dims(node, snapshot: snapshot) ? DS.Color.lockedOpacity : 1)
+                                .id(node.path)
+                                .background(GeometryReader { geometry in
+                                    Color.clear.preference(key: NodeFramesKey.self,
+                                                           value: [node.path: geometry.frame(in: .named(detailScrollSpace))])
+                                })
+                        }
+                        if segment.id == segments.last?.id, snapshot.locked, snapshot.addedSinceShown > 0 {
+                            GroupDivider()
+                            addedRow(snapshot.addedSinceShown)
+                        }
+                    }
                 }
             }
             .environment(\.stepTags, snapshot.changedSteps)
@@ -141,6 +151,33 @@ struct DetailSteps<Model: PanelViewModel>: View {
             }
         }
     }
+
+    /// A run of steps drawn on one group, under the divider of the append that added its first
+    /// step (none for the first run). `id` is that append's rev, 0 for the first run.
+    struct Segment: Identifiable, Equatable {
+        struct Divider: Equatable { var title: String; var note: String }
+        var id: Int
+        var divider: Divider?
+        var nodes: [DetailModel.Node]
+    }
+
+    /// The entries cut at each divider. A divider before the first step opens the first run.
+    static func segments(_ entries: [StepEntry]) -> [Segment] {
+        var segments: [Segment] = []
+        for entry in entries {
+            switch entry {
+            case let .appendMarker(rev, title, note):
+                segments.append(Segment(id: rev, divider: .init(title: title, note: note), nodes: []))
+            case .node(let node):
+                if segments.isEmpty { segments.append(Segment(id: 0, divider: nil, nodes: [])) }
+                segments[segments.count - 1].nodes.append(node)
+            }
+        }
+        return segments.filter { !$0.nodes.isEmpty }
+    }
+
+    /// The scroll id of the divider for the append at `rev`; never a step path.
+    static func dividerID(_ rev: Int) -> String { "append-\(rev)" }
 
     /// While the ask is locked, every step the pending correction leaves alone is drawn dimmed;
     /// the ones it changes or removes keep their tag at full strength.

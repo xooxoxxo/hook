@@ -145,6 +145,9 @@ public enum LinkCheck: Equatable, Sendable {
     @Published public var editingAnswers: [String: Set<String>] = [:]
     /// The path of the top visible node per ask, for the detail's scroll position. Memory only.
     @Published public var detailAnchor: [String: String] = [:]
+    /// The newest append marker rev the detail scrolled to, per ask. Memory only; publishes
+    /// nothing, as it changes no drawing.
+    public var appendScrolled: [String: Int] = [:]
     /// The version each ask's inline review shows, set by Show Changes; memory only. A newer
     /// version arriving during the review never replaces it on its own (`ReviewPage.isStale`).
     @Published public var reviewing: [String: RevisionStamp] = [:]
@@ -478,6 +481,7 @@ public enum LinkCheck: Equatable, Sendable {
         editingReply = []
         editingAnswers = [:]
         detailAnchor = [:]
+        appendScrolled = [:]
         replyStates = [:]
         answerStates = [:]
         answeredCache = [:]
@@ -1890,6 +1894,7 @@ extension Store: PanelViewModel {
             history: try? histories[id]?.get(), chips: chips(id, review: review), reported: reported(id),
             addedSinceShown: addedSinceShown(id, review: review))
         snapshot.appendPending = isAppendPending(id)
+        if snapshot.model != nil { snapshot.appendMarkers = appendMarkers(id) }
         snapshot.canMessage = talk.messages
         snapshot.limits = talk.limits
         snapshot.message = messageStates[id] ?? .idle

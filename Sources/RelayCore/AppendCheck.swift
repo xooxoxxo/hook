@@ -14,10 +14,14 @@ public struct AppendMarker: Equatable, Sendable {
     /// An owner answer or reply sits between the previous revision's `at` and this one's:
     /// "Added after your answer", else "Added by the session".
     public var afterAnswer: Bool
+    /// The 0-based top-level index of the first step it added: where the divider goes when the
+    /// steps carry no ids. Appends only add at the end, so later revisions keep it.
+    public var firstStepIndex: Int
 
-    public init(rev: Int, at: String, note: String, firstStepID: String, addedTopLevel: Int, afterAnswer: Bool) {
+    public init(rev: Int, at: String, note: String, firstStepID: String, addedTopLevel: Int, afterAnswer: Bool,
+                firstStepIndex: Int = 0) {
         self.rev = rev; self.at = at; self.note = note; self.firstStepID = firstStepID
-        self.addedTopLevel = addedTopLevel; self.afterAnswer = afterAnswer
+        self.addedTopLevel = addedTopLevel; self.afterAnswer = afterAnswer; self.firstStepIndex = firstStepIndex
     }
 }
 
@@ -79,7 +83,8 @@ public enum AppendCheck {
             markers.append(AppendMarker(rev: rev, at: at, note: history.reasons[rev] ?? "",
                                         firstStepID: newSteps[oldSteps.count]["id"]?.stringValue ?? "",
                                         addedTopLevel: newSteps.count - oldSteps.count,
-                                        afterAnswer: answered(events, after: history.times[rev - 1], before: at)))
+                                        afterAnswer: answered(events, after: history.times[rev - 1], before: at),
+                                        firstStepIndex: oldSteps.count))
         }
         return markers
     }
