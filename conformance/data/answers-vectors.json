@@ -1,0 +1,913 @@
+{
+ "version": 1,
+ "source": "Relay step answers; generated from the reference mailbox implementation",
+ "instructable": {
+  "v": 1,
+  "title": "Ship the Atlas release",
+  "steps": [
+   {
+    "do": "Pick the deploy target",
+    "question": {
+     "prompt": "Which environment?",
+     "choices": [
+      "Staging",
+      "Prod"
+     ]
+    }
+   },
+   {
+    "do": "Choose what to watch",
+    "question": {
+     "prompt": "Which signals?",
+     "choices": [
+      "Logs",
+      "Metrics",
+      "Traces"
+     ],
+     "multi": true
+    }
+   },
+   {
+    "do": "Name the region",
+    "question": {
+     "prompt": "Which region?"
+    }
+   },
+   {
+    "do": "Prepare the release",
+    "question": {
+     "prompt": "Ship today?",
+     "choices": [
+      "Yes",
+      "No"
+     ]
+    },
+    "substeps": [
+     {
+      "do": "Tag it"
+     },
+     {
+      "do": "Pick the notes",
+      "question": {
+       "prompt": "Which notes?",
+       "choices": [
+        "Short",
+        "Long"
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "do": "Open the dashboard"
+   }
+  ],
+  "verify": {
+   "do": "Check the dashboard"
+  }
+ },
+ "cases": [
+  {
+   "name": "answers-pick",
+   "answers": [
+    {
+     "step": "1",
+     "picked": [
+      "Staging"
+     ]
+    }
+   ],
+   "valid": true,
+   "errors": [],
+   "events": [
+    "{\"step\":\"1\",\"picked\":[\"Staging\"]}"
+   ]
+  },
+  {
+   "name": "answers-multi-in-choice-order",
+   "answers": [
+    {
+     "step": "2",
+     "picked": [
+      "Traces",
+      "Logs"
+     ]
+    }
+   ],
+   "valid": true,
+   "errors": [],
+   "events": [
+    "{\"step\":\"2\",\"picked\":[\"Logs\",\"Traces\"]}"
+   ]
+  },
+  {
+   "name": "answers-multi-all",
+   "answers": [
+    {
+     "step": "2",
+     "picked": [
+      "Logs",
+      "Metrics",
+      "Traces"
+     ]
+    }
+   ],
+   "valid": true,
+   "errors": [],
+   "events": [
+    "{\"step\":\"2\",\"picked\":[\"Logs\",\"Metrics\",\"Traces\"]}"
+   ]
+  },
+  {
+   "name": "answers-text",
+   "answers": [
+    {
+     "step": "3",
+     "text": "Use the EU region"
+    }
+   ],
+   "valid": true,
+   "errors": [],
+   "events": [
+    "{\"step\":\"3\",\"text\":\"Use the EU region\"}"
+   ]
+  },
+  {
+   "name": "answers-text-multiline",
+   "answers": [
+    {
+     "step": "3",
+     "text": "Line one\nLine two\tTabbed"
+    }
+   ],
+   "valid": true,
+   "errors": [],
+   "events": [
+    "{\"step\":\"3\",\"text\":\"Line one\\nLine two\\tTabbed\"}"
+   ]
+  },
+  {
+   "name": "answers-text-unicode",
+   "answers": [
+    {
+     "step": "3",
+     "text": "Zürich, emoji 👨‍👩‍👧"
+    }
+   ],
+   "valid": true,
+   "errors": [],
+   "events": [
+    "{\"step\":\"3\",\"text\":\"Zürich, emoji 👨‍👩‍👧\"}"
+   ]
+  },
+  {
+   "name": "answers-text-quotes",
+   "answers": [
+    {
+     "step": "3",
+     "text": "Say \"hi\" \\ bye"
+    }
+   ],
+   "valid": true,
+   "errors": [],
+   "events": [
+    "{\"step\":\"3\",\"text\":\"Say \\\"hi\\\" \\\\ bye\"}"
+   ]
+  },
+  {
+   "name": "answers-text-1000",
+   "answers": [
+    {
+     "step": "3",
+     "text": "tttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt"
+    }
+   ],
+   "valid": true,
+   "errors": [],
+   "events": [
+    "{\"step\":\"3\",\"text\":\"tttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt\"}"
+   ]
+  },
+  {
+   "name": "answers-parent-question",
+   "answers": [
+    {
+     "step": "4",
+     "picked": [
+      "Yes"
+     ]
+    }
+   ],
+   "valid": true,
+   "errors": [],
+   "events": [
+    "{\"step\":\"4\",\"picked\":[\"Yes\"]}"
+   ]
+  },
+  {
+   "name": "answers-substep-question",
+   "answers": [
+    {
+     "step": "4.2",
+     "picked": [
+      "Long"
+     ]
+    }
+   ],
+   "valid": true,
+   "errors": [],
+   "events": [
+    "{\"step\":\"4.2\",\"picked\":[\"Long\"]}"
+   ]
+  },
+  {
+   "name": "answers-batch-of-five",
+   "answers": [
+    {
+     "step": "4.2",
+     "picked": [
+      "Short"
+     ]
+    },
+    {
+     "step": "1",
+     "picked": [
+      "Prod"
+     ]
+    },
+    {
+     "step": "3",
+     "text": "EU"
+    },
+    {
+     "step": "2",
+     "picked": [
+      "Metrics"
+     ]
+    },
+    {
+     "step": "4",
+     "picked": [
+      "No"
+     ]
+    }
+   ],
+   "valid": true,
+   "errors": [],
+   "events": [
+    "{\"step\":\"4.2\",\"picked\":[\"Short\"]}",
+    "{\"step\":\"1\",\"picked\":[\"Prod\"]}",
+    "{\"step\":\"3\",\"text\":\"EU\"}",
+    "{\"step\":\"2\",\"picked\":[\"Metrics\"]}",
+    "{\"step\":\"4\",\"picked\":[\"No\"]}"
+   ]
+  },
+  {
+   "name": "answers-null-text-on-pick",
+   "answers": [
+    {
+     "step": "1",
+     "picked": [
+      "Prod"
+     ],
+     "text": null
+    }
+   ],
+   "valid": true,
+   "errors": [],
+   "events": [
+    "{\"step\":\"1\",\"picked\":[\"Prod\"]}"
+   ]
+  },
+  {
+   "name": "answers-null-picked-on-text",
+   "answers": [
+    {
+     "step": "3",
+     "text": "EU",
+     "picked": null
+    }
+   ],
+   "valid": true,
+   "errors": [],
+   "events": [
+    "{\"step\":\"3\",\"text\":\"EU\"}"
+   ]
+  },
+  {
+   "name": "answers-not-list",
+   "answers": {
+    "step": "1",
+    "picked": [
+     "Prod"
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "answers: must be a list of 1 to 20 answers"
+   ],
+   "events": []
+  },
+  {
+   "name": "answers-empty",
+   "answers": [],
+   "valid": false,
+   "errors": [
+    "answers: must be a list of 1 to 20 answers"
+   ],
+   "events": []
+  },
+  {
+   "name": "answers-twenty-one",
+   "answers": [
+    {
+     "step": "1",
+     "picked": [
+      "Prod"
+     ]
+    },
+    {
+     "step": "1",
+     "picked": [
+      "Prod"
+     ]
+    },
+    {
+     "step": "1",
+     "picked": [
+      "Prod"
+     ]
+    },
+    {
+     "step": "1",
+     "picked": [
+      "Prod"
+     ]
+    },
+    {
+     "step": "1",
+     "picked": [
+      "Prod"
+     ]
+    },
+    {
+     "step": "1",
+     "picked": [
+      "Prod"
+     ]
+    },
+    {
+     "step": "1",
+     "picked": [
+      "Prod"
+     ]
+    },
+    {
+     "step": "1",
+     "picked": [
+      "Prod"
+     ]
+    },
+    {
+     "step": "1",
+     "picked": [
+      "Prod"
+     ]
+    },
+    {
+     "step": "1",
+     "picked": [
+      "Prod"
+     ]
+    },
+    {
+     "step": "1",
+     "picked": [
+      "Prod"
+     ]
+    },
+    {
+     "step": "1",
+     "picked": [
+      "Prod"
+     ]
+    },
+    {
+     "step": "1",
+     "picked": [
+      "Prod"
+     ]
+    },
+    {
+     "step": "1",
+     "picked": [
+      "Prod"
+     ]
+    },
+    {
+     "step": "1",
+     "picked": [
+      "Prod"
+     ]
+    },
+    {
+     "step": "1",
+     "picked": [
+      "Prod"
+     ]
+    },
+    {
+     "step": "1",
+     "picked": [
+      "Prod"
+     ]
+    },
+    {
+     "step": "1",
+     "picked": [
+      "Prod"
+     ]
+    },
+    {
+     "step": "1",
+     "picked": [
+      "Prod"
+     ]
+    },
+    {
+     "step": "1",
+     "picked": [
+      "Prod"
+     ]
+    },
+    {
+     "step": "1",
+     "picked": [
+      "Prod"
+     ]
+    }
+   ],
+   "valid": false,
+   "errors": [
+    "answers: must be a list of 1 to 20 answers"
+   ],
+   "events": []
+  },
+  {
+   "name": "answers-entry-not-object",
+   "answers": [
+    "1"
+   ],
+   "valid": false,
+   "errors": [
+    "answers[0]: must be an object"
+   ],
+   "events": []
+  },
+  {
+   "name": "answers-unknown-key",
+   "answers": [
+    {
+     "step": "1",
+     "picked": [
+      "Prod"
+     ],
+     "note": "x"
+    }
+   ],
+   "valid": false,
+   "errors": [
+    "answers[0].note: unknown key"
+   ],
+   "events": []
+  },
+  {
+   "name": "answers-step-missing",
+   "answers": [
+    {
+     "picked": [
+      "Prod"
+     ]
+    }
+   ],
+   "valid": false,
+   "errors": [
+    "answers[0].step: required"
+   ],
+   "events": []
+  },
+  {
+   "name": "answers-step-number",
+   "answers": [
+    {
+     "step": 1,
+     "picked": [
+      "Prod"
+     ]
+    }
+   ],
+   "valid": false,
+   "errors": [
+    "answers[0].step: must be a string"
+   ],
+   "events": []
+  },
+  {
+   "name": "answers-step-without-question",
+   "answers": [
+    {
+     "step": "5",
+     "text": "x"
+    }
+   ],
+   "valid": false,
+   "errors": [
+    "answers[0].step: no question at this step"
+   ],
+   "events": []
+  },
+  {
+   "name": "answers-substep-without-question",
+   "answers": [
+    {
+     "step": "4.1",
+     "text": "x"
+    }
+   ],
+   "valid": false,
+   "errors": [
+    "answers[0].step: no question at this step"
+   ],
+   "events": []
+  },
+  {
+   "name": "answers-step-out-of-range",
+   "answers": [
+    {
+     "step": "9",
+     "text": "x"
+    }
+   ],
+   "valid": false,
+   "errors": [
+    "answers[0].step: no question at this step"
+   ],
+   "events": []
+  },
+  {
+   "name": "answers-step-leading-zero",
+   "answers": [
+    {
+     "step": "01",
+     "picked": [
+      "Prod"
+     ]
+    }
+   ],
+   "valid": false,
+   "errors": [
+    "answers[0].step: no question at this step"
+   ],
+   "events": []
+  },
+  {
+   "name": "answers-step-three-levels",
+   "answers": [
+    {
+     "step": "4.2.1",
+     "picked": [
+      "Long"
+     ]
+    }
+   ],
+   "valid": false,
+   "errors": [
+    "answers[0].step: no question at this step"
+   ],
+   "events": []
+  },
+  {
+   "name": "answers-step-verify",
+   "answers": [
+    {
+     "step": "verify",
+     "text": "x"
+    }
+   ],
+   "valid": false,
+   "errors": [
+    "answers[0].step: no question at this step"
+   ],
+   "events": []
+  },
+  {
+   "name": "answers-step-twice",
+   "answers": [
+    {
+     "step": "1",
+     "picked": [
+      "Staging"
+     ]
+    },
+    {
+     "step": "1",
+     "picked": [
+      "Prod"
+     ]
+    }
+   ],
+   "valid": false,
+   "errors": [
+    "answers[1].step: answered twice"
+   ],
+   "events": []
+  },
+  {
+   "name": "answers-pick-missing",
+   "answers": [
+    {
+     "step": "1"
+    }
+   ],
+   "valid": false,
+   "errors": [
+    "answers[0].picked: required"
+   ],
+   "events": []
+  },
+  {
+   "name": "answers-text-on-pick-question",
+   "answers": [
+    {
+     "step": "1",
+     "text": "Staging"
+    }
+   ],
+   "valid": false,
+   "errors": [
+    "answers[0].text: this question takes picks"
+   ],
+   "events": []
+  },
+  {
+   "name": "answers-two-on-single",
+   "answers": [
+    {
+     "step": "1",
+     "picked": [
+      "Staging",
+      "Prod"
+     ]
+    }
+   ],
+   "valid": false,
+   "errors": [
+    "answers[0].picked: must list exactly 1 choice"
+   ],
+   "events": []
+  },
+  {
+   "name": "answers-none-on-single",
+   "answers": [
+    {
+     "step": "1",
+     "picked": []
+    }
+   ],
+   "valid": false,
+   "errors": [
+    "answers[0].picked: must list exactly 1 choice"
+   ],
+   "events": []
+  },
+  {
+   "name": "answers-none-on-multi",
+   "answers": [
+    {
+     "step": "2",
+     "picked": []
+    }
+   ],
+   "valid": false,
+   "errors": [
+    "answers[0].picked: must list 1 or more of the choices"
+   ],
+   "events": []
+  },
+  {
+   "name": "answers-pick-not-list",
+   "answers": [
+    {
+     "step": "1",
+     "picked": "Staging"
+    }
+   ],
+   "valid": false,
+   "errors": [
+    "answers[0].picked: must list exactly 1 choice"
+   ],
+   "events": []
+  },
+  {
+   "name": "answers-pick-unknown",
+   "answers": [
+    {
+     "step": "1",
+     "picked": [
+      "QA"
+     ]
+    }
+   ],
+   "valid": false,
+   "errors": [
+    "answers[0].picked[0]: not one of the choices"
+   ],
+   "events": []
+  },
+  {
+   "name": "answers-pick-wrong-case",
+   "answers": [
+    {
+     "step": "1",
+     "picked": [
+      "staging"
+     ]
+    }
+   ],
+   "valid": false,
+   "errors": [
+    "answers[0].picked[0]: not one of the choices"
+   ],
+   "events": []
+  },
+  {
+   "name": "answers-pick-number",
+   "answers": [
+    {
+     "step": "1",
+     "picked": [
+      1
+     ]
+    }
+   ],
+   "valid": false,
+   "errors": [
+    "answers[0].picked[0]: not one of the choices"
+   ],
+   "events": []
+  },
+  {
+   "name": "answers-pick-twice",
+   "answers": [
+    {
+     "step": "2",
+     "picked": [
+      "Logs",
+      "Logs"
+     ]
+    }
+   ],
+   "valid": false,
+   "errors": [
+    "answers[0].picked[1]: picked twice"
+   ],
+   "events": []
+  },
+  {
+   "name": "answers-text-missing",
+   "answers": [
+    {
+     "step": "3"
+    }
+   ],
+   "valid": false,
+   "errors": [
+    "answers[0].text: required"
+   ],
+   "events": []
+  },
+  {
+   "name": "answers-picked-on-text-question",
+   "answers": [
+    {
+     "step": "3",
+     "picked": [
+      "EU"
+     ]
+    }
+   ],
+   "valid": false,
+   "errors": [
+    "answers[0].picked: this question takes text"
+   ],
+   "events": []
+  },
+  {
+   "name": "answers-text-empty",
+   "answers": [
+    {
+     "step": "3",
+     "text": "   "
+    }
+   ],
+   "valid": false,
+   "errors": [
+    "answers[0].text: must not be empty"
+   ],
+   "events": []
+  },
+  {
+   "name": "answers-text-1001",
+   "answers": [
+    {
+     "step": "3",
+     "text": "ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt"
+    }
+   ],
+   "valid": false,
+   "errors": [
+    "answers[0].text: longer than 1000 characters"
+   ],
+   "events": []
+  },
+  {
+   "name": "answers-text-number",
+   "answers": [
+    {
+     "step": "3",
+     "text": 5
+    }
+   ],
+   "valid": false,
+   "errors": [
+    "answers[0].text: must be a string"
+   ],
+   "events": []
+  },
+  {
+   "name": "answers-text-hidden",
+   "answers": [
+    {
+     "step": "3",
+     "text": "a‮b"
+    }
+   ],
+   "valid": false,
+   "errors": [
+    "answers[0].text: contains hidden or control characters (U+202E)"
+   ],
+   "events": []
+  },
+  {
+   "name": "answers-text-secret",
+   "answers": [
+    {
+     "step": "3",
+     "text": "token ghp_example"
+    }
+   ],
+   "valid": false,
+   "errors": [
+    "answers[0].text: secret-like value"
+   ],
+   "events": []
+  },
+  {
+   "name": "answers-one-bad-stores-none",
+   "answers": [
+    {
+     "step": "1",
+     "picked": [
+      "Prod"
+     ]
+    },
+    {
+     "step": "3",
+     "text": ""
+    }
+   ],
+   "valid": false,
+   "errors": [
+    "answers[1].text: must not be empty"
+   ],
+   "events": []
+  },
+  {
+   "name": "answers-no-instructable",
+   "answers": [
+    {
+     "step": "1",
+     "picked": [
+      "Staging"
+     ]
+    }
+   ],
+   "valid": false,
+   "errors": [
+    "answers[0].step: no question at this step"
+   ],
+   "events": [],
+   "instructable": null
+  }
+ ]
+}

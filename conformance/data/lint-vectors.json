@@ -1,0 +1,2641 @@
+{
+ "version": 1,
+ "about": "Values to copy inside a step's do: Hook's relay_lint.lint_instructable and every copy of it must give exactly these (path, message) pairs.",
+ "cases": [
+  {
+   "name": "url",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Open https://app.example.com/settings and sign in"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"https://app.example.com/settings\" is a value to copy: put it in code (or a URL in url)"
+    ]
+   ]
+  },
+  {
+   "name": "url-sentence-end",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Sign in at https://app.example.com/."
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"https://app.example.com/\" is a value to copy: put it in code (or a URL in url)"
+    ]
+   ]
+  },
+  {
+   "name": "url-in-brackets",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Sign in (https://app.example.com/login) with your account"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"https://app.example.com/login\" is a value to copy: put it in code (or a URL in url)"
+    ]
+   ]
+  },
+  {
+   "name": "url-not-the-step-url",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Open https://app.example.com/a first",
+      "url": "https://app.example.com/b"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"https://app.example.com/a\" is a value to copy: put it in code (or a URL in url)"
+    ]
+   ]
+  },
+  {
+   "name": "ipv4",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Point the printer at 192.0.2.10"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"192.0.2.10\" is a value to copy: put it in code (or a URL in url)"
+    ]
+   ]
+  },
+  {
+   "name": "ipv4-port",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Set the server to 192.0.2.10:8080, then save"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"192.0.2.10:8080\" is a value to copy: put it in code (or a URL in url)"
+    ]
+   ]
+  },
+  {
+   "name": "host-port",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Connect to nas.local:5000 from the Mac"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"nas.local:5000\" is a value to copy: put it in code (or a URL in url)"
+    ]
+   ]
+  },
+  {
+   "name": "localhost-port",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Open localhost:3000 in Safari"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"localhost:3000\" is a value to copy: put it in code (or a URL in url)"
+    ]
+   ]
+  },
+  {
+   "name": "key-value",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Set LOG_LEVEL=debug in the panel"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"LOG_LEVEL=debug\" is a value to copy: put it in code (or a URL in url)"
+    ]
+   ]
+  },
+  {
+   "name": "flag-value",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Start it with --port=8443"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"--port=8443\" is a value to copy: put it in code (or a URL in url)"
+    ]
+   ]
+  },
+  {
+   "name": "backtick",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Run `brew upgrade` in Terminal"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"brew upgrade\" is a value to copy: put it in code (or a URL in url)"
+    ]
+   ]
+  },
+  {
+   "name": "backtick-word",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Type `Enter` in the box"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"Enter\" is a value to copy: put it in code (or a URL in url)"
+    ]
+   ]
+  },
+  {
+   "name": "double-quoted-identifier",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Name the channel \"acme-brief\""
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"acme-brief\" is a value to copy: put it in code (or a URL in url)"
+    ]
+   ]
+  },
+  {
+   "name": "double-quoted-command",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Type \"git pull --rebase\" and press Return"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"git pull --rebase\" is a value to copy: put it in code (or a URL in url)"
+    ]
+   ]
+  },
+  {
+   "name": "double-quoted-camel-case",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Set \"editKeyHash\" to on"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"editKeyHash\" is a value to copy: put it in code (or a URL in url)"
+    ]
+   ]
+  },
+  {
+   "name": "double-quoted-letters-digits",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Name it \"studio2\""
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"studio2\" is a value to copy: put it in code (or a URL in url)"
+    ]
+   ]
+  },
+  {
+   "name": "curly-quoted-id",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Paste “C07ABC123” into Channel"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"C07ABC123\" is a value to copy: put it in code (or a URL in url)"
+    ]
+   ]
+  },
+  {
+   "name": "single-quoted-path",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Save it as '~/Notes/acme.md'"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"~/Notes/acme.md\" is a value to copy: put it in code (or a URL in url)"
+    ]
+   ]
+  },
+  {
+   "name": "absolute-path",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Open /etc/hosts in an editor"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"/etc/hosts\" is a value to copy: put it in code (or a URL in url)"
+    ]
+   ]
+  },
+  {
+   "name": "home-path",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Drop the file into ~/Downloads/inbox."
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"~/Downloads/inbox\" is a value to copy: put it in code (or a URL in url)"
+    ]
+   ]
+  },
+  {
+   "name": "slash-command",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Type /invite @acme-bot in the channel"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"/invite\" is a value to copy: put it in code (or a URL in url)"
+    ]
+   ]
+  },
+  {
+   "name": "long-model-name",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Pick the model qwen2.5:14b-instruct from the list"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"qwen2.5:14b-instruct\" is a value to copy: put it in code (or a URL in url)"
+    ]
+   ]
+  },
+  {
+   "name": "long-hex-id",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Copy the build id a1b2c3d4e5f6 from the log"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"a1b2c3d4e5f6\" is a value to copy: put it in code (or a URL in url)"
+    ]
+   ]
+  },
+  {
+   "name": "same-value-twice",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Open 192.0.2.10, then ping 192.0.2.10 again"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"192.0.2.10\" is a value to copy: put it in code (or a URL in url)"
+    ]
+   ]
+  },
+  {
+   "name": "in-code-elsewhere-only",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Set the URL to http://192.0.2.5:11434",
+      "code": "http://192.0.2.6:11434"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"http://192.0.2.5:11434\" is a value to copy: put it in code (or a URL in url)"
+    ]
+   ]
+  },
+  {
+   "name": "form-in-prose",
+   "note": "The real-ask shape: a whole form crammed into do. Step 4 is refused.",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Open the app",
+      "url": "https://app.example.com/app/"
+     },
+     {
+      "do": "Sign in with your household account"
+     },
+     {
+      "do": "Go to Settings"
+     },
+     {
+      "do": "Settings page, Readers: tap Add reader. Kind Ollama, Name studio, URL http://100.64.0.7:11434, Model qwen2.5:14b-instruct; leave the rest. Tap Add, then Check now. Open the app at https://app.example.com/app/ from home or the tailnet"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[3].do",
+     "\"http://100.64.0.7:11434\", \"qwen2.5:14b-instruct\", \"https://app.example.com/app/\" are values to copy: put each in a sub-step's code (or a URL in url)"
+    ]
+   ]
+  },
+  {
+   "name": "sub-step-do",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Add a reader",
+      "substeps": [
+       {
+        "do": "Kind",
+        "code": "Ollama",
+        "lang": "text"
+       },
+       {
+        "do": "URL http://192.0.2.5:11434"
+       }
+      ]
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].substeps[1].do",
+     "\"http://192.0.2.5:11434\" is a value to copy: put it in code (or a URL in url)"
+    ]
+   ]
+  },
+  {
+   "name": "verify-do",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Restart the app"
+     }
+    ],
+    "verify": {
+     "do": "Open https://status.example.com"
+    }
+   },
+   "expect": [
+    [
+     "verify.do",
+     "\"https://status.example.com\" is a value to copy: put it in code (or a URL in url)"
+    ]
+   ]
+  },
+  {
+   "name": "verify-do-two-values",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Restart the app"
+     }
+    ],
+    "verify": {
+     "do": "Check 192.0.2.4 and https://status.example.com/health"
+    }
+   },
+   "expect": [
+    [
+     "verify.do",
+     "\"192.0.2.4\", \"https://status.example.com/health\" are values to copy: put them in code (or a URL in url)"
+    ]
+   ]
+  },
+  {
+   "name": "two-steps-flagged",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Open ~/Library/Logs"
+     },
+     {
+      "do": "Click Done"
+     },
+     {
+      "do": "Run `make check`"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"~/Library/Logs\" is a value to copy: put it in code (or a URL in url)"
+    ],
+    [
+     "steps[2].do",
+     "\"make check\" is a value to copy: put it in code (or a URL in url)"
+    ]
+   ]
+  },
+  {
+   "name": "plain-words",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Click Create New App, then From scratch"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "version-in-prose",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Install Hook 0.11 from the menu, then update to 0.11.0"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "semver-prerelease",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Install v1.12.0-beta.3 when asked"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "time-phrases",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "It runs at 08:10 daily and takes 5 min, or 1 h at most"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "iso-date",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Pick 2026-11-09 as the launch date"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "iso-date-time",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "It last ran at 2026-11-03T06:17:00Z"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "shortcuts",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Press ⌘C, then ⌘V into the field; Ctrl-C stops it"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "ui-path-chevrons",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Settings › Readers › Add reader"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "ui-path-arrows",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "System Settings → General → Sharing"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "url-is-the-step-url",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Open https://app.example.com/app/ and sign in",
+      "url": "https://app.example.com/app"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "value-is-the-code",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Paste qwen2.5:14b-instruct into Model",
+      "code": "qwen2.5:14b-instruct",
+      "lang": "text"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "value-inside-the-code",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Run `docker ps` in Terminal",
+      "code": "docker ps --all",
+      "lang": "bash"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "quoted-button-labels",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Click \"Add reader\", then \"Check now\""
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "quoted-hyphenated-labels",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Turn on \"Wi-Fi\", then tap \"Sign-in\""
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "quoted-ellipsis-label",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Choose \"Update Pond…\" from the menu"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "single-quoted-words",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Choose 'organization', then 'Yes'"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "apostrophes",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Open the owner's page and the bot's settings"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "slashes-in-prose",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Use Stripe and/or PayPal; skip N/A fields; it runs 24/7"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "slash-between-labels",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Click Join the waitlist / Get started"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "ratio-and-fraction",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Use 16:9 at 1/2 size, 3x faster"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "email-address",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Sign in as ops@example.com"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "key-value-with-at",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Set to=ops@example.com in the form"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "bare-domain",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Go to api.example.com and sign in"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "hashtag-and-mention",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Post it in #acme-brief and mention @acme-bot"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "short-ids",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Answer on step s2.1 of ask e801f571"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "form-as-sub-steps",
+   "note": "The fix for form-in-prose: one sub-step per field, each value in code.",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Add a reader: Settings › Readers › Add reader",
+      "url": "https://app.example.com/app/",
+      "substeps": [
+       {
+        "do": "Kind",
+        "code": "Ollama",
+        "lang": "text"
+       },
+       {
+        "do": "Name",
+        "code": "studio",
+        "lang": "text"
+       },
+       {
+        "do": "URL",
+        "code": "http://100.64.0.7:11434",
+        "lang": "text"
+       },
+       {
+        "do": "Model",
+        "code": "qwen2.5:14b-instruct",
+        "lang": "text"
+       },
+       {
+        "do": "Tap Add, then Check now",
+        "expect": "The card shows Ready"
+       }
+      ]
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "parent-restates-a-sub-step-value",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Add the reader at http://192.0.2.5:11434",
+      "substeps": [
+       {
+        "do": "URL",
+        "code": "http://192.0.2.5:11434",
+        "lang": "text"
+       }
+      ]
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "verify-url-is-its-url",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Restart the app"
+     }
+    ],
+    "verify": {
+     "do": "Open https://status.example.com/",
+     "url": "https://status.example.com"
+    }
+   },
+   "expect": []
+  },
+  {
+   "name": "loopback-bare",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Ollama listens on 127.0.0.1 under a LaunchAgent"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "loopback-with-port",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Point the client at 127.0.0.1:11434"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"127.0.0.1:11434\" is a value to copy: put it in code (or a URL in url)"
+    ]
+   ]
+  },
+  {
+   "name": "no-steps",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector"
+   },
+   "expect": []
+  },
+  {
+   "name": "required-leaf",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Confirm the deploy",
+      "required": true
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "required-substep",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Rotate it",
+      "substeps": [
+       {
+        "do": "Revoke the old key",
+        "required": true
+       },
+       {
+        "do": "Note the time",
+        "optional": true
+       }
+      ]
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "required-question",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Pick the target",
+      "required": true,
+      "question": {
+       "prompt": "Which one?",
+       "choices": [
+        "Staging",
+        "Preview"
+       ]
+      }
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "required-beside-blocking",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Confirm the deploy",
+      "required": true,
+      "blocking": true
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "required-false-beside-optional",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Confirm the deploy",
+      "required": false,
+      "optional": true
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "required-parent-all-optional",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Tidy up",
+      "required": true,
+      "substeps": [
+       {
+        "do": "Copy the old key aside",
+        "optional": true
+       },
+       {
+        "do": "Note the rotation time",
+        "optional": true
+       }
+      ]
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[2].required",
+     "has nothing to finish: every sub-step is optional. Drop required, or make a sub-step one the owner must do"
+    ]
+   ]
+  },
+  {
+   "name": "required-parent-all-optional-asks-its-own",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Tidy up",
+      "required": true,
+      "substeps": [
+       {
+        "do": "Copy the old key aside",
+        "optional": true
+       },
+       {
+        "do": "Note the rotation time",
+        "optional": true
+       }
+      ],
+      "question": {
+       "prompt": "Anything left?",
+       "choices": [
+        "No",
+        "Yes"
+       ]
+      }
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "required-parent-one-sub-to-do",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Tidy up",
+      "required": true,
+      "substeps": [
+       {
+        "do": "Copy the old key aside",
+        "optional": true
+       },
+       {
+        "do": "Delete the old key"
+       }
+      ]
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "required-beside-optional",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Confirm the deploy",
+      "required": true,
+      "optional": true
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[2].required",
+     "can't go with optional: drop one of them"
+    ]
+   ]
+  },
+  {
+   "name": "required-inside-optional-parent",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Tidy up",
+      "optional": true,
+      "substeps": [
+       {
+        "do": "Delete the old key",
+        "required": true
+       },
+       {
+        "do": "Note the time"
+       }
+      ]
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[2].substeps[0].required",
+     "can't be required inside an optional step"
+    ]
+   ]
+  },
+  {
+   "name": "required-substep-beside-optional",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Tidy up",
+      "substeps": [
+       {
+        "do": "Delete the old key",
+        "required": true,
+        "optional": true
+       }
+      ]
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[2].substeps[0].required",
+     "can't go with optional: drop one of them"
+    ]
+   ]
+  },
+  {
+   "name": "required-after-a-value-to-copy",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open https://app.example.com/settings"
+     },
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Confirm the deploy",
+      "required": true,
+      "optional": true
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"https://app.example.com/settings\" is a value to copy: put it in code (or a URL in url)"
+    ],
+    [
+     "steps[2].required",
+     "can't go with optional: drop one of them"
+    ]
+   ]
+  },
+  {
+   "name": "done-steps",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     }
+    ],
+    "done": [
+     "steps"
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "done-reply",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     }
+    ],
+    "done": [
+     "reply"
+    ],
+    "reply": {
+     "prompt": "Did the deploy pass?",
+     "choices": []
+    }
+   },
+   "expect": []
+  },
+  {
+   "name": "done-reply-without-a-prompt",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     }
+    ],
+    "done": [
+     "reply"
+    ]
+   },
+   "expect": [
+    [
+     "done",
+     "\"reply\" needs a reply prompt: add reply, or drop it from done"
+    ]
+   ]
+  },
+  {
+   "name": "done-message",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     }
+    ],
+    "done": [
+     "message"
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "done-steps-all-optional",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings",
+      "optional": true
+     },
+     {
+      "do": "Rotate the key",
+      "optional": true
+     }
+    ],
+    "done": [
+     "steps"
+    ]
+   },
+   "expect": [
+    [
+     "done",
+     "\"steps\" has nothing to finish: every step is optional"
+    ]
+   ]
+  },
+  {
+   "name": "done-steps-one-to-do",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings",
+      "optional": true
+     },
+     {
+      "do": "Rotate the key"
+     }
+    ],
+    "done": [
+     "steps"
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "done-steps-with-required",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key",
+      "required": true
+     }
+    ],
+    "done": [
+     "steps",
+     "message"
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "done-both-refusals-in-list-order",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings",
+      "optional": true
+     }
+    ],
+    "done": [
+     "reply",
+     "steps"
+    ]
+   },
+   "expect": [
+    [
+     "done",
+     "\"reply\" needs a reply prompt: add reply, or drop it from done"
+    ],
+    [
+     "done",
+     "\"steps\" has nothing to finish: every step is optional"
+    ]
+   ]
+  },
+  {
+   "name": "done-and-required-refusals",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     },
+     {
+      "do": "Tidy up",
+      "required": true,
+      "substeps": [
+       {
+        "do": "Copy the old key aside",
+        "optional": true
+       },
+       {
+        "do": "Note the rotation time",
+        "optional": true
+       }
+      ]
+     }
+    ],
+    "done": [
+     "message",
+     "reply"
+    ]
+   },
+   "expect": [
+    [
+     "steps[2].required",
+     "has nothing to finish: every sub-step is optional. Drop required, or make a sub-step one the owner must do"
+    ],
+    [
+     "done",
+     "\"reply\" needs a reply prompt: add reply, or drop it from done"
+    ]
+   ]
+  },
+  {
+   "name": "done-malformed-is-the-validators",
+   "instructable": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "steps": [
+     {
+      "do": "Open the deploy settings"
+     },
+     {
+      "do": "Rotate the key"
+     }
+    ],
+    "done": "reply"
+   },
+   "expect": []
+  },
+  {
+   "name": "choice-reply-label",
+   "instructable": {
+    "v": 1,
+    "title": "Roll out the change",
+    "steps": [
+     {
+      "do": "Read the plan"
+     }
+    ],
+    "reply": {
+     "prompt": "How should it roll out?",
+     "choices": [
+      "All at once",
+      "Mix (reply what)"
+     ]
+    }
+   },
+   "expect": [
+    [
+     "reply.choices[1]",
+     "\"Mix (reply what)\" asks for words: make it {\"label\": \"Mix\", \"text\": \"…\"} (Pond 1.4.0), or say what to write in the prompt"
+    ]
+   ]
+  },
+  {
+   "name": "choice-reply-label-question",
+   "instructable": {
+    "v": 1,
+    "title": "Review the draft",
+    "steps": [
+     {
+      "do": "Read the draft"
+     },
+     {
+      "do": "Give your verdict",
+      "question": {
+       "prompt": "Ship it?",
+       "choices": [
+        "Ship",
+        "Changes (reply)"
+       ]
+      }
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[1].question.choices[1]",
+     "\"Changes (reply)\" asks for words: make it {\"label\": \"Changes\", \"text\": \"…\"} (Pond 1.4.0), or say what to write in the prompt"
+    ]
+   ]
+  },
+  {
+   "name": "choice-reply-label-substep",
+   "instructable": {
+    "v": 1,
+    "title": "Review the draft",
+    "steps": [
+     {
+      "do": "Review",
+      "substeps": [
+       {
+        "do": "Read it"
+       },
+       {
+        "do": "Give your verdict",
+        "question": {
+         "prompt": "Ship it?",
+         "choices": [
+          "Ship",
+          "Changes ( Reply: what )"
+         ]
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].substeps[1].question.choices[1]",
+     "\"Changes ( Reply: what )\" asks for words: make it {\"label\": \"Changes\", \"text\": \"…\"} (Pond 1.4.0), or say what to write in the prompt"
+    ]
+   ]
+  },
+  {
+   "name": "choice-reply-word-plain",
+   "instructable": {
+    "v": 1,
+    "title": "Review the draft",
+    "steps": [
+     {
+      "do": "Read the draft"
+     }
+    ],
+    "reply": {
+     "prompt": "Ship it?",
+     "choices": [
+      "Ship",
+      "Reply later",
+      "Changes (replying is slow)x"
+     ]
+    }
+   },
+   "expect": []
+  },
+  {
+   "name": "choice-object-ok",
+   "instructable": {
+    "v": 1,
+    "title": "Roll out the change",
+    "steps": [
+     {
+      "do": "Read the plan"
+     }
+    ],
+    "reply": {
+     "prompt": "How should it roll out?",
+     "choices": [
+      "All at once",
+      {
+       "label": "Mix",
+       "text": "What should change?"
+      }
+     ]
+    }
+   },
+   "expect": []
+  },
+  {
+   "name": "controls-reply",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Restart the reader",
+      "where": "Mac terminal",
+      "code": "launchctl kickstart -k gui/501/com.example.reader",
+      "lang": "bash"
+     },
+     {
+      "do": "Reply with anything that still looks wrong, or 'Fine'"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[1].do",
+     "\"Reply with anything that still looks wrong, or 'Fine'\" only points at Hook's own controls: drop the step; the reply box and questions already show"
+    ]
+   ]
+  },
+  {
+   "name": "controls-pick-an-answer",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Pick an answer below",
+      "where": "Hook"
+     }
+    ],
+    "reply": {
+     "prompt": "Which one?",
+     "choices": [
+      "A",
+      "B"
+     ]
+    }
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"Pick an answer below\" only points at Hook's own controls: drop the step; the reply box and questions already show"
+    ]
+   ]
+  },
+  {
+   "name": "controls-answer-the-question",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Pick the deploy target",
+      "question": {
+       "prompt": "Which environment?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      }
+     },
+     {
+      "do": "Answer the question"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[1].do",
+     "\"Answer the question\" only points at Hook's own controls: drop the step; the reply box and questions already show"
+    ]
+   ]
+  },
+  {
+   "name": "controls-press-done",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Restart the reader",
+      "where": "Mac terminal",
+      "code": "launchctl kickstart -k gui/501/com.example.reader",
+      "lang": "bash"
+     },
+     {
+      "do": "Press Done after answering"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[1].do",
+     "\"Press Done after answering\" only points at Hook's own controls: drop the step; the reply box and questions already show"
+    ]
+   ]
+  },
+  {
+   "name": "controls-choose-an-option",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Choose an option below"
+     }
+    ],
+    "reply": {
+     "prompt": "Which date?",
+     "choices": [
+      "Monday",
+      "Friday"
+     ]
+    }
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"Choose an option below\" only points at Hook's own controls: drop the step; the reply box and questions already show"
+    ]
+   ]
+  },
+  {
+   "name": "controls-look-at-your-reply",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Restart the reader",
+      "where": "Mac terminal",
+      "code": "launchctl kickstart -k gui/501/com.example.reader",
+      "lang": "bash"
+     },
+     {
+      "do": "Look at your reply"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[1].do",
+     "\"Look at your reply\" only points at Hook's own controls: drop the step; the reply box and questions already show"
+    ]
+   ]
+  },
+  {
+   "name": "controls-substep",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Set up the reader",
+      "where": "Browser",
+      "substeps": [
+       {
+        "do": "Open the settings page",
+        "url": "https://app.example.com/settings"
+       },
+       {
+        "do": "Reply here once it shows Ready"
+       }
+      ]
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].substeps[1].do",
+     "\"Reply here once it shows Ready\" only points at Hook's own controls: drop the step; the reply box and questions already show"
+    ]
+   ]
+  },
+  {
+   "name": "controls-verify-look-at-the-reply",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Restart the reader",
+      "where": "Mac terminal",
+      "code": "launchctl kickstart -k gui/501/com.example.reader",
+      "lang": "bash"
+     }
+    ],
+    "verify": {
+     "do": "Look at the reply you sent",
+     "expect": "Fine, or your notes"
+    }
+   },
+   "expect": [
+    [
+     "verify.do",
+     "\"Look at the reply you sent\" only restates the reply or Done: drop verify; keep it only for a real check, like a command with expect"
+    ]
+   ]
+  },
+  {
+   "name": "controls-verify-the-ask-closes",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Restart the reader",
+      "where": "Mac terminal",
+      "code": "launchctl kickstart -k gui/501/com.example.reader",
+      "lang": "bash"
+     }
+    ],
+    "verify": {
+     "do": "Confirm it worked",
+     "expect": "The ask closes"
+    }
+   },
+   "expect": [
+    [
+     "verify.expect",
+     "\"The ask closes\" only restates the reply or Done: drop verify; keep it only for a real check, like a command with expect"
+    ]
+   ]
+  },
+  {
+   "name": "controls-verify-press-done",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Restart the reader",
+      "where": "Mac terminal",
+      "code": "launchctl kickstart -k gui/501/com.example.reader",
+      "lang": "bash"
+     }
+    ],
+    "verify": {
+     "do": "Press Done on this ask in Hook"
+    }
+   },
+   "expect": [
+    [
+     "verify.do",
+     "\"Press Done on this ask in Hook\" only restates the reply or Done: drop verify; keep it only for a real check, like a command with expect"
+    ]
+   ]
+  },
+  {
+   "name": "controls-two-filler-steps",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Restart the reader",
+      "where": "Mac terminal",
+      "code": "launchctl kickstart -k gui/501/com.example.reader",
+      "lang": "bash"
+     },
+     {
+      "do": "Reply with what it printed"
+     },
+     {
+      "do": "Press Done"
+     }
+    ],
+    "verify": {
+     "do": "Look at the reply you sent",
+     "expect": "Fine, or your notes"
+    }
+   },
+   "expect": [
+    [
+     "steps[1].do",
+     "\"Reply with what it printed\" only points at Hook's own controls: drop the step; the reply box and questions already show"
+    ],
+    [
+     "steps[2].do",
+     "\"Press Done\" only points at Hook's own controls: drop the step; the reply box and questions already show"
+    ],
+    [
+     "verify.do",
+     "\"Look at the reply you sent\" only restates the reply or Done: drop verify; keep it only for a real check, like a command with expect"
+    ]
+   ]
+  },
+  {
+   "name": "controls-after-a-value-to-copy",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Open https://app.example.com/settings"
+     },
+     {
+      "do": "Pick an answer below"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"https://app.example.com/settings\" is a value to copy: put it in code (or a URL in url)"
+    ],
+    [
+     "steps[1].do",
+     "\"Pick an answer below\" only points at Hook's own controls: drop the step; the reply box and questions already show"
+    ]
+   ]
+  },
+  {
+   "name": "controls-reply-in-another-app",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Reply to the Slack thread with the link"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "controls-reply-where-another-app",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Reply to the thread with the link",
+      "where": "Slack desktop"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "controls-reply-with-url",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Reply with the release link",
+      "url": "https://github.com/example/app/releases"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "controls-reply-with-code",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Reply with this",
+      "where": "Mail",
+      "code": "Approved, ship it",
+      "lang": "text"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "controls-reply-to-an-email",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Reply to the email from the landlord"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "controls-question-step",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Pick the deploy target",
+      "where": "Hook",
+      "question": {
+       "prompt": "Which environment?",
+       "choices": [
+        "Staging",
+        "Prod"
+       ]
+      }
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "controls-click-done-in-a-dialog",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Click Done"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "controls-done-in-another-app",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Tap Done when the pairing finishes",
+      "where": "iPhone Settings"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "controls-answer-in-a-form",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Answer the question in the Google form"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "controls-read-a-file",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Read the replies in the review notes",
+      "file": "~/Documents/review.md"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "controls-pick-a-real-thing",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Pick a date for the public launch"
+     }
+    ],
+    "reply": {
+     "prompt": "Which date?",
+     "choices": [
+      "Monday",
+      "Friday"
+     ]
+    }
+   },
+   "expect": []
+  },
+  {
+   "name": "controls-verify-real-check",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Restart the reader",
+      "where": "Mac terminal",
+      "code": "launchctl kickstart -k gui/501/com.example.reader",
+      "lang": "bash"
+     }
+    ],
+    "verify": {
+     "do": "Check the reader is up",
+     "where": "Mac terminal",
+     "code": "curl -s http://127.0.0.1:8080/health",
+     "lang": "bash",
+     "expect": "ok"
+    }
+   },
+   "expect": []
+  },
+  {
+   "name": "controls-verify-another-app",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Restart the reader",
+      "where": "Mac terminal",
+      "code": "launchctl kickstart -k gui/501/com.example.reader",
+      "lang": "bash"
+     }
+    ],
+    "verify": {
+     "do": "Reload Slack and look under Channels",
+     "where": "Slack desktop",
+     "expect": "#acme-brief is listed with a lock icon"
+    }
+   },
+   "expect": []
+  },
+  {
+   "name": "controls-verify-your-notes-in-an-app",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Restart the reader",
+      "where": "Mac terminal",
+      "code": "launchctl kickstart -k gui/501/com.example.reader",
+      "lang": "bash"
+     }
+    ],
+    "verify": {
+     "do": "Open the notes app",
+     "where": "Notes",
+     "expect": "Your notes appear in the list"
+    }
+   },
+   "expect": []
+  },
+  {
+   "name": "do-title-leasekey",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Install the Leasekey client on the Mac, create the Claude agent's token and add its rules on the server",
+      "where": "Mac terminal",
+      "code": "cd ~/leasekey-deploy && ./agent.sh",
+      "lang": "bash",
+      "expect": "It ends with: Next: ./install-host.sh web-1"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"Install the Leasekey client…\" names more than one action: keep do to the owner's one action and move the rest to detail, or split into steps"
+    ]
+   ]
+  },
+  {
+   "name": "do-title-leasekey-rewritten",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Run the Leasekey agent setup",
+      "where": "Mac terminal",
+      "code": "cd ~/leasekey-deploy && ./agent.sh",
+      "lang": "bash",
+      "detail": "It installs the Leasekey client on the Mac, creates the Claude agent's token and adds its rules on the server.",
+      "expect": "It ends with: Next: ./install-host.sh web-1"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "do-title-three-short",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Install Node, create a token and add the rule"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"Install Node, create a token…\" names more than one action: keep do to the owner's one action and move the rest to detail, or split into steps"
+    ]
+   ]
+  },
+  {
+   "name": "do-title-semicolons",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Open the app; sign in; tap Sync"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"Open the app; sign in; tap…\" names more than one action: keep do to the owner's one action and move the rest to detail, or split into steps"
+    ]
+   ]
+  },
+  {
+   "name": "do-title-then-chain",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Quit Hook, then reopen it, then check the menu"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"Quit Hook, then reopen it…\" names more than one action: keep do to the owner's one action and move the rest to detail, or split into steps"
+    ]
+   ]
+  },
+  {
+   "name": "do-title-two-actions-long",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Open the Cloudflare dashboard for the zone and turn on Always Use HTTPS"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"Open the Cloudflare…\" names more than one action: keep do to the owner's one action and move the rest to detail, or split into steps"
+    ]
+   ]
+  },
+  {
+   "name": "do-title-one-action-long",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Run the setup script that installs the client and writes its config file"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "do is 72 characters: keep it under 60 and move the rest to detail"
+    ]
+   ]
+  },
+  {
+   "name": "do-title-61",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Choose the workspaces the Acme brief posts its daily notes to"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "do is 61 characters: keep it under 60 and move the rest to detail"
+    ]
+   ]
+  },
+  {
+   "name": "do-title-60",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Choose the workspace the Acme brief posts its daily notes to"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "do-title-substep",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Set up the Acme bot",
+      "where": "Slack desktop",
+      "substeps": [
+       {
+        "do": "Click Create New App, then From scratch"
+       },
+       {
+        "do": "Name it, pick the workspace and add the chat:write scope",
+        "code": "chat:write",
+        "lang": "text"
+       }
+      ]
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].substeps[1].do",
+     "\"Name it, pick the workspace…\" names more than one action: keep do to the owner's one action and move the rest to detail, or split into steps"
+    ]
+   ]
+  },
+  {
+   "name": "do-title-substep-long",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Set up the Acme bot",
+      "substeps": [
+       {
+        "do": "Choose the workspace where the Acme brief bot will post its daily summary"
+       }
+      ]
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].substeps[0].do",
+     "do is 73 characters: keep it under 60 and move the rest to detail"
+    ]
+   ]
+  },
+  {
+   "name": "do-title-verify-long",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Restart the brief",
+      "code": "launchctl kickstart -k gui/501/com.acme.brief",
+      "lang": "bash"
+     }
+    ],
+    "verify": {
+     "do": "Send the brief bot a message in Slack: it answers with today's brief summary"
+    }
+   },
+   "expect": [
+    [
+     "verify.do",
+     "do is 76 characters: keep it under 60 and move the rest to detail"
+    ]
+   ]
+  },
+  {
+   "name": "do-title-verify-actions",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Create the channel"
+     }
+    ],
+    "verify": {
+     "do": "Reload Slack, open Channels and look for it",
+     "expect": "#acme-brief is listed"
+    }
+   },
+   "expect": []
+  },
+  {
+   "name": "do-title-click-path",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Open Settings and click Save"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "do-title-click-then",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Click + next to Channels, then Create channel",
+      "where": "Slack desktop"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "do-title-type-and-return",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Type this in the channel and press Return",
+      "code": "/invite @acme-bot",
+      "lang": "text"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "do-title-menu-path",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "In Warp, open Settings, then AI, then Rules"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "do-title-ui-path",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Add a reader: Settings › Readers › Add reader"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "do-title-scroll-and-copy",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Scroll down and copy the Channel ID",
+      "where": "Slack desktop › channel name › About"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "do-title-values-first",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Open https://app.example.com/settings, sign in and click Save under Readers"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"https://app.example.com/settings\" is a value to copy: put it in code (or a URL in url)"
+    ]
+   ]
+  }
+ ]
+}

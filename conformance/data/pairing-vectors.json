@@ -1,0 +1,193 @@
+{
+  "version": 1,
+  "source": "Tests/RelayCoreTests/ConformanceTests.swift",
+  "format": "{name, note, payload | pad, expect: {ok, failure?, url?, context?, sourceKey?}}. `payload` is the setup code's JSON text exactly as pasted or scanned. `pad: {bytes: N}` stands for a valid payload ({\"v\":1,\"url\":\"https://pond.example.test\",\"token\":\"synthetic-token-for-tests\",\"context\":\"x…x\"}) whose context is padded with x until the whole payload is exactly N UTF-8 bytes; its expect leaves out context and sourceKey, which hold the padding. A good code gives ok true, the canonical url (https, lowercase host, no port 443, no trailing slash), the context and the source key; a refused one gives ok false and failure: tooLarge (over 16384 bytes), malformed (not one JSON object with v, url, token and context, or a key named twice), version (v is not 1), destination (not https, no host, a user, a password, a query, a fragment or a port outside 1-65535), credentials (a blank token or one with a control character). The token never appears in expect.",
+  "cases": [
+    {
+      "name": "pairing-good",
+      "note": "a good code",
+      "payload": "{\"v\":1,\"url\":\"https://pond.example.test\",\"token\":\"synthetic-token-for-tests\",\"context\":\"Example\"}",
+      "expect": {
+        "ok": true,
+        "url": "https://pond.example.test",
+        "context": "Example",
+        "sourceKey": "mailbox:pond.example.test#Example"
+      }
+    },
+    {
+      "name": "pairing-trailing-slash",
+      "note": "a trailing slash is removed",
+      "payload": "{\"v\":1,\"url\":\"https://pond.example.test/\",\"token\":\"synthetic-token-for-tests\",\"context\":\"Example\"}",
+      "expect": {
+        "ok": true,
+        "url": "https://pond.example.test",
+        "context": "Example",
+        "sourceKey": "mailbox:pond.example.test#Example"
+      }
+    },
+    {
+      "name": "pairing-port-443",
+      "note": "the default port 443 is removed",
+      "payload": "{\"v\":1,\"url\":\"https://pond.example.test:443\",\"token\":\"synthetic-token-for-tests\",\"context\":\"Example\"}",
+      "expect": {
+        "ok": true,
+        "url": "https://pond.example.test",
+        "context": "Example",
+        "sourceKey": "mailbox:pond.example.test#Example"
+      }
+    },
+    {
+      "name": "pairing-other-port",
+      "note": "another port is kept",
+      "payload": "{\"v\":1,\"url\":\"https://pond.example.test:8443\",\"token\":\"synthetic-token-for-tests\",\"context\":\"Example\"}",
+      "expect": {
+        "ok": true,
+        "url": "https://pond.example.test:8443",
+        "context": "Example",
+        "sourceKey": "mailbox:pond.example.test:8443#Example"
+      }
+    },
+    {
+      "name": "pairing-upper-case-host",
+      "note": "an upper-case host is lowered",
+      "payload": "{\"v\":1,\"url\":\"https://POND.Example.TEST\",\"token\":\"synthetic-token-for-tests\",\"context\":\"Example\"}",
+      "expect": {
+        "ok": true,
+        "url": "https://pond.example.test",
+        "context": "Example",
+        "sourceKey": "mailbox:pond.example.test#Example"
+      }
+    },
+    {
+      "name": "pairing-path",
+      "note": "a path is kept, without its trailing slash",
+      "payload": "{\"v\":1,\"url\":\"https://pond.example.test/hook/\",\"token\":\"synthetic-token-for-tests\",\"context\":\"Example\"}",
+      "expect": {
+        "ok": true,
+        "url": "https://pond.example.test/hook",
+        "context": "Example",
+        "sourceKey": "mailbox:pond.example.test/hook#Example"
+      }
+    },
+    {
+      "name": "pairing-http",
+      "note": "plain http is refused",
+      "payload": "{\"v\":1,\"url\":\"http://pond.example.test\",\"token\":\"synthetic-token-for-tests\",\"context\":\"Example\"}",
+      "expect": {"ok": false, "failure": "destination"}
+    },
+    {
+      "name": "pairing-user",
+      "note": "a user in the URL is refused",
+      "payload": "{\"v\":1,\"url\":\"https://owner@pond.example.test\",\"token\":\"synthetic-token-for-tests\",\"context\":\"Example\"}",
+      "expect": {"ok": false, "failure": "destination"}
+    },
+    {
+      "name": "pairing-password",
+      "note": "a user and password in the URL are refused",
+      "payload": "{\"v\":1,\"url\":\"https://owner:pw@pond.example.test\",\"token\":\"synthetic-token-for-tests\",\"context\":\"Example\"}",
+      "expect": {"ok": false, "failure": "destination"}
+    },
+    {
+      "name": "pairing-query",
+      "note": "a query is refused",
+      "payload": "{\"v\":1,\"url\":\"https://pond.example.test/?a=1\",\"token\":\"synthetic-token-for-tests\",\"context\":\"Example\"}",
+      "expect": {"ok": false, "failure": "destination"}
+    },
+    {
+      "name": "pairing-fragment",
+      "note": "a fragment is refused",
+      "payload": "{\"v\":1,\"url\":\"https://pond.example.test/#top\",\"token\":\"synthetic-token-for-tests\",\"context\":\"Example\"}",
+      "expect": {"ok": false, "failure": "destination"}
+    },
+    {
+      "name": "pairing-port-0",
+      "note": "port 0 is outside 1-65535",
+      "payload": "{\"v\":1,\"url\":\"https://pond.example.test:0\",\"token\":\"synthetic-token-for-tests\",\"context\":\"Example\"}",
+      "expect": {"ok": false, "failure": "destination"}
+    },
+    {
+      "name": "pairing-no-host",
+      "note": "an https URL without a host",
+      "payload": "{\"v\":1,\"url\":\"https:///hook\",\"token\":\"synthetic-token-for-tests\",\"context\":\"Example\"}",
+      "expect": {"ok": false, "failure": "destination"}
+    },
+    {
+      "name": "pairing-version-2",
+      "note": "v 2 is a newer format",
+      "payload": "{\"v\":2,\"url\":\"https://pond.example.test\",\"token\":\"synthetic-token-for-tests\",\"context\":\"Example\"}",
+      "expect": {"ok": false, "failure": "version"}
+    },
+    {
+      "name": "pairing-version-missing",
+      "note": "no v at all",
+      "payload": "{\"url\":\"https://pond.example.test\",\"token\":\"synthetic-token-for-tests\",\"context\":\"Example\"}",
+      "expect": {"ok": false, "failure": "malformed"}
+    },
+    {
+      "name": "pairing-version-string",
+      "note": "v as the string \"1\", not the number",
+      "payload": "{\"v\":\"1\",\"url\":\"https://pond.example.test\",\"token\":\"synthetic-token-for-tests\",\"context\":\"Example\"}",
+      "expect": {"ok": false, "failure": "malformed"}
+    },
+    {
+      "name": "pairing-token-missing",
+      "note": "no token",
+      "payload": "{\"v\":1,\"url\":\"https://pond.example.test\",\"context\":\"Example\"}",
+      "expect": {"ok": false, "failure": "malformed"}
+    },
+    {
+      "name": "pairing-token-blank",
+      "note": "a token of spaces only",
+      "payload": "{\"v\":1,\"url\":\"https://pond.example.test\",\"token\":\"   \",\"context\":\"Example\"}",
+      "expect": {"ok": false, "failure": "credentials"}
+    },
+    {
+      "name": "pairing-token-control",
+      "note": "the token ends in U+0001, a control character",
+      "payload": "{\"v\":1,\"url\":\"https://pond.example.test\",\"token\":\"synthetic-token-for-tests\\u0001\",\"context\":\"Example\"}",
+      "expect": {"ok": false, "failure": "credentials"}
+    },
+    {
+      "name": "pairing-duplicate-key",
+      "note": "context named twice",
+      "payload": "{\"v\":1,\"url\":\"https://pond.example.test\",\"token\":\"synthetic-token-for-tests\",\"context\":\"Example\",\"context\":\"Other\"}",
+      "expect": {"ok": false, "failure": "malformed"}
+    },
+    {
+      "name": "pairing-top-level-array",
+      "note": "a good code inside an array",
+      "payload": "[{\"v\":1,\"url\":\"https://pond.example.test\",\"token\":\"synthetic-token-for-tests\",\"context\":\"Example\"}]",
+      "expect": {"ok": false, "failure": "malformed"}
+    },
+    {
+      "name": "pairing-not-json",
+      "note": "text that is not JSON",
+      "payload": "hook setup pond.example.test",
+      "expect": {"ok": false, "failure": "malformed"}
+    },
+    {
+      "name": "pairing-16384-bytes",
+      "note": "exactly 16384 bytes, the limit",
+      "pad": {"bytes": 16384},
+      "expect": {"ok": true, "url": "https://pond.example.test"}
+    },
+    {
+      "name": "pairing-16385-bytes",
+      "note": "one byte over the limit",
+      "pad": {"bytes": 16385},
+      "expect": {"ok": false, "failure": "tooLarge"}
+    },
+    {
+      "name": "pairing-token-zero-width-space",
+      "note": "the token ends in U+200B, a format character",
+      "payload": "{\"v\":1,\"url\":\"https://pond.example.test\",\"token\":\"synthetic-token-for-tests\\u200B\",\"context\":\"Example\"}",
+      "expect": {"ok": false, "failure": "credentials"}
+    },
+    {
+      "name": "pairing-token-bidi-override",
+      "note": "the token ends in U+202E, a bidi override",
+      "payload": "{\"v\":1,\"url\":\"https://pond.example.test\",\"token\":\"synthetic-token-for-tests\\u202E\",\"context\":\"Example\"}",
+      "expect": {"ok": false, "failure": "credentials"}
+    }
+  ]
+}

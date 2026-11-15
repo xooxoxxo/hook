@@ -1,0 +1,548 @@
+{
+  "version": 1,
+  "source": "Tests/RelayCoreTests/ConformanceTests.swift",
+  "format": "{name, kind, …}, the other fields by kind. reveal {input, code, output}: every hidden character (general category Cc, Cf, Cs, Co, Cn, Zl or Zp, or Default_Ignorable_Code_Point) shown as ⟨U+XXXX⟩, except TAB and LF, and in prose (code false) also ZWJ U+200D and the presentation selectors U+FE0E and U+FE0F. revealLine {input, output}: prose, with TAB and LF revealed too. copyText {input, output}: what a code block's Copy puts on the clipboard: trailing whitespace dropped, then revealed as code. linkTitle {label, url, output}: a link's title, \"<label> · <host>\" without www., with \" ⚠\uFE0E non-ASCII host\" for a non-ASCII or punycode host; the url itself when it has no host. stepTitle {url, output}: \"Open <host>\" for an http(s) URL with a host, else null. replyWire {choice, words, output}: the reply text sent for a choice, with the trimmed words after \" · \". replyParse {text, choices, index, words}: which choice a reply text picked (index, or null) and its words (or null); labels are tried longest first. counter {count, limit, shows, text, over}: the length counter: shown past 80 % of the limit, digits grouped by U+202F, and the trim line over the limit (else null). deepLink {url, id}: the ask id a hook:// (or legacy relay://) URL opens, lowercased, or null for anything else (hook://show included). sourceKey {url, context, output}: the namespace for a Pond's per-source state on a device. Hidden characters in inputs and outputs are written as JSON \\u escapes.",
+  "cases": [
+    {
+      "name": "reveal-plain",
+      "kind": "reveal",
+      "input": "Rotate the key",
+      "code": false,
+      "output": "Rotate the key"
+    },
+    {
+      "name": "reveal-bidi-override",
+      "kind": "reveal",
+      "input": "Approve \u202Eeulav\u202C now",
+      "code": false,
+      "output": "Approve ⟨U+202E⟩eulav⟨U+202C⟩ now"
+    },
+    {
+      "name": "reveal-zero-width-space",
+      "kind": "reveal",
+      "input": "deploy\u200Bkey",
+      "code": false,
+      "output": "deploy⟨U+200B⟩key"
+    },
+    {
+      "name": "reveal-zwj-emoji-prose",
+      "kind": "reveal",
+      "input": "Ship it 👩\u200D💻",
+      "code": false,
+      "output": "Ship it 👩\u200D💻"
+    },
+    {
+      "name": "reveal-zwj-emoji-code",
+      "kind": "reveal",
+      "input": "echo 👩\u200D💻",
+      "code": true,
+      "output": "echo 👩⟨U+200D⟩💻"
+    },
+    {
+      "name": "reveal-variation-selector-prose",
+      "kind": "reveal",
+      "input": "Done ❤\uFE0F",
+      "code": false,
+      "output": "Done ❤\uFE0F"
+    },
+    {
+      "name": "reveal-variation-selector-code",
+      "kind": "reveal",
+      "input": "echo ❤\uFE0F",
+      "code": true,
+      "output": "echo ❤⟨U+FE0F⟩"
+    },
+    {
+      "name": "reveal-variation-selector-1",
+      "kind": "reveal",
+      "input": "a\uFE00b",
+      "code": false,
+      "output": "a⟨U+FE00⟩b"
+    },
+    {
+      "name": "reveal-tab-newline-prose",
+      "kind": "reveal",
+      "input": "one\ttwo\nthree",
+      "code": false,
+      "output": "one\ttwo\nthree"
+    },
+    {
+      "name": "reveal-tab-newline-code",
+      "kind": "reveal",
+      "input": "make\tbuild\nmake test",
+      "code": true,
+      "output": "make\tbuild\nmake test"
+    },
+    {
+      "name": "reveal-c1-control",
+      "kind": "reveal",
+      "input": "next\u0085line",
+      "code": false,
+      "output": "next⟨U+0085⟩line"
+    },
+    {
+      "name": "reveal-carriage-return",
+      "kind": "reveal",
+      "input": "a\rb",
+      "code": true,
+      "output": "a⟨U+000D⟩b"
+    },
+    {
+      "name": "reveal-unassigned",
+      "kind": "reveal",
+      "input": "a\u0378b",
+      "code": false,
+      "output": "a⟨U+0378⟩b"
+    },
+    {
+      "name": "reveal-private-use",
+      "kind": "reveal",
+      "input": "a\uE000b",
+      "code": false,
+      "output": "a⟨U+E000⟩b"
+    },
+    {
+      "name": "reveal-line-separator",
+      "kind": "reveal",
+      "input": "one\u2028two",
+      "code": false,
+      "output": "one⟨U+2028⟩two"
+    },
+    {
+      "name": "reveal-soft-hyphen",
+      "kind": "reveal",
+      "input": "deploy\u00ADkey",
+      "code": false,
+      "output": "deploy⟨U+00AD⟩key"
+    },
+    {
+      "name": "reveal-tag-character",
+      "kind": "reveal",
+      "input": "flag\uDB40\uDC01",
+      "code": false,
+      "output": "flag⟨U+E0001⟩"
+    },
+    {
+      "name": "reveal-non-ascii-letters",
+      "kind": "reveal",
+      "input": "Gör ölçü ☕",
+      "code": true,
+      "output": "Gör ölçü ☕"
+    },
+    {
+      "name": "reveal-line-tab",
+      "kind": "revealLine",
+      "input": "Rotate\tthe key",
+      "output": "Rotate⟨U+0009⟩the key"
+    },
+    {
+      "name": "reveal-line-newline",
+      "kind": "revealLine",
+      "input": "Rotate the key\nand restart",
+      "output": "Rotate the key⟨U+000A⟩and restart"
+    },
+    {
+      "name": "reveal-line-bidi",
+      "kind": "revealLine",
+      "input": "Approve \u202Eeulav",
+      "output": "Approve ⟨U+202E⟩eulav"
+    },
+    {
+      "name": "reveal-line-plain",
+      "kind": "revealLine",
+      "input": "Rotate the staging deploy key",
+      "output": "Rotate the staging deploy key"
+    },
+    {
+      "name": "copy-trailing-newline",
+      "kind": "copyText",
+      "input": "make build\n",
+      "output": "make build"
+    },
+    {
+      "name": "copy-trailing-crlf",
+      "kind": "copyText",
+      "input": "make build\r\n",
+      "output": "make build"
+    },
+    {
+      "name": "copy-cr-in-middle",
+      "kind": "copyText",
+      "input": "make\rbuild",
+      "output": "make⟨U+000D⟩build"
+    },
+    {
+      "name": "copy-trailing-spaces-and-tab",
+      "kind": "copyText",
+      "input": "make build  \t\n\n",
+      "output": "make build"
+    },
+    {
+      "name": "copy-leading-space-kept",
+      "kind": "copyText",
+      "input": "  make build\n  make test",
+      "output": "  make build\n  make test"
+    },
+    {
+      "name": "copy-hidden-in-code",
+      "kind": "copyText",
+      "input": "echo \u200Bok\n",
+      "output": "echo ⟨U+200B⟩ok"
+    },
+    {
+      "name": "link-title-plain",
+      "kind": "linkTitle",
+      "label": "Runbook",
+      "url": "https://docs.example.test/runbook",
+      "output": "Runbook · docs.example.test"
+    },
+    {
+      "name": "link-title-www",
+      "kind": "linkTitle",
+      "label": "Settings",
+      "url": "https://www.deploy.example.test/settings",
+      "output": "Settings · deploy.example.test"
+    },
+    {
+      "name": "link-title-punycode",
+      "kind": "linkTitle",
+      "label": "Settings",
+      "url": "https://xn--deply-mua.example.test/settings",
+      "output": "Settings · xn--deply-mua.example.test ⚠\uFE0E non-ASCII host"
+    },
+    {
+      "name": "link-title-non-ascii-host",
+      "kind": "linkTitle",
+      "label": "Settings",
+      "url": "https://deplöy.example.test/settings",
+      "output": "Settings · xn--deply-mua.example.test ⚠\uFE0E non-ASCII host"
+    },
+    {
+      "name": "link-title-non-web-scheme",
+      "kind": "linkTitle",
+      "label": "Files",
+      "url": "ftp://files.example.test/keys",
+      "output": "Files · files.example.test"
+    },
+    {
+      "name": "link-title-no-host",
+      "kind": "linkTitle",
+      "label": "Mail",
+      "url": "mailto:ops@example.test",
+      "output": "Mail · mailto:ops@example.test"
+    },
+    {
+      "name": "link-title-hidden-label",
+      "kind": "linkTitle",
+      "label": "Run\u202Ebook",
+      "url": "https://docs.example.test/runbook",
+      "output": "Run⟨U+202E⟩book · docs.example.test"
+    },
+    {
+      "name": "step-title-plain",
+      "kind": "stepTitle",
+      "url": "https://deploy.example.test/settings",
+      "output": "Open deploy.example.test"
+    },
+    {
+      "name": "step-title-www",
+      "kind": "stepTitle",
+      "url": "https://www.deploy.example.test/settings",
+      "output": "Open deploy.example.test"
+    },
+    {
+      "name": "step-title-port",
+      "kind": "stepTitle",
+      "url": "http://deploy.example.test:8080/settings",
+      "output": "Open deploy.example.test"
+    },
+    {
+      "name": "step-title-punycode",
+      "kind": "stepTitle",
+      "url": "https://xn--deply-mua.example.test/settings",
+      "output": "Open xn--deply-mua.example.test ⚠\uFE0E non-ASCII host"
+    },
+    {
+      "name": "step-title-non-ascii-host",
+      "kind": "stepTitle",
+      "url": "https://deplöy.example.test/settings",
+      "output": "Open xn--deply-mua.example.test ⚠\uFE0E non-ASCII host"
+    },
+    {
+      "name": "step-title-non-web-scheme",
+      "kind": "stepTitle",
+      "url": "ftp://files.example.test/keys",
+      "output": null
+    },
+    {
+      "name": "step-title-javascript",
+      "kind": "stepTitle",
+      "url": "javascript:alert(1)",
+      "output": null
+    },
+    {
+      "name": "reply-wire-plain",
+      "kind": "replyWire",
+      "choice": "Mix",
+      "words": null,
+      "output": "choice: Mix"
+    },
+    {
+      "name": "reply-wire-words",
+      "kind": "replyWire",
+      "choice": "Mix",
+      "words": "  more salt \n",
+      "output": "choice: Mix · more salt"
+    },
+    {
+      "name": "reply-wire-blank-words",
+      "kind": "replyWire",
+      "choice": "Mix",
+      "words": "   ",
+      "output": "choice: Mix"
+    },
+    {
+      "name": "reply-wire-non-ascii",
+      "kind": "replyWire",
+      "choice": "Gör",
+      "words": "ölçü",
+      "output": "choice: Gör · ölçü"
+    },
+    {
+      "name": "reply-parse-plain",
+      "kind": "replyParse",
+      "text": "choice: Mix",
+      "choices": ["Mix", "Mix it"],
+      "index": 0,
+      "words": null
+    },
+    {
+      "name": "reply-parse-longest-label",
+      "kind": "replyParse",
+      "text": "choice: Mix it",
+      "choices": ["Mix", "Mix it"],
+      "index": 1,
+      "words": null
+    },
+    {
+      "name": "reply-parse-words",
+      "kind": "replyParse",
+      "text": "choice: Mix · more salt",
+      "choices": ["Mix", "Mix it"],
+      "index": 0,
+      "words": "more salt"
+    },
+    {
+      "name": "reply-parse-empty-words",
+      "kind": "replyParse",
+      "text": "choice: Mix · ",
+      "choices": ["Mix", "Mix it"],
+      "index": null,
+      "words": null
+    },
+    {
+      "name": "reply-parse-label-holds-separator",
+      "kind": "replyParse",
+      "text": "choice: A · B",
+      "choices": ["A", "A · B"],
+      "index": 1,
+      "words": null
+    },
+    {
+      "name": "reply-parse-no-prefix",
+      "kind": "replyParse",
+      "text": "Mix",
+      "choices": ["Mix", "Mix it"],
+      "index": null,
+      "words": null
+    },
+    {
+      "name": "reply-parse-unknown-label",
+      "kind": "replyParse",
+      "text": "choice: Stir",
+      "choices": ["Mix", "Mix it"],
+      "index": null,
+      "words": null
+    },
+    {
+      "name": "counter-under",
+      "kind": "counter",
+      "count": 100,
+      "limit": 8000,
+      "shows": false,
+      "text": "100 / 8\u202F000",
+      "over": null
+    },
+    {
+      "name": "counter-at-80-percent",
+      "kind": "counter",
+      "count": 6400,
+      "limit": 8000,
+      "shows": false,
+      "text": "6\u202F400 / 8\u202F000",
+      "over": null
+    },
+    {
+      "name": "counter-past-80-percent",
+      "kind": "counter",
+      "count": 6401,
+      "limit": 8000,
+      "shows": true,
+      "text": "6\u202F401 / 8\u202F000",
+      "over": null
+    },
+    {
+      "name": "counter-at-limit",
+      "kind": "counter",
+      "count": 1000,
+      "limit": 1000,
+      "shows": true,
+      "text": "1\u202F000 / 1\u202F000",
+      "over": null
+    },
+    {
+      "name": "counter-one-over",
+      "kind": "counter",
+      "count": 8001,
+      "limit": 8000,
+      "shows": true,
+      "text": "8\u202F001 / 8\u202F000",
+      "over": "Trim 1 character to send."
+    },
+    {
+      "name": "counter-many-over",
+      "kind": "counter",
+      "count": 9204,
+      "limit": 8000,
+      "shows": true,
+      "text": "9\u202F204 / 8\u202F000",
+      "over": "Trim 1\u202F204 characters to send."
+    },
+    {
+      "name": "counter-report-old-pond",
+      "kind": "counter",
+      "count": 301,
+      "limit": 300,
+      "shows": true,
+      "text": "301 / 300",
+      "over": "Trim 1 character to send."
+    },
+    {
+      "name": "deep-link-good",
+      "kind": "deepLink",
+      "url": "hook://i/0c1d2e3f-4a5b-4c6d-8e7f-001122334455",
+      "id": "0c1d2e3f-4a5b-4c6d-8e7f-001122334455"
+    },
+    {
+      "name": "deep-link-upper-case-uuid",
+      "kind": "deepLink",
+      "url": "hook://i/0C1D2E3F-4A5B-4C6D-8E7F-001122334455",
+      "id": "0c1d2e3f-4a5b-4c6d-8e7f-001122334455"
+    },
+    {
+      "name": "deep-link-upper-case-scheme",
+      "kind": "deepLink",
+      "url": "HOOK://i/0c1d2e3f-4a5b-4c6d-8e7f-001122334455",
+      "id": "0c1d2e3f-4a5b-4c6d-8e7f-001122334455"
+    },
+    {
+      "name": "deep-link-query",
+      "kind": "deepLink",
+      "url": "hook://i/0c1d2e3f-4a5b-4c6d-8e7f-001122334455?x=1",
+      "id": null
+    },
+    {
+      "name": "deep-link-fragment",
+      "kind": "deepLink",
+      "url": "hook://i/0c1d2e3f-4a5b-4c6d-8e7f-001122334455#top",
+      "id": null
+    },
+    {
+      "name": "deep-link-user",
+      "kind": "deepLink",
+      "url": "hook://owner@i/0c1d2e3f-4a5b-4c6d-8e7f-001122334455",
+      "id": null
+    },
+    {
+      "name": "deep-link-port",
+      "kind": "deepLink",
+      "url": "hook://i:80/0c1d2e3f-4a5b-4c6d-8e7f-001122334455",
+      "id": null
+    },
+    {
+      "name": "deep-link-second-segment",
+      "kind": "deepLink",
+      "url": "hook://i/0c1d2e3f-4a5b-4c6d-8e7f-001122334455/edit",
+      "id": null
+    },
+    {
+      "name": "deep-link-trailing-slash",
+      "kind": "deepLink",
+      "url": "hook://i/0c1d2e3f-4a5b-4c6d-8e7f-001122334455/",
+      "id": null
+    },
+    {
+      "name": "deep-link-relay-scheme",
+      "kind": "deepLink",
+      "url": "relay://i/0c1d2e3f-4a5b-4c6d-8e7f-001122334455",
+      "id": "0c1d2e3f-4a5b-4c6d-8e7f-001122334455"
+    },
+    {"name": "deep-link-show", "kind": "deepLink", "url": "hook://show", "id": null},
+    {"name": "deep-link-not-uuid", "kind": "deepLink", "url": "hook://i/not-a-uuid", "id": null},
+    {
+      "name": "deep-link-web-scheme",
+      "kind": "deepLink",
+      "url": "https://i/0c1d2e3f-4a5b-4c6d-8e7f-001122334455",
+      "id": null
+    },
+    {
+      "name": "source-key-plain",
+      "kind": "sourceKey",
+      "url": "https://pond.example.test",
+      "context": "Example",
+      "output": "mailbox:pond.example.test#Example"
+    },
+    {
+      "name": "source-key-port",
+      "kind": "sourceKey",
+      "url": "https://pond.example.test:8443",
+      "context": "Example",
+      "output": "mailbox:pond.example.test:8443#Example"
+    },
+    {
+      "name": "source-key-port-443",
+      "kind": "sourceKey",
+      "url": "https://pond.example.test:443",
+      "context": "Example",
+      "output": "mailbox:pond.example.test:443#Example"
+    },
+    {
+      "name": "source-key-path",
+      "kind": "sourceKey",
+      "url": "https://pond.example.test/hook",
+      "context": "Example",
+      "output": "mailbox:pond.example.test/hook#Example"
+    },
+    {
+      "name": "source-key-trailing-slash",
+      "kind": "sourceKey",
+      "url": "https://pond.example.test/hook/",
+      "context": "Example",
+      "output": "mailbox:pond.example.test/hook#Example"
+    },
+    {
+      "name": "source-key-upper-case-host",
+      "kind": "sourceKey",
+      "url": "https://POND.Example.TEST",
+      "context": "Example",
+      "output": "mailbox:pond.example.test#Example"
+    },
+    {
+      "name": "source-key-empty-context",
+      "kind": "sourceKey",
+      "url": "https://pond.example.test",
+      "context": "",
+      "output": "mailbox:pond.example.test#"
+    }
+  ]
+}
