@@ -35,6 +35,25 @@ import Testing
         #expect(await source.count("accept") == 2)
     }
 
+    /// An append's acceptance failed on the phone policy: it stays pending and goes before the next act.
+    @Test func aFailedAppendAcceptIsRetriedBeforeTheNextAct() async throws {
+        let defaults = TestDefaults(); defer { defaults.drop() }
+        let store = await phone(defaults)
+        let two = revised("a", [idSteps(1), idSteps(2)], acceptedRev: 1)
+        let source = FakeQueueSource(items: [two.item], details: ["a": two.detail])
+        await source.failNext(URLError(.timedOut), on: "accept")
+        await start(store, source, identity: mailboxIdentity)
+        let stamp = two.detail.revisions[1].stamp
+        #expect(await eventually { await source.count("accept a @2") == 1 })
+        try? await Task.sleep(for: .milliseconds(50))
+        #expect(store.reviewState("a") == .current(stamp))
+        #expect(store.record("a")?.accepted == stamp)
+        #expect(store.record("a")?.pondAcceptPending == true)
+        try await store.sendPendingAccept("a", via: source)
+        #expect(await source.count("accept a @2") == 2)
+        #expect(store.record("a")?.pondAcceptPending == false)
+    }
+
     @Test func failedProgressIsNeverReplayedByRefreshOrDoneCatchup() async {
         let defaults = TestDefaults(); defer { defaults.drop() }
         let store = await phone(defaults)

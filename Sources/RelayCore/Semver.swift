@@ -247,9 +247,11 @@ public enum PondVersion: Equatable, Sendable {
         }
     }
 
-    /// The Pond has the feature: its effective version is at least the feature's first one.
+    /// The Pond has the feature: its effective version is at least the feature's first one. A
+    /// `listedOnly` feature is never read from the version: only `PondCapabilities.supports`,
+    /// with the Pond's `features` list, can say yes to it.
     public func supports(_ feature: MailboxFeature) -> Bool {
-        effective >= feature.minimumPond
+        !feature.listedOnly && effective >= feature.minimumPond
     }
 
     /// "1.1.0", or "protocol 4" for an old Pond.

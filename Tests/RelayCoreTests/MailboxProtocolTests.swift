@@ -94,6 +94,10 @@ private let everyNeededFeature: [MailboxFeature] = [.answers, .blocking, .option
         #expect(MailboxFeature.appendSteps.displayName == "adding steps to an open ask")
         #expect(MailboxFeature.appendSteps.minimumPond == SemVer(major: 1, minor: 9, patch: 0))
         #expect(!PondCapabilities(version: semver("1.9.0"), features: nil).supports(.appendSteps))
+        // The version alone never says yes to a listed-only feature.
+        #expect(!semver("1.9.0").supports(.appendSteps))
+        #expect(!semver("2.0.0").supports(.appendSteps))
+        #expect(semver("1.9.0").supports(.sharedProgress))
         #expect(PondCapabilities(version: semver("1.7.0"), features: ["appendSteps"]).supports(.appendSteps))
         #expect(!PondCapabilities(version: semver("1.9.0"), features: []).supports(.appendSteps))
         // Every other feature still goes by the version, list or no list.

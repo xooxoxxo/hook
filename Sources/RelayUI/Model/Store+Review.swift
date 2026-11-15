@@ -263,9 +263,9 @@ extension Store {
     }
 
     /// Before Done or answers: an acceptance the Pond hasn't taken yet is sent first. Throws
-    /// what the Pond answered, and then the act isn't sent.
+    /// what the Pond answered, and then the act isn't sent. On the phone policy only an append's
+    /// seal leaves one pending (`sealAppends`).
     func sendPendingAccept(_ id: String, via source: any QueueSource) async throws {
-        guard deliveryPolicy == .desktop else { return }
         guard let record = record(id), record.pondAcceptPending, let accepted = record.accepted else { return }
         _ = try await source.accept(id, stamp: accepted)
         markAcceptSent(id)
@@ -428,7 +428,9 @@ extension Store {
         let behind = history.acceptedOnPond < current.rev
         next.accepted = current
         next.seen = current
-        next.pondAcceptPending = behind && deliveryPolicy == .desktop
+        // On both policies: on the phone policy only an append ever sets it (Use Version N seals
+        // after the Pond confirms), and `sendPendingAccept` retries it before the next act.
+        next.pondAcceptPending = behind
         setRecord(next, for: id)
         scheduleReviewSave()
         guard behind else { return }
