@@ -324,6 +324,23 @@
       "expect": {"stub": false}
     },
     {
+      "name": "stub-question-then-known",
+      "note": "a question's then (\"steps\", Pond 1.9.0) is a known key: not a stub",
+      "clients": ["android"],
+      "instructable": {
+        "v": 1,
+        "title": "Rotate the staging deploy key",
+        "steps": [
+          {
+            "do": "Pick the environment",
+            "id": "s1",
+            "question": {"prompt": "Which environment?", "choices": ["Staging", "Production"], "then": "steps"}
+          }
+        ]
+      },
+      "expect": {"stub": false}
+    },
+    {
       "name": "stub-why-longer-single-stub-step",
       "note": "the stub's single step with a why that is the stub sentence plus more words is not a stub: the why must match exactly",
       "instructable": {

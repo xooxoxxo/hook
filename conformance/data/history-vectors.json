@@ -1,6 +1,6 @@
 {
  "version": 1,
- "pond": "1.7.0",
+ "pond": "1.9.0",
  "source": "mailbox/tests/gen_phone_vectors.py",
  "format": "{name, note, detail: {item, events, revisions}, pins: {\"<rev>\": \"<hash>\"}, expect: {ok, problem?, current?: {rev, hash}, acceptedOnPond?}}. `detail` is GET /asks/{id} as the Pond answers a client sending X-Hook-Protocol: 6, ids and timestamps as recorded (the clock was pinned; hashes cover `at`). A tampered case edits that JSON and recomputes exactly the hashes it must, so the client's check (every rev 1..N, each hash, each prev, each body strict, title/urgency/from unchanged, the newest the item's revision, then the pins) fails for `problem` and no earlier reason. problem: badHash:<rev>, badChain:<rev>, unreadable:<rev>, missing, fixedFieldChanged:<rev>, rolledBack. acceptedOnPond is min(max(item.revision.acceptedRev, 1), current rev).",
  "cases": [
@@ -138,7 +138,7 @@
       "instructable": {
        "steps": [
         {
-         "do": "Open the deploy settings",
+         "do": "Open the deploy settings page",
          "id": "s1",
          "where": "deploy.example.test"
         },
@@ -187,11 +187,11 @@
      "completedAt": null,
      "revision": {
       "rev": 3,
-      "hash": "059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571",
+      "hash": "34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322",
       "prev": "83213fd97e41eee83a382dbb5073cdb5daf00397bbd7859d4d4d16aa68c2684e",
       "at": "2026-11-03T09:02:04+00:00",
       "reason": "A step was missing",
-      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings page\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
       "acceptedRev": 2
      }
     },
@@ -221,7 +221,7 @@
       "itemId": "00000000-0000-4000-8000-000000000003",
       "kind": "revised",
       "actor": "session",
-      "text": "{\"hash\":\"059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571\",\"reason\":\"A step was missing\"}",
+      "text": "{\"hash\":\"34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322\",\"reason\":\"A step was missing\"}",
       "at": "2026-11-03T09:02:04+00:00",
       "rev": 3,
       "auth": null
@@ -256,11 +256,11 @@
      },
      {
       "rev": 3,
-      "hash": "059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571",
+      "hash": "34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322",
       "prev": "83213fd97e41eee83a382dbb5073cdb5daf00397bbd7859d4d4d16aa68c2684e",
       "at": "2026-11-03T09:02:04+00:00",
       "reason": "A step was missing",
-      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings page\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
      }
     ]
    },
@@ -269,7 +269,7 @@
     "ok": true,
     "current": {
      "rev": 3,
-     "hash": "059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571"
+     "hash": "34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322"
     },
     "acceptedOnPond": 2
    }
@@ -426,7 +426,7 @@
       "instructable": {
        "steps": [
         {
-         "do": "Open the deploy settings",
+         "do": "Open the deploy settings page",
          "id": "s1",
          "where": "deploy.example.test"
         },
@@ -475,11 +475,11 @@
      "completedAt": null,
      "revision": {
       "rev": 3,
-      "hash": "059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571",
+      "hash": "34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322",
       "prev": "83213fd97e41eee83a382dbb5073cdb5daf00397bbd7859d4d4d16aa68c2684e",
       "at": "2026-11-03T09:02:04+00:00",
       "reason": "A step was missing",
-      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings page\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
       "acceptedRev": 2
      }
     },
@@ -509,7 +509,7 @@
       "itemId": "00000000-0000-4000-8000-000000000003",
       "kind": "revised",
       "actor": "session",
-      "text": "{\"hash\":\"059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571\",\"reason\":\"A step was missing\"}",
+      "text": "{\"hash\":\"34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322\",\"reason\":\"A step was missing\"}",
       "at": "2026-11-03T09:02:04+00:00",
       "rev": 3,
       "auth": null
@@ -544,24 +544,24 @@
      },
      {
       "rev": 3,
-      "hash": "059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571",
+      "hash": "34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322",
       "prev": "83213fd97e41eee83a382dbb5073cdb5daf00397bbd7859d4d4d16aa68c2684e",
       "at": "2026-11-03T09:02:04+00:00",
       "reason": "A step was missing",
-      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings page\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
      }
     ]
    },
    "pins": {
     "1": "ea3228ea9f53420e699e004025298107e4a3f772cfef6d05dbaf8da0ffad5dd0",
     "2": "83213fd97e41eee83a382dbb5073cdb5daf00397bbd7859d4d4d16aa68c2684e",
-    "3": "059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571"
+    "3": "34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322"
    },
    "expect": {
     "ok": true,
     "current": {
      "rev": 3,
-     "hash": "059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571"
+     "hash": "34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322"
     },
     "acceptedOnPond": 2
    }
@@ -590,7 +590,7 @@
       "instructable": {
        "steps": [
         {
-         "do": "Open the deploy settings",
+         "do": "Open the deploy settings page",
          "id": "s1",
          "where": "deploy.example.test"
         },
@@ -639,11 +639,11 @@
      "completedAt": null,
      "revision": {
       "rev": 3,
-      "hash": "059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571",
+      "hash": "34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322",
       "prev": "83213fd97e41eee83a382dbb5073cdb5daf00397bbd7859d4d4d16aa68c2684e",
       "at": "2026-11-03T09:02:04+00:00",
       "reason": "Another reason",
-      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings page\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
       "acceptedRev": 2
      }
     },
@@ -673,7 +673,7 @@
       "itemId": "00000000-0000-4000-8000-000000000003",
       "kind": "revised",
       "actor": "session",
-      "text": "{\"hash\":\"059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571\",\"reason\":\"A step was missing\"}",
+      "text": "{\"hash\":\"34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322\",\"reason\":\"A step was missing\"}",
       "at": "2026-11-03T09:02:04+00:00",
       "rev": 3,
       "auth": null
@@ -708,11 +708,11 @@
      },
      {
       "rev": 3,
-      "hash": "059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571",
+      "hash": "34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322",
       "prev": "83213fd97e41eee83a382dbb5073cdb5daf00397bbd7859d4d4d16aa68c2684e",
       "at": "2026-11-03T09:02:04+00:00",
       "reason": "A step was missing",
-      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings page\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
      }
     ]
    },
@@ -852,7 +852,7 @@
       "instructable": {
        "steps": [
         {
-         "do": "Open the deploy settings",
+         "do": "Open the deploy settings page",
          "id": "s1",
          "where": "deploy.example.test"
         },
@@ -901,11 +901,11 @@
      "completedAt": null,
      "revision": {
       "rev": 3,
-      "hash": "059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571",
+      "hash": "34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322",
       "prev": "83213fd97e41eee83a382dbb5073cdb5daf00397bbd7859d4d4d16aa68c2684e",
       "at": "2026-11-03T09:02:04+00:00",
       "reason": "A step was missing",
-      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings page\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
       "acceptedRev": 2
      }
     },
@@ -935,7 +935,7 @@
       "itemId": "00000000-0000-4000-8000-000000000003",
       "kind": "revised",
       "actor": "session",
-      "text": "{\"hash\":\"059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571\",\"reason\":\"A step was missing\"}",
+      "text": "{\"hash\":\"34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322\",\"reason\":\"A step was missing\"}",
       "at": "2026-11-03T09:02:04+00:00",
       "rev": 3,
       "auth": null
@@ -970,11 +970,11 @@
      },
      {
       "rev": 3,
-      "hash": "059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571",
+      "hash": "34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322",
       "prev": "83213fd97e41eee83a382dbb5073cdb5daf00397bbd7859d4d4d16aa68c2684e",
       "at": "2026-11-03T09:02:04+00:00",
       "reason": "A step was missing",
-      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings page\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
      }
     ]
    },
@@ -1008,7 +1008,7 @@
       "instructable": {
        "steps": [
         {
-         "do": "Open the deploy settings",
+         "do": "Open the deploy settings page",
          "id": "s1",
          "where": "deploy.example.test"
         },
@@ -1057,11 +1057,11 @@
      "completedAt": null,
      "revision": {
       "rev": 3,
-      "hash": "08fb673bed3e24a8fa6e89cd227938e68355f7362bb51cf5a602fe4ba603dc3c",
+      "hash": "95d1e884a13dde9a6f1c807d8c5f674f0ed8cd3dd91bf1a0aa7c22e46f28cc7f",
       "prev": "83213fd97e41eee83a382dbb5073cdb5daf00397bbd7859d4d4d16aa68c2684e",
       "at": "2026-11-03T09:10:00+00:00",
       "reason": "A step was missing",
-      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings page\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
       "acceptedRev": 2
      }
     },
@@ -1091,7 +1091,7 @@
       "itemId": "00000000-0000-4000-8000-000000000003",
       "kind": "revised",
       "actor": "session",
-      "text": "{\"hash\":\"059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571\",\"reason\":\"A step was missing\"}",
+      "text": "{\"hash\":\"34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322\",\"reason\":\"A step was missing\"}",
       "at": "2026-11-03T09:02:04+00:00",
       "rev": 3,
       "auth": null
@@ -1126,11 +1126,11 @@
      },
      {
       "rev": 3,
-      "hash": "059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571",
+      "hash": "34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322",
       "prev": "83213fd97e41eee83a382dbb5073cdb5daf00397bbd7859d4d4d16aa68c2684e",
       "at": "2026-11-03T09:02:04+00:00",
       "reason": "A step was missing",
-      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings page\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
      }
     ]
    },
@@ -1164,7 +1164,7 @@
       "instructable": {
        "steps": [
         {
-         "do": "Open the deploy settings",
+         "do": "Open the deploy settings page",
          "id": "s1",
          "where": "deploy.example.test"
         },
@@ -1213,11 +1213,11 @@
      "completedAt": null,
      "revision": {
       "rev": 3,
-      "hash": "059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571",
+      "hash": "34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322",
       "prev": "83213fd97e41eee83a382dbb5073cdb5daf00397bbd7859d4d4d16aa68c2684e",
       "at": "2026-11-03T09:02:04+00:00",
       "reason": "A step was missing",
-      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings page\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
       "acceptedRev": 2
      }
     },
@@ -1247,7 +1247,7 @@
       "itemId": "00000000-0000-4000-8000-000000000003",
       "kind": "revised",
       "actor": "session",
-      "text": "{\"hash\":\"059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571\",\"reason\":\"A step was missing\"}",
+      "text": "{\"hash\":\"34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322\",\"reason\":\"A step was missing\"}",
       "at": "2026-11-03T09:02:04+00:00",
       "rev": 3,
       "auth": null
@@ -1282,11 +1282,11 @@
      },
      {
       "rev": 3,
-      "hash": "059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571",
+      "hash": "34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322",
       "prev": "83213fd97e41eee83a382dbb5073cdb5daf00397bbd7859d4d4d16aa68c2684e",
       "at": "2026-11-03T09:02:04+00:00",
       "reason": "A step was missing",
-      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings page\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
      }
     ]
    },
@@ -1426,7 +1426,7 @@
       "instructable": {
        "steps": [
         {
-         "do": "Open the deploy settings",
+         "do": "Open the deploy settings page",
          "id": "s1",
          "where": "deploy.example.test"
         },
@@ -1475,11 +1475,11 @@
      "completedAt": null,
      "revision": {
       "rev": 3,
-      "hash": "059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571",
+      "hash": "34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322",
       "prev": "83213fd97e41eee83a382dbb5073cdb5daf00397bbd7859d4d4d16aa68c2684e",
       "at": "2026-11-03T09:02:04+00:00",
       "reason": "A step was missing",
-      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings page\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
       "acceptedRev": 2
      }
     },
@@ -1509,7 +1509,7 @@
       "itemId": "00000000-0000-4000-8000-000000000003",
       "kind": "revised",
       "actor": "session",
-      "text": "{\"hash\":\"059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571\",\"reason\":\"A step was missing\"}",
+      "text": "{\"hash\":\"34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322\",\"reason\":\"A step was missing\"}",
       "at": "2026-11-03T09:02:04+00:00",
       "rev": 3,
       "auth": null
@@ -1544,11 +1544,11 @@
      },
      {
       "rev": 3,
-      "hash": "059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571",
+      "hash": "34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322",
       "prev": "83213fd97e41eee83a382dbb5073cdb5daf00397bbd7859d4d4d16aa68c2684e",
       "at": "2026-11-03T09:02:04+00:00",
       "reason": "A step was missing",
-      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings page\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
      }
     ]
    },
@@ -1688,7 +1688,7 @@
       "instructable": {
        "steps": [
         {
-         "do": "Open the deploy settings",
+         "do": "Open the deploy settings page",
          "id": "s1",
          "where": "deploy.example.test"
         },
@@ -1737,11 +1737,11 @@
      "completedAt": null,
      "revision": {
       "rev": 3,
-      "hash": "059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571",
+      "hash": "34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322",
       "prev": "83213fd97e41eee83a382dbb5073cdb5daf00397bbd7859d4d4d16aa68c2684e",
       "at": "2026-11-03T09:02:04+00:00",
       "reason": "A step was missing",
-      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings page\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
       "acceptedRev": 2
      }
     },
@@ -1771,7 +1771,7 @@
       "itemId": "00000000-0000-4000-8000-000000000003",
       "kind": "revised",
       "actor": "session",
-      "text": "{\"hash\":\"059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571\",\"reason\":\"A step was missing\"}",
+      "text": "{\"hash\":\"34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322\",\"reason\":\"A step was missing\"}",
       "at": "2026-11-03T09:02:04+00:00",
       "rev": 3,
       "auth": null
@@ -1806,11 +1806,11 @@
      },
      {
       "rev": 3,
-      "hash": "059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571",
+      "hash": "34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322",
       "prev": "83213fd97e41eee83a382dbb5073cdb5daf00397bbd7859d4d4d16aa68c2684e",
       "at": "2026-11-03T09:02:04+00:00",
       "reason": "A step was missing",
-      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings page\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
      }
     ]
    },
@@ -1844,7 +1844,7 @@
       "instructable": {
        "steps": [
         {
-         "do": "Open the deploy settings",
+         "do": "Open the deploy settings page",
          "id": "s1",
          "where": "deploy.example.test"
         },
@@ -1893,11 +1893,11 @@
      "completedAt": null,
      "revision": {
       "rev": 3,
-      "hash": "059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571",
+      "hash": "34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322",
       "prev": "83213fd97e41eee83a382dbb5073cdb5daf00397bbd7859d4d4d16aa68c2684e",
       "at": "2026-11-03T09:02:04+00:00",
       "reason": "A step was missing",
-      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings page\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
       "acceptedRev": 2
      }
     },
@@ -1927,7 +1927,7 @@
       "itemId": "00000000-0000-4000-8000-000000000003",
       "kind": "revised",
       "actor": "session",
-      "text": "{\"hash\":\"059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571\",\"reason\":\"A step was missing\"}",
+      "text": "{\"hash\":\"34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322\",\"reason\":\"A step was missing\"}",
       "at": "2026-11-03T09:02:04+00:00",
       "rev": 3,
       "auth": null
@@ -1954,11 +1954,11 @@
      },
      {
       "rev": 3,
-      "hash": "059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571",
+      "hash": "34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322",
       "prev": "83213fd97e41eee83a382dbb5073cdb5daf00397bbd7859d4d4d16aa68c2684e",
       "at": "2026-11-03T09:02:04+00:00",
       "reason": "A step was missing",
-      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings page\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
      }
     ]
    },
@@ -2089,7 +2089,7 @@
       "instructable": {
        "steps": [
         {
-         "do": "Open the deploy settings",
+         "do": "Open the deploy settings page",
          "id": "s1",
          "where": "deploy.example.test"
         },
@@ -2138,11 +2138,11 @@
      "completedAt": null,
      "revision": {
       "rev": 4,
-      "hash": "81247172af2ed7bca374fdea4071df5b03213c744739990610031e761fb79738",
-      "prev": "059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571",
+      "hash": "3a99c4bf29705eb56768660cad9a47ed9f0d309ad4e44814547a4b21c5017679",
+      "prev": "34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322",
       "at": "2026-11-03T09:10:00+00:00",
       "reason": "Another fix",
-      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings page\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
       "acceptedRev": 2
      }
     },
@@ -2172,7 +2172,7 @@
       "itemId": "00000000-0000-4000-8000-000000000003",
       "kind": "revised",
       "actor": "session",
-      "text": "{\"hash\":\"059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571\",\"reason\":\"A step was missing\"}",
+      "text": "{\"hash\":\"34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322\",\"reason\":\"A step was missing\"}",
       "at": "2026-11-03T09:02:04+00:00",
       "rev": 3,
       "auth": null
@@ -2207,11 +2207,11 @@
      },
      {
       "rev": 3,
-      "hash": "059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571",
+      "hash": "34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322",
       "prev": "83213fd97e41eee83a382dbb5073cdb5daf00397bbd7859d4d4d16aa68c2684e",
       "at": "2026-11-03T09:02:04+00:00",
       "reason": "A step was missing",
-      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings page\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
      }
     ]
    },
@@ -2245,7 +2245,7 @@
       "instructable": {
        "steps": [
         {
-         "do": "Open the deploy settings",
+         "do": "Open the deploy settings page",
          "id": "s1",
          "where": "deploy.example.test"
         },
@@ -2294,11 +2294,11 @@
      "completedAt": null,
      "revision": {
       "rev": 3,
-      "hash": "5535e159608fdf0c371ff6c8a951a60f2dce5982efb701173fc7a0953f0e7df0",
+      "hash": "d884d0223422ddb89a484cceeccbea338db3352672cc2cf03bcb9b690bc00935",
       "prev": "3f064ff985d5ac0bb3054e6cd5f1eae5124a0a2e46e1c8465e30c3eb63590129",
       "at": "2026-11-03T09:02:04+00:00",
       "reason": "A step was missing",
-      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings page\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
       "acceptedRev": 2
      }
     },
@@ -2328,7 +2328,7 @@
       "itemId": "00000000-0000-4000-8000-000000000003",
       "kind": "revised",
       "actor": "session",
-      "text": "{\"hash\":\"059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571\",\"reason\":\"A step was missing\"}",
+      "text": "{\"hash\":\"34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322\",\"reason\":\"A step was missing\"}",
       "at": "2026-11-03T09:02:04+00:00",
       "rev": 3,
       "auth": null
@@ -2363,11 +2363,11 @@
      },
      {
       "rev": 3,
-      "hash": "5535e159608fdf0c371ff6c8a951a60f2dce5982efb701173fc7a0953f0e7df0",
+      "hash": "d884d0223422ddb89a484cceeccbea338db3352672cc2cf03bcb9b690bc00935",
       "prev": "3f064ff985d5ac0bb3054e6cd5f1eae5124a0a2e46e1c8465e30c3eb63590129",
       "at": "2026-11-03T09:02:04+00:00",
       "reason": "A step was missing",
-      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings page\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
      }
     ]
    },
@@ -2401,7 +2401,7 @@
       "instructable": {
        "steps": [
         {
-         "do": "Open the deploy settings",
+         "do": "Open the deploy settings page",
          "id": "s1",
          "where": "deploy.example.test"
         },
@@ -2450,11 +2450,11 @@
      "completedAt": null,
      "revision": {
       "rev": 3,
-      "hash": "13a6d5efd7802f39b98f98932de617942ae1754f8f7db8897c5086c96827ad40",
+      "hash": "badb56417fb443b65af97daeb1ef88457bb3b193aa1b2fa1d7be994240e25fdb",
       "prev": "83213fd97e41eee83a382dbb5073cdb5daf00397bbd7859d4d4d16aa68c2684e",
       "at": "2026-11-03T09:02:04+00:00",
       "reason": "A step was missing",
-      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"now\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings page\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"now\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
       "acceptedRev": 2
      }
     },
@@ -2484,7 +2484,7 @@
       "itemId": "00000000-0000-4000-8000-000000000003",
       "kind": "revised",
       "actor": "session",
-      "text": "{\"hash\":\"059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571\",\"reason\":\"A step was missing\"}",
+      "text": "{\"hash\":\"34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322\",\"reason\":\"A step was missing\"}",
       "at": "2026-11-03T09:02:04+00:00",
       "rev": 3,
       "auth": null
@@ -2519,11 +2519,11 @@
      },
      {
       "rev": 3,
-      "hash": "13a6d5efd7802f39b98f98932de617942ae1754f8f7db8897c5086c96827ad40",
+      "hash": "badb56417fb443b65af97daeb1ef88457bb3b193aa1b2fa1d7be994240e25fdb",
       "prev": "83213fd97e41eee83a382dbb5073cdb5daf00397bbd7859d4d4d16aa68c2684e",
       "at": "2026-11-03T09:02:04+00:00",
       "reason": "A step was missing",
-      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"now\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings page\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"now\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
      }
     ]
    },
@@ -2557,7 +2557,7 @@
       "instructable": {
        "steps": [
         {
-         "do": "Open the deploy settings",
+         "do": "Open the deploy settings page",
          "id": "s1",
          "where": "deploy.example.test"
         },
@@ -2606,11 +2606,11 @@
      "completedAt": null,
      "revision": {
       "rev": 3,
-      "hash": "5dd04a2b5a043beb9e23d3cb0c502c002ed41524da4c4cf2c61b571abcc28cf9",
+      "hash": "e135f74ff163604b53f26be5237fa0a032cdda3bbc6d436ca92111edc4f7b814",
       "prev": "fd6ad877f7169bc83853ea149b042719cce64559fb2dbcf64e0b63b726466cfc",
       "at": "2026-11-03T09:02:04+00:00",
       "reason": "A step was missing",
-      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings page\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
       "acceptedRev": 2
      }
     },
@@ -2640,7 +2640,7 @@
       "itemId": "00000000-0000-4000-8000-000000000003",
       "kind": "revised",
       "actor": "session",
-      "text": "{\"hash\":\"059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571\",\"reason\":\"A step was missing\"}",
+      "text": "{\"hash\":\"34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322\",\"reason\":\"A step was missing\"}",
       "at": "2026-11-03T09:02:04+00:00",
       "rev": 3,
       "auth": null
@@ -2675,11 +2675,11 @@
      },
      {
       "rev": 3,
-      "hash": "5dd04a2b5a043beb9e23d3cb0c502c002ed41524da4c4cf2c61b571abcc28cf9",
+      "hash": "e135f74ff163604b53f26be5237fa0a032cdda3bbc6d436ca92111edc4f7b814",
       "prev": "fd6ad877f7169bc83853ea149b042719cce64559fb2dbcf64e0b63b726466cfc",
       "at": "2026-11-03T09:02:04+00:00",
       "reason": "A step was missing",
-      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings page\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
      }
     ]
    },
@@ -2713,7 +2713,7 @@
       "instructable": {
        "steps": [
         {
-         "do": "Open the deploy settings",
+         "do": "Open the deploy settings page",
          "id": "s1",
          "where": "deploy.example.test"
         },
@@ -2762,11 +2762,11 @@
      "completedAt": null,
      "revision": {
       "rev": 3,
-      "hash": "059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571",
+      "hash": "34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322",
       "prev": "83213fd97e41eee83a382dbb5073cdb5daf00397bbd7859d4d4d16aa68c2684e",
       "at": "2026-11-03T09:02:04+00:00",
       "reason": "A step was missing",
-      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings page\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
       "acceptedRev": 2
      }
     },
@@ -2796,7 +2796,7 @@
       "itemId": "00000000-0000-4000-8000-000000000003",
       "kind": "revised",
       "actor": "session",
-      "text": "{\"hash\":\"059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571\",\"reason\":\"A step was missing\"}",
+      "text": "{\"hash\":\"34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322\",\"reason\":\"A step was missing\"}",
       "at": "2026-11-03T09:02:04+00:00",
       "rev": 3,
       "auth": null
@@ -2831,11 +2831,11 @@
      },
      {
       "rev": 3,
-      "hash": "059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571",
+      "hash": "34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322",
       "prev": "83213fd97e41eee83a382dbb5073cdb5daf00397bbd7859d4d4d16aa68c2684e",
       "at": "2026-11-03T09:02:04+00:00",
       "reason": "A step was missing",
-      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings page\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
      }
     ]
    },
@@ -2871,7 +2871,7 @@
       "instructable": {
        "steps": [
         {
-         "do": "Open the deploy settings",
+         "do": "Open the deploy settings page",
          "id": "s1",
          "where": "deploy.example.test"
         },
@@ -2920,11 +2920,11 @@
      "completedAt": null,
      "revision": {
       "rev": 3,
-      "hash": "059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571",
+      "hash": "34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322",
       "prev": "83213fd97e41eee83a382dbb5073cdb5daf00397bbd7859d4d4d16aa68c2684e",
       "at": "2026-11-03T09:02:04+00:00",
       "reason": "A step was missing",
-      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings page\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}",
       "acceptedRev": 2
      }
     },
@@ -2954,7 +2954,7 @@
       "itemId": "00000000-0000-4000-8000-000000000003",
       "kind": "revised",
       "actor": "session",
-      "text": "{\"hash\":\"059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571\",\"reason\":\"A step was missing\"}",
+      "text": "{\"hash\":\"34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322\",\"reason\":\"A step was missing\"}",
       "at": "2026-11-03T09:02:04+00:00",
       "rev": 3,
       "auth": null
@@ -2989,11 +2989,11 @@
      },
      {
       "rev": 3,
-      "hash": "059fe50499c5e4f6eb82e1713a6872f0a49001bbcde4c3e1305a5acb3030e571",
+      "hash": "34d1c934d3a25aa1e534d68fadd74af8c08a5561f70ee3e955931b9b77696322",
       "prev": "83213fd97e41eee83a382dbb5073cdb5daf00397bbd7859d4d4d16aa68c2684e",
       "at": "2026-11-03T09:02:04+00:00",
       "reason": "A step was missing",
-      "body": "{\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
+      "body": "{\"steps\":[{\"do\":\"Open the deploy settings page\",\"id\":\"s1\",\"where\":\"deploy.example.test\"},{\"code\":\"deploy-key rotate --env preview\",\"do\":\"Rotate the key\",\"id\":\"s2\"},{\"do\":\"Restart the services\",\"id\":\"s3\",\"substeps\":[{\"do\":\"Restart the web service\",\"id\":\"s3.1\"},{\"do\":\"Restart the worker\",\"id\":\"s3.2\"}]},{\"do\":\"Tell the team the key changed\",\"id\":\"r3-1\"}],\"title\":\"Rotate the preview deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://deploy.example.test/health\",\"do\":\"The deploy passes\"},\"why\":\"The deploy key is 90 days old.\"}"
      }
     ]
    },

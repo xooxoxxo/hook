@@ -30,11 +30,14 @@ public enum RevisionBody {
 
     /// `parse`, keeping the strict parse too: `AppendCheck` compares bodies as JSON values,
     /// never as decoded models, because the lenient decoder drops keys it doesn't know.
-    public static func read(_ body: String) throws -> (instructable: Instructable, raw: JSONValue) {
+    /// The duplicate-key check compares keys as Swift strings, so keys that are canonically
+    /// equivalent ("é" and "e\u{301}") count as one key named twice: refused.
+    public static func read(_ body: String) throws -> (instructable: Instructable, raw: ExactJSON) {
         let data = Data(body.utf8)
-        guard let raw = try? JSONValue.parse(data), case .object = raw else { throw RevisionBodyError.invalid }
+        guard let value = try? JSONValue.parse(data), case .object = value else { throw RevisionBodyError.invalid }
         guard let ordered = try? OrderedJSON.parse(data) else { throw RevisionBodyError.invalid }
         if OrderedJSON.hasDuplicateKeys(ordered) { throw RevisionBodyError.duplicateKey }
+        guard let raw = try? ExactJSON(ordered) else { throw RevisionBodyError.invalid }
         guard let ins = try? JSONDecoder().decode(Instructable.self, from: data) else { throw RevisionBodyError.invalid }
         return (ins, raw)
     }
@@ -78,11 +81,11 @@ public struct VerifiedHistory: Equatable, Sendable {
     /// Each rev's `prev`, as served (rev 1's is ""): merge checks a listed rev against it.
     public var prevs: [Int: String]
     /// Each rev's body as the strict parse read it, which `AppendCheck` compares.
-    public var raw: [Int: JSONValue]
+    public var raw: [Int: ExactJSON]
 
     public init(bodies: [Int: Instructable], stamps: [Int: RevisionStamp], current: RevisionStamp, acceptedOnPond: Int,
                 reasons: [Int: String], times: [Int: String] = [:], prevs: [Int: String] = [:],
-                raw: [Int: JSONValue] = [:]) {
+                raw: [Int: ExactJSON] = [:]) {
         self.bodies = bodies; self.stamps = stamps; self.current = current; self.acceptedOnPond = acceptedOnPond
         self.reasons = reasons; self.times = times; self.prevs = prevs; self.raw = raw
     }
@@ -112,7 +115,7 @@ public enum RevisionCheck {
         guard !revisions.isEmpty, revisions.map(\.rev) == Array(1...revisions.count) else { return .failure(.missing) }
         var bodies: [Int: Instructable] = [:], stamps: [Int: RevisionStamp] = [:]
         var reasons: [Int: String] = [:], times: [Int: String] = [:], prevs: [Int: String] = [:]
-        var raws: [Int: JSONValue] = [:]
+        var raws: [Int: ExactJSON] = [:]
         var previous = ""
         for revision in revisions {
             guard hashes(revision.stamp, prev: revision.prev, at: revision.at, reason: revision.reason,
