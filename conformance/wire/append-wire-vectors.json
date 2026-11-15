@@ -1,0 +1,911 @@
+{
+ "version": 1,
+ "pond": "1.9.0",
+ "source": "mailbox/tests/gen_append_wire.py, recorded from the Pond over loopback",
+ "format": "{name, note, request: {method, path, ownerKey, protocol, body}, response: {status, body}, binds?}\n\n`ownerKey` true sends an approved X-Hook-Owner-Key; `protocol` is the X-Hook-Protocol\nsent. `binds` names the item id the response carries ({\"ask1\": \"item.id\"}), and later\npaths use it as {ask1}. In responses every item id is its {name} and every ISO-8601\ntimestamp is {time}, except a revision's `at`, kept as recorded because its hash\ncovers it. `rev`, `hash`, `baseRev` and `baseHash` in a request body are the real\nvalues the Pond accepts; the edit key is a synthetic one. No file holds the Pond token\nor an owner key. Hook keeps a copy as conformance/wire/append-wire-vectors.json.",
+ "cases": [
+  {
+   "name": "append-post",
+   "note": "an editable ask whose step 2 question says more steps follow its answer",
+   "request": {
+    "method": "POST",
+    "path": "/asks",
+    "ownerKey": false,
+    "protocol": 6,
+    "body": {
+     "project": "Example",
+     "context": "personal",
+     "instructable": {
+      "v": 1,
+      "title": "Clean up the staging deploys",
+      "urgency": "today",
+      "steps": [
+       {
+        "do": "Pick the console",
+        "question": {
+         "prompt": "Which console?",
+         "choices": [
+          "Web",
+          "CLI"
+         ]
+        }
+       },
+       {
+        "do": "Pick what goes",
+        "question": {
+         "prompt": "What should go?",
+         "choices": [
+          "Logs",
+          "Caches"
+         ],
+         "then": "steps"
+        }
+       }
+      ]
+     },
+     "editKeyHash": "c00357cf64270c4342713e5fc7360f42360112d7ab7463c69688597d046964c7"
+    }
+   },
+   "response": {
+    "status": 201,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Clean up the staging deploys",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "0353b41c89570284",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "steps": [
+         {
+          "do": "Pick the console",
+          "id": "s1",
+          "question": {
+           "choices": [
+            "Web",
+            "CLI"
+           ],
+           "prompt": "Which console?"
+          }
+         },
+         {
+          "do": "Pick what goes",
+          "id": "s2",
+          "question": {
+           "choices": [
+            "Logs",
+            "Caches"
+           ],
+           "prompt": "What should go?",
+           "then": "steps"
+          }
+         }
+        ],
+        "title": "Clean up the staging deploys",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "revision": {
+       "rev": 1,
+       "hash": "e07b970461e7a6140353b80c9d3c17218acabd85e74ace70302f7058e72ffaf7",
+       "prev": "",
+       "at": "2026-11-03T09:00:01+00:00",
+       "reason": "",
+       "body": "{\"steps\":[{\"do\":\"Pick the console\",\"id\":\"s1\",\"question\":{\"choices\":[\"Web\",\"CLI\"],\"prompt\":\"Which console?\"}},{\"do\":\"Pick what goes\",\"id\":\"s2\",\"question\":{\"choices\":[\"Logs\",\"Caches\"],\"prompt\":\"What should go?\",\"then\":\"steps\"}}],\"title\":\"Clean up the staging deploys\",\"urgency\":\"today\",\"v\":1}",
+       "acceptedRev": 1
+      }
+     },
+     "revision": {
+      "rev": 1,
+      "hash": "e07b970461e7a6140353b80c9d3c17218acabd85e74ace70302f7058e72ffaf7"
+     },
+     "editable": true
+    }
+   },
+   "binds": {
+    "ask1": "item.id"
+   }
+  },
+  {
+   "name": "append-answer",
+   "note": "the owner answers the step 2 question: Done now waits for the next steps",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/answers",
+    "ownerKey": true,
+    "protocol": 6,
+    "body": {
+     "answers": [
+      {
+       "step": "2",
+       "picked": [
+        "Logs"
+       ]
+      }
+     ],
+     "rev": 1,
+     "hash": "e07b970461e7a6140353b80c9d3c17218acabd85e74ace70302f7058e72ffaf7"
+    }
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Clean up the staging deploys",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "0353b41c89570284",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "steps": [
+         {
+          "do": "Pick the console",
+          "id": "s1",
+          "question": {
+           "choices": [
+            "Web",
+            "CLI"
+           ],
+           "prompt": "Which console?"
+          }
+         },
+         {
+          "do": "Pick what goes",
+          "id": "s2",
+          "question": {
+           "choices": [
+            "Logs",
+            "Caches"
+           ],
+           "prompt": "What should go?",
+           "then": "steps"
+          }
+         }
+        ],
+        "title": "Clean up the staging deploys",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "revision": {
+       "rev": 1,
+       "hash": "e07b970461e7a6140353b80c9d3c17218acabd85e74ace70302f7058e72ffaf7",
+       "prev": "",
+       "at": "2026-11-03T09:00:01+00:00",
+       "reason": "",
+       "body": "{\"steps\":[{\"do\":\"Pick the console\",\"id\":\"s1\",\"question\":{\"choices\":[\"Web\",\"CLI\"],\"prompt\":\"Which console?\"}},{\"do\":\"Pick what goes\",\"id\":\"s2\",\"question\":{\"choices\":[\"Logs\",\"Caches\"],\"prompt\":\"What should go?\",\"then\":\"steps\"}}],\"title\":\"Clean up the staging deploys\",\"urgency\":\"today\",\"v\":1}",
+       "acceptedRev": 1
+      },
+      "stepWait": {
+       "id": "s2",
+       "path": "2",
+       "until": "{time}"
+      }
+     }
+    }
+   }
+  },
+  {
+   "name": "append-done-waiting",
+   "note": "Done while the wait is on: 409 waiting_for_steps, with when it ends",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/resolve",
+    "ownerKey": true,
+    "protocol": 6,
+    "body": {
+     "verdict": "done",
+     "actor": "owner",
+     "rev": 1,
+     "hash": "e07b970461e7a6140353b80c9d3c17218acabd85e74ace70302f7058e72ffaf7"
+    }
+   },
+   "response": {
+    "status": 409,
+    "body": {
+     "error": "waiting_for_steps",
+     "until": "{time}",
+     "path": "2"
+    }
+   }
+  },
+  {
+   "name": "append-detail-waiting",
+   "note": "the detail while the wait is on carries stepWait",
+   "request": {
+    "method": "GET",
+    "path": "/asks/{ask1}",
+    "ownerKey": false,
+    "protocol": 6,
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Clean up the staging deploys",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "0353b41c89570284",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "steps": [
+         {
+          "do": "Pick the console",
+          "id": "s1",
+          "question": {
+           "choices": [
+            "Web",
+            "CLI"
+           ],
+           "prompt": "Which console?"
+          }
+         },
+         {
+          "do": "Pick what goes",
+          "id": "s2",
+          "question": {
+           "choices": [
+            "Logs",
+            "Caches"
+           ],
+           "prompt": "What should go?",
+           "then": "steps"
+          }
+         }
+        ],
+        "title": "Clean up the staging deploys",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "revision": {
+       "rev": 1,
+       "hash": "e07b970461e7a6140353b80c9d3c17218acabd85e74ace70302f7058e72ffaf7",
+       "prev": "",
+       "at": "2026-11-03T09:00:01+00:00",
+       "reason": "",
+       "body": "{\"steps\":[{\"do\":\"Pick the console\",\"id\":\"s1\",\"question\":{\"choices\":[\"Web\",\"CLI\"],\"prompt\":\"Which console?\"}},{\"do\":\"Pick what goes\",\"id\":\"s2\",\"question\":{\"choices\":[\"Logs\",\"Caches\"],\"prompt\":\"What should go?\",\"then\":\"steps\"}}],\"title\":\"Clean up the staging deploys\",\"urgency\":\"today\",\"v\":1}",
+       "acceptedRev": 1
+      },
+      "stepWait": {
+       "id": "s2",
+       "path": "2",
+       "until": "{time}"
+      }
+     },
+     "events": [
+      {
+       "seq": 1,
+       "itemId": "{ask1}",
+       "kind": "posted",
+       "actor": "session",
+       "text": null,
+       "at": "{time}",
+       "rev": null,
+       "auth": null
+      },
+      {
+       "seq": 2,
+       "itemId": "{ask1}",
+       "kind": "answer",
+       "actor": "owner",
+       "text": "{\"step\":\"2\",\"id\":\"s2\",\"picked\":[\"Logs\"]}",
+       "at": "{time}",
+       "rev": 1,
+       "auth": "owner-key"
+      }
+     ],
+     "revisions": [
+      {
+       "rev": 1,
+       "hash": "e07b970461e7a6140353b80c9d3c17218acabd85e74ace70302f7058e72ffaf7",
+       "prev": "",
+       "at": "2026-11-03T09:00:01+00:00",
+       "reason": "",
+       "body": "{\"steps\":[{\"do\":\"Pick the console\",\"id\":\"s1\",\"question\":{\"choices\":[\"Web\",\"CLI\"],\"prompt\":\"Which console?\"}},{\"do\":\"Pick what goes\",\"id\":\"s2\",\"question\":{\"choices\":[\"Logs\",\"Caches\"],\"prompt\":\"What should go?\",\"then\":\"steps\"}}],\"title\":\"Clean up the staging deploys\",\"urgency\":\"today\",\"v\":1}"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "append-steps",
+   "note": "the session adds two steps: rev 2, kind append, accepted with it",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/append",
+    "ownerKey": false,
+    "protocol": 6,
+    "body": {
+     "editKey": "android-conformance-edit-key",
+     "baseRev": 1,
+     "baseHash": "e07b970461e7a6140353b80c9d3c17218acabd85e74ace70302f7058e72ffaf7",
+     "note": "Cleanup steps for the logs",
+     "steps": [
+      {
+       "do": "Delete the old logs",
+       "code": "deploy-logs prune --env staging --older-than 30d"
+      },
+      {
+       "do": "Check the disk",
+       "question": {
+        "prompt": "Enough space now?",
+        "choices": [
+         "Yes",
+         "No"
+        ]
+       }
+      }
+     ]
+    }
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Clean up the staging deploys",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "0353b41c89570284",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "steps": [
+         {
+          "do": "Pick the console",
+          "id": "s1",
+          "question": {
+           "choices": [
+            "Web",
+            "CLI"
+           ],
+           "prompt": "Which console?"
+          }
+         },
+         {
+          "do": "Pick what goes",
+          "id": "s2",
+          "question": {
+           "choices": [
+            "Logs",
+            "Caches"
+           ],
+           "prompt": "What should go?",
+           "then": "steps"
+          }
+         },
+         {
+          "code": "deploy-logs prune --env staging --older-than 30d",
+          "do": "Delete the old logs",
+          "id": "r2-1"
+         },
+         {
+          "do": "Check the disk",
+          "id": "r2-2",
+          "question": {
+           "choices": [
+            "Yes",
+            "No"
+           ],
+           "prompt": "Enough space now?"
+          }
+         }
+        ],
+        "title": "Clean up the staging deploys",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "revision": {
+       "rev": 2,
+       "hash": "056455acdd8570c3051039e7dc720f34b897ad12e59ca1f4c0fd4231e7ce1f88",
+       "prev": "e07b970461e7a6140353b80c9d3c17218acabd85e74ace70302f7058e72ffaf7",
+       "at": "2026-11-03T09:00:27+00:00",
+       "reason": "Cleanup steps for the logs",
+       "body": "{\"steps\":[{\"do\":\"Pick the console\",\"id\":\"s1\",\"question\":{\"choices\":[\"Web\",\"CLI\"],\"prompt\":\"Which console?\"}},{\"do\":\"Pick what goes\",\"id\":\"s2\",\"question\":{\"choices\":[\"Logs\",\"Caches\"],\"prompt\":\"What should go?\",\"then\":\"steps\"}},{\"code\":\"deploy-logs prune --env staging --older-than 30d\",\"do\":\"Delete the old logs\",\"id\":\"r2-1\"},{\"do\":\"Check the disk\",\"id\":\"r2-2\",\"question\":{\"choices\":[\"Yes\",\"No\"],\"prompt\":\"Enough space now?\"}}],\"title\":\"Clean up the staging deploys\",\"urgency\":\"today\",\"v\":1}",
+       "kind": "append",
+       "acceptedRev": 2
+      }
+     },
+     "revision": {
+      "rev": 2,
+      "hash": "056455acdd8570c3051039e7dc720f34b897ad12e59ca1f4c0fd4231e7ce1f88",
+      "kind": "append",
+      "added": [
+       {
+        "id": "r2-1",
+        "path": "3"
+       },
+       {
+        "id": "r2-2",
+        "path": "4"
+       }
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "append-detail",
+   "note": "rev 2 with kind append and acceptedRev 2; no stepWait now",
+   "request": {
+    "method": "GET",
+    "path": "/asks/{ask1}",
+    "ownerKey": false,
+    "protocol": 6,
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Clean up the staging deploys",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "0353b41c89570284",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "steps": [
+         {
+          "do": "Pick the console",
+          "id": "s1",
+          "question": {
+           "choices": [
+            "Web",
+            "CLI"
+           ],
+           "prompt": "Which console?"
+          }
+         },
+         {
+          "do": "Pick what goes",
+          "id": "s2",
+          "question": {
+           "choices": [
+            "Logs",
+            "Caches"
+           ],
+           "prompt": "What should go?",
+           "then": "steps"
+          }
+         },
+         {
+          "code": "deploy-logs prune --env staging --older-than 30d",
+          "do": "Delete the old logs",
+          "id": "r2-1"
+         },
+         {
+          "do": "Check the disk",
+          "id": "r2-2",
+          "question": {
+           "choices": [
+            "Yes",
+            "No"
+           ],
+           "prompt": "Enough space now?"
+          }
+         }
+        ],
+        "title": "Clean up the staging deploys",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "revision": {
+       "rev": 2,
+       "hash": "056455acdd8570c3051039e7dc720f34b897ad12e59ca1f4c0fd4231e7ce1f88",
+       "prev": "e07b970461e7a6140353b80c9d3c17218acabd85e74ace70302f7058e72ffaf7",
+       "at": "2026-11-03T09:00:27+00:00",
+       "reason": "Cleanup steps for the logs",
+       "body": "{\"steps\":[{\"do\":\"Pick the console\",\"id\":\"s1\",\"question\":{\"choices\":[\"Web\",\"CLI\"],\"prompt\":\"Which console?\"}},{\"do\":\"Pick what goes\",\"id\":\"s2\",\"question\":{\"choices\":[\"Logs\",\"Caches\"],\"prompt\":\"What should go?\",\"then\":\"steps\"}},{\"code\":\"deploy-logs prune --env staging --older-than 30d\",\"do\":\"Delete the old logs\",\"id\":\"r2-1\"},{\"do\":\"Check the disk\",\"id\":\"r2-2\",\"question\":{\"choices\":[\"Yes\",\"No\"],\"prompt\":\"Enough space now?\"}}],\"title\":\"Clean up the staging deploys\",\"urgency\":\"today\",\"v\":1}",
+       "kind": "append",
+       "acceptedRev": 2
+      }
+     },
+     "events": [
+      {
+       "seq": 1,
+       "itemId": "{ask1}",
+       "kind": "posted",
+       "actor": "session",
+       "text": null,
+       "at": "{time}",
+       "rev": null,
+       "auth": null
+      },
+      {
+       "seq": 2,
+       "itemId": "{ask1}",
+       "kind": "answer",
+       "actor": "owner",
+       "text": "{\"step\":\"2\",\"id\":\"s2\",\"picked\":[\"Logs\"]}",
+       "at": "{time}",
+       "rev": 1,
+       "auth": "owner-key"
+      },
+      {
+       "seq": 3,
+       "itemId": "{ask1}",
+       "kind": "revised",
+       "actor": "session",
+       "text": "{\"hash\":\"056455acdd8570c3051039e7dc720f34b897ad12e59ca1f4c0fd4231e7ce1f88\",\"reason\":\"Cleanup steps for the logs\"}",
+       "at": "{time}",
+       "rev": 2,
+       "auth": null
+      },
+      {
+       "seq": 4,
+       "itemId": "{ask1}",
+       "kind": "accepted",
+       "actor": "daemon",
+       "text": null,
+       "at": "{time}",
+       "rev": 2,
+       "auth": "append"
+      }
+     ],
+     "revisions": [
+      {
+       "rev": 1,
+       "hash": "e07b970461e7a6140353b80c9d3c17218acabd85e74ace70302f7058e72ffaf7",
+       "prev": "",
+       "at": "2026-11-03T09:00:01+00:00",
+       "reason": "",
+       "body": "{\"steps\":[{\"do\":\"Pick the console\",\"id\":\"s1\",\"question\":{\"choices\":[\"Web\",\"CLI\"],\"prompt\":\"Which console?\"}},{\"do\":\"Pick what goes\",\"id\":\"s2\",\"question\":{\"choices\":[\"Logs\",\"Caches\"],\"prompt\":\"What should go?\",\"then\":\"steps\"}}],\"title\":\"Clean up the staging deploys\",\"urgency\":\"today\",\"v\":1}"
+      },
+      {
+       "rev": 2,
+       "hash": "056455acdd8570c3051039e7dc720f34b897ad12e59ca1f4c0fd4231e7ce1f88",
+       "prev": "e07b970461e7a6140353b80c9d3c17218acabd85e74ace70302f7058e72ffaf7",
+       "at": "2026-11-03T09:00:27+00:00",
+       "reason": "Cleanup steps for the logs",
+       "body": "{\"steps\":[{\"do\":\"Pick the console\",\"id\":\"s1\",\"question\":{\"choices\":[\"Web\",\"CLI\"],\"prompt\":\"Which console?\"}},{\"do\":\"Pick what goes\",\"id\":\"s2\",\"question\":{\"choices\":[\"Logs\",\"Caches\"],\"prompt\":\"What should go?\",\"then\":\"steps\"}},{\"code\":\"deploy-logs prune --env staging --older-than 30d\",\"do\":\"Delete the old logs\",\"id\":\"r2-1\"},{\"do\":\"Check the disk\",\"id\":\"r2-2\",\"question\":{\"choices\":[\"Yes\",\"No\"],\"prompt\":\"Enough space now?\"}}],\"title\":\"Clean up the staging deploys\",\"urgency\":\"today\",\"v\":1}",
+       "kind": "append"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "append-done-old-rev",
+   "note": "Done bound to rev 1: 409 steps_added with the current rev",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/resolve",
+    "ownerKey": true,
+    "protocol": 6,
+    "body": {
+     "verdict": "done",
+     "actor": "owner",
+     "rev": 1,
+     "hash": "e07b970461e7a6140353b80c9d3c17218acabd85e74ace70302f7058e72ffaf7"
+    }
+   },
+   "response": {
+    "status": 409,
+    "body": {
+     "error": "steps_added",
+     "rev": 2,
+     "hash": "056455acdd8570c3051039e7dc720f34b897ad12e59ca1f4c0fd4231e7ce1f88"
+    }
+   }
+  },
+  {
+   "name": "append-answer-old-rev",
+   "note": "an answer bound to rev 1 on step 1, unchanged in rev 2: 200, counted at rev 2",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/answers",
+    "ownerKey": true,
+    "protocol": 6,
+    "body": {
+     "answers": [
+      {
+       "step": "1",
+       "picked": [
+        "CLI"
+       ]
+      }
+     ],
+     "rev": 1,
+     "hash": "e07b970461e7a6140353b80c9d3c17218acabd85e74ace70302f7058e72ffaf7"
+    }
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Clean up the staging deploys",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "0353b41c89570284",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "steps": [
+         {
+          "do": "Pick the console",
+          "id": "s1",
+          "question": {
+           "choices": [
+            "Web",
+            "CLI"
+           ],
+           "prompt": "Which console?"
+          }
+         },
+         {
+          "do": "Pick what goes",
+          "id": "s2",
+          "question": {
+           "choices": [
+            "Logs",
+            "Caches"
+           ],
+           "prompt": "What should go?",
+           "then": "steps"
+          }
+         },
+         {
+          "code": "deploy-logs prune --env staging --older-than 30d",
+          "do": "Delete the old logs",
+          "id": "r2-1"
+         },
+         {
+          "do": "Check the disk",
+          "id": "r2-2",
+          "question": {
+           "choices": [
+            "Yes",
+            "No"
+           ],
+           "prompt": "Enough space now?"
+          }
+         }
+        ],
+        "title": "Clean up the staging deploys",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "revision": {
+       "rev": 2,
+       "hash": "056455acdd8570c3051039e7dc720f34b897ad12e59ca1f4c0fd4231e7ce1f88",
+       "prev": "e07b970461e7a6140353b80c9d3c17218acabd85e74ace70302f7058e72ffaf7",
+       "at": "2026-11-03T09:00:27+00:00",
+       "reason": "Cleanup steps for the logs",
+       "body": "{\"steps\":[{\"do\":\"Pick the console\",\"id\":\"s1\",\"question\":{\"choices\":[\"Web\",\"CLI\"],\"prompt\":\"Which console?\"}},{\"do\":\"Pick what goes\",\"id\":\"s2\",\"question\":{\"choices\":[\"Logs\",\"Caches\"],\"prompt\":\"What should go?\",\"then\":\"steps\"}},{\"code\":\"deploy-logs prune --env staging --older-than 30d\",\"do\":\"Delete the old logs\",\"id\":\"r2-1\"},{\"do\":\"Check the disk\",\"id\":\"r2-2\",\"question\":{\"choices\":[\"Yes\",\"No\"],\"prompt\":\"Enough space now?\"}}],\"title\":\"Clean up the staging deploys\",\"urgency\":\"today\",\"v\":1}",
+       "kind": "append",
+       "acceptedRev": 2
+      }
+     }
+    }
+   }
+  },
+  {
+   "name": "append-done",
+   "note": "Done bound to rev 2: 200, the ask is done",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/resolve",
+    "ownerKey": true,
+    "protocol": 6,
+    "body": {
+     "verdict": "done",
+     "actor": "owner",
+     "rev": 2,
+     "hash": "056455acdd8570c3051039e7dc720f34b897ad12e59ca1f4c0fd4231e7ce1f88"
+    }
+   },
+   "response": {
+    "status": 200,
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Clean up the staging deploys",
+      "status": "done",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "0353b41c89570284",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "steps": [
+         {
+          "do": "Pick the console",
+          "id": "s1",
+          "question": {
+           "choices": [
+            "Web",
+            "CLI"
+           ],
+           "prompt": "Which console?"
+          }
+         },
+         {
+          "do": "Pick what goes",
+          "id": "s2",
+          "question": {
+           "choices": [
+            "Logs",
+            "Caches"
+           ],
+           "prompt": "What should go?",
+           "then": "steps"
+          }
+         },
+         {
+          "code": "deploy-logs prune --env staging --older-than 30d",
+          "do": "Delete the old logs",
+          "id": "r2-1"
+         },
+         {
+          "do": "Check the disk",
+          "id": "r2-2",
+          "question": {
+           "choices": [
+            "Yes",
+            "No"
+           ],
+           "prompt": "Enough space now?"
+          }
+         }
+        ],
+        "title": "Clean up the staging deploys",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": "{time}",
+      "revision": {
+       "rev": 2,
+       "hash": "056455acdd8570c3051039e7dc720f34b897ad12e59ca1f4c0fd4231e7ce1f88",
+       "prev": "e07b970461e7a6140353b80c9d3c17218acabd85e74ace70302f7058e72ffaf7",
+       "at": "2026-11-03T09:00:27+00:00",
+       "reason": "Cleanup steps for the logs",
+       "body": "{\"steps\":[{\"do\":\"Pick the console\",\"id\":\"s1\",\"question\":{\"choices\":[\"Web\",\"CLI\"],\"prompt\":\"Which console?\"}},{\"do\":\"Pick what goes\",\"id\":\"s2\",\"question\":{\"choices\":[\"Logs\",\"Caches\"],\"prompt\":\"What should go?\",\"then\":\"steps\"}},{\"code\":\"deploy-logs prune --env staging --older-than 30d\",\"do\":\"Delete the old logs\",\"id\":\"r2-1\"},{\"do\":\"Check the disk\",\"id\":\"r2-2\",\"question\":{\"choices\":[\"Yes\",\"No\"],\"prompt\":\"Enough space now?\"}}],\"title\":\"Clean up the staging deploys\",\"urgency\":\"today\",\"v\":1}",
+       "kind": "append",
+       "acceptedRev": 2
+      }
+     }
+    }
+   }
+  }
+ ]
+}
