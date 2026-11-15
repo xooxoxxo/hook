@@ -35,22 +35,43 @@ public struct StepWait: Equatable, Sendable {
         self.init(stepID: served.id, path: served.path, until: until)
     }
 
-    /// The wait on now. `pond`, the item's `stepWait`, wins while it hasn't ended; without one
-    /// the rule runs here on `ins` (the version in force), the ask's events and each revision's `at`.
-    public static func current(_ ins: Instructable, events: [Event], revisionTimes: [Int: String], now: Date,
-                               pond: StepWait? = nil) -> StepWait? {
-        if let pond { return now < pond.until ? pond : nil }
-        let answers = Answers.latest(events)
-        let revisions = revisionTimes.values.compactMap(Timestamp.date)
+    /// The wait on now. With `pondServesWaits` (the Pond lists `appendSteps` and the item came
+    /// from a single-item route) the Pond decides: its `stepWait` while it hasn't ended, else none,
+    /// and nothing is computed here. Otherwise the Pond's rule (`requirements.step_waits`) runs
+    /// on `ins` (the version in force), the ask's events and every revision's `at`, as served.
+    public static func current(_ ins: Instructable, events: [Event], revisionTimes: [String], now: Date,
+                               pond: StepWait? = nil, pondServesWaits: Bool = false) -> StepWait? {
+        if pondServesWaits || pond != nil { return pond.flatMap { now < $0.until ? $0 : nil } }
+        let revised = events.filter { $0.kind == "revised" }.map(\.seq)
+        let stamps = revisionTimes.compactMap(Timestamp.date)
         var best: StepWait?
         for entry in StepIdentity.entries(ins) where entry.step.question?.waitsForSteps == true {
-            guard let answer = answers[entry.path], let answered = Timestamp.date(answer.at) else { continue }
+            guard let newest = newestAnswer(events, id: entry.step.id, path: entry.path),
+                  let answered = Timestamp.date(newest.at) else { continue }
+            if revised.contains(where: { $0 > newest.seq }) || stamps.contains(where: { $0 > answered }) { continue }
             let until = answered.addingTimeInterval(seconds)
-            guard now < until, !revisions.contains(where: { $0 > answered }) else { continue }
+            guard now < until else { continue }
             if best.map({ until < $0.until }) ?? true {
                 best = StepWait(stepID: entry.step.id, path: entry.path, until: until)
             }
         }
         return best
+    }
+
+    /// The owner's answer with the highest seq to the question at `id` / `path`: matched by step
+    /// id when both the step and the answer carry one, else by path. The first of equal seqs wins.
+    static func newestAnswer(_ events: [Event], id: String?, path: String) -> Event? {
+        var newest: Event?
+        for event in events where event.kind == "answer" && event.actor == "owner" {
+            guard let text = event.text, case .object(let body)? = try? JSONValue.parse(Data(text.utf8)) else { continue }
+            let matches: Bool
+            if let id, case .string(let answered)? = body["id"] {
+                matches = answered == id
+            } else {
+                matches = body["step"] == .string(path)
+            }
+            if matches, newest.map({ event.seq > $0.seq }) ?? true { newest = event }
+        }
+        return newest
     }
 }

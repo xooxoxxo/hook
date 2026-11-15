@@ -66,9 +66,10 @@ public enum Validator {
     /// `.success` holds the cleaned instructable: the input with `urgency`
     /// set to "today" when it is absent or null. `requirements: false` (This Mac, RD 20) checks
     /// what a Pond 1.2.0 does: `required` and `done` are unknown keys. `choiceObjects: false`
-    /// (This Mac in 0.14) checks what a Pond 1.3.0 does: a choice must be a string.
+    /// (This Mac in 0.14) checks what a Pond 1.3.0 does: a choice must be a string. `stepWaits:
+    /// false` (This Mac, which can't add steps) makes a question's `then` an unknown key.
     public static func validate(_ value: JSONValue, requirements: Bool = true,
-                                choiceObjects: Bool = true) -> Result<JSONValue, ValidationFailure> {
+                                choiceObjects: Bool = true, stepWaits: Bool = true) -> Result<JSONValue, ValidationFailure> {
         guard case .object(let object) = value else {
             return .failure(ValidationFailure(errors: ["instructable: must be an object"]))
         }
@@ -95,7 +96,8 @@ public enum Validator {
 
         if case .array(let steps)? = present(object["steps"]), (1...maxSteps).contains(steps.count) {
             for (index, item) in steps.enumerated() {
-                step(&errors, "steps[\(index)]", item, allowed: stepAllowed, leaves: leafAllowed, objects: choiceObjects)
+                step(&errors, "steps[\(index)]", item, allowed: stepAllowed, leaves: leafAllowed, objects: choiceObjects,
+                     stepWaits: stepWaits)
             }
             let total = steps.count + steps.reduce(0) { sum, item in
                 if case .object(let members) = item, case .array(let subs)? = members["substeps"] { return sum + subs.count }
@@ -384,7 +386,7 @@ public enum Validator {
     /// warning, question, substeps.
     static func step(
         _ errors: inout [String], _ path: String, _ value: JSONValue, allowed: Set<String>,
-        leaves: Set<String> = leafKeys, inOptional: Bool = false, objects: Bool = true
+        leaves: Set<String> = leafKeys, inOptional: Bool = false, objects: Bool = true, stepWaits: Bool = true
     ) {
         guard let step = keys(&errors, path, value, allowed: allowed) else { return }
         for field in stepFields {
@@ -418,7 +420,7 @@ public enum Validator {
             text(&errors, "\(path).warning", step["warning"], limit: warningLimit, kind: .multi)
         }
         if allowed.contains("question"), let question = present(step["question"]) {
-            Self.question(&errors, "\(path).question", question, objects: objects)
+            Self.question(&errors, "\(path).question", question, objects: objects, stepWaits: stepWaits)
         }
         guard allowed.contains("substeps"), let subsValue = present(step["substeps"]) else { return }
         guard case .array(let subs) = subsValue, (1...maxSubsteps).contains(subs.count) else {
@@ -427,7 +429,7 @@ public enum Validator {
         }
         for (index, sub) in subs.enumerated() {
             Self.step(&errors, "\(path).substeps[\(index)]", sub, allowed: leaves, leaves: leaves,
-                      inOptional: present(step["optional"]) == .bool(true), objects: objects)
+                      inOptional: present(step["optional"]) == .bool(true), objects: objects, stepWaits: stepWaits)
         }
     }
 
@@ -487,8 +489,10 @@ public enum Validator {
 
     /// `_question`: a prompt, then 0 to 6 distinct choices (none asks for free text)
     /// and `multi`, which allows several picks and needs at least 2 choices.
-    static func question(_ errors: inout [String], _ path: String, _ value: JSONValue, objects: Bool = true) {
-        guard let question = keys(&errors, path, value, allowed: questionKeys) else { return }
+    static func question(_ errors: inout [String], _ path: String, _ value: JSONValue, objects: Bool = true,
+                         stepWaits: Bool = true) {
+        let allowed = stepWaits ? questionKeys : questionKeys.subtracting(["then"])
+        guard let question = keys(&errors, path, value, allowed: allowed) else { return }
         text(&errors, "\(path).prompt", question["prompt"], limit: 300, required: true, kind: .multi)
         var count: Int? = 0   // nil: the choices are malformed
         if let choicesValue = present(question["choices"]) {
@@ -512,7 +516,7 @@ public enum Validator {
         default:
             errors.append("\(path).multi: must be true or false")
         }
-        if let then = present(question["then"]), then != .string(StepWait.thenSteps) {
+        if stepWaits, let then = present(question["then"]), then != .string(StepWait.thenSteps) {
             errors.append("\(path).then: must be \"steps\"")
         }
     }
