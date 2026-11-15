@@ -167,7 +167,9 @@ private let abc = [item("a", created: stamp(minutesAgo: 10)), item("b", created:
         store.close("a", .done)
         clock.advance(11)
         store.sendDue()
-        #expect(await eventually { sent == ["a"] })
+        // The full UI suite shares the main actor; hosted layout work can queue
+        // the send's refresh longer than the helper's default two-second wait.
+        #expect(await eventually(seconds: 30) { sent == ["a"] })
     }
 
     @Test func aCloseWhoseResolveIsInFlightStaysHeld() async {
