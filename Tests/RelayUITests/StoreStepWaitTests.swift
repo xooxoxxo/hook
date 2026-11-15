@@ -109,6 +109,18 @@ import Testing
         #expect(s.store.stepWaitUntil["a"] == nil)
     }
 
+    /// A deep link fetches the ask itself: an ask mid-wait still gets its timer.
+    @Test func aDeepLinkSchedulesTheTimer() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let s = await setUp(defaults)
+        defer { try? FileManager.default.removeItem(at: s.url) }
+        s.store.stepWaitTimers.removeValue(forKey: "a")?.cancel()
+        s.store.stepWaitUntil["a"] = nil
+        await s.store.focus("a")
+        #expect(s.store.stepWaitUntil["a"] == Timestamp.date("2026-10-29T10:10:30+00:00"))
+    }
+
     /// A Pond that lists appendSteps decides from the single-item route: no `stepWait`, no wait.
     @Test func aPondThatServesWaitsDecides() async {
         let defaults = TestDefaults()

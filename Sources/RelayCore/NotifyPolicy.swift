@@ -113,10 +113,15 @@ extension NotifyContent {
                            note: newest.note, quiet: ownerActed(events, now: now))
     }
 
-    /// An owner event on the ask less than `quietAfterAct` before `now`.
+    /// What the owner does on an ask by hand. Never `accepted`: Hook sends that on its own when
+    /// it seals an append, and the Pond records it as the owner's.
+    static let ownerActs: Set<String> = ["answer", "reply", "message", "problem", "progress", "reopened", "resolved"]
+
+    /// An owner act on the ask (`ownerActs`) less than `quietAfterAct` before `now`.
     static func ownerActed(_ events: [Event], now: Date) -> Bool {
         events.contains { event in
-            guard event.actor == "owner", let at = Timestamp.date(event.at) else { return false }
+            guard event.actor == "owner", ownerActs.contains(event.kind),
+                  let at = Timestamp.date(event.at) else { return false }
             return now.timeIntervalSince(at) < quietAfterAct
         }
     }

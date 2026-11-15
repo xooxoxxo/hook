@@ -855,6 +855,8 @@ public enum LinkCheck: Equatable, Sendable {
                 tickCache[id] = nil
                 rerender(id)
             }
+            // A deep link to an ask mid-wait still gets its timer.
+            scheduleStepWait(id)
         } catch QueueError.notFound {
             guard gen == generation else { return }
             await refresh()

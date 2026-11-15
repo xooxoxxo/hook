@@ -24,10 +24,14 @@ import Testing
     }
 
     @Test func scrollsOncePerMarker() {
-        #expect(DetailView<Store>.scrollsToNewSteps(2, scrolled: nil))
-        #expect(!DetailView<Store>.scrollsToNewSteps(2, scrolled: 2))
-        #expect(DetailView<Store>.scrollsToNewSteps(3, scrolled: 2))
-        #expect(!DetailView<Store>.scrollsToNewSteps(nil, scrolled: nil))
+        let scroll = DetailView<Store>.newStepsScroll
+        #expect(scroll([2], nil).map { [$0.target, $0.newest] } == [2, 2])
+        #expect(scroll([2], 2) == nil)
+        #expect(scroll([2, 3], 2).map { [$0.target, $0.newest] } == [3, 3])
+        #expect(scroll([], nil) == nil)
+        // Several unseen appends: the oldest new divider, so the first new step is in view.
+        #expect(scroll([2, 3, 4], nil).map { [$0.target, $0.newest] } == [2, 4])
+        #expect(scroll([2, 3, 4, 5], 3).map { [$0.target, $0.newest] } == [4, 5])
     }
 }
 

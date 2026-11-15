@@ -147,9 +147,9 @@ private let utc = TimeZone(identifier: "UTC")!
     @Test func markerTitleBySession() {
         #expect(StepEntries.title(marker(rev: 2, first: "c", index: 2), timeZone: utc) == "Added by the session · 14:02")
         // HH:mm in the Mac's own time zone, never a 12-hour clock.
-        let istanbul = TimeZone(identifier: "Europe/Istanbul")!
-        #expect(StepEntries.title(marker(rev: 2, at: "2026-11-14T09:05:00+00:00", first: "c", index: 2), timeZone: istanbul)
-            == "Added by the session · 12:05")
+        let tokyo = TimeZone(identifier: "Asia/Tokyo")!
+        #expect(StepEntries.title(marker(rev: 2, at: "2026-11-14T09:05:00+00:00", first: "c", index: 2), timeZone: tokyo)
+            == "Added by the session · 18:05")
         let newYork = TimeZone(identifier: "America/New_York")!
         #expect(StepEntries.title(marker(rev: 2, at: "2026-11-14T19:30:00+00:00", first: "c", index: 2), timeZone: newYork)
             == "Added by the session · 14:30")

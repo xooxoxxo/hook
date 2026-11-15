@@ -165,8 +165,8 @@ private func appendMarker(_ rev: Int, added: Int = 2, note: String = "Two more c
                  addedTopLevel: added, afterAnswer: false, firstStepIndex: rev)
 }
 
-private func ownerEvent(secondsBefore seconds: TimeInterval, actor: String = "owner") -> Event {
-    Event(seq: 1, itemId: "a", kind: "answer", actor: actor, text: "{}",
+private func ownerEvent(secondsBefore seconds: TimeInterval, actor: String = "owner", kind: String = "answer") -> Event {
+    Event(seq: 1, itemId: "a", kind: kind, actor: actor, text: "{}",
           at: Timestamp.string(t0.addingTimeInterval(-seconds)))
 }
 
@@ -203,7 +203,9 @@ private func ownerEvent(secondsBefore seconds: TimeInterval, actor: String = "ow
 
     @Test func stepsAddedRingsOtherwise() {
         let item = ask("a", urgency: "today")
-        for events in [[], [ownerEvent(secondsBefore: 121)], [ownerEvent(secondsBefore: 10, actor: "session")]] {
+        // Hook's own accept of the append is recorded as the owner's, but it isn't an act.
+        for events in [[], [ownerEvent(secondsBefore: 121)], [ownerEvent(secondsBefore: 10, actor: "session")],
+                       [ownerEvent(secondsBefore: 30, kind: "accepted")]] {
             let content = NotifyContent.stepsAdded(item, markers: [appendMarker(2)], events: events, now: t0)
             #expect(content?.sound(true) == true)
             #expect(content?.sound(false) == false)
