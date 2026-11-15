@@ -1,0 +1,1111 @@
+{
+ "version": 1,
+ "source": "scripts/gen-append-vectors.py",
+ "format": {
+  "rule": "isAppend(base, next): next.steps is longer than base.steps; next.steps[i] equals base.steps[i] as a JSON value for every i below base.steps.count (ids, sub-steps and unknown keys included); every top-level key other than steps is present in both or absent in both, with equal values. JSON value equality ignores key order and white space. Bodies are compared as parsed JSON, never as decoded models. appendedSince(history, base): every revision from base + 1 to the newest is isAppend of the one before it.",
+  "check": "{name, note, kind: \"check\", base, next, expect: {append}}. base and next are body texts, exactly as a Pond could serve them (ids present). append is isAppend(base, next).",
+  "chain": "{name, note, kind: \"chain\", revisions: [{rev, prev, at, reason, body, hash}...], accepted, tamper?: {rev}, expect: {state, problem?, pondAdvances}}. body is the canonical text; hash is \"hook-rev-v1\" US rev US prev US at US reason US body (US = U+001F, SHA-256, lowercase hex). accepted is the revision the owner accepted on this device. tamper names the revision whose served hash has one hex digit flipped (the hashes after it are left as computed). state: current (the newest revision is accepted, or every revision after accepted is an append), pending (a revision after accepted is not an append), historyChanged (the history check fails; problem as in history-vectors.json). pondAdvances is the Pond's call on its own (untampered) store, made as each revision k after accepted arrives: k becomes the Pond's accepted revision when accepted == k - 1 and isAppend(k - 1, k). pondAdvances is true when that carries the accepted revision to the newest, N.",
+  "append": "{name, note, kind: \"append\", current, used, rev, request: {note, steps}, expect}. current is the newest revision's body (an object, ids present); used is every step id of every earlier revision; rev is the revision the append would become; request is the append call's body. Steps without an id get r<rev>-<n>, n counting steps and sub-steps without an id in document order and skipping any id in use, as an amendment numbers them. expect is {ok: true, body, added: [{id, path}]} with body the canonical text of current with the steps appended, and path the 1-based top-level step number as a string, or {ok: false, status, error, details}. Detail paths name the request (steps[0] is the request's first step), except a limit on the whole result, which names the result as the post rules do."
+ },
+ "cases": [
+  {
+   "name": "pure-append",
+   "note": "one step added after the last; nothing else changes",
+   "kind": "check",
+   "base": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "next": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}},{\"blocking\":true,\"do\":\"Delete the old key\",\"id\":\"r2-1\"}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "expect": {
+    "append": true
+   }
+  },
+  {
+   "name": "two-added",
+   "note": "two steps added at once",
+   "kind": "check",
+   "base": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "next": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}},{\"blocking\":true,\"do\":\"Delete the old key\",\"id\":\"r2-1\"},{\"do\":\"Tell the team the key changed\",\"id\":\"r2-2\"}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "expect": {
+    "append": true
+   }
+  },
+  {
+   "name": "no-new-steps",
+   "note": "the same body twice: an append adds at least one step",
+   "kind": "check",
+   "base": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "next": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "expect": {
+    "append": false
+   }
+  },
+  {
+   "name": "fewer-steps",
+   "note": "the last step removed",
+   "kind": "check",
+   "base": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "next": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "expect": {
+    "append": false
+   }
+  },
+  {
+   "name": "changed-old-step",
+   "note": "a step's do changed, and a step added",
+   "kind": "check",
+   "base": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "next": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the key settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}},{\"blocking\":true,\"do\":\"Delete the old key\",\"id\":\"r2-1\"}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "expect": {
+    "append": false
+   }
+  },
+  {
+   "name": "reordered",
+   "note": "the first two steps swapped, and a step added",
+   "kind": "check",
+   "base": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "next": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}},{\"blocking\":true,\"do\":\"Delete the old key\",\"id\":\"r2-1\"}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "expect": {
+    "append": false
+   }
+  },
+  {
+   "name": "changed-verify",
+   "note": "verify's do changed, and a step added",
+   "kind": "check",
+   "base": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "next": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}},{\"blocking\":true,\"do\":\"Delete the old key\",\"id\":\"r2-1\"}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A production deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "expect": {
+    "append": false
+   }
+  },
+  {
+   "name": "changed-why",
+   "note": "why changed, and a step added",
+   "kind": "check",
+   "base": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "next": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}},{\"blocking\":true,\"do\":\"Delete the old key\",\"id\":\"r2-1\"}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The key leaked.\"}",
+   "expect": {
+    "append": false
+   }
+  },
+  {
+   "name": "changed-done",
+   "note": "done changed, and a step added",
+   "kind": "check",
+   "base": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "next": "{\"done\":[\"steps\",\"message\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}},{\"blocking\":true,\"do\":\"Delete the old key\",\"id\":\"r2-1\"}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "expect": {
+    "append": false
+   }
+  },
+  {
+   "name": "changed-warning",
+   "note": "warning changed, and a step added",
+   "kind": "check",
+   "base": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "next": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}},{\"blocking\":true,\"do\":\"Delete the old key\",\"id\":\"r2-1\"}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Production deploys stop too.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "expect": {
+    "append": false
+   }
+  },
+  {
+   "name": "removed-warning",
+   "note": "warning removed, and a step added: a key absent in one and present in the other",
+   "kind": "check",
+   "base": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "next": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}},{\"blocking\":true,\"do\":\"Delete the old key\",\"id\":\"r2-1\"}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "expect": {
+    "append": false
+   }
+  },
+  {
+   "name": "gains-top-key",
+   "note": "a top-level key the base has not (links), and a step added",
+   "kind": "check",
+   "base": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "next": "{\"done\":[\"steps\"],\"links\":[{\"label\":\"Runbook\",\"url\":\"https://pond.example.test/runbook\"}],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}},{\"blocking\":true,\"do\":\"Delete the old key\",\"id\":\"r2-1\"}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "expect": {
+    "append": false
+   }
+  },
+  {
+   "name": "gains-unknown-top-key",
+   "note": "a top-level key no client knows, and a step added: the rule covers unknown keys",
+   "kind": "check",
+   "base": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "next": "{\"done\":[\"steps\"],\"extra\":1,\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}},{\"blocking\":true,\"do\":\"Delete the old key\",\"id\":\"r2-1\"}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "expect": {
+    "append": false
+   }
+  },
+  {
+   "name": "new-step-first",
+   "note": "the new step put before the old ones",
+   "kind": "check",
+   "base": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "next": "{\"done\":[\"steps\"],\"steps\":[{\"blocking\":true,\"do\":\"Delete the old key\",\"id\":\"r2-1\"},{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "expect": {
+    "append": false
+   }
+  },
+  {
+   "name": "new-step-between",
+   "note": "the new step put between two old ones",
+   "kind": "check",
+   "base": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "next": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"blocking\":true,\"do\":\"Delete the old key\",\"id\":\"r2-1\"},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "expect": {
+    "append": false
+   }
+  },
+  {
+   "name": "substep-of-old-step-changed",
+   "note": "the new step is fine, but an old sub-step's do changed",
+   "kind": "check",
+   "base": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "next": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press Add key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}},{\"blocking\":true,\"do\":\"Delete the old key\",\"id\":\"r2-1\"}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "expect": {
+    "append": false
+   }
+  },
+  {
+   "name": "substep-added-to-old-step",
+   "note": "a sub-step added to an old step, not a step at the end",
+   "kind": "check",
+   "base": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "next": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"},{\"do\":\"Name it\",\"id\":\"r2-1\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "expect": {
+    "append": false
+   }
+  },
+  {
+   "name": "old-step-gains-unknown-key",
+   "note": "an old step gains a key no client knows, and a step added",
+   "kind": "check",
+   "base": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "next": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"shell\":\"zsh\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}},{\"blocking\":true,\"do\":\"Delete the old key\",\"id\":\"r2-1\"}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "expect": {
+    "append": false
+   }
+  },
+  {
+   "name": "old-step-id-changed",
+   "note": "an old step's id changed, and a step added",
+   "kind": "check",
+   "base": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "next": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"open\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}},{\"blocking\":true,\"do\":\"Delete the old key\",\"id\":\"r2-1\"}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "expect": {
+    "append": false
+   }
+  },
+  {
+   "name": "key-order-differs",
+   "note": "the pure append written with keys in another order and spaces: JSON values are equal",
+   "kind": "check",
+   "base": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+   "next": "{\"done\": [\"steps\"], \"steps\": [{\"url\": \"https://pond.example.test/settings\", \"do\": \"Open the deploy settings\", \"id\": \"s1\"}, {\"id\": \"s2\", \"do\": \"Make a new key\", \"substeps\": [{\"id\": \"s2.1\", \"do\": \"Press New key\"}, {\"id\": \"s2.2\", \"do\": \"Copy it to the Keychain\", \"code\": \"security add-generic-password -s deploy-key -a staging -w\"}]}, {\"id\": \"s3\", \"do\": \"Pick when the old key stops\", \"question\": {\"prompt\": \"When?\", \"choices\": [\"Now\", \"Friday\"]}}, {\"id\": \"r2-1\", \"do\": \"Delete the old key\", \"blocking\": true}], \"verify\": {\"code\": \"curl -sI https://pond.example.test/health\", \"do\": \"A staging deploy goes through\"}, \"why\": \"The old key leaves with the contractor on Friday.\", \"warning\": \"Staging deploys stop until the new key is in.\", \"urgency\": \"today\", \"title\": \"Rotate the staging deploy key\", \"v\": 1}",
+   "expect": {
+    "append": true
+   }
+  },
+  {
+   "name": "one-append",
+   "note": "rev 2 adds a step to rev 1, which the owner accepted",
+   "kind": "chain",
+   "revisions": [
+    {
+     "rev": 1,
+     "prev": "",
+     "at": "2026-11-14T10:01:00+00:00",
+     "reason": "",
+     "body": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+     "hash": "a34ef3627f32f5b0b09ef154a2f4b32e392309568ef86b0b8f3af2866c36d5b4"
+    },
+    {
+     "rev": 2,
+     "prev": "a34ef3627f32f5b0b09ef154a2f4b32e392309568ef86b0b8f3af2866c36d5b4",
+     "at": "2026-11-14T10:02:00+00:00",
+     "reason": "Two more checks after the answer",
+     "body": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}},{\"do\":\"Added step 2\",\"id\":\"r2-1\"}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+     "hash": "782c48af9ca16b2881d7383651a3a76aaf5efd1bb447dbc2f5c21a802d134caf"
+    }
+   ],
+   "accepted": 1,
+   "expect": {
+    "state": "current",
+    "pondAdvances": true
+   }
+  },
+  {
+   "name": "two-appends",
+   "note": "revs 2 and 3 each add a step; the owner accepted rev 1",
+   "kind": "chain",
+   "revisions": [
+    {
+     "rev": 1,
+     "prev": "",
+     "at": "2026-11-14T10:01:00+00:00",
+     "reason": "",
+     "body": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+     "hash": "a34ef3627f32f5b0b09ef154a2f4b32e392309568ef86b0b8f3af2866c36d5b4"
+    },
+    {
+     "rev": 2,
+     "prev": "a34ef3627f32f5b0b09ef154a2f4b32e392309568ef86b0b8f3af2866c36d5b4",
+     "at": "2026-11-14T10:02:00+00:00",
+     "reason": "Two more checks after the answer",
+     "body": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}},{\"do\":\"Added step 2\",\"id\":\"r2-1\"}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+     "hash": "782c48af9ca16b2881d7383651a3a76aaf5efd1bb447dbc2f5c21a802d134caf"
+    },
+    {
+     "rev": 3,
+     "prev": "782c48af9ca16b2881d7383651a3a76aaf5efd1bb447dbc2f5c21a802d134caf",
+     "at": "2026-11-14T10:03:00+00:00",
+     "reason": "Two more checks after the answer",
+     "body": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}},{\"do\":\"Added step 2\",\"id\":\"r2-1\"},{\"do\":\"Added step 3\",\"id\":\"r3-1\"}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+     "hash": "5fc638169e93d5e91c9b8b3e21bfd4b7d99df08bddbffea30379b51b60d459e3"
+    }
+   ],
+   "accepted": 1,
+   "expect": {
+    "state": "current",
+    "pondAdvances": true
+   }
+  },
+  {
+   "name": "correction-unaccepted",
+   "note": "rev 2 changes a step: the owner reviews it",
+   "kind": "chain",
+   "revisions": [
+    {
+     "rev": 1,
+     "prev": "",
+     "at": "2026-11-14T10:01:00+00:00",
+     "reason": "",
+     "body": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+     "hash": "a34ef3627f32f5b0b09ef154a2f4b32e392309568ef86b0b8f3af2866c36d5b4"
+    },
+    {
+     "rev": 2,
+     "prev": "a34ef3627f32f5b0b09ef154a2f4b32e392309568ef86b0b8f3af2866c36d5b4",
+     "at": "2026-11-14T10:02:00+00:00",
+     "reason": "The settings page moved",
+     "body": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the key settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+     "hash": "ecf07e2e48e68b844866f92648e6a59b97b30b22e16581de641f5875625e564f"
+    }
+   ],
+   "accepted": 1,
+   "expect": {
+    "state": "pending",
+    "pondAdvances": false
+   }
+  },
+  {
+   "name": "append-on-unaccepted-correction",
+   "note": "rev 2 corrects, rev 3 appends; the owner accepted only rev 1",
+   "kind": "chain",
+   "revisions": [
+    {
+     "rev": 1,
+     "prev": "",
+     "at": "2026-11-14T10:01:00+00:00",
+     "reason": "",
+     "body": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+     "hash": "a34ef3627f32f5b0b09ef154a2f4b32e392309568ef86b0b8f3af2866c36d5b4"
+    },
+    {
+     "rev": 2,
+     "prev": "a34ef3627f32f5b0b09ef154a2f4b32e392309568ef86b0b8f3af2866c36d5b4",
+     "at": "2026-11-14T10:02:00+00:00",
+     "reason": "The settings page moved",
+     "body": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the key settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+     "hash": "ecf07e2e48e68b844866f92648e6a59b97b30b22e16581de641f5875625e564f"
+    },
+    {
+     "rev": 3,
+     "prev": "ecf07e2e48e68b844866f92648e6a59b97b30b22e16581de641f5875625e564f",
+     "at": "2026-11-14T10:03:00+00:00",
+     "reason": "Two more checks after the answer",
+     "body": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the key settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}},{\"do\":\"Added step 3\",\"id\":\"r3-1\"}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+     "hash": "6c82bb58ae255d83e502b909ee7282ffe353b5af79ca65f1e780f1144a99b85d"
+    }
+   ],
+   "accepted": 1,
+   "expect": {
+    "state": "pending",
+    "pondAdvances": false
+   }
+  },
+  {
+   "name": "append-after-accepted-correction",
+   "note": "rev 2 corrects and the owner accepted it; rev 3 appends",
+   "kind": "chain",
+   "revisions": [
+    {
+     "rev": 1,
+     "prev": "",
+     "at": "2026-11-14T10:01:00+00:00",
+     "reason": "",
+     "body": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+     "hash": "a34ef3627f32f5b0b09ef154a2f4b32e392309568ef86b0b8f3af2866c36d5b4"
+    },
+    {
+     "rev": 2,
+     "prev": "a34ef3627f32f5b0b09ef154a2f4b32e392309568ef86b0b8f3af2866c36d5b4",
+     "at": "2026-11-14T10:02:00+00:00",
+     "reason": "The settings page moved",
+     "body": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the key settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+     "hash": "ecf07e2e48e68b844866f92648e6a59b97b30b22e16581de641f5875625e564f"
+    },
+    {
+     "rev": 3,
+     "prev": "ecf07e2e48e68b844866f92648e6a59b97b30b22e16581de641f5875625e564f",
+     "at": "2026-11-14T10:03:00+00:00",
+     "reason": "Two more checks after the answer",
+     "body": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the key settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}},{\"do\":\"Added step 3\",\"id\":\"r3-1\"}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+     "hash": "6c82bb58ae255d83e502b909ee7282ffe353b5af79ca65f1e780f1144a99b85d"
+    }
+   ],
+   "accepted": 2,
+   "expect": {
+    "state": "current",
+    "pondAdvances": true
+   }
+  },
+  {
+   "name": "append-after-tamper",
+   "note": "rev 2 appends, but its served hash has one digit flipped",
+   "kind": "chain",
+   "revisions": [
+    {
+     "rev": 1,
+     "prev": "",
+     "at": "2026-11-14T10:01:00+00:00",
+     "reason": "",
+     "body": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+     "hash": "a34ef3627f32f5b0b09ef154a2f4b32e392309568ef86b0b8f3af2866c36d5b4"
+    },
+    {
+     "rev": 2,
+     "prev": "a34ef3627f32f5b0b09ef154a2f4b32e392309568ef86b0b8f3af2866c36d5b4",
+     "at": "2026-11-14T10:02:00+00:00",
+     "reason": "Two more checks after the answer",
+     "body": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Pick when the old key stops\",\"id\":\"s3\",\"question\":{\"choices\":[\"Now\",\"Friday\"],\"prompt\":\"When?\"}},{\"do\":\"Added step 2\",\"id\":\"r2-1\"}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+     "hash": "782c48af9ca16b2881d7383651a3a76aaf5efd1bb447dbc2f5c21a802d134ca0"
+    }
+   ],
+   "accepted": 1,
+   "tamper": {
+    "rev": 2
+   },
+   "expect": {
+    "state": "historyChanged",
+    "problem": "badHash:2",
+    "pondAdvances": true
+   }
+  },
+  {
+   "name": "ids-assigned",
+   "note": "two steps without ids at rev 3 get r3-1 and r3-2",
+   "kind": "append",
+   "current": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "urgency": "today",
+    "why": "The old key leaves with the contractor on Friday.",
+    "warning": "Staging deploys stop until the new key is in.",
+    "steps": [
+     {
+      "id": "s1",
+      "do": "Open the deploy settings",
+      "url": "https://pond.example.test/settings"
+     },
+     {
+      "id": "s2",
+      "do": "Make a new key",
+      "substeps": [
+       {
+        "id": "s2.1",
+        "do": "Press New key"
+       },
+       {
+        "id": "s2.2",
+        "do": "Copy it to the Keychain",
+        "code": "security add-generic-password -s deploy-key -a staging -w"
+       }
+      ]
+     }
+    ],
+    "verify": {
+     "do": "A staging deploy goes through",
+     "code": "curl -sI https://pond.example.test/health"
+    },
+    "done": [
+     "steps"
+    ]
+   },
+   "used": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 3,
+   "request": {
+    "note": "Two more checks after the answer",
+    "steps": [
+     {
+      "do": "Delete the old key"
+     },
+     {
+      "do": "Tell the team"
+     }
+    ]
+   },
+   "expect": {
+    "ok": true,
+    "body": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Delete the old key\",\"id\":\"r3-1\"},{\"do\":\"Tell the team\",\"id\":\"r3-2\"}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+    "added": [
+     {
+      "id": "r3-1",
+      "path": "3"
+     },
+     {
+      "id": "r3-2",
+      "path": "4"
+     }
+    ]
+   }
+  },
+  {
+   "name": "ids-given-kept",
+   "note": "a step that brings an unused id keeps it; the next one is numbered",
+   "kind": "append",
+   "current": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "urgency": "today",
+    "why": "The old key leaves with the contractor on Friday.",
+    "warning": "Staging deploys stop until the new key is in.",
+    "steps": [
+     {
+      "id": "s1",
+      "do": "Open the deploy settings",
+      "url": "https://pond.example.test/settings"
+     },
+     {
+      "id": "s2",
+      "do": "Make a new key",
+      "substeps": [
+       {
+        "id": "s2.1",
+        "do": "Press New key"
+       },
+       {
+        "id": "s2.2",
+        "do": "Copy it to the Keychain",
+        "code": "security add-generic-password -s deploy-key -a staging -w"
+       }
+      ]
+     }
+    ],
+    "verify": {
+     "do": "A staging deploy goes through",
+     "code": "curl -sI https://pond.example.test/health"
+    },
+    "done": [
+     "steps"
+    ]
+   },
+   "used": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 3,
+   "request": {
+    "note": "One check and a heads-up",
+    "steps": [
+     {
+      "id": "delete-old",
+      "do": "Delete the old key"
+     },
+     {
+      "do": "Tell the team"
+     }
+    ]
+   },
+   "expect": {
+    "ok": true,
+    "body": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Delete the old key\",\"id\":\"delete-old\"},{\"do\":\"Tell the team\",\"id\":\"r3-1\"}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+    "added": [
+     {
+      "id": "delete-old",
+      "path": "3"
+     },
+     {
+      "id": "r3-1",
+      "path": "4"
+     }
+    ]
+   }
+  },
+  {
+   "name": "ids-skip-taken",
+   "note": "a given id r3-1 is taken, so the step without an id gets r3-2",
+   "kind": "append",
+   "current": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "urgency": "today",
+    "why": "The old key leaves with the contractor on Friday.",
+    "warning": "Staging deploys stop until the new key is in.",
+    "steps": [
+     {
+      "id": "s1",
+      "do": "Open the deploy settings",
+      "url": "https://pond.example.test/settings"
+     },
+     {
+      "id": "s2",
+      "do": "Make a new key",
+      "substeps": [
+       {
+        "id": "s2.1",
+        "do": "Press New key"
+       },
+       {
+        "id": "s2.2",
+        "do": "Copy it to the Keychain",
+        "code": "security add-generic-password -s deploy-key -a staging -w"
+       }
+      ]
+     }
+    ],
+    "verify": {
+     "do": "A staging deploy goes through",
+     "code": "curl -sI https://pond.example.test/health"
+    },
+    "done": [
+     "steps"
+    ]
+   },
+   "used": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 3,
+   "request": {
+    "note": "One check and a heads-up",
+    "steps": [
+     {
+      "id": "r3-1",
+      "do": "Delete the old key"
+     },
+     {
+      "do": "Tell the team"
+     }
+    ]
+   },
+   "expect": {
+    "ok": true,
+    "body": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Delete the old key\",\"id\":\"r3-1\"},{\"do\":\"Tell the team\",\"id\":\"r3-2\"}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+    "added": [
+     {
+      "id": "r3-1",
+      "path": "3"
+     },
+     {
+      "id": "r3-2",
+      "path": "4"
+     }
+    ]
+   }
+  },
+  {
+   "name": "substep-ids-assigned",
+   "note": "a new step's sub-steps are numbered after it, in document order",
+   "kind": "append",
+   "current": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "urgency": "today",
+    "why": "The old key leaves with the contractor on Friday.",
+    "warning": "Staging deploys stop until the new key is in.",
+    "steps": [
+     {
+      "id": "s1",
+      "do": "Open the deploy settings",
+      "url": "https://pond.example.test/settings"
+     },
+     {
+      "id": "s2",
+      "do": "Make a new key",
+      "substeps": [
+       {
+        "id": "s2.1",
+        "do": "Press New key"
+       },
+       {
+        "id": "s2.2",
+        "do": "Copy it to the Keychain",
+        "code": "security add-generic-password -s deploy-key -a staging -w"
+       }
+      ]
+     }
+    ],
+    "verify": {
+     "do": "A staging deploy goes through",
+     "code": "curl -sI https://pond.example.test/health"
+    },
+    "done": [
+     "steps"
+    ]
+   },
+   "used": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 3,
+   "request": {
+    "note": "Clean up the old key",
+    "steps": [
+     {
+      "do": "Clean up",
+      "substeps": [
+       {
+        "do": "Delete the old key"
+       },
+       {
+        "do": "Empty the bin"
+       }
+      ]
+     }
+    ]
+   },
+   "expect": {
+    "ok": true,
+    "body": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Clean up\",\"id\":\"r3-1\",\"substeps\":[{\"do\":\"Delete the old key\",\"id\":\"r3-2\"},{\"do\":\"Empty the bin\",\"id\":\"r3-3\"}]}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+    "added": [
+     {
+      "id": "r3-1",
+      "path": "3"
+     }
+    ]
+   }
+  },
+  {
+   "name": "id-used-before",
+   "note": "the step brings id s3, which rev 1 used and the correction removed",
+   "kind": "append",
+   "current": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "urgency": "today",
+    "why": "The old key leaves with the contractor on Friday.",
+    "warning": "Staging deploys stop until the new key is in.",
+    "steps": [
+     {
+      "id": "s1",
+      "do": "Open the deploy settings",
+      "url": "https://pond.example.test/settings"
+     },
+     {
+      "id": "s2",
+      "do": "Make a new key",
+      "substeps": [
+       {
+        "id": "s2.1",
+        "do": "Press New key"
+       },
+       {
+        "id": "s2.2",
+        "do": "Copy it to the Keychain",
+        "code": "security add-generic-password -s deploy-key -a staging -w"
+       }
+      ]
+     }
+    ],
+    "verify": {
+     "do": "A staging deploy goes through",
+     "code": "curl -sI https://pond.example.test/health"
+    },
+    "done": [
+     "steps"
+    ]
+   },
+   "used": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 3,
+   "request": {
+    "note": "Bring the question back",
+    "steps": [
+     {
+      "id": "s3",
+      "do": "Pick when the old key stops"
+     }
+    ]
+   },
+   "expect": {
+    "ok": false,
+    "status": 400,
+    "error": "invalid steps",
+    "details": [
+     "steps[0].id: used before"
+    ]
+   }
+  },
+  {
+   "name": "over-step-limit",
+   "note": "the ask has 20 steps; one more makes 21, over the post rule",
+   "kind": "append",
+   "current": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "urgency": "today",
+    "why": "The old key leaves with the contractor on Friday.",
+    "warning": "Staging deploys stop until the new key is in.",
+    "steps": [
+     {
+      "id": "s1",
+      "do": "Step 1"
+     },
+     {
+      "id": "s2",
+      "do": "Step 2"
+     },
+     {
+      "id": "s3",
+      "do": "Step 3"
+     },
+     {
+      "id": "s4",
+      "do": "Step 4"
+     },
+     {
+      "id": "s5",
+      "do": "Step 5"
+     },
+     {
+      "id": "s6",
+      "do": "Step 6"
+     },
+     {
+      "id": "s7",
+      "do": "Step 7"
+     },
+     {
+      "id": "s8",
+      "do": "Step 8"
+     },
+     {
+      "id": "s9",
+      "do": "Step 9"
+     },
+     {
+      "id": "s10",
+      "do": "Step 10"
+     },
+     {
+      "id": "s11",
+      "do": "Step 11"
+     },
+     {
+      "id": "s12",
+      "do": "Step 12"
+     },
+     {
+      "id": "s13",
+      "do": "Step 13"
+     },
+     {
+      "id": "s14",
+      "do": "Step 14"
+     },
+     {
+      "id": "s15",
+      "do": "Step 15"
+     },
+     {
+      "id": "s16",
+      "do": "Step 16"
+     },
+     {
+      "id": "s17",
+      "do": "Step 17"
+     },
+     {
+      "id": "s18",
+      "do": "Step 18"
+     },
+     {
+      "id": "s19",
+      "do": "Step 19"
+     },
+     {
+      "id": "s20",
+      "do": "Step 20"
+     }
+    ],
+    "verify": {
+     "do": "A staging deploy goes through",
+     "code": "curl -sI https://pond.example.test/health"
+    },
+    "done": [
+     "steps"
+    ]
+   },
+   "used": [
+    "s1",
+    "s2",
+    "s3",
+    "s4",
+    "s5",
+    "s6",
+    "s7",
+    "s8",
+    "s9",
+    "s10",
+    "s11",
+    "s12",
+    "s13",
+    "s14",
+    "s15",
+    "s16",
+    "s17",
+    "s18",
+    "s19",
+    "s20"
+   ],
+   "rev": 2,
+   "request": {
+    "note": "One more step",
+    "steps": [
+     {
+      "do": "Step 21"
+     }
+    ]
+   },
+   "expect": {
+    "ok": false,
+    "status": 400,
+    "error": "invalid steps",
+    "details": [
+     "steps: must be a list of 1 to 20 steps"
+    ]
+   }
+  },
+  {
+   "name": "note-too-long",
+   "note": "the note is 201 characters",
+   "kind": "append",
+   "current": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "urgency": "today",
+    "why": "The old key leaves with the contractor on Friday.",
+    "warning": "Staging deploys stop until the new key is in.",
+    "steps": [
+     {
+      "id": "s1",
+      "do": "Open the deploy settings",
+      "url": "https://pond.example.test/settings"
+     },
+     {
+      "id": "s2",
+      "do": "Make a new key",
+      "substeps": [
+       {
+        "id": "s2.1",
+        "do": "Press New key"
+       },
+       {
+        "id": "s2.2",
+        "do": "Copy it to the Keychain",
+        "code": "security add-generic-password -s deploy-key -a staging -w"
+       }
+      ]
+     }
+    ],
+    "verify": {
+     "do": "A staging deploy goes through",
+     "code": "curl -sI https://pond.example.test/health"
+    },
+    "done": [
+     "steps"
+    ]
+   },
+   "used": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 3,
+   "request": {
+    "note": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "steps": [
+     {
+      "do": "Delete the old key"
+     }
+    ]
+   },
+   "expect": {
+    "ok": false,
+    "status": 400,
+    "error": "invalid steps",
+    "details": [
+     "note: too long"
+    ]
+   }
+  },
+  {
+   "name": "note-at-limit",
+   "note": "the note is exactly 200 characters",
+   "kind": "append",
+   "current": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "urgency": "today",
+    "why": "The old key leaves with the contractor on Friday.",
+    "warning": "Staging deploys stop until the new key is in.",
+    "steps": [
+     {
+      "id": "s1",
+      "do": "Open the deploy settings",
+      "url": "https://pond.example.test/settings"
+     },
+     {
+      "id": "s2",
+      "do": "Make a new key",
+      "substeps": [
+       {
+        "id": "s2.1",
+        "do": "Press New key"
+       },
+       {
+        "id": "s2.2",
+        "do": "Copy it to the Keychain",
+        "code": "security add-generic-password -s deploy-key -a staging -w"
+       }
+      ]
+     }
+    ],
+    "verify": {
+     "do": "A staging deploy goes through",
+     "code": "curl -sI https://pond.example.test/health"
+    },
+    "done": [
+     "steps"
+    ]
+   },
+   "used": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 3,
+   "request": {
+    "note": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "steps": [
+     {
+      "do": "Delete the old key"
+     }
+    ]
+   },
+   "expect": {
+    "ok": true,
+    "body": "{\"done\":[\"steps\"],\"steps\":[{\"do\":\"Open the deploy settings\",\"id\":\"s1\",\"url\":\"https://pond.example.test/settings\"},{\"do\":\"Make a new key\",\"id\":\"s2\",\"substeps\":[{\"do\":\"Press New key\",\"id\":\"s2.1\"},{\"code\":\"security add-generic-password -s deploy-key -a staging -w\",\"do\":\"Copy it to the Keychain\",\"id\":\"s2.2\"}]},{\"do\":\"Delete the old key\",\"id\":\"r3-1\"}],\"title\":\"Rotate the staging deploy key\",\"urgency\":\"today\",\"v\":1,\"verify\":{\"code\":\"curl -sI https://pond.example.test/health\",\"do\":\"A staging deploy goes through\"},\"warning\":\"Staging deploys stop until the new key is in.\",\"why\":\"The old key leaves with the contractor on Friday.\"}",
+    "added": [
+     {
+      "id": "r3-1",
+      "path": "3"
+     }
+    ]
+   }
+  },
+  {
+   "name": "secret-in-step",
+   "note": "a new step's code holds something shaped like a token",
+   "kind": "append",
+   "current": {
+    "v": 1,
+    "title": "Rotate the staging deploy key",
+    "urgency": "today",
+    "why": "The old key leaves with the contractor on Friday.",
+    "warning": "Staging deploys stop until the new key is in.",
+    "steps": [
+     {
+      "id": "s1",
+      "do": "Open the deploy settings",
+      "url": "https://pond.example.test/settings"
+     },
+     {
+      "id": "s2",
+      "do": "Make a new key",
+      "substeps": [
+       {
+        "id": "s2.1",
+        "do": "Press New key"
+       },
+       {
+        "id": "s2.2",
+        "do": "Copy it to the Keychain",
+        "code": "security add-generic-password -s deploy-key -a staging -w"
+       }
+      ]
+     }
+    ],
+    "verify": {
+     "do": "A staging deploy goes through",
+     "code": "curl -sI https://pond.example.test/health"
+    },
+    "done": [
+     "steps"
+    ]
+   },
+   "used": [
+    "s1",
+    "s2",
+    "s2.1",
+    "s2.2",
+    "s3"
+   ],
+   "rev": 3,
+   "request": {
+    "note": "Use the new key",
+    "steps": [
+     {
+      "do": "Set the key",
+      "code": "export DEPLOY_KEY=ghp_example"
+     }
+    ]
+   },
+   "expect": {
+    "ok": false,
+    "status": 400,
+    "error": "invalid steps",
+    "details": [
+     "steps[0].code: secret-like value"
+    ]
+   }
+  }
+ ]
+}
