@@ -11,6 +11,8 @@ and versions follow Semantic Versioning.
 - A collapsed group shows its newest ask under its name. Section counts are pills.
 - Settings › Documents › Viewer: pick a theme (System, Paper, Sepia, Night), your own colours for the background, text, headings, links and code, and a reading width (Full, Wide, Narrow). Open viewer windows change at once.
 - While a viewer, Settings or crash report window is open, Hook shows a Dock icon, so ⌘-Tab and ⌘-` bring it back. The menu-bar menu lists open documents.
+- Agents can add steps to the end of an open ask they posted, after your answer, with `relay append` or the `relay_append` MCP tool. Nothing you saw changes, so there is no review. It needs a Pond that lists `appendSteps` (Pond 1.9.0). `relay status --json` and `relay_status` list the additions in `appends`.
+- A question can say more steps follow its answer (`"then": "steps"`). The agent rules tell sessions to add next steps to the same ask instead of posting a new one.
 
 ### Changed
 
