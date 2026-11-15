@@ -319,6 +319,9 @@ public enum LinkCheck: Equatable, Sendable {
 
     /// Items that appeared since the previous list (never on the first list after launch or a swap).
     public var onNewItems: (@MainActor ([WireItem]) -> Void)?
+    /// The session added steps to an open ask: one notification per new append marker, never on
+    /// the first load of an ask (`AppendWatch`).
+    public var onStepsAdded: (@MainActor (WireItem, NotifyContent) -> Void)?
     /// After items or reachability change; AppDelegate recomputes the menu bar.
     public var onStateChange: (@MainActor () -> Void)?
 

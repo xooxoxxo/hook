@@ -271,3 +271,60 @@ import Testing
         #expect(UnseenAppends.load(defaults.defaults).counts == ["a": 2])
     }
 }
+
+/// The one notification when the session adds steps: once per new marker, never on a first
+/// load, quiet right after the owner acted on that ask.
+@Suite @MainActor struct StoreStepsAddedNotifyTests {
+    private func setUp(_ defaults: TestDefaults, url: URL, first: (item: WireItem, detail: AskDetail))
+        async -> (Store, FakeQueueSource, () -> [NotifyContent]) {
+        let store = await reviewingStore(defaults, url: url)
+        var shown: [NotifyContent] = []
+        store.onStepsAdded = { _, content in shown.append(content) }
+        let fake = FakeQueueSource(items: [first.item], details: ["a": first.detail])
+        await start(store, fake)
+        return (store, fake, { shown })
+    }
+
+    @Test func oneNotificationPerNewMarker() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let url = reviewsURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let (store, fake, shown) = await setUp(defaults, url: url, first: revised("a", [idSteps(3)]))
+        #expect(shown().isEmpty)
+        let two = revised("a", [idSteps(3), idSteps(5)], reasons: ["Two more checks"])
+        await fake.setItems([two.item])
+        await fake.setDetail(two.detail)
+        await store.refresh()
+        await store.refresh()
+        #expect(shown() == [.stepsAdded(id: "a", project: "Acme", title: "Ask a", count: 2, note: "Two more checks",
+                                        quiet: false)])
+    }
+
+    @Test func noNotificationOnTheFirstLoad() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let url = reviewsURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let (store, _, shown) = await setUp(defaults, url: url,
+                                            first: revised("a", [idSteps(3), idSteps(5)], reasons: ["Two more checks"]))
+        await store.refresh()
+        #expect(shown().isEmpty)
+    }
+
+    /// The owner answered 30 s before the poll (`fixedNow`): the banner stays quiet.
+    @Test func quietRightAfterTheOwnerActed() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let url = reviewsURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let (store, fake, shown) = await setUp(defaults, url: url, first: revised("a", [idSteps(3)]))
+        let answer = Event(seq: 1, itemId: "a", kind: "answer", actor: "owner", text: "{}",
+                           at: Timestamp.string(fixedNow.addingTimeInterval(-30)))
+        let two = revised("a", [idSteps(3), idSteps(4)], reasons: ["One more"], events: [answer])
+        await fake.setItems([two.item])
+        await fake.setDetail(two.detail)
+        await store.refresh()
+        #expect(shown() == [.stepsAdded(id: "a", project: "Acme", title: "Ask a", count: 1, note: "One more", quiet: true)])
+    }
+}

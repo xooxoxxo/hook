@@ -159,3 +159,77 @@ private func ask(_ id: String, urgency: String?, project: String? = "Acme") -> W
         #expect(!NotifySettings(sound: false).sound)
     }
 }
+
+private func appendMarker(_ rev: Int, added: Int = 2, note: String = "Two more checks") -> AppendMarker {
+    AppendMarker(rev: rev, at: "2026-10-11T09:0\(rev):00+00:00", note: note, firstStepID: "r\(rev)",
+                 addedTopLevel: added, afterAnswer: false, firstStepIndex: rev)
+}
+
+private func ownerEvent(secondsBefore seconds: TimeInterval, actor: String = "owner") -> Event {
+    Event(seq: 1, itemId: "a", kind: "answer", actor: actor, text: "{}",
+          at: Timestamp.string(t0.addingTimeInterval(-seconds)))
+}
+
+/// One notification when the session adds steps to an open ask (Task 19).
+@Suite struct StepsAddedNotifyTests {
+    @Test func stepsAddedShowsAtOnce() {
+        var policy = NotifyPolicy(settings: NotifySettings())
+        let content = NotifyContent.stepsAdded(id: "a", project: "Acme", title: "t-a", count: 2, note: "Two more checks",
+                                               quiet: false)
+        // A new ask was just shown: the added steps are not folded into the next "N new asks".
+        #expect(policy.add([ask("b", urgency: "today")], now: t0) == .show(.single(id: "b", project: "Acme", title: "t-b")))
+        #expect(policy.stepsAdded(ask("a", urgency: "today"), content: content) == .show(content))
+        #expect(policy.add([ask("c", urgency: "today")], now: t0 + 1) == .scheduleFlush(at: t0 + 3))
+        #expect(policy.pendingCount == 1)
+        #expect(content.title == "2 steps added: t-a")
+        #expect(content.body == "Two more checks")
+        let one = NotifyContent.stepsAdded(id: "a", project: "", title: "Line\none", count: 1, note: "a\u{202E}b", quiet: false)
+        #expect(one.title == "1 step added: Line⟨U+000A⟩one")
+        #expect(one.body == "a⟨U+202E⟩b")
+        // Urgency settings apply as for the ask itself.
+        var whenever = NotifyPolicy(settings: NotifySettings())
+        #expect(whenever.stepsAdded(ask("w", urgency: "whenever"), content: content) == .none)
+    }
+
+    @Test func stepsAddedQuietAfterRecentAct() {
+        let item = ask("a", urgency: "today")
+        let content = NotifyContent.stepsAdded(item, markers: [appendMarker(2)], events: [ownerEvent(secondsBefore: 60)],
+                                               now: t0)
+        #expect(content == .stepsAdded(id: "a", project: "Acme", title: "t-a", count: 2, note: "Two more checks", quiet: true))
+        #expect(content?.sound(true) == false)
+        #expect(NotifyContent.stepsAdded(item, markers: [appendMarker(2)], events: [ownerEvent(secondsBefore: 119)],
+                                         now: t0)?.sound(true) == false)
+    }
+
+    @Test func stepsAddedRingsOtherwise() {
+        let item = ask("a", urgency: "today")
+        for events in [[], [ownerEvent(secondsBefore: 121)], [ownerEvent(secondsBefore: 10, actor: "session")]] {
+            let content = NotifyContent.stepsAdded(item, markers: [appendMarker(2)], events: events, now: t0)
+            #expect(content?.sound(true) == true)
+            #expect(content?.sound(false) == false)
+        }
+        #expect(NotifyContent.single(id: "a", project: "", title: "t").sound(true))
+    }
+
+    @Test func noNotificationOnFirstLoad() {
+        var watch = AppendWatch()
+        let item = ask("a", urgency: "today")
+        let fresh = watch.observe("a", markers: [appendMarker(2), appendMarker(3, added: 1)])
+        #expect(NotifyContent.stepsAdded(item, markers: fresh, events: [], now: t0) == nil)
+    }
+
+    @Test func oneNotificationPerMarker() {
+        var watch = AppendWatch()
+        let item = ask("a", urgency: "today")
+        _ = watch.observe("a", markers: [])
+        let first = watch.observe("a", markers: [appendMarker(2)])
+        #expect(NotifyContent.stepsAdded(item, markers: first, events: [], now: t0)?.title == "2 steps added: t-a")
+        #expect(NotifyContent.stepsAdded(item, markers: watch.observe("a", markers: [appendMarker(2)]), events: [],
+                                         now: t0) == nil)
+        // Two appends seen in one poll: one notification, the counts summed, the newest note.
+        let both = watch.observe("a", markers: [appendMarker(2), appendMarker(3, added: 1, note: "One more"),
+                                                appendMarker(4, added: 1, note: "And the last")])
+        #expect(NotifyContent.stepsAdded(item, markers: both, events: [], now: t0)
+            == .stepsAdded(id: "a", project: "Acme", title: "t-a", count: 2, note: "And the last", quiet: false))
+    }
+}

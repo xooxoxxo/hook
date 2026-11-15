@@ -2,16 +2,19 @@ import Foundation
 import RelayCore
 
 /// Steps the session added at the end of an open ask: the card's "+N steps" until the owner
-/// opens the ask.
+/// opens the ask, and one notification.
 extension Store {
     /// After a fetched detail: the appends the Store hadn't seen for `id` yet. Never on the
     /// first look at an ask, and once per marker. An ask open in the detail shows them already.
     func noteAppends(_ id: String) {
         let fresh = appendWatch.observe(id, markers: appendMarkers(id))
-        guard !fresh.isEmpty, item(for: id)?.status == "open" else { return }
+        guard !fresh.isEmpty, let item = item(for: id), item.status == "open" else { return }
         let count = fresh.map(\.addedTopLevel).reduce(0, +)
         if navigation.selectedID != id {
             updateUnseenAppends { $0.added(id, steps: count) }
+        }
+        if let content = NotifyContent.stepsAdded(item, markers: fresh, events: details[id]?.events ?? [], now: now()) {
+            onStepsAdded?(item, content)
         }
     }
 
