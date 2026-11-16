@@ -31,7 +31,7 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 import relay_semver
 from relay_lint import lint_details, lint_instructable  # noqa: F401  (re-exported)
 
-VERSION = "0.15.6"
+VERSION = "0.16.1"
 DEFAULT_CONFIG = "~/.config/relay/config.json"
 DEFAULT_PORT = 47823
 DEFAULT_CONTEXT = "personal"
@@ -61,9 +61,15 @@ CHOICE_KEY, CHOICE_POND = "choices[].text", "1.4.0"
 # This Mac's queue stays Pond 1.0.0, so it refuses both keys.
 REQUIREMENTS_POND = "1.3.0"
 AMEND_POND = "1.1.0"            # amend, edit keys, accept and problems
+# Adding steps to an open ask, and a question's `then`: gated on this entry of the Pond's
+# `features` list (GET /version), never on a version number. No `features` key means no feature.
+APPEND_FEATURE = "appendSteps"
+THEN_KEY = "question.then"
+APPEND_RETRY_MAX_S = 15         # a 429 `too soon` up to this long is waited out once
 PROTOCOL_CACHE_S = 300.0
-# Per process: source -> (when checked, (effective version, legacy protocol or None) or None).
-_ponds: Dict[str, Tuple[float, Optional[Tuple[relay_semver.Version, Optional[int]]]]] = {}
+# Per process: source -> (when checked, (effective version, legacy protocol or None) or None,
+# the `features` list as a set or None).
+_ponds: Dict[str, Tuple[float, Optional[Tuple[relay_semver.Version, Optional[int]]], Optional[frozenset]]] = {}
 # Sent on every request: this client reads revision histories (it is not the Pond version it needs).
 # 6: this client reads choice objects ({"label", "text"}); below 6 a Pond 1.4.0 serves labels only.
 PROTOCOL_HEADER, CLIENT_PROTOCOL = "X-Hook-Protocol", "6"
@@ -140,11 +146,13 @@ class Refused(RelayError):
     """The source answered with an error: .status (HTTP), .error (spec string), .details (field paths)."""
     exit_code = 1
 
-    def __init__(self, status: int, error: str, details: Optional[List[str]] = None) -> None:
+    def __init__(self, status: int, error: str, details: Optional[List[str]] = None,
+                 body: Optional[Dict[str, Any]] = None) -> None:
         super().__init__(error)
         self.status = status
         self.error = error
         self.details = list(details or [])
+        self.body = dict(body or {})     # the whole error reply, e.g. a stale revision's rev and hash
 
 
 class NotFound(RelayError):
@@ -171,10 +179,42 @@ class PondTooOld(Refused):
 ProtocolTooOld = PondTooOld   # the name before Pond semver; kept for one release
 
 
+class PondLacksFeature(PondTooOld):
+    """The Pond doesn't list a feature (GET /version `features`) a call or a key needs.
+    .key is "append" (the call) or a key such as THEN_KEY; .feature the name it needs."""
+
+    def __init__(self, version: str, key: str, feature: str) -> None:
+        if key == "append":
+            message = (f"Your Pond ({version}) can't add steps to an ask yet. "
+                       "Update the Pond, or post a follow-up ask.")
+        else:
+            message = f"Your Pond ({version}) can't take `{key}` yet. Update the Pond, or leave the key out."
+        Refused.__init__(self, 0, message)
+        self.version, self.key, self.needs, self.local, self.feature = version, key, feature, False, feature
+
+
 class LocalCantAmend(RelayError):
     def __init__(self, ask_id: str) -> None:
         super().__init__(f"This Mac mode can't correct asks yet: close this one (relay done {ask_id}) "
                          "and post a new one.")
+
+
+class LocalCantAppend(RelayError):
+    def __init__(self) -> None:
+        super().__init__("This Mac's queue can't add steps. Post a follow-up ask.")
+
+
+class AskClosedForAppend(RelayError):
+    def __init__(self) -> None:
+        super().__init__("The owner already closed this ask. Post a follow-up ask.")
+
+
+class AppendsOff(RelayError):
+    def __init__(self) -> None:
+        super().__init__("The Pond has adding steps switched off. Post a follow-up ask.")
+
+
+APPEND_LIMIT = "This ask has had 10 additions. Post a follow-up ask."
 
 
 class NoEditKey(RelayError):
@@ -234,6 +274,18 @@ def keys_needing_pond(instructable: Any) -> Dict[str, str]:
         if isinstance(subs, list):
             stack.extend(s for s in subs if isinstance(s, dict))
     return found
+
+
+def has_then(instructable: Any) -> bool:
+    """Does a question of a step or sub-step carry `then` (more steps follow its answer)?"""
+    steps = instructable.get("steps") if isinstance(instructable, dict) else None
+    for step in steps if isinstance(steps, list) else []:
+        subs = step.get("substeps") if isinstance(step, dict) else None
+        for node in [step] + (subs if isinstance(subs, list) else []):
+            question = node.get("question") if isinstance(node, dict) else None
+            if isinstance(question, dict) and "then" in question:
+                return True
+    return False
 
 
 def requirements_of(detail: Any) -> Optional[Dict[str, Any]]:
@@ -788,6 +840,24 @@ def accepted_rev(detail: Any) -> int:
     return value if isinstance(value, int) and not isinstance(value, bool) and value >= 1 else 1
 
 
+def appends_of(detail: Any) -> List[Dict[str, Any]]:
+    """The revisions the session added steps with (`kind` "append", Pond 1.9.0), oldest first:
+    [{"rev", "at", "note", "added": [step ids]}]. `added` holds the step and sub-step ids that are
+    new against the revision before it (empty when that body is missing)."""
+    history = detail.get("revisions") if isinstance(detail, dict) else None
+    bodies = revision_bodies(detail)
+    found: List[Dict[str, Any]] = []
+    for entry in history if isinstance(history, list) else []:
+        if not isinstance(entry, dict) or entry.get("kind") != "append" or not isinstance(entry.get("rev"), int):
+            continue
+        rev = entry["rev"]
+        before, after = bodies.get(rev - 1), bodies.get(rev)
+        added = ([i for i in _steps_by_id(after) if i not in _steps_by_id(before)]
+                 if before is not None and after is not None else [])
+        found.append({"rev": rev, "at": entry.get("at"), "note": entry.get("reason"), "added": added})
+    return found
+
+
 def _question_of(instructable: Any, step_id: str) -> Optional[Dict[str, Any]]:
     entry = _steps_by_id(instructable).get(step_id)
     question = entry[1].get("question") if entry is not None else None
@@ -984,6 +1054,24 @@ class Client:
         hit = _ponds.get(key)
         if hit is not None and 0 <= now - hit[0] < PROTOCOL_CACHE_S:
             return hit[1]
+        return self._read_version(key, now)[0]
+
+    def pond_features(self) -> Optional[frozenset]:
+        """The Pond's `features` (GET /version, Pond 1.8.0 and later) as a set of names, from the
+        same cached call as pond_info. None when the reply has no `features` list."""
+        key = self.source_key() + "|" + self.base
+        now = self._monotonic()
+        hit = _ponds.get(key)
+        if hit is not None and 0 <= now - hit[0] < PROTOCOL_CACHE_S:
+            return hit[2]
+        return self._read_version(key, now)[1]
+
+    def has_feature(self, name: str) -> bool:
+        features = self.pond_features()
+        return features is not None and name in features
+
+    def _read_version(self, key: str, now: float) -> Tuple[Optional[Tuple[relay_semver.Version, Optional[int]]],
+                                                           Optional[frozenset]]:
         pond: Optional[Tuple[relay_semver.Version, Optional[int]]]
         try:
             info: Optional[Dict[str, Any]] = self._call("GET", "/version")
@@ -998,8 +1086,10 @@ class Client:
             pond = (max(semver, relay_semver.legacy_version(protocol)), None)
         else:
             pond = relay_semver.pond_version(info)
-        _ponds[key] = (now, pond)
-        return pond
+        listed = info.get("features") if info is not None else None
+        features = (frozenset(f for f in listed if isinstance(f, str)) if isinstance(listed, list) else None)
+        _ponds[key] = (now, pond, features)
+        return pond, features
 
     def pond_version(self) -> Optional[relay_semver.Version]:
         """The effective Pond version (see pond_info), or None when it can't be read."""
@@ -1008,7 +1098,10 @@ class Client:
 
     def check_pond(self, instructable: Dict[str, Any]) -> None:
         """Refuses (PondTooOld) an instructable with a key the Pond is too old for. An
-        unreadable version posts as before and the server validates."""
+        unreadable version posts as before and the server validates. A question's `then`
+        needs the Pond's appendSteps feature (PondLacksFeature)."""
+        if has_then(instructable) and not self.has_feature(APPEND_FEATURE):
+            raise PondLacksFeature(self._pond_shown(), THEN_KEY, APPEND_FEATURE)
         needed = keys_needing_pond(instructable)
         if not needed:
             return
@@ -1112,6 +1205,75 @@ class Client:
                                       "correct only the asks you posted")
         return resp
 
+    def _pond_shown(self) -> str:
+        pond = self.pond_info()
+        return pond_display(pond) if pond is not None else "version unknown"
+
+    def append(self, ask_id: str, note: str, steps: List[Any], *,
+               edit_keys: Optional[EditKeys] = None) -> Dict[str, Any]:
+        """POST /asks/{id}/append with this Mac's edit key: steps added after the last step of an
+        open ask, which the owner sees without a review (Pond feature appendSteps). The steps are
+        linted and checked against the Pond before anything is sent. A stale base is retried once
+        on the revision the Pond names, and a `too soon` of up to 15 s is waited out once.
+        → {"id", "rev", "hash", "added": [{id, path}]}, plus openUrl when the Pond sends one and
+        warning when another session posted the ask."""
+        ask_id = ask_id.strip()
+        if self.local:
+            raise LocalCantAppend()
+        if not self.has_feature(APPEND_FEATURE):
+            raise PondLacksFeature(self._pond_shown(), "append", APPEND_FEATURE)
+        wrapped = {"v": 1, "title": "x", "steps": steps}
+        problems = lint_details(wrapped)
+        if problems:
+            raise Refused(400, "invalid steps", problems)
+        self.check_pond(wrapped)
+        keys = edit_keys if edit_keys is not None else EditKeys(self.env)
+        record = keys.load(ask_id)
+        if record is None or not isinstance(record.get("key"), str) or record.get("source") != self.source_key():
+            raise NoEditKey(ask_id)
+        current = revision_of(self.get(ask_id))
+        last_hash = record.get("lastHash") if isinstance(record.get("lastHash"), str) else ""
+        base_rev, base_hash = (current["rev"], current["hash"]) if current is not None else (1, last_hash)
+        retried_stale = retried_soon = False
+        while True:
+            body = {"editKey": record["key"], "baseRev": base_rev, "baseHash": base_hash, "note": note,
+                    "steps": steps}
+            try:
+                resp = self._call("POST", "/asks/" + self._quote(ask_id) + "/append", body,
+                                  not_found=f"no ask with id {ask_id}")
+                break
+            except Refused as exc:
+                rev, hash_ = exc.body.get("rev"), exc.body.get("hash")
+                wait = exc.body.get("retryAfter")
+                if (exc.status == 409 and exc.error == "stale revision" and not retried_stale
+                        and isinstance(rev, int) and not isinstance(rev, bool) and isinstance(hash_, str)):
+                    retried_stale, base_rev, base_hash = True, rev, hash_
+                    continue
+                if (exc.status == 429 and not retried_soon and isinstance(wait, (int, float))
+                        and not isinstance(wait, bool) and 0 <= wait <= APPEND_RETRY_MAX_S):
+                    retried_soon = True
+                    self._sleep(wait)
+                    continue
+                if exc.status == 409 and exc.error == "ask is closed":
+                    raise AskClosedForAppend() from None
+                if exc.status == 409 and exc.error == "appends not enabled":
+                    raise AppendsOff() from None
+                if exc.status == 409 and exc.error == "append limit reached":
+                    raise Refused(409, APPEND_LIMIT) from None
+                raise
+        revision = resp.get("revision") if isinstance(resp.get("revision"), dict) else {}
+        added = revision.get("added") if isinstance(revision.get("added"), list) else []
+        result: Dict[str, Any] = {"id": ask_id, "rev": revision.get("rev"), "hash": revision.get("hash"),
+                                  "added": [a for a in added if isinstance(a, dict)]}
+        if isinstance(revision.get("rev"), int) and isinstance(revision.get("hash"), str):
+            keys.record_write(ask_id, revision["rev"], revision["hash"])
+        if isinstance(resp.get("openUrl"), str):
+            result["openUrl"] = resp["openUrl"]
+        poster = record.get("session") if isinstance(record.get("session"), str) else ""
+        if poster and poster != session_id(self.env):
+            result["warning"] = f"ask {ask_id} was posted from another session; add steps only to the asks you posted"
+        return result
+
     def list(self, status: str = "open", days: int = 36500, kind: Optional[str] = None) -> List[Dict[str, Any]]:
         """`kind` "ask" or "bug" keeps only that kind. The Pond filters too (1.2.0); an older Pond
         ignores the filter, and This Mac has no bugs, so the client filters by each item's kind."""
@@ -1163,7 +1325,7 @@ class Client:
             raise NotFound(not_found or "not found")
         error = obj.get("error") if isinstance(obj.get("error"), str) else f"HTTP {status}"
         details = obj.get("details") if isinstance(obj.get("details"), list) else []
-        raise Refused(status, error, [str(d) for d in details])
+        raise Refused(status, error, [str(d) for d in details], body=obj)
 
     def _with_launch(self, fn: Callable[[], Any]) -> Any:
         try:

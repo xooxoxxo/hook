@@ -3,14 +3,19 @@ import SwiftUI
 /// Design/CountPill: a section header's count, semibold monospaced digits on a soft capsule.
 /// Not an accessibility element: the header's label says the count.
 public struct CountPill: View {
-    let count: Int
+    let text: String
 
     public init(count: Int) {
-        self.count = count
+        self.text = "\(count)"
+    }
+
+    /// The same pill round a short tag ("+2 steps" on a queue card).
+    public init(text: String) {
+        self.text = text
     }
 
     public var body: some View {
-        Text("\(count)")
+        Text(verbatim: text)
             .font(DS.Font.countPill)
             .monospacedDigit()
             .foregroundStyle(DS.Color.primary)

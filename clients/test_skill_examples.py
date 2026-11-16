@@ -23,6 +23,9 @@ HOOK_NEEDS = "1.1.0"           # the lowest Pond the Hook release needs (PondCom
 GATED_KEYS = {"required", "done", "choices[].text"}
 
 TYPES = {"string": str, "boolean": bool, "integer": int, "array": list, "object": dict}
+APPEND_CALL = re.compile(r"^relay append <id> --note \"([^\"]+)\" --json - <<'EOF'\n(.*?)^EOF$",
+                         re.DOTALL | re.MULTILINE)
+
 
 
 def check(value, schema, path, errors):
@@ -220,6 +223,30 @@ class SkillExampleTest(unittest.TestCase):
                 self.assertIn("1.4.0", text)
                 self.assertIn("8000", text)
         self.assertIn("X-Hook-Protocol: 6", protocol)
+
+    def test_the_adding_steps_example(self):
+        section = SKILL.split("\n## Adding steps after an answer\n", 1)[1].split("\n## ", 1)[0]
+        full, _ = examples(section)
+        ask = full[0]
+        questions = [s["question"] for s in ask["steps"] if "question" in s]
+        self.assertEqual([q.get("then") for q in questions], ["steps"])
+        self.assertTrue(rc.has_then(ask))
+        self.assertEqual(relay_lint.lint_details(ask), [])
+        call = APPEND_CALL.search(section)
+        self.assertIsNotNone(call, "the relay append call is missing")
+        note, steps = call.group(1), json.loads(call.group(2))
+        self.assertLessEqual(len(note), 200)
+        self.assertEqual(len(steps), 2)
+        wrapped = {"v": 1, "title": "x", "steps": steps}
+        errors = []
+        check(wrapped, SCHEMA, "$", errors)
+        self.assertEqual(errors, [])
+        self.assertEqual(relay_lint.lint_details(wrapped), [])
+        self.assertEqual(rc.keys_needing_pond(wrapped), {})
+        bad = {"v": 1, "title": "x", "steps": [{"do": "a", "question": {"prompt": "b", "then": "later"}}]}
+        errors = []
+        check(bad, SCHEMA, "$", errors)
+        self.assertTrue(errors, "the schema takes only then: \"steps\"")
 
     def test_the_skill_acts_only_on_verified_messages(self):
         section = SKILL.split("## Messages from the owner", 1)[1].split("\n## ", 1)[0]

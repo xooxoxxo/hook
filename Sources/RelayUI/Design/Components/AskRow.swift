@@ -33,7 +33,9 @@ public struct AskRow: View, Equatable {
             VStack(alignment: .leading, spacing: DS.Space.rowLine) {
                 topRow
                 titleText
-                if !row.subline.isEmpty || row.hasDraft || Self.reviewLabel(row) != nil { subRow }
+                if !row.subline.isEmpty || row.hasDraft || Self.reviewLabel(row) != nil || Self.addedTag(row) != nil {
+                    subRow
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
@@ -102,6 +104,11 @@ public struct AskRow: View, Equatable {
                     .lineLimit(1)
                     .fixedSize()
             }
+            if let added = Self.addedTag(row) {
+                CountPill(text: added)
+                    .fixedSize()
+                    .help("Steps added since you last opened this ask")
+            }
             Spacer(minLength: DS.Space.inline)
             if case let .steps(done, total) = row.summary, row.summary.showsProgress {
                 ProgressView(value: Double(done), total: Double(total))
@@ -131,6 +138,7 @@ public struct AskRow: View, Equatable {
         }
         if row.hasDraft { parts.append("Unsent reply") }
         if let label = reviewLabel(row) { parts.append(label) }
+        if row.addedSteps > 0 { parts.append(row.addedSteps == 1 ? "1 step added" : "\(row.addedSteps) steps added") }
         return parts.joined(separator: ". ")
     }
 
@@ -143,6 +151,11 @@ public struct AskRow: View, Equatable {
     }
 
     public static let keychainLabel = "Waiting for Keychain access"
+
+    /// "+2 steps" while the session added steps the owner hasn't opened yet; none on a closed row.
+    public static func addedTag(_ row: AskRowModel) -> String? {
+        row.isOpen && row.addedSteps > 0 ? UnseenAppends.tag(row.addedSteps) : nil
+    }
 
     static func reviewSymbol(_ row: AskRowModel) -> String {
         if row.historyChanged { return DS.Symbol.historyChanged }

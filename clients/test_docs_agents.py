@@ -175,7 +175,66 @@ class DocsSetTests(unittest.TestCase):
             self.assertIn(words, text)
 
 
+RULES_PARAGRAPH = ("When your next steps depend on the owner's answer, add them with `relay_append`. Never close "
+                   "the ask and post a new one. To change a step the owner already saw, use `relay_amend`.")
+
+
+def words(text: str) -> str:
+    return " ".join(text.split())
+
+
+class AddingStepsDocTests(unittest.TestCase):
+    """relay append / relay_append: the rules, the agent docs, the protocol and the skill."""
+
+    def test_the_rules_carry_the_paragraph_the_loop_and_then(self):
+        rules = words(read(SRC / "instructions" / "hook.md"))
+        self.assertIn(RULES_PARAGRAPH, rules)
+        self.assertIn("post, `relay wait`, `relay_append`, `relay wait`", rules)
+        self.assertIn('`"then": "steps"`', rules)
+
+    def test_agents_md_lists_the_tool_the_command_and_a_section(self):
+        text = read(DOCS / "agents.md")
+        tools = text.split("\n## MCP tools\n", 1)[1].split("\n## ", 1)[0]
+        self.assertIn("`relay_append {id, note, steps}`", tools)
+        self.assertIn("`appends`", tools)
+        commands = text.split("\n## The `relay` command\n", 1)[1].split("\n## ", 1)[0]
+        self.assertIn("`relay append <id> --note TEXT [--json FILE\\|-]`", commands)
+        self.assertIn("added <n> steps to <id> → version N", commands)
+        section = words(text.split("\n## Adding steps\n", 1)[1].split("\n## ", 1)[0])
+        for phrase in ("appendSteps", "This Mac's queue can't add steps. Post a follow-up ask.",
+                       "The owner already closed this ask. Post a follow-up ask.",
+                       "This ask has had 10 additions. Post a follow-up ask.",
+                       "The Pond has adding steps switched off. Post a follow-up ask.", "15 s", '"then": "steps"'):
+            self.assertIn(phrase, section)
+
+    def test_the_protocol_names_the_route_and_its_fields(self):
+        text = read(DOCS / "mailbox-protocol.md")
+        for phrase in ("`POST /asks/{id}/append`", "{editKey, baseRev, baseHash, note, steps}", '"kind": "append"',
+                       "steps_added", "waiting_for_steps", "stepWait", "`features`", "appendSteps", "1.9.0"):
+            self.assertIn(phrase, text)
+
+    def test_instructables_md_has_then(self):
+        text = read(DOCS / "instructables.md")
+        self.assertIn("| `then` |", text)
+        self.assertIn('"steps"', text.split("| `then` |", 1)[1].split("\n", 1)[0])
+
+    def test_the_skill_shows_then_and_relay_append(self):
+        skill = read(ROOT / "skill" / "instructables" / "SKILL.md")
+        section = skill.split("\n## Adding steps after an answer\n", 1)[1].split("\n## ", 1)[0]
+        self.assertIn('"then": "steps"', section)
+        self.assertIn("relay append <id> --note", section)
+        self.assertIn("relay_append", section)
+
+
 class ChangelogTests(unittest.TestCase):
+    def test_the_added_steps_release_adds_relay_append(self):
+        text = read(ROOT / "CHANGELOG.md")
+        sections = text.split("\n## [")[1:]
+        release = next(s for s in sections if s.startswith("0.16.0]"))
+        added = release.split("### Added", 1)[1].split("\n### ", 1)[0]
+        self.assertIn("relay append", added)
+        self.assertIn("relay_append", added)
+
     def test_the_integrations_release_names_them_and_every_docs_only_agent(self):
         text = read(ROOT / "CHANGELOG.md")
         sections = text.split("\n## [")[1:]

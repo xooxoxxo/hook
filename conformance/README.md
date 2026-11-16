@@ -141,7 +141,7 @@ Six `data/` files cover logic that lives only in the clients. Their inputs are w
 
 - ask: `v title why warning urgency steps verify reply done links from`
 - step, sub-step and verify: `do where detail code lang expect url substeps question blocking warning optional required id file`
-- question: `prompt choices multi`; choice object: `label text`
+- question: `prompt choices multi then`; choice object: `label text`
 - reply: `prompt choices`; link: `label url path`; from: `session host cwd`
 - `done` values: `steps reply message`
 
@@ -150,3 +150,7 @@ The first unknown key in document order decides. Its path joins object keys with
 The Swift core has no unknown-key check yet, so those cases, and the cases there only to contrast with them, carry `"clients": ["android"]` and a hand-written `expect`.
 
 `data/display-vectors.json`: each case is `{name, kind, …}`, with the fields of its kind: `reveal`, `revealLine` and `copyText` (hidden characters shown as `⟨U+XXXX⟩`), `linkTitle` and `stepTitle` (how a link and a step URL are titled), `replyWire` and `replyParse` (a choice reply's text and how it is read back), `counter` (the length counter and its trim line), `deepLink` (the ask a `hook://` URL opens) and `sourceKey` (the namespace for a Pond's per-source state on a device). The file's `format` key gives each kind's fields.
+
+## Hand-written rules
+
+`data/append-vectors.json` covers steps an agent adds to the end of its own open ask (the `appendSteps` feature). No implementation is its reference: the cases and their expectations are written by hand in `scripts/gen-append-vectors.py`, which fills in only the canonical bodies and revision hashes, and stops when its own small copy of the rule (or of the amendment id numbering) disagrees with the table. Change the table, run `python3 scripts/gen-append-vectors.py > conformance/data/append-vectors.json`, and copy the file over its `copies`. A `check` case asks whether one body is an append of another. A `chain` case asks whether a device takes a revision history as current, pending or changed, and whether the Pond moves its accepted revision. An `append` case gives what an append call returns: the new body and the ids it added, or the error. The file's `format` key gives the rule and each kind's fields.

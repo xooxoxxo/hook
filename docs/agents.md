@@ -112,6 +112,7 @@ An agent is data, not code. Add an entry to `integration/harnesses.json` (checke
 - `relay_status {id}` returns `status`, `resolvedBy` (`owner`, `session` or null), `ownerEvents`, [`messages`](#messages-and-bug-reports) and `requirements`. `requirements` is `{left, ready}` or null: what the owner must finish before Done ([Before Done](instructables.md#before-done)).
 - `relay_list {kind?}` returns every open ask with its `kind`, `ask` or `bug`. Pass `kind` to get only one of them. A bug also carries `count`.
 - `relay_amend {id, reason, instructable, baseRev?}` [corrects an open ask](#correcting-an-ask) this Mac posted. It returns `{id, rev, hash, changed, added, removed, moved, top, openUrl}`.
+- `relay_append {id, note, steps}` [adds steps](#adding-steps) to the end of an open ask this Mac posted. It returns `{id, rev, hash, added, openUrl}`. `relay_status` lists them in `appends`: `[{rev, at, note, added}]`, `added` holding the new step ids.
 
 ## The `relay` command
 
@@ -122,13 +123,14 @@ Every command starts Hook if it isn't running, except `relay replies --hook`, `r
 | Command | Prints |
 |---|---|
 | `relay post <project> --json -` or `--json <file>` | `posted <id>` or `deduped <id>`, then `open <url>`. Refused: `refused: <error>` and one line per field error on stderr |
-| `relay status <id> [--json]` | `<status> (by owner\|by session) · <project> · <title>`, then one line per owner event. With requirements: `Left before Done: step 2, the reply, a message` or `Ready for Done` |
+| `relay status <id> [--json]` | `<status> (by owner\|by session) · <project> · <title>`, then one line per owner event. With requirements: `Left before Done: step 2, the reply, a message` or `Ready for Done`. `--json` adds `appends` |
 | `relay list [--json] [--kind ask\|bug]` | One line per open ask: `<id> <urgency> <project> · <title>`. A bug report reads `<id> bug ×<count> Hook · <title>` |
 | `relay done <id> [note]`, `relay skip <id> [note]` | `done <id>` / `skipped <id>`, or `already <status> (by <actor>) <id>` |
 | `relay replies [--new] [--hook]` | One line per new owner answer |
 | `relay wait <id> [--timeout SECONDS] [--interval SECONDS] [--after SEQ]` | See [relay wait](#relay-wait) |
 | `relay amend <id> --reason TEXT [--base REV] [--json FILE\|-]` | `corrected <id> → version N (changed: step 2; added: step 4). The owner must review it in Hook before acting.` See [Correcting an ask](#correcting-an-ask) |
-| `relay --version` | `relay 0.15.6` (`hook --version` prints `hook 0.15.6`) |
+| `relay append <id> --note TEXT [--json FILE\|-]` | `added <n> steps to <id> → version N` (`1 step` for one). `--json` holds a JSON array of steps. See [Adding steps](#adding-steps) |
+| `relay --version` | `relay 0.16.1` (`hook --version` prints `hook 0.16.1`) |
 
 Exit codes of these commands: 0 success, 1 refused or not found, 2 no config or Hook unreachable, 3 `relay wait` timed out.
 
@@ -144,6 +146,34 @@ The session that posted an open ask can fix a wrong step in place with `relay am
 - **Limits.** At most 10 corrections per ask, at least 60 s apart.
 - **The owner reviews it.** The ask is locked on the owner's Mac until they accept the correction in Hook ([Corrected asks](using.md#corrected-asks)). Each answer carries the version it answered. `relay status --json` and `relay_status` show `rev`, `acceptedRev` and `editable`. They mark an answer `stale` when its question changed since, and list answers to removed steps under `earlier`.
 - **When it can't.** Close the ask (`relay done <id>`) and post a new one. An older Pond says ``Your Pond (V) is older than `amend` needs (Pond 1.1.0 or newer). Update the Pond, or close this ask and post a new one.`` A Pond with corrections off says `The Pond doesn't take corrections yet.` This Mac mode says `This Mac mode can't correct asks yet`.
+
+## Adding steps
+
+When the next steps depend on the owner's answer, the session that posted the ask adds them to its end with `relay append` or `relay_append`, instead of closing the ask and posting a follow-up. The loop is: post, `relay wait`, `relay append`, `relay wait`. Nothing the owner already saw changes, so there is no review. To change a step they saw, [correct the ask](#correcting-an-ask).
+
+```bash
+relay append <id> --note "The deploy steps for the region you picked" --json steps.json
+```
+
+with `steps.json` holding:
+
+```text
+[{"do": "Open the deploy page", "url": "https://pond.example.test/deploy"},
+ {"do": "Press Deploy", "expect": "The status turns green"}]
+```
+
+- **The steps** are a JSON array of 1 to 10 step objects, written as in `relay post`. Leave ids out, and the Pond names them `r<version>-1`, `r<version>-2`. The ask as a whole keeps the post limits (20 steps, 60 with sub-steps, 20 questions, 32 KB). `relay append` lints them before sending, like `relay post`.
+- **The note** is one line, at most 200 characters. The owner sees it above the new steps.
+- **Only the poster.** It needs the ask's [edit key](#correcting-an-ask), as `relay amend` does.
+- **A question that leads on.** Mark it `"then": "steps"` when more steps will follow its answer. After the owner answers it, their Done stays off until new steps arrive or 10 minutes pass ("Waiting for next steps…"). Skip always works.
+- **The Pond.** Adding steps needs a Pond whose `GET /version` lists `appendSteps` in `features` (Pond 1.9.0). Hook reads the name, never the version number. `then` needs the same feature.
+- **Limits.** At most 10 additions per ask, counted apart from the 10 corrections, and at least 15 s after the ask's last version of any kind. `relay append` waits out a `too soon` of up to 15 s once, and retries once on the newest version when another write came first.
+- **When it can't,** post a follow-up ask. The refusals:
+  - `Your Pond (V) can't add steps to an ask yet. Update the Pond, or post a follow-up ask.`
+  - `This Mac's queue can't add steps. Post a follow-up ask.`
+  - `The owner already closed this ask. Post a follow-up ask.`
+  - `This ask has had 10 additions. Post a follow-up ask.`
+  - `The Pond has adding steps switched off. Post a follow-up ask.`
 
 ## `relay wait`
 

@@ -20,10 +20,13 @@ public enum ActionBarMode: Equatable, Sendable {
 public struct ActionBarAnswers: Equatable, Sendable {
     public var caption: String?
     public var failure: String?
+    /// Behind a "?" after the caption ("Waiting for next steps…"); never with a failure.
+    public var help: String?
 
-    public init(caption: String? = nil, failure: String? = nil) {
+    public init(caption: String? = nil, failure: String? = nil, help: String? = nil) {
         self.caption = caption
         self.failure = failure
+        self.help = help
     }
 
     public static let none = ActionBarAnswers()
@@ -161,6 +164,12 @@ public struct ActionBar: View {
                 Image(systemName: DS.Symbol.warning).foregroundStyle(DS.Color.warn).accessibilityHidden(true)
             }
             .font(DS.Font.caption)
+        } else if let help = answers.help {
+            HStack(alignment: .firstTextBaseline, spacing: DS.Space.rowLine) {
+                Text(verbatim: text).font(DS.Font.caption).foregroundStyle(DS.Color.secondary)
+                HelpButton(rowLabel: text, text: help)
+            }
+            .helpLabelStyle(.caption)
         } else {
             Text(verbatim: text).font(DS.Font.caption).foregroundStyle(DS.Color.secondary)
         }

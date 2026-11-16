@@ -4,7 +4,7 @@ import RelayCore
 import RelayUI
 import UserNotifications
 
-/// Notifications for new asks. `NotifyPolicy` decides what to show and
+/// Notifications for new asks and for steps added to an open ask. `NotifyPolicy` decides what to show and
 /// when; this class owns the flush timer and talks to UNUserNotificationCenter.
 @MainActor final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     /// A click on "N new asks" (first nil) or on the away summary (first = the first ask
@@ -75,6 +75,14 @@ import UserNotifications
         self.settings = settings
         policy.update(settings: settings)
         perform(policy.add(newItems, now: Date()))
+    }
+
+    /// Steps the session added to an open ask (the Store sends each new append once): shown at
+    /// once, never folded into "N new asks"; the ask's urgency setting applies. Away mode drops it.
+    func handle(stepsAdded content: NotifyContent, item: WireItem, settings: NotifySettings) {
+        self.settings = settings
+        policy.update(settings: settings)
+        perform(policy.stepsAdded(item, content: content))
     }
 
     /// Away mode on or off. Going quiet cancels a waiting flush and returns how

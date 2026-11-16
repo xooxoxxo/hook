@@ -18,6 +18,21 @@ import Testing
         return (store, fake)
     }
 
+    /// The Pond's `features` list sits next to its version; a version without one has no list.
+    @Test func thePondsFeaturesSitNextToItsVersion() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let (store, _) = await started(defaults)
+        #expect(store.pondCapabilities == PondCapabilities(version: pond12))
+        store.setPondCapabilities(PondCapabilities(version: pond12, features: ["appendSteps"]))
+        #expect(store.pond == pond12)
+        #expect(store.pondCapabilities?.supports(.appendSteps) == true)
+        store.setPond(pond11)
+        #expect(store.pondCapabilities == PondCapabilities(version: pond11))
+        store.setPondCapabilities(nil)
+        #expect(store.pond == nil && store.pondCapabilities == nil)
+    }
+
     @Test func aMessageSendsTheDraftClearsAndAppearsAfterTheReload() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }

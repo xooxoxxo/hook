@@ -19,7 +19,8 @@ from typing import Any, Callable, Dict, List, Optional
 import relay_replies
 import relay_wait
 from relay_client import (LIST_KINDS, OWNER_LABELS, UNVERIFIED_MESSAGE, VERSION, Client, EditKeys, PondTooOld, Refused,
-                          RelayError, accepted_rev, answer_state, answer_value, event_rev, instructable_of, is_verified,
+                          RelayError, accepted_rev, answer_state, answer_value, appends_of, event_rev, instructable_of,
+                          is_verified,
                           item_kind, left_words, messages, open_questions, owner_events, questions,
                           requirements_of, revision_of, session_label, session_text, session_text_cut)
 
@@ -55,6 +56,9 @@ FILES_SENTENCE = ("When the owner should read a document, write it as a Markdown
 AMEND_SENTENCE = ("Send the whole corrected instructable: keep every step's `id` and leave ids out only on new "
                   "steps. Only the process that posted the ask holds its edit key. The owner reviews the change "
                   "in Hook before acting on it.")
+APPEND_SENTENCE = ("Add steps to the end of an open ask you posted, after the owner's answer. Nothing the owner "
+                   "saw changes, so there is no review. To change a step they saw, use relay amend. If the ask is "
+                   "closed, post a follow-up ask.")
 OWNER_TEXT_CAP = 8000   # past it, the line names the rest: relay status <id> --json
 
 
@@ -135,6 +139,13 @@ def _parser(out: Any, err: Any, prog: str = "relay") -> argparse.ArgumentParser:
                        help="the version you corrected (default: the newest, if this Mac wrote it)")
     amend.add_argument("--json", dest="json_src", default="-", metavar="FILE|-",
                        help="the whole corrected instructable, from a file or - for stdin (the default)")
+    append = sub.add_parser("append", help="add steps to the end of an open ask you posted (no review)",
+                            description=APPEND_SENTENCE)
+    append.add_argument("id")
+    append.add_argument("--note", required=True, metavar="TEXT",
+                        help="what the new steps are for, one line (at most 200 chars)")
+    append.add_argument("--json", dest="json_src", default="-", metavar="FILE|-",
+                        help="a JSON array of 1 to 10 steps, from a file or - for stdin (the default)")
     return parser
 
 
@@ -295,7 +306,8 @@ def _status_json(detail: dict, editable: bool = False) -> Dict[str, Any]:
             "resolvedBy": resolved_by(events) if status != "open" else None,
             "project": item.get("projectId"), "title": item.get("title"),
             "ownerEvents": owner_events_json(events), "messages": messages(detail),
-            "requirements": requirements_of(detail), **answers_json(detail), **revision_json(detail, editable)}
+            "requirements": requirements_of(detail), **answers_json(detail), **revision_json(detail, editable),
+            "appends": appends_of(detail)}
 
 
 def owner_events_json(events: Any) -> List[Dict[str, Any]]:
@@ -304,7 +316,7 @@ def owner_events_json(events: Any) -> List[Dict[str, Any]]:
     return [{"kind": e.get("kind"), "text": e.get("text"), "at": e.get("at")} for e in owner_events(events)]
 
 
-def _read_instructable(src: str, stdin: Any) -> Dict[str, Any]:
+def _read_json(src: str, stdin: Any) -> Any:
     """--json - or --json FILE, decoded as utf-8-sig so a BOM is accepted."""
     try:
         if src == "-":
@@ -322,9 +334,13 @@ def _read_instructable(src: str, stdin: Any) -> Dict[str, Any]:
     except OSError as exc:
         raise RelayError(f"can't read {src}: {exc.strerror}") from None
     try:
-        obj = json.loads(text)
+        return json.loads(text)
     except ValueError as exc:
         raise RelayError(f"--json input isn't valid JSON: {exc}") from None
+
+
+def _read_instructable(src: str, stdin: Any) -> Dict[str, Any]:
+    obj = _read_json(src, stdin)
     if not isinstance(obj, dict):
         raise RelayError("--json input must be a JSON object")
     return obj
@@ -456,9 +472,24 @@ def _cmd_amend(args: argparse.Namespace, ctx: _Ctx) -> int:
     return 0
 
 
+def _cmd_append(args: argparse.Namespace, ctx: _Ctx) -> int:
+    steps = _read_json(args.json_src, ctx.stdin)
+    if not isinstance(steps, list) or not steps:
+        raise RelayError("--json input must be a JSON array of steps (1 to 10)")
+    client = ctx.factory(autolaunch=True, timeout=DEFAULT_TIMEOUT)
+    res = client.append(args.id, args.note, steps, edit_keys=EditKeys(ctx.env))
+    added = res.get("added") if isinstance(res.get("added"), list) else []
+    count = len(added) or len(steps)
+    ctx.say(f"added {count} {'step' if count == 1 else 'steps'} to {args.id.strip()} → version {res.get('rev', '?')}")
+    if res.get("warning"):
+        ctx.err.write(f"warning: {res['warning']}\n")
+    return 0
+
+
 COMMANDS: Dict[str, Callable[[argparse.Namespace, _Ctx], int]] = {
     "post": _cmd_post, "status": _cmd_status, "list": _cmd_list,
     "done": _cmd_done, "skip": _cmd_skip, "replies": _cmd_replies, "wait": _cmd_wait, "amend": _cmd_amend,
+    "append": _cmd_append,
 }
 
 

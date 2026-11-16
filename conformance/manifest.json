@@ -136,6 +136,21 @@
       "copies": []
     },
     {
+      "path": "data/append-vectors.json",
+      "pond": "1.9.0",
+      "feature": "appendSteps",
+      "roles": ["reader", "writer", "server"],
+      "kinds": {"check": ["reader", "server"], "chain": ["reader"], "append": ["writer", "server"]},
+      "copies": ["Tests/RelayCoreTests/Fixtures/append-vectors.json"]
+    },
+    {
+      "path": "wire/append-wire-vectors.json",
+      "pond": "1.9.0",
+      "feature": "appendSteps",
+      "roles": ["reader", "actor", "server"],
+      "copies": []
+    },
+    {
       "path": "wire/choice-vectors.json",
       "pond": "1.4.0",
       "feature": "choices",

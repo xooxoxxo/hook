@@ -292,6 +292,40 @@ private let minimal: [String: JSONValue] = [
         #expect(errors(["do": .string("a"), "optional": .bool(true), "blocking": .null]) == [])
     }
 
+    /// `then: "steps"`: after the owner's answer, Done waits for the session's next steps.
+    @Test func thenValidates() throws {
+        let vectors = try loadVectors()
+        for name in ["questions-valid-then-steps", "questions-valid-then-on-substep"] {
+            let vector = try #require(vectors.first { $0.name == name }, "\(name)")
+            #expect(vector.valid, "\(name)")
+            guard case .success(let cleaned) = Validator.validate(vector.input) else {
+                Issue.record("\(name) refused"); continue
+            }
+            #expect(cleaned == vector.cleaned, "\(name)")
+        }
+        let ins = try JSONDecoder().decode(Instructable.self, from: Data(
+            #"{"v":1,"title":"T","steps":[{"do":"x","question":{"prompt":"Where?","then":"steps"}}]}"#.utf8))
+        #expect(ins.steps[0].question?.then == "steps")
+        let odd = try JSONDecoder().decode(Instructable.self, from: Data(
+            #"{"v":1,"title":"T","steps":[{"do":"x","question":{"prompt":"Where?","then":7}}]}"#.utf8))
+        #expect(odd.steps[0].question?.prompt == "Where?")
+        #expect(odd.steps[0].question?.then == nil)
+    }
+
+    @Test func thenRejectsOtherValues() throws {
+        let vectors = try loadVectors()
+        for (name, error) in [("questions-then-other", #"steps[0].question.then: must be "steps""#),
+                              ("questions-then-not-string", #"steps[0].question.then: must be "steps""#),
+                              ("questions-then-on-substep-other", #"steps[0].substeps[0].question.then: must be "steps""#)] {
+            let vector = try #require(vectors.first { $0.name == name }, "\(name)")
+            #expect(vector.errors == [error], "\(name)")
+            guard case .failure(let failure) = Validator.validate(vector.input) else {
+                Issue.record("\(name) accepted"); continue
+            }
+            #expect(failure.errors == [error], "\(name)")
+        }
+    }
+
     @Test func stepAndLeafKeys() {
         #expect(Validator.verifyKeys == ["do", "where", "code", "lang", "expect", "detail", "url"])
         #expect(Validator.leafKeys == Validator.verifyKeys.union(["question", "blocking", "warning", "optional", "required",
@@ -302,7 +336,7 @@ private let minimal: [String: JSONValue] = [
         #expect(Validator.linkKeys == ["label", "url", "path"])
         #expect(Validator.maxPath == 500)
         #expect(Validator.warningLimit == 300)
-        #expect(Validator.questionKeys == ["prompt", "choices", "multi"])
+        #expect(Validator.questionKeys == ["prompt", "choices", "multi", "then"])
         #expect(Validator.maxQuestions == 20)
         #expect(Validator.stepKeys == Validator.leafKeys.union(["substeps"]))
         #expect(Validator.maxSubsteps == 10)

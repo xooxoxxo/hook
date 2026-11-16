@@ -145,11 +145,25 @@ public enum LinkCheck: Equatable, Sendable {
     @Published public var editingAnswers: [String: Set<String>] = [:]
     /// The path of the top visible node per ask, for the detail's scroll position. Memory only.
     @Published public var detailAnchor: [String: String] = [:]
+    /// Steps added to each ask since the owner last opened it: the card's "+2 steps". Saved in
+    /// the defaults.
+    public internal(set) var unseenAppends = UnseenAppends()
+    /// The newest append each ask had when the Store last looked (memory only).
+    var appendWatch = AppendWatch()
+    /// When each ask's step wait ends (`StepWait`), with the one re-render scheduled for then.
+    /// A new revision ends the wait and cancels it.
+    public internal(set) var stepWaitUntil: [String: Date] = [:]
+    var stepWaitTimers: [String: Task<Void, Never>] = [:]
+    /// The newest append marker rev the detail scrolled to, per ask. Memory only; publishes
+    /// nothing, as it changes no drawing.
+    public var appendScrolled: [String: Int] = [:]
     /// The version each ask's inline review shows, set by Show Changes; memory only. A newer
     /// version arriving during the review never replaces it on its own (`ReviewPage.isStale`).
     @Published public var reviewing: [String: RevisionStamp] = [:]
     /// Asks whose Use Version N is in flight (Touch ID, then the Pond call).
     @Published public internal(set) var accepting: Set<String> = []
+    /// Append acceptances sent to the Pond this run ("source|id|rev|hash"): each goes once.
+    var appendAccepts: Set<String> = []
     /// Report a Problem's inline field, by ask: the step path it reports on. Memory only.
     @Published public var reporting: [String: String] = [:]
     /// The field's send state, by ask, while it isn't idle.
@@ -268,7 +282,7 @@ public enum LinkCheck: Equatable, Sendable {
     private var swappedAt: Date?
     /// Bumped when a load has waited `DS.Timing.detailLoadTimeout`, so views read the
     /// snapshots again and "Still trying…" / "Couldn't load" show with no other change.
-    @Published public private(set) var stateTick = 0 { didSet { queueInputChanged() } }
+    @Published public internal(set) var stateTick = 0 { didSet { queueInputChanged() } }
     /// The wait behind `stateTick`; tests pass an immediate one.
     let timeoutSleep: @Sendable (Duration) async -> Void
     /// The pending timeout waits, by token; a swap cancels them all.
@@ -309,6 +323,9 @@ public enum LinkCheck: Equatable, Sendable {
 
     /// Items that appeared since the previous list (never on the first list after launch or a swap).
     public var onNewItems: (@MainActor ([WireItem]) -> Void)?
+    /// The session added steps to an open ask: one notification per new append marker, never on
+    /// the first load of an ask (`AppendWatch`).
+    public var onStepsAdded: (@MainActor (WireItem, NotifyContent) -> Void)?
     /// After items or reachability change; AppDelegate recomputes the menu bar.
     public var onStateChange: (@MainActor () -> Void)?
 
@@ -380,6 +397,8 @@ public enum LinkCheck: Equatable, Sendable {
     public internal(set) var pond: PondVersion? {
         didSet { if pond != nil { resumePondWaiters() } }
     }
+    /// The connected Pond's version and `features` list (MailboxCheck.capabilities); nil with `pond`.
+    public internal(set) var pondCapabilities: PondCapabilities?
     /// The review state each open ask's Notice was last posted for, so a poll doesn't repost it.
     var reviewNoticed: [String: ReviewState] = [:]
 
@@ -401,6 +420,7 @@ public enum LinkCheck: Equatable, Sendable {
                 reviews: ReviewPersistence? = nil, deliveryPolicy: StoreDeliveryPolicy = .desktop) {
         self.deliveryPolicy = deliveryPolicy
         self.defaults = defaults
+        self.unseenAppends = UnseenAppends.load(defaults)
         self.reviewFile = reviews
         self.now = now
         self.sentHold = sentHold
@@ -474,6 +494,11 @@ public enum LinkCheck: Equatable, Sendable {
         editingReply = []
         editingAnswers = [:]
         detailAnchor = [:]
+        appendScrolled = [:]
+        appendWatch.forget()
+        stepWaitTimers.values.forEach { $0.cancel() }
+        stepWaitTimers = [:]
+        stepWaitUntil = [:]
         replyStates = [:]
         answerStates = [:]
         answeredCache = [:]
@@ -495,7 +520,9 @@ public enum LinkCheck: Equatable, Sendable {
         listedHistories = [:]
         lastRendered = [:]
         reviewNoticed = [:]
+        appendAccepts = []
         pond = nil
+        pondCapabilities = nil
         stateTimers.values.forEach { $0.cancel() }
         stateTimers = [:]
         notFoundID = nil
@@ -732,6 +759,7 @@ public enum LinkCheck: Equatable, Sendable {
         }
         reviewNoticed[id] = nil
         noticeReview(id)
+        updateUnseenAppends { $0.opened(id) }
         loadIfMissing(id)
     }
 
@@ -827,6 +855,8 @@ public enum LinkCheck: Equatable, Sendable {
                 tickCache[id] = nil
                 rerender(id)
             }
+            // A deep link to an ask mid-wait still gets its timer.
+            scheduleStepWait(id)
         } catch QueueError.notFound {
             guard gen == generation else { return }
             await refresh()
@@ -962,6 +992,7 @@ public enum LinkCheck: Equatable, Sendable {
         if let selected = navigation.selectedID { keep.insert(selected) }
         tickCache = tickCache.filter { keep.contains($0.key) }
         pruneReviews(keep: keep)
+        updateUnseenAppends { $0.keep(open: Set(listed.map(\.id))) }
         detailRequestedAt = detailRequestedAt.filter { keep.contains($0.key) }
         guard keep != prunedKeep else { return }
         prunedKeep = keep
@@ -975,7 +1006,7 @@ public enum LinkCheck: Equatable, Sendable {
     public func close(_ id: String, _ verdict: Verdict) {
         guard mutationsAvailable else { return }
         guard source != nil else { return }
-        if verdict == .done, isContentLocked(id) || !requirementsMet(id) { return }
+        if verdict == .done, isContentLocked(id) || !requirementsMet(id) || stepWait(id) != nil { return }
         HookLog.action(verdict == .done ? .done : .skip)
         reviewing[id] = nil
         // A new close replaces one whose send failed: the Notice's Retry must not send that too.
@@ -1384,6 +1415,16 @@ public enum LinkCheck: Equatable, Sendable {
                 await doneRefused(close, left: left, via: source, generation: gen)
                 return
             }
+            // The session added steps, or may still add them after an answer: the words say so,
+            // with no Retry, and the detail is fetched again to show them.
+            switch error as? QueueError {
+            case .stepsAdded?, .waitingForSteps?:
+                post(.deliveryFailed(reason: UserFacingError.text(error)))
+                await reload(close.id)
+                return
+            default:
+                break
+            }
             if deliveryPolicy == .phone, (error as? any WriteDeliveryFailure)?.mayRetryExplicitly != true {
                 post(.deliveryFailed(reason: Self.failureReason(error))); return
             }
@@ -1770,6 +1811,8 @@ public enum LinkCheck: Equatable, Sendable {
         dropStaleReplyChanges(next)
         if next != details { details = next }
         loaded.forEach(rerender)
+        loaded.forEach(noteAppends)
+        loaded.forEach(scheduleStepWait)
         loaded.forEach(catchUpProgress)
         if let selected = navigation.selectedID, loaded.contains(selected) { noticeReview(selected) }
     }
@@ -1832,6 +1875,7 @@ public enum LinkCheck: Equatable, Sendable {
             hasDraft: { self.draftsWithText.contains($0) },
             closedBy: { self.closedBy($0) }, review: { self.reviewState($0.id) },
             doneBlocked: { !self.doneAllowed($0.id) },
+            addedSteps: { self.unseenAppends.counts[$0.id] ?? 0 },
             sourceKey: sourceKey, loadedOnce: loadedOnce, reachable: reachable, problem: listProblem,
             waitedTenSeconds: swappedAt.map { now().timeIntervalSince($0) >= DS.Timing.detailLoadTimeout } ?? false,
             manualRefreshing: manualRefreshing, updated: lastListAt.map { ClockText.time($0) } ?? "")
@@ -1873,6 +1917,14 @@ extension Store: PanelViewModel {
             doneWarning: doneWarnings.contains(id), review: review, stamp: stamp,
             history: try? histories[id]?.get(), chips: chips(id, review: review), reported: reported(id),
             addedSinceShown: addedSinceShown(id, review: review))
+        snapshot.appendPending = isAppendPending(id)
+        if snapshot.model != nil { snapshot.appendMarkers = appendMarkers(id) }
+        if let wait = stepWait(id) {
+            // Done waits for the session's next steps; Skip still works.
+            snapshot.stepWait = wait
+            snapshot.doneEnabled = false
+            snapshot.discardEnabled = false
+        }
         snapshot.canMessage = talk.messages
         snapshot.limits = talk.limits
         snapshot.message = messageStates[id] ?? .idle

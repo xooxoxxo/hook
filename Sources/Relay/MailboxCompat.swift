@@ -122,7 +122,7 @@ import RelayUI
         guard let store, store.sourceKey == check.sourceKey else { return }
         // The review gate reads the Pond's version: a Pond below 1.1.0 can't serve corrections.
         if let pond = check.pond {
-            store.setPond(pond)
+            store.setPondCapabilities(check.capabilities)
             if loggedPond?.key != check.sourceKey || loggedPond?.pond != pond {
                 loggedPond = (check.sourceKey, pond)
                 HookLog.record(.source(.mailbox, pond: pond.effective.description))

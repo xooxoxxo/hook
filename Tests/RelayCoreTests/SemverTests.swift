@@ -102,6 +102,15 @@ private func version(_ text: String) throws -> SemVer {
         }
     }
 
+    /// The list decides a listed-only feature; the version decides every other one.
+    @Test func capabilitiesReadTheListOrTheVersion() throws {
+        let v190 = PondVersion.semver(try #require(SemVer(strict: "1.9.0")))
+        #expect(!PondCapabilities(version: v190).supports(.appendSteps))
+        #expect(PondCapabilities(version: .legacy(protocol: 1), features: ["appendSteps"]).supports(.appendSteps))
+        #expect(PondCapabilities(version: v190, features: ["x"]).supports(.requirements))
+        #expect(!PondCapabilities(version: .legacy(protocol: 5), features: ["requirements"]).supports(.requirements))
+    }
+
     @Test func aBadRangeNamesTheBadPart() {
         #expect(throws: SemverRangeError.invalid("^1.1")) { try SemverRange(">=1.0.0 ^1.1") }
         #expect(throws: SemverRangeError.invalid("empty")) { try SemverRange("") }

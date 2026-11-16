@@ -209,6 +209,11 @@ import RelayUI
             self?.noteArrivals(items)
             self?.announce(items)
         }
+        // Steps added to an open ask: one banner, apart from new asks. Away mode keeps it off.
+        store.onStepsAdded = { [weak self] item, content in
+            guard let self else { return }
+            self.notifier?.handle(stepsAdded: content, item: item, settings: self.model?.config?.notify ?? NotifySettings())
+        }
         // A click goes through the same check as a link: closed or unknown → Notice.
         let notifier = Notifier { [weak self] id in self?.openLink(id) }
         notifier.onOpenClosed = { [weak self] id in self?.showItem(id) }

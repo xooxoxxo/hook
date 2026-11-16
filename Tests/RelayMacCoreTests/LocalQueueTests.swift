@@ -176,6 +176,29 @@ enum QueueFixture {
         #expect(await queue.list(status: "all", days: nil).isEmpty)
     }
 
+    /// This Mac can't add steps, so a question's `then` is an unknown key there, as on a Pond
+    /// without `appendSteps`; elsewhere it is still checked.
+    @Test func thisMacRefusesThenAsAnUnknownKey() async throws {
+        let dir = QueueFixture.directory()
+        defer { QueueFixture.remove(dir) }
+        let queue = try await QueueFixture.openQueue(dir)
+        let body = try JSONValue.parse(Data(#"""
+        {"v":1,"title":"Rotate the staging deploy key",
+         "steps":[{"do":"Pick the environment","question":{"prompt":"Which?","choices":["Staging","Prod"],"then":"steps"},
+                   "substeps":[{"do":"Confirm","question":{"prompt":"Sure?","then":"later"}}]}]}
+        """#.utf8))
+        do {
+            _ = try await queue.post(project: .string("Example"), instructable: body)
+            Issue.record("This Mac took then")
+        } catch LocalQueueError.invalidInstructable(let errors) {
+            #expect(errors.sorted() == ["steps[0].question.then: unknown key",
+                                        "steps[0].substeps[0].question.then: unknown key"])
+        }
+        #expect(await queue.list(status: "all", days: nil).isEmpty)
+        guard case .failure(let failure) = Validator.validate(body) else { Issue.record("then: later passed"); return }
+        #expect(failure.errors == [#"steps[0].substeps[0].question.then: must be "steps""#])
+    }
+
     /// This Mac takes no choice objects in 0.14: an object reads as Pond 1.3.0 reads it.
     @Test func thisMacRefusesChoiceObjects() async throws {
         let dir = QueueFixture.directory()
