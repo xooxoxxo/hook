@@ -227,10 +227,11 @@ class AddingStepsDocTests(unittest.TestCase):
 
 
 class ChangelogTests(unittest.TestCase):
-    def test_unreleased_adds_relay_append(self):
+    def test_the_added_steps_release_adds_relay_append(self):
         text = read(ROOT / "CHANGELOG.md")
-        unreleased = text.split("\n## [Unreleased]\n", 1)[1].split("\n## [", 1)[0]
-        added = unreleased.split("### Added", 1)[1].split("\n### ", 1)[0]
+        sections = text.split("\n## [")[1:]
+        release = next(s for s in sections if s.startswith("0.16.0]"))
+        added = release.split("### Added", 1)[1].split("\n### ", 1)[0]
         self.assertIn("relay append", added)
         self.assertIn("relay_append", added)
 
