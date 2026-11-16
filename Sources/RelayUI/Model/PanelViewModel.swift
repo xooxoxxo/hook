@@ -84,6 +84,9 @@ public enum CopyOutcome: Equatable, Sendable {
     /// Upcoming steps expanded by hand, per ask (memory only).
     var expandedTodo: [String: Set<String>] { get set }
     var detailAnchor: [String: String] { get set }
+    /// The newest append marker rev the detail scrolled to, per ask (memory only): it scrolls to
+    /// the steps an append added once per marker.
+    var appendScrolled: [String: Int] { get set }
     var notice: PanelNotice? { get }
     var undoInfo: UndoInfo? { get }
     var status: PanelStatus { get }

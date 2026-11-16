@@ -262,6 +262,9 @@ public struct AskRowModel: Equatable, Sendable, Identifiable {
     /// The ask has requirements and its cached detail isn't ready for Done, or there is no
     /// cached detail: the queue's Done (⌘↩, the context menu) is off (RD 23).
     public var doneBlocked = false
+    /// Steps the session added since the owner last opened the ask (`UnseenAppends`): the
+    /// card's "+2 steps". 0 for none, and always 0 on a closed row.
+    public var addedSteps = 0
 
     public var isOpen: Bool { closed == nil }
 

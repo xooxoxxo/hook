@@ -150,6 +150,8 @@ import Testing
         #expect(markers.map(\.afterAnswer) == [true, false])
         #expect(markers.map(\.firstStepID) == ["s4", "s5"])
         #expect(markers.map(\.note) == ["After your answer", "And one more"])
+        // The detail draws them: a divider above each run of added steps.
+        #expect(s.store.detail("a")?.appendMarkers == markers)
 
         #expect(s.store.appendMarkers("nope").isEmpty)
     }
@@ -201,5 +203,128 @@ import Testing
         #expect(await eventually { await fake.count("get a") > loads })
         try? await Task.sleep(for: .milliseconds(30))
         #expect(await fake.count("resolve") == 1)
+    }
+}
+
+/// The queue card's "+N steps": counted when the Store sees a new append, cleared when the
+/// owner opens the ask, kept across a restart.
+@Suite @MainActor struct StoreUnseenAppendsTests {
+    @Test func anAppendTagsTheCardUntilOpened() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let url = reviewsURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let store = await reviewingStore(defaults, url: url)
+        let one = revised("a", [idSteps(3)])
+        let fake = FakeQueueSource(items: [one.item], details: ["a": one.detail])
+        await start(store, fake)
+        #expect(store.queue.rows["a"]?.addedSteps == 0)
+
+        let two = revised("a", [idSteps(3), idSteps(5)], reasons: ["Two more checks"])
+        await fake.setItems([two.item])
+        await fake.setDetail(two.detail)
+        await store.refresh()
+        #expect(store.queue.rows["a"]?.addedSteps == 2)
+        #expect(UnseenAppends.load(defaults.defaults).counts == ["a": 2])
+
+        let three = revised("a", [idSteps(3), idSteps(5), idSteps(6)], reasons: ["Two more checks", "One more"])
+        await fake.setItems([three.item])
+        await fake.setDetail(three.detail)
+        await store.refresh()
+        #expect(store.queue.rows["a"]?.addedSteps == 3)
+        // Polls of the same revision add nothing.
+        await store.refresh()
+        #expect(store.queue.rows["a"]?.addedSteps == 3)
+
+        store.open("a")
+        #expect(store.queue.rows["a"]?.addedSteps == 0)
+        #expect(defaults.defaults.object(forKey: UnseenAppends.defaultsKey) == nil)
+    }
+
+    @Test func theFirstLoadTagsNothing() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let url = reviewsURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let store = await reviewingStore(defaults, url: url)
+        let two = revised("a", [idSteps(3), idSteps(5)], reasons: ["Two more checks"])
+        let fake = FakeQueueSource(items: [two.item], details: ["a": two.detail])
+        await start(store, fake)
+        await store.refresh()
+        #expect(store.queue.rows["a"]?.addedSteps == 0)
+    }
+
+    @Test func aRestartKeepsTheTagAndAClosedAskDropsIt() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        var saved = UnseenAppends()
+        saved.added("a", steps: 2)
+        saved.added("gone", steps: 1)
+        saved.save(defaults.defaults)
+        let url = reviewsURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let store = await reviewingStore(defaults, url: url)
+        let one = revised("a", [idSteps(3)])
+        let fake = FakeQueueSource(items: [one.item], details: ["a": one.detail])
+        await start(store, fake)
+        #expect(store.queue.rows["a"]?.addedSteps == 2)
+        #expect(UnseenAppends.load(defaults.defaults).counts == ["a": 2])
+    }
+}
+
+/// The one notification when the session adds steps: once per new marker, never on a first
+/// load, quiet right after the owner acted on that ask.
+@Suite @MainActor struct StoreStepsAddedNotifyTests {
+    private func setUp(_ defaults: TestDefaults, url: URL, first: (item: WireItem, detail: AskDetail))
+        async -> (Store, FakeQueueSource, () -> [NotifyContent]) {
+        let store = await reviewingStore(defaults, url: url)
+        var shown: [NotifyContent] = []
+        store.onStepsAdded = { _, content in shown.append(content) }
+        let fake = FakeQueueSource(items: [first.item], details: ["a": first.detail])
+        await start(store, fake)
+        return (store, fake, { shown })
+    }
+
+    @Test func oneNotificationPerNewMarker() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let url = reviewsURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let (store, fake, shown) = await setUp(defaults, url: url, first: revised("a", [idSteps(3)]))
+        #expect(shown().isEmpty)
+        let two = revised("a", [idSteps(3), idSteps(5)], reasons: ["Two more checks"])
+        await fake.setItems([two.item])
+        await fake.setDetail(two.detail)
+        await store.refresh()
+        await store.refresh()
+        #expect(shown() == [.stepsAdded(id: "a", project: "Acme", title: "Ask a", count: 2, note: "Two more checks",
+                                        quiet: false)])
+    }
+
+    @Test func noNotificationOnTheFirstLoad() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let url = reviewsURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let (store, _, shown) = await setUp(defaults, url: url,
+                                            first: revised("a", [idSteps(3), idSteps(5)], reasons: ["Two more checks"]))
+        await store.refresh()
+        #expect(shown().isEmpty)
+    }
+
+    /// The owner answered 30 s before the poll (`fixedNow`): the banner stays quiet.
+    @Test func quietRightAfterTheOwnerActed() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let url = reviewsURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let (store, fake, shown) = await setUp(defaults, url: url, first: revised("a", [idSteps(3)]))
+        let answer = Event(seq: 1, itemId: "a", kind: "answer", actor: "owner", text: "{}",
+                           at: Timestamp.string(fixedNow.addingTimeInterval(-30)))
+        let two = revised("a", [idSteps(3), idSteps(4)], reasons: ["One more"], events: [answer])
+        await fake.setItems([two.item])
+        await fake.setDetail(two.detail)
+        await store.refresh()
+        #expect(shown() == [.stepsAdded(id: "a", project: "Acme", title: "Ask a", count: 1, note: "One more", quiet: true)])
     }
 }
