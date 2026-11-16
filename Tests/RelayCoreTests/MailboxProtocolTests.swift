@@ -18,7 +18,7 @@ private func check(pond version: String, level: Int? = 5) -> MailboxCheck {
 private func semver(_ text: String) -> PondVersion { .semver(SemVer(strict: text)!) }
 
 private let everyFeature: [MailboxFeature] = [.answers, .blocking, .optional, .fileLinks, .corrections, .bugs, .messages,
-                                              .requirements, .longText, .sharedProgress]
+                                              .requirements, .longText, .sharedProgress, .appendSteps]
 /// The features the Notice can name: the ones this Hook's range needs.
 private let everyNeededFeature: [MailboxFeature] = [.answers, .blocking, .optional, .fileLinks, .corrections]
 
@@ -84,6 +84,56 @@ private let everyNeededFeature: [MailboxFeature] = [.answers, .blocking, .option
         #expect(!PondVersion.legacy(protocol: 5).supports(.sharedProgress))
         #expect(!MailboxProtocol.missingFeatures(pond: semver("1.4.0")).contains(.sharedProgress))
         #expect(PondCompat.required == "^1.1.0")
+    }
+
+    /// Adding steps to an open ask is read from the Pond's `features` list, never its version.
+    @Test func appendStepsNeedsTheList() throws {
+        #expect(MailboxFeature.appendSteps.gated)
+        #expect(MailboxFeature.appendSteps.listedOnly)
+        #expect(MailboxFeature.allCases.filter(\.listedOnly) == [.appendSteps])
+        #expect(MailboxFeature.appendSteps.displayName == "adding steps to an open ask")
+        #expect(MailboxFeature.appendSteps.minimumPond == SemVer(major: 1, minor: 9, patch: 0))
+        #expect(!PondCapabilities(version: semver("1.9.0"), features: nil).supports(.appendSteps))
+        // The version alone never says yes to a listed-only feature.
+        #expect(!semver("1.9.0").supports(.appendSteps))
+        #expect(!semver("2.0.0").supports(.appendSteps))
+        #expect(semver("1.9.0").supports(.sharedProgress))
+        #expect(PondCapabilities(version: semver("1.7.0"), features: ["appendSteps"]).supports(.appendSteps))
+        #expect(!PondCapabilities(version: semver("1.9.0"), features: []).supports(.appendSteps))
+        // Every other feature still goes by the version, list or no list.
+        #expect(PondCapabilities(version: semver("1.5.0"), features: []).supports(.sharedProgress))
+        #expect(!PondCapabilities(version: semver("1.4.0"), features: ["sharedProgress"]).supports(.sharedProgress))
+        let decoded = try JSONDecoder().decode(MailboxVersion.self, from: Data(
+            #"{"service":"pond","version":"1.9.0","protocol":5,"features":["appendSteps"]}"#.utf8))
+        #expect(decoded.features == ["appendSteps"])
+        #expect(decoded.capabilities.supports(.appendSteps))
+        let check = MailboxCheck(sourceKey: key, result: .version(decoded), checkedAt: t0)
+        #expect(check.capabilities == PondCapabilities(version: semver("1.9.0"), features: ["appendSteps"]))
+    }
+
+    @Test func featuresDecodeLeniently() throws {
+        func decode(_ text: String) throws -> MailboxVersion {
+            try JSONDecoder().decode(MailboxVersion.self, from: Data(text.utf8))
+        }
+        #expect(try decode(#"{"version":"1.9.0","features":"x"}"#).features == nil)
+        #expect(try decode(#"{"version":"1.9.0","features":["a",1]}"#).features == ["a"])
+        #expect(try decode(#"{"version":"1.9.0","features":null}"#).features == nil)
+        #expect(try decode(#"{"version":"1.9.0","features":{"appendSteps":true}}"#).features == nil)
+        #expect(try decode(#"{"version":"1.9.0"}"#).features == nil)
+        #expect(try decode(#"{"version":"1.9.0","features":[]}"#).features == [])
+        // The rest of the reply still decodes around a bad list.
+        #expect(try decode(#"{"version":"1.9.0","protocol":5,"features":7}"#).level == 5)
+    }
+
+    /// No `features` key means no listed-only feature, and the older-Pond Notice never names one.
+    @Test func missingFeaturesIgnoresListedOnly() throws {
+        let old = try JSONDecoder().decode(MailboxVersion.self, from: Data(#"{"version":"1.9.0","protocol":5}"#.utf8))
+        #expect(old.features == nil)
+        #expect(!old.capabilities.supports(.appendSteps))
+        for pond in ["1.0.0", "1.1.0", "1.9.0", "2.0.0"] {
+            #expect(!MailboxProtocol.missingFeatures(pond: semver(pond)).contains(.appendSteps), "\(pond)")
+        }
+        #expect(MailboxProtocol.missingFeatures(pond: .legacy(protocol: 1)) == everyNeededFeature)
     }
 
     @Test func longTextIsGated() {

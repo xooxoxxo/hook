@@ -204,7 +204,7 @@ public enum CopyOutcome: Equatable, Sendable {
 extension PanelViewModel {
     /// Reviews the current version; again after a newer one arrived, it re-diffs and never accepts the older.
     public func startReview(_ id: String) {
-        guard case .pending(_, let current, _) = reviewState(id) else { return }
+        guard case .pending(_, let current, _) = reviewState(id), !(detail(id)?.appendPending ?? false) else { return }
         reviewing[id] = current
     }
 

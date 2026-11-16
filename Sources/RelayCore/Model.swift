@@ -57,10 +57,26 @@ public struct Question: Codable, Sendable, Equatable {
     public var prompt: String
     public var choices: [Choice]?
     public var multi: Bool?
+    /// `then: "steps"`: after the owner answers, Done waits for the session's next steps
+    /// (`StepWait`). Any other value is dropped when decoding (the validator refuses it).
+    public var then: String?
 
-    public init(prompt: String, choices: [Choice]? = nil, multi: Bool? = nil) {
-        self.prompt = prompt; self.choices = choices; self.multi = multi
+    enum CodingKeys: String, CodingKey { case prompt, choices, multi, then }
+
+    public init(prompt: String, choices: [Choice]? = nil, multi: Bool? = nil, then: String? = nil) {
+        self.prompt = prompt; self.choices = choices; self.multi = multi; self.then = then
     }
+
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        prompt = try c.decode(String.self, forKey: .prompt)
+        choices = try c.decodeIfPresent([Choice].self, forKey: .choices)
+        multi = try c.decodeIfPresent(Bool.self, forKey: .multi)
+        then = (try? c.decodeIfPresent(String.self, forKey: .then)) ?? nil
+    }
+
+    /// The owner's answer waits for the session's next steps.
+    public var waitsForSteps: Bool { then == StepWait.thenSteps }
 
     /// The labels to pick from; empty for a free-text question.
     public var options: [String] { choices?.labels ?? [] }
@@ -346,17 +362,20 @@ public struct WireItem: Codable, Sendable, Equatable, Identifiable {
     /// What the owner's Done still waits for (Pond 1.3.0), on `GET /asks/{id}` and the routes that
     /// answer one item; nil on an ask without requirements, from `GET /asks`, or an older Pond.
     public var requirements: PondRequirements? = nil
+    /// The wait for the session's next steps the Pond enforces on Done (`then: "steps"`), on the
+    /// routes that answer one item; nil when none is on, or from a Pond without it.
+    public var stepWait: ServedStepWait? = nil
 
     enum CodingKeys: String, CodingKey {
-        case id, title, status, projectId, created, updated, payload, completedAt, revision, requirements
+        case id, title, status, projectId, created, updated, payload, completedAt, revision, requirements, stepWait
     }
 
     public init(id: String, title: String, status: String, projectId: String? = nil, created: String, updated: String,
                 payload: Payload, completedAt: String? = nil, revision: ServedRevision? = nil,
-                requirements: PondRequirements? = nil) {
+                requirements: PondRequirements? = nil, stepWait: ServedStepWait? = nil) {
         self.id = id; self.title = title; self.status = status; self.projectId = projectId
         self.created = created; self.updated = updated; self.payload = payload; self.completedAt = completedAt
-        self.revision = revision; self.requirements = requirements
+        self.revision = revision; self.requirements = requirements; self.stepWait = stepWait
     }
 
     /// Keep existing list readers lenient: malformed values remain nil. Revision
@@ -376,6 +395,7 @@ public struct WireItem: Codable, Sendable, Equatable, Identifiable {
             catch { revision = nil; revisionMetadataMalformed = true }
         }
         requirements = (try? c.decodeIfPresent(PondRequirements.self, forKey: .requirements)) ?? nil
+        stepWait = (try? c.decodeIfPresent(ServedStepWait.self, forKey: .stepWait)) ?? nil
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -391,6 +411,7 @@ public struct WireItem: Codable, Sendable, Equatable, Identifiable {
         if revisionMetadataMalformed { try c.encodeNil(forKey: .revision) }
         else { try c.encodeIfPresent(revision, forKey: .revision) }
         try c.encodeIfPresent(requirements, forKey: .requirements)
+        try c.encodeIfPresent(stepWait, forKey: .stepWait)
     }
 
     public var instructable: Instructable? { payload.instructable }

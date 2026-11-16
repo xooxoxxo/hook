@@ -10,7 +10,7 @@ import Testing
         async -> (Store, FakeQueueSource, AskDetail) {
         let store = await reviewingStore(defaults)
         store.shell = recorder.shell
-        let two = revised("a", [idSteps(3, urls: urls), idSteps(4, urls: urls)])
+        let two = revised("a", [idSteps(3, urls: urls), idSteps(4, codes: [2: "run 2 --fixed"], urls: urls)])
         let fake = FakeQueueSource(items: [two.item], details: ["a": two.detail])
         await start(store, fake)
         store.open("a")

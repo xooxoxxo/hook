@@ -65,7 +65,7 @@ import Testing
         let secrets = MemorySecretStore()
         let store = await reviewingStore(defaults, secrets: secrets, url: url)
         let one = revised("a", [idSteps(3)])
-        let two = revised("b", [idSteps(3, id: "b"), idSteps(4, id: "b")])
+        let two = revised("b", [idSteps(3, id: "b"), idSteps(4, id: "b", codes: [2: "run 2 --fixed"])])
         let fake = FakeQueueSource(items: [one.item, two.item], details: ["a": one.detail, "b": two.detail])
         await start(store, fake)
 
@@ -94,7 +94,7 @@ import Testing
         let writes = secrets.writes
         secrets.readError = .unreadable(-128)
         let store = await reviewingStore(defaults, secrets: secrets, url: url)
-        let two = revised("a", [idSteps(3), idSteps(4)])
+        let two = revised("a", [idSteps(3), idSteps(4, codes: [2: "run 2 --fixed"])])
         let fake = FakeQueueSource(items: [two.item], details: ["a": two.detail])
         await start(store, fake)
 
@@ -170,7 +170,7 @@ import Testing
         defer { try? FileManager.default.removeItem(at: url) }
         // Another app made the seal item with a key it knows, and sealed a pre-accepted record.
         let planted = SymmetricKey(data: Data(repeating: 7, count: 32))
-        let two = revised("a", [idSteps(3), idSteps(4)])
+        let two = revised("a", [idSteps(3), idSteps(4, codes: [2: "run 2 --fixed"])])
         let record = ReviewRecord(accepted: two.detail.revisions[1].stamp, seen: two.detail.revisions[1].stamp,
                                   pins: Dictionary(uniqueKeysWithValues: two.detail.revisions.map { ($0.rev, $0.hash) }))
         try ReviewStore.sealed(records: [ReviewStore.key(sourceKey: localIdentity.key, id: "a"): record], sealKey: planted)
@@ -204,7 +204,7 @@ import Testing
         let url = reviewsURL()
         defer { try? FileManager.default.removeItem(at: url) }
         let planted = SymmetricKey(data: Data(repeating: 7, count: 32))
-        let two = revised("a", [idSteps(3), idSteps(4)])
+        let two = revised("a", [idSteps(3), idSteps(4, codes: [2: "run 2 --fixed"])])
         let record = ReviewRecord(accepted: two.detail.revisions[1].stamp, seen: two.detail.revisions[1].stamp,
                                   pins: Dictionary(uniqueKeysWithValues: two.detail.revisions.map { ($0.rev, $0.hash) }))
         var file = try #require(try JSONSerialization.jsonObject(with: ReviewStore.sealed(
@@ -237,7 +237,7 @@ import Testing
         defer { try? FileManager.default.removeItem(at: url) }
         let secrets = MemorySecretStore()
         let seal = try ReviewSeal.loadOrCreate(secrets, file: url)
-        let two = revised("a", [idSteps(3), idSteps(4)])
+        let two = revised("a", [idSteps(3), idSteps(4, codes: [2: "run 2 --fixed"])])
         let name = ReviewStore.key(sourceKey: localIdentity.key, id: "a")
         try ReviewStore.sealed(records: [name: ReviewRecord(accepted: two.detail.revisions[1].stamp)], sealKey: seal)
             .write(to: url)
@@ -272,7 +272,7 @@ import Testing
         store.shell = recorder.shell
         var resets = 0
         store.onReviewRecordsReset = { resets += 1 }
-        let two = revised("a", [idSteps(3), idSteps(4)])
+        let two = revised("a", [idSteps(3), idSteps(4, codes: [2: "run 2 --fixed"])])
         await start(store, FakeQueueSource(items: [two.item], details: ["a": two.detail]))
         #expect(store.notice == .reviewRecordsUnreadable)
         #expect(PanelNotice.reviewRecordsUnreadable.actionTitle == "Reset Review Records…")
@@ -307,7 +307,7 @@ import Testing
         let url = reviewsURL(), secrets = MemorySecretStore()
         defer { try? FileManager.default.removeItem(at: url) }
         let seal = try ReviewSeal.loadOrCreate(secrets, file: url)
-        let two = revised("a", [idSteps(3), idSteps(4)])
+        let two = revised("a", [idSteps(3), idSteps(4, codes: [2: "run 2 --fixed"])])
         // A record sealed under another key, in Hook's own file: as if written by hand.
         let forged = ReviewRecord(accepted: two.detail.revisions[1].stamp)
         var file = try #require(try JSONSerialization.jsonObject(with: ReviewStore.sealed(
@@ -326,7 +326,7 @@ import Testing
         let defaults = TestDefaults()
         defer { defaults.drop() }
         let store = await reviewingStore(defaults)
-        let two = revised("a", [idSteps(3), idSteps(4)])
+        let two = revised("a", [idSteps(3), idSteps(4, codes: [2: "run 2 --fixed"])])
         let fake = FakeQueueSource(items: [two.item], details: ["a": two.detail])
         await start(store, fake)
         store.open("a")

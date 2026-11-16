@@ -241,7 +241,7 @@ import Testing
         await start(store, fake)
         store.open("a")
         _ = store.detail("a")   // seen as current
-        let two = revised("a", [idSteps(3), idSteps(4)])
+        let two = revised("a", [idSteps(3), idSteps(4, codes: [2: "run 2 --fixed"])])
         await fake.setItems([two.item])
         await fake.setDetail(two.detail)
         await store.refresh()

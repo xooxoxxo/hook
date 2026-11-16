@@ -176,7 +176,7 @@ import Testing
     @Test func aRefusedPromptAfterTheWaitIsTheUnreadableState() async throws {
         let defaults = TestDefaults()
         defer { defaults.drop() }
-        let two = revised("a", [idSteps(3), idSteps(4)])
+        let two = revised("a", [idSteps(3), idSteps(4, codes: [2: "run 2 --fixed"])])
         let (secrets, url) = try acceptedOnDisk(two)
         defer { try? FileManager.default.removeItem(at: url) }
         secrets.holdReads()

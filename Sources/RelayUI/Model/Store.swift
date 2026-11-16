@@ -150,6 +150,8 @@ public enum LinkCheck: Equatable, Sendable {
     @Published public var reviewing: [String: RevisionStamp] = [:]
     /// Asks whose Use Version N is in flight (Touch ID, then the Pond call).
     @Published public internal(set) var accepting: Set<String> = []
+    /// Append acceptances sent to the Pond this run ("source|id|rev|hash"): each goes once.
+    var appendAccepts: Set<String> = []
     /// Report a Problem's inline field, by ask: the step path it reports on. Memory only.
     @Published public var reporting: [String: String] = [:]
     /// The field's send state, by ask, while it isn't idle.
@@ -380,6 +382,8 @@ public enum LinkCheck: Equatable, Sendable {
     public internal(set) var pond: PondVersion? {
         didSet { if pond != nil { resumePondWaiters() } }
     }
+    /// The connected Pond's version and `features` list (MailboxCheck.capabilities); nil with `pond`.
+    public internal(set) var pondCapabilities: PondCapabilities?
     /// The review state each open ask's Notice was last posted for, so a poll doesn't repost it.
     var reviewNoticed: [String: ReviewState] = [:]
 
@@ -495,7 +499,9 @@ public enum LinkCheck: Equatable, Sendable {
         listedHistories = [:]
         lastRendered = [:]
         reviewNoticed = [:]
+        appendAccepts = []
         pond = nil
+        pondCapabilities = nil
         stateTimers.values.forEach { $0.cancel() }
         stateTimers = [:]
         notFoundID = nil
@@ -1384,6 +1390,16 @@ public enum LinkCheck: Equatable, Sendable {
                 await doneRefused(close, left: left, via: source, generation: gen)
                 return
             }
+            // The session added steps, or may still add them after an answer: the words say so,
+            // with no Retry, and the detail is fetched again to show them.
+            switch error as? QueueError {
+            case .stepsAdded?, .waitingForSteps?:
+                post(.deliveryFailed(reason: UserFacingError.text(error)))
+                await reload(close.id)
+                return
+            default:
+                break
+            }
             if deliveryPolicy == .phone, (error as? any WriteDeliveryFailure)?.mayRetryExplicitly != true {
                 post(.deliveryFailed(reason: Self.failureReason(error))); return
             }
@@ -1873,6 +1889,7 @@ extension Store: PanelViewModel {
             doneWarning: doneWarnings.contains(id), review: review, stamp: stamp,
             history: try? histories[id]?.get(), chips: chips(id, review: review), reported: reported(id),
             addedSinceShown: addedSinceShown(id, review: review))
+        snapshot.appendPending = isAppendPending(id)
         snapshot.canMessage = talk.messages
         snapshot.limits = talk.limits
         snapshot.message = messageStates[id] ?? .idle

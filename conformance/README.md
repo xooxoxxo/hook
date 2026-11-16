@@ -141,7 +141,7 @@ Six `data/` files cover logic that lives only in the clients. Their inputs are w
 
 - ask: `v title why warning urgency steps verify reply done links from`
 - step, sub-step and verify: `do where detail code lang expect url substeps question blocking warning optional required id file`
-- question: `prompt choices multi`; choice object: `label text`
+- question: `prompt choices multi then`; choice object: `label text`
 - reply: `prompt choices`; link: `label url path`; from: `session host cwd`
 - `done` values: `steps reply message`
 

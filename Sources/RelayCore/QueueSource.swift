@@ -180,6 +180,12 @@ public enum QueueError: Error, Sendable, Equatable, LocalizedError {
     /// The owner's Done while the ask still waits for something (Pond 1.3.0, 409
     /// "requirements_unmet"): `left` is what the Pond still waits for.
     case requirementsUnmet(left: [PondRequirement])
+    /// The owner's Done bound to a revision the session has since added steps to (409
+    /// "steps_added"): `rev` and `hash` are the current revision.
+    case stepsAdded(rev: Int, hash: String)
+    /// The owner's Done while the session may still add steps after an answer (409
+    /// "waiting_for_steps", `then: "steps"`), until `until`.
+    case waitingForSteps(until: Date)
 
     /// What a source without a Pond 1.1.0 route answers.
     public static let notSupported = QueueError.rejected(status: 501, error: "not supported", details: [])
@@ -206,6 +212,10 @@ public enum QueueError: Error, Sendable, Equatable, LocalizedError {
             return "The Pond no longer accepts this Mac's owner key."
         case .requirementsUnmet:
             return "This ask isn't finished yet: the Pond still waits for a marked item."
+        case .stepsAdded:
+            return "New steps were added. Open the ask to see them."
+        case .waitingForSteps:
+            return "Waiting for next steps…"
         }
     }
 }

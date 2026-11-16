@@ -40,7 +40,8 @@ class SchemaTest(unittest.TestCase):
 
     def test_a_question_has_a_prompt_up_to_six_distinct_choices_and_multi(self):
         question = SCHEMA["$defs"]["question"]
-        self.assertEqual(set(question["properties"]), {"prompt", "choices", "multi"})
+        self.assertEqual(set(question["properties"]), {"prompt", "choices", "multi", "then"})
+        self.assertEqual(question["properties"]["then"]["enum"], ["steps"])
         self.assertEqual(question["required"], ["prompt"])
         self.assertIs(question["additionalProperties"], False)
         self.assertEqual(question["properties"]["prompt"], {"type": "string", "minLength": 1, "maxLength": 300})

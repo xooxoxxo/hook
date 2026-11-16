@@ -247,9 +247,11 @@ public enum PondVersion: Equatable, Sendable {
         }
     }
 
-    /// The Pond has the feature: its effective version is at least the feature's first one.
+    /// The Pond has the feature: its effective version is at least the feature's first one. A
+    /// `listedOnly` feature is never read from the version: only `PondCapabilities.supports`,
+    /// with the Pond's `features` list, can say yes to it.
     public func supports(_ feature: MailboxFeature) -> Bool {
-        effective >= feature.minimumPond
+        !feature.listedOnly && effective >= feature.minimumPond
     }
 
     /// "1.1.0", or "protocol 4" for an old Pond.
@@ -258,6 +260,24 @@ public enum PondVersion: Equatable, Sendable {
         case .semver(let v): return v.description
         case .legacy(let level): return "protocol \(level)"
         }
+    }
+}
+
+/// What a Pond can do: its version and the `features` list its `GET /version` sent (nil when
+/// it sent none). A `listedOnly` feature needs its name in the list; every other feature is
+/// read from the version.
+public struct PondCapabilities: Equatable, Sendable {
+    public var version: PondVersion
+    public var features: Set<String>?
+
+    public init(version: PondVersion, features: Set<String>? = nil) {
+        self.version = version
+        self.features = features
+    }
+
+    public func supports(_ feature: MailboxFeature) -> Bool {
+        if feature.listedOnly { return features?.contains(feature.rawValue) == true }
+        return version.supports(feature)
     }
 }
 

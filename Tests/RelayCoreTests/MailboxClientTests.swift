@@ -367,6 +367,16 @@ final class StatusLog: @unchecked Sendable {
         #expect(sent.request.value(forHTTPHeaderField: "Authorization") == "Bearer tok-example")
     }
 
+    @Test func versionReadsTheFeaturesList() async throws {
+        let (client, _) = try makeClient { _, _ in
+            (200, #"{"service":"pond","version":"1.9.0","protocol":5,"features":["appendSteps"]}"#)
+        }
+        let version = try await client.version()
+        #expect(version.features == ["appendSteps"])
+        #expect(version.capabilities.supports(.appendSteps))
+        #expect(MailboxVersion.legacy.features == nil)
+    }
+
     @Test func aMailboxWithoutVersionIsLevelOne() async throws {
         let (client, _) = try makeClient { _, _ in (404, #"{"error":"not found"}"#) }
         #expect(try await client.version() == .legacy)
@@ -1021,5 +1031,191 @@ private struct RequirementVectors {
         await HookLog.withLog(log) { _ = try? await client.resolve(askID, verdict: .done, note: nil, stamp: nil) }
         let lines = log.tail(50).map { String($0.drop(while: { $0 != " " }).dropFirst()) }
         #expect(lines == [#"error type=Pond status=409 route=asks/{id}/resolve message="requirements_unmet""#])
+    }
+}
+
+/// Steps added to an open ask: the owner's Done refused while the session adds steps, or bound to
+/// a revision the session has since added steps to.
+@Suite struct MailboxClientAppendTests {
+    @Test func stepsAddedMaps() async throws {
+        let body = #"{"error":"steps_added","rev":3,"hash":"abc123"}"#
+        let (client, _) = try makeClient { _, _ in (409, body) }
+        await #expect(throws: QueueError.stepsAdded(rev: 3, hash: "abc123")) {
+            try await client.resolve(askID, verdict: .done, note: nil, stamp: RevisionStamp(rev: 2, hash: "old"))
+        }
+        #expect(QueueError.stepsAdded(rev: 3, hash: "abc123").errorDescription
+            == "New steps were added. Open the ask to see them.")
+        #expect(MailboxClient.logged(.stepsAdded(rev: 3, hash: "x")) == (409, "steps_added"))
+        // Without rev and hash it is no steps_added.
+        let (bare, _) = try makeClient { _, _ in (409, #"{"error":"steps_added"}"#) }
+        await #expect(throws: QueueError.rejected(status: 409, error: "steps_added", details: [])) {
+            try await bare.resolve(askID, verdict: .done, note: nil, stamp: nil)
+        }
+    }
+
+    @Test func waitingForStepsMaps() async throws {
+        let body = #"{"error":"waiting_for_steps","until":"2026-11-14T10:12:00+00:00","path":"3"}"#
+        let (client, _) = try makeClient { _, _ in (409, body) }
+        let until = try #require(Timestamp.date("2026-11-14T10:12:00+00:00"))
+        await #expect(throws: QueueError.waitingForSteps(until: until)) {
+            try await client.resolve(askID, verdict: .done, note: nil, stamp: nil)
+        }
+        #expect(QueueError.waitingForSteps(until: until).errorDescription == "Waiting for next steps…")
+        #expect(MailboxClient.logged(.waitingForSteps(until: until)) == (409, "waiting_for_steps"))
+        let (bad, _) = try makeClient { _, _ in (409, #"{"error":"waiting_for_steps","until":"soon"}"#) }
+        await #expect(throws: QueueError.rejected(status: 409, error: "waiting_for_steps", details: [])) {
+            try await bad.resolve(askID, verdict: .done, note: nil, stamp: nil)
+        }
+    }
+
+    @Test func theItemCarriesThePondsStepWait() throws {
+        let json = #"{"id":"a","title":"T","status":"open","created":"2026-11-14T10:00:00+00:00","#
+            + #""updated":"2026-11-14T10:00:00+00:00","payload":{},"#
+            + #""stepWait":{"id":"s3","path":"3","until":"2026-11-14T10:12:00+00:00"}}"#
+        let item = try JSONDecoder().decode(WireItem.self, from: Data(json.utf8))
+        #expect(item.stepWait == ServedStepWait(id: "s3", path: "3", until: "2026-11-14T10:12:00+00:00"))
+        let odd = json.replacingOccurrences(of: #""path":"3""#, with: #""path":3"#)
+        #expect(try JSONDecoder().decode(WireItem.self, from: Data(odd.utf8)).stepWait == nil)
+    }
+}
+
+/// conformance/wire/append-wire-vectors.json, recorded from Pond 1.9.0: every response decodes, and
+/// every refusal maps to the QueueError Hook acts on. The acts Hook sends (detail, answers,
+/// Done) go through the client and must send what the transcript sent; the session's own calls
+/// (post, append) are only decoded.
+@Suite struct AppendWireReplayTests {
+    static let file = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .deletingLastPathComponent().appending(path: "conformance/wire/append-wire-vectors.json")
+    /// Every `{time}` in a response reads as this.
+    static let time = "2026-11-03T09:00:10+00:00"
+
+    static var cases: [JSONValue] {
+        guard let data = try? Data(contentsOf: file), case .array(let items)? = (try? JSONValue.parse(data))?["cases"] else {
+            return []
+        }
+        return items
+    }
+
+    static var names: [String] { cases.compactMap { $0["name"]?.stringValue } }
+
+    /// The response body as the Pond sent it, its placeholders filled.
+    static func body(_ item: JSONValue) -> Data {
+        let text = String(decoding: (item["response"]?["body"] ?? .null).data(), as: UTF8.self)
+            .replacingOccurrences(of: "{time}", with: time).replacingOccurrences(of: "{ask1}", with: askID)
+        return Data(text.utf8)
+    }
+
+    static func stamp(_ body: JSONValue?) -> RevisionStamp? {
+        guard case .int(let rev)? = body?["rev"], let hash = body?["hash"]?.stringValue else { return nil }
+        return RevisionStamp(rev: rev, hash: hash)
+    }
+
+    @Test func theFileIsThere() {
+        #expect(Self.names.count >= 9)
+        #expect(Self.names.contains("append-done-waiting") && Self.names.contains("append-done-old-rev"))
+    }
+
+    @Test(arguments: AppendWireReplayTests.names)
+    func appendWireReplays(_ name: String) async throws {
+        let item = try #require(Self.cases.first { $0["name"]?.stringValue == name })
+        let request = try #require(item["request"])
+        let status: Int
+        if case .int(let code)? = item["response"]?["status"] { status = code } else { throw QueueError.notFound }
+        let data = Self.body(item)
+        let response = try JSONValue.parse(data)
+        let method = try #require(request["method"]?.stringValue)
+        let path = try #require(request["path"]?.stringValue).replacingOccurrences(of: "{ask1}", with: askID)
+        let (client, host) = try makeClient(ownerKey: { ownerKeyValue }) { _, _ in
+            (status, String(decoding: data, as: UTF8.self))
+        }
+        let sentBody = request["body"]
+
+        // What Hook should make of the response.
+        let expectedError: QueueError?
+        switch (status, response["error"]?.stringValue) {
+        case (409, "waiting_for_steps"?):
+            expectedError = .waitingForSteps(until: try #require(Timestamp.date(Self.time)))
+        case (409, "steps_added"?):
+            let current = try #require(Self.stamp(response))
+            expectedError = .stepsAdded(rev: current.rev, hash: current.hash)
+        case (200..<300, _):
+            expectedError = nil
+        default:
+            Issue.record("\(name): a response this replay doesn't know")
+            return
+        }
+
+        var served: WireItem?
+        var sentByHook = true
+        do {
+            switch (method, path) {
+            case ("GET", "/asks/\(askID)"):
+                let detail = try await client.get(askID)
+                served = detail.item
+                try checkDetail(name, detail, response)
+            case ("POST", "/asks/\(askID)/resolve"):
+                served = try await client.resolve(askID, verdict: .done, note: nil, stamp: Self.stamp(sentBody))
+            case ("POST", "/asks/\(askID)/answers"):
+                guard case .array(let answers)? = sentBody?["answers"] else { Issue.record("\(name): no answers"); return }
+                served = try await client.answer(askID, answers: answers, stamp: Self.stamp(sentBody))
+            default:
+                // The session's own calls: Hook only reads their answer.
+                sentByHook = false
+                served = try JSONDecoder().decode(ItemResponse.self, from: data).item
+            }
+            #expect(expectedError == nil, "\(name): no error thrown")
+        } catch let error as QueueError {
+            #expect(error == expectedError, "\(name)")
+            return
+        }
+
+        if sentByHook {
+            let sent = try #require(MailboxStubRegistry.shared.last(host))
+            #expect(sent.request.httpMethod == method, "\(name)")
+            #expect(sent.request.url?.path() == path, "\(name)")
+            if method == "POST", let sentBody, sentBody != .null {
+                let ours = try JSONValue.parse(sent.body)
+                for key in ["rev", "hash", "answers", "verdict"] where sentBody[key] != nil {
+                    #expect(ours[key] == sentBody[key], "\(name): \(key)")
+                }
+            }
+        }
+
+        let wire = try #require(served)
+        #expect(wire.id == askID, "\(name)")
+        let pondWait = response["item"]?["stepWait"] ?? response["stepWait"]
+        switch pondWait {
+        case nil, .null?:
+            #expect(wire.stepWait == nil, "\(name)")
+        case .object?:
+            let wait = try #require(wire.stepWait, "\(name)")
+            #expect(wait.id == pondWait?["id"]?.stringValue && wait.path == pondWait?["path"]?.stringValue, "\(name)")
+            #expect(StepWait(wait)?.until == Timestamp.date(Self.time), "\(name)")
+        default:
+            Issue.record("\(name): stepWait isn't an object")
+        }
+    }
+
+    /// A detail's history verifies; the appended one is Hook's own append, and the local wait
+    /// rule agrees with the Pond's `stepWait`.
+    private func checkDetail(_ name: String, _ detail: AskDetail, _ response: JSONValue) throws {
+        guard case .success(let history)? = RevisionCheck.verify(detail) else {
+            Issue.record("\(name): the history doesn't verify")
+            return
+        }
+        let ins = try #require(history.currentBody)
+        let times = Array(history.times.values)
+        // Every `{time}` reads the same, so the answer's time stands for the Pond's clock too:
+        // the local rule must find the wait the Pond serves (same step), or none when it serves none.
+        let now = try #require(Timestamp.date(Self.time))
+        let local = StepWait.current(ins, events: detail.events, revisionTimes: times, now: now)
+        let pond = detail.item.stepWait
+        #expect(local?.path == pond?.path && local?.stepID == pond?.id, "\(name)")
+        #expect(local.map { $0.until == now.addingTimeInterval(StepWait.seconds) } ?? true, "\(name)")
+        if history.current.rev > 1 {
+            #expect(AppendCheck.appendedSince(history, base: 1) == true, "\(name)")
+            #expect(ReviewGate.resolve(record: nil, history: .success(history), pond: nil) == .current(history.current),
+                    "\(name)")
+        }
     }
 }
