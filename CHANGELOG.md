@@ -3,13 +3,14 @@
 All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
-## [Unreleased]
+## [0.16.0] - 2026-11-16
 
 ### Added
 
 - Each release has a signed, notarized `Hook-<version>.dmg`: drag Hook to Applications and open it. At its first launch Hook installs the `relay` command, MCP server and skill from inside the app, sets up your agents and opens setup, with no Terminal step. Opened from the disk image or a temporary copy macOS made, Hook first asks to be moved to Applications, and offers to move itself when it can.
 - Hook can live in /Applications: the config records the place (`appPath`), and updates replace the app there. `install.sh --app <path>` sets it.
 - Agents can add steps to the end of an open ask they posted, after your answer, with `relay append` or the `relay_append` MCP tool. Nothing you saw changes, so there is no review. It needs a Pond that lists `appendSteps` (Pond 1.9.0). `relay status --json` and `relay_status` list the additions in `appends`.
+- Steps an agent adds after your answer show under a divider ("Added after your answer · 14:02"), the queue card gets a "+N steps" tag, and one notification says how many arrived. While an agent says more steps follow, Done waits up to 10 minutes and the ask shows "Waiting for next steps…". Skip always works.
 - A question can say more steps follow its answer (`"then": "steps"`). The agent rules tell sessions to add next steps to the same ask instead of posting a new one.
 
 ### Changed
