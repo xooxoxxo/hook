@@ -38,6 +38,7 @@ public struct QueueSnapshot: Equatable, Sendable {
                              hasDraft: (String) -> Bool, closedBy: (WireItem) -> String?,
                              review: (WireItem) -> ReviewState = { _ in .legacy },
                              doneBlocked: (WireItem) -> Bool = { _ in false },
+                             addedSteps: (WireItem) -> Int = { _ in 0 },
                              sourceKey: String, loadedOnce: Bool, reachable: Bool, problem: String?, waitedTenSeconds: Bool,
                              manualRefreshing: Bool, updated: String) -> QueueSnapshot {
         var rows: [String: AskRowModel] = [:]
@@ -46,7 +47,8 @@ public struct QueueSnapshot: Equatable, Sendable {
             for item in section.items {
                 shownCount += 1
                 rows[item.id] = row(item, ticked: ticks(item), answered: answered(item), hasDraft: hasDraft(item.id),
-                                    closedBy: nil, review: review(item), doneBlocked: doneBlocked(item))
+                                    closedBy: nil, review: review(item), doneBlocked: doneBlocked(item),
+                                    addedSteps: addedSteps(item))
             }
         }
         let closedRows = shownClosed.map {
@@ -68,7 +70,8 @@ public struct QueueSnapshot: Equatable, Sendable {
     /// `answered`: the answered step paths, when the ask's detail is cached (QueueLayout.summary).
     /// `doneBlocked`: the queue's Done is off for this ask (`AskRowModel.doneBlocked`).
     public static func row(_ item: WireItem, ticked: Set<String>, answered: Set<String>? = nil, hasDraft: Bool,
-                           closedBy: String?, review: ReviewState = .legacy, doneBlocked: Bool = false) -> AskRowModel {
+                           closedBy: String?, review: ReviewState = .legacy, doneBlocked: Bool = false,
+                           addedSteps: Int = 0) -> AskRowModel {
         let isClosed = item.status != "open"
         let summary = QueueLayout.summary(for: item, ticked: ticked, answered: answered)
         let ins = item.instructable
@@ -81,6 +84,7 @@ public struct QueueSnapshot: Equatable, Sendable {
             closed: isClosed ? ClosedInfo(status: item.status, closedBy: closedBy, completedAt: item.completedAt) : nil,
             resumeCommand: origin?.resumeCommand, origin: origin, review: review)
         row.doneBlocked = !isClosed && doneBlocked
+        row.addedSteps = isClosed ? 0 : max(0, addedSteps)
         return row
     }
 
@@ -164,6 +168,12 @@ public struct DetailSnapshot: Equatable, Sendable {
     public var limits: TalkLimits = .old
     /// While a correction is pending: how many steps it adds to the version shown.
     public var addedSinceShown = 0
+    /// Done waits for the session's next steps (`StepWait`): Done and Discard & Done are off,
+    /// the bar says "Waiting for next steps…", Skip still works.
+    public var stepWait: StepWait?
+    /// The revisions that only added steps to the version shown, each drawn as a divider above
+    /// its first step (`StepEntries`).
+    public var appendMarkers: [AppendMarker] = []
     /// What the ask needs before Done and what's left (Pond 1.3.0); `.none` without requirements,
     /// before the detail loads, or once closed. The rows' marks read `marks(path)`.
     public var requirements: RequirementState = .none

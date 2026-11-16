@@ -117,7 +117,17 @@ let queueBarHeight: CGFloat = 1080
 /// The same with Recently closed open.
 let queueClosedHeight: CGFloat = 1120
 
+/// The fixture queue with steps added to two asks the owner hasn't opened since: "+2 steps" on
+/// a card with progress, "+1 step" on one without.
+@MainActor func appendedQueue() -> QueueSnapshot {
+    var queue = GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false)
+    queue.rows["acme-1"]?.addedSteps = 2
+    if let other = queue.rows.keys.sorted().first(where: { $0 != "acme-1" }) { queue.rows[other]?.addedSteps = 1 }
+    return queue
+}
+
 @MainActor let queueScenes: [GalleryScene] = [
+    panelScene("queue-appended", queueModel(appendedQueue()), height: queueHeight, rules: queueEdgeRules),
     panelScene("queue", queueModel(GalleryFixtures.queue(grouping: .project, filter: nil, closedExpanded: false)),
                height: queueHeight, rules: queueEdgeRules),
     panelScene("queue-urgency", queueModel(GalleryFixtures.queue(grouping: .urgency, filter: nil, closedExpanded: false)),

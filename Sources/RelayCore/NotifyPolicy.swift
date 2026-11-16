@@ -5,6 +5,9 @@ public enum NotifyContent: Sendable, Equatable {
     /// `project` is the raw project string, "" when the ask has none; `threadIdentifier` uses it.
     case single(id: String, project: String, title: String)
     case many(Int)
+    /// The session added `count` steps to the open ask `id`; `note` is its reason. `quiet`: the
+    /// owner acted on that ask in the last 2 minutes, so it shows without a sound.
+    case stepsAdded(id: String, project: String, title: String, count: Int, note: String, quiet: Bool)
 }
 
 public enum NotifyAction: Sendable, Equatable {
@@ -61,6 +64,12 @@ public struct NotifyPolicy: Sendable {
         return .show(content)
     }
 
+    /// Steps added to an open ask: shown at once, never grouped with new asks and never holding
+    /// them back; the ask's urgency setting applies as for the ask itself.
+    public func stepsAdded(_ item: WireItem, content: NotifyContent) -> NotifyAction {
+        wants(item) ? .show(content) : .none
+    }
+
     /// Asks waiting for a scheduled flush.
     public var pendingCount: Int { pending.count }
 
@@ -91,9 +100,44 @@ public struct NotifyPolicy: Sendable {
 }
 
 extension NotifyContent {
+    /// The owner acted on the ask this recently: the steps-added notification stays quiet.
+    public static let quietAfterAct: TimeInterval = 120
+
+    /// One notification for the appends the Store just found on `item` (`AppendWatch`): the
+    /// added steps summed, the newest note. nil when there are none.
+    public static func stepsAdded(_ item: WireItem, markers: [AppendMarker], events: [Event], now: Date) -> NotifyContent? {
+        guard let newest = markers.last else { return nil }
+        let count = markers.map(\.addedTopLevel).reduce(0, +)
+        guard count > 0 else { return nil }
+        return .stepsAdded(id: item.id, project: item.projectId ?? "", title: item.title, count: count,
+                           note: newest.note, quiet: ownerActed(events, now: now))
+    }
+
+    /// What the owner does on an ask by hand. Never `accepted`: Hook sends that on its own when
+    /// it seals an append, and the Pond records it as the owner's.
+    static let ownerActs: Set<String> = ["answer", "reply", "message", "problem", "progress", "reopened", "resolved"]
+
+    /// An owner act on the ask (`ownerActs`) less than `quietAfterAct` before `now`.
+    static func ownerActed(_ events: [Event], now: Date) -> Bool {
+        events.contains { event in
+            guard event.actor == "owner", ownerActs.contains(event.kind),
+                  let at = Timestamp.date(event.at) else { return false }
+            return now.timeIntervalSince(at) < quietAfterAct
+        }
+    }
+
+    /// Whether it plays a sound: the Notifications setting, except a quiet steps-added one.
+    public func sound(_ setting: Bool) -> Bool {
+        if case .stepsAdded(_, _, _, _, _, true) = self { return false }
+        return setting
+    }
+
     /// Single: the project as one revealed line, or "Hook" when it has none. Several: "Hook".
+    /// Steps added: "2 steps added: <ask title>".
     public var title: String {
         switch self {
+        case let .stepsAdded(_, _, title, count, _, _):
+            return (count == 1 ? "1 step added: " : "\(count) steps added: ") + Sanitize.revealLine(title)
         case .single(_, let project, _):
             let trimmed = project.trimmingCharacters(in: .whitespacesAndNewlines)
             return trimmed.isEmpty ? "Hook" : Sanitize.revealLine(project)
@@ -106,6 +150,7 @@ extension NotifyContent {
         switch self {
         case .single(_, _, let title): Sanitize.revealLine(title)
         case .many(let count): "\(count) new asks"
+        case let .stepsAdded(_, _, _, _, note, _): Sanitize.revealLine(note)
         }
     }
 }

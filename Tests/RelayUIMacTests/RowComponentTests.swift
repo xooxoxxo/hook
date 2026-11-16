@@ -21,6 +21,20 @@ private func row(_ summary: RowSummary = .steps(done: 2, total: 8), urgency: Urg
             == "so⟨U+000A⟩on. Renew the staging certificate. No project, now")
     }
 
+    /// "+2 steps" while steps the owner hasn't opened were added; VoiceOver says it too.
+    @Test func askRowAddedSteps() {
+        var added = row()
+        #expect(AskRow.addedTag(added) == nil)
+        added.addedSteps = 2
+        #expect(AskRow.addedTag(added) == "+2 steps")
+        #expect(AskRow.accessibilityText(row: added, age: "3 h ago")
+            == "Now. Renew the staging certificate. Acme, 3 h ago. 2 of 8 steps done. 2 steps added")
+        added.addedSteps = 1
+        #expect(AskRow.addedTag(added) == "+1 step")
+        added.closed = ClosedInfo(status: "done", closedBy: "owner", completedAt: nil)
+        #expect(AskRow.addedTag(added) == nil)
+    }
+
     /// The top row shows the symbol and word for Now and Today, only the symbol under an Urgency
     /// header, nothing for Whenever, and an unknown urgency's raw string either way.
     @Test func cardUrgencyMark() {

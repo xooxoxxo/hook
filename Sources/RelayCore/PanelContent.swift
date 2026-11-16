@@ -233,3 +233,48 @@ public enum DetailLoadState: Equatable, Sendable {
         return .loading
     }
 }
+
+/// One entry of the detail's step list: a top-level node, or the divider above the steps a
+/// revision added at the end (`AppendMarker`). `rev` names the divider (the detail scrolls to it
+/// once); `title` and `note` are display-ready.
+public enum StepEntry: Equatable, Sendable {
+    case node(DetailModel.Node)
+    case appendMarker(rev: Int, title: String, note: String)
+}
+
+/// The detail's step list with a divider right before the first step each append added. The
+/// steps keep their running numbers.
+public enum StepEntries {
+    /// Each marker goes before the top-level step whose id is `firstStepID`, else (an ask
+    /// without ids) before the one at `firstStepIndex`. A marker that finds no step is dropped;
+    /// verify is never a target, so it stays last.
+    public static func make(_ nodes: [DetailModel.Node], markers: [AppendMarker], timeZone: TimeZone) -> [StepEntry] {
+        guard !markers.isEmpty else { return nodes.map(StepEntry.node) }
+        let steps = nodes.indices.filter { !nodes[$0].isVerify }
+        var before: [Int: [AppendMarker]] = [:]
+        for marker in markers {
+            let byID = marker.firstStepID.isEmpty ? nil : steps.first { nodes[$0].stepID == marker.firstStepID }
+            let byIndex = steps.indices.contains(marker.firstStepIndex) && nodes[steps[marker.firstStepIndex]].stepID == nil
+                ? steps[marker.firstStepIndex] : nil
+            guard let index = byID ?? byIndex else { continue }
+            before[index, default: []].append(marker)
+        }
+        return nodes.indices.flatMap { index -> [StepEntry] in
+            (before[index] ?? []).map {
+                .appendMarker(rev: $0.rev, title: title($0, timeZone: timeZone), note: Sanitize.revealLine($0.note))
+            } + [.node(nodes[index])]
+        }
+    }
+
+    /// "Added after your answer · 14:02" or "Added by the session · 14:02": HH:mm in `timeZone`
+    /// (the Mac's own), never a 12-hour clock. No time when `at` doesn't read.
+    public static func title(_ marker: AppendMarker, timeZone: TimeZone) -> String {
+        let who = marker.afterAnswer ? "Added after your answer" : "Added by the session"
+        guard let date = Timestamp.date(marker.at) else { return who }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = timeZone
+        formatter.dateFormat = "HH:mm"
+        return who + " · " + formatter.string(from: date)
+    }
+}

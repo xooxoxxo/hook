@@ -48,6 +48,10 @@ struct DetailView<Model: PanelViewModel>: View {
         var failure: String?
         if case .failed(let reason)? = snapshot.answerState { failure = reason }
         let warning = snapshot.doneWarning ? snapshot.unsentKind?.caption : nil
+        // Done waits for the session's next steps: the bar says so, the why behind its "?".
+        if warning == nil, snapshot.stepWait != nil {
+            return ActionBarAnswers(caption: StepWait.waitingText, failure: failure, help: StepWait.helpText)
+        }
         return ActionBarAnswers(caption: warning ?? snapshot.unansweredCaption, failure: failure)
     }
 
@@ -60,7 +64,7 @@ struct DetailView<Model: PanelViewModel>: View {
 
     static func gate(_ snapshot: DetailSnapshot) -> BarGate {
         BarGate(doneEnabled: snapshot.doneEnabled, discardEnabled: snapshot.discardEnabled,
-                doneHelp: Requirements.doneHelp(snapshot.requirements))
+                doneHelp: snapshot.stepWait != nil ? StepWait.waitingText : Requirements.doneHelp(snapshot.requirements))
     }
 
     /// The ask a header chevron opens; nil at the ends and outside the filter (disabled).
@@ -150,7 +154,8 @@ struct DetailView<Model: PanelViewModel>: View {
                         noteAnchor(frames, order: [Self.titleAnchor] + Flow.flattened(snapshot.model?.nodes ?? []).map(\.path))
                     }
                 }
-                .onAppear { restoreAnchor(proxy) }
+                .onAppear { restoreAnchor(proxy, newSteps: snapshot.appendMarkers.map(\.rev)) }
+                .onChange(of: snapshot.appendMarkers.map(\.rev)) { _, revs in scrollToNewSteps(revs, proxy: proxy) }
                 .onChange(of: snapshot.current) { _, current in scrollToCurrent(current, proxy: proxy) }
                 // The queue row's Report a Problem… can open the field on a step out of sight.
                 .onChange(of: snapshot.reportTarget) { _, target in scrollToCurrent(target, proxy: proxy) }
@@ -182,8 +187,16 @@ struct DetailView<Model: PanelViewModel>: View {
 
     /// Back to where you left this ask. noteAnchor is gated on `restored`, so no frame report
     /// can overwrite the anchor before this scroll is issued, in whichever order they run.
-    private func restoreAnchor(_ proxy: ScrollViewProxy) {
+    private func restoreAnchor(_ proxy: ScrollViewProxy, newSteps revs: [Int]) {
         guard !restored else { return }
+        if let scroll = Self.newStepsScroll(revs, scrolled: model.appendScrolled[id]) {
+            model.appendScrolled[id] = scroll.newest
+            DispatchQueue.main.async {
+                proxy.scrollTo(DetailSteps<Model>.dividerID(scroll.target), anchor: .top)
+                restored = true
+            }
+            return
+        }
         guard let anchor = model.detailAnchor[id] else {
             restored = true
             return
@@ -191,6 +204,27 @@ struct DetailView<Model: PanelViewModel>: View {
         DispatchQueue.main.async {
             proxy.scrollTo(anchor, anchor: .top)
             restored = true
+        }
+    }
+
+    /// The detail scrolls to the appends' dividers once per marker: to the oldest marker newer
+    /// than the one it last scrolled to for this ask, so the first new step is in view, and it
+    /// remembers the newest. nil when none is new.
+    static func newStepsScroll(_ revs: [Int], scrolled: Int?) -> (target: Int, newest: Int)? {
+        let fresh = revs.filter { $0 > (scrolled ?? 0) }
+        guard let target = fresh.min(), let newest = fresh.max() else { return nil }
+        return (target, newest)
+    }
+
+    /// New appends arrived while the ask is open: bring the first new divider to the top, once.
+    private func scrollToNewSteps(_ revs: [Int], proxy: ScrollViewProxy) {
+        guard let scroll = Self.newStepsScroll(revs, scrolled: model.appendScrolled[id]) else { return }
+        model.appendScrolled[id] = scroll.newest
+        // After the new rows are laid out.
+        DispatchQueue.main.async {
+            withAnimation(DS.motion(DS.Motion.step, reduce: reduceMotion)) {
+                proxy.scrollTo(DetailSteps<Model>.dividerID(scroll.target), anchor: .top)
+            }
         }
     }
 

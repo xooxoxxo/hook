@@ -215,7 +215,7 @@ public enum QueueError: Error, Sendable, Equatable, LocalizedError {
         case .stepsAdded:
             return "New steps were added. Open the ask to see them."
         case .waitingForSteps:
-            return "Waiting for next steps…"
+            return StepWait.waitingText
         }
     }
 }
