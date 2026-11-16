@@ -60,8 +60,9 @@ public enum AskNotificationImage {
 /// ask, "N new asks", the away summary) carry the fish; the crash notice and Settings' test
 /// notification carry nothing.
 public enum NotificationContentMaker {
-    /// One new ask, or "N new asks". The identifier is the ask id for one ask, so a banner can be
-    /// removed when the ask closes.
+    /// One new ask, "N new asks", or steps added to an open ask. The identifier is the ask id for
+    /// one ask (a steps-added banner replaces that ask's earlier one), so a banner can be removed
+    /// when the ask closes. A quiet steps-added banner has no sound.
     public static func asks(_ content: NotifyContent, sound: Bool, images: URL)
         -> (content: UNMutableNotificationContent, identifier: String) {
         let note = UNMutableNotificationContent()
@@ -73,11 +74,15 @@ public enum NotificationContentMaker {
             note.threadIdentifier = project.isEmpty ? "relay" : project
             note.userInfo = ["id": id]
             identifier = id
+        case let .stepsAdded(id, project, _, _, _, _):
+            note.threadIdentifier = project.isEmpty ? "relay" : project
+            note.userInfo = ["id": id]
+            identifier = id
         case .many:
             note.threadIdentifier = "relay"
             identifier = "relay.many.\(UUID().uuidString)"
         }
-        if sound { note.sound = .default }
+        if content.sound(sound) { note.sound = .default }
         attachFish(note, images: images)
         return (note, identifier)
     }

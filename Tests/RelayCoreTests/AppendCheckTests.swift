@@ -146,7 +146,7 @@ private func ownerAnswer(at: String, kind: String = "answer", actor: String = "o
         let verified = try history([body(["s1"]), body(["s1", "r2-1", "r2-2"])], reasons: ["Two more checks"])
         let markers = AppendCheck.markers(verified, base: 1, events: [ownerAnswer(at: "2026-11-14T10:01:30+00:00")])
         #expect(markers == [AppendMarker(rev: 2, at: "2026-11-14T10:02:00+00:00", note: "Two more checks",
-                                         firstStepID: "r2-1", addedTopLevel: 2, afterAnswer: true)])
+                                         firstStepID: "r2-1", addedTopLevel: 2, afterAnswer: true, firstStepIndex: 1)])
     }
 
     /// No owner answer in between, or one outside the window, or one by the session: "Added by the session".

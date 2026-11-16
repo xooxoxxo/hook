@@ -10,6 +10,7 @@ extension Store {
     /// requirements, or its cached detail says nothing is left but what the unsent drafts finish
     /// (RD 22). Without a cached detail an ask with requirements can't be Done (RD 23).
     public func doneAllowed(_ id: String) -> Bool {
+        if stepWait(id) != nil { return false }
         guard let state = requirementState(id) else { return true }
         guard let state else { return false }
         return Requirements.doneAvailable(state, unsent: unsentAnswers(for: id), replyUnsent: replyUnsent(id))

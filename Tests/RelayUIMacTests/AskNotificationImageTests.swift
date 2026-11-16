@@ -44,6 +44,25 @@ import UserNotifications
         #expect(fishIDs(made.content) == [AskNotificationImage.attachmentIdentifier])
     }
 
+    /// Steps added: the ask's id (it replaces that ask's banner and opens it), the title and the
+    /// note, and no sound while quiet.
+    @Test func stepsAddedOpensTheAsk() {
+        let dir = folder()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let ringing = NotificationContentMaker.asks(
+            .stepsAdded(id: "a1", project: "Site", title: "Approve the DNS change", count: 2, note: "Two more checks",
+                        quiet: false), sound: true, images: dir)
+        #expect(ringing.identifier == "a1")
+        #expect(ringing.content.userInfo["id"] as? String == "a1")
+        #expect(ringing.content.title == "2 steps added: Approve the DNS change")
+        #expect(ringing.content.body == "Two more checks")
+        #expect(ringing.content.sound != nil)
+        let quiet = NotificationContentMaker.asks(
+            .stepsAdded(id: "a1", project: "Site", title: "Approve the DNS change", count: 1, note: "One more",
+                        quiet: true), sound: true, images: dir)
+        #expect(quiet.content.sound == nil)
+    }
+
     @Test func manyNewAsksCarryTheFish() {
         let dir = folder()
         defer { try? FileManager.default.removeItem(at: dir) }

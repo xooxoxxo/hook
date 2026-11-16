@@ -2,7 +2,7 @@
 
 Run the tests before you say done.
 
-<!-- hook:begin id=instructions v=1 sha=382337d85c554b2c -->
+<!-- hook:begin id=instructions v=1 sha=1ce510e269d67dfc -->
 <!-- hook:instructions v=1 app=9.9.9 -->
 # Owner asks go to Hook
 
@@ -30,6 +30,10 @@ routing preference. The `instructables` skill has the format and writing rules.
   `relay_amend {id, reason, instructable}` (CLI: `relay amend <id> --reason "…" --json <file>`).
   Send the whole fixed ask and keep every step's `id`. Never close it and post a new one;
   that loses the owner's ticks and answers. Repost only if the correction is refused.
+- When your next steps depend on the owner's answer, add them with `relay_append`. Never close
+  the ask and post a new one. To change a step the owner already saw, use `relay_amend`.
+  The loop is post, `relay wait`, `relay_append`, `relay wait`. Mark the question
+  `"then": "steps"` when more steps will follow its answer.
 - **Solved it yourself, so the need is gone:** `relay done <id> "<what happened>"`.
 - Never put a secret or its value in an ask; add a step that stores it in the Keychain.
 - Mention the ask and its id in chat too.

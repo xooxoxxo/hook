@@ -31,5 +31,20 @@ import SwiftUI
         requiredScene("detail-required-messages", RequiredFixtures.messageLeft, rules: topColumnRules),
         // Only the reply left: the reply prompt is marked.
         requiredScene("detail-required-reply", RequiredFixtures.replyLeft, rules: topColumnRules),
+        // The owner answered a `then: "steps"` question: Done off, "Waiting for next steps…"
+        // with its "?", Skip on.
+        requiredScene("detail-waiting-steps", waitingForSteps(), rules: topColumnRules),
     ]
+}
+
+/// The appended fixture before its appends: steps 1 and 2 done, the region question answered,
+/// and Done waiting for the session's next steps.
+@MainActor func waitingForSteps() -> DetailSnapshot {
+    var detail = decodeDetail(appendedJSON)
+    detail.item.payload.instructable?.steps.removeLast(3)
+    var snapshot = detailSnapshot(detail, base: GalleryFixtures.detailSteps, ticks: ["1", "2"])
+    snapshot.stepWait = StepWait(stepID: "s2", path: "2", until: GalleryFixtures.now.addingTimeInterval(540))
+    snapshot.doneEnabled = false
+    snapshot.discardEnabled = false
+    return snapshot
 }

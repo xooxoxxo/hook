@@ -17,6 +17,7 @@ public final class FixturePanelModel: PanelViewModel {
     @Published public var editingAnswers: [String: Set<String>] = [:]
     @Published public var expandedTodo: [String: Set<String>] = [:]
     @Published public var detailAnchor: [String: String] = [:]
+    public var appendScrolled: [String: Int] = [:]
     @Published public var reviewing: [String: RevisionStamp] = [:]
     @Published public var reporting: [String: String] = [:]
     @Published public var reportDrafts: [String: String] = [:]

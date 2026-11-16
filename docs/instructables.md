@@ -68,6 +68,7 @@ A **Question** is a JSON object with these keys:
 | `prompt` | Required, ≤ 300, line breaks allowed |
 | `choices` | 0–6 distinct strings of ≤ 60, one line each, or [choices with words](#choices-with-words); none or `[]` asks for free text |
 | `multi` | `true` allows several picks and needs at least 2 choices |
+| `then` | `"steps"`, the only value: more steps follow the answer. After the owner answers, their Done stays off until the session [adds steps](agents.md#adding-steps) or 10 minutes pass. Skip always works. Needs a Pond that lists `appendSteps` |
 
 The owner can answer questions one at a time; each answer is an `answer` event ([Pond protocol](mailbox-protocol.md)). The ask stays open until Done or Skip. Done works with questions unanswered, unless they are [required](#before-done).
 
@@ -164,8 +165,11 @@ Not `{"do": "Install the Leasekey client on the Mac, create the Claude agent's t
 | `id` | 1.1.0 |
 | `required`, `done` | 1.3.0 |
 | a choice object (`choices[].text`) | 1.4.0 |
+| a question's `then` | the `appendSteps` feature (Pond 1.9.0) |
 
 `relay post`, `relay_post` and `relay amend` ask `GET /version` first, cached for 5 minutes per process. A newer minor or patch Pond never stops a key working ([Pond versions](mailbox-protocol.md#pond-versions)). When the Pond is too old, they refuse, post nothing and exit 1: ``Your Pond (1.0.0) is older than `id` needs (Pond 1.1.0 or newer). Update the Pond, or leave the key out.`` In This Mac mode the app is the server, so the refusal is "Hook's This Mac queue (Pond 1.0.0) can't take `id` yet."
+
+`then` is gated on a name, not a version: it needs `appendSteps` in the `features` list of `GET /version`. Without it, the refusal is ``Your Pond (1.8.0) can't take `question.then` yet. Update the Pond, or leave the key out.``
 
 A Pond without `/version` counts as protocol 1, too old for any of these keys. An answer with neither a semver `version` nor an integer `protocol` is unknown: Hook posts the instructable and the Pond validates it. An instructable without these keys posts with no extra call.
 

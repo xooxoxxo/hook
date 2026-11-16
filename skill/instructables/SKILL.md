@@ -326,6 +326,54 @@ relay amend <id> --reason "Added the step that invites acme-bot; the brief can't
 It prints `corrected <id> → version N (<what changed>). The owner must review it in Hook
 before acting.` A refusal prints its reason and exits 1.
 
+## Adding steps after an answer
+
+When your next steps depend on the owner's answer, add them to the end of the same ask with
+`relay_append` (or `relay append`). Never close the ask and post a new one. To change a step
+the owner already saw, use `relay_amend`. The loop is: post, `relay wait`, `relay_append`,
+`relay wait`.
+
+- Mark the question `"then": "steps"` when more steps will follow its answer. After the
+  owner answers it, their Done stays off until your steps arrive or 10 minutes pass, so they
+  don't close the ask before you add them. Skip always works.
+- `note`: what the new steps are for, on one line, at most 200 characters. The owner sees it
+  above the new steps.
+- `steps`: 1 to 10 step objects, written as in `relay_post`. Leave ids out; the Pond names
+  them. Nothing the owner saw changes, so there is no review.
+- Add steps only to asks you posted: it needs the ask's edit key, like a correction. At most
+  10 additions per ask, at least 15 s apart.
+- It needs a Pond that lists `appendSteps` (Pond 1.9.0), and so does `then`. On any refusal
+  ("Your Pond (V) can't add steps to an ask yet", "This Mac's queue can't add steps", "The
+  owner already closed this ask", "This ask has had 10 additions"), post a follow-up ask.
+
+For example, ask for the region first, and say more steps follow:
+
+```json
+{
+  "v": 1,
+  "title": "Deploy the Acme brief service",
+  "urgency": "today",
+  "steps": [
+    {"do": "Pick the region to deploy to",
+     "question": {"prompt": "Which region?", "choices": ["EU", "US"], "then": "steps"}}
+  ]
+}
+```
+
+When `relay wait` prints the answer (`answer 1 (version 1): "EU"`), add the steps for that
+region:
+
+```bash
+relay append <id> --note "Deploy steps for the EU region you picked" --json - <<'EOF'
+[{"do": "Open the EU deploy page", "url": "https://pond.example.test/deploy/eu"},
+ {"do": "Press Deploy", "where": "EU deploy page", "expect": "The status turns green"}]
+EOF
+```
+
+It prints `added 2 steps to <id> → version 2`. With MCP: `relay_append {id, note, steps}`,
+which returns `{id, rev, hash, added, openUrl}`. `relay_status` lists your additions in
+`appends`. Then run `relay wait <id> --after <last seq>` again.
+
 ## Problem reports
 
 The owner can report a problem with a step from Hook ("permission denied on step 3"). It
