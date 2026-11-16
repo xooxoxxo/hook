@@ -35,6 +35,9 @@ def verify_app(app, version, team):
         raise ValueError('Unexpected bundle identity')
     if info.get('CFBundleShortVersionString') != version or info.get('CFBundleVersion') != version:
         raise ValueError('Unexpected app version')
+    local_network_usage = info.get('NSLocalNetworkUsageDescription')
+    if not isinstance(local_network_usage, str) or not local_network_usage.strip():
+        raise ValueError('Local Network usage explanation missing')
     # The support payload is sealed into the app: Hook's first launch installs from it.
     support = app / 'Contents/Resources/support'
     if not (support / 'VERSION').is_file() or (support / 'VERSION').read_text().strip() != version:

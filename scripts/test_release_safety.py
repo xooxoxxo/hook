@@ -24,10 +24,14 @@ SIGNATURE = ('TeamIdentifier=' + TEAM + '\nAuthority=Developer ID Application: E
 APPROVAL = '11111111-1111-4111-8111-111111111111'
 
 
-def fake_app(app, version='0.15.2', support=True):
+def fake_app(app, version='0.15.2', support=True,
+             local_network_usage='Hook connects to your Pond on the local network.'):
     """A stand-in Hook.app: its Info.plist and, unless told otherwise, the bundled payload."""
     (app / 'Contents').mkdir(parents=True)
-    (app / 'Contents/Info.plist').write_bytes(plistlib.dumps({'CFBundleIdentifier': 'io.github.xooxoxxo.relay', 'CFBundleShortVersionString': version, 'CFBundleVersion': version}))
+    info = {'CFBundleIdentifier': 'io.github.xooxoxxo.relay', 'CFBundleShortVersionString': version, 'CFBundleVersion': version}
+    if local_network_usage is not None:
+        info['NSLocalNetworkUsageDescription'] = local_network_usage
+    (app / 'Contents/Info.plist').write_bytes(plistlib.dumps(info))
     if support:
         scripts = app / 'Contents/Resources/support/scripts'
         scripts.mkdir(parents=True)
@@ -37,10 +41,11 @@ def fake_app(app, version='0.15.2', support=True):
 
 
 class AppVerification(unittest.TestCase):
-    def exercise(self, signature=SIGNATURE, debug=False, failed_command=None, support=True):
+    def exercise(self, signature=SIGNATURE, debug=False, failed_command=None, support=True,
+                 local_network_usage='Hook connects to your Pond on the local network.'):
         with tempfile.TemporaryDirectory() as tmp:
             app = Path(tmp) / 'Hook.app'
-            fake_app(app, support=support)
+            fake_app(app, support=support, local_network_usage=local_network_usage)
             def call(argv, **kwargs):
                 if failed_command and failed_command in argv:
                     raise subprocess.CalledProcessError(1, argv)
@@ -55,6 +60,11 @@ class AppVerification(unittest.TestCase):
         self.assertTrue(any('--strict' in c for c in calls))
         self.assertTrue(any('stapler' in c for c in calls))
         self.assertTrue(any('spctl' in c for c in calls))
+
+    def test_release_rejects_a_missing_or_unreadable_local_network_explanation(self):
+        for usage in (None, '', '   ', 15):
+            with self.subTest(usage=usage), self.assertRaisesRegex(ValueError, 'Local Network'):
+                self.exercise(local_network_usage=usage)
 
     def test_wrong_identity_runtime_timestamp_and_debug_rejected(self):
         for signature in (SIGNATURE.replace(TEAM.encode(), b'XXXXXXXXXX'), SIGNATURE.replace(b'Developer ID Application', b'Apple Development'), SIGNATURE.replace(b'runtime', b'none'), SIGNATURE.replace(b'Timestamp=', b'Unsigned=')):

@@ -3,6 +3,17 @@
 All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## [0.16.1] - 2026-11-16
+
+### Fixed
+
+- Pond connections wait briefly for the network to become ready at startup. The whole request is limited to 12 seconds, including connection waiting and slow responses. Failed owner actions are not replayed by Hook.
+- A failed Pond connection no longer claims that the whole Internet is offline. Bounded, redacted error codes help diagnose failures without recording endpoints or credentials.
+- Mac builds include a Local Network usage explanation, and release verification rejects apps without it.
+
+<!-- hook:pond=^1.1.0 -->
+<!-- hook:mailbox-protocol=5 -->
+
 ## [0.16.0] - 2026-11-16
 
 ### Added
