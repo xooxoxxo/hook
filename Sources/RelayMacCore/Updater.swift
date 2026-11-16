@@ -124,7 +124,16 @@ public enum UpdateRunner {
         ProcessInfo.processInfo.environment["HOME"] ?? FileManager.default.homeDirectoryForCurrentUser.path
     }
     public static var logPath: String { HookLog.updateLogPath(home: home) }
-    public static var appPath: String { home + "/Applications/Hook.app" }
+    /// The app an update replaces and starts again: this one when it runs from Applications
+    /// (a DMG install in /Applications; install.sh finds it through the config's appPath),
+    /// else ~/Applications/Hook.app.
+    public static var appPath: String { appPath(bundlePath: Bundle.main.bundlePath, home: home) }
+
+    public static func appPath(bundlePath: String, home: String) -> String {
+        let bundle = (bundlePath as NSString).standardizingPath
+        if bundle.hasSuffix("/Hook.app"), AppLocation.of(bundlePath: bundle, home: home) == .applications { return bundle }
+        return home + "/Applications/Hook.app"
+    }
 
     /// The gate: the folder is the Hook repo, its origin is xooxoxxo/hook or xooxoxxo/relay, the tree is
     /// clean, and HEAD is main or a release tag. Runs git off the main thread.

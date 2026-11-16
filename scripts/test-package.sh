@@ -29,6 +29,10 @@ fake_app() {   # fake_app <path> [bundle id] [version]
 PLIST
   printf '#!/bin/sh\nexit 0\n' > "$1/Contents/MacOS/Hook"
   chmod +x "$1/Contents/MacOS/Hook"
+  # The support payload, sealed into the app as build.sh does.
+  mkdir -p "$1/Contents/Resources"
+  "$REPO/scripts/bundle-support.sh" "$1/Contents/Resources/support" --version "${3:-$VERSION}" \
+    || fail "bundle-support.sh failed for $1"
 }
 
 # 1. The zip holds Hook.app and the support payload, and SHA256SUMS names it with its hash.
@@ -56,7 +60,64 @@ if find "$S" \( -name 'test_*' -o -name '__pycache__' -o -name '*.pyc' -o -name 
 fi
 [ ! -e "$S/scripts/build.sh" ] || fail "build.sh is in the payload (nothing builds there)"
 [ -x "$T/x/Hook.app/Contents/MacOS/Hook" ] || fail "the app lost its executable"
+# The app carries the same payload inside (Contents/Resources/support), signed with it.
+diff -r "$S" "$T/x/Hook.app/Contents/Resources/support" >/dev/null || fail "support/ differs from the app's bundled payload"
+[ -x "$T/x/Hook.app/Contents/Resources/support/scripts/install.sh" ] || fail "the bundled install.sh lost its x bit"
+if find "$T/x/Hook.app/Contents/Resources/support" -type l | grep -q .; then fail "symlinks in the bundled payload"; fi
+if find "$T/x/Hook.app/Contents/Resources/support" -type f -exec file -b {} + | grep -q 'Mach-O'; then
+  fail "a Mach-O file in the bundled payload (it would need its own signature)"
+fi
+# Without --dmg, SHA256SUMS lists the zip alone.
+[ "$(wc -l < "$T/dist/SHA256SUMS" | tr -d ' ')" = "1" ] || fail "SHA256SUMS without --dmg has $(wc -l < "$T/dist/SHA256SUMS") lines"
 ok "zip layout and SHA256SUMS"
+
+# 1c. An app without the bundled payload (or with another version's) is refused.
+mkdir -p "$T/bare/Hook.app"
+ditto "$T/build/Hook.app" "$T/bare/Hook.app"
+rm -rf "$T/bare/Hook.app/Contents/Resources/support"
+if "$PACK" --app "$T/bare/Hook.app" --out "$T/dist-bare" >"$OUT" 2>&1; then fail "an app without support was packed"; fi
+grep -q "has no support payload" "$OUT" || { cat "$OUT"; fail "no reason for the missing payload"; }
+"$REPO/scripts/bundle-support.sh" "$T/bare/Hook.app/Contents/Resources/support" --version 0.0.1 >/dev/null
+if "$PACK" --app "$T/bare/Hook.app" --out "$T/dist-bare" >"$OUT" 2>&1; then fail "an app with another version's payload was packed"; fi
+grep -q "support payload is 0.0.1" "$OUT" || { cat "$OUT"; fail "no reason for the payload's version"; }
+if "$REPO/scripts/bundle-support.sh" "$T/bare/Hook.app/Contents/Resources/support" >"$OUT" 2>&1; then fail "bundle-support.sh overwrote a folder"; fi
+ok "an app without its payload refused"
+
+# 1d. --dmg: Hook-<version>.dmg holds Hook.app (with its payload) and a link to /Applications,
+#     and SHA256SUMS lists the zip, then the DMG. --sums rewrites it for the files there.
+#     Only where hdiutil can make and mount an image (it can't in some sandboxes).
+DMG="$T/dist-dmg/Hook-$VERSION.dmg"
+if command -v hdiutil >/dev/null 2>&1 && hdiutil info >/dev/null 2>&1; then
+  "$PACK" --app "$T/build/Hook.app" --out "$T/dist-dmg" --dmg >"$OUT" 2>&1 || { cat "$OUT"; fail "packaging with --dmg exited non-zero"; }
+  [ -f "$DMG" ] && [ -f "$T/dist-dmg/Hook-$VERSION.zip" ] || fail "no DMG and zip in dist-dmg: $(ls "$T/dist-dmg")"
+  want="$(cd "$T/dist-dmg" && shasum -a 256 "Hook-$VERSION.zip" "Hook-$VERSION.dmg")"
+  [ "$(cat "$T/dist-dmg/SHA256SUMS")" = "$want" ] || fail "SHA256SUMS with --dmg is $(cat "$T/dist-dmg/SHA256SUMS")"
+  [ "$(sed -n 1p "$T/dist-dmg/SHA256SUMS" | cut -c67-)" = "Hook-$VERSION.zip" ] || fail "the zip is not SHA256SUMS's first line"
+  MNT="$T/mnt"
+  mkdir -p "$MNT"
+  hdiutil attach -quiet -readonly -nobrowse -noautoopen -mountpoint "$MNT" "$DMG" || fail "the DMG does not mount"
+  layout="$(ls -A "$MNT" | grep -v '^\.' | tr '\n' ' ')"
+  link="$(readlink "$MNT/Applications" || true)"
+  app_id="$(plutil -extract CFBundleIdentifier raw "$MNT/Hook.app/Contents/Info.plist" 2>/dev/null || true)"
+  payload="$(cat "$MNT/Hook.app/Contents/Resources/support/VERSION" 2>/dev/null || true)"
+  hdiutil detach -quiet "$MNT" || hdiutil detach -quiet -force "$MNT" || true
+  [ "$layout" = "Applications Hook.app " ] || fail "the DMG holds $layout"
+  [ "$link" = "/Applications" ] || fail "the DMG's Applications links to ${link:-nothing}"
+  [ "$app_id" = "io.github.xooxoxxo.relay" ] || fail "the DMG's Hook.app is ${app_id:-not an app}"
+  [ "$payload" = "$VERSION" ] || fail "the DMG's Hook.app has payload ${payload:-none}"
+  # The workflow signs and staples the DMG, which changes its bytes; --sums lists the new ones.
+  printf 'x' >> "$DMG"
+  "$PACK" --sums --out "$T/dist-dmg" >"$OUT" 2>&1 || { cat "$OUT"; fail "--sums exited non-zero"; }
+  [ "$(cat "$T/dist-dmg/SHA256SUMS")" = "$(cd "$T/dist-dmg" && shasum -a 256 "Hook-$VERSION.zip" "Hook-$VERSION.dmg")" ] \
+    || fail "--sums wrote $(cat "$T/dist-dmg/SHA256SUMS")"
+  ok "DMG layout and a two-line SHA256SUMS"
+else
+  echo "skip - DMG layout (hdiutil can't run here)"
+fi
+mkdir -p "$T/empty"
+if "$PACK" --sums --out "$T/empty" >"$OUT" 2>&1; then fail "--sums without a zip passed"; fi
+grep -q "no $T/empty/Hook-$VERSION.zip" "$OUT" || { cat "$OUT"; fail "no reason for --sums without a zip"; }
+ok "--sums needs the zip"
 
 # 1a. The integration bundle: built for this version, its files match bundle.json.
 I="$S/integration"
