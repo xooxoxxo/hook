@@ -226,6 +226,33 @@ class AddingStepsDocTests(unittest.TestCase):
         self.assertIn("relay_append", section)
 
 
+class ReadingDocumentsDocTests(unittest.TestCase):
+    """relay docs / relay_docs, relay_doc, relay_docs_release: the agent docs, the skill, the notes."""
+
+    def test_agents_md_lists_the_tools_the_commands_and_the_handover(self):
+        text = read(DOCS / "agents.md")
+        tools = text.split("\n## MCP tools\n", 1)[1].split("\n## ", 1)[0]
+        for name in ("`relay_docs {id}`", "`relay_doc {id, n}`", "`relay_docs_release {id}`"):
+            self.assertIn(name, tools)
+        commands = text.split("\n## The `relay` command\n", 1)[1].split("\n## ", 1)[0]
+        for command in ("`relay docs <id> [--json]`", "`relay docs <id> get <n> [-o FILE]`",
+                        "`relay docs <id> release`"):
+            self.assertIn(command, commands)
+        section = words(text.split("\n## Documents\n", 1)[1].split("\n## ", 1)[0])
+        for phrase in ("names the ask id", "relay docs <id> get <n>", "relay docs <id> release",
+                       "7 days after the ask is closed", "a new version of the ask that sends it again",
+                       "document does not match its fingerprint", "document no longer kept on the Pond"):
+            self.assertIn(phrase, section)
+
+    def test_the_skill_and_the_changelog(self):
+        skill = words(read(ROOT / "skill" / "instructables" / "SKILL.md"))
+        for phrase in ("To hand work over, name the ask id", "relay docs <id> get <n>", "relay docs <id> release"):
+            self.assertIn(phrase, skill)
+        unreleased = read(ROOT / "CHANGELOG.md").split("\n## [Unreleased]\n", 1)[1].split("\n## [", 1)[0]
+        for name in ("relay docs <id> release", "relay_docs", "relay_doc", "relay_docs_release"):
+            self.assertIn(name, unreleased)
+
+
 class ChangelogTests(unittest.TestCase):
     def test_the_added_steps_release_adds_relay_append(self):
         text = read(ROOT / "CHANGELOG.md")

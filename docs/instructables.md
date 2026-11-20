@@ -111,11 +111,14 @@ A Pond that lists `docs` in `GET /version`'s `features` can keep a copy of the d
  "doc": {"sha256": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd", "bytes": 93}}
 ```
 
-- `doc` is filled in by Hook's posting client, never by a session. Sessions keep writing `file` and `path` as before. Posting documents arrives in a later Hook release. Until then no ask carries `doc`, and the Pond refuses a `doc` a session writes itself.
+- `doc` is filled in by Hook's posting client, never by a session. Sessions keep writing `file` and `path` as before. `relay post`, `relay amend`, `relay append` and the MCP tools drop any `doc` they are given, then fill it in on a Pond that lists `docs`. In This Mac mode, and on a Pond without `docs`, the ask is sent as before, with the path alone.
 - `sha256` is 64 lowercase hex characters: the SHA-256 of the document's exact UTF-8 bytes, with no newline or Unicode changes. `bytes` is their count, a whole number from 1 to 262144.
 - The text itself travels beside the instructable, in the request's `docs` member, and the Pond keeps it with the ask ([Documents](mailbox-protocol.md#documents)). A reader fetches it and checks it against `doc` before showing it.
 - `doc` is part of the instructable, so the revision hash covers the document. A correction that changes only a `doc` is a changed document: the owner reviews it like a changed `file`, and on the Mac accepting it needs Touch ID.
 - Only a file whose name ends in `.md`, `.markdown` or `.txt` and that holds 1 to 262144 bytes of UTF-8 text gets a `doc`, and all documents of one request hold at most 786432 bytes. Any other file posts without `doc`.
+- Hook copies what the file at the path holds. A hard link is that file, whatever its other names. `~/` is your home folder followed by the rest of the path, as Hook opens it, and a path the validator refuses is never opened.
+- A file Hook can't copy still posts with its path alone, and Hook says why on one line of stderr: `note: steps[2].file not copied to the Pond: not on this machine`. The MCP tools return the same lines, without `note: `, in `notes`. The reasons are `not on this machine`, `not a file` (a folder, a file you can't read, or a link to a file outside your home folder), `not a .md, .markdown or .txt file` (also when a link resolves to a file of another name), `empty`, `larger than 256 KB`, `not UTF-8 text`, `the request is full (768 KB)`, `it holds a secret-like value` (the Pond refused the text, so Hook sent the ask once more without it), `documents are turned off on the Pond` and `the Pond's document store is full`. After either of the last two, a correction or an append still keeps the `doc` of each document the ask already holds.
+- A correction or added steps keep the `doc` the ask already holds for the same path, and Hook doesn't read that file again: the owner reviewed that copy. `relay amend --refresh-docs` and `relay append --refresh-docs` (MCP `refreshDocs: true`) copy every document again, so a document edited on disk reaches the owner as a changed document.
 
 ## Values to copy
 

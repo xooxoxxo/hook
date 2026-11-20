@@ -22,7 +22,7 @@ from relay_client import (LIST_KINDS, OWNER_LABELS, UNVERIFIED_MESSAGE, VERSION,
                           RelayError, accepted_rev, answer_state, answer_value, appends_of, event_rev, instructable_of,
                           is_verified,
                           item_kind, left_words, messages, open_questions, owner_events, questions,
-                          requirements_of, revision_of, session_label, session_text, session_text_cut)
+                          requirements_of, revision_of, session_label, session_text, session_text_cut, terminal_text)
 
 DEFAULT_TIMEOUT = 10.0
 SUBSTEPS_SENTENCE = ("A step that needs more than one action can hold `substeps`: 1 to 10 step objects "
@@ -59,6 +59,12 @@ AMEND_SENTENCE = ("Send the whole corrected instructable: keep every step's `id`
 APPEND_SENTENCE = ("Add steps to the end of an open ask you posted, after the owner's answer. Nothing the owner "
                    "saw changes, so there is no review. To change a step they saw, use relay amend. If the ask is "
                    "closed, post a follow-up ask.")
+REFRESH_DOCS_HELP = ("copy every document to the Pond again, even one the ask already holds (by default a "
+                     "path the ask holds keeps the copy the owner saw)")
+DOCS_SENTENCE = ("The documents an ask carries on the Pond: the checked copies of the files its steps and links "
+                 "point at. To hand work over, name the ask id; the next agent reads the plan with "
+                 "`relay docs <id> get <n>`. The agent that finishes the work runs `relay docs <id> release` once "
+                 "the ask is closed. Documents also go 7 days after the ask is closed.")
 OWNER_TEXT_CAP = 8000   # past it, the line names the rest: relay status <id> --json
 
 
@@ -139,6 +145,7 @@ def _parser(out: Any, err: Any, prog: str = "relay") -> argparse.ArgumentParser:
                        help="the version you corrected (default: the newest, if this Mac wrote it)")
     amend.add_argument("--json", dest="json_src", default="-", metavar="FILE|-",
                        help="the whole corrected instructable, from a file or - for stdin (the default)")
+    amend.add_argument("--refresh-docs", action="store_true", help=REFRESH_DOCS_HELP)
     append = sub.add_parser("append", help="add steps to the end of an open ask you posted (no review)",
                             description=APPEND_SENTENCE)
     append.add_argument("id")
@@ -146,6 +153,17 @@ def _parser(out: Any, err: Any, prog: str = "relay") -> argparse.ArgumentParser:
                         help="what the new steps are for, one line (at most 200 chars)")
     append.add_argument("--json", dest="json_src", default="-", metavar="FILE|-",
                         help="a JSON array of 1 to 10 steps, from a file or - for stdin (the default)")
+    append.add_argument("--refresh-docs", action="store_true", help=REFRESH_DOCS_HELP)
+    docs = sub.add_parser("docs", help="list, read or release the documents an ask carries on the Pond",
+                          description=DOCS_SENTENCE)
+    docs.add_argument("id")
+    docs.add_argument("--json", action="store_true", help="the list as JSON")
+    action = docs.add_subparsers(dest="docs_action", metavar="<action>")
+    get = action.add_parser("get", help="print document n, checked against its fingerprint")
+    get.add_argument("n", type=int)
+    get.add_argument("-o", dest="output", metavar="FILE",
+                     help="write it to FILE instead, a new file: never over an existing file or link")
+    action.add_parser("release", help="let the Pond delete the documents of a closed ask")
     return parser
 
 
@@ -346,9 +364,18 @@ def _read_instructable(src: str, stdin: Any) -> Dict[str, Any]:
     return obj
 
 
+def print_notes(res: Dict[str, Any], err: Any) -> None:
+    """One `note: <field> not copied to the Pond: <reason>` line on stderr per document Hook
+    could not copy (relay_docs)."""
+    notes = res.get("notes") if isinstance(res.get("notes"), list) else []
+    for line in notes:
+        err.write(f"note: {line}\n")
+
+
 def _cmd_post(args: argparse.Namespace, ctx: _Ctx) -> int:
     instructable = _read_instructable(args.json_src, ctx.stdin)
     res = ctx.factory(autolaunch=True, timeout=DEFAULT_TIMEOUT).post(args.project, instructable)
+    print_notes(res, ctx.err)
     item = res.get("item") if isinstance(res.get("item"), dict) else {}
     ctx.say(("deduped " if res.get("deduped") else "posted ") + str(item.get("id")))
     if res.get("openUrl"):
@@ -461,7 +488,9 @@ def change_summary(revision: Any) -> str:
 def _cmd_amend(args: argparse.Namespace, ctx: _Ctx) -> int:
     instructable = _read_instructable(args.json_src, ctx.stdin)
     client = ctx.factory(autolaunch=True, timeout=DEFAULT_TIMEOUT)
-    res = client.amend(args.id, args.reason, instructable, args.base, edit_keys=EditKeys(ctx.env))
+    res = client.amend(args.id, args.reason, instructable, args.base, edit_keys=EditKeys(ctx.env),
+                       refresh_docs=args.refresh_docs)
+    print_notes(res, ctx.err)
     revision = res.get("revision") if isinstance(res.get("revision"), dict) else {}
     summary = change_summary(revision)
     ctx.say(f"corrected {args.id.strip()} → version {revision.get('rev', '?')}"
@@ -477,7 +506,8 @@ def _cmd_append(args: argparse.Namespace, ctx: _Ctx) -> int:
     if not isinstance(steps, list) or not steps:
         raise RelayError("--json input must be a JSON array of steps (1 to 10)")
     client = ctx.factory(autolaunch=True, timeout=DEFAULT_TIMEOUT)
-    res = client.append(args.id, args.note, steps, edit_keys=EditKeys(ctx.env))
+    res = client.append(args.id, args.note, steps, edit_keys=EditKeys(ctx.env), refresh_docs=args.refresh_docs)
+    print_notes(res, ctx.err)
     added = res.get("added") if isinstance(res.get("added"), list) else []
     count = len(added) or len(steps)
     ctx.say(f"added {count} {'step' if count == 1 else 'steps'} to {args.id.strip()} → version {res.get('rev', '?')}")
@@ -486,10 +516,79 @@ def _cmd_append(args: argparse.Namespace, ctx: _Ctx) -> int:
     return 0
 
 
+class _UsageError(RelayError):
+    exit_code = 2
+
+
+def _write_new(path: str, data: bytes) -> None:
+    """Writes `data` to a new file at `path`: never over an existing file, never through a link
+    (O_EXCL). A failed write leaves no file behind."""
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        fd = os.open(path, flags, 0o600)
+    except FileExistsError:
+        raise RelayError(f"{path} already exists; nothing was written") from None
+    except OSError as exc:
+        raise RelayError(f"can't write {path}: {exc.strerror}") from None
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(data)
+    except BaseException as exc:     # Ctrl-C too: never a partial file
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+        if isinstance(exc, OSError):
+            raise RelayError(f"can't write {path}: {exc.strerror}") from None
+        raise
+
+
+def _cmd_docs(args: argparse.Namespace, ctx: _Ctx) -> int:
+    if args.json and args.docs_action is not None:
+        raise _UsageError("--json goes with the list (docs <id> --json), not with get or release")
+    client = ctx.factory(autolaunch=True, timeout=DEFAULT_TIMEOUT)
+    ask_id = args.id.strip()
+    if args.docs_action == "release":
+        count = client.release_docs(ask_id)
+        ctx.say(f"released {count} {'document' if count == 1 else 'documents'} of {ask_id}")
+        return 0
+    if args.docs_action == "get":
+        found = client.read_doc(ask_id, args.n)
+        data = found["text"].encode("utf-8")    # the exact bytes the Pond sent
+        # Which document n named (a correction can renumber them): on stderr, never on piped stdout.
+        read_line = f"read {found['field']} {session_text(found['path'], 500)}\n"
+        if args.output is not None:
+            _write_new(args.output, data)
+            ctx.err.write(read_line)
+            return 0
+        if ctx.out.isatty():
+            ctx.err.write(read_line)
+            ctx.out.write(terminal_text(found["text"]))
+            return 0
+        buffer = getattr(ctx.out, "buffer", None)
+        if buffer is None:
+            ctx.out.write(data.decode("utf-8"))
+            return 0
+        ctx.out.flush()
+        buffer.write(data)
+        buffer.flush()
+        return 0
+    entries = client.docs(ask_id)
+    if args.json:
+        ctx.say(json.dumps(entries, ensure_ascii=False, indent=2))
+        return 0
+    if not entries:
+        ctx.say(f"no documents in ask {ask_id}")
+    for entry in entries:
+        ctx.say(f"{entry['n']}  {entry['field']}  {session_text(entry['path'], 500)}  "
+                f"{entry['bytes']} {'byte' if entry['bytes'] == 1 else 'bytes'}  {entry['sha256'][:12]}")
+    return 0
+
+
 COMMANDS: Dict[str, Callable[[argparse.Namespace, _Ctx], int]] = {
     "post": _cmd_post, "status": _cmd_status, "list": _cmd_list,
     "done": _cmd_done, "skip": _cmd_skip, "replies": _cmd_replies, "wait": _cmd_wait, "amend": _cmd_amend,
-    "append": _cmd_append,
+    "append": _cmd_append, "docs": _cmd_docs,
 }
 
 

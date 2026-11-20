@@ -67,7 +67,7 @@ class FakeClient:
         self._record("resolve", ask_id, verdict, note)
         return {"item": dict(ITEM, status="done" if verdict == "done" else "dismissed")}
 
-    def append(self, ask_id, note, steps, edit_keys=None):
+    def append(self, ask_id, note, steps, edit_keys=None, refresh_docs=False):
         self._record("append", ask_id, note, steps)
         return self.append_result
 
