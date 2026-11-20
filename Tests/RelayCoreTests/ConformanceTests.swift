@@ -614,4 +614,28 @@ private func check(_ file: String, _ name: String) throws {
     @Test func theFileHasItsCases() {
         #expect(Conformance.names("doc-vectors.json").count >= 30)
     }
+
+    /// data/doc-stub-vectors.json: the update-stub rule for `doc`. The Swift core has no unknown-key
+    /// check, so every case is for other clients; here each one still reads as an ordinary ask, and
+    /// the file keeps its shape.
+    @Test func theDocStubFileIsForOtherClientsAndReadsHere() throws {
+        let cases = Conformance.cases("doc-stub-vectors.json")
+        let names = cases.compactMap { $0["name"]?.stringValue }
+        #expect(names.count >= 30)
+        #expect(Set(names).count == names.count)
+        for item in cases {
+            let name = item["name"]?.stringValue ?? "?"
+            #expect(!Conformance.runsHere(item), "\(name): has no clients")
+            let input = try #require(item["instructable"], "\(name)")
+            _ = try RevisionBody.parse(String(decoding: input.data(), as: UTF8.self))
+            switch item["expect"]?["stub"] {
+            case .bool(true)?:
+                #expect(item["expect"]?["reason"]?.stringValue?.hasPrefix("unknownKey:") == true, "\(name)")
+            case .bool(false)?:
+                #expect(item["expect"]?["reason"] == nil, "\(name)")
+            default:
+                Issue.record("\(name): expect.stub is not a bool")
+            }
+        }
+    }
 }

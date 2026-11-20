@@ -1,0 +1,975 @@
+{
+  "version": 1,
+  "source": "hand-written: no implementation is its reference yet",
+  "format": "{name, note, instructable, clients?, expect: {stub, reason?}}, as in stub-vectors.json, for a reader that takes the docs feature (Pond 1.10.0). It adds one known key, doc, on a step, a sub-step and a link, never on verify. A doc is known when it is null, or when it is exactly {\"sha256\": 64 lowercase hex, \"bytes\": a whole number from 1 to 262144} and stands beside a file (step, sub-step) or a path (link) that is present and not null. Any other doc is an unknown key at the doc itself (unknownKey:steps[0].doc, never a path inside it), so the ask is an update stub. A whole number written as a float (93.0) is not a whole number here, as the Pond reads JSON. Every other key follows stub-vectors.json. A reader without the docs feature skips this file and treats every doc as unknown. The Swift core has no unknown-key check yet, so every case carries clients [\"android\"].",
+  "cases": [
+    {
+      "name": "doc-stub-step-known",
+      "note": "a well-formed doc beside a step's file is known: not a stub",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1",
+            "file": "~/notes/plan.md",
+            "doc": {
+              "sha256": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd",
+              "bytes": 93
+            }
+          }
+        ]
+      },
+      "expect": {
+        "stub": false
+      }
+    },
+    {
+      "name": "doc-stub-substep-known",
+      "note": "a well-formed doc beside a sub-step's file is known: not a stub",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Go through the plan",
+            "id": "s1",
+            "substeps": [
+              {
+                "do": "Read the list",
+                "id": "s1.1",
+                "file": "/var/tmp/release-checklist.md",
+                "doc": {
+                  "sha256": "e139cee1c35bdf06b6041be67cab26f468b882c0fc9e32ec0684312d99906bab",
+                  "bytes": 26
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "stub": false
+      }
+    },
+    {
+      "name": "doc-stub-link-known",
+      "note": "a well-formed doc beside a link's path is known: not a stub",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1"
+          }
+        ],
+        "links": [
+          {
+            "label": "Checklist",
+            "path": "/var/tmp/release-checklist.md",
+            "doc": {
+              "sha256": "e139cee1c35bdf06b6041be67cab26f468b882c0fc9e32ec0684312d99906bab",
+              "bytes": 26
+            }
+          }
+        ]
+      },
+      "expect": {
+        "stub": false
+      }
+    },
+    {
+      "name": "doc-stub-bytes-one",
+      "note": "bytes 1, the smallest document: not a stub",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1",
+            "file": "~/notes/plan.md",
+            "doc": {
+              "sha256": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd",
+              "bytes": 1
+            }
+          }
+        ]
+      },
+      "expect": {
+        "stub": false
+      }
+    },
+    {
+      "name": "doc-stub-bytes-max",
+      "note": "bytes 262144, the largest document: not a stub",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1",
+            "file": "~/notes/plan.md",
+            "doc": {
+              "sha256": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd",
+              "bytes": 262144
+            }
+          }
+        ]
+      },
+      "expect": {
+        "stub": false
+      }
+    },
+    {
+      "name": "doc-stub-null-beside-file",
+      "note": "doc null beside a file means no document: not a stub",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1",
+            "file": "~/notes/plan.md",
+            "doc": null
+          }
+        ]
+      },
+      "expect": {
+        "stub": false
+      }
+    },
+    {
+      "name": "doc-stub-null-without-file",
+      "note": "doc null on a step without file: the Pond takes it as no document, so not a stub",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1",
+            "doc": null
+          }
+        ]
+      },
+      "expect": {
+        "stub": false
+      }
+    },
+    {
+      "name": "doc-stub-null-link-url",
+      "note": "doc null on a link with only url: the Pond takes it as no document, so not a stub",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1"
+          }
+        ],
+        "links": [
+          {
+            "label": "Site",
+            "url": "https://pond.example.test/plan",
+            "doc": null
+          }
+        ]
+      },
+      "expect": {
+        "stub": false
+      }
+    },
+    {
+      "name": "doc-stub-null-beside-link-path",
+      "note": "doc null beside a link's path means no document: not a stub",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1"
+          }
+        ],
+        "links": [
+          {
+            "label": "Checklist",
+            "path": "/var/tmp/release-checklist.md",
+            "doc": null
+          }
+        ]
+      },
+      "expect": {
+        "stub": false
+      }
+    },
+    {
+      "name": "doc-stub-on-verify",
+      "note": "doc is never known on verify, even beside a file",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1"
+          }
+        ],
+        "verify": {
+          "do": "Check the plan",
+          "file": "~/notes/plan.md",
+          "doc": {
+            "sha256": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd",
+            "bytes": 93
+          }
+        }
+      },
+      "expect": {
+        "stub": true,
+        "reason": "unknownKey:verify.doc"
+      }
+    },
+    {
+      "name": "doc-stub-null-on-verify",
+      "note": "doc is not a verify key at all, so even null is unknown there, as the Pond refuses verify.doc",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1"
+          }
+        ],
+        "verify": {
+          "do": "Check the plan",
+          "doc": null
+        }
+      },
+      "expect": {
+        "stub": true,
+        "reason": "unknownKey:verify.doc"
+      }
+    },
+    {
+      "name": "doc-stub-without-file",
+      "note": "a doc on a step without file is unknown",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1",
+            "doc": {
+              "sha256": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd",
+              "bytes": 93
+            }
+          }
+        ]
+      },
+      "expect": {
+        "stub": true,
+        "reason": "unknownKey:steps[0].doc"
+      }
+    },
+    {
+      "name": "doc-stub-substep-without-file",
+      "note": "a doc on a sub-step without file is unknown",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Go through the plan",
+            "id": "s1",
+            "substeps": [
+              {
+                "do": "Read the list",
+                "id": "s1.1",
+                "doc": {
+                  "sha256": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd",
+                  "bytes": 93
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "stub": true,
+        "reason": "unknownKey:steps[0].substeps[0].doc"
+      }
+    },
+    {
+      "name": "doc-stub-file-null",
+      "note": "a doc beside a null file is unknown: the file must be present and not null",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1",
+            "file": null,
+            "doc": {
+              "sha256": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd",
+              "bytes": 93
+            }
+          }
+        ]
+      },
+      "expect": {
+        "stub": true,
+        "reason": "unknownKey:steps[0].doc"
+      }
+    },
+    {
+      "name": "doc-stub-link-url-only",
+      "note": "a doc on a link with only url is unknown",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1"
+          }
+        ],
+        "links": [
+          {
+            "label": "Site",
+            "url": "https://pond.example.test/plan",
+            "doc": {
+              "sha256": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd",
+              "bytes": 93
+            }
+          }
+        ]
+      },
+      "expect": {
+        "stub": true,
+        "reason": "unknownKey:links[0].doc"
+      }
+    },
+    {
+      "name": "doc-stub-link-path-null",
+      "note": "a doc beside a null link path is unknown",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1"
+          }
+        ],
+        "links": [
+          {
+            "label": "Checklist",
+            "url": "https://pond.example.test/plan",
+            "path": null,
+            "doc": {
+              "sha256": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd",
+              "bytes": 93
+            }
+          }
+        ]
+      },
+      "expect": {
+        "stub": true,
+        "reason": "unknownKey:links[0].doc"
+      }
+    },
+    {
+      "name": "doc-stub-string",
+      "note": "a doc that is a string is unknown",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1",
+            "file": "~/notes/plan.md",
+            "doc": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd"
+          }
+        ]
+      },
+      "expect": {
+        "stub": true,
+        "reason": "unknownKey:steps[0].doc"
+      }
+    },
+    {
+      "name": "doc-stub-list",
+      "note": "a doc that is a list is unknown",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1",
+            "file": "~/notes/plan.md",
+            "doc": [
+              "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd",
+              93
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "stub": true,
+        "reason": "unknownKey:steps[0].doc"
+      }
+    },
+    {
+      "name": "doc-stub-number",
+      "note": "a doc that is a number is unknown",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1",
+            "file": "~/notes/plan.md",
+            "doc": 93
+          }
+        ]
+      },
+      "expect": {
+        "stub": true,
+        "reason": "unknownKey:steps[0].doc"
+      }
+    },
+    {
+      "name": "doc-stub-empty",
+      "note": "an empty doc object is unknown",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1",
+            "file": "~/notes/plan.md",
+            "doc": {}
+          }
+        ]
+      },
+      "expect": {
+        "stub": true,
+        "reason": "unknownKey:steps[0].doc"
+      }
+    },
+    {
+      "name": "doc-stub-missing-bytes",
+      "note": "a doc without bytes is unknown",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1",
+            "file": "~/notes/plan.md",
+            "doc": {
+              "sha256": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "stub": true,
+        "reason": "unknownKey:steps[0].doc"
+      }
+    },
+    {
+      "name": "doc-stub-missing-sha256",
+      "note": "a doc without sha256 is unknown",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1",
+            "file": "~/notes/plan.md",
+            "doc": {
+              "bytes": 93
+            }
+          }
+        ]
+      },
+      "expect": {
+        "stub": true,
+        "reason": "unknownKey:steps[0].doc"
+      }
+    },
+    {
+      "name": "doc-stub-extra-member",
+      "note": "a doc with a member beside sha256 and bytes is unknown, named at the doc",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1",
+            "file": "~/notes/plan.md",
+            "doc": {
+              "sha256": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd",
+              "bytes": 93,
+              "note": "draft"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "stub": true,
+        "reason": "unknownKey:steps[0].doc"
+      }
+    },
+    {
+      "name": "doc-stub-sha256-uppercase",
+      "note": "uppercase hex is unknown",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1",
+            "file": "~/notes/plan.md",
+            "doc": {
+              "sha256": "89E032B48F654C6A542172E4396FBB6BD1CD37CFA66A5A59E987D0A3F398A4FD",
+              "bytes": 93
+            }
+          }
+        ]
+      },
+      "expect": {
+        "stub": true,
+        "reason": "unknownKey:steps[0].doc"
+      }
+    },
+    {
+      "name": "doc-stub-sha256-short",
+      "note": "63 hex characters is unknown",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1",
+            "file": "~/notes/plan.md",
+            "doc": {
+              "sha256": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4f",
+              "bytes": 93
+            }
+          }
+        ]
+      },
+      "expect": {
+        "stub": true,
+        "reason": "unknownKey:steps[0].doc"
+      }
+    },
+    {
+      "name": "doc-stub-sha256-long",
+      "note": "65 hex characters is unknown",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1",
+            "file": "~/notes/plan.md",
+            "doc": {
+              "sha256": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd0",
+              "bytes": 93
+            }
+          }
+        ]
+      },
+      "expect": {
+        "stub": true,
+        "reason": "unknownKey:steps[0].doc"
+      }
+    },
+    {
+      "name": "doc-stub-sha256-not-hex",
+      "note": "64 characters that are not hex is unknown",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1",
+            "file": "~/notes/plan.md",
+            "doc": {
+              "sha256": "gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg",
+              "bytes": 93
+            }
+          }
+        ]
+      },
+      "expect": {
+        "stub": true,
+        "reason": "unknownKey:steps[0].doc"
+      }
+    },
+    {
+      "name": "doc-stub-sha256-number",
+      "note": "a sha256 that is a number is unknown",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1",
+            "file": "~/notes/plan.md",
+            "doc": {
+              "sha256": 12345,
+              "bytes": 93
+            }
+          }
+        ]
+      },
+      "expect": {
+        "stub": true,
+        "reason": "unknownKey:steps[0].doc"
+      }
+    },
+    {
+      "name": "doc-stub-bytes-zero",
+      "note": "bytes 0 is unknown",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1",
+            "file": "~/notes/plan.md",
+            "doc": {
+              "sha256": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd",
+              "bytes": 0
+            }
+          }
+        ]
+      },
+      "expect": {
+        "stub": true,
+        "reason": "unknownKey:steps[0].doc"
+      }
+    },
+    {
+      "name": "doc-stub-bytes-too-many",
+      "note": "bytes 262145 is unknown",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1",
+            "file": "~/notes/plan.md",
+            "doc": {
+              "sha256": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd",
+              "bytes": 262145
+            }
+          }
+        ]
+      },
+      "expect": {
+        "stub": true,
+        "reason": "unknownKey:steps[0].doc"
+      }
+    },
+    {
+      "name": "doc-stub-bytes-negative",
+      "note": "negative bytes is unknown",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1",
+            "file": "~/notes/plan.md",
+            "doc": {
+              "sha256": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd",
+              "bytes": -1
+            }
+          }
+        ]
+      },
+      "expect": {
+        "stub": true,
+        "reason": "unknownKey:steps[0].doc"
+      }
+    },
+    {
+      "name": "doc-stub-bytes-fraction",
+      "note": "a fraction is unknown",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1",
+            "file": "~/notes/plan.md",
+            "doc": {
+              "sha256": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd",
+              "bytes": 1.5
+            }
+          }
+        ]
+      },
+      "expect": {
+        "stub": true,
+        "reason": "unknownKey:steps[0].doc"
+      }
+    },
+    {
+      "name": "doc-stub-bytes-whole-float",
+      "note": "93.0 is not a whole number as the Pond reads JSON (a float), so it is unknown",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1",
+            "file": "~/notes/plan.md",
+            "doc": {
+              "sha256": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd",
+              "bytes": 93.0
+            }
+          }
+        ]
+      },
+      "expect": {
+        "stub": true,
+        "reason": "unknownKey:steps[0].doc"
+      }
+    },
+    {
+      "name": "doc-stub-bytes-string",
+      "note": "bytes as a string is unknown",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1",
+            "file": "~/notes/plan.md",
+            "doc": {
+              "sha256": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd",
+              "bytes": "93"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "stub": true,
+        "reason": "unknownKey:steps[0].doc"
+      }
+    },
+    {
+      "name": "doc-stub-bytes-true",
+      "note": "bytes true is unknown: a boolean is not a number",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1",
+            "file": "~/notes/plan.md",
+            "doc": {
+              "sha256": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd",
+              "bytes": true
+            }
+          }
+        ]
+      },
+      "expect": {
+        "stub": true,
+        "reason": "unknownKey:steps[0].doc"
+      }
+    },
+    {
+      "name": "doc-stub-document-order",
+      "note": "the first unknown key in document order decides: a bad doc on step 1 before an unknown key on step 2",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1",
+            "file": "~/notes/plan.md",
+            "doc": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd"
+          },
+          {
+            "do": "Ship it",
+            "id": "s2",
+            "shell": "zsh"
+          }
+        ]
+      },
+      "expect": {
+        "stub": true,
+        "reason": "unknownKey:steps[0].doc"
+      }
+    },
+    {
+      "name": "doc-stub-unknown-key-before-doc",
+      "note": "inside one step, a key before the doc decides first",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1",
+            "shell": "zsh",
+            "file": "~/notes/plan.md",
+            "doc": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd"
+          }
+        ]
+      },
+      "expect": {
+        "stub": true,
+        "reason": "unknownKey:steps[0].shell"
+      }
+    }
+  ]
+}

@@ -151,6 +151,13 @@
       "copies": ["Tests/RelayCoreTests/Fixtures/doc-vectors.json"]
     },
     {
+      "path": "data/doc-stub-vectors.json",
+      "pond": "1.10.0",
+      "feature": "docs",
+      "roles": ["reader"],
+      "copies": []
+    },
+    {
       "path": "wire/append-wire-vectors.json",
       "pond": "1.9.0",
       "feature": "appendSteps",

@@ -140,14 +140,16 @@ Six `data/` files cover logic that lives only in the clients. Their inputs are w
 `data/stub-vectors.json`: each case is `{name, note, instructable, clients?, expect: {stub, reason?}}`. `stub` true means the client shows the ask only as an update stub, with Skip. `reason` is `pondStub` (the Pond's own stub, recognised by its exact `why` and single step), `unknownKey:<path>` (the first key in document order the client doesn't know, such as `steps[2].substeps[0].shell`) or `unknownDone:<value>`. The known keys are:
 
 - ask: `v title why warning urgency steps verify reply done links from`
-- step, sub-step and verify: `do where detail code lang expect url substeps question blocking warning optional required id file`
+- step, sub-step and verify: `do where detail code lang expect url substeps question blocking warning optional required id file`; step and sub-step, with the `docs` feature: also `doc`
 - question: `prompt choices multi then`; choice object: `label text`
-- reply: `prompt choices`; link: `label url path`; from: `session host cwd`
+- reply: `prompt choices`; link: `label url path`, with the `docs` feature also `doc`; from: `session host cwd`
 - `done` values: `steps reply message`
 
 The first unknown key in document order decides. Its path joins object keys with dots and writes a list item's 0-based index in square brackets right after the list's key: `shell`, `steps[2].shell`, `steps[0].question.choices[1].tone`, `from.pid`. Unknown keys are checked before unknown `done` values, wherever each appears.
 
 The Swift core has no unknown-key check yet, so those cases, and the cases there only to contrast with them, carry `"clients": ["android"]` and a hand-written `expect`.
+
+`data/doc-stub-vectors.json` has the same case shape, for a reader that takes the `docs` feature (Pond 1.10.0). A reader without the feature skips it, and `doc` stays an unknown key for it. With the feature, `doc` is known on a step, a sub-step and a link, never on `verify`, when it is `null`, or when it is exactly `{"sha256": <64 lowercase hex>, "bytes": <a whole number from 1 to 262144>}` beside a `file` (step, sub-step) or a `path` (link) that is present and not `null`. Any other `doc` is an unknown key at the `doc` itself (`unknownKey:steps[0].doc`, never a path inside it), so the ask is an update stub. `93.0` is not a whole number here, as the Pond reads JSON. Its cases are written by hand, every one with `"clients": ["android"]`.
 
 `data/display-vectors.json`: each case is `{name, kind, …}`, with the fields of its kind: `reveal`, `revealLine` and `copyText` (hidden characters shown as `⟨U+XXXX⟩`), `linkTitle` and `stepTitle` (how a link and a step URL are titled), `replyWire` and `replyParse` (a choice reply's text and how it is read back), `counter` (the length counter and its trim line), `deepLink` (the ask a `hook://` URL opens) and `sourceKey` (the namespace for a Pond's per-source state on a device). The file's `format` key gives each kind's fields.
 
