@@ -58,6 +58,8 @@ public struct DevicesSheet<Model: SettingsViewModel>: View {
             }
             .helpLabelStyle(.heading)
             table
+                // No stripes in the empty space under the last device.
+                .alternatingRowBackgrounds(.disabled)
                 .frame(height: DS.Metric.devicesTableHeight)
                 .accessibilityLabel("Devices")
             if case .waiting(_, _, let code, _) = model.revokeRequest { telegramCard(code) }

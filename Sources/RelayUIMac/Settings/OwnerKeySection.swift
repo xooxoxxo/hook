@@ -125,7 +125,10 @@ struct OwnerKeySection<Model: SettingsViewModel>: View {
                     if model.setUpRefusedFull {
                         Button(DevicesText.chooseToRevoke) { showDevices = true }
                     }
-                    Button(OwnerKeyText.setUpAgain) { model.setUpOwnerKey() }
+                    // While every slot is taken, a new setup would be refused again.
+                    if !(model.setUpRefusedFull && OwnerDevices.full(model.ownerStatus)) {
+                        Button(OwnerKeyText.setUpAgain) { model.setUpOwnerKey() }
+                    }
                 }
             }
         }
