@@ -89,8 +89,8 @@ def strip_docs(instructable: Any) -> Any:
 
 
 def _entries(instructable: Any) -> List[Entry]:
-    """Every step and sub-step with a string `file` and every link with a string `path`, in
-    document order: a step before its sub-steps, the steps before the links."""
+    """Every step and sub-step with a string `file` and every link with a string `path` and no
+    `url`, in document order: a step before its sub-steps, the steps before the links."""
     found: List[Entry] = []
     steps = instructable.get("steps") if isinstance(instructable, dict) else None
     for i, step in enumerate(steps if isinstance(steps, list) else []):
@@ -104,7 +104,9 @@ def _entries(instructable: Any) -> List[Entry]:
                 found.append((f"steps[{i}].substeps[{j}].file", subs, j, "file"))
     links = instructable.get("links") if isinstance(instructable, dict) else None
     for k, link in enumerate(links if isinstance(links, list) else []):
-        if isinstance(link, dict) and isinstance(link.get("path"), str):
+        # A link with a `url` (null counts as absent) is refused by the validator whatever its
+        # path is: its path is never read.
+        if isinstance(link, dict) and isinstance(link.get("path"), str) and link.get("url") is None:
             found.append((f"links[{k}].path", links, k, "path"))   # type: ignore[arg-type]
     return found
 
@@ -360,6 +362,28 @@ def fit_request(instructable: Dict[str, Any], docs: Dict[str, str],
     return drop_docs(instructable, docs, dropped, FULL)
 
 
+def secret_hashes(exc: Any) -> Set[str]:
+    """The hashes a 400 `invalid documents` called secret-like, when that is all it says; else empty."""
+    details = list(getattr(exc, "details", None) or [])
+    if getattr(exc, "status", None) != 400 or getattr(exc, "error", None) != "invalid documents" or not details:
+        return set()
+    matches = [_SECRET_DETAIL.fullmatch(str(detail)) for detail in details]
+    return {m.group(1) for m in matches if m is not None} if all(matches) else set()
+
+
+def reapply(exc: Any, instructable: Dict[str, Any], docs: Dict[str, str], held: Set[str] = frozenset()
+            ) -> Optional[Tuple[Dict[str, Any], Dict[str, str], List[str]]]:
+    """A documents refusal already answered in this call, applied again to documents attached
+    afresh (after a stale revision). Every text the Pond called secret-like that is attached again
+    is dropped, whether or not the others are still there: none is sent twice in one call. A
+    409 drops what retry_without drops. None when there is nothing to drop."""
+    flagged = secret_hashes(exc)
+    if flagged:
+        again = flagged & set(docs)
+        return drop_docs(instructable, docs, again, SECRET) if again else None
+    return retry_without(exc, instructable, docs, held)
+
+
 def retry_without(exc: Any, instructable: Dict[str, Any], docs: Dict[str, str], held: Set[str] = frozenset()
                   ) -> Optional[Tuple[Dict[str, Any], Dict[str, str], List[str]]]:
     """What to send once more after a refusal, or None when it isn't about documents.
@@ -372,15 +396,9 @@ def retry_without(exc: Any, instructable: Dict[str, Any], docs: Dict[str, str], 
       held `doc` stays: the Pond takes a request that only keeps what the ask holds.
     The caller sends once more, never a third time. Nothing is scanned here: the Pond decides."""
     status, error = getattr(exc, "status", None), getattr(exc, "error", None)
-    details = list(getattr(exc, "details", None) or [])
-    if status == 400 and error == "invalid documents" and details:
-        hashes: Set[str] = set()
-        for detail in details:
-            match = _SECRET_DETAIL.fullmatch(str(detail))
-            if match is None or match.group(1) not in docs:
-                return None
-            hashes.add(match.group(1))
-        return drop_docs(instructable, docs, hashes, SECRET)
+    if status == 400:
+        hashes = secret_hashes(exc)
+        return drop_docs(instructable, docs, hashes, SECRET) if hashes and hashes <= set(docs) else None
     if status == 409 and error in NOT_NEW:
         docs_of = [parent[index]["doc"] for _, parent, index, _ in _entries(instructable)
                    if isinstance(parent[index].get("doc"), dict)]

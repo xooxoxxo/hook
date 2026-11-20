@@ -254,7 +254,9 @@ class AttachTests(HomeBase):
                     if isinstance(sub, dict):
                         entries.append((f"steps[{i}].substeps[{j}].file", sub.get("file")))
             for k, link in enumerate(ins.get("links") or [] if isinstance(ins.get("links"), list) else []):
-                if isinstance(link, dict) and "url" not in link:    # with both, only the link's shape is judged
+                # A link with a url (not null): the validator judges only the link's shape, and Hook
+                # never reads its path (test_a_link_with_a_url_is_never_read).
+                if isinstance(link, dict) and link.get("url") is None:
                     entries.append((f"links[{k}].path", link.get("path")))
             for field, value in entries:
                 if not isinstance(value, str):
@@ -266,6 +268,16 @@ class AttachTests(HomeBase):
                 self.assertEqual(rd.path_allowed(value), not refused, (case["name"], field))
                 checked += 1
         self.assertGreater(checked, 40)
+
+    def test_a_link_with_a_url_is_never_read(self):
+        self.write("notes/a.md", "A")
+        ask = {"v": 1, "title": "t", "links": [{"label": "L", "url": "https://e.example/", "path": "~/notes/a.md"}]}
+        fail = AssertionError("touched the disk")
+        with mock.patch.object(rd.os, "lstat", side_effect=fail), mock.patch.object(rd.os, "open", side_effect=fail):
+            self.assertEqual(self.attach(ask), (ask, {}, []))
+        self.assertFalse(rd.has_doc_paths(ask))
+        nulled = {"v": 1, "title": "t", "links": [{"label": "L", "url": None, "path": "~/notes/a.md"}]}
+        self.assertEqual(self.attach(nulled)[0]["links"][0]["doc"], fingerprint(b"A"))   # null counts as absent
 
     def test_a_disk_error_is_a_silent_skip(self):
         with mock.patch.object(rd, "path_allowed", return_value=True):
@@ -800,6 +812,30 @@ class ClientDocsTests(ClientDocsBase):
             self.appended([(409, {"error": "stale revision", "rev": 2, "hash": H3}),
                            (429, {"error": "too soon", "retryAfter": 0}), off, off])
         self.assertEqual(len(self.bodies(f"/asks/{ITEM_ID}/append")), 4)
+
+    def test_a_text_called_secret_like_is_never_sent_again_in_the_call(self):
+        self.write("notes/a.md", "A")
+        self.write("notes/b.md", "B")
+        a, b = fingerprint(b"A")["sha256"], fingerprint(b"B")["sha256"]
+        held = fingerprint(b"the copy of A the ask holds now")
+
+        def changed(answer):
+            if answer[1].get("error") == "stale revision":
+                served = copy.deepcopy(self.http.served)
+                served["steps"].append({"do": "A", "file": "~/notes/a.md", "doc": held, "id": "s3"})
+                self.http.served, self.http.rev = served, (2, H3)
+        self.http.on_append = changed
+        steps = [{"do": "A", "file": "~/notes/a.md"}, {"do": "B", "file": "~/notes/b.md"}]
+        res = self.appended([(400, {"error": "invalid documents", "details": [f"docs.{a}: secret-like value",
+                                                                              f"docs.{b}: secret-like value"]}),
+                             (409, {"error": "stale revision", "rev": 2, "hash": H3})], steps=steps)
+        sent = self.bodies(f"/asks/{ITEM_ID}/append")
+        self.assertEqual(len(sent), 3)
+        self.assertEqual(set(sent[0]["docs"]), {a, b})
+        self.assertNotIn("docs", sent[2])
+        self.assertEqual(sent[2]["steps"][0]["doc"], held)
+        self.assertNotIn("doc", sent[2]["steps"][1])
+        self.assertEqual(res["notes"], ["steps[1].file not copied to the Pond: it holds a secret-like value"])
 
     def test_after_a_stale_revision_the_documents_follow_the_fresh_one(self):
         fresh = fingerprint(b"the copy the owner saw last")

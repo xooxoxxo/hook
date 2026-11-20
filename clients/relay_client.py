@@ -29,8 +29,8 @@ import urllib.request
 from typing import Any, Callable, Dict, List, Mapping, Optional, Set, Tuple
 
 import relay_semver
-from relay_docs import (DOCS_FEATURE, attach_docs, fit_request, has_doc_paths, held_hashes, retry_without,
-                        strip_docs)
+from relay_docs import (DOCS_FEATURE, attach_docs, fit_request, has_doc_paths, held_hashes, reapply,
+                        retry_without, strip_docs)
 from relay_lint import lint_details, lint_instructable  # noqa: F401  (re-exported)
 
 VERSION = "0.17.0"
@@ -1291,7 +1291,7 @@ class Client:
                                     home=self._home())
             holder, docs, cut = fit_request(found[0], found[1], lambda h, d: encode_body(make(h, d)))
             notes = found[2] + cut
-            again = retry_without(refused_docs[0], holder, docs, held) if refused_docs else None
+            again = reapply(refused_docs[0], holder, docs, held) if refused_docs else None
             if again is not None:
                 holder, docs, more = again
                 notes = notes + more
