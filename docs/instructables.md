@@ -36,7 +36,7 @@ An ask is a `project` plus an instructable: a JSON object with a title and numbe
 | `verify` | Optional. One Step without `substeps` or `question`: a real check in the world, best a command with `expect`. Leave it out for a pure decision or a review ([Hook's own controls](#hooks-own-controls)) |
 | `reply` | `prompt` ≤ 300, `choices` 0–6 strings of ≤ 60, or [choices with words](#choices-with-words) |
 | `done` | 1–3 of `"steps"`, `"reply"` (needs `reply`) and `"message"`: what must happen before the owner's Done turns on ([Before Done](#before-done)). Needs Pond 1.3.0 |
-| `links` | 0–10 `{label ≤ 60, url}` or `{label ≤ 60, path}`. Exactly one of `url` (http(s)) and `path` (a local document, like a Step's `file`) |
+| `links` | 0–10 `{label ≤ 60, url}` or `{label ≤ 60, path}`. Exactly one of `url` (http(s)) and `path` (a local document, like a Step's `file`). Beside `path`, Hook may add a [`doc`](#documents) |
 | `from` | `{session, host, cwd}`, filled in by the poster |
 
 A **Step** is a JSON object with these keys:
@@ -58,8 +58,9 @@ A **Step** is a JSON object with these keys:
 | `required` | `true` keeps the owner's Done off until this step is [finished](#before-done). Never with `optional` or inside an optional step. It goes fine with `blocking`: `blocking` is about order, `required` about finishing. Needs Pond 1.3.0 |
 | `id` | A stable name for the step ([rules](#validation)). A [correction](agents.md#correcting-an-ask) keeps ids, so ticks and answers follow a step that moves. Needs Pond 1.1.0 |
 | `file` | An absolute path on the owner's Mac (`/…` or `~/…`), ≤ 500, one line, no hidden characters. Hook opens the document rendered, usually Markdown. Put long text in a file, never in the ask |
+| `doc` | Filled in by Hook, never by a session: the fingerprint of the document `file` points at ([Documents](#documents)). Only beside `file`. Needs a Pond that lists `docs` |
 
-`question`, `blocking`, `warning`, `optional`, `required`, `id` and `file` go on steps and sub-steps, never on `verify`.
+`question`, `blocking`, `warning`, `optional`, `required`, `id`, `file` and `doc` go on steps and sub-steps, never on `verify`.
 
 A **Question** is a JSON object with these keys:
 
@@ -100,6 +101,20 @@ On Pond 1.4.0, the owner's messages and problem reports take up to 8000 characte
 - **Skip is never gated**, from Hook or Telegram, and neither is the session's own `relay done`.
 - **This Mac mode doesn't take them** in this release. Its queue stays Pond 1.0.0, so `relay post` refuses both keys ("Hook's This Mac queue (Pond 1.0.0) can't take `required` yet.").
 - `relay status <id>` prints `Left before Done: step 2, the reply, a message` or `Ready for Done`. `relay status --json` and `relay_status` carry `requirements` (`{left, ready}`, or `null`).
+
+## Documents
+
+When the Pond lists `docs` in `GET /version`'s `features`, Hook can send the document a step's `file` or a link's `path` points at along with the ask, so the owner can read it on the phone. Sessions keep writing `file` and `path` as before. Hook reads the file and adds `doc` beside it:
+
+```json
+{"do": "Read the release plan", "file": "~/notes/plan.md",
+ "doc": {"sha256": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd", "bytes": 93}}
+```
+
+- `sha256` is 64 lowercase hex characters: the SHA-256 of the document's exact UTF-8 bytes, with no newline or Unicode changes. `bytes` is their count, a whole number from 1 to 262144.
+- The text itself travels beside the instructable, in the request's `docs` member, and the Pond keeps it with the ask ([Documents](mailbox-protocol.md#documents)). A reader fetches it and checks it against `doc` before showing it.
+- `doc` is part of the instructable, so the revision hash covers the document. A correction that changes only a `doc` is a changed document: the owner reviews it like a changed `file`, and on the Mac accepting it needs Touch ID.
+- Hook copies a document only when its name ends in `.md`, `.markdown` or `.txt` and it holds 1 to 262144 bytes of UTF-8 text, at most 786432 bytes for all documents of one request. Any other file posts as before, without `doc`.
 
 ## Values to copy
 
@@ -152,8 +167,9 @@ Not `{"do": "Install the Leasekey client on the Mac, create the Claude agent's t
 - `done` must be a list of 1 to 3 distinct known values (`done: must be a list of 1 to 3 of steps, reply, message`, `done[1]: duplicate`). `"reply"` needs a `reply` (`done[0]: reply needs a reply prompt`), and `"steps"` needs a step that isn't optional.
 - `relay post`, `relay_post` and `relay amend` catch the last four before sending, and say what to do: `steps[2].required: can't go with optional: drop one of them`, `done: "reply" needs a reply prompt: add reply, or drop it from done`. Rules: `lint_requirements` in [`clients/relay_lint.py`](../clients/relay_lint.py), in the same shared vectors.
 - `file` and a link's `path` must be absolute: `steps[0].file: must be an absolute path`. A link needs exactly one of them: `links[0]: needs url or path, not both`.
+- `doc` needs `file` (or a link's `path`) beside it: `steps[0].doc: needs file`, `links[0].doc: needs path`. It holds only `sha256` and `bytes`: `steps[0].doc.sha256: must be 64 lowercase hex characters`, `steps[0].doc.bytes: must be a whole number from 1 to 262144`. `null` counts as absent.
 - `id` must match `[a-z0-9][a-z0-9.-]{0,23}`, be unique in the ask and not look like a step number (`2`, `3.1`): `steps[1].id: duplicate`, `steps[0].id: must not look like a step number`. Give ids on every step and sub-step, or on none, and the Pond names them `s1`, `s2`, `s2.1`.
-- A step's errors come in this order: its text keys (`do`, `where`, `code`, `lang`, `expect`, `detail`), `url`, `file`, `blocking`, `optional`, `required`, `warning`, `question`, `substeps`.
+- A step's errors come in this order: its text keys (`do`, `where`, `code`, `lang`, `expect`, `detail`), `url`, `file`, `doc`, `blocking`, `optional`, `required`, `warning`, `question`, `substeps`.
 - The Pond's errors name field paths only (`steps[2].url: must be http(s)`), never values.
 - The JSON Schema is [`schema/instructable.v1.json`](../schema/instructable.v1.json).
 
@@ -166,6 +182,7 @@ Not `{"do": "Install the Leasekey client on the Mac, create the Claude agent's t
 | `required`, `done` | 1.3.0 |
 | a choice object (`choices[].text`) | 1.4.0 |
 | a question's `then` | the `appendSteps` feature (Pond 1.9.0) |
+| `doc` beside `file` or a link's `path` | the `docs` feature (Pond 1.10.0) |
 
 `relay post`, `relay_post` and `relay amend` ask `GET /version` first, cached for 5 minutes per process. A newer minor or patch Pond never stops a key working ([Pond versions](mailbox-protocol.md#pond-versions)). When the Pond is too old, they refuse, post nothing and exit 1: ``Your Pond (1.0.0) is older than `id` needs (Pond 1.1.0 or newer). Update the Pond, or leave the key out.`` In This Mac mode the app is the server, so the refusal is "Hook's This Mac queue (Pond 1.0.0) can't take `id` yet."
 
