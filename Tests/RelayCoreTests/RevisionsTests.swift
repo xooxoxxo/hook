@@ -219,3 +219,25 @@ private func int(_ value: JSONValue?) -> Int? {
         #expect(!merged.isComplete)
     }
 }
+
+/// Two served revision bodies that differ only in a `doc` (Pond 1.10.0): each hash covers the
+/// document, and the correction reads as a changed document that needs Touch ID.
+@Suite struct RevisionDocTests {
+    static let first = #"{"links":[],"steps":[{"do":"Read the plan","doc":{"bytes":93,"sha256":"89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd"},"file":"~/notes/plan.md","id":"s1"}],"title":"Review the release plan","urgency":"today","v":1}"#
+    static let second = #"{"links":[],"steps":[{"do":"Read the plan","doc":{"bytes":94,"sha256":"da9672367cd66934ed2dfac0d3caab88fd365b0ad36da9641de0915d08e9d1c5"},"file":"~/notes/plan.md","id":"s1"}],"title":"Review the release plan","urgency":"today","v":1}"#
+
+    @Test func aDocOnlyCorrectionChangesTheHashAndNeedsTouchID() throws {
+        let at = "2026-11-20T10:00:00.000000+00:00"
+        let one = RevisionHash.make(rev: 1, prev: "", at: at, reason: "", body: Self.first)
+        let unchanged = RevisionHash.make(rev: 2, prev: one, at: at, reason: "Same", body: Self.first)
+        let edited = RevisionHash.make(rev: 2, prev: one, at: at, reason: "Same", body: Self.second)
+        #expect(unchanged != edited)
+        let before = try RevisionBody.parse(Self.first), after = try RevisionBody.parse(Self.second)
+        #expect(before.steps[0].doc?.bytes == 93 && after.steps[0].doc?.bytes == 94)
+        #expect(RevisionFixedFields.same(before, after))
+        let diff = RevisionDiff.make(baseline: before, firstRevision: before, current: after, reasons: [(2, "Same")])
+        #expect(diff.steps.map(\.stepID) == ["s1"])
+        #expect(diff.steps.first?.fields.map(\.name) == ["doc"])
+        #expect(diff.touchesCommandsLinksOrFiles)
+    }
+}

@@ -593,3 +593,25 @@ private func check(_ file: String, _ name: String) throws {
         #expect(problem == item["problem"]?.stringValue, "strictjson-vectors.json \(name): problem")
     }
 }
+
+/// data/doc-vectors.json (Pond 1.10.0), as a reader takes it: an ask that carries a `doc` is an
+/// ordinary ask, never the Pond's update stub, and it reads as a revision body with its `doc`
+/// kept. The validator's verdicts on the same file are in ValidatorDocTests.
+@Suite struct DocConformanceTests {
+    @Test(arguments: Conformance.names("doc-vectors.json"))
+    func aDocAskIsAnOrdinaryAsk(_ name: String) throws {
+        let item = try Conformance.named("doc-vectors.json", name)
+        let input = try #require(item["input"])
+        #expect(!Reference.isPondStub(input), "\(name)")
+        guard item["valid"] == .bool(true) else { return }
+        let body = String(decoding: input.data(), as: UTF8.self)
+        let ins = try RevisionBody.parse(body)
+        let held = StepIdentity.entries(ins).compactMap(\.step.doc) + (ins.links ?? []).compactMap(\.doc)
+        let served = String(decoding: input.data(), as: UTF8.self).components(separatedBy: #""doc":{"#).count - 1
+        #expect(held.count == served, "\(name): every doc is kept")
+    }
+
+    @Test func theFileHasItsCases() {
+        #expect(Conformance.names("doc-vectors.json").count >= 30)
+    }
+}

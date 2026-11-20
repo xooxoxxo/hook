@@ -211,7 +211,7 @@ public struct ReviewPage: Equatable, Sendable {
 
     static func field(_ diff: FieldDiff, name: String) -> Field {
         let leaf = name.split(separator: ".").last.map(String.init) ?? name
-        let monospaced = ["code", "url", "file", "path"].contains(leaf)
+        let monospaced = ["code", "url", "file", "path", "doc"].contains(leaf)
         let cls: FieldClass = leaf == "code" ? .code : .prose
         let tokens = diff.tokens.map { token -> DiffToken in
             let shown = Sanitize.reveal(token.text, as: cls).text
@@ -230,13 +230,13 @@ public struct ReviewPage: Equatable, Sendable {
         let parts = name.split(separator: ".").map(String.init)
         let leaf = parts.last ?? name
         if parts.first == "links", parts.count == 3 {
-            return ["label": "Label", "url": "Address", "path": "File"][leaf] ?? leaf
+            return ["label": "Label", "url": "Address", "path": "File", "doc": "Document"][leaf] ?? leaf
         }
         if leaf == "code" { return nil }
         if parts.first == "reply" { return leaf == "prompt" ? "Prompt" : "Choices" }
         let labels = ["do": "Text", "where": "Where", "detail": "Detail", "lang": "Language", "expect": "Expect",
-                      "url": "Link", "file": "File", "warning": "Warning", "blocking": "Blocking", "optional": "Optional",
-                      "required": "Required", "done": "Before Done",
+                      "url": "Link", "file": "File", "doc": "Document", "warning": "Warning", "blocking": "Blocking",
+                      "optional": "Optional", "required": "Required", "done": "Before Done",
                       "prompt": "Question", "choices": "Choices", "multi": "More than one answer", "why": "Why"]
         return labels[leaf] ?? leaf
     }

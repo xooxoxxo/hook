@@ -199,6 +199,26 @@ enum QueueFixture {
         #expect(failure.errors == [#"steps[0].substeps[0].question.then: must be "steps""#])
     }
 
+    /// This Mac keeps no documents, so `doc` is an unknown key there, as on a Pond before 1.10.0.
+    @Test func thisMacRefusesDocAsAnUnknownKey() async throws {
+        let dir = QueueFixture.directory()
+        defer { QueueFixture.remove(dir) }
+        let queue = try await QueueFixture.openQueue(dir)
+        let body = try JSONValue.parse(Data(#"""
+        {"v":1,"title":"Review the release plan",
+         "steps":[{"do":"Read the plan","file":"~/notes/plan.md",
+                   "doc":{"sha256":"89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd","bytes":93}}]}
+        """#.utf8))
+        do {
+            _ = try await queue.post(project: .string("Example"), instructable: body)
+            Issue.record("This Mac took doc")
+        } catch LocalQueueError.invalidInstructable(let errors) {
+            #expect(errors == ["steps[0].doc: unknown key"])
+        }
+        #expect(await queue.list(status: "all", days: nil).isEmpty)
+        guard case .success = Validator.validate(body) else { Issue.record("a Pond refused the doc"); return }
+    }
+
     /// This Mac takes no choice objects in 0.14: an object reads as Pond 1.3.0 reads it.
     @Test func thisMacRefusesChoiceObjects() async throws {
         let dir = QueueFixture.directory()
