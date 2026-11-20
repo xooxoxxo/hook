@@ -2,20 +2,23 @@
 
 Ask before deleting files.
 
-<!-- hook:begin id=instructions v=1 sha=1ce510e269d67dfc -->
+<!-- hook:begin id=instructions v=1 sha=350f14e23a7dc1d8 -->
 <!-- hook:instructions v=1 app=9.9.9 -->
 # Owner asks go to Hook
 
-Answer explanations, summaries and status questions directly. Keep quick, low-risk
-clarifications in chat when a short answer or multiple choice is enough. Make routine
-choices within the owner's instructions without asking again.
+Answer explanations, summaries and status questions directly. Make routine choices within
+the owner's instructions without asking again.
 
-Keep single yes/no approval-only requests in chat, including simple merge or release
-approvals. State the exact change or artifact and wait for approval before acting.
-Send ONE instructable to Hook for owner actions (credentials, logins, manual commands,
-clicks only they can do), approvals bundled with those actions, consequential decisions
-needing context, and work needing a durable checklist or later follow-up. Do not add
-artificial steps to turn a simple approval into an ask. Follow the owner's explicit
+Keep in chat, not Hook: quick clarifications with a short answer or multiple choice; quick
+actions while the owner is in the chat (a tap, a glance, one short step on a device in front
+of them); single yes/no approvals, including simple merge or release approvals; and status
+notes like "I'm waiting for you to do X", progress and reminders. Use the chat's question
+control or buttons if it has them. For an approval, state the exact change and wait before acting.
+
+Send ONE instructable to Hook for actions the owner does later or away from the chat,
+credentials, logins and secrets, commands on machines you can't reach, approvals bundled with
+those, consequential decisions needing context, and work needing a durable checklist or
+follow-up. Don't add steps to turn a simple approval into an ask. Follow the owner's explicit
 routing preference. The `instructables` skill has the format and writing rules.
 
 - **How:** the MCP tool `relay_post {project, instructable}`. Without MCP:
