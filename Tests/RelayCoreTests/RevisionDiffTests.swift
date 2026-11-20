@@ -281,6 +281,28 @@ private func removed(_ tokens: [DiffToken]) -> String {
         #expect(!RevisionDiff.make(baseline: one, firstRevision: one, current: one, reasons: []).touchesCommandsLinksOrFiles)
     }
 
+    /// Removing a `doc` while its path stays needs Touch ID, on a link as on a step.
+    @Test func aRemovedDocumentNeedsTouchIDOnALinkAsOnAStep() {
+        let one = ask(step: Self.plan)
+        let step = RevisionDiff.make(baseline: one, firstRevision: one, current: ask(step: nil), reasons: [])
+        #expect(step.steps.first?.fields.map(\.name) == ["doc"])
+        #expect(step.touchesCommandsLinksOrFiles)
+        let link = RevisionDiff.make(baseline: one, firstRevision: one, current: ask(step: Self.plan, link: nil), reasons: [])
+        #expect(link.top.map(\.name) == ["links.1.doc"])
+        #expect(link.top.first?.new == nil)
+        #expect(link.touchesCommandsLinksOrFiles)
+    }
+
+    /// A removed link takes its `doc` with it: like a removed step, that alone needs no Touch ID.
+    @Test func aRemovedLinkWithItsDocumentNeedsNoTouchID() {
+        let one = ask(step: Self.plan)
+        var two = one
+        two.links = []
+        let diff = RevisionDiff.make(baseline: one, firstRevision: one, current: two, reasons: [])
+        #expect(diff.top.map(\.name).contains("links.1.doc"))
+        #expect(!diff.touchesCommandsLinksOrFiles)
+    }
+
     @Test func theFieldShowsTheSizeAndTheWholeHash() throws {
         let diff = RevisionDiff.make(baseline: ask(step: Self.plan), firstRevision: ask(step: Self.plan),
                                      current: ask(step: Self.edited), reasons: [])

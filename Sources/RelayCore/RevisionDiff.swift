@@ -185,7 +185,7 @@ public struct RevisionDiff: Equatable, Sendable {
                             reasons: [(rev: Int, reason: String)]) -> RevisionDiff {
         let since = changes(from: baseline ?? firstRevision, to: current)
         let touches = since.steps.contains { $0.kind != .removed && $0.fields.contains(where: \.isCommandLinkOrFile) }
-            || since.top.contains { $0.isCommandLinkOrFile && $0.new != nil }
+            || since.top.contains { $0.isCommandLinkOrFile && ($0.new != nil || removesDocOfKeptLink($0, current)) }
         guard let baseline else {
             let full = changes(from: nil, to: current)
             return RevisionDiff(isFirstView: true, steps: full.steps, top: full.top, reasons: reasons,
@@ -195,6 +195,15 @@ public struct RevisionDiff: Equatable, Sendable {
         return RevisionDiff(isFirstView: false, steps: diff.steps, top: diff.top, reasons: reasons,
                             touchesCommandsLinksOrFiles: touches, resets: resets(diff.steps, baseline: baseline,
                                                                                  current: current))
+    }
+
+    /// A link's `doc` removed while the link stays: it counts like a step's removed `doc`. A link
+    /// removed whole takes its `doc` with it, and that alone, like a removed step, doesn't count.
+    static func removesDocOfKeptLink(_ field: FieldDiff, _ current: Instructable) -> Bool {
+        let parts = field.name.split(separator: ".")
+        guard parts.count == 3, parts[0] == "links", parts[2] == "doc", field.new == nil,
+              let number = Int(parts[1]) else { return false }
+        return (current.links ?? []).indices.contains(number - 1)
     }
 
     // MARK: Fields
