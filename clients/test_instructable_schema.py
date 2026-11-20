@@ -83,8 +83,15 @@ class SchemaTest(unittest.TestCase):
         import re
         import relay_jsonschema
         link = SCHEMA["properties"]["links"]["items"]
-        for props in (SCHEMA["$defs"]["step"]["properties"], SCHEMA["$defs"]["leaf"]["properties"], link["properties"]):
-            self.assertEqual(props["doc"], {"$ref": "#/$defs/docRef", "description": "Filled in by Hook. Never write it."})
+        beside_file = "Filled in by Hook. Never write it. Only beside file."
+        for props in (SCHEMA["$defs"]["step"]["properties"], SCHEMA["$defs"]["leaf"]["properties"]):
+            self.assertEqual(props["doc"], {"$ref": "#/$defs/docRef", "description": beside_file})
+        self.assertEqual(link["properties"]["doc"],
+                         {"$ref": "#/$defs/docRef", "description": "Filled in by Hook. Never write it. Only beside path."})
+        # "Only beside file/path" lives in the description, not in the schema: a boolean subschema
+        # would be refused by strict tool-schema converters. The validators and the vectors hold the rule.
+        for holder in (SCHEMA["$defs"]["step"], SCHEMA["$defs"]["leaf"], link):
+            self.assertNotIn("anyOf", holder)
         self.assertNotIn("doc", SCHEMA["$defs"]["verify"]["properties"])
         ref = SCHEMA["$defs"]["docRef"]
         self.assertEqual((ref["type"], ref["required"], ref["additionalProperties"]), ("object", ["sha256", "bytes"], False))
@@ -106,9 +113,6 @@ class SchemaTest(unittest.TestCase):
         self.assertEqual(errors({"do": "Read", "file": "~/notes/plan.md", "doc": doc}), [])
         self.assertEqual(errors({"do": "Go", "substeps": [{"do": "Read", "file": "/tmp/plan.md", "doc": doc}]}), [])
         self.assertEqual(errors(link_={"label": "Plan", "path": "~/notes/plan.md", "doc": doc}), [])
-        self.assertTrue(errors({"do": "Read", "doc": doc}))                           # no file beside it
-        self.assertTrue(errors({"do": "Go", "substeps": [{"do": "Read", "doc": doc}]}))
-        self.assertTrue(errors(link_={"label": "Plan", "url": "https://pond.example.test/plan", "doc": doc}))
         self.assertTrue(errors({"do": "Read", "file": "~/notes/plan.md", "doc": dict(doc, note="x")}))
         self.assertTrue(errors({"do": "Read", "file": "~/notes/plan.md", "doc": {"sha256": "a" * 64}}))
         ask = {"v": 1, "title": "Read", "steps": [{"do": "Read"}], "verify": {"do": "Check", "doc": doc}}

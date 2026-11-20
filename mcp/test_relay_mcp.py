@@ -787,6 +787,42 @@ class DescriptionTest(unittest.TestCase):
             self.assertEqual(schema["properties"]["instructable"]["properties"]["done"]["items"],
                              {"enum": ["steps", "reply", "message"]})
 
+    def test_the_instructable_tools_carry_no_boolean_subschema(self):
+        # A strict tool-schema converter in an agent host may refuse `true` or `false` where a
+        # schema goes, which would make the tool unusable. `additionalProperties: false` is the
+        # one boolean every such converter takes, so it stays allowed.
+        maps = {"properties", "patternProperties", "$defs", "definitions", "dependentSchemas"}
+        lists = {"anyOf", "oneOf", "allOf", "prefixItems"}
+        single = {"items", "not", "if", "then", "else", "contains", "propertyNames", "additionalItems",
+                  "unevaluatedProperties", "unevaluatedItems"}
+        found = []
+
+        def walk(node, path):
+            if not isinstance(node, dict):
+                return
+            for key, value in node.items():
+                here = path + "/" + key
+                if key in maps and isinstance(value, dict):
+                    children = [(here + "/" + k, v) for k, v in value.items()]
+                elif key in lists and isinstance(value, list):
+                    children = [(here + "/" + str(i), v) for i, v in enumerate(value)]
+                elif key in single:
+                    children = [(here, value)]
+                else:
+                    continue
+                for child_path, child in children:
+                    if isinstance(child, bool):
+                        found.append(child_path)
+                    walk(child, child_path)
+
+        tools = {t["name"]: t for t in relay_mcp.tool_list()}
+        for name in ("relay_post", "relay_amend", "relay_append"):
+            walk(tools[name]["inputSchema"], name)
+        self.assertEqual(found, [])
+        defs = tools["relay_post"]["inputSchema"]["$defs"]
+        self.assertIn("doc", defs["step"]["properties"])     # an ask read back with doc still posts
+        self.assertIn("doc", defs["leaf"]["properties"])
+
     def test_status_describes_requirements(self):
         status = next(t for t in relay_mcp.tool_list() if t["name"] == "relay_status")
         self.assertIn("requirements", status["description"])
