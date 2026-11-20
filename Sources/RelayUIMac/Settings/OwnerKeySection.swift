@@ -4,12 +4,13 @@ import RelayCore
 import SwiftUI
 
 /// Settings › Queue › Owner Key: this Mac's key for the connected Pond. Set Up This Mac…
-/// makes the key and shows the code the Telegram request repeats; the other devices; and the
-/// requirement, offered only once two devices are approved, this one among them.
+/// makes the key and shows the code the Telegram request repeats; Devices…, the sheet that lists
+/// and revokes them; and the requirement, offered only once two devices are approved, this one among them.
 struct OwnerKeySection<Model: SettingsViewModel>: View {
     @ObservedObject var model: Model
     @State private var confirmRequire = false
     @State private var revokeTarget: OwnerKeyRow?
+    @State private var showDevices = false
 
     var body: some View {
         Section {
@@ -28,18 +29,12 @@ struct OwnerKeySection<Model: SettingsViewModel>: View {
                 }
             }
             SettingsRow("Phone") { PhonePairingRow(controller: model.phonePairing) }
-            if !others.isEmpty {
-                SettingsRow("Other devices") {
-                    VStack(alignment: .trailing, spacing: 2) {
-                        ForEach(others, id: \.id) { key in
-                            HStack {
-                                Text(verbatim: OwnerKeyText.row(key)).foregroundStyle(DS.Color.secondary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                Button("Revoke…") { revokeTarget = key }
-                                    .disabled(!canRevoke)
-                            }
-                        }
+            SettingsRow("Devices") {
+                HStack(spacing: DS.Space.inline) {
+                    if model.ownerStatus != nil {
+                        Text(verbatim: OwnerDevices.slots(model.ownerStatus)).foregroundStyle(DS.Color.secondary)
                     }
+                    Button(DevicesText.button) { showDevices = true }
                 }
             }
             if let problem = model.revokeProblem {
@@ -51,7 +46,10 @@ struct OwnerKeySection<Model: SettingsViewModel>: View {
             Text("Owner Key")
         }
         .environment(\.settingsSection, "Owner Key")
-        .onChange(of: model.settings.sourceKey) { _, _ in revokeTarget = nil; confirmRequire = false }
+        .onChange(of: model.settings.sourceKey) { _, _ in revokeTarget = nil; confirmRequire = false; showDevices = false }
+        .sheet(isPresented: $showDevices) {
+            DevicesSheet(model: model) { showDevices = false }
+        }
         .onDisappear { revokeTarget = nil; confirmRequire = false }
         .confirmationDialog("Revoke device?", isPresented: Binding(
             get: { revokeTarget != nil }, set: { if !$0 { revokeTarget = nil } }), titleVisibility: .visible) {
@@ -75,12 +73,6 @@ struct OwnerKeySection<Model: SettingsViewModel>: View {
 
     private var canRevoke: Bool {
         model.ownerKeyState == .approved && model.ownerStatus?.self_?.status == "approved" && model.revokePendingID == nil
-    }
-
-    /// Every key the Pond lists but this Mac's.
-    private var others: [OwnerKeyRow] {
-        let mine = model.ownerStatus?.self_?.id
-        return (model.ownerStatus?.keys ?? []).filter { $0.id != mine }
     }
 
     @ViewBuilder private var thisMac: some View {
@@ -128,7 +120,13 @@ struct OwnerKeySection<Model: SettingsViewModel>: View {
                     .foregroundStyle(DS.Color.error)
                     .multilineTextAlignment(.trailing)
                     .fixedSize(horizontal: false, vertical: true)
-                Button(OwnerKeyText.setUpAgain) { model.setUpOwnerKey() }
+                HStack(spacing: DS.Space.inline) {
+                    // "too many keys", whatever words the reason uses: free a slot first.
+                    if model.setUpRefusedFull {
+                        Button(DevicesText.chooseToRevoke) { showDevices = true }
+                    }
+                    Button(OwnerKeyText.setUpAgain) { model.setUpOwnerKey() }
+                }
             }
         }
     }

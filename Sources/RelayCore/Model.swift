@@ -499,6 +499,11 @@ public struct AskDetail: Codable, Sendable, Equatable {
 
 // MARK: - The owner key (Pond 1.1.0)
 
+// The owner key's wire names, all decoded here: `GET /owner` → `required`, `keys[]` (`id`, `label`,
+// `status`, `created`, `approvedAt`, and with the `ownerKeyDates` feature `lastUsed`), `maxKeys`
+// (same feature), `self`; `POST /owner/revoke-request` → `id`, `code`, `expires`, `status`;
+// `GET /owner/revoke-request/{id}` → `id`, `status`.
+
 /// One key in `GET /owner`'s `keys`: never its hash or code.
 public struct OwnerKeyRow: Decodable, Sendable, Equatable {
     public var id: String
@@ -507,9 +512,29 @@ public struct OwnerKeyRow: Decodable, Sendable, Equatable {
     public var status: String
     public var created: String
     public var approvedAt: String?
+    /// When the key last authenticated a request (ISO 8601; the Pond stamps it at most once an hour).
+    /// nil when never used since the Pond began stamping, or from a Pond without `ownerKeyDates`.
+    public var lastUsed: String?
 
-    public init(id: String, label: String, status: String, created: String, approvedAt: String? = nil) {
+    public init(id: String, label: String, status: String, created: String, approvedAt: String? = nil,
+                lastUsed: String? = nil) {
         self.id = id; self.label = label; self.status = status; self.created = created; self.approvedAt = approvedAt
+        self.lastUsed = lastUsed
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, label, status, created, approvedAt, lastUsed
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        label = try c.decode(String.self, forKey: .label)
+        status = try c.decode(String.self, forKey: .status)
+        created = try c.decode(String.self, forKey: .created)
+        approvedAt = try? c.decodeIfPresent(String.self, forKey: .approvedAt)
+        // A malformed date shows as unknown; it never hides the device.
+        lastUsed = try? c.decodeIfPresent(String.self, forKey: .lastUsed)
     }
 }
 
@@ -527,14 +552,39 @@ public struct OwnerStatus: Decodable, Sendable, Equatable {
     public var keys: [OwnerKeyRow]
     /// This Mac's key, when the request carried one the Pond knows; nil otherwise.
     public var self_: OwnerSelf?
+    /// How many keys the Pond holds at most (`ownerKeyDates`); nil from an older Pond.
+    public var maxKeys: Int?
 
     enum CodingKeys: String, CodingKey {
-        case required, keys
+        case required, keys, maxKeys
         case self_ = "self"
     }
 
-    public init(required: Bool, keys: [OwnerKeyRow], self_: OwnerSelf? = nil) {
-        self.required = required; self.keys = keys; self.self_ = self_
+    public init(required: Bool, keys: [OwnerKeyRow], self_: OwnerSelf? = nil, maxKeys: Int? = nil) {
+        self.required = required; self.keys = keys; self.self_ = self_; self.maxKeys = maxKeys
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        required = try c.decode(Bool.self, forKey: .required)
+        keys = try c.decode([OwnerKeyRow].self, forKey: .keys)
+        self_ = try c.decodeIfPresent(OwnerSelf.self, forKey: .self_)
+        maxKeys = (try? c.decodeIfPresent(Int.self, forKey: .maxKeys)).flatMap { $0 > 0 ? $0 : nil }
+    }
+}
+
+/// `POST /owner/revoke-request` (`id`, `code`, `expires`, `status`) or `GET /owner/revoke-request/{id}`
+/// (`id`, `status`): a revoke the owner confirms on Telegram, for a device without a working key.
+public struct RevokeRequest: Decodable, Sendable, Equatable {
+    public var id: String
+    /// The 6-digit code Hook shows and the Telegram message repeats.
+    public var code: String?
+    /// "pending", "approved", "rejected" or "expired".
+    public var status: String?
+    public var expires: String?
+
+    public init(id: String, code: String? = nil, status: String? = nil, expires: String? = nil) {
+        self.id = id; self.code = code; self.status = status; self.expires = expires
     }
 }
 

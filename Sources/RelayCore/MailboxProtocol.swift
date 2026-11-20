@@ -27,6 +27,11 @@ public enum MailboxFeature: String, CaseIterable, Sendable, Comparable {
     /// `POST /asks/{id}/append`: steps added to the end of an open ask without a review lock.
     /// Read from the Pond's `features` list only (`listedOnly`), never from its version.
     case appendSteps
+    /// `POST /owner/revoke-request`: a device revoked from a Mac without a working key, confirmed
+    /// on Telegram. Listed only.
+    case ownerRevokeRequest
+    /// `created`, `lastUsed` per key and `maxKeys` in `GET /owner`. Listed only.
+    case ownerKeyDates
 
     /// The first Pond version that has the feature: everything up to the old protocol level 4
     /// is in 1.0.0.
@@ -40,17 +45,24 @@ public enum MailboxFeature: String, CaseIterable, Sendable, Comparable {
         case .sharedProgress: return SemVer(major: 1, minor: 5, patch: 0)
         // Only for ordering: `PondCapabilities.supports` reads the list for it.
         case .appendSteps: return SemVer(major: 1, minor: 9, patch: 0)
+        case .ownerRevokeRequest, .ownerKeyDates: return SemVer(major: 1, minor: 10, patch: 0)
         }
     }
 
     /// The Pond has it only when its `GET /version` lists the raw value in `features`.
-    public var listedOnly: Bool { self == .appendSteps }
+    public var listedOnly: Bool {
+        switch self {
+        case .appendSteps, .ownerRevokeRequest, .ownerKeyDates: return true
+        default: return false
+        }
+    }
 
     /// Past what this Hook needs (`PondCompat.required`): Hook checks each one with
     /// `PondVersion.supports(_:)` and works without it, so the "older Pond" Notice never names it.
     public var gated: Bool {
         switch self {
-        case .bugs, .messages, .requirements, .longText, .sharedProgress, .appendSteps: return true
+        case .bugs, .messages, .requirements, .longText, .sharedProgress, .appendSteps, .ownerRevokeRequest,
+             .ownerKeyDates: return true
         case .answers, .blocking, .optional, .fileLinks, .corrections: return false
         }
     }
@@ -69,6 +81,8 @@ public enum MailboxFeature: String, CaseIterable, Sendable, Comparable {
         case .longText: return "long messages and reports"
         case .sharedProgress: return "shared step ticks"
         case .appendSteps: return "adding steps to an open ask"
+        case .ownerRevokeRequest: return "revoking a device from Telegram"
+        case .ownerKeyDates: return "device dates"
         }
     }
 

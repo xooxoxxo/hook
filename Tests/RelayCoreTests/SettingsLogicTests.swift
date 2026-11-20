@@ -684,8 +684,8 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
         await pond.set(enroll: .failure(.rejected(status: 409, error: "too many keys", details: [])))
         let flow = await makeFlow(secrets, pond: pond)
         await flow.setUp()?.value
-        #expect(flow.state == .refused("Your Pond already has 4 devices that can act as you. On one of them, revoke a "
-            + "device you no longer use in Settings › Queue. Then try again."))
+        #expect(flow.state == .refused(OwnerKeyFlow.enrollRefused(QueueError.rejected(status: 409, error: "too many keys", details: []))))
+        #expect(flow.setUpRefusedFull)
         #expect(record(secrets) == nil)
     }
 

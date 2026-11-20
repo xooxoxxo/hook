@@ -255,6 +255,19 @@ public struct MailboxClient: QueueSource {
         let _: JSONValue = try await send("POST", "owner/revoke", body: Self.encode(["id": id]), owner: true)
     }
 
+    /// `POST /owner/revoke-request` (`ownerRevokeRequest`): asks the owner, on Telegram, to revoke
+    /// one device. The Pond token alone, so a Mac without a working key can ask; only the owner's tap
+    /// revokes. 404 (unknown key) and 409 (already revoked, or another request pending) are answers
+    /// the caller shows, not failures.
+    public func requestRevoke(_ id: String) async throws -> RevokeRequest {
+        try await send("POST", "owner/revoke-request", body: Self.encode(["id": id]), expected: [404, 409, 429, 502])
+    }
+
+    /// `GET /owner/revoke-request/{id}`: pending, approved, rejected or expired.
+    public func revokeRequest(_ id: String) async throws -> RevokeRequest {
+        try await send("GET", "owner/revoke-request/\(id)", expected: [404])
+    }
+
     /// `POST /owner/require`: on takes effect at once; off waits for the owner's tap on
     /// Telegram (202 → `.pending`).
     public func requireOwnerKey(_ on: Bool) async throws -> OwnerKeyRequirement {

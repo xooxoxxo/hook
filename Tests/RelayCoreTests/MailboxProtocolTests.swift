@@ -18,7 +18,8 @@ private func check(pond version: String, level: Int? = 5) -> MailboxCheck {
 private func semver(_ text: String) -> PondVersion { .semver(SemVer(strict: text)!) }
 
 private let everyFeature: [MailboxFeature] = [.answers, .blocking, .optional, .fileLinks, .corrections, .bugs, .messages,
-                                              .requirements, .longText, .sharedProgress, .appendSteps]
+                                              .requirements, .longText, .sharedProgress, .appendSteps,
+                                              .ownerRevokeRequest, .ownerKeyDates]
 /// The features the Notice can name: the ones this Hook's range needs.
 private let everyNeededFeature: [MailboxFeature] = [.answers, .blocking, .optional, .fileLinks, .corrections]
 
@@ -90,7 +91,7 @@ private let everyNeededFeature: [MailboxFeature] = [.answers, .blocking, .option
     @Test func appendStepsNeedsTheList() throws {
         #expect(MailboxFeature.appendSteps.gated)
         #expect(MailboxFeature.appendSteps.listedOnly)
-        #expect(MailboxFeature.allCases.filter(\.listedOnly) == [.appendSteps])
+        #expect(MailboxFeature.allCases.filter(\.listedOnly) == [.appendSteps, .ownerRevokeRequest, .ownerKeyDates])
         #expect(MailboxFeature.appendSteps.displayName == "adding steps to an open ask")
         #expect(MailboxFeature.appendSteps.minimumPond == SemVer(major: 1, minor: 9, patch: 0))
         #expect(!PondCapabilities(version: semver("1.9.0"), features: nil).supports(.appendSteps))

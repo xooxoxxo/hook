@@ -176,6 +176,10 @@ public enum DS {
         /// Show Difference's sheet, and its diff's scroll box.
         public static let diffSheetWidth: CGFloat = 560
         public static let diffSheetBody: CGFloat = 320
+        /// Settings › Queue › Owner Key › Devices…: the sheet, its table, and a date column.
+        public static let devicesSheetWidth: CGFloat = 520
+        public static let devicesTableHeight: CGFloat = 180
+        public static let devicesDateColumn: CGFloat = 96
         /// The action bar's Skip, Done, Send & Done and Discard & Done: wide enough to hit at a
         /// glance (owner pick 1); two of them beside each other fit the panel.
         public static let barButtonMinWidth: CGFloat = 84
