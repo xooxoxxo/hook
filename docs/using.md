@@ -122,7 +122,7 @@ A session can correct an open ask, such as a wrong port or a missing step, inste
 
 **When the history changes.** Sometimes the Pond serves a history that doesn't match what this Mac saw: a version is missing, changed or older. A Pond older than 1.1.0 serving a corrected ask counts too. The ask then shows a red bar, **This ask's history changed on the Pond**, and only Skip works. This happens after a Pond restore, or when someone swapped the history. Skip the ask. Only after a restore you made, press **Trust the Pond's History Again…** (Touch ID).
 
-**Review records.** Your accepted versions and the seen hashes live in `reviews.json` in Hook's Application Support folder. A Keychain key ("Hook review seal") seals the file. If macOS asks for your password so Hook can read it, choose Allow. If the Keychain refuses, or `reviews.json` is gone but the key isn't, corrected asks stay locked and a Notice says so. Its **Reset Review Records…** (Touch ID) starts over: every corrected ask needs a new review, and you set up the owner key again. See [SECURITY.md](../SECURITY.md#keychain-items).
+**Review records.** Your accepted versions and the seen hashes live in `reviews.json` in Hook's Application Support folder. A Keychain key ("Hook review seal") seals the file. If macOS asks for your password so Hook can read it, choose Allow. If the Keychain refuses, or `reviews.json` is gone but the key isn't, corrected asks stay locked and a Notice says so. Its **Try Again** asks macOS for the key again. Its **Start Over…** (a confirmation, then Touch ID) makes a new key: every corrected ask needs a new review, and you set up the owner key again. See [SECURITY.md](../SECURITY.md#keychain-items).
 
 ## The owner key
 

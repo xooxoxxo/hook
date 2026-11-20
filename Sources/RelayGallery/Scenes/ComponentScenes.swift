@@ -266,6 +266,13 @@ let longProject = "Quarterly planning for the public launch of the pricing page"
         Sample("Notice · error with action") { Notice(kind: .error, text: actionError, actionTitle: "Retry", onAction: {}, onDismiss: {}) },
         Sample("Notice · info") { Notice(kind: .info, text: "Settings changed, so the queue reloaded.", actionTitle: nil, onAction: {}, onDismiss: {}) },
         Sample("Notice · info with action") { Notice(kind: .info, text: "Offline · showing asks from 09:22", actionTitle: "Try Again", onAction: {}, onDismiss: {}) },
+        Sample("Notice · folded") { Notice(.reviewRecordsUnreadable, onAction: {}, onSecondary: {}, onDismiss: {}) },
+        Sample("Notice · folded, open") {
+            Notice(.reviewRecordsUnreadable, expanded: true, onAction: {}, onSecondary: {}, onDismiss: {})
+        },
+        Sample("Notice · folded, open, one button") {
+            Notice(.historyChanged(id: "gallery"), expanded: true, onAction: {}, onSecondary: {}, onDismiss: {})
+        },
     ])
 }
 
@@ -451,10 +458,38 @@ struct ComponentsSheet: View {
     ])
 }
 
+/// The folding Notice, folded and open, at the panel's column width and at a narrower one.
+@MainActor private struct NoticeWidths: View {
+    static let column = DS.Metric.panelWidth - 2 * DS.Space.gutter
+    static let narrow: CGFloat = 280
+
+    var body: some View {
+        HStack(alignment: .top, spacing: DS.Space.section) {
+            ForEach([Self.column, Self.narrow], id: \.self) { width in
+                VStack(alignment: .leading, spacing: DS.Space.section) {
+                    Text("\(Int(width)) pt").font(DS.Font.meta).foregroundStyle(DS.Color.secondary)
+                    Notice(.reviewRecordsUnreadable, onAction: {}, onSecondary: {}, onDismiss: {})
+                    Notice(.reviewRecordsUnreadable, expanded: true, onAction: {}, onSecondary: {}, onDismiss: {})
+                    Notice(.historyChanged(id: "gallery"), onAction: {}, onSecondary: {}, onDismiss: {})
+                    Notice(.historyChanged(id: "gallery"), expanded: true, onAction: {}, onSecondary: {}, onDismiss: {})
+                    Notice(.offlineCached(since: "09:22"), onAction: {}, onSecondary: {}, onDismiss: {})
+                }
+                .frame(width: width)
+            }
+        }
+        .padding(DS.Space.section)
+    }
+}
+
 @MainActor let componentScenes: [GalleryScene] = [
     GalleryScene(
         name: "components",
         size: .wide(width: 3 * DS.Metric.panelWidth + 4 * DS.Space.section, height: nil),
         standIn: true,
         view: { AnyView(ComponentsSheet(sections: sheetSections())) }),
+    GalleryScene(
+        name: "notice-folding",
+        size: .wide(width: NoticeWidths.column + NoticeWidths.narrow + 3 * DS.Space.section, height: nil),
+        standIn: true,
+        view: { AnyView(NoticeWidths()) }),
 ]
