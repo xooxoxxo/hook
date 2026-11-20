@@ -131,7 +131,9 @@ The owner key lets the Pond tell your answers apart from a session's. Accepting 
 1. Open Settings › Queue › **Owner Key** and press **Set Up This Mac…**.
 2. Hook shows a six-digit code, and the Pond sends a request to your Telegram.
 3. Check that the Hook message in Telegram shows the same code, then tap **Approve**. If the code differs, or you didn't start this, tap **Refuse**: someone is trying to act as you. The request expires after 10 minutes.
-4. The row says **Approved**. Other Macs you approved are under **Other Macs**.
+4. The row says **Approved**.
+
+**Devices.** **Devices…** lists every device that can act as you: its name, when it was set up and when it was last used. This Mac is marked. Select one and press **Revoke…** to remove a device you no longer use. If this Mac has no working key, Telegram asks you to confirm the revoke: check that it shows the code Hook shows, then tap **Revoke**. If setup stops because the Pond has no free slot, **Choose a Device to Revoke…** opens the same list; after the revoke, set up this Mac again. With a Pond older than the one that lists `ownerRevokeRequest` and `ownerKeyDates`, the list shows names only, and only a Mac with a working key can revoke.
 
 The key goes only over https, or plain http to this Mac itself, and only to the scheme it was set up on. Switching the Pond URL to http stops it. If the Pond stops accepting the key (revoked, or the Pond was reset), a Notice says so and the row offers **Set Up Again…**.
 

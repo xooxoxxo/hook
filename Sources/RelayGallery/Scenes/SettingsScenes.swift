@@ -34,6 +34,46 @@ let settingsRules: [AlignmentRule] = [.sameTrailingPerGroup(.settingsTrailing, t
                 draft: MailboxDraft(address: "https://pond.example.test", tokenFile: "unused"), ownerKeyState: .approved,
                 ownerStatus: status, canRequireOwnerKey: true))
         },
+        // The Devices sheet: this Mac's key works, the older duplicate selected.
+        devicesScene("settings-devices", selection: "k-old-1") {
+            FixtureSettingsModel(settings: SettingsFixtures.snapshot(config: ownerConfig), ownerKeyState: .approved,
+                                 ownerStatus: SettingsFixtures.devices(), pondCapabilities: SettingsFixtures.devicesPond)
+        },
+        // No working key on this Mac: the revoke waits for the owner's tap on Telegram.
+        devicesScene("settings-devices-telegram", selection: "k-old-1") {
+            FixtureSettingsModel(settings: SettingsFixtures.snapshot(config: ownerConfig),
+                                 ownerKeyState: .refused(OwnerKeyFlow.noLongerAccepted),
+                                 ownerStatus: SettingsFixtures.devices(thisMac: false),
+                                 pondCapabilities: SettingsFixtures.devicesPond, setUpRefusedFull: true,
+                                 revokeRequest: .waiting(keyID: "k-old-1", requestID: "r1", code: "482913", expires: nil))
+        },
+        // The revoke went through after a stuck setup: Set Up This Mac… is offered.
+        devicesScene("settings-devices-revoked") {
+            var status = SettingsFixtures.devices(thisMac: false)
+            status.keys.removeAll { $0.id == "k-old-1" || $0.id == "k-mac" }
+            return FixtureSettingsModel(settings: SettingsFixtures.snapshot(config: ownerConfig),
+                                        ownerKeyState: .refused(OwnerKeyFlow.enrollRefused(QueueError.rejected(status: 409, error: "too many keys", details: []))),
+                                        ownerStatus: status, pondCapabilities: SettingsFixtures.devicesPond,
+                                        setUpRefusedFull: true, revokeRequest: .revoked(keyID: "k-old-1"))
+        },
+        // An older Pond: names only, and revoke only with this Mac's key.
+        devicesScene("settings-devices-older-pond") {
+            FixtureSettingsModel(settings: SettingsFixtures.snapshot(config: ownerConfig), ownerKeyState: .approved,
+                                 ownerStatus: SettingsFixtures.devices(maxKeys: nil),
+                                 pondCapabilities: PondCapabilities(version: .semver(SemVer(major: 1, minor: 9, patch: 0)),
+                                                                    features: ["appendSteps"]))
+        },
+        // Setup refused with "too many keys": Choose a Device to Revoke… opens the sheet.
+        settingsScene("settings-queue-owner-full", tab: .queue, rules: []) {
+            var status = SettingsFixtures.devices(thisMac: false, maxKeys: 4)
+            status.keys.removeAll { $0.id == "k-mac" }
+            status.keys.append(OwnerKeyRow(id: "k-tab", label: "Tablet", status: "approved",
+                                           created: "2026-09-20T10:00:00+00:00"))
+            return QueueTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot(config: ownerConfig),
+                draft: MailboxDraft(address: "https://pond.example.test", tokenFile: "unused"),
+                ownerKeyState: .refused(OwnerKeyFlow.enrollRefused(QueueError.rejected(status: 409, error: "too many keys", details: []))), ownerStatus: status,
+                pondCapabilities: SettingsFixtures.devicesPond, setUpRefusedFull: true))
+        },
         settingsScene("settings-general", tab: .general) {
             GeneralTab(model: FixtureSettingsModel(settings: SettingsFixtures.snapshot()))
         },
@@ -201,6 +241,25 @@ let settingsRules: [AlignmentRule] = [.sameTrailingPerGroup(.settingsTrailing, t
                              .background(Color(nsColor: .windowBackgroundColor)))
                      }),
     ]
+}
+
+/// A Pond on https, for the owner key scenes.
+@MainActor private var ownerConfig: RelayConfig {
+    var config = SettingsFixtures.mailboxConfig
+    config.mailboxURL = "https://pond.example.test"
+    config.tokenFile = "unused"
+    return config
+}
+
+/// The Devices sheet over a window background, at its own width, on the gallery's clock.
+@MainActor private func devicesScene(_ name: String, selection: String? = nil,
+                                     _ model: @escaping @MainActor () -> FixtureSettingsModel) -> GalleryScene {
+    GalleryScene(name: name, size: .wide(width: DS.Metric.devicesSheetWidth, height: nil), standIn: false, view: {
+        AnyView(DevicesSheet(model: model(), selection: selection, onDone: {})
+            .environment(\.panelGallery, PanelGalleryOverrides(now: GalleryFixtures.now, locale: Locale(identifier: "en_GB"),
+                                                                timeZone: TimeZone(identifier: "UTC")))
+            .background(Color(nsColor: .windowBackgroundColor)))
+    })
 }
 
 /// Settings › Agents on the nine-agent Mac, opened on `selection`.

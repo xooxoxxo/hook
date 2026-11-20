@@ -16,14 +16,22 @@ public final class FixtureSettingsModel: SettingsViewModel {
     @Published public var canRequireOwnerKey: Bool
     @Published public var requireOffPending = false
     @Published public var requireProblem: String?
+    @Published public var pondCapabilities: PondCapabilities?
+    @Published public var setUpRefusedFull: Bool
+    @Published public var revokeRequest: RevokeRequestState
 
     public init(settings: SettingsSnapshot, draft: MailboxDraft = MailboxDraft(), ownerKeyState: OwnerKeyState = .notSetUp,
-                ownerStatus: OwnerStatus? = nil, canRequireOwnerKey: Bool = false) {
+                ownerStatus: OwnerStatus? = nil, canRequireOwnerKey: Bool = false,
+                pondCapabilities: PondCapabilities? = nil, setUpRefusedFull: Bool = false,
+                revokeRequest: RevokeRequestState = .idle) {
         self.settings = settings
         self.draft = draft
         self.ownerKeyState = ownerKeyState
         self.ownerStatus = ownerStatus
         self.canRequireOwnerKey = canRequireOwnerKey
+        self.pondCapabilities = pondCapabilities
+        self.setUpRefusedFull = setUpRefusedFull
+        self.revokeRequest = revokeRequest
     }
 
     public func save(set: [String: Any], remove: [String]) {}
@@ -37,12 +45,31 @@ public final class FixtureSettingsModel: SettingsViewModel {
     public func cancelOwnerKeySetup() {}
     public func requireOwnerKey(_ on: Bool) {}
     public func refreshOwnerStatus() {}
+    public func requestDeviceRevoke(_ id: String) {}
+    public func cancelDeviceRevokeRequest() {}
 }
 
 /// Generic Settings states for the gallery. Paths start at `~` (a generic `~/src/relay`
 /// checkout) and the repo command uses `$HOME`, so no real home folder or layout reaches a PNG.
 public enum SettingsFixtures {
     public static let testAskID = "1b2c3d4e-0000-4000-8000-000000000002"
+    /// The Devices sheet: this Mac, a phone, and two older keys with this Mac's name (set up
+    /// before a reinstall). Generic names; dates around `GalleryFixtures.now`.
+    public static func devices(thisMac: Bool = true, maxKeys: Int? = 10) -> OwnerStatus {
+        OwnerStatus(required: false, keys: [
+            OwnerKeyRow(id: "k-old-1", label: "studio-mac.local", status: "approved", created: "2026-10-03T08:12:00+00:00",
+                        approvedAt: "2026-10-03T08:13:00+00:00", lastUsed: nil),
+            OwnerKeyRow(id: "k-phone", label: "Android phone", status: "approved", created: "2026-10-02T18:30:00+00:00",
+                        approvedAt: "2026-10-02T18:31:00+00:00", lastUsed: "2026-10-15T21:05:00+00:00"),
+            OwnerKeyRow(id: "k-old-2", label: "studio-mac.local", status: "approved", created: "2026-10-05T10:02:00+00:00",
+                        approvedAt: "2026-10-05T10:03:00+00:00", lastUsed: "2026-10-06T16:40:00+00:00"),
+            OwnerKeyRow(id: "k-mac", label: "studio-mac.local", status: "approved", created: "2026-10-14T09:00:00+00:00",
+                        approvedAt: "2026-10-14T09:01:00+00:00", lastUsed: "2026-10-16T09:10:00+00:00"),
+        ], self_: thisMac ? OwnerSelf(id: "k-mac", status: "approved") : nil, maxKeys: maxKeys)
+    }
+    /// A Pond that lists the Devices sheet's features.
+    public static let devicesPond = PondCapabilities(version: .semver(SemVer(major: 1, minor: 10, patch: 0)),
+                                                     features: ["appendSteps", "ownerRevokeRequest", "ownerKeyDates"])
     public static let repoPath = "~/src/relay"
     public static let mailboxConfig = RelayConfig(
         source: .mailbox, mailboxURL: "https://mailbox.example:8790",

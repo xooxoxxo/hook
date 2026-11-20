@@ -35,6 +35,11 @@ extension AppModel: SettingsViewModel {
     func cancelOwnerKeySetup() { ownerKey?.cancelSetup() }
     func requireOwnerKey(_ on: Bool) { ownerKey?.requireOwnerKey(on) }
     func refreshOwnerStatus() { ownerKey?.refresh() }
+    var pondCapabilities: PondCapabilities? { store?.pondCapabilities }
+    var setUpRefusedFull: Bool { ownerKey?.setUpRefusedFull ?? false }
+    var revokeRequest: RevokeRequestState { ownerKey?.revokeRequest ?? .idle }
+    func requestDeviceRevoke(_ id: String) { ownerKey?.requestRevoke(id) }
+    func cancelDeviceRevokeRequest() { ownerKey?.cancelRevokeRequest() }
 
     /// Rebuilds `settings` from the config, the Store, presence and the shortcut.
     /// AppDelegate calls it after every Store change, apply, presence and shortcut change.

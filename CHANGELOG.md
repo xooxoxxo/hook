@@ -5,11 +5,15 @@ and versions follow Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- Settings › Queue › Owner Key › **Devices…** lists your devices with when each was set up and last used, and revokes one. A Mac without a working key, or one whose setup stopped at "too many keys", asks you to confirm the revoke on Telegram with a code. Needs a Pond that lists `ownerRevokeRequest` and `ownerKeyDates`; older Ponds show names only.
+
 ### Changed
 
 - A long Notice folds to a short line with Details. Open, it shows the whole text at full width, with its buttons on their own row, so a wide button no longer squeezes the text into a narrow column.
 - The Notice for a review key Hook can't read says in plain words what happened and what it locks. Try Again asks macOS for the key again. Start Over… (formerly Reset Review Records…) first says what you lose, then asks for Touch ID.
-- Owner key setup explains the Pond's refusals: with 4 devices already able to act as you, it says to revoke one you no longer use in Settings › Queue, then try again.
+- Owner key setup explains the Pond's refusals: when the Pond has no free slot, it says to revoke a device you no longer use, then set up again.
 
 <!-- hook:pond=^1.1.0 -->
 <!-- hook:mailbox-protocol=5 -->
