@@ -21,6 +21,7 @@ Hook reads `~/.config/relay/config.json`, and Settings edits it. `$RELAY_CONFIG`
 | `presence` | `"auto"` \| `"home"` \| `"away"` | `"auto"` | [Away mode](using.md#away-mode). `auto` follows the screen lock, display sleep, user switching, Screen Sharing and idle time. `home` and `away` set it by hand |
 | `awayAfterMinutes` | 5, 10, 15, 30 or 60 | 10 | With `auto`: minutes without input before Hook marks you away |
 | `repoPath` | path | none | Set by the installer. Settings › Agents runs `relay integrations` from it |
+| `updateMode` | `"developer"` \| none | none | Set by the installer for a build from a developer's clone: Check for Updates rebuilds that clone. Without it, a clone of `xooxoxxo/hook` moves to the release download at the next update and is left as it is |
 | `sidebarDisplay` | display UUID string | none | The display the panel is pinned to. Dragging the panel sets it, and `sidebarEdge` too. While that display is disconnected, the main display is used. Delete the key to go back to the main display |
 | `afterClose` | `"next"` \| `"queue"` | `"next"` | After Done or Skip: open the next ask, or go back to the queue with the next row selected. Any other value means `"next"` |
 | `mailboxUpdateCommand` | string | none | Pond mode: the one-line shell command **Update Pond…** runs through your login shell, in a new window of the `terminal` below. Empty or missing opens the [update guide](mailbox-protocol.md#updating-the-mailbox) instead. Set it in Settings › Queue › Pond › Update command |

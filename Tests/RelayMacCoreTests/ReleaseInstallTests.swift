@@ -41,6 +41,16 @@ import Testing
         #expect(checkout.detail.contains("rebuild"))
         #expect(InstallKind.unknown.line(home: "/Users/me").detail.contains("get.sh"))
     }
+
+    @Test func aCheckoutThatMovesToTheReleaseDownloadSaysSo() {
+        let line = InstallKind.checkout(repo: "/Users/me/src/hook").line(home: "/Users/me", movesToRelease: true)
+        #expect(line.mode == "Developer checkout")
+        #expect(line.detail == "Hook runs from the git checkout ~/src/hook. The next Check for Updates moves it to the release download in ~/.local/share/hook/current, with no git or compiler, and leaves the checkout as it is.")
+        #expect(InstallKind.checkout(repo: "/Users/me/src/hook").line(home: "/Users/me", movesToRelease: false)
+            == InstallKind.checkout(repo: "/Users/me/src/hook").line(home: "/Users/me"))
+        #expect(InstallKind.release(home: "/Users/me/.local/share/hook").line(home: "/Users/me", movesToRelease: true)
+            == InstallKind.release(home: "/Users/me/.local/share/hook").line(home: "/Users/me"))
+    }
 }
 
 @Suite struct ReleaseAssetsTests {
@@ -113,6 +123,33 @@ import Testing
 
     @Test func pathsAreQuoted() {
         #expect(plan(home: "/Users/me/it's").script.contains("cd '/Users/me/it'\\''s' || fail"))
+    }
+
+    private func moving() -> ReleaseUpdatePlan {
+        var plan = plan()
+        plan.fromCheckout = "/Users/me/src/hook"
+        return plan
+    }
+
+    /// A checkout has no installed get.sh: the job runs the one in the checked zip, which
+    /// installs to ~/.local/share/hook and points the config's repoPath at current.
+    @Test func aCheckoutMovesWithTheGetShInTheCheckedZip() {
+        let script = moving().script
+        let lines = script.split(separator: "\n").map(String.init)
+        let steps = lines.filter { !$0.hasPrefix(" ") && $0.contains("|| fail") }
+        #expect(steps == [
+            "cd '/tmp/hook-update-1' || fail \"couldn't open the download\"",
+            "/usr/bin/unzip -q -o '/tmp/hook-update-1/Hook-0.10.1.zip' 'support/scripts/get.sh' -d '/tmp/hook-update-1/payload' "
+                + "|| fail \"couldn't unpack get.sh from Hook-0.10.1.zip\"",
+            "HOOK_VERSION='0.10.1' HOOK_ZIP='/tmp/hook-update-1/Hook-0.10.1.zip' HOOK_SUMS='/tmp/hook-update-1/SHA256SUMS' "
+                + "/bin/bash '/tmp/hook-update-1/payload/support/scripts/get.sh' || fail \"scripts/get.sh\"",
+        ])
+        #expect(lines.contains("echo \"update: moving off the checkout\" '/Users/me/src/hook' \"(left as it is)\""))
+        #expect(!script.contains("/current/scripts/get.sh"))
+        #expect(!script.contains("/usr/bin/git"))
+        #expect(script.contains("rm -rf '/tmp/hook-update-1'"))
+        // ~/.local/share/hook may not exist yet: the job starts in the download folder.
+        #expect(moving().jobPlist["WorkingDirectory"] as? String == "/tmp/hook-update-1")
     }
 
     @Test func theJobIsTheSameOneShotLaunchdJob() {

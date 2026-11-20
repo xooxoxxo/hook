@@ -909,24 +909,37 @@ import RelayUI
         }
     }
 
-    /// A release download: download the release and check it. A checkout: gate it. Then
+    /// A release download: download the release and check it. A checkout: gate it; a clone
+    /// of the public repo that isn't a developer's build moves to the release download. Then
     /// start the detached update job.
     private func startUpdate() {
         guard !updateStarted, case .available(let version, let tag, _) = updates.state else { return }
         updateStarted = true
         HookLog.action(.update)
         let repoPath = model?.config?.repoPath
+        let updateMode = model?.config?.updateMode
         let kind = InstallKind.detect(repoPath: repoPath, fileExists: { FileManager.default.fileExists(atPath: $0) })
         Task { @MainActor [weak self] in
             guard let self else { return }
             do {
-                if case .release(let hookHome) = kind {
+                let releaseVersion = { () throws -> ReleaseVersion in
                     guard let release = ReleaseVersion(tag) else { throw UpdateCheckError("The release tag \(tag) isn't a version.") }
+                    return release
+                }
+                if case .release(let hookHome) = kind {
+                    let release = try releaseVersion()
                     let download = try await UpdateRunner.downloadRelease(tag: tag, version: release).get()
                     try UpdateRunner.launchRelease(hookHome: hookHome, tag: tag, version: release, download: download)
                 } else {
-                    let checkout = try await UpdateRunner.gate(repoPath: repoPath).get()
-                    try UpdateRunner.launch(repo: checkout.repo, tag: tag, mode: checkout.mode)
+                    switch try await UpdateRunner.gate(repoPath: repoPath, updateMode: updateMode).get() {
+                    case .build(let repo, let mode):
+                        try UpdateRunner.launch(repo: repo, tag: tag, mode: mode)
+                    case .releaseDownload(let repo):
+                        let release = try releaseVersion()
+                        let download = try await UpdateRunner.downloadRelease(tag: tag, version: release).get()
+                        try UpdateRunner.launchRelease(hookHome: UpdateRunner.releaseHome, tag: tag, version: release,
+                                                       download: download, fromCheckout: repo)
+                    }
                 }
                 let log = TildePath.abbreviate(UpdateRunner.logPath, home: UpdateRunner.home)
                 self.store?.setUpdating(true)

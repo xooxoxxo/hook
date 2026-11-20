@@ -73,6 +73,14 @@ private let mailboxProblem = ResolvedSource.invalid("the Pond (source \"mailbox\
             repoPath: "/opt/relay"))
     }
 
+    @Test func updateModeIsTheInstallersRecord() throws {
+        #expect(try decode(#"{"updateMode":"developer"}"#).updateMode == "developer")
+        #expect(try decode(#"{"updateMode":"developer"}"#).isDeveloperBuild)
+        #expect(try decode(#"{}"#).updateMode == nil)
+        #expect(try !decode(#"{"updateMode":7}"#).isDeveloperBuild)
+        #expect(try !decode(#"{"updateMode":"release"}"#).isDeveloperBuild)
+    }
+
     @Test func sidebarDisplayIsAStringOrNil() throws {
         #expect(try decode(#"{"sidebarDisplay":"37D8832A-2D66-02CA-B9F7-8F30A301B230"}"#).sidebarDisplay
             == "37D8832A-2D66-02CA-B9F7-8F30A301B230")
