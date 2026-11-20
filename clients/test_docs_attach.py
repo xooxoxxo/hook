@@ -15,11 +15,12 @@ from unittest import mock
 import relay_cli
 import relay_client as rc
 import relay_docs as rd
-from test_relay_amend import H1, H2
+from test_relay_amend import H1, H2, H3
 from test_relay_append import AppendPond
 from test_relay_client import ITEM_ID, Base, FakeHTTP
 
 ROOT = Path(__file__).resolve().parent.parent
+VECTORS = json.loads((ROOT / "conformance" / "data" / "instructable-vectors.json").read_text(encoding="utf-8"))["cases"]
 WIRE = {c["name"]: c for c in json.loads((ROOT / "conformance" / "wire" / "doc-wire-vectors.json")
                                         .read_text(encoding="utf-8"))["cases"]}
 DOC_FEATURES = ["answers", "corrections", "requirements", "appendSteps", "docs"]
@@ -204,6 +205,75 @@ class AttachTests(HomeBase):
         (self.home / "linked").symlink_to(shared)
         instructable, docs, notes = self.attach({"v": 1, "title": "t", "steps": [{"do": "R", "file": "~/linked/plan.md"}]})
         self.assertEqual((instructable["steps"][0]["doc"], notes), (fingerprint(PLAN.encode()), []))
+
+    def test_tilde_is_the_home_folder_and_what_follows(self):
+        outside = Path(self.tmp.name) / "outside"
+        outside.mkdir()
+        (outside / "x.md").write_text("outside the home folder")
+        absolute = str(outside / "x.md")
+        # "~//<absolute>" names a file under the home folder, as Hook opens it: never the absolute one.
+        ask = {"v": 1, "title": "t", "steps": [{"do": "R", "file": "~/" + absolute}]}
+        self.assertEqual(self.attach(ask), (ask, {}, ["steps[0].file not copied to the Pond: not on this machine"]))
+        self.write(absolute.lstrip("/"), "under home")
+        self.assertEqual(self.attach(ask)[1], {fingerprint(b"under home")["sha256"]: "under home"})
+        self.write("notes/plan.md", PLAN)
+        doubled = {"v": 1, "title": "t", "steps": [{"do": "R", "file": "~/notes//plan.md"}]}
+        self.assertEqual(self.attach(doubled)[1], {fingerprint(PLAN.encode())["sha256"]: PLAN})
+
+    def test_paths_the_validator_refuses_never_reach_the_disk(self):
+        refused = ["/net/server.example/share/plan.md", "/Network/Servers/x.md", "/home/u/plan.md", "//home/u/a.md",
+                   "/private/var/automount/net/h/a.md", "/System/Volumes/Data/home/a.md", "/NET/h/a.md",
+                   "~/../outside/o.md", "~/notes/./plan.md", "/tmp/../x.md", "/.vol/1/2.md", "/.nofollow/x.md",
+                   "/\u017fystem/x.md", "~/notes/a\u200b.md", "~/notes/a\u0000.md", "~/notes/a\tb.md",
+                   "~/" + "a" * 500 + ".md", "notes/plan.md", "~"]
+        for value in refused:
+            self.assertFalse(rd.path_allowed(value), value)
+        ask = {"v": 1, "title": "t", "steps": [{"do": "R", "file": v} for v in refused]}
+        fail = AssertionError("touched the disk")
+        with mock.patch.object(rd.os, "lstat", side_effect=fail), \
+                mock.patch.object(rd.os, "stat", side_effect=fail), \
+                mock.patch.object(rd.os, "open", side_effect=fail), \
+                mock.patch.object(rd.os.path, "realpath", side_effect=fail):
+            self.assertEqual(self.attach(ask), (ask, {}, []))
+        for value in ("~/notes/plan.md", "/tmp/plan.md", "~/.hidden/plan.md", "/srv/Pl\u00e4ne/a.md",
+                      "/networks/a.md", "/homes/a.md", "~/net/a.md", "/a" * 248 + ".md"):
+            self.assertTrue(rd.path_allowed(value), value)
+
+    def test_path_rules_match_the_validator_vectors(self):
+        checked = 0
+        for case in VECTORS:
+            ins = case.get("input")
+            if case.get("kind") != "instructable" or not isinstance(ins, dict):
+                continue
+            entries = []
+            for i, step in enumerate(ins.get("steps") or []):
+                if not isinstance(step, dict):
+                    continue
+                entries.append((f"steps[{i}].file", step.get("file")))
+                for j, sub in enumerate(step.get("substeps") or [] if isinstance(step.get("substeps"), list) else []):
+                    if isinstance(sub, dict):
+                        entries.append((f"steps[{i}].substeps[{j}].file", sub.get("file")))
+            for k, link in enumerate(ins.get("links") or [] if isinstance(ins.get("links"), list) else []):
+                if isinstance(link, dict) and "url" not in link:    # with both, only the link's shape is judged
+                    entries.append((f"links[{k}].path", link.get("path")))
+            for field, value in entries:
+                if not isinstance(value, str):
+                    continue
+                mine = [e for e in case["errors"] if e.startswith(field + ": ")]
+                if mine and all(e.endswith(": secret-like value") for e in mine):
+                    continue    # not a path rule: Hook never scans for secrets, the Pond does
+                refused = bool(mine)
+                self.assertEqual(rd.path_allowed(value), not refused, (case["name"], field))
+                checked += 1
+        self.assertGreater(checked, 40)
+
+    def test_a_disk_error_is_a_silent_skip(self):
+        with mock.patch.object(rd, "path_allowed", return_value=True):
+            ask = {"v": 1, "title": "t", "steps": [{"do": "R", "file": "~/notes/a\u0000.md"}]}
+            self.assertEqual(self.attach(ask), (ask, {}, []))
+            with mock.patch.object(rd.os, "lstat", side_effect=ValueError("embedded null byte")):
+                ask = {"v": 1, "title": "t", "steps": [{"do": "R", "file": "~/notes/plan.md"}]}
+                self.assertEqual(self.attach(ask), (ask, {}, []))
 
     def test_tilde_expands_to_the_home_folder_given(self):
         self.write("notes/plan.md", PLAN)
@@ -395,10 +465,13 @@ class DocsPond(AppendPond):
         self.amend_queue = []
         self.served = None
         self.rev = (1, H1)
+        self.on_append = None     # called with each queued append answer, before it is sent
 
     def __call__(self, req, timeout=None):
         path = urllib.parse.urlsplit(req.full_url).path
         method = req.get_method()
+        if method == "POST" and path == f"/asks/{ITEM_ID}/append" and self.queue and self.on_append:
+            self.on_append(self.queue[0])
         if method == "POST" and path == "/asks" and self.post_queue:
             self.requests.append(req)
             return self._answer(req, *self.post_queue.pop(0))
@@ -674,6 +747,87 @@ class ClientDocsTests(ClientDocsBase):
         self.assertEqual(len(posts), 3)    # the setUp post, then exactly two
         self.assertNotIn("doc", posts[-1]["instructable"]["steps"][0])
         self.assertNotIn("docs", posts[-1])
+
+    def test_a_path_with_a_nul_posts_and_the_pond_answers(self):
+        refusal = (400, {"error": "invalid instructable",
+                         "details": ["steps[0].file: contains hidden or control characters (U+0000)"]})
+        self.http.post_queue.append(refusal)
+        ask = {"v": 1, "title": "t", "steps": [{"do": "Read", "file": "~/notes/a\u0000.md"}]}
+        with self.assertRaises(rc.Refused) as ctx:
+            self.client().post("Example", ask)
+        self.assertEqual(ctx.exception.details, refusal[1]["details"])
+        (body,) = self.bodies("/asks")
+        self.assertEqual(body["instructable"]["steps"][0], ask["steps"][0])
+        self.assertNotIn("docs", body)
+        self.http.post_queue.append(refusal)
+        out, err = io.StringIO(), io.StringIO()
+        code = relay_cli.main(["post", "Example", "--json", "-"], stdin=io.StringIO(json.dumps(ask)), stdout=out,
+                              stderr=err, env=self.env, client_factory=lambda **kw: self.client())
+        self.assertEqual((code, out.getvalue(), err.getvalue()),
+                         (1, "", "refused: invalid instructable\n  steps[0].file: contains hidden or control "
+                                 "characters (U+0000)\n"))
+
+    def appended(self, answers, steps=None):
+        """An append against the posted ask whose append route answers `answers` first."""
+        self.posted()
+        self.write("notes/next.md", "next")
+        self.http.queue += answers
+        steps = steps or [{"do": "Next", "file": "~/notes/next.md"}]
+        return self.client().append(ITEM_ID, "One more", steps)
+
+    def test_an_append_stale_then_secret_stays_within_three_requests(self):
+        nxt = fingerprint(b"next")["sha256"]
+        res = self.appended([(409, {"error": "stale revision", "rev": 2, "hash": H3}),
+                             (400, {"error": "invalid documents", "details": [f"docs.{nxt}: secret-like value"]})])
+        sent = self.bodies(f"/asks/{ITEM_ID}/append")
+        self.assertEqual(len(sent), 3)
+        self.assertEqual([("docs" in b) for b in sent], [True, True, False])
+        self.assertEqual(sent[2]["baseRev"], 2)
+        self.assertEqual(res["notes"], ["steps[0].file not copied to the Pond: it holds a secret-like value"])
+
+    def test_an_append_stale_too_soon_off_stays_within_four_requests(self):
+        off = (409, {"error": "documents not enabled"})
+        res = self.appended([(409, {"error": "stale revision", "rev": 2, "hash": H3}),
+                             (429, {"error": "too soon", "retryAfter": 0}), off])
+        sent = self.bodies(f"/asks/{ITEM_ID}/append")
+        self.assertEqual(len(sent), 4)
+        self.assertNotIn("docs", sent[3])
+        self.assertEqual(res["notes"], ["steps[0].file not copied to the Pond: documents are turned off on the Pond"])
+        # One more refusal of any kind is the caller's: never a fifth request.
+        rc._ponds.clear()
+        self.http = DocsPond()
+        with self.assertRaises(rc.Refused):
+            self.appended([(409, {"error": "stale revision", "rev": 2, "hash": H3}),
+                           (429, {"error": "too soon", "retryAfter": 0}), off, off])
+        self.assertEqual(len(self.bodies(f"/asks/{ITEM_ID}/append")), 4)
+
+    def test_after_a_stale_revision_the_documents_follow_the_fresh_one(self):
+        fresh = fingerprint(b"the copy the owner saw last")
+
+        def changed(answer):
+            if answer[1].get("error") == "stale revision":
+                served = copy.deepcopy(self.http.served)
+                served["steps"][0]["doc"] = fresh
+                self.http.served, self.http.rev = served, (2, H3)
+        self.http.on_append = changed
+        self.write("notes/plan.md", "edited on disk")
+        self.appended([(409, {"error": "stale revision", "rev": 2, "hash": H3})],
+                      steps=[{"do": "Reread", "file": "~/notes/plan.md"}])
+        first, second = self.bodies(f"/asks/{ITEM_ID}/append")
+        self.assertEqual(first["steps"][0]["doc"], fingerprint(PLAN.encode()))
+        self.assertEqual(second["steps"][0]["doc"], fresh)
+        self.assertNotIn("docs", second)
+
+    def test_a_correction_sends_at_most_two_requests(self):
+        self.posted()
+        self.write("notes/new.md", "new")
+        off = (409, {"error": "documents not enabled"})
+        self.http.amend_queue += [off, off]
+        fixed = {"v": 1, "title": "t", "steps": [{"do": "Read", "file": "~/notes/plan.md", "id": "s1"},
+                                                 {"do": "New", "file": "~/notes/new.md"}]}
+        with self.assertRaises(rc.Refused):
+            self.client().amend(ITEM_ID, "One more", fixed)
+        self.assertEqual(len(self.bodies(f"/asks/{ITEM_ID}/amend")), 2)
 
     def test_an_append_keeps_held_documents_when_documents_are_off(self):
         self.posted()

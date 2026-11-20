@@ -40,6 +40,12 @@ STORE_FULL = "the Pond's document store is full"
 # The 409s a request is refused with for its new documents alone; one resend without them.
 NOT_NEW = {"documents not enabled": OFF, "document store full": STORE_FULL}
 
+# The validator's path rules (the Pond's instructable._path, Hook's own validator): a path they
+# refuse is never opened, since the ask is refused anyway and opening it could reach a server.
+MAX_PATH = 500
+NETWORK_ROOTS = ("/net", "/network", "/home")
+FIRMLINK_PREFIXES = ("/private/var/automount", "/var/automount", "/private", "/system/volumes/data")
+
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _SECRET_DETAIL = re.compile(r"docs\.([0-9a-f]{64}): secret-like value")
 
@@ -103,6 +109,46 @@ def _entries(instructable: Any) -> List[Entry]:
     return found
 
 
+def _network_form(value: str) -> str:
+    """Runs of "/" as one, lowercased, and the /private, /var/automount, /private/var/automount
+    and /System/Volumes/Data prefixes stripped until none is left: they all lead back to the roots."""
+    form = re.sub(r"/+", "/", value).lower()
+    changed = True
+    while changed:
+        changed = False
+        for prefix in FIRMLINK_PREFIXES:
+            if form == prefix or form.startswith(prefix + "/"):
+                form = form[len(prefix):] or "/"
+                changed = True
+                break
+    return form
+
+
+def path_allowed(value: Any) -> bool:
+    """Would the validator take this `file` or link `path`? An absolute local path ("/…" or
+    "~/…") of 1 to MAX_PATH characters on one line, with no hidden characters, no "." or ".."
+    segment, and, for "/…", a first folder that is plain ASCII and doesn't start with ".", and
+    not /net, /Network or /home (in any case, also behind "//" or a firmlink prefix). Held to
+    conformance/data/instructable-vectors.json."""
+    from relay_client import _is_hidden   # the one hidden-character policy (imported late: no cycle)
+    if not isinstance(value, str) or not 1 <= len(value) <= MAX_PATH:
+        return False
+    if any(_is_hidden(ch) for ch in value):     # NUL, TAB, LF and the joiners included
+        return False
+    if not (value.startswith("/") or value.startswith("~/")):
+        return False
+    if any(segment in (".", "..") for segment in value.split("/")):
+        return False
+    if value.startswith("/"):
+        segments = [segment for segment in value.split("/") if segment]
+        if segments and (segments[0].startswith(".") or not segments[0].isascii()):
+            return False
+        form = _network_form(value)
+        if form in NETWORK_ROOTS or form.startswith(tuple(root + "/" for root in NETWORK_ROOTS)):
+            return False
+    return True
+
+
 def has_doc_paths(instructable: Any) -> bool:
     """Does a step, sub-step or link point at a local document?"""
     return bool(_entries(instructable))
@@ -135,7 +181,9 @@ def _read(path: str, home: str) -> Tuple[Optional[bytes], Optional[str]]:
     """(the file's exact bytes, None), or (None, the reason it isn't sent). (None, None) for a
     path that is neither `/…` nor `~/…`: the validator refuses it, so no note is due."""
     if path.startswith("~/"):
-        full = os.path.join(home, path[2:])
+        # As Hook opens it: the home folder, then everything after the "~". Never os.path.join,
+        # which would drop the home folder for "~//etc/x.md".
+        full = home + path[1:]
     elif path.startswith("/"):
         full = path
     else:
@@ -254,7 +302,13 @@ def attach_docs(instructable: Dict[str, Any], *, current: Optional[Dict[str, Any
             _set_doc(parent, index, key, dict(by_path[path]))
             continue
         if path not in reads:
-            reads[path] = _read(path, home)
+            if not path_allowed(path):
+                reads[path] = (None, None)    # the validator refuses it: no disk call, no note
+            else:
+                try:
+                    reads[path] = _read(path, home)
+                except (OSError, ValueError):
+                    reads[path] = (None, None)    # the ask posts with its path; the Pond decides
         data, reason = reads[path]
         if data is None:
             if reason is not None:
@@ -330,6 +384,8 @@ def retry_without(exc: Any, instructable: Dict[str, Any], docs: Dict[str, str], 
     if status == 409 and error in NOT_NEW:
         docs_of = [parent[index]["doc"] for _, parent, index, _ in _entries(instructable)
                    if isinstance(parent[index].get("doc"), dict)]
+        # A newly read `doc` whose hash the ask already holds stays, with no note: the Pond keeps
+        # that text already, so the request is taken without it.
         new = {doc.get("sha256") for doc in docs_of if doc.get("sha256") not in held}
         if not docs and not new:
             return None

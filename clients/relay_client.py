@@ -1272,37 +1272,53 @@ class Client:
         current = revision_of(detail)
         last_hash = record.get("lastHash") if isinstance(record.get("lastHash"), str) else ""
         base_rev, base_hash = (current["rev"], current["hash"]) if current is not None else (1, last_hash)
-        holder: Dict[str, Any] = {"steps": steps}
-        docs: Dict[str, str] = {}
-        notes: List[str] = []
-        if self._takes_docs(holder):
-            holder, docs, notes = attach_docs(holder, current=instructable_of(detail), refresh=refresh_docs,
-                                              home=self._home())
+        takes_docs = self._takes_docs({"steps": steps})
+        # The refusal the one documents resend answered (secret-like, switched off, store full).
+        refused_docs: List[Refused] = []
 
         def make(held: Dict[str, Any], texts: Dict[str, str]) -> Dict[str, Any]:
             body = {"editKey": record["key"], "baseRev": base_rev, "baseHash": base_hash, "note": note,
                     "steps": held["steps"]}
             return dict(body, docs=texts) if texts else body
-        holder, docs, cut = fit_request(holder, docs, lambda h, d: encode_body(make(h, d)))
-        notes += cut
-        retried_stale = retried_soon = retried_docs = False
+
+        def prepared(served: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, str], List[str], Set[str]]:
+            """The steps with their documents against this revision of the ask: what it holds is
+            kept, the rest read; a documents refusal already answered is applied again."""
+            held = held_hashes(instructable_of(served))
+            found: Tuple[Dict[str, Any], Dict[str, str], List[str]] = ({"steps": steps}, {}, [])
+            if takes_docs:
+                found = attach_docs(found[0], current=instructable_of(served), refresh=refresh_docs,
+                                    home=self._home())
+            holder, docs, cut = fit_request(found[0], found[1], lambda h, d: encode_body(make(h, d)))
+            notes = found[2] + cut
+            again = retry_without(refused_docs[0], holder, docs, held) if refused_docs else None
+            if again is not None:
+                holder, docs, more = again
+                notes = notes + more
+            return holder, docs, notes, held
+
+        holder, docs, notes, held = prepared(detail)
+        retried_stale = retried_soon = False
         while True:
             try:
                 resp = self._call("POST", "/asks/" + self._quote(ask_id) + "/append", make(holder, docs),
                                   not_found=f"no ask with id {ask_id}")
                 break
             except Refused as exc:
-                again = None if retried_docs else retry_without(exc, holder, docs,
-                                                                held_hashes(instructable_of(detail)))
-                if again is not None:
-                    retried_docs, (holder, docs, more) = True, again
-                    notes += more
+                again = None if refused_docs else retry_without(exc, holder, docs, held)
+                if again is not None:      # at most once per call, whatever else is retried
+                    refused_docs.append(exc)
+                    holder, docs, more = again
+                    notes = notes + more
                     continue
                 rev, hash_ = exc.body.get("rev"), exc.body.get("hash")
                 wait = exc.body.get("retryAfter")
                 if (exc.status == 409 and exc.error == "stale revision" and not retried_stale
                         and isinstance(rev, int) and not isinstance(rev, bool) and isinstance(hash_, str)):
                     retried_stale, base_rev, base_hash = True, rev, hash_
+                    if takes_docs:
+                        # The ask changed under this call: attach against the revision it has now.
+                        holder, docs, notes, held = prepared(self.get(ask_id))
                     continue
                 if (exc.status == 429 and not retried_soon and isinstance(wait, (int, float))
                         and not isinstance(wait, bool) and 0 <= wait <= APPEND_RETRY_MAX_S):
