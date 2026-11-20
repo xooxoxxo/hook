@@ -1,0 +1,1037 @@
+{
+ "version": 1,
+ "pond": "1.10.0",
+ "source": "mailbox/tests/gen_doc_wire.py, recorded from the Pond over loopback",
+ "format": "{name, note, request: {method, path, token, protocol, body}, response: {status, headers, body}, binds?}\n\n`token` false sends no Authorization header; true sends the Pond token, which no file\nholds. `protocol` is the X-Hook-Protocol sent. `headers` are the response's\nContent-Type, and Cache-Control and X-Content-Type-Options when it has them. `body`\nis the parsed JSON for an application/json response and the exact text for a\ntext/plain one (a document read); a text/plain response also carries `bodyBase64`,\nthe exact bytes it sent in standard base64, which no JSON escaping can alter. `binds`\nnames the item id the response carries ({\"ask1\": \"item.id\"}), and later paths use it\nas {ask1}. In JSON bodies every item id is its {name} and every ISO-8601 timestamp is\n{time}, except a revision's `at`, kept as recorded because its hash covers it.\n`baseRev` and `baseHash` in a request body are the real values the Pond accepts; the\nedit key is a synthetic one. A `doc`'s `bytes` is the UTF-8 byte count of its text.\nThe switch is on until the case doc-version-off. Every text and path is synthetic.",
+ "cases": [
+  {
+   "name": "doc-post",
+   "note": "an ask whose step 1 file carries a doc; the text travels in `docs`, keyed by its hash",
+   "request": {
+    "method": "POST",
+    "path": "/asks",
+    "token": true,
+    "protocol": 6,
+    "body": {
+     "project": "Example",
+     "context": "personal",
+     "instructable": {
+      "v": 1,
+      "title": "Review the release plan",
+      "steps": [
+       {
+        "do": "Read the plan",
+        "file": "~/notes/plan.md",
+        "doc": {
+         "sha256": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd",
+         "bytes": 93
+        }
+       },
+       {
+        "do": "Say whether it can ship",
+        "question": {
+         "prompt": "Ship it?",
+         "choices": [
+          "Yes",
+          "No"
+         ]
+        }
+       }
+      ]
+     },
+     "docs": {
+      "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd": "# Release plan\n\n1. Tag the release.\n2. Publish the notes on https://pond.example.test/notes.\n"
+     }
+    }
+   },
+   "response": {
+    "status": 201,
+    "headers": {
+     "Content-Type": "application/json; charset=utf-8"
+    },
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Review the release plan",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "cb992fecd8964966",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 1,
+       "note": null,
+       "instructable": {
+        "steps": [
+         {
+          "do": "Read the plan",
+          "doc": {
+           "bytes": 93,
+           "sha256": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd"
+          },
+          "file": "~/notes/plan.md",
+          "id": "s1"
+         },
+         {
+          "do": "Say whether it can ship",
+          "id": "s2",
+          "question": {
+           "choices": [
+            "Yes",
+            "No"
+           ],
+           "prompt": "Ship it?"
+          }
+         }
+        ],
+        "title": "Review the release plan",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "revision": {
+       "rev": 1,
+       "hash": "3090cfcfba4c349b52f105e0e551f1a5e0930ade7ebf3f3f75dca705e6bfd1f2",
+       "prev": "",
+       "at": "2026-11-03T09:00:01+00:00",
+       "reason": "",
+       "body": "{\"steps\":[{\"do\":\"Read the plan\",\"doc\":{\"bytes\":93,\"sha256\":\"89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd\"},\"file\":\"~/notes/plan.md\",\"id\":\"s1\"},{\"do\":\"Say whether it can ship\",\"id\":\"s2\",\"question\":{\"choices\":[\"Yes\",\"No\"],\"prompt\":\"Ship it?\"}}],\"title\":\"Review the release plan\",\"urgency\":\"today\",\"v\":1}",
+       "acceptedRev": 1
+      }
+     },
+     "revision": {
+      "rev": 1,
+      "hash": "3090cfcfba4c349b52f105e0e551f1a5e0930ade7ebf3f3f75dca705e6bfd1f2"
+     },
+     "editable": false
+    }
+   },
+   "binds": {
+    "ask1": "item.id"
+   }
+  },
+  {
+   "name": "doc-read",
+   "note": "the ask keeps the document: 200, its exact bytes as text/plain",
+   "request": {
+    "method": "GET",
+    "path": "/asks/{ask1}/docs/89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd",
+    "token": true,
+    "protocol": 6,
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "headers": {
+     "Content-Type": "text/plain; charset=utf-8",
+     "Cache-Control": "no-store",
+     "X-Content-Type-Options": "nosniff"
+    },
+    "body": "# Release plan\n\n1. Tag the release.\n2. Publish the notes on https://pond.example.test/notes.\n",
+    "bodyBase64": "IyBSZWxlYXNlIHBsYW4KCjEuIFRhZyB0aGUgcmVsZWFzZS4KMi4gUHVibGlzaCB0aGUgbm90ZXMgb24gaHR0cHM6Ly9wb25kLmV4YW1wbGUudGVzdC9ub3Rlcy4K"
+   }
+  },
+  {
+   "name": "doc-read-not-linked",
+   "note": "a hash this ask never linked: 404",
+   "request": {
+    "method": "GET",
+    "path": "/asks/{ask1}/docs/a07c2996de1070f96f50817c302705933a0a4ff62bd31475e4a79e84225a53c8",
+    "token": true,
+    "protocol": 6,
+    "body": null
+   },
+   "response": {
+    "status": 404,
+    "headers": {
+     "Content-Type": "application/json; charset=utf-8"
+    },
+    "body": {
+     "error": "not found"
+    }
+   }
+  },
+  {
+   "name": "doc-read-unknown-ask",
+   "note": "an ask the Pond does not have: 404",
+   "request": {
+    "method": "GET",
+    "path": "/asks/00000000-0000-4000-8000-000000000000/docs/89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd",
+    "token": true,
+    "protocol": 6,
+    "body": null
+   },
+   "response": {
+    "status": 404,
+    "headers": {
+     "Content-Type": "application/json; charset=utf-8"
+    },
+    "body": {
+     "error": "not found"
+    }
+   }
+  },
+  {
+   "name": "doc-read-no-token",
+   "note": "no Authorization header: 401",
+   "request": {
+    "method": "GET",
+    "path": "/asks/{ask1}/docs/89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd",
+    "token": false,
+    "protocol": 6,
+    "body": null
+   },
+   "response": {
+    "status": 401,
+    "headers": {
+     "Content-Type": "application/json; charset=utf-8"
+    },
+    "body": {
+     "error": "unauthorized"
+    }
+   }
+  },
+  {
+   "name": "doc-release-open",
+   "note": "release while the ask is open: 409, nothing deleted",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/docs/release",
+    "token": true,
+    "protocol": 6,
+    "body": null
+   },
+   "response": {
+    "status": 409,
+    "headers": {
+     "Content-Type": "application/json; charset=utf-8"
+    },
+    "body": {
+     "error": "ask is open"
+    }
+   }
+  },
+  {
+   "name": "doc-close",
+   "note": "the session marks the ask done",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/resolve",
+    "token": true,
+    "protocol": 6,
+    "body": {
+     "verdict": "done"
+    }
+   },
+   "response": {
+    "status": 200,
+    "headers": {
+     "Content-Type": "application/json; charset=utf-8"
+    },
+    "body": {
+     "item": {
+      "id": "{ask1}",
+      "source": "xo-mailbox",
+      "title": "Review the release plan",
+      "status": "done",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "cb992fecd8964966",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 1,
+       "note": null,
+       "instructable": {
+        "steps": [
+         {
+          "do": "Read the plan",
+          "doc": {
+           "bytes": 93,
+           "sha256": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd"
+          },
+          "file": "~/notes/plan.md",
+          "id": "s1"
+         },
+         {
+          "do": "Say whether it can ship",
+          "id": "s2",
+          "question": {
+           "choices": [
+            "Yes",
+            "No"
+           ],
+           "prompt": "Ship it?"
+          }
+         }
+        ],
+        "title": "Review the release plan",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": "{time}",
+      "revision": {
+       "rev": 1,
+       "hash": "3090cfcfba4c349b52f105e0e551f1a5e0930ade7ebf3f3f75dca705e6bfd1f2",
+       "prev": "",
+       "at": "2026-11-03T09:00:01+00:00",
+       "reason": "",
+       "body": "{\"steps\":[{\"do\":\"Read the plan\",\"doc\":{\"bytes\":93,\"sha256\":\"89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd\"},\"file\":\"~/notes/plan.md\",\"id\":\"s1\"},{\"do\":\"Say whether it can ship\",\"id\":\"s2\",\"question\":{\"choices\":[\"Yes\",\"No\"],\"prompt\":\"Ship it?\"}}],\"title\":\"Review the release plan\",\"urgency\":\"today\",\"v\":1}",
+       "acceptedRev": 1
+      }
+     }
+    }
+   }
+  },
+  {
+   "name": "doc-release",
+   "note": "release on the closed ask: 200 with the documents this call released",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/docs/release",
+    "token": true,
+    "protocol": 6,
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "headers": {
+     "Content-Type": "application/json; charset=utf-8"
+    },
+    "body": {
+     "released": 1
+    }
+   }
+  },
+  {
+   "name": "doc-release-again",
+   "note": "a second release: 200 with 0",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask1}/docs/release",
+    "token": true,
+    "protocol": 6,
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "headers": {
+     "Content-Type": "application/json; charset=utf-8"
+    },
+    "body": {
+     "released": 0
+    }
+   }
+  },
+  {
+   "name": "doc-read-released",
+   "note": "the ask released the document: 410",
+   "request": {
+    "method": "GET",
+    "path": "/asks/{ask1}/docs/89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd",
+    "token": true,
+    "protocol": 6,
+    "body": null
+   },
+   "response": {
+    "status": 410,
+    "headers": {
+     "Content-Type": "application/json; charset=utf-8"
+    },
+    "body": {
+     "error": "document no longer kept"
+    }
+   }
+  },
+  {
+   "name": "doc-release-unknown-ask",
+   "note": "release on an ask the Pond does not have: 404",
+   "request": {
+    "method": "POST",
+    "path": "/asks/00000000-0000-4000-8000-000000000000/docs/release",
+    "token": true,
+    "protocol": 6,
+    "body": null
+   },
+   "response": {
+    "status": 404,
+    "headers": {
+     "Content-Type": "application/json; charset=utf-8"
+    },
+    "body": {
+     "error": "not found"
+    }
+   }
+  },
+  {
+   "name": "doc-post-errors",
+   "note": "every document error at once: one per `doc` in document order, then one per sent text in hash order (then the total, not shown: it needs over 768 KB of text); nothing stored",
+   "request": {
+    "method": "POST",
+    "path": "/asks",
+    "token": true,
+    "protocol": 6,
+    "body": {
+     "project": "Example",
+     "context": "personal",
+     "instructable": {
+      "v": 1,
+      "title": "Review the release checklist",
+      "steps": [
+       {
+        "do": "Read the plan",
+        "file": "~/notes/plan.md",
+        "doc": {
+         "sha256": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd",
+         "bytes": 94
+        }
+       },
+       {
+        "do": "Read the notes",
+        "file": "~/notes/notes.md",
+        "doc": {
+         "sha256": "da9672367cd66934ed2dfac0d3caab88fd365b0ad36da9641de0915d08e9d1c5",
+         "bytes": 22
+        }
+       }
+      ],
+      "links": [
+       {
+        "label": "Checklist",
+        "path": "/var/tmp/release-checklist.md",
+        "doc": {
+         "sha256": "e139cee1c35bdf06b6041be67cab26f468b882c0fc9e32ec0684312d99906bab",
+         "bytes": 26
+        }
+       }
+      ]
+     },
+     "docs": {
+      "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd": "# Release plan\n\n1. Tag the release.\n2. Publish the notes on https://pond.example.test/notes.\n",
+      "e139cee1c35bdf06b6041be67cab26f468b882c0fc9e32ec0684312d99906bab": "# Not the checklist\n",
+      "73fa086dcf3a22771997317fa7c9c307d9c1a23b22fcf6937de9a60ebe6a1799": "# A stray document\n"
+     }
+    }
+   },
+   "response": {
+    "status": 400,
+    "headers": {
+     "Content-Type": "application/json; charset=utf-8"
+    },
+    "body": {
+     "error": "invalid documents",
+     "details": [
+      "steps[0].doc.bytes: does not match the document",
+      "steps[1].doc: no document with this hash",
+      "docs.73fa086dcf3a22771997317fa7c9c307d9c1a23b22fcf6937de9a60ebe6a1799: not used by any step or link",
+      "docs.e139cee1c35bdf06b6041be67cab26f468b882c0fc9e32ec0684312d99906bab: does not match its hash"
+     ]
+    }
+   }
+  },
+  {
+   "name": "doc-post-bom-crlf",
+   "note": "a text that is not ASCII, with a leading BOM and CRLF line ends: its key and `bytes` are of its UTF-8 bytes, BOM included; an edit key makes the ask editable",
+   "request": {
+    "method": "POST",
+    "path": "/asks",
+    "token": true,
+    "protocol": 6,
+    "body": {
+     "project": "Example",
+     "context": "personal",
+     "instructable": {
+      "v": 1,
+      "title": "Hand over the notes",
+      "steps": [
+       {
+        "do": "Read the notes",
+        "file": "~/notes/handover.md",
+        "doc": {
+         "sha256": "aec9dacde4ea4958b2bf38914c0a77f15a61ff8df991f3a4cb402a59c764eb8c",
+         "bytes": 77
+        }
+       },
+       {
+        "do": "Say when the handover is done"
+       }
+      ]
+     },
+     "docs": {
+      "aec9dacde4ea4958b2bf38914c0a77f15a61ff8df991f3a4cb402a59c764eb8c": "﻿# Übergabe – notes\r\n\r\nCafé, naïve, 日本語.\r\nNo line end at the end"
+     },
+     "editKeyHash": "c00357cf64270c4342713e5fc7360f42360112d7ab7463c69688597d046964c7"
+    }
+   },
+   "response": {
+    "status": 201,
+    "headers": {
+     "Content-Type": "application/json; charset=utf-8"
+    },
+    "body": {
+     "item": {
+      "id": "{ask2}",
+      "source": "xo-mailbox",
+      "title": "Hand over the notes",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "99121a9b36ac4675",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "steps": [
+         {
+          "do": "Read the notes",
+          "doc": {
+           "bytes": 77,
+           "sha256": "aec9dacde4ea4958b2bf38914c0a77f15a61ff8df991f3a4cb402a59c764eb8c"
+          },
+          "file": "~/notes/handover.md",
+          "id": "s1"
+         },
+         {
+          "do": "Say when the handover is done",
+          "id": "s2"
+         }
+        ],
+        "title": "Hand over the notes",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "revision": {
+       "rev": 1,
+       "hash": "03377f53d027152b7c911cb1e081ecd44878419ca817e59bdbae5dcc06034543",
+       "prev": "",
+       "at": "2026-11-03T09:00:07+00:00",
+       "reason": "",
+       "body": "{\"steps\":[{\"do\":\"Read the notes\",\"doc\":{\"bytes\":77,\"sha256\":\"aec9dacde4ea4958b2bf38914c0a77f15a61ff8df991f3a4cb402a59c764eb8c\"},\"file\":\"~/notes/handover.md\",\"id\":\"s1\"},{\"do\":\"Say when the handover is done\",\"id\":\"s2\"}],\"title\":\"Hand over the notes\",\"urgency\":\"today\",\"v\":1}",
+       "acceptedRev": 1
+      }
+     },
+     "revision": {
+      "rev": 1,
+      "hash": "03377f53d027152b7c911cb1e081ecd44878419ca817e59bdbae5dcc06034543"
+     },
+     "editable": true
+    }
+   },
+   "binds": {
+    "ask2": "item.id"
+   }
+  },
+  {
+   "name": "doc-read-bom-crlf",
+   "note": "the read gives back the exact bytes: BOM and CRLF kept, nothing added",
+   "request": {
+    "method": "GET",
+    "path": "/asks/{ask2}/docs/aec9dacde4ea4958b2bf38914c0a77f15a61ff8df991f3a4cb402a59c764eb8c",
+    "token": true,
+    "protocol": 6,
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "headers": {
+     "Content-Type": "text/plain; charset=utf-8",
+     "Cache-Control": "no-store",
+     "X-Content-Type-Options": "nosniff"
+    },
+    "body": "﻿# Übergabe – notes\r\n\r\nCafé, naïve, 日本語.\r\nNo line end at the end",
+    "bodyBase64": "77u/IyDDnGJlcmdhYmUg4oCTIG5vdGVzDQoNCkNhZsOpLCBuYcOvdmUsIOaXpeacrOiqni4NCk5vIGxpbmUgZW5kIGF0IHRoZSBlbmQ="
+   }
+  },
+  {
+   "name": "doc-amend-keeps-held",
+   "note": "a correction that keeps the document the ask holds: no `docs` member, the text is not sent again",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask2}/amend",
+    "token": true,
+    "protocol": 6,
+    "body": {
+     "editKey": "android-conformance-edit-key",
+     "baseRev": 1,
+     "baseHash": "03377f53d027152b7c911cb1e081ecd44878419ca817e59bdbae5dcc06034543",
+     "reason": "Say where it is filed",
+     "instructable": {
+      "steps": [
+       {
+        "do": "Read the notes",
+        "doc": {
+         "bytes": 77,
+         "sha256": "aec9dacde4ea4958b2bf38914c0a77f15a61ff8df991f3a4cb402a59c764eb8c"
+        },
+        "file": "~/notes/handover.md",
+        "id": "s1"
+       },
+       {
+        "do": "Say when the handover is done and filed",
+        "id": "s2"
+       }
+      ],
+      "title": "Hand over the notes",
+      "urgency": "today",
+      "v": 1
+     }
+    }
+   },
+   "response": {
+    "status": 200,
+    "headers": {
+     "Content-Type": "application/json; charset=utf-8"
+    },
+    "body": {
+     "item": {
+      "id": "{ask2}",
+      "source": "xo-mailbox",
+      "title": "Hand over the notes",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "99121a9b36ac4675",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "steps": [
+         {
+          "do": "Read the notes",
+          "doc": {
+           "bytes": 77,
+           "sha256": "aec9dacde4ea4958b2bf38914c0a77f15a61ff8df991f3a4cb402a59c764eb8c"
+          },
+          "file": "~/notes/handover.md",
+          "id": "s1"
+         },
+         {
+          "do": "Say when the handover is done and filed",
+          "id": "s2"
+         }
+        ],
+        "title": "Hand over the notes",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "revision": {
+       "rev": 2,
+       "hash": "8dceca267840032590b40d04a17d12faf91d77ff246bff5dd6794e111849a5ac",
+       "prev": "03377f53d027152b7c911cb1e081ecd44878419ca817e59bdbae5dcc06034543",
+       "at": "2026-11-03T09:01:08+00:00",
+       "reason": "Say where it is filed",
+       "body": "{\"steps\":[{\"do\":\"Read the notes\",\"doc\":{\"bytes\":77,\"sha256\":\"aec9dacde4ea4958b2bf38914c0a77f15a61ff8df991f3a4cb402a59c764eb8c\"},\"file\":\"~/notes/handover.md\",\"id\":\"s1\"},{\"do\":\"Say when the handover is done and filed\",\"id\":\"s2\"}],\"title\":\"Hand over the notes\",\"urgency\":\"today\",\"v\":1}",
+       "acceptedRev": 1
+      }
+     },
+     "revision": {
+      "rev": 2,
+      "hash": "8dceca267840032590b40d04a17d12faf91d77ff246bff5dd6794e111849a5ac",
+      "changed": [
+       {
+        "id": "s2",
+        "path": "2",
+        "fields": [
+         "do"
+        ]
+       }
+      ],
+      "added": [],
+      "removed": [],
+      "moved": [],
+      "top": []
+     }
+    }
+   }
+  },
+  {
+   "name": "doc-amend-unknown-hash",
+   "note": "a correction whose `doc` hash was never sent or held: 400, nothing stored",
+   "request": {
+    "method": "POST",
+    "path": "/asks/{ask2}/amend",
+    "token": true,
+    "protocol": 6,
+    "body": {
+     "editKey": "android-conformance-edit-key",
+     "baseRev": 2,
+     "baseHash": "8dceca267840032590b40d04a17d12faf91d77ff246bff5dd6794e111849a5ac",
+     "reason": "Point at the other notes",
+     "instructable": {
+      "steps": [
+       {
+        "do": "Read the notes",
+        "doc": {
+         "sha256": "a07c2996de1070f96f50817c302705933a0a4ff62bd31475e4a79e84225a53c8",
+         "bytes": 22
+        },
+        "file": "~/notes/handover.md",
+        "id": "s1"
+       },
+       {
+        "do": "Say when the handover is done and filed",
+        "id": "s2"
+       }
+      ],
+      "title": "Hand over the notes",
+      "urgency": "today",
+      "v": 1
+     }
+    }
+   },
+   "response": {
+    "status": 400,
+    "headers": {
+     "Content-Type": "application/json; charset=utf-8"
+    },
+    "body": {
+     "error": "invalid documents",
+     "details": [
+      "steps[0].doc: no document with this hash"
+     ]
+    }
+   }
+  },
+  {
+   "name": "doc-post-deduped",
+   "note": "the same title again while the ask is open: answered as a dedupe, and its documents are neither stored nor linked",
+   "request": {
+    "method": "POST",
+    "path": "/asks",
+    "token": true,
+    "protocol": 6,
+    "body": {
+     "project": "Example",
+     "context": "personal",
+     "instructable": {
+      "v": 1,
+      "title": "Hand over the notes",
+      "steps": [
+       {
+        "do": "Read the notes",
+        "file": "~/notes/handover.md",
+        "doc": {
+         "sha256": "da9672367cd66934ed2dfac0d3caab88fd365b0ad36da9641de0915d08e9d1c5",
+         "bytes": 22
+        }
+       },
+       {
+        "do": "Say when the handover is done"
+       }
+      ]
+     },
+     "docs": {
+      "da9672367cd66934ed2dfac0d3caab88fd365b0ad36da9641de0915d08e9d1c5": "# Notes\n\nNothing new.\n"
+     }
+    }
+   },
+   "response": {
+    "status": 200,
+    "headers": {
+     "Content-Type": "application/json; charset=utf-8"
+    },
+    "body": {
+     "item": {
+      "id": "{ask2}",
+      "source": "xo-mailbox",
+      "title": "Hand over the notes",
+      "status": "open",
+      "priority": 1,
+      "pinned": false,
+      "rolling": false,
+      "payloadType": "xo.ask",
+      "payload": {
+       "key": "99121a9b36ac4675",
+       "why": null,
+       "cmd": null,
+       "link": null,
+       "tg_chat_id": 12345,
+       "tg_message_id": 2,
+       "note": null,
+       "instructable": {
+        "steps": [
+         {
+          "do": "Read the notes",
+          "doc": {
+           "bytes": 77,
+           "sha256": "aec9dacde4ea4958b2bf38914c0a77f15a61ff8df991f3a4cb402a59c764eb8c"
+          },
+          "file": "~/notes/handover.md",
+          "id": "s1"
+         },
+         {
+          "do": "Say when the handover is done and filed",
+          "id": "s2"
+         }
+        ],
+        "title": "Hand over the notes",
+        "urgency": "today",
+        "v": 1
+       }
+      },
+      "links": [],
+      "created": "{time}",
+      "updated": "{time}",
+      "anchor": null,
+      "recurrence": null,
+      "snoozeUntil": null,
+      "projectId": "Example",
+      "lane": "personal",
+      "completedAt": null,
+      "revision": {
+       "rev": 2,
+       "hash": "8dceca267840032590b40d04a17d12faf91d77ff246bff5dd6794e111849a5ac",
+       "prev": "03377f53d027152b7c911cb1e081ecd44878419ca817e59bdbae5dcc06034543",
+       "at": "2026-11-03T09:01:08+00:00",
+       "reason": "Say where it is filed",
+       "body": "{\"steps\":[{\"do\":\"Read the notes\",\"doc\":{\"bytes\":77,\"sha256\":\"aec9dacde4ea4958b2bf38914c0a77f15a61ff8df991f3a4cb402a59c764eb8c\"},\"file\":\"~/notes/handover.md\",\"id\":\"s1\"},{\"do\":\"Say when the handover is done and filed\",\"id\":\"s2\"}],\"title\":\"Hand over the notes\",\"urgency\":\"today\",\"v\":1}",
+       "acceptedRev": 1
+      }
+     },
+     "deduped": true,
+     "revision": {
+      "rev": 2,
+      "hash": "8dceca267840032590b40d04a17d12faf91d77ff246bff5dd6794e111849a5ac"
+     },
+     "editable": false
+    }
+   }
+  },
+  {
+   "name": "doc-read-deduped-not-linked",
+   "note": "the dedupe linked nothing: 404",
+   "request": {
+    "method": "GET",
+    "path": "/asks/{ask2}/docs/da9672367cd66934ed2dfac0d3caab88fd365b0ad36da9641de0915d08e9d1c5",
+    "token": true,
+    "protocol": 6,
+    "body": null
+   },
+   "response": {
+    "status": 404,
+    "headers": {
+     "Content-Type": "application/json; charset=utf-8"
+    },
+    "body": {
+     "error": "not found"
+    }
+   }
+  },
+  {
+   "name": "doc-version-on",
+   "note": "the switch is on: `docs` is in `features`",
+   "request": {
+    "method": "GET",
+    "path": "/version",
+    "token": true,
+    "protocol": 6,
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "headers": {
+     "Content-Type": "application/json; charset=utf-8"
+    },
+    "body": {
+     "service": "pond",
+     "version": "1.10.0",
+     "protocol": 5,
+     "features": [
+      "answers",
+      "blocking",
+      "optional",
+      "fileLinks",
+      "corrections",
+      "bugs",
+      "messages",
+      "requirements",
+      "longText",
+      "sharedProgress",
+      "askWarning",
+      "appendSteps",
+      "docs"
+     ]
+    }
+   }
+  },
+  {
+   "name": "doc-version-off",
+   "note": "the owner turned the switch off: `docs` is not in `features`",
+   "request": {
+    "method": "GET",
+    "path": "/version",
+    "token": true,
+    "protocol": 6,
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "headers": {
+     "Content-Type": "application/json; charset=utf-8"
+    },
+    "body": {
+     "service": "pond",
+     "version": "1.10.0",
+     "protocol": 5,
+     "features": [
+      "answers",
+      "blocking",
+      "optional",
+      "fileLinks",
+      "corrections",
+      "bugs",
+      "messages",
+      "requirements",
+      "longText",
+      "sharedProgress",
+      "askWarning",
+      "appendSteps"
+     ]
+    }
+   }
+  },
+  {
+   "name": "doc-post-switch-off",
+   "note": "a post with a document while the switch is off: 409, nothing stored",
+   "request": {
+    "method": "POST",
+    "path": "/asks",
+    "token": true,
+    "protocol": 6,
+    "body": {
+     "project": "Example",
+     "context": "personal",
+     "instructable": {
+      "v": 1,
+      "title": "Review the next plan",
+      "steps": [
+       {
+        "do": "Read the plan",
+        "file": "~/notes/plan.md",
+        "doc": {
+         "sha256": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd",
+         "bytes": 93
+        }
+       },
+       {
+        "do": "Say whether it can ship",
+        "question": {
+         "prompt": "Ship it?",
+         "choices": [
+          "Yes",
+          "No"
+         ]
+        }
+       }
+      ]
+     },
+     "docs": {
+      "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd": "# Release plan\n\n1. Tag the release.\n2. Publish the notes on https://pond.example.test/notes.\n"
+     }
+    }
+   },
+   "response": {
+    "status": 409,
+    "headers": {
+     "Content-Type": "application/json; charset=utf-8"
+    },
+    "body": {
+     "error": "documents not enabled"
+    }
+   }
+  },
+  {
+   "name": "doc-post-empty-docs-switch-off",
+   "note": "an empty `docs` member counts too while the switch is off: 409",
+   "request": {
+    "method": "POST",
+    "path": "/asks",
+    "token": true,
+    "protocol": 6,
+    "body": {
+     "project": "Example",
+     "context": "personal",
+     "instructable": {
+      "v": 1,
+      "title": "A plain ask",
+      "steps": [
+       {
+        "do": "Plain"
+       }
+      ]
+     },
+     "docs": {}
+    }
+   },
+   "response": {
+    "status": 409,
+    "headers": {
+     "Content-Type": "application/json; charset=utf-8"
+    },
+    "body": {
+     "error": "documents not enabled"
+    }
+   }
+  }
+ ]
+}

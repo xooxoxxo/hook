@@ -154,3 +154,11 @@ The Swift core has no unknown-key check yet, so those cases, and the cases there
 ## Hand-written rules
 
 `data/append-vectors.json` covers steps an agent adds to the end of its own open ask (the `appendSteps` feature). No implementation is its reference: the cases and their expectations are written by hand in `scripts/gen-append-vectors.py`, which fills in only the canonical bodies and revision hashes, and stops when its own small copy of the rule (or of the amendment id numbering) disagrees with the table. Change the table, run `python3 scripts/gen-append-vectors.py > conformance/data/append-vectors.json`, and copy the file over its `copies`. A `check` case asks whether one body is an append of another. A `chain` case asks whether a device takes a revision history as current, pending or changed, and whether the Pond moves its accepted revision. An `append` case gives what an append call returns: the new body and the ids it added, or the error. The file's `format` key gives the rule and each kind's fields.
+
+## Documents
+
+`data/doc-vectors.json` and `wire/doc-wire-vectors.json` cover documents on the Pond (the `docs` feature, Pond 1.10.0). Both are recorded from the Pond.
+
+`data/doc-vectors.json` has the shape of `instructable-vectors.json`: each case is `{name, kind: "instructable", input, valid, errors, cleaned, pyBytes}`, for a `doc` on a step, a sub-step, a link and in the places it may not go. `errors` are in the Pond's order.
+
+`wire/doc-wire-vectors.json` runs in order against one fresh Pond, as a session and a reader see it. Its cases differ from the transcript format above: `request.token` is true for the Pond token and false for none (no case uses the owner key), and `response.headers` holds `Content-Type`, plus `Cache-Control` and `X-Content-Type-Options` where the Pond sends them. A document read answers text, not JSON: `body` is the text and `bodyBase64` its exact bytes. The file's `format` key says the rest.

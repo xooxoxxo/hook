@@ -1,0 +1,1079 @@
+{
+ "source": "mailbox/tests/gen_doc_vectors.py (doc-* cases)",
+ "cases": [
+  {
+   "name": "doc-valid-step",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan",
+      "file": "~/notes/plan.md",
+      "doc": {
+       "sha256": "995627f71185b9ce5182c9f12531038c8c2042532e4cd2d948e8cd682e84870b",
+       "bytes": 32
+      }
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan",
+      "file": "~/notes/plan.md",
+      "doc": {
+       "sha256": "995627f71185b9ce5182c9f12531038c8c2042532e4cd2d948e8cd682e84870b",
+       "bytes": 32
+      }
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 226
+  },
+  {
+   "name": "doc-valid-substep",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Go through the plan",
+      "substeps": [
+       {
+        "do": "Read the plan",
+        "file": "~/notes/plan.md",
+        "doc": {
+         "sha256": "995627f71185b9ce5182c9f12531038c8c2042532e4cd2d948e8cd682e84870b",
+         "bytes": 32
+        }
+       },
+       {
+        "do": "Note questions"
+       }
+      ]
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Go through the plan",
+      "substeps": [
+       {
+        "do": "Read the plan",
+        "file": "~/notes/plan.md",
+        "doc": {
+         "sha256": "995627f71185b9ce5182c9f12531038c8c2042532e4cd2d948e8cd682e84870b",
+         "bytes": 32
+        }
+       },
+       {
+        "do": "Note questions"
+       }
+      ]
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 297
+  },
+  {
+   "name": "doc-valid-link",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Checklist",
+      "path": "/var/tmp/release-checklist.md",
+      "doc": {
+       "sha256": "e139cee1c35bdf06b6041be67cab26f468b882c0fc9e32ec0684312d99906bab",
+       "bytes": 26
+      }
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Checklist",
+      "path": "/var/tmp/release-checklist.md",
+      "doc": {
+       "sha256": "e139cee1c35bdf06b6041be67cab26f468b882c0fc9e32ec0684312d99906bab",
+       "bytes": 26
+      }
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 275
+  },
+  {
+   "name": "doc-valid-max-bytes",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan",
+      "file": "~/notes/plan.md",
+      "doc": {
+       "sha256": "995627f71185b9ce5182c9f12531038c8c2042532e4cd2d948e8cd682e84870b",
+       "bytes": 262144
+      }
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan",
+      "file": "~/notes/plan.md",
+      "doc": {
+       "sha256": "995627f71185b9ce5182c9f12531038c8c2042532e4cd2d948e8cd682e84870b",
+       "bytes": 262144
+      }
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 230
+  },
+  {
+   "name": "doc-valid-one-byte",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan",
+      "file": "~/notes/plan.md",
+      "doc": {
+       "sha256": "995627f71185b9ce5182c9f12531038c8c2042532e4cd2d948e8cd682e84870b",
+       "bytes": 1
+      }
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan",
+      "file": "~/notes/plan.md",
+      "doc": {
+       "sha256": "995627f71185b9ce5182c9f12531038c8c2042532e4cd2d948e8cd682e84870b",
+       "bytes": 1
+      }
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 225
+  },
+  {
+   "name": "doc-valid-null",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan",
+      "file": "~/notes/plan.md",
+      "doc": null
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan",
+      "file": "~/notes/plan.md",
+      "doc": null
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 139
+  },
+  {
+   "name": "doc-on-verify",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "verify": {
+     "do": "Check the plan",
+     "doc": {
+      "sha256": "995627f71185b9ce5182c9f12531038c8c2042532e4cd2d948e8cd682e84870b",
+      "bytes": 32
+     }
+    }
+   },
+   "valid": false,
+   "errors": [
+    "verify.doc: unknown key"
+   ],
+   "cleaned": null,
+   "pyBytes": 235
+  },
+  {
+   "name": "doc-on-verify-with-file",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "verify": {
+     "do": "Check the plan",
+     "file": "~/notes/plan.md",
+     "doc": {
+      "sha256": "995627f71185b9ce5182c9f12531038c8c2042532e4cd2d948e8cd682e84870b",
+      "bytes": 32
+     }
+    }
+   },
+   "valid": false,
+   "errors": [
+    "verify.file: unknown key",
+    "verify.doc: unknown key"
+   ],
+   "cleaned": null,
+   "pyBytes": 262
+  },
+  {
+   "name": "doc-without-file",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan",
+      "doc": {
+       "sha256": "995627f71185b9ce5182c9f12531038c8c2042532e4cd2d948e8cd682e84870b",
+       "bytes": 32
+      }
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].doc: needs file"
+   ],
+   "cleaned": null,
+   "pyBytes": 199
+  },
+  {
+   "name": "doc-without-file-substep",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Go through the plan",
+      "substeps": [
+       {
+        "do": "Read the plan",
+        "doc": {
+         "sha256": "995627f71185b9ce5182c9f12531038c8c2042532e4cd2d948e8cd682e84870b",
+         "bytes": 32
+        }
+       }
+      ]
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].substeps[0].doc: needs file"
+   ],
+   "cleaned": null,
+   "pyBytes": 244
+  },
+  {
+   "name": "doc-file-null",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan",
+      "file": null,
+      "doc": {
+       "sha256": "995627f71185b9ce5182c9f12531038c8c2042532e4cd2d948e8cd682e84870b",
+       "bytes": 32
+      }
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].doc: needs file"
+   ],
+   "cleaned": null,
+   "pyBytes": 213
+  },
+  {
+   "name": "doc-link-without-path",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Site",
+      "url": "https://example.com/plan",
+      "doc": {
+       "sha256": "995627f71185b9ce5182c9f12531038c8c2042532e4cd2d948e8cd682e84870b",
+       "bytes": 32
+      }
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "links[0].doc: needs path"
+   ],
+   "cleaned": null,
+   "pyBytes": 264
+  },
+  {
+   "name": "doc-not-object-string",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan",
+      "file": "~/notes/plan.md",
+      "doc": "995627f71185b9ce5182c9f12531038c8c2042532e4cd2d948e8cd682e84870b"
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].doc: must be an object"
+   ],
+   "cleaned": null,
+   "pyBytes": 201
+  },
+  {
+   "name": "doc-not-object-list",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan",
+      "file": "~/notes/plan.md",
+      "doc": [
+       "995627f71185b9ce5182c9f12531038c8c2042532e4cd2d948e8cd682e84870b",
+       32
+      ]
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].doc: must be an object"
+   ],
+   "cleaned": null,
+   "pyBytes": 207
+  },
+  {
+   "name": "doc-extra-key",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan",
+      "file": "~/notes/plan.md",
+      "doc": {
+       "sha256": "995627f71185b9ce5182c9f12531038c8c2042532e4cd2d948e8cd682e84870b",
+       "bytes": 32,
+       "note": "draft"
+      }
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].doc.note: unknown key"
+   ],
+   "cleaned": null,
+   "pyBytes": 243
+  },
+  {
+   "name": "doc-sha256-uppercase",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan",
+      "file": "~/notes/plan.md",
+      "doc": {
+       "sha256": "995627F71185B9CE5182C9F12531038C8C2042532E4CD2D948E8CD682E84870B",
+       "bytes": 32
+      }
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].doc.sha256: must be 64 lowercase hex characters"
+   ],
+   "cleaned": null,
+   "pyBytes": 226
+  },
+  {
+   "name": "doc-sha256-63",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan",
+      "file": "~/notes/plan.md",
+      "doc": {
+       "sha256": "995627f71185b9ce5182c9f12531038c8c2042532e4cd2d948e8cd682e84870",
+       "bytes": 32
+      }
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].doc.sha256: must be 64 lowercase hex characters"
+   ],
+   "cleaned": null,
+   "pyBytes": 225
+  },
+  {
+   "name": "doc-sha256-65",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan",
+      "file": "~/notes/plan.md",
+      "doc": {
+       "sha256": "995627f71185b9ce5182c9f12531038c8c2042532e4cd2d948e8cd682e84870b0",
+       "bytes": 32
+      }
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].doc.sha256: must be 64 lowercase hex characters"
+   ],
+   "cleaned": null,
+   "pyBytes": 227
+  },
+  {
+   "name": "doc-sha256-not-hex",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan",
+      "file": "~/notes/plan.md",
+      "doc": {
+       "sha256": "gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg",
+       "bytes": 32
+      }
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].doc.sha256: must be 64 lowercase hex characters"
+   ],
+   "cleaned": null,
+   "pyBytes": 226
+  },
+  {
+   "name": "doc-sha256-number",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan",
+      "file": "~/notes/plan.md",
+      "doc": {
+       "sha256": 12345,
+       "bytes": 32
+      }
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].doc.sha256: must be 64 lowercase hex characters"
+   ],
+   "cleaned": null,
+   "pyBytes": 165
+  },
+  {
+   "name": "doc-sha256-missing",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan",
+      "file": "~/notes/plan.md",
+      "doc": {
+       "bytes": 32
+      }
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].doc.sha256: must be 64 lowercase hex characters"
+   ],
+   "cleaned": null,
+   "pyBytes": 148
+  },
+  {
+   "name": "doc-bytes-zero",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan",
+      "file": "~/notes/plan.md",
+      "doc": {
+       "sha256": "995627f71185b9ce5182c9f12531038c8c2042532e4cd2d948e8cd682e84870b",
+       "bytes": 0
+      }
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].doc.bytes: must be a whole number from 1 to 262144"
+   ],
+   "cleaned": null,
+   "pyBytes": 225
+  },
+  {
+   "name": "doc-bytes-too-many",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan",
+      "file": "~/notes/plan.md",
+      "doc": {
+       "sha256": "995627f71185b9ce5182c9f12531038c8c2042532e4cd2d948e8cd682e84870b",
+       "bytes": 262145
+      }
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].doc.bytes: must be a whole number from 1 to 262144"
+   ],
+   "cleaned": null,
+   "pyBytes": 230
+  },
+  {
+   "name": "doc-bytes-negative",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan",
+      "file": "~/notes/plan.md",
+      "doc": {
+       "sha256": "995627f71185b9ce5182c9f12531038c8c2042532e4cd2d948e8cd682e84870b",
+       "bytes": -1
+      }
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].doc.bytes: must be a whole number from 1 to 262144"
+   ],
+   "cleaned": null,
+   "pyBytes": 226
+  },
+  {
+   "name": "doc-bytes-fraction",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan",
+      "file": "~/notes/plan.md",
+      "doc": {
+       "sha256": "995627f71185b9ce5182c9f12531038c8c2042532e4cd2d948e8cd682e84870b",
+       "bytes": 1.5
+      }
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].doc.bytes: must be a whole number from 1 to 262144"
+   ],
+   "cleaned": null,
+   "pyBytes": 227
+  },
+  {
+   "name": "doc-bytes-string",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan",
+      "file": "~/notes/plan.md",
+      "doc": {
+       "sha256": "995627f71185b9ce5182c9f12531038c8c2042532e4cd2d948e8cd682e84870b",
+       "bytes": "32"
+      }
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].doc.bytes: must be a whole number from 1 to 262144"
+   ],
+   "cleaned": null,
+   "pyBytes": 228
+  },
+  {
+   "name": "doc-bytes-true",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan",
+      "file": "~/notes/plan.md",
+      "doc": {
+       "sha256": "995627f71185b9ce5182c9f12531038c8c2042532e4cd2d948e8cd682e84870b",
+       "bytes": true
+      }
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].doc.bytes: must be a whole number from 1 to 262144"
+   ],
+   "cleaned": null,
+   "pyBytes": 228
+  },
+  {
+   "name": "doc-bytes-missing",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan",
+      "file": "~/notes/plan.md",
+      "doc": {
+       "sha256": "995627f71185b9ce5182c9f12531038c8c2042532e4cd2d948e8cd682e84870b"
+      }
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].doc.bytes: must be a whole number from 1 to 262144"
+   ],
+   "cleaned": null,
+   "pyBytes": 213
+  },
+  {
+   "name": "doc-empty",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan",
+      "file": "~/notes/plan.md",
+      "doc": {}
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].doc.sha256: must be 64 lowercase hex characters",
+    "steps[0].doc.bytes: must be a whole number from 1 to 262144"
+   ],
+   "cleaned": null,
+   "pyBytes": 137
+  },
+  {
+   "name": "doc-link-bad",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Checklist",
+      "path": "/var/tmp/release-checklist.md",
+      "doc": {
+       "sha256": "995627F71185B9CE5182C9F12531038C8C2042532E4CD2D948E8CD682E84870B",
+       "bytes": 0
+      }
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "links[0].doc.sha256: must be 64 lowercase hex characters",
+    "links[0].doc.bytes: must be a whole number from 1 to 262144"
+   ],
+   "cleaned": null,
+   "pyBytes": 274
+  },
+  {
+   "name": "doc-bad-file-good-doc",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan",
+      "file": "notes/plan.md",
+      "doc": {
+       "sha256": "995627f71185b9ce5182c9f12531038c8c2042532e4cd2d948e8cd682e84870b",
+       "bytes": 32
+      }
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].file: must be an absolute path"
+   ],
+   "cleaned": null,
+   "pyBytes": 224
+  },
+  {
+   "name": "doc-link-url-path-and-doc",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Checklist",
+      "url": "https://pond.example.test/checklist",
+      "path": "/var/tmp/release-checklist.md",
+      "doc": {
+       "sha256": "e139cee1c35bdf06b6041be67cab26f468b882c0fc9e32ec0684312d99906bab",
+       "bytes": 26
+      }
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "links[0]: needs url or path, not both"
+   ],
+   "cleaned": null,
+   "pyBytes": 321
+  },
+  {
+   "name": "doc-null-without-file",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan",
+      "doc": null
+     },
+     {
+      "do": "Ship it"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan",
+      "doc": null
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 112
+  },
+  {
+   "name": "doc-null-link-url",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Site",
+      "url": "https://example.com/plan",
+      "doc": null
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Review the release plan",
+    "steps": [
+     {
+      "do": "Read the plan"
+     },
+     {
+      "do": "Ship it"
+     }
+    ],
+    "links": [
+     {
+      "label": "Site",
+      "url": "https://example.com/plan",
+      "doc": null
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 177
+  }
+ ]
+}
