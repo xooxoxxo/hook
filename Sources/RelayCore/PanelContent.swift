@@ -60,7 +60,8 @@ public enum PanelNotice: Equatable, Sendable {
     /// A sealed review record failed its check and was dropped.
     case reviewRecordsChanged
     /// The Keychain refused the review seal key, or the item isn't the one Hook marked (or
-    /// `reviews.json` is gone): corrected asks stay locked until the owner resets the records.
+    /// `reviews.json` is gone): corrected asks stay locked until Try Again reads the key or
+    /// Start Over… makes a new one.
     case reviewRecordsUnreadable
     /// A Done held for Undo was dropped: the ask was corrected meanwhile.
     case doneHeldBack(id: String, title: String)
@@ -154,8 +155,8 @@ public enum PanelNotice: Equatable, Sendable {
         case .reviewRecordsChanged:
             return "Hook's review records were changed outside Hook, so corrected asks need a review again."
         case .reviewRecordsUnreadable:
-            return "Hook couldn't read its review key from the Keychain, so corrected asks stay locked. "
-                + "Allow Hook when macOS asks, or reset the review records."
+            return "macOS didn't let Hook read its review key from your Keychain. This usually happens after "
+                + "installing a new copy of Hook. Until it's fixed, asks an agent changed after you saw them stay locked."
         case .doneHeldBack(_, let title):
             return "Done was held back: “\(Sanitize.revealLine(title))” was corrected."
         case .doneRefused(_, let title):
@@ -184,7 +185,7 @@ public enum PanelNotice: Equatable, Sendable {
         case .historyChanged: return "Trust the Pond's History Again…"
         case .newAgents: return "Open Settings"
         case .doneRefused: return "Show"
-        case .reviewRecordsUnreadable: return "Reset Review Records…"
+        case .reviewRecordsUnreadable: return "Try Again"
         case .deliveryFailed, .storeFailed, .settingsReloaded, .updating, .resumeFailed, .mailboxUpToDate, .mailboxUpdateFailed,
              .mailboxUpdateCommandInvalid, .ownerKeyRefused, .reviewRecordsChanged,
              .doneHeldBack, .acceptFailed, .crashReport:
@@ -194,8 +195,67 @@ public enum PanelNotice: Equatable, Sendable {
 
     /// A second button before the first, when the Notice has one.
     public var secondaryActionTitle: String? {
-        if case .pondOlder = self { return "How to update" }
-        return nil
+        switch self {
+        case .pondOlder: return "How to update"
+        case .reviewRecordsUnreadable: return "Start Over…"
+        default: return nil
+        }
+    }
+
+    /// The first button is the one to take and the second the fallback (Try Again before
+    /// Start Over…), so the first is drawn prominent.
+    public var actionIsPrimary: Bool {
+        if case .reviewRecordsUnreadable = self { return true }
+        return false
+    }
+
+    /// What the second button asks before it acts, when it throws something away.
+    public var secondaryConfirmation: NoticeConfirmation? {
+        guard case .reviewRecordsUnreadable = self else { return nil }
+        return NoticeConfirmation(
+            title: "Start over with a new review key?",
+            message: "Hook makes a new review key and forgets which corrected asks you reviewed. "
+                + "Every corrected ask needs a review again, and each owner key has to be set up again "
+                + "in Settings › Queue. Hook asks for Touch ID next.",
+            confirmTitle: "Start Over")
+    }
+
+    /// The one short line a long Notice folds to, with Details for the rest (`collapses`).
+    /// Nil for a Notice that is short enough to show whole, or whose reason is all it says.
+    public var summary: String? {
+        switch self {
+        case .reviewRecordsUnreadable:
+            return "Corrected asks are locked: Hook can't open its review key."
+        case .historyChanged:
+            return "Don't act on this ask: its history changed on the Pond."
+        case .queueMoved:
+            return "Hook couldn't read the queue, so it started a new one."
+        case let .actionFailed(verdict, _, title, _):
+            return "Couldn't send \(verdict == .done ? "Done" : "Skip") for “\(Sanitize.revealLine(title))”."
+        case let .reopenFailed(_, title, _):
+            return "Couldn't reopen “\(Sanitize.revealLine(title))”."
+        case .storeFailed:
+            return "Couldn't save the queue."
+        case .resumeFailed:
+            return "The resume command is on the clipboard."
+        case .mailboxUpdateFailed:
+            return "The update command is on the clipboard."
+        case .mailboxUpdateCommandInvalid:
+            return "The Pond update command in Settings can't be run."
+        case let .acceptFailed(_, title, _):
+            return "Your review of “\(Sanitize.revealLine(title))” isn't on the Pond yet."
+        case .doneRefused(_, let title):
+            return "“\(Sanitize.revealLine(title))” isn't finished yet."
+        case .deliveryFailed, .settingsReloaded, .sessionClosed, .noLongerOpen, .offlineCached, .updating, .pondOlder,
+             .hookOlder, .mailboxUpToDate, .ownerKeyRefused, .corrected, .reviewRecordsChanged, .doneHeldBack,
+             .crashReport, .newAgents:
+            return nil
+        }
+    }
+
+    /// Folds to `summary` and Details (`NoticeLayout.collapses`).
+    public var collapses: Bool {
+        NoticeLayout.collapses(text: text, actionTitle: actionTitle, secondaryTitle: secondaryActionTitle, summary: summary)
     }
 
     /// The text behind the Notice's "?", when it has one.
@@ -207,15 +267,47 @@ public enum PanelNotice: Equatable, Sendable {
                 + "or opens the update guide when none is set."
         }
         if case .reviewRecordsUnreadable = self {
-            return "Hook seals what you reviewed in reviews.json, under a key in the Keychain it made itself. "
-                + "When macOS asks for your password, Allow lets Hook read the key again. If reviews.json was "
-                + "deleted, or the key isn't the one Hook made, Hook trusts neither. Reset Review Records… asks "
-                + "for Touch ID and makes a new key: every corrected ask needs a review again, and each owner "
-                + "key has to be set up again in Settings › Queue."
+            return "Hook keeps a list of the corrected asks you reviewed, locked with a key in your Keychain. "
+                + "Without the key, Hook can't trust the list, so it keeps corrected asks locked. "
+                + "Try Again asks macOS for the key again: type your password and choose Always Allow. "
+                + "If that doesn't work, Start Over… makes a new key after Touch ID. Every corrected ask then "
+                + "needs a review again, and each owner key has to be set up again in Settings › Queue."
         }
         guard case .updating(_, let logPath) = self else { return nil }
         return "Hook rebuilds from your checkout, then quits and starts again. "
             + "If the update fails, the old Hook keeps running. The log says why: \(Sanitize.revealLine(logPath))"
+    }
+}
+
+/// What a Notice's button asks before it acts: `confirmTitle` is the destructive button.
+public struct NoticeConfirmation: Equatable, Sendable {
+    public let title: String
+    public let message: String
+    public let confirmTitle: String
+
+    public init(title: String, message: String, confirmTitle: String) {
+        self.title = title
+        self.message = message
+        self.confirmTitle = confirmTitle
+    }
+}
+
+/// When a Notice folds to one line: its text is long, or its buttons are wide, so beside the
+/// buttons the text would be squeezed into a narrow column. Folded, it shows the icon, its
+/// `summary` and Details; open, the whole text at full width with the buttons on a row below.
+/// A Notice without a summary always shows whole.
+public enum NoticeLayout {
+    /// About three lines beside a button at panel width.
+    public static let longText = 120
+    /// Wider than "Show in Finder" or "Check for Updates": the text column gets too narrow.
+    public static let wideButtons = 18
+    /// A summary fits on one line at panel width, beside Details and Dismiss.
+    public static let summaryLimit = 60
+
+    public static func collapses(text: String, actionTitle: String?, secondaryTitle: String?, summary: String?) -> Bool {
+        guard let summary, summary != text else { return false }
+        let buttons = (actionTitle?.count ?? 0) + (secondaryTitle?.count ?? 0)
+        return text.count > longText || buttons > wideButtons
     }
 }
 

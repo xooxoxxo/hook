@@ -122,7 +122,7 @@ public enum LinkCheck: Equatable, Sendable {
     /// An owner act got 403 "unknown owner key": AppDelegate marks this Mac's key refused,
     /// so the next act goes without it.
     public var onOwnerKeyRefused: (@MainActor () -> Void)?
-    /// Reset Review Records… made a new seal: each owner key, marked under the old one, reads again.
+    /// Start Over… made a new seal: each owner key, marked under the old one, reads again.
     public var onReviewRecordsReset: (@MainActor () -> Void)?
     /// This Mac has an approved owner key for the Pond with this `SourceKey`; AppDelegate reads
     /// the Keychain record. Report a Problem needs one.
@@ -1073,7 +1073,7 @@ public enum LinkCheck: Equatable, Sendable {
         sessionClosedNext = nil
     }
 
-    /// The Notice's button: Retry, Next Ask, Show Closed Ask, Try Again, Show in Finder or Reset Review Records….
+    /// The Notice's button: Retry, Next Ask, Show Closed Ask, Try Again, Show in Finder and the rest.
     public func performNoticeAction() async {
         guard let current = notice else { return }
         notice = nil
@@ -1111,8 +1111,9 @@ public enum LinkCheck: Equatable, Sendable {
         case .historyChanged:
             await trustHistoryAgain()
         case .reviewRecordsUnreadable:
-            // Declined, the lock and its Notice stay.
-            if !(await resetReviewRecords()), reviewsUnreadable { post(.reviewRecordsUnreadable) }
+            // Try Again: macOS asks for the key again. Refused again, the lock and its Notice stay.
+            await retryReviewKey()
+            if reviewsUnreadable { post(.reviewRecordsUnreadable) }
         case .deliveryFailed, .storeFailed, .settingsReloaded, .updating, .resumeFailed, .mailboxUpToDate, .mailboxUpdateFailed,
              .mailboxUpdateCommandInvalid, .ownerKeyRefused, .reviewRecordsChanged,
              .doneHeldBack, .acceptFailed, .crashReport:
@@ -1126,10 +1127,23 @@ public enum LinkCheck: Equatable, Sendable {
     }
 
     /// The Notice's second button: "How to update" opens the mailbox update guide. The
-    /// Notice stays, so Update Mailbox… is still there after reading.
+    /// Notice stays, so Update Mailbox… is still there after reading. Start Over… (which the
+    /// Notice confirmed first) makes new review records.
     public func performNoticeSecondaryAction() {
-        guard case .pondOlder? = notice else { return }
-        shell.openURL(MailboxProtocol.updateDocsURL)
+        switch notice {
+        case .pondOlder?: shell.openURL(MailboxProtocol.updateDocsURL)
+        case .reviewRecordsUnreadable?: Task { await startOverReviewRecords() }
+        default: break
+        }
+    }
+
+    /// Start Over…: a new review key after Touch ID (`resetReviewRecords`). Declined, the lock
+    /// and its Notice stay.
+    public func startOverReviewRecords() async {
+        guard let current = notice, current == .reviewRecordsUnreadable else { return }
+        notice = nil
+        if !(await resetReviewRecords()), reviewsUnreadable { post(.reviewRecordsUnreadable) }
+        onNoticeCleared?(current)
     }
 
     private var showsOfflineNotice: Bool {

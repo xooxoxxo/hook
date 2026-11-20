@@ -870,7 +870,7 @@ extension Store {
         switch outcome {
         case .unreadable:
             // A refused read, or a key Hook didn't make, whose maker could seal records: trust
-            // none, and replace nothing (Reset Review Records… is the owner's).
+            // none, and replace nothing (Start Over… is the owner's).
             reviewsUnreadable = true
             reviewRecordsRecovery = .locked
             problem = .reviewRecordsUnreadable
@@ -910,12 +910,12 @@ extension Store {
         objectWillChange.send()
     }
 
-    /// Reset Review Records…: with the owner's presence, a new seal over whatever item is there,
+    /// Start Over…: with the owner's presence, a new seal over whatever item is there,
     /// and the records start again from this run's pins. Every correction needs a review again,
     /// and each owner key, marked under the old seal, has to be set up again.
     @discardableResult public func resetReviewRecords() async -> Bool {
         guard let reviewFile, reviewsUnreadable,
-              await shell.confirmPresence("reset Hook's review records") else { return false }
+              await shell.confirmPresence("start over with a new review key") else { return false }
         let key: SymmetricKey
         do {
             key = try await reviewFile.keychain.run { try ReviewSeal.create(reviewFile.secrets, file: reviewFile.url) }

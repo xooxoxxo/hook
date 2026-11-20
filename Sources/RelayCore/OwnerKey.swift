@@ -184,6 +184,25 @@ public enum OwnerKeyState: Equatable, Sendable {
     public nonisolated static let declined = "The request was turned down on Telegram."
     public nonisolated static let needsHTTPS = "The owner key needs a Pond URL that starts with https."
     public nonisolated static let expired = "The request expired before it was approved."
+    /// Why `POST /owner/enroll` failed, in plain words for the Pond's own refusals
+    /// ("too many keys", "already enrolled", "invalid label"); any other failure keeps its reason.
+    public nonisolated static func enrollRefused(_ error: any Error) -> String {
+        if case .rejected(_, let reason, _)? = error as? QueueError {
+            switch reason {
+            case "too many keys":
+                return "Your Pond already has 4 devices that can act as you. On one of them, revoke a device "
+                    + "you no longer use in Settings › Queue. Then try again."
+            case "already enrolled":
+                return "The Pond already has this key. Try again: Hook makes a new one."
+            case "invalid label":
+                return "The Pond didn't accept this Mac's name. Change the name in System Settings › General › About, "
+                    + "then try again."
+            default: break
+            }
+        }
+        return "Couldn't start the setup: " + UserFacingError.text(error)
+    }
+
     /// While the record is read (`.reading`).
     public nonisolated static let readingKeychain = "Waiting for Keychain access"
 
@@ -472,7 +491,7 @@ public enum OwnerKeyState: Equatable, Sendable {
             } catch {
                 guard self.current(sourceKey) else { return }
                 await self.drop(sourceKey: sourceKey)
-                self.state = .refused("Couldn't start the setup: " + UserFacingError.text(error))
+                self.state = .refused(Self.enrollRefused(error))
                 self.task = nil
                 return
             }

@@ -284,9 +284,8 @@ struct DetailView<Model: PanelViewModel>: View {
         let reviewing = Self.bar(snapshot, reviewing: model.isReviewing(id)) == .review
         return VStack(alignment: .leading, spacing: DS.Space.section) {
             if let notice = model.notice, !Self.barCovers(notice, snapshot) {
-                Notice(compact: notice.isCompact, kind: notice.kind, text: notice.text, actionTitle: notice.actionTitle, help: notice.help,
-                       secondaryTitle: notice.secondaryActionTitle, onSecondary: { model.performNoticeSecondaryAction() },
-                       onAction: { model.performNoticeAction() }, onDismiss: { model.dismissNotice() })
+                Notice(notice, expanded: gallery.noticeExpanded ?? false, onAction: { model.performNoticeAction() },
+                       onSecondary: { model.performNoticeSecondaryAction() }, onDismiss: { model.dismissNotice() })
                     .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
             }
             titleBlock(snapshot)

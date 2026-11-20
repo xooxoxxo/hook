@@ -257,8 +257,9 @@ import Testing
         #expect(!FileManager.default.fileExists(atPath: url.path))
     }
 
-    /// The way out of the lock is the owner's: Reset Review Records… asks for Touch ID, makes a
-    /// new seal, keeps this run's pins, and says the records changed. Declined, nothing moves.
+    /// The way out of the lock is the owner's: Start Over… (after the Notice's confirmation) asks
+    /// for Touch ID, makes a new seal, keeps this run's pins, and says the records changed.
+    /// Declined, nothing moves.
     @Test func resettingTheReviewRecordsTakesThePresenceCheckAndMakesANewSeal() async throws {
         let defaults = TestDefaults()
         defer { defaults.drop() }
@@ -275,12 +276,12 @@ import Testing
         let two = revised("a", [idSteps(3), idSteps(4, codes: [2: "run 2 --fixed"])])
         await start(store, FakeQueueSource(items: [two.item], details: ["a": two.detail]))
         #expect(store.notice == .reviewRecordsUnreadable)
-        #expect(PanelNotice.reviewRecordsUnreadable.actionTitle == "Reset Review Records…")
+        #expect(PanelNotice.reviewRecordsUnreadable.secondaryActionTitle == "Start Over…")
         let writes = secrets.writes
 
         recorder.presence = false
-        await store.performNoticeAction()
-        #expect(recorder.presenceAsked == ["reset Hook's review records"])
+        await store.startOverReviewRecords()
+        #expect(recorder.presenceAsked == ["start over with a new review key"])
         #expect(store.reviewsUnreadable)
         #expect(store.notice == .reviewRecordsUnreadable)
         #expect(secrets.writes == writes)
@@ -288,7 +289,7 @@ import Testing
         #expect(!FileManager.default.fileExists(atPath: url.path))
 
         recorder.presence = true
-        await store.performNoticeAction()
+        await store.startOverReviewRecords()
         #expect(resets == 1)
         #expect(!store.reviewsUnreadable)
         #expect(store.notice == .reviewRecordsChanged)
@@ -299,6 +300,58 @@ import Testing
         #expect(store.record("a")?.accepted == nil)
         #expect(store.reviewState("a").isLocked)
         #expect(ReviewStore.load(from: url, sealKey: key).records.values.first?.pins[2] == two.detail.revisions[1].hash)
+    }
+
+    /// Try Again reads the key again (macOS shows its prompt again): allowed this time, the
+    /// lock lifts and the Notice goes; refused again, nothing is written and the Notice stays.
+    @Test func tryAgainReadsTheReviewKeyAgain() async throws {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let url = reviewsURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let secrets = MemorySecretStore()
+        let seal = try ReviewSeal.loadOrCreate(secrets, file: url)
+        secrets.readError = .unreadable(-128)
+        let store = await reviewingStore(defaults, secrets: secrets, url: url)
+        let recorder = ShellRecorder()
+        store.shell = recorder.shell
+        let two = revised("a", [idSteps(3), idSteps(4, codes: [2: "run 2 --fixed"])])
+        await start(store, FakeQueueSource(items: [two.item], details: ["a": two.detail]))
+        #expect(store.notice == .reviewRecordsUnreadable)
+        let writes = secrets.writes
+
+        await store.performNoticeAction()
+        #expect(store.reviewsUnreadable)
+        #expect(store.notice == .reviewRecordsUnreadable)
+        #expect(secrets.writes == writes)
+
+        secrets.readError = nil
+        await store.performNoticeAction()
+        #expect(!store.reviewsUnreadable)
+        #expect(store.notice == nil)
+        #expect(store.sealKey.map { $0.withUnsafeBytes { Data($0) } } == seal.withUnsafeBytes { Data($0) })
+        #expect(recorder.presenceAsked.isEmpty)
+    }
+
+    /// Start Over… goes through the Notice's second button too.
+    @Test func startOverIsTheNoticesSecondButton() async throws {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let url = reviewsURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let secrets = MemorySecretStore()
+        _ = try ReviewSeal.loadOrCreate(secrets, file: url)
+        secrets.readError = .unreadable(-128)
+        let store = await reviewingStore(defaults, secrets: secrets, url: url)
+        let recorder = ShellRecorder()
+        store.shell = recorder.shell
+        recorder.presence = false
+        await start(store, FakeQueueSource(items: [], details: [:]))
+        #expect(store.notice == .reviewRecordsUnreadable)
+        store.performNoticeSecondaryAction()
+        for _ in 0..<50 where recorder.presenceAsked.isEmpty { try? await Task.sleep(for: .milliseconds(10)) }
+        #expect(recorder.presenceAsked == ["start over with a new review key"])
+        #expect(store.notice == .reviewRecordsUnreadable)
     }
 
     @Test func aTamperedRecordIsDroppedWithANotice() async throws {
@@ -344,7 +397,7 @@ import Testing
         #expect(PanelNotice.doneHeldBack(id: "a", title: "Deploy\u{202E}").text
             == "Done was held back: “Deploy⟨U+202E⟩” was corrected.")
         #expect(PanelNotice.reviewRecordsChanged.showsOnQueue)
-        #expect(PanelNotice.reviewRecordsUnreadable.text.hasPrefix("Hook couldn't read its review key"))
+        #expect(PanelNotice.reviewRecordsUnreadable.text.hasPrefix("macOS didn't let Hook read its review key"))
     }
 
     /// A correction lands between render and click: the button still looked enabled, the Store

@@ -15,13 +15,15 @@ public struct PanelGalleryOverrides: Equatable, Sendable {
     public var historyExpanded: Bool?
     /// The Messages section's "Message the session" disclosure.
     public var messagesExpanded: Bool?
+    /// A folding Notice's Details.
+    public var noticeExpanded: Bool?
     /// The clock a step answer's time is shown in (the gallery renders in UTC, en_GB).
     public var locale: Locale?
     public var timeZone: TimeZone?
 
     public init(now: Date? = nil, closedExpanded: Bool? = nil, fromExpanded: Bool? = nil, fullHeight: Bool? = nil,
                 historyExpanded: Bool? = nil, locale: Locale? = nil, timeZone: TimeZone? = nil,
-                messagesExpanded: Bool? = nil, collapsedGroups: Set<String>? = nil) {
+                messagesExpanded: Bool? = nil, collapsedGroups: Set<String>? = nil, noticeExpanded: Bool? = nil) {
         self.now = now
         self.closedExpanded = closedExpanded
         self.collapsedGroups = collapsedGroups
@@ -29,6 +31,7 @@ public struct PanelGalleryOverrides: Equatable, Sendable {
         self.fullHeight = fullHeight
         self.historyExpanded = historyExpanded
         self.messagesExpanded = messagesExpanded
+        self.noticeExpanded = noticeExpanded
         self.locale = locale
         self.timeZone = timeZone
     }
