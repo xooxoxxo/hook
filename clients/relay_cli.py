@@ -59,6 +59,8 @@ AMEND_SENTENCE = ("Send the whole corrected instructable: keep every step's `id`
 APPEND_SENTENCE = ("Add steps to the end of an open ask you posted, after the owner's answer. Nothing the owner "
                    "saw changes, so there is no review. To change a step they saw, use relay amend. If the ask is "
                    "closed, post a follow-up ask.")
+REFRESH_DOCS_HELP = ("copy every document to the Pond again, even one the ask already holds (by default a "
+                     "path the ask holds keeps the copy the owner saw)")
 OWNER_TEXT_CAP = 8000   # past it, the line names the rest: relay status <id> --json
 
 
@@ -139,6 +141,7 @@ def _parser(out: Any, err: Any, prog: str = "relay") -> argparse.ArgumentParser:
                        help="the version you corrected (default: the newest, if this Mac wrote it)")
     amend.add_argument("--json", dest="json_src", default="-", metavar="FILE|-",
                        help="the whole corrected instructable, from a file or - for stdin (the default)")
+    amend.add_argument("--refresh-docs", action="store_true", help=REFRESH_DOCS_HELP)
     append = sub.add_parser("append", help="add steps to the end of an open ask you posted (no review)",
                             description=APPEND_SENTENCE)
     append.add_argument("id")
@@ -146,6 +149,7 @@ def _parser(out: Any, err: Any, prog: str = "relay") -> argparse.ArgumentParser:
                         help="what the new steps are for, one line (at most 200 chars)")
     append.add_argument("--json", dest="json_src", default="-", metavar="FILE|-",
                         help="a JSON array of 1 to 10 steps, from a file or - for stdin (the default)")
+    append.add_argument("--refresh-docs", action="store_true", help=REFRESH_DOCS_HELP)
     return parser
 
 
@@ -346,9 +350,18 @@ def _read_instructable(src: str, stdin: Any) -> Dict[str, Any]:
     return obj
 
 
+def print_notes(res: Dict[str, Any], err: Any) -> None:
+    """One `note: <field> not copied to the Pond: <reason>` line on stderr per document Hook
+    could not copy (relay_docs)."""
+    notes = res.get("notes") if isinstance(res.get("notes"), list) else []
+    for line in notes:
+        err.write(f"note: {line}\n")
+
+
 def _cmd_post(args: argparse.Namespace, ctx: _Ctx) -> int:
     instructable = _read_instructable(args.json_src, ctx.stdin)
     res = ctx.factory(autolaunch=True, timeout=DEFAULT_TIMEOUT).post(args.project, instructable)
+    print_notes(res, ctx.err)
     item = res.get("item") if isinstance(res.get("item"), dict) else {}
     ctx.say(("deduped " if res.get("deduped") else "posted ") + str(item.get("id")))
     if res.get("openUrl"):
@@ -461,7 +474,9 @@ def change_summary(revision: Any) -> str:
 def _cmd_amend(args: argparse.Namespace, ctx: _Ctx) -> int:
     instructable = _read_instructable(args.json_src, ctx.stdin)
     client = ctx.factory(autolaunch=True, timeout=DEFAULT_TIMEOUT)
-    res = client.amend(args.id, args.reason, instructable, args.base, edit_keys=EditKeys(ctx.env))
+    res = client.amend(args.id, args.reason, instructable, args.base, edit_keys=EditKeys(ctx.env),
+                       refresh_docs=args.refresh_docs)
+    print_notes(res, ctx.err)
     revision = res.get("revision") if isinstance(res.get("revision"), dict) else {}
     summary = change_summary(revision)
     ctx.say(f"corrected {args.id.strip()} → version {revision.get('rev', '?')}"
@@ -477,7 +492,8 @@ def _cmd_append(args: argparse.Namespace, ctx: _Ctx) -> int:
     if not isinstance(steps, list) or not steps:
         raise RelayError("--json input must be a JSON array of steps (1 to 10)")
     client = ctx.factory(autolaunch=True, timeout=DEFAULT_TIMEOUT)
-    res = client.append(args.id, args.note, steps, edit_keys=EditKeys(ctx.env))
+    res = client.append(args.id, args.note, steps, edit_keys=EditKeys(ctx.env), refresh_docs=args.refresh_docs)
+    print_notes(res, ctx.err)
     added = res.get("added") if isinstance(res.get("added"), list) else []
     count = len(added) or len(steps)
     ctx.say(f"added {count} {'step' if count == 1 else 'steps'} to {args.id.strip()} → version {res.get('rev', '?')}")

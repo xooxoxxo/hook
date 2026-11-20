@@ -220,7 +220,7 @@ class RelayMcpTest(StubServerCase):
                 "v": 1, "title": "Check Node", "steps": [{"do": "Run it", "code": "node --version"}]}})
             self.assertFalse(post["isError"])
             self.assertEqual(post["structuredContent"], {"id": ITEM_ID, "openUrl": OPEN_URL, "deduped": False,
-                                                         "editable": False})
+                                                         "editable": False, "notes": []})
             self.assertEqual(POSTED[-1]["project"], "Acme")
             self.assertEqual(POSTED[-1]["context"], "work")
             self.assertEqual(POSTED[-1]["instructable"]["from"]["session"], "test-session")
@@ -603,7 +603,7 @@ class AmendToolTest(StubServerCase):
             self.assertEqual(amended["structuredContent"],
                              {"id": ITEM_ID, "rev": 2, "hash": H2, "changed": [{"id": "s1", "path": "1",
                                                                                 "fields": ["code"]}],
-                              "added": [], "removed": [], "moved": [], "top": [], "openUrl": None})
+                              "added": [], "removed": [], "moved": [], "top": [], "openUrl": None, "notes": []})
             self.assertNotIn(record["key"], json.dumps(amended))
             status = s.call("relay_status", {"id": ITEM_ID})["structuredContent"]
             self.assertEqual((status["rev"], status["acceptedRev"], status["editable"]), (1, 1, True))
@@ -669,7 +669,7 @@ class AppendToolTest(StubServerCase):
         tool = next(t for t in relay_mcp.tool_list() if t["name"] == "relay_append")
         schema = tool["inputSchema"]
         self.assertEqual(schema["type"], "object")
-        self.assertEqual(set(schema["properties"]), {"id", "note", "steps"})
+        self.assertEqual(set(schema["properties"]), {"id", "note", "steps", "refreshDocs"})
         self.assertEqual(schema["required"], ["id", "note", "steps"])
         self.assertIs(schema["additionalProperties"], False)
         self.assertEqual(schema["properties"]["id"]["type"], "string")
@@ -694,7 +694,8 @@ class AppendToolTest(StubServerCase):
             res = s.call("relay_append", {"id": ITEM_ID, "note": "the deploy step", "steps": NEXT})
             self.assertFalse(res["isError"], res)
             self.assertEqual(res["structuredContent"], {"id": ITEM_ID, "rev": 2, "hash": H2,
-                                                        "added": [{"id": "r2-1", "path": "2"}], "openUrl": OPEN_URL})
+                                                        "added": [{"id": "r2-1", "path": "2"}], "openUrl": OPEN_URL,
+                                                        "notes": []})
             record = json.loads((s.keys_dir / f"{ITEM_ID}.json").read_text())
             self.assertEqual(POSTED[-1], {"editKey": record["key"], "baseRev": 1, "baseHash": H1,
                                           "note": "the deploy step", "steps": NEXT})
@@ -987,6 +988,62 @@ class ResolvedByTest(unittest.TestCase):
                          (1, None, 1, False))
         self.assertEqual(result["problems"], [{"id": "s1", "step": "1", "note": "nope", "rev": 1,
                                                "at": "2026-10-11T09:00:02+00:00"}])
+
+
+
+
+class DocsToolTest(unittest.TestCase):
+    """refreshDocs reaches the client; the documents Hook could not copy come back as notes."""
+
+    class Client:
+        def __init__(self):
+            self.calls = []
+            self.source = {"kind": "mailbox"}
+
+        def post(self, project, instructable):
+            self.calls.append(("post",))
+            return {"item": {"id": ITEM_ID}, "notes": ["steps[0].file not copied to the Pond: empty"]}
+
+        def amend(self, ask_id, reason, instructable, base_rev, refresh_docs=False):
+            self.calls.append(("amend", refresh_docs))
+            return {"revision": {"rev": 2}, "notes": ["links[0].path not copied to the Pond: not a file"]}
+
+        def append(self, ask_id, note, steps, refresh_docs=False):
+            self.calls.append(("append", refresh_docs))
+            return {"id": ITEM_ID, "rev": 2, "hash": H2, "added": []}
+
+    def setUp(self):
+        self.client = DocsToolTest.Client()
+        patcher = mock.patch.object(relay_mcp, "make_client", lambda: self.client)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def call(self, name, args):
+        return relay_mcp.call_tool({"name": name, "arguments": args})["structuredContent"]
+
+    def test_notes_and_refresh(self):
+        post = self.call("relay_post", {"project": "Acme", "instructable": FIX})
+        self.assertEqual(post["notes"], ["steps[0].file not copied to the Pond: empty"])
+        amended = self.call("relay_amend", {"id": ITEM_ID, "reason": "why", "instructable": FIX, "refreshDocs": True})
+        self.assertEqual(amended["notes"], ["links[0].path not copied to the Pond: not a file"])
+        appended = self.call("relay_append", {"id": ITEM_ID, "note": "more", "steps": NEXT})
+        self.assertEqual(appended["notes"], [])
+        self.call("relay_append", {"id": ITEM_ID, "note": "more", "steps": NEXT, "refreshDocs": True})
+        self.assertEqual(self.client.calls, [("post",), ("amend", True), ("append", False), ("append", True)])
+
+    def test_refresh_docs_must_be_a_boolean(self):
+        for name, args in (("relay_amend", {"id": ITEM_ID, "reason": "why", "instructable": FIX}),
+                           ("relay_append", {"id": ITEM_ID, "note": "more", "steps": NEXT})):
+            self.assertEqual(self.call(name, dict(args, refreshDocs="yes")),
+                             {"error": "refreshDocs must be true or false"})
+        self.assertEqual(self.client.calls, [])
+
+    def test_the_schemas_describe_refresh_docs_and_notes(self):
+        tools = {t["name"]: t for t in relay_mcp.tool_list()}
+        for name in ("relay_amend", "relay_append"):
+            self.assertEqual(tools[name]["inputSchema"]["properties"]["refreshDocs"]["type"], "boolean")
+        self.assertNotIn("refreshDocs", tools["relay_post"]["inputSchema"]["properties"])
+        self.assertIn("notes", tools["relay_post"]["description"])
 
 
 if __name__ == "__main__":

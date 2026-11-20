@@ -46,7 +46,8 @@ mkdir -p "$T/x"
 ditto -x -k "$ZIP" "$T/x"
 [ "$(ls -A "$T/x" | tr '\n' ' ')" = "Hook.app support " ] || fail "zip top level is $(ls -A "$T/x" | tr '\n' ' ')"
 S="$T/x/support"
-for f in bin/relay clients/relay_client.py clients/relay_cli.py clients/relay_lint.py clients/relay_replies.py clients/relay_wait.py \
+for f in bin/relay clients/relay_client.py clients/relay_cli.py clients/relay_docs.py clients/relay_lint.py \
+         clients/relay_replies.py clients/relay_wait.py \
          mcp/relay_mcp.py schema/instructable.v1.json skill/instructables/SKILL.md scripts/install.sh \
          scripts/get.sh LICENSE THIRD_PARTY_NOTICES.md VERSION; do
   [ -f "$S/$f" ] || fail "support/$f is missing"

@@ -29,6 +29,7 @@ import urllib.request
 from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 
 import relay_semver
+from relay_docs import DOCS_FEATURE, attach_docs, fit_request, has_doc_paths, retry_without, strip_docs
 from relay_lint import lint_details, lint_instructable  # noqa: F401  (re-exported)
 
 VERSION = "0.17.0"
@@ -464,6 +465,18 @@ def fill_from(instructable: Dict[str, Any], env: Optional[Mapping[str, str]] = N
             origin["session"] = session
         out["from"] = origin
     return out
+
+
+def encode_body(body: Dict[str, Any]) -> bytes:
+    """A request body as sent. ASCII escapes, so a lone surrogate from a "\\ud800" escape can't
+    crash the UTF-8 encode, and the server answers it with 400 invalid json. A body with
+    documents (`docs`) goes as UTF-8, so non-ASCII text is not sent six bytes per character."""
+    if "docs" in body:
+        try:
+            return json.dumps(body, ensure_ascii=False).encode("utf-8")
+        except UnicodeEncodeError:
+            pass
+    return json.dumps(body).encode("utf-8")
 
 
 def one_line(text: str) -> str:
@@ -1128,7 +1141,11 @@ class Client:
         """POST /asks. On a Pond that takes corrections, an edit key is made first and only its
         hash is sent; the key is kept when the Pond says the ask is `editable`.
         A value to copy left inside a step's `do` is refused here, before anything is sent,
-        exactly as the Pond refuses an invalid field (relay_lint)."""
+        exactly as the Pond refuses an invalid field (relay_lint).
+        A `doc` the caller wrote is dropped. On a Pond that lists `docs`, the documents the
+        steps and links point at are attached (relay_docs); the result then carries `notes`
+        for those that weren't."""
+        instructable = strip_docs(instructable)
         problems = lint_details(instructable)
         if problems:
             raise Refused(400, "invalid instructable", problems)
@@ -1142,7 +1159,13 @@ class Client:
             if pond is not None and relay_semver.at_least(pond[0], AMEND_POND):
                 keys = edit_keys if edit_keys is not None else EditKeys(self.env)
                 body["editKeyHash"] = keys.pending(project, title, self.source_key())[1]
-        resp = self._call("POST", "/asks", body)
+        found: Tuple[Dict[str, Any], Dict[str, str], List[str]] = (body["instructable"], {}, [])
+        if self._takes_docs(body["instructable"]):
+            found = attach_docs(body["instructable"], home=self._home())
+
+        def make(holder: Dict[str, Any], docs: Dict[str, str]) -> Dict[str, Any]:
+            return dict(body, instructable=holder, **({"docs": docs} if docs else {}))
+        resp, notes = self._send_docs("/asks", make, *found)
         if keys is not None:
             item = resp.get("item") if isinstance(resp.get("item"), dict) else {}
             revision = resp.get("revision") if isinstance(resp.get("revision"), dict) else {}
@@ -1153,14 +1176,17 @@ class Client:
             else:
                 keys.drop_pending(project, title, self.source_key())
             keys.prune()
-        return resp
+        return dict(resp, notes=notes) if notes else resp
 
     def amend(self, ask_id: str, reason: str, instructable: Dict[str, Any], base_rev: Optional[int] = None, *,
-              edit_keys: Optional[EditKeys] = None) -> Dict[str, Any]:
+              edit_keys: Optional[EditKeys] = None, refresh_docs: bool = False) -> Dict[str, Any]:
         """POST /asks/{id}/amend with this Mac's edit key: a corrected version of an open ask.
         Without base_rev it corrects the newest version, and only when that is the one this
-        Mac wrote last (else ChangedUnderneath). Adds `warning` when another session posted it."""
+        Mac wrote last (else ChangedUnderneath). Adds `warning` when another session posted it.
+        Documents as in post, except that a path the ask already holds a `doc` for keeps that
+        `doc` and is not read again, unless refresh_docs (relay_docs.attach_docs)."""
         ask_id = ask_id.strip()
+        instructable = strip_docs(instructable)
         if self.local:
             raise LocalCantAmend(ask_id)
         pond = self.pond_info()
@@ -1187,11 +1213,18 @@ class Client:
             base_rev, base_hash = cur_rev, cur_hash
         else:
             base_hash = revision_hash_of(detail, base_rev) or cur_hash
-        body = {"editKey": record["key"], "baseRev": base_rev, "baseHash": base_hash, "reason": reason,
-                "instructable": instructable}
+        found: Tuple[Dict[str, Any], Dict[str, str], List[str]] = (instructable, {}, [])
+        if self._takes_docs(instructable):
+            found = attach_docs(instructable, current=instructable_of(detail), refresh=refresh_docs,
+                                home=self._home())
+
+        def make(holder: Dict[str, Any], docs: Dict[str, str]) -> Dict[str, Any]:
+            body = {"editKey": record["key"], "baseRev": base_rev, "baseHash": base_hash, "reason": reason,
+                    "instructable": holder}
+            return dict(body, docs=docs) if docs else body
         try:
-            resp = self._call("POST", "/asks/" + self._quote(ask_id) + "/amend", body,
-                              not_found=f"no ask with id {ask_id}")
+            resp, notes = self._send_docs("/asks/" + self._quote(ask_id) + "/amend", make, *found,
+                                          not_found=f"no ask with id {ask_id}")
         except Refused as exc:
             if exc.status == 409 and exc.error == "corrections not enabled":
                 raise CorrectionsOff(ask_id) from None
@@ -1203,23 +1236,25 @@ class Client:
         if poster and poster != session_id(self.env):
             resp = dict(resp, warning=f"ask {ask_id} was posted from another session; "
                                       "correct only the asks you posted")
-        return resp
+        return dict(resp, notes=notes) if notes else resp
 
     def _pond_shown(self) -> str:
         pond = self.pond_info()
         return pond_display(pond) if pond is not None else "version unknown"
 
     def append(self, ask_id: str, note: str, steps: List[Any], *,
-               edit_keys: Optional[EditKeys] = None) -> Dict[str, Any]:
+               edit_keys: Optional[EditKeys] = None, refresh_docs: bool = False) -> Dict[str, Any]:
         """POST /asks/{id}/append with this Mac's edit key: steps added after the last step of an
         open ask, which the owner sees without a review (Pond feature appendSteps). The steps are
         linted and checked against the Pond before anything is sent. A stale base is retried once
         on the revision the Pond names, and a `too soon` of up to 15 s is waited out once.
         → {"id", "rev", "hash", "added": [{id, path}]}, plus openUrl when the Pond sends one and
-        warning when another session posted the ask."""
+        warning when another session posted the ask. Documents as in amend; `notes` when one
+        isn't copied."""
         ask_id = ask_id.strip()
         if self.local:
             raise LocalCantAppend()
+        steps = strip_docs({"steps": steps})["steps"]
         if not self.has_feature(APPEND_FEATURE):
             raise PondLacksFeature(self._pond_shown(), "append", APPEND_FEATURE)
         wrapped = {"v": 1, "title": "x", "steps": steps}
@@ -1231,18 +1266,35 @@ class Client:
         record = keys.load(ask_id)
         if record is None or not isinstance(record.get("key"), str) or record.get("source") != self.source_key():
             raise NoEditKey(ask_id)
-        current = revision_of(self.get(ask_id))
+        detail = self.get(ask_id)
+        current = revision_of(detail)
         last_hash = record.get("lastHash") if isinstance(record.get("lastHash"), str) else ""
         base_rev, base_hash = (current["rev"], current["hash"]) if current is not None else (1, last_hash)
-        retried_stale = retried_soon = False
-        while True:
+        holder: Dict[str, Any] = {"steps": steps}
+        docs: Dict[str, str] = {}
+        notes: List[str] = []
+        if self._takes_docs(holder):
+            holder, docs, notes = attach_docs(holder, current=instructable_of(detail), refresh=refresh_docs,
+                                              home=self._home())
+
+        def make(held: Dict[str, Any], texts: Dict[str, str]) -> Dict[str, Any]:
             body = {"editKey": record["key"], "baseRev": base_rev, "baseHash": base_hash, "note": note,
-                    "steps": steps}
+                    "steps": held["steps"]}
+            return dict(body, docs=texts) if texts else body
+        holder, docs, cut = fit_request(holder, docs, lambda h, d: encode_body(make(h, d)))
+        notes += cut
+        retried_stale = retried_soon = retried_docs = False
+        while True:
             try:
-                resp = self._call("POST", "/asks/" + self._quote(ask_id) + "/append", body,
+                resp = self._call("POST", "/asks/" + self._quote(ask_id) + "/append", make(holder, docs),
                                   not_found=f"no ask with id {ask_id}")
                 break
             except Refused as exc:
+                again = None if retried_docs else retry_without(exc, holder, docs)
+                if again is not None:
+                    retried_docs, (holder, docs, more) = True, again
+                    notes += more
+                    continue
                 rev, hash_ = exc.body.get("rev"), exc.body.get("hash")
                 wait = exc.body.get("retryAfter")
                 if (exc.status == 409 and exc.error == "stale revision" and not retried_stale
@@ -1272,7 +1324,37 @@ class Client:
         poster = record.get("session") if isinstance(record.get("session"), str) else ""
         if poster and poster != session_id(self.env):
             result["warning"] = f"ask {ask_id} was posted from another session; add steps only to the asks you posted"
+        if notes:
+            result["notes"] = notes
         return result
+
+    def _takes_docs(self, holder: Dict[str, Any]) -> bool:
+        """Are documents attached to this request? Only on a Pond (never This Mac) that lists
+        DOCS_FEATURE, and only when a step or link points at a local document."""
+        return not self.local and has_doc_paths(holder) and self.has_feature(DOCS_FEATURE)
+
+    def _home(self) -> str:
+        """The home folder `~/` stands for: $HOME of this client's environment."""
+        return self.env.get("HOME") or os.path.expanduser("~")
+
+    def _send_docs(self, path: str, make: Callable[[Dict[str, Any], Dict[str, str]], Dict[str, Any]],
+                   holder: Dict[str, Any], docs: Dict[str, str], notes: List[str],
+                   not_found: Optional[str] = None) -> Tuple[Dict[str, Any], List[str]]:
+        """POST make(holder, docs), kept within the Pond's request cap (relay_docs.fit_request).
+        A refusal about documents (relay_docs.retry_without) is sent once more without them,
+        never a third time. → (the response, the notes)."""
+        holder, docs, cut = fit_request(holder, docs, lambda h, d: encode_body(make(h, d)))
+        notes = list(notes) + cut
+        retried = False
+        while True:
+            try:
+                return self._call("POST", path, make(holder, docs), not_found=not_found), notes
+            except Refused as exc:
+                again = None if retried else retry_without(exc, holder, docs)
+                if again is None:
+                    raise
+                retried, (holder, docs, more) = True, again
+                notes += more
 
     def list(self, status: str = "open", days: int = 36500, kind: Optional[str] = None) -> List[Dict[str, Any]]:
         """`kind` "ask" or "bug" keeps only that kind. The Pond filters too (1.2.0); an older Pond
@@ -1399,9 +1481,7 @@ class Client:
         hdrs.update(headers or {})
         data = None
         if body is not None:
-            # ASCII escapes: a lone surrogate from a "\ud800" escape can't crash the UTF-8
-            # encode, and the server answers it with 400 invalid json.
-            data = json.dumps(body).encode("utf-8")
+            data = encode_body(body)
             hdrs["Content-Type"] = "application/json"
         req = urllib.request.Request(self.base + path, data=data, headers=hdrs, method=method)
         if auth is not None:
