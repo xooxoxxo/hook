@@ -105,10 +105,10 @@ From Pond 1.9.0 (feature `appendSteps`), the session that posted an open ask can
 
 ## Documents
 
-From Pond 1.10.0 (feature `docs`), an ask can carry a checked copy of the Markdown or text document a step's `file`, a sub-step's `file` or a link's `path` points at. Clients gate on `docs` in `features`, never on the version number. A Pond without the feature answers 404 to a document read.
+From Pond 1.10.0 (feature `docs`), an ask can carry a checked copy of the Markdown or text document a step's `file`, a sub-step's `file` or a link's `path` points at. Clients gate on `docs` in `features`, never on the version number. A Pond older than 1.10.0 answers 404 to a document read.
 
 - **The fingerprint.** Beside the path, the instructable holds `doc: {"sha256", "bytes"}`: the lowercase hex SHA-256 of the document's exact UTF-8 bytes and their count, 1 to 262144 ([format](instructables.md#documents)). Hook's posting client fills it in; a session never writes it. Because it sits in the instructable, the revision hash covers it.
-- **The text.** `POST /asks`, `amend` and `append` take a `docs` member beside the instructable: `{"<sha256>": "<text>"}`, each key the SHA-256 of its text's UTF-8 bytes. A text is 1 to 262144 bytes, all texts of one request at most 786432 bytes, and the Pond's request size cap still applies. Hook sends only files ending in `.md`, `.markdown` or `.txt`. A `doc` the ask already holds needs no text again on a correction or an append.
+- **The text.** `POST /asks`, `amend` and `append` take a `docs` member beside the instructable: `{"<sha256>": "<text>"}`, each key the SHA-256 of its text's UTF-8 bytes. A text is 1 to 262144 bytes, all texts of one request at most 786432 bytes, and the Pond's request size cap still applies. Only files ending in `.md`, `.markdown` or `.txt` are sent. A `doc` the ask already holds needs no text again on a correction or an append.
 - **Errors.** A request whose documents don't fit stores nothing and answers 400 `{"error": "invalid documents", "details": [...]}`. The details name a field path or a hash, never the text, in this order: one per `doc` in document order (steps, each before its sub-steps, then links), then one per sent text in sorted hash order, then the total:
   - `steps[1].doc: no document with this hash` (not sent, and not held by the ask)
   - `steps[0].doc.bytes: does not match the document`

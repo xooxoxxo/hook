@@ -166,8 +166,8 @@ a step's `question` or in `reply`, not in a step that points at them. `relay_pos
 
   Done turns on once step 4 is ticked and the owner has sent a message; Skip works all along.
 - **file**: When the owner should read a document, write it as a Markdown file and point to it with `file` (or a link with `path`); Hook opens it rendered. Keep `do` to one action and `detail` to a few lines; never paste a whole document into an ask. `file` and `path` are absolute paths on the owner's Mac (`/…` or `~/…`), not on `verify`.
-  Keep writing `file` and `path` just so, and never write `doc`: when the Pond takes documents,
-  Hook adds `doc` and sends the document with the ask, so the owner can read it on the phone.
+  Keep writing `file` and `path` just so, and never write `doc`: Hook's posting client fills it
+  in, and the Pond refuses a `doc` a session writes itself.
 - **id**: a stable name for a step or sub-step (`a-z`, `0-9`, `.` and `-`, at most 24 characters,
   unique in the ask), never on `verify`. Give ids on every step or on none; without them the Pond
   names the steps `s1`, `s2`, `s2.1`. Ids are what a correction keeps (see "Correcting an open ask").
