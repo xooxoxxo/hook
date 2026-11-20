@@ -533,12 +533,14 @@ def _write_new(path: str, data: bytes) -> None:
     try:
         with os.fdopen(fd, "wb") as fh:
             fh.write(data)
-    except OSError as exc:
+    except BaseException as exc:     # Ctrl-C too: never a partial file
         try:
             os.unlink(path)
         except OSError:
             pass
-        raise RelayError(f"can't write {path}: {exc.strerror}") from None
+        if isinstance(exc, OSError):
+            raise RelayError(f"can't write {path}: {exc.strerror}") from None
+        raise
 
 
 def _cmd_docs(args: argparse.Namespace, ctx: _Ctx) -> int:
@@ -551,12 +553,17 @@ def _cmd_docs(args: argparse.Namespace, ctx: _Ctx) -> int:
         ctx.say(f"released {count} {'document' if count == 1 else 'documents'} of {ask_id}")
         return 0
     if args.docs_action == "get":
-        data = client.doc(ask_id, args.n).encode("utf-8")    # the exact bytes the Pond sent
+        found = client.read_doc(ask_id, args.n)
+        data = found["text"].encode("utf-8")    # the exact bytes the Pond sent
+        # Which document n named (a correction can renumber them): on stderr, never on piped stdout.
+        read_line = f"read {found['field']} {session_text(found['path'], 500)}\n"
         if args.output is not None:
             _write_new(args.output, data)
+            ctx.err.write(read_line)
             return 0
         if ctx.out.isatty():
-            ctx.out.write(terminal_text(data.decode("utf-8")))
+            ctx.err.write(read_line)
+            ctx.out.write(terminal_text(found["text"]))
             return 0
         buffer = getattr(ctx.out, "buffer", None)
         if buffer is None:

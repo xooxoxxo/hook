@@ -12,6 +12,7 @@ import os
 import urllib.error
 import urllib.parse
 from pathlib import Path
+from unittest import mock
 
 import relay_cli
 import relay_client as rc
@@ -347,7 +348,7 @@ class CliTests(ReadBase):
         self.read_route(hashlib.sha256(data).hexdigest(), (200, data))
         tty = TTY()
         code, out, err = self.run_cli("docs", ITEM_ID, "get", "1", stdout=tty)
-        self.assertEqual((code, err), (0, ""))
+        self.assertEqual((code, err), (0, 'read steps[0].file "~/notes/plan.md"\n'))
         self.assertEqual(out.decode("utf-8"), "# Plan\r\n\tstep⟨U+001B⟩[2J⟨U+000D⟩over\n")
 
     def test_get_to_a_file(self):
@@ -356,8 +357,34 @@ class CliTests(ReadBase):
         self.read_route(BOM_SHA, (status, data))
         target = Path(self.tmp.name) / "out.md"
         code, out, err = self.run_cli("docs", ITEM_ID, "get", "1", "-o", str(target))
-        self.assertEqual((code, out, err), (0, b"", ""))
+        self.assertEqual((code, out, err), (0, b"", 'read steps[0].file "~/notes/handover.md"\n'))
         self.assertEqual(target.read_bytes(), data)
+
+    def test_an_interrupted_write_leaves_no_file(self):
+        self.read_route(PLAN_SHA, recorded("doc-read"))
+        target = Path(self.tmp.name) / "out.md"
+        real = os.fdopen
+
+        class Breaks:
+            def __init__(self, fh):
+                self.fh = fh
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                self.fh.close()
+                return False
+
+            def write(self, data):
+                self.fh.write(data[:10])
+                self.fh.flush()
+                raise KeyboardInterrupt
+
+        with mock.patch.object(relay_cli.os, "fdopen", lambda fd, mode: Breaks(real(fd, mode))):
+            with self.assertRaises(KeyboardInterrupt):
+                self.run_cli("docs", ITEM_ID, "get", "1", "-o", str(target))
+        self.assertFalse(os.path.lexists(target))
 
     def test_get_one_byte_off_writes_no_file(self):
         data = bytearray(recorded("doc-read")[1])
