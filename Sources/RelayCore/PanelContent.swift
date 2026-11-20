@@ -202,6 +202,13 @@ public enum PanelNotice: Equatable, Sendable {
         }
     }
 
+    /// The first button is the one to take and the second the fallback (Try Again before
+    /// Start Over…), so the first is drawn prominent.
+    public var actionIsPrimary: Bool {
+        if case .reviewRecordsUnreadable = self { return true }
+        return false
+    }
+
     /// What the second button asks before it acts, when it throws something away.
     public var secondaryConfirmation: NoticeConfirmation? {
         guard case .reviewRecordsUnreadable = self else { return nil }

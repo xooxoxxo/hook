@@ -15,6 +15,8 @@ public struct Notice: View {
     let help: String?
     let secondaryTitle: String?
     let secondaryConfirmation: NoticeConfirmation?
+    /// The action is the one to take, the second button the fallback: it gets the prominent style.
+    let actionProminent: Bool
     let onAction: () -> Void
     let onSecondary: () -> Void
     let onDismiss: () -> Void
@@ -26,7 +28,7 @@ public struct Notice: View {
     public init(compact: Bool = false, kind: NoticeKind, text: String, summary: String? = nil, collapses: Bool = false,
                 expanded: Bool = false, actionTitle: String?, help: String? = nil,
                 secondaryTitle: String? = nil, secondaryConfirmation: NoticeConfirmation? = nil,
-                onSecondary: @escaping () -> Void = {},
+                actionProminent: Bool = false, onSecondary: @escaping () -> Void = {},
                 onAction: @escaping () -> Void, onDismiss: @escaping () -> Void) {
         self.compact = compact
         self.kind = kind
@@ -37,6 +39,7 @@ public struct Notice: View {
         self.help = help
         self.secondaryTitle = secondaryTitle
         self.secondaryConfirmation = secondaryConfirmation
+        self.actionProminent = actionProminent
         self.onAction = onAction
         self.onSecondary = onSecondary
         self.onDismiss = onDismiss
@@ -49,7 +52,7 @@ public struct Notice: View {
         self.init(compact: notice.isCompact, kind: notice.kind, text: notice.text, summary: notice.summary,
                   collapses: notice.collapses, expanded: expanded, actionTitle: notice.actionTitle, help: notice.help,
                   secondaryTitle: notice.secondaryActionTitle, secondaryConfirmation: notice.secondaryConfirmation,
-                  onSecondary: onSecondary, onAction: onAction, onDismiss: onDismiss)
+                  actionProminent: notice.actionIsPrimary, onSecondary: onSecondary, onAction: onAction, onDismiss: onDismiss)
     }
 
     public var body: some View {
@@ -112,13 +115,19 @@ public struct Notice: View {
                     IconButton(DS.Symbol.hide, label: "Dismiss", action: onDismiss)
                 }
                 if expanded {
-                    Text(text)
-                        .font(DS.Font.prose)
-                        .lineLimit(Self.maxLines)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .textSelection(.enabled)
-                        .help(text)
+                    // A Label with the icon hidden, so the text starts where the summary's does.
+                    Label {
+                        Text(text)
+                            .lineLimit(Self.maxLines)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .textSelection(.enabled)
+                            .help(text)
+                    } icon: {
+                        Image(systemName: Self.symbol(kind)).hidden()
+                    }
+                    .font(DS.Font.prose)
+                    .accessibilityElement(children: .combine)
                     if actionTitle != nil || secondaryTitle != nil || help != nil {
                         HStack(spacing: DS.Space.inline) {
                             if let help { HelpButton(rowLabel: "Notice", text: help) }
@@ -126,13 +135,20 @@ public struct Notice: View {
                             if let secondaryTitle {
                                 Button(secondaryTitle, action: secondary).controlSize(DS.Control.form).fixedSize()
                             }
-                            if let actionTitle {
-                                Button(actionTitle, action: onAction).controlSize(DS.Control.form).fixedSize()
-                            }
+                            if let actionTitle { actionButton(actionTitle) }
                         }
                     }
                 }
             }
+        }
+    }
+
+    /// The action beside a second button: prominent when it is the one to take.
+    @ViewBuilder private func actionButton(_ title: String) -> some View {
+        if actionProminent {
+            Button(title, action: onAction).buttonStyle(.borderedProminent).controlSize(DS.Control.form).fixedSize()
+        } else {
+            Button(title, action: onAction).controlSize(DS.Control.form).fixedSize()
         }
     }
 
@@ -167,7 +183,7 @@ public struct Notice: View {
                     }
                     HStack(spacing: DS.Space.inline) {
                         Button(secondaryTitle, action: secondary).controlSize(DS.Control.form).fixedSize()
-                        Button(actionTitle, action: onAction).controlSize(DS.Control.form).fixedSize()
+                        actionButton(actionTitle)
                     }
                 }
             } else {
