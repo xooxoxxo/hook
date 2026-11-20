@@ -7,7 +7,14 @@ and versions follow Semantic Versioning.
 
 ### Added
 
+- Settings › Queue › Owner Key › **Devices…** lists your devices with when each was set up and last used, and revokes one. A Mac without a working key, or one whose setup stopped at "too many keys", asks you to confirm the revoke on Telegram with a code. Needs a Pond that lists `ownerRevokeRequest` and `ownerKeyDates`; older Ponds show names only.
 - Documents on the Pond, in the protocol: a step's `file` or a link's `path` can carry `doc`, the fingerprint of the document it points at, and a Pond that lists `docs` (Pond 1.10.0) keeps a checked copy of the text for the phone. Sessions never write `doc`. Hook checks it as the Pond does, and a correction that changes only a document needs Touch ID to accept, like a changed file.
+
+### Changed
+
+- A long Notice folds to a short line with Details. Open, it shows the whole text at full width, with its buttons on their own row, so a wide button no longer squeezes the text into a narrow column.
+- The Notice for a review key Hook can't read says in plain words what happened and what it locks. Try Again asks macOS for the key again. Start Over… (formerly Reset Review Records…) first says what you lose, then asks for Touch ID.
+- Owner key setup explains the Pond's refusals: when the Pond has no free slot, it says to revoke a device you no longer use, then set up again.
 
 <!-- hook:pond=^1.1.0 -->
 <!-- hook:mailbox-protocol=5 -->

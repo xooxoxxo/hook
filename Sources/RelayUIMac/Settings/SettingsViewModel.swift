@@ -40,6 +40,17 @@ import SwiftUI
     func requireOwnerKey(_ on: Bool)
     /// `GET /owner` again (on launch and each time Settings opens).
     func refreshOwnerStatus()
+
+    // The Devices sheet.
+    /// The connected Pond's version and `features`; nil until checked. The sheet reads
+    /// `ownerKeyDates` and `ownerRevokeRequest` from it.
+    var pondCapabilities: PondCapabilities? { get }
+    /// The last setup failed with "too many keys".
+    var setUpRefusedFull: Bool { get }
+    /// A revoke confirmed on Telegram, for a Mac without a working key.
+    var revokeRequest: RevokeRequestState { get }
+    func requestDeviceRevoke(_ id: String)
+    func cancelDeviceRevokeRequest()
 }
 
 extension SettingsViewModel {

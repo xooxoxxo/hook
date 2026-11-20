@@ -122,7 +122,7 @@ A session can correct an open ask, such as a wrong port or a missing step, inste
 
 **When the history changes.** Sometimes the Pond serves a history that doesn't match what this Mac saw: a version is missing, changed or older. A Pond older than 1.1.0 serving a corrected ask counts too. The ask then shows a red bar, **This ask's history changed on the Pond**, and only Skip works. This happens after a Pond restore, or when someone swapped the history. Skip the ask. Only after a restore you made, press **Trust the Pond's History Again…** (Touch ID).
 
-**Review records.** Your accepted versions and the seen hashes live in `reviews.json` in Hook's Application Support folder. A Keychain key ("Hook review seal") seals the file. If macOS asks for your password so Hook can read it, choose Allow. If the Keychain refuses, or `reviews.json` is gone but the key isn't, corrected asks stay locked and a Notice says so. Its **Reset Review Records…** (Touch ID) starts over: every corrected ask needs a new review, and you set up the owner key again. See [SECURITY.md](../SECURITY.md#keychain-items).
+**Review records.** Your accepted versions and the seen hashes live in `reviews.json` in Hook's Application Support folder. A Keychain key ("Hook review seal") seals the file. If macOS asks for your password so Hook can read it, choose Allow. If the Keychain refuses, or `reviews.json` is gone but the key isn't, corrected asks stay locked and a Notice says so. Its **Try Again** asks macOS for the key again. Its **Start Over…** (a confirmation, then Touch ID) makes a new key: every corrected ask needs a new review, and you set up the owner key again. See [SECURITY.md](../SECURITY.md#keychain-items).
 
 ## The owner key
 
@@ -131,7 +131,9 @@ The owner key lets the Pond tell your answers apart from a session's. Accepting 
 1. Open Settings › Queue › **Owner Key** and press **Set Up This Mac…**.
 2. Hook shows a six-digit code, and the Pond sends a request to your Telegram.
 3. Check that the Hook message in Telegram shows the same code, then tap **Approve**. If the code differs, or you didn't start this, tap **Refuse**: someone is trying to act as you. The request expires after 10 minutes.
-4. The row says **Approved**. Other Macs you approved are under **Other Macs**.
+4. The row says **Approved**.
+
+**Devices.** **Devices…** lists every device that can act as you: its name, when it was set up and when it was last used. This Mac is marked. Select one and press **Revoke…** to remove a device you no longer use. If this Mac has no working key, Telegram asks you to confirm the revoke: check that it shows the code Hook shows, then tap **Revoke**. If setup stops because the Pond has no free slot, **Choose a Device to Revoke…** opens the same list; after the revoke, set up this Mac again. With a Pond older than the one that lists `ownerRevokeRequest` and `ownerKeyDates`, the list shows names only, and only a Mac with a working key can revoke.
 
 The key goes only over https, or plain http to this Mac itself, and only to the scheme it was set up on. Switching the Pond URL to http stops it. If the Pond stops accepting the key (revoked, or the Pond was reset), a Notice says so and the row offers **Set Up Again…**.
 

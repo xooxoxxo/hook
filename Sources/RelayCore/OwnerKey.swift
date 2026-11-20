@@ -184,6 +184,25 @@ public enum OwnerKeyState: Equatable, Sendable {
     public nonisolated static let declined = "The request was turned down on Telegram."
     public nonisolated static let needsHTTPS = "The owner key needs a Pond URL that starts with https."
     public nonisolated static let expired = "The request expired before it was approved."
+    /// Why `POST /owner/enroll` failed, in plain words for the Pond's own refusals
+    /// ("too many keys", "already enrolled", "invalid label"); any other failure keeps its reason.
+    public nonisolated static func enrollRefused(_ error: any Error) -> String {
+        if case .rejected(_, let reason, _)? = error as? QueueError {
+            switch reason {
+            case "too many keys":
+                return "Your Pond has no free slot for another device. Revoke one you no longer use, "
+                    + "then set up this Mac again."
+            case "already enrolled":
+                return "The Pond already has this key. Try again: Hook makes a new one."
+            case "invalid label":
+                return "The Pond didn't accept this Mac's name. Change the name in System Settings › General › About, "
+                    + "then try again."
+            default: break
+            }
+        }
+        return "Couldn't start the setup: " + UserFacingError.text(error)
+    }
+
     /// While the record is read (`.reading`).
     public nonisolated static let readingKeychain = "Waiting for Keychain access"
 
@@ -202,6 +221,14 @@ public enum OwnerKeyState: Equatable, Sendable {
     public private(set) var requireProblem: String? { didSet { if requireProblem != oldValue { onChange?() } } }
     public private(set) var revokePendingID: String? { didSet { onChange?() } }
     public private(set) var revokeProblem: String? { didSet { onChange?() } }
+    /// The last setup failed because the Pond holds as many keys as it takes ("too many keys"):
+    /// Settings offers to revoke one.
+    public private(set) var setUpRefusedFull = false { didSet { if setUpRefusedFull != oldValue { onChange?() } } }
+    /// A revoke confirmed on Telegram (`requestRevoke`), for a Mac without a working key.
+    public private(set) var revokeRequest: RevokeRequestState = .idle {
+        didSet { if revokeRequest != oldValue { onChange?() } }
+    }
+    private var revokeRequestTask: Task<Void, Never>?
     public var onChange: (@MainActor () -> Void)?
     /// A setup asked for while the record was read (`setUpAfterRead`), now that it reads as
     /// not approved: the app opens Settings › Queue and sets up.
@@ -354,6 +381,9 @@ public enum OwnerKeyState: Equatable, Sendable {
         attachmentGeneration.withLock { $0 = UUID() }
         revokePendingID = nil
         revokeProblem = nil
+        revokeRequestTask?.cancel()
+        revokeRequestTask = nil
+        revokeRequest = .idle
         self.url = url
         if urlChanged { status = nil }
         guard sourceKey != self.sourceKey else {
@@ -369,6 +399,7 @@ public enum OwnerKeyState: Equatable, Sendable {
         status = nil
         requireOffPending = false
         requireProblem = nil
+        setUpRefusedFull = false
         lastRecord = nil
         guard let sourceKey else {
             state = .notSetUp
@@ -434,6 +465,7 @@ public enum OwnerKeyState: Equatable, Sendable {
             return nil
         }
         let label = self.label
+        setUpRefusedFull = false
         let task = Task {
             await self.cleanup?.value
             do {
@@ -472,7 +504,8 @@ public enum OwnerKeyState: Equatable, Sendable {
             } catch {
                 guard self.current(sourceKey) else { return }
                 await self.drop(sourceKey: sourceKey)
-                self.state = .refused("Couldn't start the setup: " + UserFacingError.text(error))
+                self.setUpRefusedFull = Self.isFull(error)
+                self.state = .refused(Self.enrollRefused(error))
                 self.task = nil
                 return
             }
@@ -562,6 +595,93 @@ public enum OwnerKeyState: Equatable, Sendable {
         }
         revokeTask = revocation
         return revocation
+    }
+
+    /// Asks the owner, on Telegram, to revoke one device: for a Mac without a working key
+    /// (`OwnerDevices.revokePath` says `.telegram`). The returned task polls until the owner taps
+    /// Revoke or Keep, or the request expires; a revoke refreshes the devices.
+    @discardableResult
+    public func requestRevoke(_ id: String) -> Task<Void, Never>? {
+        guard let source, let sourceKey, let attachment = attachment(for: sourceKey), !revokeRequest.isActive,
+              revokePendingID == nil, status?.keys.contains(where: { $0.id == id }) == true else { return nil }
+        revokeProblem = nil
+        revokeRequest = .sending(keyID: id)
+        let task = Task {
+            let request: RevokeRequest
+            do {
+                request = try await source.requestRevoke(id)
+            } catch {
+                guard self.matches(attachment), !Task.isCancelled else { return }
+                let refused = OwnerDevices.requestRefused(error)
+                self.revokeRequest = .ended(keyID: id, reason: refused.reason)
+                if refused.gone { await self.refresh()?.value }
+                return
+            }
+            guard self.matches(attachment), !Task.isCancelled else { return }
+            guard let code = OwnerDevices.validCode(request.code) else {
+                self.revokeRequest = .ended(keyID: id, reason: "Couldn't send the request: bad response from the Pond")
+                return
+            }
+            self.revokeRequest = .waiting(keyID: id, requestID: request.id, code: code,
+                                          expires: request.expires.flatMap(Timestamp.date))
+            await self.pollRevoke(request.id, keyID: id, attachment: attachment, source: source)
+        }
+        revokeRequestTask = task
+        return task
+    }
+
+    /// Stops waiting for the Telegram tap, or clears how the last request ended. A pending request
+    /// still expires on the Pond on its own.
+    public func cancelRevokeRequest() {
+        revokeRequestTask?.cancel()
+        revokeRequestTask = nil
+        revokeRequest = .idle
+    }
+
+    private func pollRevoke(_ requestID: String, keyID: String, attachment: Attachment, source: any QueueSource) async {
+        let rounds = Int(Self.pollLimit / Self.pollInterval)
+        for _ in 0..<rounds {
+            do { try await sleep(Self.pollInterval) } catch { return }
+            guard matches(attachment), !Task.isCancelled else { return }
+            let request: RevokeRequest
+            do {
+                request = try await source.revokeRequest(requestID)
+            } catch QueueError.notFound {
+                guard matches(attachment), !Task.isCancelled else { return }
+                revokeRequest = .ended(keyID: keyID, reason: OwnerDevices.revokeExpired)
+                return
+            } catch {
+                continue   // a poll that fails is tried again; the request's own expiry ends it
+            }
+            guard matches(attachment), !Task.isCancelled else { return }
+            switch request.status {
+            case "approved"?:
+                revokeRequest = .revoked(keyID: keyID)
+                revocationGeneration = UUID()
+                if let status = try? await source.ownerStatus(), matches(attachment) {
+                    self.status = status
+                    if !status.required { requireOffPending = false }
+                    if status.keys.count < (status.maxKeys ?? .max) { setUpRefusedFull = false }
+                }
+                return
+            case "rejected"?:
+                revokeRequest = .ended(keyID: keyID, reason: OwnerDevices.revokeDeclined)
+                return
+            case "expired"?:
+                revokeRequest = .ended(keyID: keyID, reason: OwnerDevices.revokeExpired)
+                return
+            default:
+                continue
+            }
+        }
+        guard matches(attachment) else { return }
+        revokeRequest = .ended(keyID: keyID, reason: OwnerDevices.revokeExpired)
+    }
+
+    /// The Pond refused a new key because every slot is taken.
+    nonisolated static func isFull(_ error: any Error) -> Bool {
+        if case .rejected(_, let reason, _)? = error as? QueueError { return reason == "too many keys" }
+        return false
     }
 
     /// The record read again, as `attach` reads it: after the review seal changed (Reset Review

@@ -49,6 +49,9 @@ public protocol QueueSource: Sendable {
     func enrollment(_ id: String) async throws -> Enrollment
     func revokeOwnerKey(_ id: String) async throws
     func requireOwnerKey(_ on: Bool) async throws -> OwnerKeyRequirement
+    /// A revoke the owner confirms on Telegram (`ownerRevokeRequest`), and its status.
+    func requestRevoke(_ id: String) async throws -> RevokeRequest
+    func revokeRequest(_ id: String) async throws -> RevokeRequest
 
     // Pond 1.2.0.
 
@@ -95,6 +98,10 @@ extension QueueSource {
     public func revokeOwnerKey(_ id: String) async throws { throw QueueError.notSupported }
 
     public func requireOwnerKey(_ on: Bool) async throws -> OwnerKeyRequirement { throw QueueError.notSupported }
+
+    public func requestRevoke(_ id: String) async throws -> RevokeRequest { throw QueueError.notSupported }
+
+    public func revokeRequest(_ id: String) async throws -> RevokeRequest { throw QueueError.notSupported }
 
     public func postBug(project: String, instructable: Data, signature: String) async throws -> BugPostResult {
         throw QueueError.notSupported

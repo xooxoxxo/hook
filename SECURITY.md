@@ -77,7 +77,7 @@ the review records in `reviews.json`, and this Mac's owner key for each Pond ("H
   ("review records unreadable") and nothing is written. Hook makes a seal on its own only when
   there is no item at all.
 - **Losing `reviews.json` resets the records and the owner keys.** With the file gone, the only
-  way out of the lock is Reset Review Records… in that Notice, which asks for Touch ID (or your
+  way out of the lock is Start Over… in that Notice, which asks for Touch ID (or your
   password) and makes a new seal. Every acceptance and rollback pin sealed under the old one is
   gone, so each corrected ask needs a review again, and each owner key, marked under the old
   seal, reads as not set up until you set it up again in Settings › Queue.

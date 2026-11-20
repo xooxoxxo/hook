@@ -84,6 +84,33 @@ import Testing
         #expect(Self.idealHeight(notice(8)) > Self.idealHeight(notice(4)))
     }
 
+    private static func lockNotice(expanded: Bool) -> Notice {
+        Notice(.reviewRecordsUnreadable, expanded: expanded, onAction: {}, onSecondary: {}, onDismiss: {})
+    }
+
+    /// Folded, the review key Notice is only its summary line; open, it is more than twice as
+    /// tall and keeps its whole height in a short column.
+    @Test func aFoldingNoticeIsItsSummaryUntilOpened() {
+        let folded = Self.idealHeight(Self.lockNotice(expanded: false))
+        let open = Self.idealHeight(Self.lockNotice(expanded: true))
+        let summaryOnly = Self.idealHeight(Notice(kind: .error, text: PanelNotice.reviewRecordsUnreadable.summary ?? "",
+                                                  actionTitle: "Details ›", onAction: {}, onDismiss: {}))
+        #expect(abs(folded - summaryOnly) < 6, "folded \(folded), summary \(summaryOnly)")
+        #expect(open > folded * 2)
+        let frames = Self.layOut(Self.lockNotice(expanded: true), height: open + 60)
+        #expect(abs(frames.notice.height - open) < 0.5)
+        #expect(frames.below.minY >= frames.notice.maxY - 0.5)
+    }
+
+    /// Open, the text has the whole width: it takes fewer lines than beside the old wide button.
+    @Test func openTheTextIsNotSqueezedByTheButtons() {
+        let notice = PanelNotice.reviewRecordsUnreadable
+        let squeezed = Self.idealHeight(Notice(kind: notice.kind, text: notice.text, actionTitle: "Reset Review Records…",
+                                               onAction: {}, onDismiss: {}))
+        let open = Self.idealHeight(Self.lockNotice(expanded: true))
+        #expect(open < squeezed, "open \(open), squeezed \(squeezed)")
+    }
+
     /// More lines (larger text, or less width: the gallery's --xl renders show the former;
     /// the global text scale isn't changed here, other suites run alongside) make it taller.
     @Test func moreLinesMakeItTaller() {

@@ -684,8 +684,27 @@ private func record(_ secrets: MemorySecretStore) -> OwnerKeyRecord? {
         await pond.set(enroll: .failure(.rejected(status: 409, error: "too many keys", details: [])))
         let flow = await makeFlow(secrets, pond: pond)
         await flow.setUp()?.value
-        #expect(flow.state == .refused("Couldn't start the setup: too many keys"))
+        #expect(flow.state == .refused(OwnerKeyFlow.enrollRefused(QueueError.rejected(status: 409, error: "too many keys", details: []))))
+        #expect(flow.setUpRefusedFull)
         #expect(record(secrets) == nil)
+    }
+
+    /// The Pond's other refusals read as plain words; anything else keeps its reason.
+    @Test func theEnrollmentRefusalsReadAsPlainWords() {
+        func text(_ error: String) -> String {
+            OwnerKeyFlow.enrollRefused(QueueError.rejected(status: 409, error: error, details: []))
+        }
+        #expect(text("already enrolled") == "The Pond already has this key. Try again: Hook makes a new one.")
+        #expect(text("invalid label") == "The Pond didn't accept this Mac's name. Change the name in System Settings "
+            + "› General › About, then try again.")
+        #expect(OwnerKeyFlow.enrollRefused(QueueError.rejected(status: 400, error: "invalid label", details: []))
+            == text("invalid label"))
+        #expect(text("invalid keyHash") == "Couldn't start the setup: invalid keyHash")
+        #expect(OwnerKeyFlow.enrollRefused(QueueError.unreachable("The Pond didn't answer within 10 seconds."))
+            == "Couldn't start the setup: The Pond didn't answer within 10 seconds.")
+        for raw in ["too many keys", "already enrolled", "invalid label"] {
+            #expect(!text(raw).contains(raw), "\(raw)")
+        }
     }
 
     @Test func aRefusedKeyOnAnOwnerActGoesWithoutItNextTime() async throws {
