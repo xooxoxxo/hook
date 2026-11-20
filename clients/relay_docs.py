@@ -35,6 +35,10 @@ NOT_UTF8 = "not UTF-8 text"
 FULL = "the request is full (768 KB)"
 SECRET = "it holds a secret-like value"
 OFF = "documents are turned off on the Pond"
+STORE_FULL = "the Pond's document store is full"
+
+# The 409s a request is refused with for its new documents alone; one resend without them.
+NOT_NEW = {"documents not enabled": OFF, "document store full": STORE_FULL}
 
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _SECRET_DETAIL = re.compile(r"docs\.([0-9a-f]{64}): secret-like value")
@@ -157,6 +161,9 @@ def _read(path: str, home: str) -> Tuple[Optional[bytes], Optional[str]]:
         except OSError:
             return None, NOT_FILE
         full = real
+    # Resolved, the file must be a document too: a link named plan.md to a key file is not one.
+    if not os.path.realpath(full).lower().endswith(DOC_SUFFIXES):
+        return None, NOT_TEXT_FILE
     if not stat.S_ISREG(info.st_mode):
         return None, NOT_FILE
     if info.st_size == 0:
@@ -205,6 +212,13 @@ def _held(current: Any) -> Tuple[Dict[str, Tuple[str, Dict[str, Any]]], Dict[str
             by_id[node["id"]] = (node[key], doc)
         by_path.setdefault(node[key], doc)
     return by_id, by_path
+
+
+def held_hashes(current: Any) -> Set[str]:
+    """The hashes of the valid `doc`s of the ask's served instructable: documents the ask holds,
+    which a request may keep without their text."""
+    return {parent[index]["doc"]["sha256"] for _, parent, index, _ in _entries(current)
+            if _valid_doc(parent[index].get("doc"))}
 
 
 def attach_docs(instructable: Dict[str, Any], *, current: Optional[Dict[str, Any]] = None, refresh: bool = False,
@@ -292,14 +306,16 @@ def fit_request(instructable: Dict[str, Any], docs: Dict[str, str],
     return drop_docs(instructable, docs, dropped, FULL)
 
 
-def retry_without(exc: Any, instructable: Dict[str, Any], docs: Dict[str, str]
+def retry_without(exc: Any, instructable: Dict[str, Any], docs: Dict[str, str], held: Set[str] = frozenset()
                   ) -> Optional[Tuple[Dict[str, Any], Dict[str, str], List[str]]]:
     """What to send once more after a refusal, or None when it isn't about documents.
 
     - 400 `invalid documents` whose every detail is `docs.<sha256>: secret-like value` for a
       text this request sent: those texts and their `doc` keys go (SECRET).
-    - 409 `documents not enabled` (the switch was turned off after the feature was read): every
-      `doc` and text goes (OFF).
+    - 409 `documents not enabled` (the switch was turned off after the feature was read) or
+      `document store full`: the `docs` member goes, and every `doc` whose hash is not in `held`
+      (what the ask already holds; empty for a new ask), each with a note (OFF, STORE_FULL). A
+      held `doc` stays: the Pond takes a request that only keeps what the ask holds.
     The caller sends once more, never a third time. Nothing is scanned here: the Pond decides."""
     status, error = getattr(exc, "status", None), getattr(exc, "error", None)
     details = list(getattr(exc, "details", None) or [])
@@ -311,8 +327,12 @@ def retry_without(exc: Any, instructable: Dict[str, Any], docs: Dict[str, str]
                 return None
             hashes.add(match.group(1))
         return drop_docs(instructable, docs, hashes, SECRET)
-    if status == 409 and error == "documents not enabled":
-        if not docs and not any("doc" in parent[index] for _, parent, index, _ in _entries(instructable)):
+    if status == 409 and error in NOT_NEW:
+        docs_of = [parent[index]["doc"] for _, parent, index, _ in _entries(instructable)
+                   if isinstance(parent[index].get("doc"), dict)]
+        new = {doc.get("sha256") for doc in docs_of if doc.get("sha256") not in held}
+        if not docs and not new:
             return None
-        return drop_docs(instructable, docs, None, OFF)
+        out, _, notes = drop_docs(instructable, docs, new, NOT_NEW[error])
+        return out, {}, notes
     return None

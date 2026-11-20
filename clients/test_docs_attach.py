@@ -185,6 +185,26 @@ class AttachTests(HomeBase):
         instructable, docs, notes = self.attach({"v": 1, "title": "t", "steps": [{"do": "R", "file": "~/notes/plan.md"}]})
         self.assertEqual((instructable["steps"][0]["doc"], notes), (fingerprint(PLAN.encode()), []))
 
+    def test_a_link_named_like_a_document_must_resolve_to_one(self):
+        self.write("keys/deploy_key", "not a document")
+        (self.home / "notes" / "plan.md").symlink_to(self.home / "keys" / "deploy_key")
+        other = self.write("drafts/other.MARKDOWN", PLAN)
+        (self.home / "notes" / "other.md").symlink_to(other)
+        ask = {"v": 1, "title": "t", "steps": [{"do": "R", "file": "~/notes/plan.md"},
+                                               {"do": "S", "file": "~/notes/other.md"}]}
+        instructable, docs, notes = self.attach(ask)
+        self.assertNotIn("doc", instructable["steps"][0])
+        self.assertEqual(instructable["steps"][1]["doc"], fingerprint(PLAN.encode()))
+        self.assertEqual(notes, ["steps[0].file not copied to the Pond: not a .md, .markdown or .txt file"])
+
+    def test_a_file_under_a_symlinked_folder_is_attached(self):
+        shared = Path(self.tmp.name) / "shared"
+        shared.mkdir()
+        (shared / "plan.md").write_text(PLAN)
+        (self.home / "linked").symlink_to(shared)
+        instructable, docs, notes = self.attach({"v": 1, "title": "t", "steps": [{"do": "R", "file": "~/linked/plan.md"}]})
+        self.assertEqual((instructable["steps"][0]["doc"], notes), (fingerprint(PLAN.encode()), []))
+
     def test_tilde_expands_to_the_home_folder_given(self):
         self.write("notes/plan.md", PLAN)
         ask = {"v": 1, "title": "t", "steps": [{"do": "R", "file": "~/notes/plan.md"}]}
@@ -247,6 +267,22 @@ class AttachTests(HomeBase):
         self.assertEqual((off[0], off[1]), (ask, {}))
         self.assertEqual(off[2][0], "steps[0].file not copied to the Pond: documents are turned off on the Pond")
         self.assertEqual(len(off[2]), 3)
+        # A held document stays: the Pond refuses only texts and docs the ask doesn't hold.
+        for error, reason in (("documents not enabled", "documents are turned off on the Pond"),
+                              ("document store full", "the Pond's document store is full")):
+            kept = rd.retry_without(rc.Refused(409, error), instructable, docs, held={a})
+            self.assertEqual(kept[1], {})
+            self.assertEqual(kept[0]["steps"][0]["doc"], fingerprint(b"A"))
+            self.assertEqual(kept[0]["links"][0]["doc"], fingerprint(b"A"))
+            self.assertNotIn("doc", kept[0]["steps"][1])
+            self.assertEqual(kept[2], [f"steps[1].file not copied to the Pond: {reason}"])
+        # Only held documents and no texts: nothing to drop, so the refusal stands.
+        held_only = rd.drop_docs(instructable, docs, {b}, rd.OFF)[0]
+        for error in ("documents not enabled", "document store full"):
+            self.assertIsNone(rd.retry_without(rc.Refused(409, error), held_only, {}, held={a}))
+        self.assertEqual(rd.held_hashes({"steps": [{"do": "A", "file": "~/a.md", "doc": fingerprint(b"A")},
+                                                   {"do": "B", "file": "~/b.md", "doc": {"sha256": "X", "bytes": 1}}]}),
+                         {a})
         for exc in (rc.Refused(400, "invalid documents", [f"docs.{a}: secret-like value",
                                                            "steps[1].doc: no document with this hash"]),
                     rc.Refused(400, "invalid documents", []),
@@ -608,9 +644,48 @@ class ClientDocsTests(ClientDocsBase):
                                                  {"do": "New", "file": "~/notes/new.md"}]}
         res = self.client().amend(ITEM_ID, "One more", fixed)
         first, second = self.bodies(f"/asks/{ITEM_ID}/amend")
+        self.assertEqual(first["docs"], {fingerprint(b"new")["sha256"]: "new"})
+        self.assertEqual(second["instructable"]["steps"][0]["doc"], fingerprint(PLAN.encode()))
+        self.assertEqual(second["instructable"]["steps"][1], fixed["steps"][1])
+        self.assertNotIn("docs", second)
+        self.assertEqual(res["notes"], ["steps[1].file not copied to the Pond: documents are turned off on the Pond"])
+
+    def test_a_full_document_store_keeps_held_documents_once_more(self):
+        self.posted()
+        self.write("notes/new.md", "new")
+        full = (409, {"error": "document store full"})
+        self.http.amend_queue.append(full)
+        fixed = {"v": 1, "title": "t", "steps": [{"do": "Read", "file": "~/notes/plan.md", "id": "s1"},
+                                                 {"do": "New", "file": "~/notes/new.md"}]}
+        res = self.client().amend(ITEM_ID, "One more", fixed)
+        first, second = self.bodies(f"/asks/{ITEM_ID}/amend")
         self.assertIn("docs", first)
-        self.assertEqual(second["instructable"], fixed)
-        self.assertEqual(len(res["notes"]), 2)
+        self.assertEqual(second["instructable"]["steps"][0]["doc"], fingerprint(PLAN.encode()))
+        self.assertNotIn("doc", second["instructable"]["steps"][1])
+        self.assertNotIn("docs", second)
+        self.assertEqual(res["notes"], ["steps[1].file not copied to the Pond: the Pond's document store is full"])
+        # A new ask holds nothing: every doc goes. Never a third request.
+        self.write("notes/a.md", "A")
+        self.http.post_queue += [full, full]
+        with self.assertRaises(rc.Refused) as ctx:
+            self.client().post("Example", {"v": 1, "title": "u", "steps": [{"do": "A", "file": "~/notes/a.md"}]})
+        self.assertEqual(ctx.exception.error, "document store full")
+        posts = self.bodies("/asks")
+        self.assertEqual(len(posts), 3)    # the setUp post, then exactly two
+        self.assertNotIn("doc", posts[-1]["instructable"]["steps"][0])
+        self.assertNotIn("docs", posts[-1])
+
+    def test_an_append_keeps_held_documents_when_documents_are_off(self):
+        self.posted()
+        self.write("notes/next.md", "next")
+        self.http.queue.append((409, {"error": "documents not enabled"}))
+        steps = [{"do": "Reread", "file": "~/notes/plan.md"}, {"do": "Next", "file": "~/notes/next.md"}]
+        res = self.client().append(ITEM_ID, "Two more", steps)
+        first, second = self.bodies(f"/asks/{ITEM_ID}/append")
+        self.assertIn("docs", first)
+        self.assertEqual([s.get("doc") for s in second["steps"]], [fingerprint(PLAN.encode()), None])
+        self.assertNotIn("docs", second)
+        self.assertEqual(res["notes"], ["steps[1].file not copied to the Pond: documents are turned off on the Pond"])
 
     def test_an_append_reuses_a_held_doc_and_reads_a_new_one(self):
         self.posted()

@@ -26,10 +26,11 @@ import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
+from typing import Any, Callable, Dict, List, Mapping, Optional, Set, Tuple
 
 import relay_semver
-from relay_docs import DOCS_FEATURE, attach_docs, fit_request, has_doc_paths, retry_without, strip_docs
+from relay_docs import (DOCS_FEATURE, attach_docs, fit_request, has_doc_paths, held_hashes, retry_without,
+                        strip_docs)
 from relay_lint import lint_details, lint_instructable  # noqa: F401  (re-exported)
 
 VERSION = "0.17.0"
@@ -1224,7 +1225,8 @@ class Client:
             return dict(body, docs=docs) if docs else body
         try:
             resp, notes = self._send_docs("/asks/" + self._quote(ask_id) + "/amend", make, *found,
-                                          not_found=f"no ask with id {ask_id}")
+                                          not_found=f"no ask with id {ask_id}",
+                                          held=held_hashes(instructable_of(detail)))
         except Refused as exc:
             if exc.status == 409 and exc.error == "corrections not enabled":
                 raise CorrectionsOff(ask_id) from None
@@ -1290,7 +1292,8 @@ class Client:
                                   not_found=f"no ask with id {ask_id}")
                 break
             except Refused as exc:
-                again = None if retried_docs else retry_without(exc, holder, docs)
+                again = None if retried_docs else retry_without(exc, holder, docs,
+                                                                held_hashes(instructable_of(detail)))
                 if again is not None:
                     retried_docs, (holder, docs, more) = True, again
                     notes += more
@@ -1339,10 +1342,12 @@ class Client:
 
     def _send_docs(self, path: str, make: Callable[[Dict[str, Any], Dict[str, str]], Dict[str, Any]],
                    holder: Dict[str, Any], docs: Dict[str, str], notes: List[str],
-                   not_found: Optional[str] = None) -> Tuple[Dict[str, Any], List[str]]:
+                   not_found: Optional[str] = None, held: Set[str] = frozenset()
+                   ) -> Tuple[Dict[str, Any], List[str]]:
         """POST make(holder, docs), kept within the Pond's request cap (relay_docs.fit_request).
         A refusal about documents (relay_docs.retry_without) is sent once more without them,
-        never a third time. → (the response, the notes)."""
+        keeping the `doc`s whose hash is in `held` (what the ask holds), never a third time.
+        → (the response, the notes)."""
         holder, docs, cut = fit_request(holder, docs, lambda h, d: encode_body(make(h, d)))
         notes = list(notes) + cut
         retried = False
@@ -1350,7 +1355,7 @@ class Client:
             try:
                 return self._call("POST", path, make(holder, docs), not_found=not_found), notes
             except Refused as exc:
-                again = None if retried else retry_without(exc, holder, docs)
+                again = None if retried else retry_without(exc, holder, docs, held)
                 if again is None:
                     raise
                 retried, (holder, docs, more) = True, again
