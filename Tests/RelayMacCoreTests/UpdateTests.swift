@@ -133,6 +133,49 @@ private let page = "https://github.com/xooxoxxo/relay/releases/tag/v0.6.5"
         #expect(!UpdateGate.isRepoOrigin(""))
     }
 
+    @Test func aCloneOfTheAppRepoIsAlsoAHookCheckout() {
+        #expect(UpdateGate.repoNames == ["xooxoxxo/relay", "xooxoxxo/hook", "xooxoxxo/hook-app"])
+        #expect(UpdateGate.isRepoOrigin("https://github.com/xooxoxxo/hook-app.git"))
+        #expect(UpdateGate.isRepoOrigin("git@github.com:xooxoxxo/hook-app.git"))
+        #expect(!UpdateGate.isPublicOrigin("https://github.com/xooxoxxo/hook-app.git"))
+        #expect(UpdateGate.isPublicOrigin("https://github.com/xooxoxxo/hook.git"))
+        #expect(UpdateGate.isPublicOrigin("git@github.com:xooxoxxo/relay.git"))
+        #expect(!UpdateGate.isPublicOrigin("https://github.com/someone/hook.git"))
+    }
+
+    /// The bridge to the source split: a clone of the public repo that isn't a developer's
+    /// build moves to the release download; a developer's build, or a clone of hook-app, rebuilds.
+    @Test func aPublicCloneThatIsNotADevelopersMovesToTheReleaseDownload() {
+        let hook = "https://github.com/xooxoxxo/hook.git"
+        #expect(UpdateGate.route(origin: hook, updateMode: nil) == .releaseDownload)
+        #expect(UpdateGate.route(origin: "git@github.com:xooxoxxo/relay.git", updateMode: "") == .releaseDownload)
+        #expect(UpdateGate.route(origin: hook, updateMode: "something") == .releaseDownload)
+        #expect(UpdateGate.route(origin: hook, updateMode: "developer") == .build)
+        #expect(UpdateGate.route(origin: "https://github.com/xooxoxxo/hook-app.git", updateMode: nil) == .build)
+        #expect(UpdateGate.route(origin: "https://github.com/xooxoxxo/hook-app", updateMode: "developer") == .build)
+        #expect(UpdateGate.route(origin: "https://github.com/someone/hook.git", updateMode: nil) == nil)
+        #expect(UpdateGate.route(origin: nil, updateMode: nil) == nil)
+    }
+
+    @Test func theOriginIsReadFromTheClonesGitConfig() {
+        let config = """
+        [core]
+        \trepositoryformatversion = 0
+        [remote "upstream"]
+        \turl = https://github.com/someone/hook.git
+        [remote "origin"]
+        \turl = git@github.com:xooxoxxo/hook.git
+        \tfetch = +refs/heads/*:refs/remotes/origin/*
+        [branch "main"]
+        \tremote = origin
+        """
+        #expect(UpdateGate.originURL(gitConfig: config) == "git@github.com:xooxoxxo/hook.git")
+        #expect(UpdateGate.originURL(gitConfig: "[remote \"origin\"]\n    url=https://github.com/xooxoxxo/relay\n")
+            == "https://github.com/xooxoxxo/relay")
+        #expect(UpdateGate.originURL(gitConfig: "[remote \"upstream\"]\n\turl = https://github.com/xooxoxxo/hook\n") == nil)
+        #expect(UpdateGate.originURL(gitConfig: "") == nil)
+    }
+
     @Test func theReleaseCheckAsksTheHookRepo() {
         #expect(UpdateGate.latestReleaseAPI == "https://api.github.com/repos/xooxoxxo/hook/releases/latest")
     }

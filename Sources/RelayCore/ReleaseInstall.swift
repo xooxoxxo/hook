@@ -24,8 +24,9 @@ public enum InstallKind: Equatable, Sendable {
         return .unknown
     }
 
-    /// Settings › General › Updates.
-    public func line(home: String) -> InstallLine {
+    /// Settings › General › Updates. `movesToRelease`: the next update moves this checkout
+    /// to the release download (a clone of the public repo that isn't a developer's build).
+    public func line(home: String, movesToRelease: Bool = false) -> InstallLine {
         switch self {
         case .release(let hookHome):
             let current = TildePath.abbreviate(hookHome + "/current", home: home)
@@ -34,6 +35,12 @@ public enum InstallKind: Equatable, Sendable {
                 detail: "Check for Updates downloads the newest release from GitHub, checks it against the release's SHA256SUMS and installs it. No git or compiler needed. Files: \(current).")
         case .checkout(let repo):
             let path = TildePath.abbreviate(repo, home: home)
+            if movesToRelease {
+                let current = TildePath.abbreviate(home + "/.local/share/hook/current", home: home)
+                return InstallLine(
+                    mode: "Developer checkout",
+                    detail: "Hook runs from the git checkout \(path). The next Check for Updates moves it to the release download in \(current), with no git or compiler, and leaves the checkout as it is.")
+            }
             return InstallLine(
                 mode: "Developer checkout",
                 detail: "Hook runs from the git checkout \(path). Check for Updates moves it to the newest release tag and rebuilds Hook from source, which needs the Command Line Tools.")

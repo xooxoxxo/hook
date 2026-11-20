@@ -155,12 +155,21 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
     public var crashReportTarget: CrashTarget
     /// Settings › Documents: the viewer's palette, colours, reading width and text size.
     public var viewer: ViewerTheme
+    /// Written by install.sh: "developer" for a build from a developer's clone, which
+    /// Hook's updates rebuild there. Anything else, or none, isn't one.
+    public var updateMode: String? = nil
+
+    /// The `updateMode` of a developer's build.
+    public static let developerUpdateMode = "developer"
+
+    /// The config records a developer's build.
+    public var isDeveloperBuild: Bool { updateMode == Self.developerUpdateMode }
 
     enum CodingKeys: String, CodingKey, CaseIterable {
         case source, mailboxURL, tokenFile, context, port, pollSeconds, hotkey, keepDays
         case showCount, sidebarEdge, appearance, notify, presence, awayAfterMinutes, repoPath
         case sidebarDisplay, afterClose, terminal, onboarding, mailboxUpdateCommand, openDocumentsIn
-        case crashReports, crashReportTarget, viewer
+        case crashReports, crashReportTarget, viewer, updateMode
     }
 
     public init(
@@ -258,6 +267,7 @@ public struct RelayConfig: Decodable, Sendable, Equatable {
         crashReports = c.lenient(String.self, .crashReports).flatMap(CrashReportsSetting.init(rawValue:)) ?? .ask
         crashReportTarget = c.lenient(String.self, .crashReportTarget).flatMap(CrashTarget.init(rawValue:)) ?? .github
         viewer = c.lenient(ViewerTheme.self, .viewer) ?? ViewerTheme()
+        updateMode = c.lenient(String.self, .updateMode)
     }
 
     /// The `onboarding` value install.sh writes into a config it creates.

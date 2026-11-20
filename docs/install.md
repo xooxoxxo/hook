@@ -55,7 +55,7 @@ Releases are signed with a Developer ID and notarized, so the zip opens from a b
 
 ## Update
 
-Choose **Check for Updates…** in the menu or in Settings › General › Updates. Hook downloads the release, checks its `SHA256SUMS`, installs it in the background and restarts. The install command does the same. Both keep your config. A clone you build yourself moves to the release tag and builds again instead.
+Choose **Check for Updates…** in the menu or in Settings › General › Updates. Hook downloads the release, checks its `SHA256SUMS`, installs it in the background and restarts. The install command does the same. Both keep your config. A clone you build yourself (a developer's build, `"updateMode": "developer"`) moves to the release tag and builds again instead. A clone of `xooxoxxo/hook` that isn't one moves to the release download at its next update, and the clone is left as it is.
 
 Settings › General › Updates says **Release download**, or **Developer checkout** for a clone you build yourself ([development.md](development.md#build-from-source)).
 

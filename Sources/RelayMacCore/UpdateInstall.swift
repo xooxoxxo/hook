@@ -40,23 +40,74 @@ public enum UpdateGate {
         return .refused("The Hook checkout is on the branch “\(Sanitize.revealLine(name))”, not main. Switch it to main, then try again.")
     }
 
-    /// The repo's names on GitHub: `relay` from before the rename, `hook` after it.
+    /// The public repo's names on GitHub: `relay` from before the rename, `hook` after it.
     /// Clones made before the rename keep the old URL, which GitHub redirects.
-    public static let repoNames = ["xooxoxxo/relay", "xooxoxxo/hook"]
+    public static let publicRepoNames = ["xooxoxxo/relay", "xooxoxxo/hook"]
+
+    /// The private app repo, where the app's source lives once it leaves the public repo.
+    public static let appRepoName = "xooxoxxo/hook-app"
+
+    /// Every repo a Hook checkout may come from.
+    public static let repoNames = publicRepoNames + [appRepoName]
 
     /// The release check asks the repo by its name since the rename. (The old path still
     /// redirects, for the 0.7.x to 0.11 apps that ask it.)
     public static let latestReleaseAPI = "https://api.github.com/repos/xooxoxxo/hook/releases/latest"
 
-    /// `git remote get-url origin` names github.com/xooxoxxo/relay or github.com/xooxoxxo/hook,
-    /// over https or ssh.
+    /// `git remote get-url origin` names github.com/xooxoxxo/relay, xooxoxxo/hook or
+    /// xooxoxxo/hook-app, over https or ssh.
     public static func isRepoOrigin(_ url: String) -> Bool {
+        origin(url, names: repoNames)
+    }
+
+    /// The origin is the public repo (under either name), not hook-app.
+    public static func isPublicOrigin(_ url: String) -> Bool {
+        origin(url, names: publicRepoNames)
+    }
+
+    private static func origin(_ url: String, names: [String]) -> Bool {
         var text = url.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if text.hasSuffix("/") { text.removeLast() }
         if text.hasSuffix(".git") { text.removeLast(4) }
-        return repoNames.contains { name in
+        return names.contains { name in
             ["https://github.com/" + name, "ssh://git@github.com/" + name, "git@github.com:" + name].contains(text)
         }
+    }
+
+    /// What Check for Updates does with a checkout.
+    public enum Route: Equatable, Sendable {
+        /// Install the release download, as `get.sh` does; the checkout is left as it is.
+        /// The public repo stops carrying the app's source, so its clones can't build it.
+        case releaseDownload
+        /// Move the checkout to the release tag and rebuild it there.
+        case build
+    }
+
+    /// A clone of the public repo that isn't a developer's build (the config's `updateMode`)
+    /// moves to the release download; a developer's build, or a clone of hook-app, rebuilds.
+    /// nil: the origin isn't a Hook repo.
+    public static func route(origin: String?, updateMode: String?) -> Route? {
+        guard let origin, isRepoOrigin(origin) else { return nil }
+        if isPublicOrigin(origin), updateMode != RelayConfig.developerUpdateMode { return .releaseDownload }
+        return .build
+    }
+
+    /// The `url` of `[remote "origin"]` in a clone's `.git/config`, read without running git
+    /// (Settings shows the route, and rebuilds often). nil when there is none.
+    public static func originURL(gitConfig: String) -> String? {
+        var inOrigin = false
+        for raw in gitConfig.split(whereSeparator: \.isNewline) {
+            let line = raw.trimmingCharacters(in: .whitespaces)
+            if line.hasPrefix("[") {
+                inOrigin = line == "[remote \"origin\"]"
+                continue
+            }
+            guard inOrigin, let equals = line.firstIndex(of: "=") else { continue }
+            guard line[..<equals].trimmingCharacters(in: .whitespaces) == "url" else { continue }
+            let value = line[line.index(after: equals)...].trimmingCharacters(in: .whitespaces)
+            return value.isEmpty ? nil : value
+        }
+        return nil
     }
 }
 

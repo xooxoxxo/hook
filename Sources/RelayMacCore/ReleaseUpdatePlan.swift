@@ -50,6 +50,9 @@ public struct ReleaseUpdatePlan: UpdateJob, Equatable, Sendable {
     public var scriptPath: String
     public var plistPath: String
     public var home: String
+    /// A checkout this update moves off: it has no installed get.sh, so the job runs the
+    /// one in the checked zip. The checkout itself is left as it is.
+    public var fromCheckout: String? = nil
 
     public init(hookHome: String, tag: String, version: ReleaseVersion, current: String, appPath: String,
                 downloadDir: String, zipPath: String, sumsPath: String, logPath: String, scriptPath: String,
@@ -68,10 +71,30 @@ public struct ReleaseUpdatePlan: UpdateJob, Equatable, Sendable {
         self.home = home
     }
 
-    public var workingDirectory: String { hookHome }
+    /// A move off a checkout starts in the download folder: the Hook folder may not exist yet.
+    public var workingDirectory: String { fromCheckout == nil ? hookHome : downloadDir }
+
+    /// The steps that install the checked files.
+    private var installSteps: String {
+        let get = "HOOK_VERSION=\(Shell.quote(version.description)) HOOK_ZIP=\(Shell.quote(zipPath)) HOOK_SUMS=\(Shell.quote(sumsPath)) /bin/bash"
+        guard fromCheckout != nil else {
+            return """
+            cd \(Shell.quote(hookHome)) || fail "couldn't open the Hook folder"
+            \(get) \(Shell.quote(hookHome + "/current/scripts/get.sh")) || fail "scripts/get.sh"
+            """
+        }
+        let payload = downloadDir + "/payload"
+        let zipName = (zipPath as NSString).lastPathComponent
+        return """
+        cd \(Shell.quote(downloadDir)) || fail "couldn't open the download"
+        /usr/bin/unzip -q -o \(Shell.quote(zipPath)) 'support/scripts/get.sh' -d \(Shell.quote(payload)) || fail "couldn't unpack get.sh from \(zipName)"
+        \(get) \(Shell.quote(payload + "/support/scripts/get.sh")) || fail "scripts/get.sh"
+        """
+    }
 
     public var script: String {
         let app = Shell.quote(appPath)
+        let moving = fromCheckout.map { "\necho \"update: moving off the checkout\" \(Shell.quote($0)) \"(left as it is)\"" } ?? ""
         return """
         #!/bin/sh
         export HOME=\(Shell.quote(home))
@@ -88,9 +111,8 @@ public struct ReleaseUpdatePlan: UpdateJob, Equatable, Sendable {
           /usr/bin/pgrep -u "$(/usr/bin/id -u)" -x Hook >/dev/null 2>&1 || /usr/bin/open -g -a \(app)
           finish
         }
-        echo "update: $(/bin/date '+%Y-%m-%d %H:%M:%S') Hook" \(Shell.quote(current)) "->" \(Shell.quote(tag)) "from the release download"
-        cd \(Shell.quote(hookHome)) || fail "couldn't open the Hook folder"
-        HOOK_VERSION=\(Shell.quote(version.description)) HOOK_ZIP=\(Shell.quote(zipPath)) HOOK_SUMS=\(Shell.quote(sumsPath)) /bin/bash \(Shell.quote(hookHome + "/current/scripts/get.sh")) || fail "scripts/get.sh"
+        echo "update: $(/bin/date '+%Y-%m-%d %H:%M:%S') Hook" \(Shell.quote(current)) "->" \(Shell.quote(tag)) "from the release download"\(moving)
+        \(installSteps)
         echo "update: done, Hook is now" \(Shell.quote(tag))
         finish
 

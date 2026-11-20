@@ -3,6 +3,17 @@
 All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## [0.17.0] - 2026-11-20
+
+### Changed
+
+- A Hook that runs from a clone of `xooxoxxo/hook` and isn't a developer's build (the config has no `"updateMode": "developer"`) moves to the release download at its next update: Check for Updates downloads the release, checks it against `SHA256SUMS` and installs it to `~/.local/share/hook/current`, with no git or compiler. The clone is left as it is. Settings › General › Updates says so beforehand. The app's source is moving out of the public repo, so its clones won't build the app.
+- A clone of `xooxoxxo/hook-app`, the app's new source repo, updates like a developer checkout: it moves to the release tag and rebuilds.
+- Includes the fixes of 0.16.1.
+
+<!-- hook:pond=^1.1.0 -->
+<!-- hook:mailbox-protocol=5 -->
+
 ## [0.16.1] - 2026-11-16
 
 ### Fixed

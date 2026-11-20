@@ -135,9 +135,18 @@ public enum UpdateRunner {
         return home + "/Applications/Hook.app"
     }
 
-    /// The gate: the folder is the Hook repo, its origin is xooxoxxo/hook or xooxoxxo/relay, the tree is
-    /// clean, and HEAD is main or a release tag. Runs git off the main thread.
-    public static func gate(repoPath: String?) async -> Result<(repo: String, mode: UpdateGate.Mode), UpdateCheckError> {
+    /// What the gate lets an update of a checkout do.
+    public enum CheckoutUpdate: Equatable, Sendable {
+        /// Move the checkout to the tag and rebuild it (hook-app, or a developer's build).
+        case build(repo: String, mode: UpdateGate.Mode)
+        /// Install the release download; the checkout of the public repo is left as it is.
+        case releaseDownload(repo: String)
+    }
+
+    /// The gate: the folder is the Hook repo, its origin is xooxoxxo/hook, xooxoxxo/relay or
+    /// xooxoxxo/hook-app, the tree is clean, and HEAD is main or a release tag. The origin and
+    /// the config's `updateMode` pick the route (`UpdateGate.route`). Runs git off the main thread.
+    public static func gate(repoPath: String?, updateMode: String?) async -> Result<CheckoutUpdate, UpdateCheckError> {
         guard let raw = repoPath?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
             return .failure(UpdateCheckError(UpdateGate.noCheckout))
         }
@@ -147,8 +156,9 @@ public enum UpdateRunner {
             return .failure(UpdateCheckError("\(TildePath.abbreviate(repo, home: home)) isn't the Hook repo."))
         }
         return await Task.detached {
-            guard let origin = git(repo, ["remote", "get-url", "origin"]), UpdateGate.isRepoOrigin(origin) else {
-                return .failure(UpdateCheckError("The checkout's origin isn't github.com/xooxoxxo/hook (or xooxoxxo/relay)."))
+            guard let origin = git(repo, ["remote", "get-url", "origin"]),
+                  let route = UpdateGate.route(origin: origin, updateMode: updateMode) else {
+                return .failure(UpdateCheckError("The checkout's origin isn't github.com/xooxoxxo/hook (or xooxoxxo/relay, or xooxoxxo/hook-app)."))
             }
             guard let porcelain = git(repo, ["status", "--porcelain"]),
                   let branch = git(repo, ["branch", "--show-current"]) else {
@@ -157,11 +167,15 @@ public enum UpdateRunner {
             let tag = branch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 ? git(repo, ["describe", "--tags", "--exact-match", "HEAD"]) : nil
             switch UpdateGate.check(porcelain: porcelain, branch: branch, headTag: tag) {
-            case .ok(let mode): return .success((repo, mode))
+            case .ok(let mode):
+                return .success(route == .releaseDownload ? .releaseDownload(repo: repo) : .build(repo: repo, mode: mode))
             case .refused(let reason): return .failure(UpdateCheckError(reason))
             }
         }.value
     }
+
+    /// Where a release download lives: `~/.local/share/hook` (get.sh's `hook_home`).
+    public static var releaseHome: String { home + "/.local/share/hook" }
 
     /// The files of one release download, checked against its SHA256SUMS.
     public struct Download: Sendable {
@@ -209,15 +223,18 @@ public enum UpdateRunner {
         return data
     }
 
-    /// Starts the job that installs a checked download with the installed get.sh.
-    public static func launchRelease(hookHome: String, tag: String, version: ReleaseVersion, download: Download) throws {
+    /// Starts the job that installs a checked download: with the installed get.sh, or, moving
+    /// off the checkout `fromCheckout`, with the get.sh in the download.
+    public static func launchRelease(hookHome: String, tag: String, version: ReleaseVersion, download: Download,
+                                     fromCheckout: String? = nil) throws {
         let id = UUID().uuidString.prefix(8)
         let temp = FileManager.default.temporaryDirectory
-        let plan = ReleaseUpdatePlan(
+        var plan = ReleaseUpdatePlan(
             hookHome: hookHome, tag: tag, version: version, current: UpdateChecker.runningVersion, appPath: appPath,
             downloadDir: download.dir.path, zipPath: download.zip.path, sumsPath: download.sums.path, logPath: logPath,
             scriptPath: temp.appending(path: "relay-update-\(id).sh").path,
             plistPath: temp.appending(path: "relay-update-\(id).plist").path, home: home)
+        plan.fromCheckout = fromCheckout
         do {
             try load(plan)
         } catch {

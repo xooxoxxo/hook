@@ -66,14 +66,25 @@ extension AppModel: SettingsViewModel {
             terminals: settingsTerminals(),
             mailbox: sourceKey.hasPrefix("mailbox:") ? mailboxLine : nil,
             documentAppName: documentAppName(),
-            install: InstallKind.detect(repoPath: repo, fileExists: { FileManager.default.fileExists(atPath: $0) })
-                .line(home: home.path),
+            install: installLine(repoPath: repo, updateMode: config?.updateMode),
             privacy: PrivacyLine.make(config: config, ownerKey: ownerKeyState, logSize: HookLog.size),
             now: settings.now)
         next.privacy.diagnostics = diagnosticsState
         guard next != settings else { return }
         next.now = Date()
         settings = next
+    }
+
+    /// The Updates row. A checkout reads its origin from `.git/config` (no git run): a clone
+    /// of the public repo that isn't a developer's build says the next update moves it.
+    private func installLine(repoPath: String?, updateMode: String?) -> InstallLine {
+        let kind = InstallKind.detect(repoPath: repoPath, fileExists: { FileManager.default.fileExists(atPath: $0) })
+        var moves = false
+        if case .checkout(let repo) = kind,
+           let text = try? String(contentsOfFile: repo + "/.git/config", encoding: .utf8) {
+            moves = UpdateGate.route(origin: UpdateGate.originURL(gitConfig: text), updateMode: updateMode) == .releaseDownload
+        }
+        return kind.line(home: Self.home.path, movesToRelease: moves)
     }
 
     /// "Main display", then each connected display by name; a pinned display that is gone
