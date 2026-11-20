@@ -29,8 +29,8 @@ import urllib.request
 from typing import Any, Callable, Dict, List, Mapping, Optional, Set, Tuple
 
 import relay_semver
-from relay_docs import (DOCS_FEATURE, attach_docs, fit_request, has_doc_paths, held_hashes, reapply,
-                        retry_without, strip_docs)
+from relay_docs import (DOCS_FEATURE, MAX_DOC_BYTES, attach_docs, doc_list, fit_request, has_doc_paths,
+                        held_hashes, reapply, retry_without, strip_docs)
 from relay_lint import lint_details, lint_instructable  # noqa: F401  (re-exported)
 
 VERSION = "0.17.0"
@@ -217,6 +217,37 @@ class AppendsOff(RelayError):
 
 
 APPEND_LIMIT = "This ask has had 10 additions. Post a follow-up ask."
+
+# Reading and releasing the documents an ask carries on the Pond (feature `docs`, Pond 1.10.0).
+LOCAL_NO_DOCS = "This Mac keeps no documents; only a Pond does."
+DOC_MISMATCH = "document does not match its fingerprint"
+DOC_GONE = "document no longer kept on the Pond"
+DOC_NO_COPY = "the Pond has no copy of this document"
+DOCS_ASK_OPEN = "The ask is still open. Release its documents once it is closed."
+
+
+class LocalNoDocs(RelayError):
+    def __init__(self) -> None:
+        super().__init__(LOCAL_NO_DOCS)
+
+
+class DocMismatch(RelayError):
+    """The bytes the Pond sent are not the document the ask's `doc` names."""
+
+    def __init__(self) -> None:
+        super().__init__(DOC_MISMATCH)
+
+
+class DocGone(RelayError):
+    """410: the Pond released the document, or let it go 7 days after the ask closed."""
+
+    def __init__(self) -> None:
+        super().__init__(DOC_GONE)
+
+
+class DocsAskOpen(RelayError):
+    def __init__(self) -> None:
+        super().__init__(DOCS_ASK_OPEN)
 
 
 class NoEditKey(RelayError):
@@ -500,10 +531,23 @@ def _is_hidden(ch: str) -> bool:
     return unicodedata.category(ch) in _HIDDEN_CATEGORIES or any(lo <= cp <= hi for lo, hi in _HIDDEN_RANGES)
 
 
+def _reveal(ch: str) -> str:
+    """A hidden or control scalar as ⟨U+XXXX⟩; any other as itself."""
+    return f"⟨U+{ord(ch):04X}⟩" if _is_hidden(ch) else ch
+
+
 def _revealed(value: Any) -> List[str]:
     """one_line, then every hidden or control scalar as ⟨U+XXXX⟩: one token per scalar."""
     text = one_line(value if isinstance(value, str) else ("" if value is None else str(value)))
-    return [f"⟨U+{ord(ch):04X}⟩" if _is_hidden(ch) else ch for ch in text]
+    return [_reveal(ch) for ch in text]
+
+
+def terminal_text(text: str) -> str:
+    """A whole document for a terminal: its lines kept (LF, CRLF) and TAB, every other hidden
+    or control scalar shown as ⟨U+XXXX⟩ (as in session_text), so it can't move the cursor or
+    restyle the terminal."""
+    return "".join(ch if ch in "\n\t" or (ch == "\r" and text[i + 1:i + 2] == "\n") else _reveal(ch)
+                   for i, ch in enumerate(text))
 
 
 def _cut(tokens: List[str], cap: int) -> str:
@@ -1403,6 +1447,67 @@ class Client:
         query = urllib.parse.urlencode({"after": int(after), "limit": int(limit)})
         return self._call("GET", "/events?" + query)
 
+    # documents on the Pond: reading and releasing (feature `docs`, Pond 1.10.0)
+
+    def docs(self, ask_id: str) -> List[Dict[str, Any]]:
+        """The documents the ask's current version carries, in document order:
+        [{"n", "field", "path", "sha256", "bytes"}] (relay_docs.doc_list). [] when none."""
+        if self.local:
+            raise LocalNoDocs()
+        return doc_list(instructable_of(self.get(ask_id)))
+
+    def read_doc(self, ask_id: str, n: int) -> Dict[str, Any]:
+        """Document n (from 1) of docs(ask_id), with its checked text: the entry plus "text".
+        GET /asks/{id}/docs/{sha256} reads at most MAX_DOC_BYTES + 1 bytes; their count and
+        SHA-256 must be the entry's, and they must be UTF-8, or DocMismatch. The text is
+        returned as sent: a BOM and CRLF line ends stay. 410 is DocGone; 404 (a Pond older
+        than 1.10.0, or a hash the ask no longer links) is NotFound(DOC_NO_COPY)."""
+        if self.local:
+            raise LocalNoDocs()
+        ask_id = ask_id.strip()
+        entries = self.docs(ask_id)
+        if isinstance(n, bool) or not isinstance(n, int) or not 1 <= n <= len(entries):
+            held = f"has documents 1 to {len(entries)}" if entries else "has no documents"
+            raise RelayError(f"no document {n}: ask {ask_id} {held}")
+        entry = entries[n - 1]
+        path = "/asks/" + self._quote(ask_id) + "/docs/" + entry["sha256"]
+        status, raw = self._exchange("GET", path, auth=self._mailbox_token(), limit=MAX_DOC_BYTES)
+        if status == 410:
+            raise DocGone()
+        if status == 404:
+            raise NotFound(DOC_NO_COPY)
+        if not 200 <= status < 300:
+            self._check(status, _json_or_none(raw), None)
+        if len(raw) != entry["bytes"] or hashlib.sha256(raw).hexdigest() != entry["sha256"]:
+            raise DocMismatch()
+        try:
+            text = raw.decode("utf-8")
+        except UnicodeDecodeError:
+            raise DocMismatch() from None
+        return dict(entry, text=text)
+
+    def doc(self, ask_id: str, n: int) -> str:
+        """The checked text of document n of the ask (read_doc)."""
+        return self.read_doc(ask_id, n)["text"]
+
+    def release_docs(self, ask_id: str) -> int:
+        """POST /asks/{id}/docs/release, with no body, on a closed ask: the Pond lets go of its
+        documents. → how many this call released (0 on a second call). An open ask: DocsAskOpen."""
+        if self.local:
+            raise LocalNoDocs()
+        ask_id = ask_id.strip()
+        try:
+            resp = self._call("POST", "/asks/" + self._quote(ask_id) + "/docs/release",
+                              not_found=f"no ask with id {ask_id}")
+        except Refused as exc:
+            if exc.status == 409 and exc.error == "ask is open":
+                raise DocsAskOpen() from None
+            raise
+        released = resp.get("released")
+        if isinstance(released, bool) or not isinstance(released, int):
+            raise Unreachable(f"{self.base} answered the release without a count")
+        return released
+
     # plumbing
 
     @staticmethod
@@ -1497,6 +1602,14 @@ class Client:
     def _transport(self, method: str, path: str, *, body: Optional[Dict[str, Any]] = None,
                    headers: Optional[Dict[str, str]] = None, auth: Optional[str] = None) -> Tuple[int, Any]:
         """One HTTP exchange → (status, decoded JSON or None). Never raises on HTTP status."""
+        status, raw = self._exchange(method, path, body=body, headers=headers, auth=auth)
+        return status, _json_or_none(raw)
+
+    def _exchange(self, method: str, path: str, *, body: Optional[Dict[str, Any]] = None,
+                  headers: Optional[Dict[str, str]] = None, auth: Optional[str] = None,
+                  limit: Optional[int] = None) -> Tuple[int, bytes]:
+        """One HTTP exchange → (status, the body's bytes). With `limit`, at most limit + 1 bytes
+        are read, so a longer body shows as too long without being read whole."""
         hdrs = {"X-Relay-Client": f"{self.kind}/{VERSION}", "Accept": "application/json",
                 PROTOCOL_HEADER: CLIENT_PROTOCOL}
         hdrs.update(headers or {})
@@ -1516,13 +1629,15 @@ class Client:
             timeout = min(timeout, left)
         try:
             with self._urlopen(req, timeout=timeout) as resp:
-                status, raw = resp.status, resp.read()
+                status, raw = resp.status, (resp.read() if limit is None else _read_at_most(resp, limit + 1))
         except urllib.error.HTTPError as exc:
             status = exc.code
             try:
-                raw = exc.read() or b""
+                raw = (exc.read() if limit is None else _read_at_most(exc, limit + 1)) or b""
             except OSError:
                 raw = b""
+            finally:
+                exc.close()
         except (urllib.error.URLError, OSError, http.client.HTTPException) as exc:
             reason = getattr(exc, "reason", exc)
             if isinstance(reason, ConnectionRefusedError) and self.local:
@@ -1530,8 +1645,25 @@ class Client:
             raise self._unreachable(reason) from None
         if 300 <= status < 400:
             raise Unreachable(f"the server at {self.base} answered with a redirect ({status}); not following it")
-        try:
-            obj = json.loads(raw.decode("utf-8")) if raw else {}
-        except ValueError:
-            obj = None
-        return status, obj
+        return status, raw
+
+
+def _json_or_none(raw: bytes) -> Any:
+    """A response body as JSON: {} when empty, None when it isn't JSON."""
+    try:
+        return json.loads(raw.decode("utf-8")) if raw else {}
+    except ValueError:
+        return None
+
+
+def _read_at_most(stream: Any, most: int) -> bytes:
+    """Up to `most` bytes of a response body, never more (a read may return less than asked)."""
+    chunks: List[bytes] = []
+    left = most
+    while left > 0:
+        chunk = stream.read(left)
+        if not chunk:
+            break
+        chunks.append(chunk)
+        left -= len(chunk)
+    return b"".join(chunks)

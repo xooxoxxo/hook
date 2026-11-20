@@ -7,6 +7,8 @@ checked copy: this module reads the file, writes its fingerprint beside the path
 request's `docs` member. Sessions never write `doc`: attach_docs drops every `doc` it is given
 first, and strip_docs does only that (for a This Mac queue, or a Pond without `docs`).
 
+For the reading side, doc_list lists the documents an ask carries; relay_client reads them.
+
 A file that can't be copied posts with its path alone and gives one note:
 `steps[2].file not copied to the Pond: <reason>`. Errors and notes name field paths in the
 validator's notation, never the text. Standard library only; runs on Python 3.9+.
@@ -262,6 +264,21 @@ def _held(current: Any) -> Tuple[Dict[str, Tuple[str, Dict[str, Any]]], Dict[str
             by_id[node["id"]] = (node[key], doc)
         by_path.setdefault(node[key], doc)
     return by_id, by_path
+
+
+def doc_list(instructable: Any) -> List[Dict[str, Any]]:
+    """The reading side: one entry per document an ask's instructable carries, in document order,
+    {"n" (from 1), "field", "path", "sha256", "bytes"}. A `doc` that isn't exactly
+    {"sha256", "bytes"} in the Pond's format is left out, as is a path without one."""
+    found: List[Dict[str, Any]] = []
+    for field, parent, index, key in _entries(instructable):
+        node = parent[index]
+        doc = node.get("doc")
+        if not _valid_doc(doc) or set(doc) != {"sha256", "bytes"}:
+            continue
+        found.append({"n": len(found) + 1, "field": field, "path": node[key],
+                      "sha256": doc["sha256"], "bytes": doc["bytes"]})
+    return found
 
 
 def held_hashes(current: Any) -> Set[str]:

@@ -10,6 +10,7 @@ and versions follow Semantic Versioning.
 - Settings › Queue › Owner Key › **Devices…** lists your devices with when each was set up and last used, and revokes one. A Mac without a working key, or one whose setup stopped at "too many keys", asks you to confirm the revoke on Telegram with a code. Needs a Pond that lists `ownerRevokeRequest` and `ownerKeyDates`; older Ponds show names only.
 - Documents on the Pond, in the protocol: a step's `file` or a link's `path` can carry `doc`, the fingerprint of the document it points at, and a Pond that lists `docs` (Pond 1.10.0) keeps a checked copy of the text for the phone. Sessions never write `doc`. Hook checks it as the Pond does, and a correction that changes only a document needs Touch ID to accept, like a changed file.
 - `relay post`, `relay amend`, `relay append` and the MCP tools copy the Markdown or text file a step or link points at to a Pond that lists `docs`, and print a note for each one they couldn't copy (`notes` in the MCP results). A correction keeps the copy the owner saw unless you pass `--refresh-docs` (`refreshDocs: true`).
+- `relay docs <id>` lists the documents an ask carries on the Pond, `relay docs <id> get <n>` reads one checked against its fingerprint, and `relay docs <id> release` releases them once the ask is closed (MCP `relay_docs`, `relay_doc`, `relay_docs_release`), so an agent that takes work over can read the plan.
 
 ### Changed
 

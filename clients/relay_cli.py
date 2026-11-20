@@ -22,7 +22,7 @@ from relay_client import (LIST_KINDS, OWNER_LABELS, UNVERIFIED_MESSAGE, VERSION,
                           RelayError, accepted_rev, answer_state, answer_value, appends_of, event_rev, instructable_of,
                           is_verified,
                           item_kind, left_words, messages, open_questions, owner_events, questions,
-                          requirements_of, revision_of, session_label, session_text, session_text_cut)
+                          requirements_of, revision_of, session_label, session_text, session_text_cut, terminal_text)
 
 DEFAULT_TIMEOUT = 10.0
 SUBSTEPS_SENTENCE = ("A step that needs more than one action can hold `substeps`: 1 to 10 step objects "
@@ -61,6 +61,10 @@ APPEND_SENTENCE = ("Add steps to the end of an open ask you posted, after the ow
                    "closed, post a follow-up ask.")
 REFRESH_DOCS_HELP = ("copy every document to the Pond again, even one the ask already holds (by default a "
                      "path the ask holds keeps the copy the owner saw)")
+DOCS_SENTENCE = ("The documents an ask carries on the Pond: the checked copies of the files its steps and links "
+                 "point at. To hand work over, name the ask id; the next agent reads the plan with "
+                 "`relay docs <id> get <n>`. The agent that finishes the work runs `relay docs <id> release` once "
+                 "the ask is closed. Documents also go 7 days after the ask is closed.")
 OWNER_TEXT_CAP = 8000   # past it, the line names the rest: relay status <id> --json
 
 
@@ -150,6 +154,16 @@ def _parser(out: Any, err: Any, prog: str = "relay") -> argparse.ArgumentParser:
     append.add_argument("--json", dest="json_src", default="-", metavar="FILE|-",
                         help="a JSON array of 1 to 10 steps, from a file or - for stdin (the default)")
     append.add_argument("--refresh-docs", action="store_true", help=REFRESH_DOCS_HELP)
+    docs = sub.add_parser("docs", help="list, read or release the documents an ask carries on the Pond",
+                          description=DOCS_SENTENCE)
+    docs.add_argument("id")
+    docs.add_argument("--json", action="store_true", help="the list as JSON")
+    action = docs.add_subparsers(dest="docs_action", metavar="<action>")
+    get = action.add_parser("get", help="print document n, checked against its fingerprint")
+    get.add_argument("n", type=int)
+    get.add_argument("-o", dest="output", metavar="FILE",
+                     help="write it to FILE instead, a new file: never over an existing file or link")
+    action.add_parser("release", help="let the Pond delete the documents of a closed ask")
     return parser
 
 
@@ -502,10 +516,72 @@ def _cmd_append(args: argparse.Namespace, ctx: _Ctx) -> int:
     return 0
 
 
+class _UsageError(RelayError):
+    exit_code = 2
+
+
+def _write_new(path: str, data: bytes) -> None:
+    """Writes `data` to a new file at `path`: never over an existing file, never through a link
+    (O_EXCL). A failed write leaves no file behind."""
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        fd = os.open(path, flags, 0o600)
+    except FileExistsError:
+        raise RelayError(f"{path} already exists; nothing was written") from None
+    except OSError as exc:
+        raise RelayError(f"can't write {path}: {exc.strerror}") from None
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(data)
+    except OSError as exc:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+        raise RelayError(f"can't write {path}: {exc.strerror}") from None
+
+
+def _cmd_docs(args: argparse.Namespace, ctx: _Ctx) -> int:
+    if args.json and args.docs_action is not None:
+        raise _UsageError("--json goes with the list (docs <id> --json), not with get or release")
+    client = ctx.factory(autolaunch=True, timeout=DEFAULT_TIMEOUT)
+    ask_id = args.id.strip()
+    if args.docs_action == "release":
+        count = client.release_docs(ask_id)
+        ctx.say(f"released {count} {'document' if count == 1 else 'documents'} of {ask_id}")
+        return 0
+    if args.docs_action == "get":
+        data = client.doc(ask_id, args.n).encode("utf-8")    # the exact bytes the Pond sent
+        if args.output is not None:
+            _write_new(args.output, data)
+            return 0
+        if ctx.out.isatty():
+            ctx.out.write(terminal_text(data.decode("utf-8")))
+            return 0
+        buffer = getattr(ctx.out, "buffer", None)
+        if buffer is None:
+            ctx.out.write(data.decode("utf-8"))
+            return 0
+        ctx.out.flush()
+        buffer.write(data)
+        buffer.flush()
+        return 0
+    entries = client.docs(ask_id)
+    if args.json:
+        ctx.say(json.dumps(entries, ensure_ascii=False, indent=2))
+        return 0
+    if not entries:
+        ctx.say(f"no documents in ask {ask_id}")
+    for entry in entries:
+        ctx.say(f"{entry['n']}  {entry['field']}  {session_text(entry['path'], 500)}  "
+                f"{entry['bytes']} {'byte' if entry['bytes'] == 1 else 'bytes'}  {entry['sha256'][:12]}")
+    return 0
+
+
 COMMANDS: Dict[str, Callable[[argparse.Namespace, _Ctx], int]] = {
     "post": _cmd_post, "status": _cmd_status, "list": _cmd_list,
     "done": _cmd_done, "skip": _cmd_skip, "replies": _cmd_replies, "wait": _cmd_wait, "amend": _cmd_amend,
-    "append": _cmd_append,
+    "append": _cmd_append, "docs": _cmd_docs,
 }
 
 
