@@ -219,3 +219,60 @@ private func int(_ value: JSONValue?) -> Int? {
         #expect(!merged.isComplete)
     }
 }
+
+/// Two served revision bodies that differ only in a `doc` (Pond 1.10.0): each hash covers the
+/// document, and the correction reads as a changed document that needs Touch ID.
+@Suite struct RevisionDocTests {
+    static let first = #"{"links":[],"steps":[{"do":"Read the plan","doc":{"bytes":93,"sha256":"89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd"},"file":"~/notes/plan.md","id":"s1"}],"title":"Review the release plan","urgency":"today","v":1}"#
+    static let second = #"{"links":[],"steps":[{"do":"Read the plan","doc":{"bytes":94,"sha256":"da9672367cd66934ed2dfac0d3caab88fd365b0ad36da9641de0915d08e9d1c5"},"file":"~/notes/plan.md","id":"s1"}],"title":"Review the release plan","urgency":"today","v":1}"#
+
+    @Test func aDocOnlyCorrectionChangesTheHashAndNeedsTouchID() throws {
+        let at = "2026-11-20T10:00:00.000000+00:00"
+        let one = RevisionHash.make(rev: 1, prev: "", at: at, reason: "", body: Self.first)
+        let unchanged = RevisionHash.make(rev: 2, prev: one, at: at, reason: "Same", body: Self.first)
+        let edited = RevisionHash.make(rev: 2, prev: one, at: at, reason: "Same", body: Self.second)
+        #expect(unchanged != edited)
+        let before = try RevisionBody.parse(Self.first), after = try RevisionBody.parse(Self.second)
+        #expect(before.steps[0].doc?.bytes == 93 && after.steps[0].doc?.bytes == 94)
+        #expect(RevisionFixedFields.same(before, after))
+        let diff = RevisionDiff.make(baseline: before, firstRevision: before, current: after, reasons: [(2, "Same")])
+        #expect(diff.steps.map(\.stepID) == ["s1"])
+        #expect(diff.steps.first?.fields.map(\.name) == ["doc"])
+        #expect(diff.touchesCommandsLinksOrFiles)
+    }
+
+    /// Revisions the Pond recorded over bodies that hold a `doc`, copied from
+    /// conformance/wire/doc-wire-vectors.json (the Swift tests carry no copy of that file):
+    /// case `doc-post` (rev 1 of the first ask) and case `doc-amend-keeps-held` (rev 2 of the
+    /// second ask; its `prev` is that request's `baseHash`). The core's hash of each served
+    /// revision is the recorded one, and a body without its `doc`, or with the `doc` written
+    /// another way, hashes to something else.
+    static let recorded: [(rev: Int, prev: String, at: String, reason: String, body: String, hash: String)] = [
+        (1, "", "2026-11-03T09:00:01+00:00", "",
+         #"{"steps":[{"do":"Read the plan","doc":{"bytes":93,"sha256":"89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd"},"file":"~/notes/plan.md","id":"s1"},{"do":"Say whether it can ship","id":"s2","question":{"choices":["Yes","No"],"prompt":"Ship it?"}}],"title":"Review the release plan","urgency":"today","v":1}"#,
+         "3090cfcfba4c349b52f105e0e551f1a5e0930ade7ebf3f3f75dca705e6bfd1f2"),
+        (2, "03377f53d027152b7c911cb1e081ecd44878419ca817e59bdbae5dcc06034543", "2026-11-03T09:01:08+00:00",
+         "Say where it is filed",
+         #"{"steps":[{"do":"Read the notes","doc":{"bytes":77,"sha256":"aec9dacde4ea4958b2bf38914c0a77f15a61ff8df991f3a4cb402a59c764eb8c"},"file":"~/notes/handover.md","id":"s1"},{"do":"Say when the handover is done and filed","id":"s2"}],"title":"Hand over the notes","urgency":"today","v":1}"#,
+         "8dceca267840032590b40d04a17d12faf91d77ff246bff5dd6794e111849a5ac"),
+    ]
+
+    @Test func aPondRecordedRevisionWithADocHashesToItsRecordedHash() throws {
+        for r in Self.recorded {
+            #expect(RevisionHash.make(rev: r.rev, prev: r.prev, at: r.at, reason: r.reason, body: r.body) == r.hash)
+            let parsed = try RevisionBody.parse(r.body)
+            let doc = try #require(parsed.steps[0].doc)
+            #expect(r.body.contains(#""doc":{"bytes":\#(doc.bytes),"sha256":"\#(doc.sha256)"}"#))
+            // Dropped: the same body without its doc.
+            let docText = #","doc":{"bytes":\#(doc.bytes),"sha256":"\#(doc.sha256)"}"#
+            let dropped = r.body.replacingOccurrences(of: docText, with: "")
+            #expect(dropped != r.body)
+            #expect(RevisionHash.make(rev: r.rev, prev: r.prev, at: r.at, reason: r.reason, body: dropped) != r.hash)
+            // Re-encoded: the same doc with its keys in another order.
+            let reordered = r.body.replacingOccurrences(
+                of: docText, with: #","doc":{"sha256":"\#(doc.sha256)","bytes":\#(doc.bytes)}"#)
+            #expect(reordered != r.body)
+            #expect(RevisionHash.make(rev: r.rev, prev: r.prev, at: r.at, reason: r.reason, body: reordered) != r.hash)
+        }
+    }
+}

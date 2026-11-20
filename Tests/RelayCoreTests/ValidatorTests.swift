@@ -329,11 +329,11 @@ private let minimal: [String: JSONValue] = [
     @Test func stepAndLeafKeys() {
         #expect(Validator.verifyKeys == ["do", "where", "code", "lang", "expect", "detail", "url"])
         #expect(Validator.leafKeys == Validator.verifyKeys.union(["question", "blocking", "warning", "optional", "required",
-                                                                  "file", "id"]))
+                                                                  "file", "doc", "id"]))
         #expect(Validator.topKeys.contains("done"))
         #expect(!Validator.verifyKeys.contains("required"))
         #expect(!Validator.verifyKeys.contains("id"))
-        #expect(Validator.linkKeys == ["label", "url", "path"])
+        #expect(Validator.linkKeys == ["label", "url", "path", "doc"])
         #expect(Validator.maxPath == 500)
         #expect(Validator.warningLimit == 300)
         #expect(Validator.questionKeys == ["prompt", "choices", "multi", "then"])
@@ -482,5 +482,101 @@ private let minimal: [String: JSONValue] = [
         if case .failure(let failure) = Validator.validate(plain, choiceObjects: false) {
             Issue.record("a plain ask failed: \(failure.errors)")
         }
+    }
+}
+
+/// `doc` beside `file` and a link's `path` (Pond 1.10.0, feature `docs`), held to
+/// Fixtures/doc-vectors.json, a byte copy of conformance/data/doc-vectors.json.
+@Suite struct ValidatorDocTests {
+    private static func cases() throws -> [JSONValue] {
+        let url = try #require(Bundle.module.url(forResource: "doc-vectors", withExtension: "json", subdirectory: "Fixtures"))
+        let root = try JSONValue.parse(Data(contentsOf: url))
+        guard case .array(let cases)? = root["cases"] else {
+            throw MalformedFixture(detail: "doc-vectors.json: no cases")
+        }
+        return cases
+    }
+
+    private static func strings(_ value: JSONValue?) -> [String] {
+        guard case .array(let items)? = value else { return [] }
+        return items.compactMap(\.stringValue)
+    }
+
+    @Test func theFixtureIsThere() throws {
+        let cases = try Self.cases()
+        let names = cases.compactMap { $0["name"]?.stringValue }
+        #expect(names.count >= 30)
+        #expect(Set(names).count == names.count)
+        #expect(names.allSatisfy { $0.hasPrefix("doc-") })
+        #expect(cases.contains { $0["valid"] == .bool(true) } && cases.contains { $0["valid"] == .bool(false) })
+    }
+
+    /// The same verdict, cleaned output and errors as the Pond, in the Pond's order. Unknown keys
+    /// are the one exception the validator documents: it visits an object's keys sorted, the Pond
+    /// in document order, so where an unknown key is among the errors they are compared sorted.
+    @Test func everyDocVectorMatchesThePond() throws {
+        for item in try Self.cases() {
+            let name = item["name"]?.stringValue ?? "?"
+            let input = try #require(item["input"], "\(name)")
+            let expected = Self.strings(item["errors"])
+            switch Validator.validate(input) {
+            case .success(let cleaned):
+                #expect(item["valid"] == .bool(true), "\(name): Swift accepts what the Pond refuses")
+                #expect(cleaned == item["cleaned"], "\(name)")
+            case .failure(let failure):
+                #expect(item["valid"] == .bool(false), "\(name): Swift refuses what the Pond accepts: \(failure.errors)")
+                if expected.contains(where: { $0.hasSuffix(": unknown key") }) {
+                    #expect(failure.errors.sorted() == expected.sorted(), "\(name)")
+                } else {
+                    #expect(failure.errors == expected, "\(name)")
+                }
+            }
+            if case .int(let bytes)? = item["pyBytes"] {
+                #expect(PySize.bytes(input) == bytes, "\(name)")
+            }
+        }
+    }
+
+    /// Among a step's other errors, `doc` comes right after `file`, as in the Pond's `_step`.
+    @Test func aDocErrorSitsBetweenFileAndBlocking() throws {
+        let value = try JSONValue.parse(Data(#"""
+        {"v":1,"title":"t","steps":[{"do":"a","url":"ftp://x","file":"~/notes/plan.md","doc":{"sha256":"x","bytes":0},
+          "blocking":"yes","warning":"w\u0000"}]}
+        """#.utf8))
+        guard case .failure(let failure) = Validator.validate(value) else { Issue.record("should fail"); return }
+        #expect(failure.errors == ["steps[0].url: must be an http(s) URL",
+                                   "steps[0].doc.sha256: must be 64 lowercase hex characters",
+                                   "steps[0].doc.bytes: must be a whole number from 1 to 262144",
+                                   "steps[0].blocking: must be true or false",
+                                   "steps[0].warning: contains hidden or control characters (U+0000)"])
+    }
+
+    @Test func aWholeNumberWrittenAsAFloatIsRefused() throws {
+        let value = try JSONValue.parse(Data(#"""
+        {"v":1,"title":"t","steps":[{"do":"a","file":"/tmp/plan.md","doc":{"sha256":"\#(String(repeating: "0", count: 64))","bytes":32.0}}]}
+        """#.utf8))
+        guard case .failure(let failure) = Validator.validate(value) else { Issue.record("32.0 passed"); return }
+        #expect(failure.errors == ["steps[0].doc.bytes: must be a whole number from 1 to 262144"])
+    }
+
+    /// This Mac keeps no documents, so there `doc` is an unknown key, as on a Pond before 1.10.0.
+    @Test func withoutDocsTheKeyIsUnknown() throws {
+        let value = try JSONValue.parse(Data(#"""
+        {"v":1,"title":"t","steps":[{"do":"a","file":"~/notes/plan.md","doc":{"sha256":"x","bytes":0},
+          "substeps":[{"do":"b","file":"/tmp/b.md","doc":null}]}],
+         "links":[{"label":"Plan","path":"~/notes/plan.md","doc":{"sha256":"x","bytes":1}}]}
+        """#.utf8))
+        guard case .failure(let failure) = Validator.validate(value, docs: false) else { Issue.record("should fail"); return }
+        #expect(failure.errors.sorted() == ["links[0].doc: unknown key", "steps[0].doc: unknown key",
+                                            "steps[0].substeps[0].doc: unknown key"])
+    }
+
+    @Test func docKeysAndLimits() {
+        #expect(Validator.leafKeys.contains("doc"))
+        #expect(Validator.stepKeys.contains("doc"))
+        #expect(!Validator.verifyKeys.contains("doc"))
+        #expect(Validator.linkKeys == ["label", "url", "path", "doc"])
+        #expect(Validator.docKeys == ["sha256", "bytes"])
+        #expect(Validator.maxDocBytes == 262144)
     }
 }

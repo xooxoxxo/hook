@@ -348,3 +348,90 @@ private let revisedItemJSON = """
     #expect(try JSONDecoder().decode(Enrollment.self, from: Data(polled.utf8))
         == Enrollment(id: "e1", code: nil, status: "approved", expires: nil))
 }
+
+// MARK: - doc (Pond 1.10.0)
+
+private let planHash = "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd"
+private let listHash = "e139cee1c35bdf06b6041be67cab26f468b882c0fc9e32ec0684312d99906bab"
+
+@Test func docDecodesOnStepsSubStepsAndLinks() throws {
+    let ins = try decodeInstructable("""
+    {"v":1,"title":"Review the release plan","steps":[
+      {"do":"Read the plan","file":"~/notes/plan.md","doc":{"sha256":"\(planHash)","bytes":93}},
+      {"do":"Go through it","substeps":[{"do":"Read the list","file":"/tmp/list.md","doc":{"bytes":26,"sha256":"\(listHash)"}}]}],
+     "links":[{"label":"Checklist","path":"/tmp/list.md","doc":{"sha256":"\(listHash)","bytes":26}},
+              {"label":"Site","url":"https://pond.example.test/plan"}]}
+    """)
+    #expect(ins.steps[0].doc == DocRef(sha256: planHash, bytes: 93))
+    #expect(ins.steps[1].doc == nil)
+    #expect(ins.steps[1].substeps?.first?.doc == DocRef(sha256: listHash, bytes: 26))
+    #expect(ins.links?[0].doc == DocRef(sha256: listHash, bytes: 26))
+    #expect(ins.links?[1].doc == nil)
+}
+
+/// Like the other step keys, a malformed `doc` is nil and never costs the step or the ask
+/// (the validator refuses it; the Pond never serves one).
+@Test func aMalformedDocKeepsTheStepAndTheAsk() throws {
+    let ins = try decodeInstructable("""
+    {"v":1,"title":"T","steps":[
+      {"do":"a","file":"/tmp/a.md","doc":"\(planHash)"},
+      {"do":"b","file":"/tmp/b.md","doc":{"sha256":"\(planHash)"}},
+      {"do":"c","file":"/tmp/c.md","doc":{"sha256":"\(planHash)","bytes":"93"}},
+      {"do":"d","file":"/tmp/d.md","doc":null}],
+     "links":[{"label":"L","path":"/tmp/l.md","doc":[1,2]}]}
+    """)
+    #expect(ins.steps.map(\.action) == ["a", "b", "c", "d"])
+    #expect(ins.steps.allSatisfy { $0.doc == nil })
+    #expect(ins.steps.map(\.file) == ["/tmp/a.md", "/tmp/b.md", "/tmp/c.md", "/tmp/d.md"])
+    #expect(ins.links?.first?.path == "/tmp/l.md" && ins.links?.first?.doc == nil)
+}
+
+@Test func docRoundTripsAndStaysOutWhenAbsent() throws {
+    let doc = DocRef(sha256: planHash, bytes: 93)
+    let step = Step(action: "Read the plan", file: "~/notes/plan.md", doc: doc)
+    #expect(try JSONDecoder().decode(Step.self, from: JSONEncoder().encode(step)) == step)
+    let link = LinkRef(label: "Plan", path: "~/notes/plan.md", doc: doc)
+    #expect(try JSONDecoder().decode(LinkRef.self, from: JSONEncoder().encode(link)) == link)
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+    #expect(String(decoding: try encoder.encode(step), as: UTF8.self)
+        == #"{"do":"Read the plan","doc":{"bytes":93,"sha256":"\#(planHash)"},"file":"~/notes/plan.md"}"#)
+    #expect(!String(decoding: try JSONEncoder().encode(Step(action: "a", file: "/tmp/a.md")), as: UTF8.self).contains("doc"))
+    #expect(!String(decoding: try JSONEncoder().encode(LinkRef(label: "L", path: "/tmp/l.md")), as: UTF8.self).contains("doc"))
+}
+
+/// The served payload keeps `doc` as it came, and a typed change to the instructable keeps it too.
+@Test func docSurvivesThePayload() throws {
+    let json = """
+    {"instructable":{"v":1,"title":"Review the release plan","steps":[
+      {"do":"Read the plan","file":"~/notes/plan.md","doc":{"sha256":"\(planHash)","bytes":93}}],
+     "links":[{"label":"Checklist","path":"/tmp/list.md","doc":{"sha256":"\(listHash)","bytes":26}}]}}
+    """
+    var payload = try JSONDecoder().decode(Payload.self, from: Data(json.utf8))
+    let served = try JSONValue.parse(Data(json.utf8))["instructable"]
+    #expect(payload.instructableJSON == served)
+    payload.instructable?.steps[0].action = "Read the release plan"
+    let doc = payload.instructableJSON?["steps"].flatMap { value -> JSONValue? in
+        if case .array(let steps) = value { return steps.first?["doc"] }
+        return nil
+    }
+    #expect(doc == .object(["sha256": .string(planHash), "bytes": .int(93)]))
+    let link = payload.instructableJSON?["links"].flatMap { value -> JSONValue? in
+        if case .array(let links) = value { return links.first?["doc"] }
+        return nil
+    }
+    #expect(link == .object(["sha256": .string(listHash), "bytes": .int(26)]))
+}
+
+/// A changed document is a changed step: its tick does not carry over.
+@Test func aChangedDocChangesTheStepsContentHash() {
+    let one = Step(action: "Read the plan", file: "~/notes/plan.md", doc: DocRef(sha256: planHash, bytes: 93), id: "s1")
+    var two = one
+    two.doc = DocRef(sha256: listHash, bytes: 93)
+    var three = one
+    three.doc = nil
+    let hashes = [one, two, three].map { StepIdentity.contentHash($0, parentID: nil, kind: .step) }
+    #expect(Set(hashes).count == 3)
+    #expect(StepIdentity.contentHash(Step(action: "Read the plan", file: "~/notes/plan.md", id: "s1"), parentID: nil, kind: .step)
+        == hashes[2])
+}

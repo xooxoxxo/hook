@@ -26,6 +26,9 @@ public struct Step: Codable, Sendable, Equatable {
     /// An absolute local path ("/…" or "~/…") to a document the owner should read,
     /// usually Markdown (never on verify).
     public var file: String?
+    /// The fingerprint of the document `file` points at (Pond 1.10.0, feature `docs`): Hook's
+    /// posting client fills it in, a session never writes it (never on verify).
+    public var doc: DocRef?
     /// Done stays off until this step is finished: ticked, answered, or (a parent) every
     /// sub-step that isn't optional (Pond 1.3.0; never on verify, never with `optional`).
     public var required: Bool?
@@ -36,17 +39,17 @@ public struct Step: Codable, Sendable, Equatable {
     enum CodingKeys: String, CodingKey {
         case action = "do"
         case place = "where"
-        case code, lang, expect, detail, url, substeps, question, blocking, warning, optional, file, required, id
+        case code, lang, expect, detail, url, substeps, question, blocking, warning, optional, file, doc, required, id
     }
 
     public init(action: String, place: String? = nil, code: String? = nil, lang: String? = nil, expect: String? = nil,
                 detail: String? = nil, url: String? = nil, substeps: [Step]? = nil, question: Question? = nil,
                 blocking: Bool? = nil, warning: String? = nil, optional: Bool? = nil, file: String? = nil,
-                required: Bool? = nil, id: String? = nil) {
+                doc: DocRef? = nil, required: Bool? = nil, id: String? = nil) {
         self.action = action; self.place = place; self.code = code; self.lang = lang; self.expect = expect
         self.detail = detail; self.url = url; self.substeps = substeps; self.question = question
         self.blocking = blocking; self.warning = warning; self.optional = optional; self.file = file
-        self.required = required; self.id = id
+        self.doc = doc; self.required = required; self.id = id
     }
 }
 
@@ -94,7 +97,7 @@ public struct Question: Codable, Sendable, Equatable {
 
 extension Step {
     /// As the synthesized decoder did, plus a lenient `substeps`, `question`, `blocking`,
-    /// `warning`, `optional`, `file`, `required` and `id`: null,
+    /// `warning`, `optional`, `file`, `doc`, `required` and `id`: null,
     /// the wrong type or a malformed value becomes nil instead of failing the instructable.
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -111,6 +114,7 @@ extension Step {
         warning = (try? c.decodeIfPresent(String.self, forKey: .warning)) ?? nil
         optional = (try? c.decodeIfPresent(Bool.self, forKey: .optional)) ?? nil
         file = (try? c.decodeIfPresent(String.self, forKey: .file)) ?? nil
+        doc = (try? c.decodeIfPresent(DocRef.self, forKey: .doc)) ?? nil
         required = (try? c.decodeIfPresent(Bool.self, forKey: .required)) ?? nil
         id = (try? c.decodeIfPresent(String.self, forKey: .id)) ?? nil
     }
@@ -133,6 +137,20 @@ public struct ReplySpec: Codable, Sendable, Equatable {
     public var hasWords: Bool { choices?.contains(where: \.hasWords) ?? false }
 }
 
+/// The fingerprint of a document beside a step's `file` or a link's `path` (Pond 1.10.0,
+/// feature `docs`): the lowercase hex SHA-256 of its exact UTF-8 bytes and their count. It sits in
+/// the instructable, so the revision hash covers the document. Decoding needs only the shape; the
+/// validator holds the rules (64 lowercase hex, 1 to 262144 bytes, only beside `file` or `path`).
+public struct DocRef: Codable, Sendable, Equatable, Hashable {
+    public var sha256: String
+    public var bytes: Int
+
+    public init(sha256: String, bytes: Int) { self.sha256 = sha256; self.bytes = bytes }
+
+    /// How the review shows it: the size and the whole hash, so any change to the document shows.
+    public var diffText: String { "\(bytes) bytes · SHA-256 \(sha256)" }
+}
+
 /// A link: a web `url`, or (protocol level 4) a `path` to a local document. The
 /// validator requires exactly one; decoding is lenient, so either may be nil and a
 /// malformed one is nil.
@@ -141,9 +159,11 @@ public struct LinkRef: Codable, Sendable, Equatable {
     public var url: String?
     /// An absolute local path ("/…" or "~/…").
     public var path: String?
+    /// The fingerprint of the document `path` points at (Pond 1.10.0, feature `docs`).
+    public var doc: DocRef?
 
-    public init(label: String, url: String? = nil, path: String? = nil) {
-        self.label = label; self.url = url; self.path = path
+    public init(label: String, url: String? = nil, path: String? = nil, doc: DocRef? = nil) {
+        self.label = label; self.url = url; self.path = path; self.doc = doc
     }
 
     /// The local document this link opens: `path` when there is no `url` (a link that
@@ -151,7 +171,7 @@ public struct LinkRef: Codable, Sendable, Equatable {
     public var file: String? { url == nil ? path : nil }
 
     enum CodingKeys: String, CodingKey {
-        case label, url, path
+        case label, url, path, doc
     }
 
     public init(from decoder: any Decoder) throws {
@@ -159,6 +179,7 @@ public struct LinkRef: Codable, Sendable, Equatable {
         label = try c.decode(String.self, forKey: .label)
         url = (try? c.decodeIfPresent(String.self, forKey: .url)) ?? nil
         path = (try? c.decodeIfPresent(String.self, forKey: .path)) ?? nil
+        doc = (try? c.decodeIfPresent(DocRef.self, forKey: .doc)) ?? nil
     }
 }
 

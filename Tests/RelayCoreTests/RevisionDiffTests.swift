@@ -237,3 +237,78 @@ private func removed(_ tokens: [DiffToken]) -> String {
         #expect(added(tokens) == "x")
     }
 }
+
+/// `doc` (Pond 1.10.0): the fingerprint of the document beside a `file` or a link's `path`.
+/// A correction that changes only a document needs Touch ID, like a changed file.
+@Suite struct RevisionDiffDocTests {
+    private static let plan = DocRef(sha256: String(repeating: "a", count: 64), bytes: 93)
+    private static let edited = DocRef(sha256: String(repeating: "b", count: 64), bytes: 95)
+
+    private func ask(step doc: DocRef?, link linkDoc: DocRef? = plan, sub subDoc: DocRef? = plan) -> Instructable {
+        Instructable(v: 1, title: "Review the release plan", urgency: "today", steps: [
+            Step(action: "Read the plan", file: "~/notes/plan.md", doc: doc, id: "s1"),
+            Step(action: "Go through it", substeps: [Step(action: "Read the list", file: "/tmp/list.md", doc: subDoc, id: "s2.1")],
+                 id: "s2"),
+        ], links: [LinkRef(label: "Checklist", path: "/tmp/list.md", doc: linkDoc)])
+    }
+
+    @Test func aStepsChangedDocumentNeedsTouchID() {
+        let one = ask(step: Self.plan), two = ask(step: Self.edited)
+        let diff = RevisionDiff.make(baseline: one, firstRevision: one, current: two, reasons: [(2, "Fix the plan")])
+        #expect(diff.steps.map(\.stepID) == ["s1"])
+        #expect(diff.steps[0].fields.map(\.name) == ["doc"])
+        #expect(diff.top.isEmpty)
+        #expect(diff.touchesCommandsLinksOrFiles)
+        #expect(diff.resets == ["Step 1 loses its tick"])
+    }
+
+    @Test func aSubStepsAndALinksChangedDocumentNeedTouchID() {
+        let one = ask(step: Self.plan)
+        let sub = RevisionDiff.make(baseline: one, firstRevision: one, current: ask(step: Self.plan, sub: Self.edited), reasons: [])
+        #expect(sub.steps.map(\.stepID) == ["s2.1"])
+        #expect(sub.touchesCommandsLinksOrFiles)
+        let link = RevisionDiff.make(baseline: one, firstRevision: one, current: ask(step: Self.plan, link: Self.edited),
+                                     reasons: [])
+        #expect(link.top.map(\.name) == ["links.1.doc"])
+        #expect(link.steps.isEmpty)
+        #expect(link.touchesCommandsLinksOrFiles)
+    }
+
+    @Test func aDocumentAddedSinceTheBaselineNeedsTouchID() {
+        let one = ask(step: nil)
+        #expect(RevisionDiff.make(baseline: one, firstRevision: one, current: ask(step: Self.plan), reasons: [])
+            .touchesCommandsLinksOrFiles)
+        #expect(!RevisionDiff.make(baseline: one, firstRevision: one, current: one, reasons: []).touchesCommandsLinksOrFiles)
+    }
+
+    /// Removing a `doc` while its path stays needs Touch ID, on a link as on a step.
+    @Test func aRemovedDocumentNeedsTouchIDOnALinkAsOnAStep() {
+        let one = ask(step: Self.plan)
+        let step = RevisionDiff.make(baseline: one, firstRevision: one, current: ask(step: nil), reasons: [])
+        #expect(step.steps.first?.fields.map(\.name) == ["doc"])
+        #expect(step.touchesCommandsLinksOrFiles)
+        let link = RevisionDiff.make(baseline: one, firstRevision: one, current: ask(step: Self.plan, link: nil), reasons: [])
+        #expect(link.top.map(\.name) == ["links.1.doc"])
+        #expect(link.top.first?.new == nil)
+        #expect(link.touchesCommandsLinksOrFiles)
+    }
+
+    /// A removed link takes its `doc` with it: like a removed step, that alone needs no Touch ID.
+    @Test func aRemovedLinkWithItsDocumentNeedsNoTouchID() {
+        let one = ask(step: Self.plan)
+        var two = one
+        two.links = []
+        let diff = RevisionDiff.make(baseline: one, firstRevision: one, current: two, reasons: [])
+        #expect(diff.top.map(\.name).contains("links.1.doc"))
+        #expect(!diff.touchesCommandsLinksOrFiles)
+    }
+
+    @Test func theFieldShowsTheSizeAndTheWholeHash() throws {
+        let diff = RevisionDiff.make(baseline: ask(step: Self.plan), firstRevision: ask(step: Self.plan),
+                                     current: ask(step: Self.edited), reasons: [])
+        let field = try #require(diff.steps.first?.fields.first)
+        #expect(field.old == "93 bytes · SHA-256 " + String(repeating: "a", count: 64))
+        #expect(field.new == "95 bytes · SHA-256 " + String(repeating: "b", count: 64))
+        #expect(field.isCommandLinkOrFile)
+    }
+}

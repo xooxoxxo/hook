@@ -120,8 +120,9 @@ public actor LocalQueue {
         let cleaned: JSONValue
         // This Mac takes no requirements in 0.13 (RD 20): `required` and `done` are unknown keys.
         // Nor choice objects in 0.14: it has no session channel for the owner's words. Nor a
-        // question's `then`: This Mac can't add steps, so Done would only wait.
-        switch Validator.validate(instructable, requirements: false, choiceObjects: false, stepWaits: false) {
+        // question's `then`: This Mac can't add steps, so Done would only wait. Nor a `doc`: This
+        // Mac keeps no documents.
+        switch Validator.validate(instructable, requirements: false, choiceObjects: false, stepWaits: false, docs: false) {
         case .success(let value): cleaned = value
         case .failure(let failure): throw LocalQueueError.invalidInstructable(failure.errors)
         }

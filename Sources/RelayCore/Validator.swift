@@ -25,7 +25,7 @@ public enum Validator {
     static let verifyKeys: Set<String> = ["do", "where", "code", "lang", "expect", "detail", "url"]
     /// A sub-step.
     static let leafKeys: Set<String> = verifyKeys.union(["question", "blocking", "warning", "optional", "required", "file",
-                                                         "id"])
+                                                         "doc", "id"])
     /// `warning`: multi-line, like `detail`.
     static let warningLimit = 300
     /// An entry of `steps`.
@@ -41,9 +41,13 @@ public enum Validator {
     static let choiceKeys: Set<String> = ["label", "text"]
     static let choiceLabelLimit = 60
     static let choiceTextLimit = 100
-    static let linkKeys: Set<String> = ["label", "url", "path"]
+    static let linkKeys: Set<String> = ["label", "url", "path", "doc"]
     /// `file` and a link's `path`: an absolute local path of at most this many characters.
     static let maxPath = 500
+    /// A `doc` beside `file` (step, sub-step) or a link's `path` (Pond 1.10.0): the fingerprint of
+    /// that document, `{"sha256": 64 lowercase hex, "bytes": 1 to maxDocBytes}`.
+    static let docKeys: Set<String> = ["sha256", "bytes"]
+    static let maxDocBytes = 262144
     /// The values `done` may hold (Pond 1.3.0), in this order.
     static let requirements = ["steps", "reply", "message"]
     static let doneShape = "done: must be a list of 1 to 3 of steps, reply, message"
@@ -67,9 +71,11 @@ public enum Validator {
     /// set to "today" when it is absent or null. `requirements: false` (This Mac, RD 20) checks
     /// what a Pond 1.2.0 does: `required` and `done` are unknown keys. `choiceObjects: false`
     /// (This Mac in 0.14) checks what a Pond 1.3.0 does: a choice must be a string. `stepWaits:
-    /// false` (This Mac, which can't add steps) makes a question's `then` an unknown key.
+    /// false` (This Mac, which can't add steps) makes a question's `then` an unknown key. `docs: false`
+    /// (This Mac, which keeps no documents) makes `doc` an unknown key, as a Pond before 1.10.0 says.
     public static func validate(_ value: JSONValue, requirements: Bool = true,
-                                choiceObjects: Bool = true, stepWaits: Bool = true) -> Result<JSONValue, ValidationFailure> {
+                                choiceObjects: Bool = true, stepWaits: Bool = true,
+                                docs: Bool = true) -> Result<JSONValue, ValidationFailure> {
         guard case .object(let object) = value else {
             return .failure(ValidationFailure(errors: ["instructable: must be an object"]))
         }
@@ -79,8 +85,12 @@ public enum Validator {
 
         var errors: [String] = []
         let top = requirements ? topKeys : topKeys.subtracting(["done"])
-        let stepAllowed = requirements ? stepKeys : stepKeys.subtracting(["required"])
-        let leafAllowed = requirements ? leafKeys : leafKeys.subtracting(["required"])
+        var without: Set<String> = []
+        if !requirements { without.insert("required") }
+        if !docs { without.insert("doc") }
+        let stepAllowed = stepKeys.subtracting(without)
+        let leafAllowed = leafKeys.subtracting(without)
+        let linkAllowed = docs ? linkKeys : linkKeys.subtracting(["doc"])
         keys(&errors, "", value, allowed: top)
 
         if object["v"] != .int(1) {
@@ -140,7 +150,7 @@ public enum Validator {
             if case .array(let links) = linksValue, links.count <= maxLinks {
                 for (index, linkValue) in links.enumerated() {
                     let path = "links[\(index)]"
-                    if let link = keys(&errors, path, linkValue, allowed: linkKeys) {
+                    if let link = keys(&errors, path, linkValue, allowed: linkAllowed) {
                         text(&errors, "\(path).label", link["label"], limit: 60, required: true)
                         let hasURL = present(link["url"]) != nil, hasPath = present(link["path"]) != nil
                         if hasURL == hasPath {
@@ -149,6 +159,9 @@ public enum Validator {
                             url(&errors, "\(path).url", link["url"], required: true)
                         } else {
                             Self.path(&errors, "\(path).path", link["path"])
+                        }
+                        if linkAllowed.contains("doc") {
+                            doc(&errors, path, link, anchor: "path")
                         }
                     }
                 }
@@ -380,9 +393,9 @@ public enum Validator {
     /// sub-steps, each checked as a leaf (so nesting is an unknown key). A step or
     /// sub-step may ask a `question` and carry `blocking` (a bool), `optional` (a
     /// bool, never together with `blocking`), a multi-line `warning` and `file` (an
-    /// absolute local path); verify (`verifyKeys`) can't. An optional parent makes its
-    /// sub-steps optional (`inOptional`), so none of them may be blocking. Errors come
-    /// in the reference's order: the `stepFields`, url, file, blocking, optional,
+    /// absolute local path) with its `doc`; verify (`verifyKeys`) can't. An optional parent
+    /// makes its sub-steps optional (`inOptional`), so none of them may be blocking. Errors
+    /// come in the reference's order: the `stepFields`, url, file, doc, blocking, optional,
     /// warning, question, substeps.
     static func step(
         _ errors: inout [String], _ path: String, _ value: JSONValue, allowed: Set<String>,
@@ -396,6 +409,9 @@ public enum Validator {
         url(&errors, "\(path).url", step["url"])
         if allowed.contains("file") {
             Self.path(&errors, "\(path).file", step["file"])
+        }
+        if allowed.contains("doc") {
+            doc(&errors, path, step, anchor: "file")
         }
         if allowed.contains("blocking") {
             let blocking = present(step["blocking"])
@@ -431,6 +447,31 @@ public enum Validator {
             Self.step(&errors, "\(path).substeps[\(index)]", sub, allowed: leaves, leaves: leaves,
                       inOptional: present(step["optional"]) == .bool(true), objects: objects, stepWaits: stepWaits)
         }
+    }
+
+    /// `_doc` (Pond 1.10.0): the `doc` of a step, sub-step or link (`path` names that holder)
+    /// needs the holder's `anchor` (`file` or `path`), then is an object of only `sha256`, 64
+    /// lowercase hex characters, and `bytes`, a whole number from 1 to `maxDocBytes` (not a
+    /// float, not a bool). Null counts as absent, for `doc` and for its anchor.
+    static func doc(_ errors: inout [String], _ path: String, _ holder: [String: JSONValue], anchor: String) {
+        guard let value = present(holder["doc"]) else { return }
+        let path = "\(path).doc"
+        guard present(holder[anchor]) != nil else {
+            errors.append("\(path): needs \(anchor)")
+            return
+        }
+        guard let doc = keys(&errors, path, value, allowed: docKeys) else { return }
+        if !(doc["sha256"]?.stringValue.map(isSHA256) ?? false) {
+            errors.append("\(path).sha256: must be 64 lowercase hex characters")
+        }
+        if case .int(let bytes)? = doc["bytes"], (1...maxDocBytes).contains(bytes) { return }
+        errors.append("\(path).bytes: must be a whole number from 1 to \(maxDocBytes)")
+    }
+
+    /// `[0-9a-f]{64}`, whole.
+    static func isSHA256(_ text: String) -> Bool {
+        let scalars = text.unicodeScalars
+        return scalars.count == 64 && scalars.allSatisfy { ("0"..."9").contains($0) || ("a"..."f").contains($0) }
     }
 
     /// `_required` (Pond 1.3.0): a bool, never beside optional or inside an optional parent,

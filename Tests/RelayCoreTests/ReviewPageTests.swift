@@ -149,4 +149,28 @@ import Testing
         #expect(ReviewLockBar.make(.legacy) == nil)
         #expect(ReviewLockBar.make(.current(three)) == nil)
     }
+
+    /// A changed document (`doc`, Pond 1.10.0) is its own row field, labelled and in a fixed-width face.
+    @Test func aChangedDocumentIsLabelledAndNeedsPresence() throws {
+        let doc = { (hex: String, bytes: Int) in DocRef(sha256: String(repeating: hex, count: 64), bytes: bytes) }
+        func ask(_ step: DocRef, _ link: DocRef) -> Instructable {
+            Instructable(v: 1, title: "Review the plan", urgency: "today",
+                         steps: [Step(action: "Read the plan", file: "~/notes/plan.md", doc: step, id: "s1")],
+                         links: [LinkRef(label: "Checklist", path: "/tmp/list.md", doc: link)])
+        }
+        let one = ask(doc("a", 93), doc("c", 26)), two = ask(doc("b", 95), doc("d", 27))
+        let diff = RevisionDiff.make(baseline: one, firstRevision: one, current: two, reasons: [(2, "New plan")])
+        let page = ReviewPage.make(diff: diff, flags: LookCloser.flags(old: one, new: two, cwd: nil), body: two,
+                                   target: RevisionStamp(rev: 2, hash: String(repeating: "e", count: 64)),
+                                   latest: RevisionStamp(rev: 2, hash: String(repeating: "e", count: 64)),
+                                   baselineRev: 1, time: { _ in "" })
+        let step = try #require(page.steps.first)
+        #expect(step.change == .changed)
+        #expect(step.fields.map(\.label) == ["Document"])
+        #expect(step.fields.map { $0.monospaced } == [true])
+        let link = try #require(page.others.first { $0.label == "Link 1" })
+        #expect(link.fields.map(\.label) == ["Document"])
+        #expect(link.fields.map { $0.monospaced } == [true])
+        #expect(page.needsPresence)
+    }
 }

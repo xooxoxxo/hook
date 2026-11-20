@@ -140,9 +140,9 @@ Six `data/` files cover logic that lives only in the clients. Their inputs are w
 `data/stub-vectors.json`: each case is `{name, note, instructable, clients?, expect: {stub, reason?}}`. `stub` true means the client shows the ask only as an update stub, with Skip. `reason` is `pondStub` (the Pond's own stub, recognised by its exact `why` and single step), `unknownKey:<path>` (the first key in document order the client doesn't know, such as `steps[2].substeps[0].shell`) or `unknownDone:<value>`. The known keys are:
 
 - ask: `v title why warning urgency steps verify reply done links from`
-- step, sub-step and verify: `do where detail code lang expect url substeps question blocking warning optional required id file`
+- step, sub-step and verify: `do where detail code lang expect url substeps question blocking warning optional required id file`; step and sub-step, with the `docs` feature: also `doc`
 - question: `prompt choices multi then`; choice object: `label text`
-- reply: `prompt choices`; link: `label url path`; from: `session host cwd`
+- reply: `prompt choices`; link: `label url path`, with the `docs` feature also `doc`; from: `session host cwd`
 - `done` values: `steps reply message`
 
 The first unknown key in document order decides. Its path joins object keys with dots and writes a list item's 0-based index in square brackets right after the list's key: `shell`, `steps[2].shell`, `steps[0].question.choices[1].tone`, `from.pid`. Unknown keys are checked before unknown `done` values, wherever each appears.
@@ -154,3 +154,13 @@ The Swift core has no unknown-key check yet, so those cases, and the cases there
 ## Hand-written rules
 
 `data/append-vectors.json` covers steps an agent adds to the end of its own open ask (the `appendSteps` feature). No implementation is its reference: the cases and their expectations are written by hand in `scripts/gen-append-vectors.py`, which fills in only the canonical bodies and revision hashes, and stops when its own small copy of the rule (or of the amendment id numbering) disagrees with the table. Change the table, run `python3 scripts/gen-append-vectors.py > conformance/data/append-vectors.json`, and copy the file over its `copies`. A `check` case asks whether one body is an append of another. A `chain` case asks whether a device takes a revision history as current, pending or changed, and whether the Pond moves its accepted revision. An `append` case gives what an append call returns: the new body and the ids it added, or the error. The file's `format` key gives the rule and each kind's fields.
+
+`data/doc-stub-vectors.json` has the case shape of `data/stub-vectors.json`, for a reader that takes the `docs` feature (Pond 1.10.0). A reader without the feature skips it, and `doc` stays an unknown key for it. With the feature, `doc` is known on a step, a sub-step and a link, never on `verify`, when it is `null`, or when it is exactly `{"sha256": <64 lowercase hex>, "bytes": <a whole number from 1 to 262144>}` beside a `file` (step, sub-step) or a `path` (link) that is present and not `null`. Any other `doc` is an unknown key at the `doc` itself (`unknownKey:steps[0].doc`, never a path inside it), so the ask is an update stub. `93.0` is not a whole number here, as the Pond reads JSON. No implementation is its reference yet: its cases and their expectations are written by hand, every one with `"clients": ["android"]`, and each expectation agrees with the Pond's own check of that `doc`.
+
+## Documents
+
+`data/doc-vectors.json` and `wire/doc-wire-vectors.json` cover documents on the Pond (the `docs` feature, Pond 1.10.0). Both are recorded from the Pond.
+
+`data/doc-vectors.json` has the shape of `instructable-vectors.json`: each case is `{name, kind: "instructable", input, valid, errors, cleaned, pyBytes}`, for a `doc` on a step, a sub-step, a link and in the places it may not go. `errors` are in the Pond's order.
+
+`wire/doc-wire-vectors.json` runs in order against one fresh Pond, as a session and a reader see it. Its cases differ from the transcript format above: `request.token` is true for the Pond token and false for none (no case uses the owner key), and `response.headers` holds `Content-Type`, plus `Cache-Control` and `X-Content-Type-Options` where the Pond sends them. A document read answers text, not JSON: `body` is the text and `bodyBase64` its exact bytes. The file's `format` key says the rest.

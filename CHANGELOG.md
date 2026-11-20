@@ -8,6 +8,7 @@ and versions follow Semantic Versioning.
 ### Added
 
 - Settings › Queue › Owner Key › **Devices…** lists your devices with when each was set up and last used, and revokes one. A Mac without a working key, or one whose setup stopped at "too many keys", asks you to confirm the revoke on Telegram with a code. Needs a Pond that lists `ownerRevokeRequest` and `ownerKeyDates`; older Ponds show names only.
+- Documents on the Pond, in the protocol: a step's `file` or a link's `path` can carry `doc`, the fingerprint of the document it points at, and a Pond that lists `docs` (Pond 1.10.0) keeps a checked copy of the text for the phone. Sessions never write `doc`. Hook checks it as the Pond does, and a correction that changes only a document needs Touch ID to accept, like a changed file.
 
 ### Changed
 

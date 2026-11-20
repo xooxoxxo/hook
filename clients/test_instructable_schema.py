@@ -7,7 +7,7 @@ from pathlib import Path
 
 SCHEMA = json.loads((Path(__file__).resolve().parent.parent / "schema" / "instructable.v1.json").read_text("utf-8"))
 VERIFY_KEYS = {"do", "where", "code", "lang", "expect", "detail", "url"}
-LEAF_KEYS = VERIFY_KEYS | {"question", "blocking", "warning", "optional", "required", "file", "id"}
+LEAF_KEYS = VERIFY_KEYS | {"question", "blocking", "warning", "optional", "required", "file", "doc", "id"}
 ID_PATTERN = "^[a-z0-9][a-z0-9.-]{0,23}$"
 
 
@@ -74,10 +74,49 @@ class SchemaTest(unittest.TestCase):
 
     def test_a_link_has_exactly_one_of_url_and_path(self):
         link = SCHEMA["properties"]["links"]["items"]
-        self.assertEqual(set(link["properties"]), {"label", "url", "path"})
+        self.assertEqual(set(link["properties"]), {"label", "url", "path", "doc"})
         self.assertEqual(link["required"], ["label"])
         self.assertEqual(link["properties"]["path"], {"$ref": "#/$defs/localPath"})
         self.assertEqual(link["oneOf"], [{"required": ["url"]}, {"required": ["path"]}])
+
+    def test_doc_sits_beside_file_and_a_links_path_never_on_verify(self):
+        import re
+        import relay_jsonschema
+        link = SCHEMA["properties"]["links"]["items"]
+        beside_file = "Filled in by Hook. Never write it. Only beside file."
+        for props in (SCHEMA["$defs"]["step"]["properties"], SCHEMA["$defs"]["leaf"]["properties"]):
+            self.assertEqual(props["doc"], {"$ref": "#/$defs/docRef", "description": beside_file})
+        self.assertEqual(link["properties"]["doc"],
+                         {"$ref": "#/$defs/docRef", "description": "Filled in by Hook. Never write it. Only beside path."})
+        # "Only beside file/path" lives in the description, not in the schema: a boolean subschema
+        # would be refused by strict tool-schema converters. The validators and the vectors hold the rule.
+        for holder in (SCHEMA["$defs"]["step"], SCHEMA["$defs"]["leaf"], link):
+            self.assertNotIn("anyOf", holder)
+        self.assertNotIn("doc", SCHEMA["$defs"]["verify"]["properties"])
+        ref = SCHEMA["$defs"]["docRef"]
+        self.assertEqual((ref["type"], ref["required"], ref["additionalProperties"]), ("object", ["sha256", "bytes"], False))
+        self.assertEqual(ref["properties"]["sha256"], {"type": "string", "pattern": "^[0-9a-f]{64}$"})
+        self.assertEqual(ref["properties"]["bytes"]["type"], "integer")
+        self.assertIn("1 to 262144", ref["properties"]["bytes"]["description"])
+        pattern = re.compile(ref["properties"]["sha256"]["pattern"])
+        self.assertTrue(pattern.search("0" * 64))
+        for bad in ("0" * 63, "0" * 65, "A" * 64, "g" * 64):
+            self.assertFalse(pattern.search(bad), bad)
+        doc = {"sha256": "a" * 64, "bytes": 32}
+
+        def errors(step=None, link_=None):
+            ask = {"v": 1, "title": "Read", "steps": [step or {"do": "Read"}]}
+            if link_ is not None:
+                ask["links"] = [link_]
+            return relay_jsonschema.validate(ask, SCHEMA)
+
+        self.assertEqual(errors({"do": "Read", "file": "~/notes/plan.md", "doc": doc}), [])
+        self.assertEqual(errors({"do": "Go", "substeps": [{"do": "Read", "file": "/tmp/plan.md", "doc": doc}]}), [])
+        self.assertEqual(errors(link_={"label": "Plan", "path": "~/notes/plan.md", "doc": doc}), [])
+        self.assertTrue(errors({"do": "Read", "file": "~/notes/plan.md", "doc": dict(doc, note="x")}))
+        self.assertTrue(errors({"do": "Read", "file": "~/notes/plan.md", "doc": {"sha256": "a" * 64}}))
+        ask = {"v": 1, "title": "Read", "steps": [{"do": "Read"}], "verify": {"do": "Check", "doc": doc}}
+        self.assertTrue(relay_jsonschema.validate(ask, SCHEMA))
 
     def test_blocking_and_warning_sit_on_steps_and_leaves_never_on_verify(self):
         for name in ("step", "leaf"):

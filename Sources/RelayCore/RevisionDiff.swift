@@ -111,12 +111,13 @@ public struct FieldDiff: Equatable, Sendable {
         tokens = WordDiff.tokens(old ?? "", new ?? "")
     }
 
-    /// A command, a link or a file: accepting a change to one needs Touch ID. A `detail`
+    /// A command, a link or a file, or the document beside a file (`doc`, Pond 1.10.0): accepting
+    /// a change to one needs Touch ID. A `detail`
     /// renders its web links as clickable (`DetailText`), so one that gains a link, or
     /// changes one, counts as a link; a detail that only drops links or changes its words doesn't.
     public var isCommandLinkOrFile: Bool {
         let field = name.split(separator: ".").last.map(String.init) ?? name
-        if ["code", "url", "file", "path"].contains(field) { return true }
+        if ["code", "url", "file", "path", "doc"].contains(field) { return true }
         guard field == "detail", let new else { return false }
         return !DetailText.webLinks(new).isSubset(of: old.map(DetailText.webLinks) ?? [])
     }
@@ -143,7 +144,7 @@ public struct StepChange: Equatable, Sendable {
 public struct RevisionDiff: Equatable, Sendable {
     public var isFirstView: Bool
     public var steps: [StepChange]
-    /// why, every verify field, the reply's prompt and choices, `done`, each link's label, url and path.
+    /// why, every verify field, the reply's prompt and choices, `done`, each link's label, url, path and doc.
     public var top: [FieldDiff]
     /// Every reason since the baseline (since rev 1 on a first view), oldest first.
     public var reasons: [(rev: Int, reason: String)]
@@ -184,7 +185,7 @@ public struct RevisionDiff: Equatable, Sendable {
                             reasons: [(rev: Int, reason: String)]) -> RevisionDiff {
         let since = changes(from: baseline ?? firstRevision, to: current)
         let touches = since.steps.contains { $0.kind != .removed && $0.fields.contains(where: \.isCommandLinkOrFile) }
-            || since.top.contains { $0.isCommandLinkOrFile && $0.new != nil }
+            || since.top.contains { $0.isCommandLinkOrFile && ($0.new != nil || removesDocOfKeptLink($0, current)) }
         guard let baseline else {
             let full = changes(from: nil, to: current)
             return RevisionDiff(isFirstView: true, steps: full.steps, top: full.top, reasons: reasons,
@@ -196,12 +197,22 @@ public struct RevisionDiff: Equatable, Sendable {
                                                                                  current: current))
     }
 
+    /// A link's `doc` removed while the link stays: it counts like a step's removed `doc`. A link
+    /// removed whole takes its `doc` with it, and that alone, like a removed step, doesn't count.
+    static func removesDocOfKeptLink(_ field: FieldDiff, _ current: Instructable) -> Bool {
+        let parts = field.name.split(separator: ".")
+        guard parts.count == 3, parts[0] == "links", parts[2] == "doc", field.new == nil,
+              let number = Int(parts[1]) else { return false }
+        return (current.links ?? []).indices.contains(number - 1)
+    }
+
     // MARK: Fields
 
     /// Every field the owner sees on a step, by name; absent ones are nil.
     static func fields(_ step: Step) -> [(String, String?)] {
         [("do", step.action), ("where", step.place), ("detail", step.detail), ("code", step.code), ("lang", step.lang),
-         ("expect", step.expect), ("url", step.url), ("file", step.file), ("warning", step.warning),
+         ("expect", step.expect), ("url", step.url), ("file", step.file), ("doc", step.doc?.diffText),
+         ("warning", step.warning),
          ("blocking", step.blocking == true ? "true" : nil), ("optional", step.optional == true ? "true" : nil),
          ("required", step.required == true ? "true" : nil),
          ("question.prompt", step.question?.prompt),
@@ -235,7 +246,8 @@ public struct RevisionDiff: Equatable, Sendable {
     static func linkFields(_ links: [LinkRef]?, count: Int) -> [(String, String?)] {
         (0..<count).flatMap { i -> [(String, String?)] in
             let link = (links ?? []).indices.contains(i) ? links?[i] : nil
-            return [("links.\(i + 1).label", link?.label), ("links.\(i + 1).url", link?.url), ("links.\(i + 1).path", link?.path)]
+            return [("links.\(i + 1).label", link?.label), ("links.\(i + 1).url", link?.url), ("links.\(i + 1).path", link?.path),
+                    ("links.\(i + 1).doc", link?.doc?.diffText)]
         }
     }
 
