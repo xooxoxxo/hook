@@ -621,7 +621,7 @@ private func check(_ file: String, _ name: String) throws {
     @Test func theDocStubFileIsForOtherClientsAndReadsHere() throws {
         let cases = Conformance.cases("doc-stub-vectors.json")
         let names = cases.compactMap { $0["name"]?.stringValue }
-        #expect(names.count >= 30)
+        #expect(names.count >= 42)
         #expect(Set(names).count == names.count)
         for item in cases {
             let name = item["name"]?.stringValue ?? "?"

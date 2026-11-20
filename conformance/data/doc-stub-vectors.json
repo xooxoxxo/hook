@@ -237,6 +237,62 @@
       }
     },
     {
+      "name": "doc-stub-link-url-and-path",
+      "note": "a well-formed doc on a link with both url and path is known: the path is there. Not a stub (the Pond still refuses the link)",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1"
+          }
+        ],
+        "links": [
+          {
+            "label": "Plan",
+            "url": "https://pond.example.test/plan",
+            "path": "~/notes/plan.md",
+            "doc": {
+              "sha256": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd",
+              "bytes": 93
+            }
+          }
+        ]
+      },
+      "expect": {
+        "stub": false
+      }
+    },
+    {
+      "name": "doc-stub-beside-relative-file",
+      "note": "a well-formed doc beside a file that is present but relative is known: not a stub (the Pond refuses the file, not the doc)",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1",
+            "file": "notes/plan.md",
+            "doc": {
+              "sha256": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd",
+              "bytes": 93
+            }
+          }
+        ]
+      },
+      "expect": {
+        "stub": false
+      }
+    },
+    {
       "name": "doc-stub-on-verify",
       "note": "doc is never known on verify, even beside a file",
       "clients": [
@@ -738,6 +794,32 @@
       }
     },
     {
+      "name": "doc-stub-sha256-fullwidth-digit",
+      "note": "a sha256 of 64 characters, one of them the fullwidth digit U+FF10: not lowercase hex",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1",
+            "file": "~/notes/plan.md",
+            "doc": {
+              "sha256": "\uff109e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd",
+              "bytes": 93
+            }
+          }
+        ]
+      },
+      "expect": {
+        "stub": true,
+        "reason": "unknownKey:steps[0].doc"
+      }
+    },
+    {
       "name": "doc-stub-bytes-zero",
       "note": "bytes 0 is unknown",
       "clients": [
@@ -910,6 +992,58 @@
             "doc": {
               "sha256": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd",
               "bytes": true
+            }
+          }
+        ]
+      },
+      "expect": {
+        "stub": true,
+        "reason": "unknownKey:steps[0].doc"
+      }
+    },
+    {
+      "name": "doc-stub-bytes-past-64-bit",
+      "note": "bytes larger than any 64-bit integer: an unknown key at the doc",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1",
+            "file": "~/notes/plan.md",
+            "doc": {
+              "sha256": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd",
+              "bytes": 18446744073709551616
+            }
+          }
+        ]
+      },
+      "expect": {
+        "stub": true,
+        "reason": "unknownKey:steps[0].doc"
+      }
+    },
+    {
+      "name": "doc-stub-bytes-exponent",
+      "note": "bytes written in exponent form (1e2) is not a whole number here, as the Pond reads JSON",
+      "clients": [
+        "android"
+      ],
+      "instructable": {
+        "v": 1,
+        "title": "Review the release plan",
+        "steps": [
+          {
+            "do": "Read the plan",
+            "id": "s1",
+            "file": "~/notes/plan.md",
+            "doc": {
+              "sha256": "89e032b48f654c6a542172e4396fbb6bd1cd37cfa66a5a59e987d0a3f398a4fd",
+              "bytes": 1e2
             }
           }
         ]
