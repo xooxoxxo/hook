@@ -78,6 +78,11 @@ a step's `question` or in `reply`, not in a step that points at them. `relay_pos
 - **title**: imperative, one line, at most 120 chars, unique, e.g. "Create a Slack channel for Acme".
   The queue dedupes on the title for 24 h, so a different ask needs a different title.
 - **why**: one sentence (at most 300 chars) on what it unblocks.
+- **brief**: what you would have said in chat beside the ask, in Markdown (at most 8000
+  chars): why it matters, the context the owner needs, and the links you used. Hook shows it
+  under Background, and Ask about this answers the owner's questions from it, so you aren't
+  woken for a simple one. It explains; the steps still hold every action. No secrets. A
+  correction sends it again, or it is removed. On a Pond without it, the ask goes without it.
 - **urgency**: `now` (you're blocked this minute), `today` (the default) or `whenever`.
 - **steps** (1–20): one action per step. `do` says exactly what to click, in
   order (site → page → menu → button). `where` names the place: "Slack desktop",

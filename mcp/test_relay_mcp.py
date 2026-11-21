@@ -1189,5 +1189,34 @@ class FieldsToolTest(unittest.TestCase):
         self.assertEqual(res["notes"], [note])
 
 
+
+class BriefToolTest(unittest.TestCase):
+    """`brief` in the post and amend schemas and descriptions, and its note in a tool's result."""
+
+    def test_post_and_amend_take_a_brief_and_say_how_to_write_one(self):
+        import relay_cli
+        tools = {t["name"]: t for t in relay_mcp.tool_list()}
+        self.assertEqual(relay_mcp.BRIEF_SENTENCE, relay_cli.BRIEF_SENTENCE)
+        self.assertIn(relay_mcp.BRIEF_SENTENCE, tools["relay_post"]["description"])
+        self.assertIn("send the `brief` again", tools["relay_amend"]["description"])
+        for name in ("relay_post", "relay_amend"):
+            brief = tools[name]["inputSchema"]["properties"]["instructable"]["properties"]["brief"]
+            self.assertEqual((brief["type"], brief["maxLength"]), ("string", 8000))
+        self.assertNotIn("brief", tools["relay_append"]["inputSchema"]["properties"])
+
+    def test_the_note_reaches_the_result(self):
+        note = relay_mcp.relay_client.BRIEF_NOTE
+
+        class Posting:
+            source = {"kind": "local", "port": 47823}
+
+            def post(self, project, instructable):
+                return {"item": {"id": ITEM_ID}, "editable": True, "notes": [note]}
+
+        ask = {"v": 1, "title": "Create a key", "steps": [{"do": "Open the page"}], "brief": "Why: the import."}
+        with mock.patch.object(relay_mcp, "make_client", lambda: Posting()):
+            res = relay_mcp.relay_post({"project": "Acme", "instructable": ask})
+        self.assertEqual(res["notes"], [note])
+
 if __name__ == "__main__":
     unittest.main()

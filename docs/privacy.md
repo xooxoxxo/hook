@@ -88,3 +88,7 @@ Hook links no crash-reporting service. A future one would start only with your c
 ## Reports and messages to a session
 
 Report a Problem and Messages go to your Pond, and from there only to the session that posted the ask. The Pond refuses a note or a message that looks like a secret. Hook never writes them to the activity log.
+
+## Ask about this
+
+When you ask a question with **Ask about this**, your Pond sends the ask's text, its brief, your answers so far and your question to Anthropic's API, and Claude Haiku 5.5 answers. If your sessions run on Claude, no new party sees them. Nothing is sent while nobody asks, and nothing at all unless your Pond's owner gave it an Anthropic API key. The question and the answer stay in the ask's history on your Pond; the session that posted the ask is not told.

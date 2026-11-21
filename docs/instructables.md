@@ -31,6 +31,7 @@ An ask is a `project` plus an instructable: a JSON object with a title and numbe
 | `title` | Required, ≤ 120 chars, imperative; the 24 h dedupe key |
 | `why` | ≤ 300 |
 | `warning` | ≤ 300, line breaks allowed. An orange caution above all steps. Does not lock steps. Needs Pond 1.6.0 or a This Mac queue advertising `ask-warning`. |
+| `brief` | ≤ 8000, Markdown, line breaks allowed: the background you would have told the owner in chat ([Brief](#brief)). Needs the `brief` feature (Pond 1.14.0); without it the ask goes without it |
 | `urgency` | `now`, `today` (default) or `whenever` |
 | `steps` | Required, 1–20 Steps |
 | `verify` | Optional. One Step without `substeps` or `question`: a real check in the world, best a command with `expect`. Leave it out for a pure decision or a review ([Hook's own controls](#hooks-own-controls)) |
@@ -162,6 +163,19 @@ Form settings and config values go in `fields`, a table of label and value, not 
 
 On a Pond that doesn't list `fields`, `relay post`, `amend`, `append` and the MCP tools send each row as a sub-step instead (label as `do`, value as `code`, `lang` `text`; a sub-step's rows follow it), keep every step id, and say so in a note: `note: the Pond doesn't list the fields feature: the settings of steps[0] were sent as sub-steps (label as do, value as code)`. A `detail` that lists three or more settings ("path /api/v1/requests, method POST, rate limit 5 per minute") posts with a hint, never a refusal: `hint: steps[0].detail: lists 3 settings: put them in fields, one {"label", "value"} row each, so the owner reads a table`. MCP returns it in `hints`.
 
+## Brief
+
+`brief` holds what you would have said in chat beside the ask: why it matters, the context the owner needs to decide, and the links you used. Write it in Markdown, at most 8000 characters. Hook shows it behind a **Background** disclosure, and **Ask about this** answers the owner's questions from it and the steps, so the session isn't woken for a simple question. The steps stay the whole walkthrough: the brief explains, it never holds a step. No secrets: the Pond refuses them here as everywhere.
+
+```json
+{"v": 1, "title": "Create a restricted payments key", "steps": [
+  {"do": "Open the API keys page", "url": "https://payments.example.test/keys"},
+  {"do": "Create a restricted key with read access to charges"}],
+ "brief": "## Why\nThe import job needs read access to charges, nothing else.\n\n## Links I used\n- [Restricted keys](https://payments.example.test/docs/keys)"}
+```
+
+A correction sends the brief again, or it is removed; the change summary then names `brief` in `top`. On a Pond (or This Mac) that doesn't list `brief`, `relay post`, `relay amend` and the MCP tools send the ask without it and say so: `note: the Pond doesn't list the brief feature: the ask was sent without its brief (put what the owner must know in why and the steps)`.
+
 ## Hook's own controls
 
 Every step is work in the world. Hook already shows the reply box, the questions and the Done and Skip buttons, so never add a step or a `verify` that only points at them: "Pick an answer below", "Reply with anything that still looks wrong", "Answer the question", "Press Done after answering", "Look at the reply you sent". A decision goes in a step's `question` or in `reply`. `verify` is optional: use it for a real check, best a command with `expect`, and leave it out when nothing in the world changes.
@@ -205,6 +219,7 @@ Not `{"do": "Install the Leasekey client on the Mac, create the Claude agent's t
 | a question's `then` | the `appendSteps` feature (Pond 1.9.0) |
 | `doc` beside `file` or a link's `path` | the `docs` feature (Pond 1.10.0) |
 | `fields` | the `fields` feature (Pond 1.13.0); without it, rows go as sub-steps ([Settings](#settings)) |
+| `brief` | the `brief` feature (Pond 1.14.0); without it, the ask goes without it ([Brief](#brief)) |
 
 `relay post`, `relay_post` and `relay amend` ask `GET /version` first, cached for 5 minutes per process. A newer minor or patch Pond never stops a key working ([Pond versions](mailbox-protocol.md#pond-versions)). When the Pond is too old, they refuse, post nothing and exit 1: ``Your Pond (1.0.0) is older than `id` needs (Pond 1.1.0 or newer). Update the Pond, or leave the key out.`` In This Mac mode the app is the server, so the refusal is "Hook's This Mac queue (Pond 1.0.0) can't take `id` yet."
 

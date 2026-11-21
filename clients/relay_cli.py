@@ -51,6 +51,10 @@ FIELDS_SENTENCE = ("A step or sub-step (not verify) can hold `fields`: 1 to 20 r
                    "listing them in `detail`; `copy: true` adds a Copy button. Labels are unique in the step, "
                    "values one line. On a Pond without the fields feature each row goes as a sub-step "
                    "(label as do, value as code) and a note says so.")
+BRIEF_SENTENCE = ("Put what you would have told the owner in chat in `brief`: Markdown, up to 8000 characters, "
+                  "with the why, the context and the links you used. Hook shows it as Background, and Ask about "
+                  "this answers the owner's questions from it. A correction sends it again. On a Pond without "
+                  "the brief feature the ask goes without it and a note says so.")
 FILES_SENTENCE = ("When the owner should read a document, write it as a Markdown file and point to it with "
                   "`file` on a step or sub-step (not verify), or with a link that has `path` instead of `url`: "
                   "an absolute path (/... or ~/...) on the owner's Mac, which Hook opens rendered. Keep `do` to "
@@ -59,7 +63,7 @@ FILES_SENTENCE = ("When the owner should read a document, write it as a Markdown
 
 
 AMEND_SENTENCE = ("Send the whole corrected instructable: keep every step's `id` and leave ids out only on new "
-                  "steps. Only the process that posted the ask holds its edit key. The owner reviews the change "
+                  "steps, and send the `brief` again (left out, it is removed). Only the process that posted the ask holds its edit key. The owner reviews the change "
                   "in Hook before acting on it.")
 APPEND_SENTENCE = ("Add steps to the end of an open ask you posted, after the owner's answer. Nothing the owner "
                    "saw changes, so there is no review. To change a step they saw, use relay amend. If the ask is "
@@ -108,7 +112,7 @@ def _parser(out: Any, err: Any, prog: str = "relay") -> argparse.ArgumentParser:
     post = sub.add_parser("post", help="post one instructable",
                           description=" ".join((SUBSTEPS_SENTENCE, QUESTIONS_SENTENCE, BLOCKING_SENTENCE,
                                                 OPTIONAL_SENTENCE, REQUIRED_SENTENCE, CHOICE_SENTENCE,
-                                                FIELDS_SENTENCE, FILES_SENTENCE)))
+                                                FIELDS_SENTENCE, BRIEF_SENTENCE, FILES_SENTENCE)))
     post.add_argument("project")
     post.add_argument("--json", dest="json_src", required=True, metavar="FILE|-",
                       help="the instructable, from a file or - for stdin")
@@ -371,7 +375,8 @@ def _read_instructable(src: str, stdin: Any) -> Dict[str, Any]:
 
 def print_notes(res: Dict[str, Any], err: Any) -> None:
     """One `note: <field> not copied to the Pond: <reason>` line on stderr per document Hook
-    could not copy (relay_docs), and per step whose fields went as sub-steps (relay_fields); then
+    could not copy (relay_docs), per step whose fields went as sub-steps (relay_fields), and when
+    a Pond without the brief feature got the ask without its brief; then
     one `hint: <path>: <advice>` line per relay_lint hint, which never stops the ask."""
     notes = res.get("notes") if isinstance(res.get("notes"), list) else []
     for line in notes:

@@ -24,7 +24,7 @@ if _CLIENTS not in sys.path:
     sys.path.insert(0, _CLIENTS)
 
 import relay_client  # noqa: E402
-from relay_cli import (AMEND_SENTENCE, BLOCKING_SENTENCE, CHOICE_SENTENCE, FIELDS_SENTENCE,  # noqa: E402
+from relay_cli import (AMEND_SENTENCE, BLOCKING_SENTENCE, BRIEF_SENTENCE, CHOICE_SENTENCE, FIELDS_SENTENCE,  # noqa: E402
                        FILES_SENTENCE, OPTIONAL_SENTENCE, QUESTIONS_SENTENCE, REQUIRED_SENTENCE, SUBSTEPS_SENTENCE, answers_json,
                        bug_count, is_editable, owner_events_json, resolved_by, revision_json)
 
@@ -268,7 +268,8 @@ REFRESH_DOCS_SCHEMA = {
 }
 NOTES_SENTENCE = ("notes lists each document Hook could not copy to the Pond, one line each "
                   "(\"steps[2].file not copied to the Pond: <reason>\"); the ask is sent with the path alone. "
-                  "It also says when a step's fields were sent as sub-steps. hints lists advice that didn't "
+                  "It also says when a step's fields were sent as sub-steps, and when the Pond can't take a "
+                  "brief, so the ask went without it. hints lists advice that didn't "
                   "stop the ask, such as settings in detail that read better as fields.")
 
 
@@ -343,7 +344,7 @@ def tool_list() -> list:
                             "Never include a secret value. " + SUBSTEPS_SENTENCE + " "
                             + QUESTIONS_SENTENCE + " " + BLOCKING_SENTENCE + " " + OPTIONAL_SENTENCE + " "
                             + REQUIRED_SENTENCE + " " + CHOICE_SENTENCE + " " + FIELDS_SENTENCE + " "
-                            + FILES_SENTENCE),
+                            + BRIEF_SENTENCE + " " + FILES_SENTENCE),
             "inputSchema": post_input_schema(),
         },
         {
