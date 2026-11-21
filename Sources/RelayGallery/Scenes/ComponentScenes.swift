@@ -349,12 +349,13 @@ let sampleVerify = StepContent(action: "Check the release folder exists", place:
 struct ReplySample: View {
     let text: String
     let state: ReplyBoxState
+    var retrying = false
     var showHeading = true
     @FocusState private var focused: Bool
 
     var body: some View {
         ReplyBox(prompt: "Paste the ticket ID from the tracker (starts with C)", text: .constant(text), state: state,
-                 showHeading: showHeading, isFocused: $focused, onSend: {}, onRetry: {})
+                 retrying: retrying, showHeading: showHeading, isFocused: $focused, onSend: {}, onRetry: {})
     }
 }
 
@@ -369,6 +370,7 @@ struct ReplySample: View {
         Sample("ReplyBox · empty") { ReplySample(text: "", state: .idle) },
         Sample("ReplyBox · typing") { ReplySample(text: "C0123ABCDEF", state: .idle) },
         Sample("ReplyBox · sending") { ReplySample(text: "C0123ABCDEF", state: .sending) },
+        Sample("ReplyBox · will retry") { ReplySample(text: "C0123ABCDEF", state: .sending, retrying: true) },
         Sample("ReplyBox · sent") { ReplySample(text: "", state: .sent(at: "09:40")) },
         Sample("ReplyBox · failed") { ReplySample(text: "C0123ABCDEF", state: .failed(reason: "The Pond didn't answer within 10 seconds.")) },
         Sample("ChoiceGroup · none picked") { choice(picked: nil, sent: [], latest: nil) },

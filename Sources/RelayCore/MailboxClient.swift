@@ -69,6 +69,27 @@ public struct MailboxClient: QueueSource {
         return URLSession(configuration: configuration)
     }()
 
+    /// The session for the owner's writes (every method but GET): 30 s, so a slow network
+    /// doesn't fail a reply the Pond would have taken. Background polls keep 10 s.
+    public static let defaultWriteSession: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.waitsForConnectivity = true
+        configuration.timeoutIntervalForRequest = writeTimeout
+        configuration.timeoutIntervalForResource = writeTimeout + 2
+        configuration.urlCache = nil
+        configuration.httpCookieStorage = nil
+        configuration.urlCredentialStorage = nil
+        return URLSession(configuration: configuration)
+    }()
+
+    public static let pollTimeout: TimeInterval = 10
+    public static let writeTimeout: TimeInterval = 30
+
+    /// A GET is a poll or a read (10 s); anything else is a write the owner started (30 s).
+    public static func timeout(for method: String) -> TimeInterval {
+        method == "GET" ? pollTimeout : writeTimeout
+    }
+
     /// What every request says this client reads: revision histories (Pond 1.1.0; without it a
     /// corrected ask is served as a stub), and from 6 choice objects (Pond 1.4.0; below 6 an ask
     /// with one is served with labels only).
@@ -79,6 +100,13 @@ public struct MailboxClient: QueueSource {
 
     public let settings: MailboxSettings
     private let session: URLSession
+    private let writeSession: URLSession
+    /// The Mac's retry of a write that failed on the network; nil sends each write once.
+    private let retry: PondRetryPolicy?
+    /// The newest event per ask this client read, the baseline of a "maybe sent" check.
+    private let seen = SeenEvents()
+    /// Told how each request ended (an HTTP answer or a URLError code), for `LocalNetworkGate`.
+    private let onOutcome: (@Sendable (PondOutcome) -> Void)?
     /// This client's last logged failure, so a Pond that stays down is logged once, not on every poll.
     private let failures = FailureLog()
     /// Read on each owner act, never stored: it returns this Mac's key only while the Pond
@@ -91,8 +119,10 @@ public struct MailboxClient: QueueSource {
     private let transport: (@Sendable (URLRequest) async throws -> (Data, URLResponse))?
 
     public init(settings: MailboxSettings, session: URLSession = MailboxClient.defaultSession,
-                ownerKey: (@Sendable () async -> String?)? = nil) {
-        self.init(settings: settings, session: session, tokenSource: nil, ownerKey: ownerKey)
+                ownerKey: (@Sendable () async -> String?)? = nil, retry: PondRetryPolicy? = nil,
+                onOutcome: (@Sendable (PondOutcome) -> Void)? = nil) {
+        self.init(settings: settings, session: session, tokenSource: nil, ownerKey: ownerKey, retry: retry,
+                  onOutcome: onOutcome)
     }
 
     /// An injected source defaults to HTTPS. FileTokenSource retains legacy HTTP support.
@@ -102,9 +132,15 @@ public struct MailboxClient: QueueSource {
                 tokenSource: (any TokenSource)?, ownerKey: (@Sendable () async throws -> String?)? = nil,
                 keychain: KeychainQueue = .shared,
                 ownerStatusKey: (@Sendable () async throws -> String?)? = nil,
-                transport: (@Sendable (URLRequest) async throws -> (Data, URLResponse))? = nil) {
+                transport: (@Sendable (URLRequest) async throws -> (Data, URLResponse))? = nil,
+                writeSession: URLSession? = nil, retry: PondRetryPolicy? = nil,
+                onOutcome: (@Sendable (PondOutcome) -> Void)? = nil) {
+        self.onOutcome = onOutcome
         self.settings = settings
         self.session = session
+        // An injected session carries the writes too, unless a write session is given.
+        self.writeSession = writeSession ?? (session === MailboxClient.defaultSession ? MailboxClient.defaultWriteSession : session)
+        self.retry = retry
         self.ownerKey = ownerKey
         self.tokenSource = tokenSource ?? FileTokenSource(path: settings.tokenFile)
         self.keychain = keychain
@@ -127,12 +163,15 @@ public struct MailboxClient: QueueSource {
     }
 
     public func get(_ id: String) async throws -> AskDetail {
-        try await send("GET", "asks/\(id)")
+        let detail: AskDetail = try await send("GET", "asks/\(id)")
+        seen.note(detail)
+        return detail
     }
 
+    /// The Pond dedupes a post by context and title, so a resend can't make a second ask.
     public func post(project: String, instructable: Data) async throws -> PostResult {
         let body = Self.postBody(project: project, context: settings.context, instructable: instructable)
-        return try await send("POST", "asks", body: body)
+        return try await send("POST", "asks", body: body, write: .resend)
     }
 
     /// Done or Skip from Hook: always `actor: "owner"`.
@@ -146,7 +185,7 @@ public struct MailboxClient: QueueSource {
         let body = Self.postBody(project: project, context: settings.context, instructable: instructable,
                                  extra: ["kind": "bug", "signature": signature])
         do {
-            let response: BugPostResponse = try await send("POST", "asks", body: body, owner: true)
+            let response: BugPostResponse = try await send("POST", "asks", body: body, owner: true, write: .resend)
             return response.result
         } catch QueueError.rejected(403, "owner key required", _) {
             throw QueueError.ownerKeyRefused
@@ -160,13 +199,15 @@ public struct MailboxClient: QueueSource {
         if let note { body["note"] = .string(note) }
         Self.add(stamp, to: &body)
         let response: ItemResponse = try await send("POST", "asks/\(id)/resolve", body: JSONValue.object(body).data(),
-                                                    owner: true)
+                                                    owner: true,
+                                                    write: .check(id, .status(verdict == .done ? "done" : "dismissed")))
         return response.item
     }
 
     public func reply(_ id: String, text: String) async throws -> WireItem {
-        let response: ItemResponse = try await send("POST", "asks/\(id)/reply", body: Self.encode(["text": text]),
-                                                    owner: true)
+        let response: ItemResponse = try await send(
+            "POST", "asks/\(id)/reply", body: Self.encode(["text": text]), owner: true,
+            write: .check(id, .event(kind: "reply", text: text.trimmingCharacters(in: .whitespacesAndNewlines))))
         return response.item
     }
 
@@ -175,7 +216,8 @@ public struct MailboxClient: QueueSource {
     /// text 400 (`MessageText.refusal` words both).
     public func message(_ id: String, text: String) async throws -> WireItem {
         let response: ItemResponse = try await send("POST", "asks/\(id)/reply",
-                                                    body: Self.encode(["text": text, "kind": "message"]), owner: true)
+                                                    body: Self.encode(["text": text, "kind": "message"]), owner: true,
+                                                    write: .check(id, .event(kind: "message", text: text)))
         return response.item
     }
 
@@ -186,7 +228,7 @@ public struct MailboxClient: QueueSource {
                                          "untick": .array(untick.map(JSONValue.string))]
         Self.add(stamp, to: &body)
         let response: ItemResponse = try await send("POST", "asks/\(id)/progress", body: JSONValue.object(body).data(),
-                                                    owner: true)
+                                                    owner: true, write: .resend)
         return response.item
     }
 
@@ -202,7 +244,7 @@ public struct MailboxClient: QueueSource {
         Self.add(stamp, to: &body)
         do {
             let response: ItemResponse = try await send("POST", "asks/\(id)/answers", body: JSONValue.object(body).data(),
-                                                        owner: true)
+                                                        owner: true, write: .resend)
             return response.item
         } catch QueueError.rejected(let status, _, _) where status == 409 {
             throw QueueError.askClosed
@@ -213,7 +255,7 @@ public struct MailboxClient: QueueSource {
     /// ask unchanged.
     public func reopen(_ id: String) async throws -> WireItem {
         let response: ItemResponse = try await send("POST", "asks/\(id)/reopen", body: Self.encode(["actor": "owner"]),
-                                                    owner: true)
+                                                    owner: true, write: .resend)
         return response.item
     }
 
@@ -222,7 +264,7 @@ public struct MailboxClient: QueueSource {
         var body: [String: JSONValue] = [:]
         Self.add(stamp, to: &body)
         let response: ItemResponse = try await send("POST", "asks/\(id)/accept", body: JSONValue.object(body).data(),
-                                                    owner: true)
+                                                    owner: true, write: .resend)
         return response.item
     }
 
@@ -232,7 +274,7 @@ public struct MailboxClient: QueueSource {
         var body: [String: JSONValue] = ["step": .string(stepID), "note": .string(note)]
         Self.add(stamp, to: &body)
         let response: ItemResponse = try await send("POST", "asks/\(id)/problems", body: JSONValue.object(body).data(),
-                                                    owner: true)
+                                                    owner: true, write: .check(id, .problem(stepID: stepID, note: note)))
         return response.item
     }
 
@@ -348,37 +390,120 @@ public struct MailboxClient: QueueSource {
             ?? Data("{}".utf8)
     }
 
+    /// How an owner's write may be retried after a network failure (`PondRetryPolicy`).
+    enum Write {
+        /// Resending changes nothing the owner or the session sees.
+        case resend
+        /// Read the ask `id` and look for the write before any resend.
+        case check(String, WriteLanding)
+
+        var askID: String? { if case .check(let id, _) = self { return id } else { return nil } }
+        var landing: WriteLanding { if case .check(_, let landing) = self { return landing } else { return .resend } }
+    }
+
     /// `perform`, with a failure written to Hook's log as `error type=Pond status=… route=…`:
     /// the route is `path` cut to its template, and the message is a fixed phrase, a Pond
     /// error phrase or a URLError code, never an id, a title, the host or the token. A status
-    /// in `expected` is an answer the caller handles, not a failure.
+    /// in `expected` is an answer the caller handles, not a failure. A transport failure is
+    /// followed by a `timing` line.
+    ///
+    /// With a retry policy, a `write` that failed on the network waits and goes again: at
+    /// once when it never left this Mac, and after reading the ask when it may have reached
+    /// the Pond, so a reply or a message the Pond already has is never sent twice. A refusal
+    /// (any 4xx) is final.
     private func send<T: Decodable>(
         _ method: String,
         _ path: String,
         query: [URLQueryItem] = [],
         body: Data? = nil,
         owner: Bool = false,
-        expected: Set<Int> = []
+        expected: Set<Int> = [],
+        write: Write? = nil
     ) async throws -> T {
-        do {
-            let value: T = try await perform(method, path, query: query, body: body, owner: owner)
-            failures.clear()
-            return value
-        } catch let failure as Transport {
-            if let text = failure.logText { log(status: nil, path: path, message: text) }
-            throw failure.error
-        } catch let error as QueueError {
-            let (status, message) = Self.logged(error)
-            if let status, expected.contains(status) { throw error }
-            log(status: status, path: path, message: message)
-            throw error
+        let clock = ContinuousClock()
+        let began = clock.now
+        let startDate = Date()
+        let baseline = write?.askID.flatMap(seen.baseline)
+        var retries = 0
+        var waiting = false
+        var needsCheck = false
+        var lastError = QueueError.unreachable("the request failed")
+        func finish() { if waiting, let retry { retry.onWaiting(write?.askID, false) } }
+
+        while true {
+            if needsCheck, let id = write?.askID {
+                needsCheck = false
+                if let detail: AskDetail = try? await perform("GET", "asks/\(id)", query: [], body: nil, owner: false) {
+                    seen.note(detail)
+                    if write?.landing.landed(in: detail, after: baseline, since: startDate) == true,
+                       let found = Self.landedValue(T.self, detail) {
+                        HookLog.error("Pond", "write already on the Pond; not resent", route: path)
+                        failures.clear()
+                        finish()
+                        return found
+                    }
+                } else {
+                    // The ask couldn't be read, so whether the write landed is still unknown.
+                    guard let retry, retries < retry.delays.count, clock.now - began < retry.deadline else {
+                        finish(); throw lastError
+                    }
+                    if !waiting { waiting = true; retry.onWaiting(write?.askID, true) }
+                    do { try await retry.sleep(retry.delays[retries]) } catch { finish(); throw lastError }
+                    retries += 1
+                    needsCheck = true
+                    continue
+                }
+            }
+
+            let certainty: DeliveryCertainty?
+            do {
+                let value: T = try await perform(method, path, query: query, body: body, owner: owner)
+                failures.clear()
+                finish()
+                return value
+            } catch let failure as Transport {
+                if let text = failure.logText {
+                    log(status: nil, path: path, message: text, force: method != "GET",
+                        timing: (method, retries + 1, failure.timing))
+                }
+                certainty = failure.certainty
+                lastError = failure.error
+            } catch let error as QueueError {
+                let (status, message) = Self.logged(error)
+                if let status, expected.contains(status) { finish(); throw error }
+                log(status: status, path: path, message: message, force: method != "GET", timing: nil)
+                certainty = status.flatMap(PondRetryPolicy.certainty(forStatus:))
+                lastError = error
+            } catch {
+                finish()
+                throw error
+            }
+
+            guard let retry, let write, let certainty, retries < retry.delays.count,
+                  clock.now - began < retry.deadline, !Task.isCancelled else {
+                finish(); throw lastError
+            }
+            if certainty == .maybeSent, case .check = write { needsCheck = true }
+            if !waiting { waiting = true; retry.onWaiting(write.askID, true) }
+            do { try await retry.sleep(retry.delays[retries]) } catch { finish(); throw lastError }
+            retries += 1
         }
     }
 
-    private func log(status: Int?, path: String, message: String) {
+    /// The answer a write would have had, built from the ask that already holds it.
+    private static func landedValue<T>(_ type: T.Type, _ detail: AskDetail) -> T? {
+        ItemResponse(item: detail.item) as? T
+    }
+
+    private func log(status: Int?, path: String, message: String, force: Bool,
+                     timing: (method: String, attempt: Int, timing: PondTiming?)?) {
         let route = RouteTemplate.template(path)
-        guard failures.isNew("\(status.map(String.init) ?? "-") \(route) \(message)") else { return }
+        guard failures.isNew("\(status.map(String.init) ?? "-") \(route) \(message)") || force else { return }
         HookLog.error("Pond", message, status: status, route: route)
+        if let timing, let metrics = timing.timing {
+            HookLog.record(.timing(type: "Pond", method: timing.method, route: route, attempt: timing.attempt,
+                                   timeout: Int(Self.timeout(for: timing.method)), timing: metrics))
+        }
     }
 
     /// The status and the log text for a failure. A Pond's own error is kept only when it is a
@@ -405,6 +530,9 @@ public struct MailboxClient: QueueSource {
     private struct Transport: Error {
         let error: QueueError
         let logText: String?
+        /// nil: a resend can't help.
+        var certainty: DeliveryCertainty? = nil
+        var timing: PondTiming? = nil
     }
 
     private func perform<T: Decodable>(
@@ -437,7 +565,9 @@ public struct MailboxClient: QueueSource {
         if revokingOwnerKey { try Task.checkCancellation() }
         var request = URLRequest(url: url)
         request.httpMethod = method
-        request.timeoutInterval = 10
+        request.timeoutInterval = Self.timeout(for: method)
+        // The Pond serves HTTP/1.1 and HTTP/2 only: never try QUIC first.
+        request.assumesHTTP3Capable = false
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue(Self.clientProtocol, forHTTPHeaderField: Self.protocolHeader)
         // Never over plain http to another host, whatever the provider says.
@@ -464,21 +594,27 @@ public struct MailboxClient: QueueSource {
         // above may ignore cancellation, so fence the destructive request at dispatch.
         if revokingOwnerKey { try Task.checkCancellation() }
         let result: (Data, URLResponse)
-        if let transport {
-            result = try await transport(request)
-        } else {
-            do {
-                result = try await session.data(for: request, delegate: NoRedirectDelegate.shared)
-            } catch let error as URLError {
-                // Retain safe underlying codes, never descriptions, URLs or userInfo
-                // text. A request cancelled by a source swap is no outage.
-                throw Transport(error: .unreachable(PondTransportDiagnostics.message(for: error)),
-                                logText: PondTransportDiagnostics.logMessage(for: error))
-            } catch {
-                throw QueueError.unreachable("the request failed")
+        let delegate = PondTaskDelegate()
+        do {
+            if let transport {
+                result = try await transport(request)
+            } else {
+                result = try await (method == "GET" ? session : writeSession).data(for: request, delegate: delegate)
             }
+        } catch let error as URLError {
+            // Retain safe underlying codes, never descriptions, URLs or userInfo
+            // text. A request cancelled by a source swap is no outage.
+            if error.code != .cancelled { onOutcome?(.failed(error.code)) }
+            let timing = transport == nil ? await delegate.awaitTiming() : nil
+            throw Transport(error: .unreachable(PondTransportDiagnostics.message(for: error)),
+                            logText: PondTransportDiagnostics.logMessage(for: error),
+                            certainty: PondRetryPolicy.certainty(for: error, timing: timing), timing: timing)
+        } catch {
+            if transport != nil { throw error }
+            throw QueueError.unreachable("the request failed")
         }
         let (data, response) = result
+        onOutcome?(.answered)
         guard let http = response as? HTTPURLResponse else {
             throw QueueError.unreachable("bad response from the Pond")
         }

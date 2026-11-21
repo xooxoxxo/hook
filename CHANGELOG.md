@@ -3,7 +3,7 @@
 All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
-## [Unreleased]
+## [0.18.0] - 2026-11-21
 
 ### Added
 
@@ -18,6 +18,11 @@ and versions follow Semantic Versioning.
 - A long Notice folds to a short line with Details. Open, it shows the whole text at full width, with its buttons on their own row, so a wide button no longer squeezes the text into a narrow column.
 - The Notice for a review key Hook can't read says in plain words what happened and what it locks. Try Again asks macOS for the key again. Start Over… (formerly Reset Review Records…) first says what you lose, then asks for Touch ID.
 - Owner key setup explains the Pond's refusals: when the Pond has no free slot, it says to revoke a device you no longer use, then set up again.
+
+### Fixed
+
+- A reply, message or other owner act that fails on a slow network is retried automatically instead of showing an error, and is never sent twice. Sends wait up to 30 seconds, and a failed request logs its timing in `hook.log`.
+- Hook says when macOS Local Network privacy may be keeping it from a Pond on your network, with a button to the setting.
 
 <!-- hook:pond=^1.1.0 -->
 <!-- hook:mailbox-protocol=5 -->

@@ -169,6 +169,12 @@ func pastedLog(_ count: Int) -> String {
     messageScene("detail-messages-with-reply-prompt-closed", messageSnapshot(reply: true)),
     messageScene("detail-messages-refused", messageSnapshot(state: .failed(MessageText.secretRefused)),
                  draft: "The new key is in the vault under deploy, version 2."),
+    // A send that failed on the network waits for Hook's retry: no error, the field says so.
+    messageScene("detail-messages-retrying", {
+        var snapshot = messageSnapshot(thread: true, state: .sending)
+        snapshot.sendRetrying = true
+        return snapshot
+    }(), draft: "Deleting it now. Tell me if the queue starts moving."),
     messageScene("detail-messages-closed", messageSnapshot(thread: true, closed: true)),
     // 0.14 on Pond 1.4.0: past 80 % of 8000 the counter shows; over it the caption says how
     // much to trim and Send is off. The field grows to 8 lines, then scrolls.

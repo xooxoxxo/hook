@@ -248,9 +248,10 @@ class ReadingDocumentsDocTests(unittest.TestCase):
         skill = words(read(ROOT / "skill" / "instructables" / "SKILL.md"))
         for phrase in ("To hand work over, name the ask id", "relay docs <id> get <n>", "relay docs <id> release"):
             self.assertIn(phrase, skill)
-        unreleased = read(ROOT / "CHANGELOG.md").split("\n## [Unreleased]\n", 1)[1].split("\n## [", 1)[0]
+        sections = read(ROOT / "CHANGELOG.md").split("\n## [")[1:]
+        release = next(s for s in sections if s.startswith("0.18.0]"))
         for name in ("relay docs <id> release", "relay_docs", "relay_doc", "relay_docs_release"):
-            self.assertIn(name, unreleased)
+            self.assertIn(name, release)
 
 
 class ChangelogTests(unittest.TestCase):

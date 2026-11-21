@@ -33,7 +33,7 @@ from relay_docs import (DOCS_FEATURE, MAX_DOC_BYTES, attach_docs, doc_list, fit_
                         held_hashes, reapply, retry_without, strip_docs)
 from relay_lint import lint_details, lint_instructable  # noqa: F401  (re-exported)
 
-VERSION = "0.17.0"
+VERSION = "0.18.0"
 DEFAULT_CONFIG = "~/.config/relay/config.json"
 DEFAULT_PORT = 47823
 DEFAULT_CONTEXT = "personal"

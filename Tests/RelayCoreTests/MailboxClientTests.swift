@@ -866,7 +866,10 @@ private struct MessageVectors {
         let host = "mbx-" + UUID().uuidString.lowercased() + ".test"   // no handler: the stub fails the load
         let (client, _) = try makeClient(host: host) { _, _ in throw URLError(.cannotFindHost) }
         let lines = try await logged { _ = try await client.list() }
-        #expect(lines == [#"error type=Pond route=asks message="request failed (URLError -1003)""#])
+        // The error line, then the request's timing (0.18): numbers and labels, no host.
+        #expect(lines.first == #"error type=Pond route=asks message="request failed (URLError -1003)""#)
+        #expect(lines.count == 2)
+        #expect(lines.last?.hasPrefix("timing type=Pond method=GET route=asks attempt=1 timeout=10s ") == true)
         #expect(!lines.joined().contains(host))
     }
 
@@ -892,7 +895,8 @@ private struct MessageVectors {
         }
         let lines = try await logged { _ = try await client.list() }
         let line = try #require(lines.first)
-        #expect(lines.count == 1)
+        #expect(lines.count == 2)   // and its timing line
+        #expect(!lines.joined().contains("private-endpoint") && !lines.joined().contains("tok-example"))
         #expect(line.contains("network=constrained"))
         #expect(line.contains("CFNetwork(-1009)"))
         #expect(line.contains("POSIX(50)"))

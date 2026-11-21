@@ -27,6 +27,11 @@ public enum HookLog {
         case diagnostic(kind: String, detail: String)
         /// Away mode changed; the reason is one of `PresenceLogic`'s phrases.
         case presence(PresenceState, reason: String)
+        /// A failed Pond request's timing (new in 0.18), right after its error line: numbers and
+        /// fixed labels only. `route` is cut to its template.
+        case timing(type: String, method: String, route: String, attempt: Int, timeout: Int, timing: PondTiming)
+        /// A Pond on the local network that macOS may be keeping Hook from (Local Network privacy).
+        case localNetwork(blocked: Bool, reason: String)
     }
 
     public enum Screen: String, Sendable, CaseIterable {
@@ -203,6 +208,12 @@ extension HookLog.Event {
             return "diagnostic \(Self.safe(kind)) \(Self.quoted(detail, home: home, user: user))"
         case .presence(let state, let reason):
             return "presence \(state.rawValue) reason=\(Self.quoted(reason, home: home, user: user))"
+        case .timing(let type, let method, let route, let attempt, let timeout, let timing):
+            return "timing type=\(Self.safe(type)) method=\(Self.safe(method)) "
+                + "route=\(Self.safe(RouteTemplate.template(route), extra: "{}/")) attempt=\(attempt) timeout=\(timeout)s "
+                + timing.fields
+        case .localNetwork(let blocked, let reason):
+            return "local-network blocked=\(blocked) reason=\(Self.quoted(reason, home: home, user: user))"
         }
     }
 

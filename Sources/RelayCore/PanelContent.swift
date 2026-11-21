@@ -75,6 +75,13 @@ public enum PanelNotice: Equatable, Sendable {
     /// The Pond refused the owner's Done with 409 requirements_unmet (Pond 1.3.0). It names no
     /// item (pick 1); Show opens the ask, whose marks say what's left.
     case doneRefused(id: String, title: String)
+    /// Pond requests to a local-network address keep failing while the Mac is online: most
+    /// likely macOS's Local Network privacy (`LocalNetworkGate`). Open System Settings opens the pane.
+    case localNetworkBlocked
+
+    /// System Settings › Privacy & Security › Local Network.
+    public static let localNetworkSettingsURL =
+        URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_LocalNetwork")!
 
     /// The open ask this Notice is about, when it belongs to that ask's detail: it goes when
     /// the owner leaves the ask and never shows on the queue.
@@ -105,7 +112,7 @@ public enum PanelNotice: Equatable, Sendable {
         switch self {
         case .deliveryFailed, .actionFailed, .reopenFailed, .storeFailed, .queueMoved, .resumeFailed, .pondOlder,
              .mailboxUpdateFailed, .mailboxUpdateCommandInvalid, .ownerKeyRefused, .historyChanged, .acceptFailed,
-             .reviewRecordsChanged, .reviewRecordsUnreadable: return .error
+             .reviewRecordsChanged, .reviewRecordsUnreadable, .localNetworkBlocked: return .error
         case .settingsReloaded, .sessionClosed, .noLongerOpen, .offlineCached, .updating, .hookOlder,
              .mailboxUpToDate, .corrected, .doneHeldBack, .crashReport, .newAgents, .doneRefused: return .info
         }
@@ -166,6 +173,9 @@ public enum PanelNotice: Equatable, Sendable {
             return message
         case .newAgents(_, let names):
             return IntegrationNotice.text(names: names.map(Sanitize.revealLine))
+        case .localNetworkBlocked:
+            return "Hook can't reach your Pond on the local network. "
+                + "Allow Hook in System Settings › Privacy & Security › Local Network."
         case let .acceptFailed(_, title, reason):
             return "The Pond didn't take your review of “\(Sanitize.revealLine(title))” yet: "
                 + "\(UserFacingError.text(reason)) Hook sends it again before Done or answers."
@@ -186,6 +196,7 @@ public enum PanelNotice: Equatable, Sendable {
         case .newAgents: return "Open Settings"
         case .doneRefused: return "Show"
         case .reviewRecordsUnreadable: return "Try Again"
+        case .localNetworkBlocked: return "Open System Settings"
         case .deliveryFailed, .storeFailed, .settingsReloaded, .updating, .resumeFailed, .mailboxUpToDate, .mailboxUpdateFailed,
              .mailboxUpdateCommandInvalid, .ownerKeyRefused, .reviewRecordsChanged,
              .doneHeldBack, .acceptFailed, .crashReport:
@@ -248,7 +259,7 @@ public enum PanelNotice: Equatable, Sendable {
             return "“\(Sanitize.revealLine(title))” isn't finished yet."
         case .deliveryFailed, .settingsReloaded, .sessionClosed, .noLongerOpen, .offlineCached, .updating, .pondOlder,
              .hookOlder, .mailboxUpToDate, .ownerKeyRefused, .corrected, .reviewRecordsChanged, .doneHeldBack,
-             .crashReport, .newAgents:
+             .crashReport, .newAgents, .localNetworkBlocked:
             return nil
         }
     }

@@ -57,6 +57,20 @@ private let plain = [item("a", created: stamp(minutesAgo: 10)), item("b", create
         #expect(store.replyStates["a"] == .failed(reason: "timed out"))
     }
 
+    @Test func aSendWaitingForItsRetryShowsInTheDetailUntilItEnds() async {
+        let defaults = TestDefaults()
+        defer { defaults.drop() }
+        let store = Store(defaults: defaults.defaults)
+        await start(store, FakeQueueSource(items: plain))
+        store.sendRetrying("a", waiting: true)
+        #expect(store.detail("a")?.sendRetrying == true)
+        #expect(store.detail("b")?.sendRetrying == false)
+        store.sendRetrying("a", waiting: false)
+        #expect(store.detail("a")?.sendRetrying == false)
+        store.sendRetrying(nil, waiting: true)
+        #expect(store.retryingSends.isEmpty)
+    }
+
     @Test func aReplyThatFailsToSaveShowsInTheReplyBoxOnly() async {
         let defaults = TestDefaults()
         defer { defaults.drop() }

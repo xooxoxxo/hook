@@ -9,6 +9,8 @@ public struct ReplyBox: View {
     let prompt: String
     let text: Binding<String>
     let state: ReplyBoxState
+    /// The send failed on the network and waits for Hook's retry.
+    let retrying: Bool
     let showHeading: Bool
     let isFocused: FocusState<Bool>.Binding
     /// The latest sent text (a Change prefill): sending it again is off.
@@ -18,12 +20,13 @@ public struct ReplyBox: View {
     let onSend: () -> Void
     let onRetry: () -> Void
 
-    public init(prompt: String, text: Binding<String>, state: ReplyBoxState, showHeading: Bool = true,
+    public init(prompt: String, text: Binding<String>, state: ReplyBoxState, retrying: Bool = false, showHeading: Bool = true,
                 isFocused: FocusState<Bool>.Binding, sentText: String? = nil, onCancel: (() -> Void)? = nil,
                 onSend: @escaping () -> Void, onRetry: @escaping () -> Void) {
         self.prompt = prompt
         self.text = text
         self.state = state
+        self.retrying = retrying
         self.showHeading = showHeading
         self.isFocused = isFocused
         self.sentText = sentText
@@ -75,6 +78,10 @@ public struct ReplyBox: View {
                 .font(DS.Font.caption)
                 .foregroundStyle(DS.Color.error)
                 .fixedSize(horizontal: false, vertical: true)
+        case .sending where retrying:
+            Text(MessageText.willRetry)
+                .font(DS.Font.caption)
+                .foregroundStyle(DS.Color.secondary)
         case .idle, .sending:
             Text(Self.caption(state))
                 .font(DS.Font.caption)

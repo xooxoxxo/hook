@@ -10,14 +10,17 @@ public struct MessageBox: View {
     let text: Binding<String>
     let limits: TalkLimits
     let state: MessageBoxState
+    /// The send failed on the network and waits for Hook's retry.
+    let retrying: Bool
     let isFocused: FocusState<Bool>.Binding
     let onSend: () -> Void
 
-    public init(text: Binding<String>, limits: TalkLimits, state: MessageBoxState, isFocused: FocusState<Bool>.Binding,
-                onSend: @escaping () -> Void) {
+    public init(text: Binding<String>, limits: TalkLimits, state: MessageBoxState, retrying: Bool = false,
+                isFocused: FocusState<Bool>.Binding, onSend: @escaping () -> Void) {
         self.text = text
         self.limits = limits
         self.state = state
+        self.retrying = retrying
         self.isFocused = isFocused
         self.onSend = onSend
     }
@@ -43,7 +46,11 @@ public struct MessageBox: View {
     }
 
     @ViewBuilder private var caption: some View {
-        if case .failed(let reason) = state {
+        if state == .sending, retrying {
+            Text(MessageText.willRetry)
+                .font(DS.Font.caption)
+                .foregroundStyle(DS.Color.secondary)
+        } else if case .failed(let reason) = state {
             Text(line(reason))
                 .font(DS.Font.caption)
                 .foregroundStyle(DS.Color.errorText)

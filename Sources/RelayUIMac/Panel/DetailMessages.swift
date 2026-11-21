@@ -92,7 +92,8 @@ struct DetailMessages<Model: PanelViewModel>: View {
     }
 
     private var box: some View {
-        MessageBox(text: draft, limits: snapshot.limits, state: snapshot.message, isFocused: $focused,
+        MessageBox(text: draft, limits: snapshot.limits, state: snapshot.message,
+                   retrying: snapshot.sendRetrying, isFocused: $focused,
                    onSend: { model.sendMessage(snapshot.id, text: model.messageDrafts[snapshot.id] ?? "") })
     }
 }

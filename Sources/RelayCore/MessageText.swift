@@ -22,6 +22,8 @@ public enum MessageText {
     /// The queue row's menu item.
     public static let menuTitle = "Message Session…"
     public static let caption = "⌘Return to send"
+    /// While a failed send waits for its retry (reply and message fields).
+    public static let willRetry = "Not sent yet. Hook will try again."
     public static let secretRefused = "The Pond refused the message: it looks like a secret."
     public static let closed = "This ask is closed, so the session won't get messages any more."
     public static let tooMany = "This ask has had \(maxMessages) messages already."
