@@ -5,6 +5,10 @@ and versions follow Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- A step's `fields`, a settings table of label and value rows for form settings and config values: `relay post`, `relay amend`, `relay append` and the MCP tools send it to a Pond that lists `fields`, send each row as a sub-step to an older one with a note, and hint when a `detail` lists three or more settings.
+
 ### Changed
 
 - An approval that already reaches the owner through its own prompt (a Telegram bot such as an SSH lease or cert request, a 2FA push, a system dialog) is no longer a Hook ask: the agent instructions and the instructables skill say to mention it in one chat line at most, and `relay post` refuses an ask whose every required step only says to approve, confirm, tap or accept such a prompt.

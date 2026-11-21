@@ -7,7 +7,7 @@ from pathlib import Path
 
 SCHEMA = json.loads((Path(__file__).resolve().parent.parent / "schema" / "instructable.v1.json").read_text("utf-8"))
 VERIFY_KEYS = {"do", "where", "code", "lang", "expect", "detail", "url"}
-LEAF_KEYS = VERIFY_KEYS | {"question", "blocking", "warning", "optional", "required", "file", "doc", "id"}
+LEAF_KEYS = VERIFY_KEYS | {"question", "blocking", "warning", "optional", "required", "file", "doc", "id", "fields"}
 ID_PATTERN = "^[a-z0-9][a-z0-9.-]{0,23}$"
 
 
@@ -78,6 +78,36 @@ class SchemaTest(unittest.TestCase):
         self.assertEqual(link["required"], ["label"])
         self.assertEqual(link["properties"]["path"], {"$ref": "#/$defs/localPath"})
         self.assertEqual(link["oneOf"], [{"required": ["url"]}, {"required": ["path"]}])
+
+    def test_fields_is_a_table_of_rows_on_steps_and_leaves_never_on_verify(self):
+        import relay_jsonschema
+        for name in ("step", "leaf"):
+            self.assertEqual(SCHEMA["$defs"][name]["properties"]["fields"], {"$ref": "#/$defs/fields"})
+        self.assertNotIn("fields", SCHEMA["$defs"]["verify"]["properties"])
+        fields = SCHEMA["$defs"]["fields"]
+        self.assertEqual((fields["type"], fields["minItems"], fields["maxItems"]), ("array", 1, 20))
+        row = fields["items"]
+        self.assertEqual((row["required"], row["additionalProperties"]), (["label", "value"], False))
+        self.assertEqual(set(row["properties"]), {"label", "value", "copy"})
+        self.assertEqual(row["properties"]["label"]["maxLength"], 40)
+        self.assertEqual(row["properties"]["value"]["maxLength"], 500)
+        self.assertEqual(row["properties"]["copy"]["type"], "boolean")
+
+        def errors(rows, verify=False):
+            step = {"do": "Add the rule", "fields": rows}
+            ask = {"v": 1, "title": "Rule", "steps": [{"do": "Go"} if verify else step]}
+            if verify:
+                ask["verify"] = step
+            return relay_jsonschema.validate(ask, SCHEMA)
+
+        good = [{"label": "Name", "value": "requests-ip", "copy": True}, {"label": "Method", "value": "POST"}]
+        self.assertEqual(errors(good), [])
+        self.assertTrue(errors([]))
+        self.assertTrue(errors([{"label": "Name"}]))
+        self.assertTrue(errors([{"label": "Name", "value": "a\nb"}]))
+        self.assertTrue(errors([{"label": "Name", "value": "a", "note": "x"}]))
+        self.assertTrue(errors([{"label": "L" * 41, "value": "a"}]))
+        self.assertTrue(errors(good, verify=True))
 
     def test_doc_sits_beside_file_and_a_links_path_never_on_verify(self):
         import re

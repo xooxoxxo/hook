@@ -46,6 +46,11 @@ CHOICE_SENTENCE = ("A choice that needs the owner's words is an object {\"label\
                    "placeholder, at most 100 chars), never a label like \"Mix (reply what)\": the answer arrives "
                    "as \"choice: Mix · <words>\" or \"Mix · <words>\". Not in a multi question. Needs Pond 1.4.0; "
                    "on an older Pond use plain strings and say in the prompt what to write.")
+FIELDS_SENTENCE = ("A step or sub-step (not verify) can hold `fields`: 1 to 20 rows {label, value, copy}, "
+                   "shown as a settings table under `do`. Use it for form settings and config values instead of "
+                   "listing them in `detail`; `copy: true` adds a Copy button. Labels are unique in the step, "
+                   "values one line. On a Pond without the fields feature each row goes as a sub-step "
+                   "(label as do, value as code) and a note says so.")
 FILES_SENTENCE = ("When the owner should read a document, write it as a Markdown file and point to it with "
                   "`file` on a step or sub-step (not verify), or with a link that has `path` instead of `url`: "
                   "an absolute path (/... or ~/...) on the owner's Mac, which Hook opens rendered. Keep `do` to "
@@ -103,7 +108,7 @@ def _parser(out: Any, err: Any, prog: str = "relay") -> argparse.ArgumentParser:
     post = sub.add_parser("post", help="post one instructable",
                           description=" ".join((SUBSTEPS_SENTENCE, QUESTIONS_SENTENCE, BLOCKING_SENTENCE,
                                                 OPTIONAL_SENTENCE, REQUIRED_SENTENCE, CHOICE_SENTENCE,
-                                                FILES_SENTENCE)))
+                                                FIELDS_SENTENCE, FILES_SENTENCE)))
     post.add_argument("project")
     post.add_argument("--json", dest="json_src", required=True, metavar="FILE|-",
                       help="the instructable, from a file or - for stdin")
@@ -366,10 +371,14 @@ def _read_instructable(src: str, stdin: Any) -> Dict[str, Any]:
 
 def print_notes(res: Dict[str, Any], err: Any) -> None:
     """One `note: <field> not copied to the Pond: <reason>` line on stderr per document Hook
-    could not copy (relay_docs)."""
+    could not copy (relay_docs), and per step whose fields went as sub-steps (relay_fields); then
+    one `hint: <path>: <advice>` line per relay_lint hint, which never stops the ask."""
     notes = res.get("notes") if isinstance(res.get("notes"), list) else []
     for line in notes:
         err.write(f"note: {line}\n")
+    hints = res.get("hints") if isinstance(res.get("hints"), list) else []
+    for line in hints:
+        err.write(f"hint: {line}\n")
 
 
 def _cmd_post(args: argparse.Namespace, ctx: _Ctx) -> int:

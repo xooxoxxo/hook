@@ -157,6 +157,12 @@ The Swift core has no unknown-key check yet, so those cases, and the cases there
 
 `data/doc-stub-vectors.json` has the case shape of `data/stub-vectors.json`, for a reader that takes the `docs` feature (Pond 1.10.0). A reader without the feature skips it, and `doc` stays an unknown key for it. With the feature, `doc` is known on a step, a sub-step and a link, never on `verify`, when it is `null`, or when it is exactly `{"sha256": <64 lowercase hex>, "bytes": <a whole number from 1 to 262144>}` beside a `file` (step, sub-step) or a `path` (link) that is present and not `null`. Any other `doc` is an unknown key at the `doc` itself (`unknownKey:steps[0].doc`, never a path inside it), so the ask is an update stub. `93.0` is not a whole number here, as the Pond reads JSON. No implementation is its reference yet: its cases and their expectations are written by hand, every one with `"clients": ["android"]`, and each expectation agrees with the Pond's own check of that `doc`.
 
+## Settings tables
+
+`data/fields-vectors.json` covers a step's `fields` (the `fields` feature, Pond 1.13.0), recorded from the Pond's `gen_fields_vectors.py`. Its `instructable` cases have the shape of `doc-vectors.json`. Its `canonical`, `hash` and `amend` cases have the shapes of `revision-vectors.json`: the rows are part of the body and its hash, and a changed row names `fields` in the step's `changed` list.
+
+`data/fields-stub-vectors.json` has the case shape of `data/stub-vectors.json`, for a reader that takes the `fields` feature. With it, `fields` is known on a step and a sub-step, never on `verify`, when it is `null` or a list of 1 to 20 objects that each hold a string `label`, a string `value` and, optionally, a boolean `copy`. Any other `fields` is an unknown key at the `fields` itself (`unknownKey:steps[0].fields`). A reader without the feature skips the file. Its cases are written by hand, every one with `"clients": ["android"]`.
+
 ## Documents
 
 `data/doc-vectors.json` and `wire/doc-wire-vectors.json` cover documents on the Pond (the `docs` feature, Pond 1.10.0). Both are recorded from the Pond.

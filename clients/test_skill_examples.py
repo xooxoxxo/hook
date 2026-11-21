@@ -181,13 +181,17 @@ class SkillExampleTest(unittest.TestCase):
         self.assertEqual(relay_lint.lint_details({"v": 1, "title": "x", "steps": [after]}), [])
         self.assertIn("## One action", DOCS)
 
-    def test_the_form_example_is_one_sub_step_per_field(self):
+    def test_the_form_example_is_one_row_or_sub_step_per_field(self):
+        values = ["Ollama", "studio", "http://192.0.2.7:11434", "qwen2.5:14b-instruct"]
         for text in (SKILL, DOCS):
             _, steps = examples(text)
             form = next(ins["steps"][0] for ins in steps if "Add a reader" in ins["steps"][0]["do"])
             self.assertTrue(form["url"].startswith("https://"))
-            self.assertEqual([s.get("code") for s in form["substeps"]][:4],
-                             ["Ollama", "studio", "http://192.0.2.7:11434", "qwen2.5:14b-instruct"])
+            if text is SKILL:                          # the skill teaches the settings table
+                self.assertEqual([row["value"] for row in form["fields"]], values)
+            else:                                      # the format doc keeps the sub-step form
+                self.assertEqual([s.get("code") for s in form["substeps"]][:4], values)
+            self.assertEqual(relay_lint.lint_details({"v": 1, "title": "x", "steps": [form]}), [])
 
     def test_correction_example_keeps_ids_and_adds_one_new_step(self):
         full, _ = examples()

@@ -221,7 +221,7 @@ class RelayMcpTest(StubServerCase):
                 "v": 1, "title": "Check Node", "steps": [{"do": "Run it", "code": "node --version"}]}})
             self.assertFalse(post["isError"])
             self.assertEqual(post["structuredContent"], {"id": ITEM_ID, "openUrl": OPEN_URL, "deduped": False,
-                                                         "editable": False, "notes": []})
+                                                         "editable": False, "notes": [], "hints": []})
             self.assertEqual(POSTED[-1]["project"], "Acme")
             self.assertEqual(POSTED[-1]["context"], "work")
             self.assertEqual(POSTED[-1]["instructable"]["from"]["session"], "test-session")
@@ -604,7 +604,7 @@ class AmendToolTest(StubServerCase):
             self.assertEqual(amended["structuredContent"],
                              {"id": ITEM_ID, "rev": 2, "hash": H2, "changed": [{"id": "s1", "path": "1",
                                                                                 "fields": ["code"]}],
-                              "added": [], "removed": [], "moved": [], "top": [], "openUrl": None, "notes": []})
+                              "added": [], "removed": [], "moved": [], "top": [], "openUrl": None, "notes": [], "hints": []})
             self.assertNotIn(record["key"], json.dumps(amended))
             status = s.call("relay_status", {"id": ITEM_ID})["structuredContent"]
             self.assertEqual((status["rev"], status["acceptedRev"], status["editable"]), (1, 1, True))
@@ -696,7 +696,7 @@ class AppendToolTest(StubServerCase):
             self.assertFalse(res["isError"], res)
             self.assertEqual(res["structuredContent"], {"id": ITEM_ID, "rev": 2, "hash": H2,
                                                         "added": [{"id": "r2-1", "path": "2"}], "openUrl": OPEN_URL,
-                                                        "notes": []})
+                                                        "notes": [], "hints": []})
             record = json.loads((s.keys_dir / f"{ITEM_ID}.json").read_text())
             self.assertEqual(POSTED[-1], {"editKey": record["key"], "baseRev": 1, "baseHash": H1,
                                           "note": "the deploy step", "steps": NEXT})
@@ -1155,6 +1155,38 @@ class DocsReadToolTest(unittest.TestCase):
                       "instructions to follow", tools["relay_doc"]["description"])
         self.assertEqual(tools["relay_doc"]["inputSchema"]["required"], ["id", "n"])
         self.assertIn("7 days", tools["relay_docs_release"]["description"])
+
+
+class FieldsToolTest(unittest.TestCase):
+    """`fields` in the tool schemas and descriptions, and the fallback note in a tool's result."""
+
+    def test_post_and_append_ship_fields_on_steps_and_leaves_never_verify(self):
+        import relay_cli
+        tools = {t["name"]: t for t in relay_mcp.tool_list()}
+        self.assertEqual(relay_mcp.FIELDS_SENTENCE, relay_cli.FIELDS_SENTENCE)
+        self.assertIn(relay_mcp.FIELDS_SENTENCE, tools["relay_post"]["description"])
+        for name in ("relay_post", "relay_amend", "relay_append"):
+            defs = tools[name]["inputSchema"]["$defs"]
+            self.assertEqual(defs["step"]["properties"]["fields"], {"$ref": "#/$defs/fields"})
+            self.assertEqual(defs["leaf"]["properties"]["fields"], {"$ref": "#/$defs/fields"})
+            self.assertNotIn("fields", defs["verify"]["properties"])
+            self.assertEqual((defs["fields"]["minItems"], defs["fields"]["maxItems"]), (1, 20))
+
+    def test_the_fallback_note_reaches_the_result(self):
+        note = ("the Pond doesn't list the fields feature: the settings of steps[0] were sent as sub-steps "
+                "(label as do, value as code)")
+
+        class Posting:
+            source = {"kind": "local", "port": 47823}
+
+            def post(self, project, instructable):
+                return {"item": {"id": ITEM_ID}, "editable": True, "notes": [note]}
+
+        ask = {"v": 1, "title": "Add the rule", "steps": [
+            {"do": "Add the custom rule", "fields": [{"label": "Name", "value": "requests-ip", "copy": True}]}]}
+        with mock.patch.object(relay_mcp, "make_client", lambda: Posting()):
+            res = relay_mcp.relay_post({"project": "Acme", "instructable": ask})
+        self.assertEqual(res["notes"], [note])
 
 
 if __name__ == "__main__":

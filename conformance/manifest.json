@@ -158,6 +158,21 @@
       "copies": []
     },
     {
+      "path": "data/fields-vectors.json",
+      "pond": "1.13.0",
+      "feature": "fields",
+      "roles": ["reader", "writer", "server"],
+      "kinds": {"instructable": ["writer", "server"], "canonical": ["writer", "server"], "hash": ["reader"], "amend": ["writer", "server"]},
+      "copies": []
+    },
+    {
+      "path": "data/fields-stub-vectors.json",
+      "pond": "1.13.0",
+      "feature": "fields",
+      "roles": ["reader"],
+      "copies": []
+    },
+    {
       "path": "wire/append-wire-vectors.json",
       "pond": "1.9.0",
       "feature": "appendSteps",

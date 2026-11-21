@@ -12,6 +12,8 @@ lint_hook_controls() flags a step that only points at Hook's own controls ("Pick
 below", "Press Done") and a verify that only restates the reply or Done.
 lint_do_title() flags a do that is more than the owner's one action: over 60 characters, or
 several actions joined by commas, "and" or "then" ("Install X, create Y and add Z").
+lint_hints() is advice, never a refusal: a step whose `detail` lists three or more settings
+("path /api/v1/requests, method POST, rate limit 5 per minute") is better as `fields`.
 
 The rules live here and nowhere else in Hook. Other clients copy this file's functions and
 test them against clients/lint-vectors.json. Stdlib only, Python 3.9+.
@@ -489,3 +491,101 @@ def lint_instructable(doc: Any) -> List[Tuple[str, str]]:
 def lint_details(doc: Any) -> List[str]:
     """lint_instructable as the field-error lines a refusal prints: "<path>: <message>"."""
     return [f"{path}: {message}" for path, message in lint_instructable(doc)]
+
+
+# --- hints: advice that never refuses an ask ---
+
+HINT_MIN_SETTINGS = 3
+_SEGMENT = re.compile(r"\n|;|,(?!\d)|\.(?:\s+|$)")
+_BULLET = re.compile(r"^\s*(?:[-*•]|\d+[.)])\s+")
+_LABEL_WORD = re.compile(r"[A-Za-z][A-Za-z0-9]*(?:[-'][A-Za-z0-9]+)*")
+_COLON_SETTING = re.compile(r"([A-Za-z][A-Za-z0-9 -]{0,29}?)\s*[:=]\s*(\S.*)")
+_VALUE_START = re.compile(r"[\d\"“'‘`/~(]|[A-Z]{2,}\b|[A-Za-z][\w.-]*[_./@:-][\w.-]")
+# Words a label never starts with: articles, pronouns and joining words, so prose like
+# "it takes 5 minutes" or "then 3 more" is not a setting.
+_NOT_LABEL = frozenset((
+    "a", "an", "the", "it", "its", "this", "that", "these", "those", "then", "and", "or", "but", "so",
+    "to", "in", "on", "at", "for", "with", "from", "by", "of", "if", "when", "while", "after", "before",
+    "about", "around", "until", "you", "your", "we", "our", "i", "my", "he", "she", "they", "their",
+    "is", "are", "was", "were", "be", "takes", "took", "has", "have", "had", "only", "also", "up", "every",
+    "each", "all", "some", "any", "no", "not", "more", "less", "than", "over", "under", "between", "via",
+    "note", "see", "like", "same", "as", "usually", "tip", "hint", "warning", "important", "why",
+    "reason", "example", "because", "here", "there", "now", "today", "yesterday", "tomorrow",
+))
+_SETTING_MAX_WORDS = 8
+# A value that holds one of these is a sentence ("Error 429 means the limit hit"), not a setting.
+_SENTENCE_WORDS = frozenset((
+    "is", "are", "was", "were", "be", "been", "means", "mean", "has", "have", "had", "will", "would",
+    "can", "can't", "cannot", "could", "should", "must", "may", "might", "does", "do", "did", "needs",
+    "need", "changed", "works", "fails", "failed", "covers", "uses", "used", "runs", "ran", "shows",
+    "showed", "ships", "shipped", "takes", "took", "gets", "got", "and", "but", "because", "so", "if",
+    "when", "which", "that", "who", "until", "after", "before", "then",
+))
+
+
+def _label_ok(words: List[str], *, colon: bool = False) -> bool:
+    """One to three plain words, the first not a joining word; without a colon, not a verb
+    either ("wait 5 minutes" is an action, "Name: studio" a setting)."""
+    return (1 <= len(words) <= 3 and all(_LABEL_WORD.fullmatch(w) for w in words)
+            and words[0].lower() not in _NOT_LABEL and (colon or words[0].lower() not in _ACTION_VERBS))
+
+
+def _is_setting(segment: str) -> bool:
+    """One "label value" or "label: value" pair: a label of one to three words that is not a
+    verb or a joining word, then a value of at most eight words. Without a colon the value must
+    look like one: a number, a path, a quote, an ALL-CAPS word or a dotted, slashed or dashed
+    token."""
+    text = _BULLET.sub("", segment).strip().rstrip(_TRAILING)
+    if not text or len(text) > 200:
+        return False
+    found = _COLON_SETTING.fullmatch(text)
+    if found and not found.group(2).startswith("//"):
+        label, value = found.group(1).split(), found.group(2).split()
+        first = value[0].lower().strip(_TRAILING)
+        return (_label_ok(label, colon=True) and len(value) <= _SETTING_MAX_WORDS
+                and first not in _ACTION_VERBS and first not in _NOT_LABEL)
+    if ": " in text:                                   # "the rule: path /api/v1" names a setting after its intro
+        return _is_setting(text.rsplit(": ", 1)[1])
+    words = text.split()
+    for k in range(1, min(3, len(words) - 1) + 1):
+        if _VALUE_START.match(words[k]):
+            value = [w.lower().strip(_TRAILING) for w in words[k:]]
+            return (_label_ok(words[:k]) and len(value) <= _SETTING_MAX_WORDS
+                    and not any(w in _SENTENCE_WORDS for w in value))
+    return False
+
+
+def settings_in(text: Any) -> int:
+    """How many "label value" settings a `detail` lists (see _is_setting)."""
+    if not isinstance(text, str):
+        return 0
+    return sum(1 for segment in _SEGMENT.split(text) if _is_setting(segment))
+
+
+def lint_hints(doc: Any) -> List[Tuple[str, str]]:
+    """(path, message) for each step or sub-step without `fields` whose `detail` lists three or
+    more settings: they read better as a `fields` table. Advice only: relay post, amend and
+    append print it and send the ask anyway. verify can't have fields, so it is not checked."""
+    hints: List[Tuple[str, str]] = []
+    if not isinstance(doc, dict):
+        return hints
+    steps = doc.get("steps") if isinstance(doc.get("steps"), list) else []
+    for i, step in enumerate(steps):
+        if not isinstance(step, dict):
+            continue
+        raw = step.get("substeps") if isinstance(step.get("substeps"), list) else []
+        nodes: List[Tuple[str, Dict[str, Any]]] = [(f"steps[{i}]", step)]
+        nodes += [(f"steps[{i}].substeps[{j}]", sub) for j, sub in enumerate(raw) if isinstance(sub, dict)]
+        for path, node in nodes:
+            if node.get("fields") is not None:
+                continue
+            count = settings_in(node.get("detail"))
+            if count >= HINT_MIN_SETTINGS:
+                hints.append((f"{path}.detail", f"lists {count} settings: put them in fields, one "
+                                                "{\"label\", \"value\"} row each, so the owner reads a table"))
+    return hints
+
+
+def hint_lines(doc: Any) -> List[str]:
+    """lint_hints as the lines relay post prints: "<path>: <message>"."""
+    return [f"{path}: {message}" for path, message in lint_hints(doc)]

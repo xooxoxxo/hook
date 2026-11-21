@@ -94,22 +94,28 @@ a step's `question` or in `reply`, not in a step that points at them. `relay_pos
     {"do": "Under OAuth & Permissions, add the chat:write scope", "code": "chat:write", "lang": "text"}
   ]}
   ```
-- **Values to copy**: every value the owner types or pastes is its own sub-step with `code`:
-  one per form field, never inside `do`. A page to open goes in `url`. `relay_post` and
+- **Values to copy**: every value the owner types or pastes is a `fields` row or its own
+  sub-step with `code`, never inside `do`. A page to open goes in `url`. `relay_post` and
   `relay post` refuse a `do` that holds a URL, an IP or host:port, a path, a `key=value`, a
   backticked or quoted command, or a long id like `qwen2.5:14b-instruct`, unless it is already
   that step's `code` or `url`:
   `steps[3].do: "http://192.0.2.7:11434" is a value to copy: put it in code (or a URL in url)`.
-  So a form is written like this:
+- **fields**: form settings and config values go in a settings table, not in `detail` prose.
+  1–20 rows of `label` (at most 40 chars, unique in the step), `value` (one line, at most 500)
+  and `copy: true` for a value to paste. On a step or sub-step, not `verify`; never a secret.
+  A Pond without the `fields` feature gets each row as a sub-step, and Hook prints a note.
+  A `detail` that lists three or more settings gets a hint to use `fields`. So a form is
+  written like this:
 
   ```json
-  {"do": "Add a reader: Settings › Readers › Add reader", "url": "https://app.example.com/app/", "substeps": [
-    {"do": "Kind", "code": "Ollama", "lang": "text"},
-    {"do": "Name", "code": "studio", "lang": "text"},
-    {"do": "URL", "code": "http://192.0.2.7:11434", "lang": "text"},
-    {"do": "Model", "code": "qwen2.5:14b-instruct", "lang": "text"},
-    {"do": "Tap Add, then Check now", "expect": "The studio card shows Ready"}
-  ]}
+  {"do": "Add a reader: Settings › Readers › Add reader", "url": "https://app.example.com/app/",
+   "fields": [
+    {"label": "Kind", "value": "Ollama"},
+    {"label": "Name", "value": "studio", "copy": true},
+    {"label": "URL", "value": "http://192.0.2.7:11434", "copy": true},
+    {"label": "Model", "value": "qwen2.5:14b-instruct", "copy": true}
+   ],
+   "substeps": [{"do": "Tap Add, then Check now", "expect": "The studio card shows Ready"}]}
   ```
 - **question**: any step or sub-step (not `verify`) can ask the owner something. The owner
   answers it right on that step, without closing the ask:
