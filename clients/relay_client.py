@@ -31,7 +31,8 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Set, Tuple
 import relay_semver
 from relay_docs import (DOCS_FEATURE, MAX_DOC_BYTES, attach_docs, doc_list, fit_request, has_doc_paths,
                         held_hashes, reapply, retry_without, strip_docs)
-from relay_lint import lint_details, lint_instructable  # noqa: F401  (re-exported)
+from relay_fields import FIELDS_FEATURE, FieldsDontFit, fallback_note, has_fields, rows_as_substeps
+from relay_lint import hint_lines, lint_details, lint_instructable  # noqa: F401  (re-exported)
 
 VERSION = "0.18.0"
 DEFAULT_CONFIG = "~/.config/relay/config.json"
@@ -497,6 +498,17 @@ def fill_from(instructable: Dict[str, Any], env: Optional[Mapping[str, str]] = N
             origin["session"] = session
         out["from"] = origin
     return out
+
+
+def _with_notes(resp: Dict[str, Any], notes: List[str], hints: List[str]) -> Dict[str, Any]:
+    """resp with `notes` (documents not copied, fields sent as sub-steps) and `hints` (relay_lint
+    advice that didn't stop the ask), each only when there is one."""
+    extra: Dict[str, Any] = {}
+    if notes:
+        extra["notes"] = notes
+    if hints:
+        extra["hints"] = hints
+    return dict(resp, **extra) if extra else resp
 
 
 def encode_body(body: Dict[str, Any]) -> bytes:
@@ -1195,6 +1207,8 @@ class Client:
         if problems:
             raise Refused(400, "invalid instructable", problems)
         self.check_pond(instructable)
+        hints = hint_lines(instructable)
+        instructable, fields_notes = self._fields_fallback(instructable, number=True)
         body: Dict[str, Any] = {"project": project, "instructable": fill_from(instructable, self.env)}
         keys: Optional[EditKeys] = None
         title = str(instructable.get("title") or "")
@@ -1211,6 +1225,7 @@ class Client:
         def make(holder: Dict[str, Any], docs: Dict[str, str]) -> Dict[str, Any]:
             return dict(body, instructable=holder, **({"docs": docs} if docs else {}))
         resp, notes = self._send_docs("/asks", make, *found)
+        notes = fields_notes + notes
         if keys is not None:
             item = resp.get("item") if isinstance(resp.get("item"), dict) else {}
             revision = resp.get("revision") if isinstance(resp.get("revision"), dict) else {}
@@ -1221,7 +1236,7 @@ class Client:
             else:
                 keys.drop_pending(project, title, self.source_key())
             keys.prune()
-        return dict(resp, notes=notes) if notes else resp
+        return _with_notes(resp, notes, hints)
 
     def amend(self, ask_id: str, reason: str, instructable: Dict[str, Any], base_rev: Optional[int] = None, *,
               edit_keys: Optional[EditKeys] = None, refresh_docs: bool = False) -> Dict[str, Any]:
@@ -1242,6 +1257,8 @@ class Client:
         if problems:
             raise Refused(400, "invalid instructable", problems)
         self.check_pond(instructable)
+        hints = hint_lines(instructable)
+        instructable, fields_notes = self._fields_fallback(instructable)
         keys = edit_keys if edit_keys is not None else EditKeys(self.env)
         record = keys.load(ask_id)
         # A key only ever goes to the Pond it was made for: after a source change it stays home.
@@ -1275,6 +1292,7 @@ class Client:
             if exc.status == 409 and exc.error == "corrections not enabled":
                 raise CorrectionsOff(ask_id) from None
             raise
+        notes = fields_notes + notes
         revision = resp.get("revision") if isinstance(resp.get("revision"), dict) else {}
         if isinstance(revision.get("rev"), int) and isinstance(revision.get("hash"), str):
             keys.record_write(ask_id, revision["rev"], revision["hash"])
@@ -1282,7 +1300,7 @@ class Client:
         if poster and poster != session_id(self.env):
             resp = dict(resp, warning=f"ask {ask_id} was posted from another session; "
                                       "correct only the asks you posted")
-        return dict(resp, notes=notes) if notes else resp
+        return _with_notes(resp, notes, hints)
 
     def _pond_shown(self) -> str:
         pond = self.pond_info()
@@ -1308,6 +1326,9 @@ class Client:
         if problems:
             raise Refused(400, "invalid steps", problems)
         self.check_pond(wrapped)
+        hints = hint_lines(wrapped)
+        steps, fields_notes = self._fields_fallback({"steps": steps}, path="steps")
+        steps = steps["steps"]
         keys = edit_keys if edit_keys is not None else EditKeys(self.env)
         record = keys.load(ask_id)
         if record is None or not isinstance(record.get("key"), str) or record.get("source") != self.source_key():
@@ -1387,9 +1408,22 @@ class Client:
         poster = record.get("session") if isinstance(record.get("session"), str) else ""
         if poster and poster != session_id(self.env):
             result["warning"] = f"ask {ask_id} was posted from another session; add steps only to the asks you posted"
-        if notes:
-            result["notes"] = notes
-        return result
+        notes = fields_notes + notes
+        return _with_notes(result, notes, hints)
+
+    def _fields_fallback(self, holder: Dict[str, Any], *, number: bool = False,
+                         path: str = "instructable") -> Tuple[Dict[str, Any], List[str]]:
+        """holder as sent: on a Pond (or This Mac) that doesn't list FIELDS_FEATURE, every step's
+        `fields` becomes sub-steps (relay_fields.rows_as_substeps; `number` on a post), with a
+        note saying so. Rows that don't fit as sub-steps are refused here, before anything is
+        sent. → (holder, [the note] or [])."""
+        if not has_fields(holder) or self.has_feature(FIELDS_FEATURE):
+            return holder, []
+        try:
+            out, moved = rows_as_substeps(holder, number=number)
+        except FieldsDontFit as exc:
+            raise Refused(400, "invalid steps" if path == "steps" else "invalid instructable", [str(exc)]) from None
+        return out, [fallback_note(moved)] if moved else []
 
     def _takes_docs(self, holder: Dict[str, Any]) -> bool:
         """Are documents attached to this request? Only on a Pond (never This Mac) that lists

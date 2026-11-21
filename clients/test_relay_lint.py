@@ -54,6 +54,29 @@ class VectorTests(unittest.TestCase):
                 got = [list(p) for p in relay_lint.lint_instructable(case["instructable"])]
                 self.assertEqual(got, case["expect"])
 
+    def test_every_vector_gives_its_hints(self):
+        for case in CASES:
+            with self.subTest(case["name"]):
+                self.assertEqual([list(p) for p in relay_lint.lint_hints(case["instructable"])],
+                                 case.get("hints", []))
+
+    def test_hint_and_fields_vectors_are_there(self):
+        names = {c["name"]: c for c in CASES}
+        hinted = [c for c in CASES if c.get("hints")]
+        self.assertGreaterEqual(len(hinted), 4)
+        self.assertTrue(all(c["name"].startswith("hint-") for c in hinted))
+        self.assertGreaterEqual(sum(1 for c in CASES if c["name"].startswith("hint-") and not c.get("hints")), 6)
+        self.assertEqual(names["hint-settings-in-detail"]["hints"], [[
+            "steps[0].detail",
+            'lists 4 settings: put them in fields, one {"label", "value"} row each, so the owner reads a table']])
+        self.assertEqual(names["fields-values-in-rows"]["expect"], [])
+        self.assertTrue(names["fields-value-in-do-still-refused"]["expect"])
+
+    def test_a_hint_is_never_a_refusal(self):
+        for case in CASES:
+            if case.get("hints"):
+                self.assertEqual(case["expect"], [], case["name"])
+
     def test_requirement_vectors_hold_the_five_guidance_lines(self):
         cases = [c for c in CASES if c["name"].startswith(("required-", "done-"))]
         self.assertGreaterEqual(len(cases), 15)
@@ -217,6 +240,17 @@ class PostRefusalTests(unittest.TestCase):
         code = relay_cli.main(["post", "Acme", "--json", "-"], stdin=io.StringIO(json.dumps(REWRITTEN)),
                               stdout=out, stderr=err, env=self.env, client_factory=self.client, prog="relay")
         self.assertEqual((code, out.getvalue(), err.getvalue()), (0, f"posted {ITEM_ID}\n", ""))
+
+
+    def test_relay_post_prints_a_hint_and_posts(self):
+        ask = next(c for c in CASES if c["name"] == "hint-settings-in-detail")["instructable"]
+        out, err = io.StringIO(), io.StringIO()
+        code = relay_cli.main(["post", "Acme", "--json", "-"], stdin=io.StringIO(json.dumps(ask)),
+                              stdout=out, stderr=err, env=self.env, client_factory=self.client, prog="relay")
+        self.assertEqual((code, out.getvalue()), (0, f"posted {ITEM_ID}\n"))
+        self.assertEqual(err.getvalue(), "hint: steps[0].detail: lists 4 settings: put them in fields, one "
+                                         '{"label", "value"} row each, so the owner reads a table\n')
+        self.assertEqual(len(self.http.sent("/asks")), 1)
 
 
 if __name__ == "__main__":

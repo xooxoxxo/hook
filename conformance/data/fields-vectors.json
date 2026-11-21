@@ -1,0 +1,2607 @@
+{
+ "source": "mailbox/tests/gen_fields_vectors.py (fields-* cases)",
+ "cases": [
+  {
+   "name": "fields-valid-step",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip",
+        "copy": true
+       },
+       {
+        "label": "Path",
+        "value": "/api/v1/requests",
+        "copy": true
+       },
+       {
+        "label": "Method",
+        "value": "POST"
+       },
+       {
+        "label": "Rate limit",
+        "value": "5 per 10 minutes per IP"
+       },
+       {
+        "label": "Action",
+        "value": "Deny (429)"
+       }
+      ],
+      "detail": "Same shape as the press-account rule."
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip",
+        "copy": true
+       },
+       {
+        "label": "Path",
+        "value": "/api/v1/requests",
+        "copy": true
+       },
+       {
+        "label": "Method",
+        "value": "POST"
+       },
+       {
+        "label": "Rate limit",
+        "value": "5 per 10 minutes per IP"
+       },
+       {
+        "label": "Action",
+        "value": "Deny (429)"
+       }
+      ],
+      "detail": "Same shape as the press-account rule."
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 438
+  },
+  {
+   "name": "fields-valid-substep",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Set up the firewall",
+      "substeps": [
+       {
+        "do": "Add the custom rule",
+        "fields": [
+         {
+          "label": "Name",
+          "value": "requests-ip",
+          "copy": true
+         },
+         {
+          "label": "Path",
+          "value": "/api/v1/requests",
+          "copy": true
+         },
+         {
+          "label": "Method",
+          "value": "POST"
+         }
+        ]
+       },
+       {
+        "do": "Check the rule list"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Set up the firewall",
+      "substeps": [
+       {
+        "do": "Add the custom rule",
+        "fields": [
+         {
+          "label": "Name",
+          "value": "requests-ip",
+          "copy": true
+         },
+         {
+          "label": "Path",
+          "value": "/api/v1/requests",
+          "copy": true
+         },
+         {
+          "label": "Method",
+          "value": "POST"
+         }
+        ]
+       },
+       {
+        "do": "Check the rule list"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 358
+  },
+  {
+   "name": "fields-valid-one-row",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 168
+  },
+  {
+   "name": "fields-valid-twenty-rows",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Setting 1",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 2",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 3",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 4",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 5",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 6",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 7",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 8",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 9",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 10",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 11",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 12",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 13",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 14",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 15",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 16",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 17",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 18",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 19",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 20",
+        "value": "requests-ip"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Setting 1",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 2",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 3",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 4",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 5",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 6",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 7",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 8",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 9",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 10",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 11",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 12",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 13",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 14",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 15",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 16",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 17",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 18",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 19",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 20",
+        "value": "requests-ip"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 1096
+  },
+  {
+   "name": "fields-valid-label-40",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+        "value": "requests-ip"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+        "value": "requests-ip"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 204
+  },
+  {
+   "name": "fields-valid-value-500",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 657
+  },
+  {
+   "name": "fields-valid-copy-false",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip",
+        "copy": false
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip",
+        "copy": false
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 183
+  },
+  {
+   "name": "fields-valid-copy-null",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip",
+        "copy": null
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip",
+        "copy": null
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 182
+  },
+  {
+   "name": "fields-valid-null",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": null
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": null
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 129
+  },
+  {
+   "name": "fields-valid-non-ascii",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Açıklama",
+        "value": "Hız sınırı: 5 / 10 dk"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Açıklama",
+        "value": "Hız sınırı: 5 / 10 dk"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 188
+  },
+  {
+   "name": "fields-valid-same-label-other-step",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip"
+       }
+      ]
+     },
+     {
+      "do": "Add the second rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "b"
+       }
+      ]
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip"
+       }
+      ]
+     },
+     {
+      "do": "Add the second rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "b"
+       }
+      ]
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 217
+  },
+  {
+   "name": "fields-valid-labels-differ-by-case",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip"
+       },
+       {
+        "label": "name",
+        "value": "requests-ip"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip"
+       },
+       {
+        "label": "name",
+        "value": "requests-ip"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 211
+  },
+  {
+   "name": "fields-valid-with-code",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip"
+       }
+      ],
+      "code": "fw rules list",
+      "lang": "sh"
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip"
+       }
+      ],
+      "code": "fw rules list",
+      "lang": "sh"
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ],
+    "urgency": "today"
+   },
+   "pyBytes": 207
+  },
+  {
+   "name": "fields-on-verify",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule"
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ],
+    "verify": {
+     "do": "Check the rule",
+     "fields": [
+      {
+       "label": "Name",
+       "value": "requests-ip"
+      }
+     ]
+    }
+   },
+   "valid": false,
+   "errors": [
+    "verify.fields: unknown key"
+   ],
+   "cleaned": null,
+   "pyBytes": 204
+  },
+  {
+   "name": "fields-empty-list",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": []
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].fields: must be a list of 1 to 20 rows"
+   ],
+   "cleaned": null,
+   "pyBytes": 127
+  },
+  {
+   "name": "fields-too-many-rows",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Setting 1",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 2",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 3",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 4",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 5",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 6",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 7",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 8",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 9",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 10",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 11",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 12",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 13",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 14",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 15",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 16",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 17",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 18",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 19",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 20",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Setting 21",
+        "value": "requests-ip"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].fields: must be a list of 1 to 20 rows"
+   ],
+   "cleaned": null,
+   "pyBytes": 1145
+  },
+  {
+   "name": "fields-not-a-list",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": {
+       "Name": "requests-ip"
+      }
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].fields: must be a list of 1 to 20 rows"
+   ],
+   "cleaned": null,
+   "pyBytes": 148
+  },
+  {
+   "name": "fields-row-not-object",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip"
+       },
+       "Method: POST"
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].fields[1]: must be an object"
+   ],
+   "cleaned": null,
+   "pyBytes": 184
+  },
+  {
+   "name": "fields-row-null",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip"
+       },
+       null
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].fields[1]: must be an object"
+   ],
+   "cleaned": null,
+   "pyBytes": 174
+  },
+  {
+   "name": "fields-row-extra-key",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip",
+        "note": "the main one"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].fields[0].note: unknown key"
+   ],
+   "cleaned": null,
+   "pyBytes": 192
+  },
+  {
+   "name": "fields-label-missing",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "value": "requests-ip"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].fields[0].label: required"
+   ],
+   "cleaned": null,
+   "pyBytes": 151
+  },
+  {
+   "name": "fields-label-empty",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "",
+        "value": "requests-ip"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].fields[0].label: must not be empty"
+   ],
+   "cleaned": null,
+   "pyBytes": 164
+  },
+  {
+   "name": "fields-label-blank",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "   ",
+        "value": "requests-ip"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].fields[0].label: must not be empty"
+   ],
+   "cleaned": null,
+   "pyBytes": 167
+  },
+  {
+   "name": "fields-label-41",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+        "value": "requests-ip"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].fields[0].label: longer than 40 characters"
+   ],
+   "cleaned": null,
+   "pyBytes": 205
+  },
+  {
+   "name": "fields-label-number",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": 7,
+        "value": "requests-ip"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].fields[0].label: must be a string"
+   ],
+   "cleaned": null,
+   "pyBytes": 163
+  },
+  {
+   "name": "fields-label-two-lines",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Rate\nlimit",
+        "value": "requests-ip"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].fields[0].label: must be a single line"
+   ],
+   "cleaned": null,
+   "pyBytes": 175
+  },
+  {
+   "name": "fields-label-hidden",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Na\u202eme",
+        "value": "requests-ip"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].fields[0].label: contains hidden or control characters (U+202E)"
+   ],
+   "cleaned": null,
+   "pyBytes": 171
+  },
+  {
+   "name": "fields-label-duplicate",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip"
+       },
+       {
+        "label": "Name",
+        "value": "other"
+       },
+       {
+        "label": "Path",
+        "value": "requests-ip"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].fields[1].label: duplicate label"
+   ],
+   "cleaned": null,
+   "pyBytes": 248
+  },
+  {
+   "name": "fields-value-missing",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Name"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].fields[0].value: required"
+   ],
+   "cleaned": null,
+   "pyBytes": 144
+  },
+  {
+   "name": "fields-value-empty",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": ""
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].fields[0].value: must not be empty"
+   ],
+   "cleaned": null,
+   "pyBytes": 157
+  },
+  {
+   "name": "fields-value-501",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].fields[0].value: longer than 500 characters"
+   ],
+   "cleaned": null,
+   "pyBytes": 658
+  },
+  {
+   "name": "fields-value-number",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": 5
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].fields[0].value: must be a string"
+   ],
+   "cleaned": null,
+   "pyBytes": 156
+  },
+  {
+   "name": "fields-value-line-break",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests\nip"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].fields[0].value: must be a single line"
+   ],
+   "cleaned": null,
+   "pyBytes": 169
+  },
+  {
+   "name": "fields-value-carriage-return",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests\rip"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].fields[0].value: contains hidden or control characters (U+000D)"
+   ],
+   "cleaned": null,
+   "pyBytes": 169
+  },
+  {
+   "name": "fields-value-tab",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests\tip"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].fields[0].value: must be a single line"
+   ],
+   "cleaned": null,
+   "pyBytes": 169
+  },
+  {
+   "name": "fields-value-zwj",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests\u200dip"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].fields[0].value: contains hidden or control characters (U+200D)"
+   ],
+   "cleaned": null,
+   "pyBytes": 170
+  },
+  {
+   "name": "fields-value-variation-selector",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests\ufe0fip"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].fields[0].value: contains hidden or control characters (U+FE0F)"
+   ],
+   "cleaned": null,
+   "pyBytes": 170
+  },
+  {
+   "name": "fields-value-bidi",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests\u202eip"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].fields[0].value: contains hidden or control characters (U+202E)"
+   ],
+   "cleaned": null,
+   "pyBytes": 170
+  },
+  {
+   "name": "fields-value-secret",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Token",
+        "value": "ghp_example-not-a-token"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].fields[0].value: secret-like value"
+   ],
+   "cleaned": null,
+   "pyBytes": 181
+  },
+  {
+   "name": "fields-value-secret-split",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Key",
+        "value": "sk-\u200dant-example"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].fields[0].value: contains hidden or control characters (U+200D)",
+    "steps[0].fields[0].value: secret-like value"
+   ],
+   "cleaned": null,
+   "pyBytes": 173
+  },
+  {
+   "name": "fields-label-secret",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "xoxb-example",
+        "value": "requests-ip"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].fields[0].label: secret-like value"
+   ],
+   "cleaned": null,
+   "pyBytes": 176
+  },
+  {
+   "name": "fields-copy-string",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip",
+        "copy": "yes"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].fields[0].copy: must be true or false"
+   ],
+   "cleaned": null,
+   "pyBytes": 183
+  },
+  {
+   "name": "fields-copy-number",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip",
+        "copy": 1
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].fields[0].copy: must be true or false"
+   ],
+   "cleaned": null,
+   "pyBytes": 179
+  },
+  {
+   "name": "fields-row-every-problem",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "",
+        "value": "a\nb",
+        "copy": "no",
+        "x": 1
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].fields[0].x: unknown key",
+    "steps[0].fields[0].label: must not be empty",
+    "steps[0].fields[0].value: must be a single line",
+    "steps[0].fields[0].copy: must be true or false"
+   ],
+   "cleaned": null,
+   "pyBytes": 179
+  },
+  {
+   "name": "fields-substep-bad",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Set up the firewall",
+      "substeps": [
+       {
+        "do": "Add the custom rule",
+        "fields": [
+         {
+          "label": "Name",
+          "value": "requests-ip"
+         },
+         {
+          "label": "Name",
+          "value": "requests-ip"
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].substeps[0].fields[1].label: duplicate label"
+   ],
+   "cleaned": null,
+   "pyBytes": 256
+  },
+  {
+   "name": "fields-canonical-rows",
+   "kind": "canonical",
+   "input": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "urgency": "today",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "detail": "Same shape as the press-account rule.",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip",
+        "copy": true
+       },
+       {
+        "label": "Method",
+        "value": "POST"
+       },
+       {
+        "label": "Rate limit",
+        "value": "5 per 10 minutes per IP"
+       }
+      ],
+      "id": "s1"
+     },
+     {
+      "do": "Save and deploy",
+      "id": "s2"
+     }
+    ]
+   },
+   "body": "{\"steps\":[{\"detail\":\"Same shape as the press-account rule.\",\"do\":\"Add the custom rule\",\"fields\":[{\"copy\":true,\"label\":\"Name\",\"value\":\"requests-ip\"},{\"label\":\"Method\",\"value\":\"POST\"},{\"label\":\"Rate limit\",\"value\":\"5 per 10 minutes per IP\"}],\"id\":\"s1\"},{\"do\":\"Save and deploy\",\"id\":\"s2\"}],\"title\":\"Add the rate limit rule\",\"urgency\":\"today\",\"v\":1}"
+  },
+  {
+   "name": "fields-canonical-row-keys-sorted",
+   "kind": "canonical",
+   "input": {
+    "fields": [
+     {
+      "value": "POST",
+      "label": "Method",
+      "copy": false
+     }
+    ]
+   },
+   "body": "{\"fields\":[{\"copy\":false,\"label\":\"Method\",\"value\":\"POST\"}]}"
+  },
+  {
+   "name": "fields-hash-body",
+   "kind": "hash",
+   "rev": 1,
+   "prev": "",
+   "at": "2026-10-29T10:00:00+00:00",
+   "reason": "",
+   "body": "{\"steps\":[{\"detail\":\"Same shape as the press-account rule.\",\"do\":\"Add the custom rule\",\"fields\":[{\"copy\":true,\"label\":\"Name\",\"value\":\"requests-ip\"},{\"label\":\"Method\",\"value\":\"POST\"},{\"label\":\"Rate limit\",\"value\":\"5 per 10 minutes per IP\"}],\"id\":\"s1\"},{\"do\":\"Save and deploy\",\"id\":\"s2\"}],\"title\":\"Add the rate limit rule\",\"urgency\":\"today\",\"v\":1}",
+   "hash": "94db7c5763663257bce687dcbc450717f1b78ef1e8d1bf993ef675cdbbd96f83"
+  },
+  {
+   "name": "fields-hash-row-changed",
+   "kind": "hash",
+   "rev": 2,
+   "prev": "94db7c5763663257bce687dcbc450717f1b78ef1e8d1bf993ef675cdbbd96f83",
+   "at": "2026-10-29T10:05:00+00:00",
+   "reason": "The method was wrong",
+   "body": "{\"steps\":[{\"detail\":\"Same shape as the press-account rule.\",\"do\":\"Add the custom rule\",\"fields\":[{\"copy\":true,\"label\":\"Name\",\"value\":\"requests-ip\"},{\"label\":\"Method\",\"value\":\"GET\"},{\"label\":\"Rate limit\",\"value\":\"5 per 10 minutes per IP\"}],\"id\":\"s1\"},{\"do\":\"Save and deploy\",\"id\":\"s2\"}],\"title\":\"Add the rate limit rule\",\"urgency\":\"today\",\"v\":1}",
+   "hash": "de6960362558334345a314bf6a13d4edbc41c412fbf8ee07b7c9a39b279f354b"
+  },
+  {
+   "name": "fields-hash-copy-flag",
+   "kind": "hash",
+   "rev": 2,
+   "prev": "94db7c5763663257bce687dcbc450717f1b78ef1e8d1bf993ef675cdbbd96f83",
+   "at": "2026-10-29T10:05:00+00:00",
+   "reason": "Copy the method too",
+   "body": "{\"steps\":[{\"detail\":\"Same shape as the press-account rule.\",\"do\":\"Add the custom rule\",\"fields\":[{\"copy\":true,\"label\":\"Name\",\"value\":\"requests-ip\"},{\"copy\":true,\"label\":\"Method\",\"value\":\"POST\"},{\"label\":\"Rate limit\",\"value\":\"5 per 10 minutes per IP\"}],\"id\":\"s1\"},{\"do\":\"Save and deploy\",\"id\":\"s2\"}],\"title\":\"Add the rate limit rule\",\"urgency\":\"today\",\"v\":1}",
+   "hash": "43ad5e2c5fc612cb590b43f661f898c19f230def86c6f1f2f4ad46c45448f653"
+  },
+  {
+   "name": "fields-amend-row-added",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "urgency": "today",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "detail": "Same shape as the press-account rule.",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip",
+        "copy": true
+       },
+       {
+        "label": "Method",
+        "value": "POST"
+       },
+       {
+        "label": "Rate limit",
+        "value": "5 per 10 minutes per IP"
+       }
+      ],
+      "id": "s1"
+     },
+     {
+      "do": "Save and deploy",
+      "id": "s2"
+     }
+    ]
+   },
+   "new": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "urgency": "today",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "detail": "Same shape as the press-account rule.",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip",
+        "copy": true
+       },
+       {
+        "label": "Method",
+        "value": "POST"
+       },
+       {
+        "label": "Rate limit",
+        "value": "5 per 10 minutes per IP"
+       },
+       {
+        "label": "Action",
+        "value": "Deny (429)"
+       }
+      ],
+      "id": "s1"
+     },
+     {
+      "do": "Save and deploy",
+      "id": "s2"
+     }
+    ]
+   },
+   "usedIds": [
+    "s1",
+    "s2"
+   ],
+   "rev": 2,
+   "reason": "The action was missing",
+   "output": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "urgency": "today",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "detail": "Same shape as the press-account rule.",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip",
+        "copy": true
+       },
+       {
+        "label": "Method",
+        "value": "POST"
+       },
+       {
+        "label": "Rate limit",
+        "value": "5 per 10 minutes per IP"
+       },
+       {
+        "label": "Action",
+        "value": "Deny (429)"
+       }
+      ],
+      "id": "s1"
+     },
+     {
+      "do": "Save and deploy",
+      "id": "s2"
+     }
+    ]
+   },
+   "summary": {
+    "changed": [
+     {
+      "id": "s1",
+      "path": "1",
+      "fields": [
+       "fields"
+      ]
+     }
+    ],
+    "added": [],
+    "removed": [],
+    "moved": [],
+    "top": []
+   },
+   "errors": []
+  },
+  {
+   "name": "fields-amend-copy-flag",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "urgency": "today",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "detail": "Same shape as the press-account rule.",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip",
+        "copy": true
+       },
+       {
+        "label": "Method",
+        "value": "POST"
+       },
+       {
+        "label": "Rate limit",
+        "value": "5 per 10 minutes per IP"
+       }
+      ],
+      "id": "s1"
+     },
+     {
+      "do": "Save and deploy",
+      "id": "s2"
+     }
+    ]
+   },
+   "new": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "urgency": "today",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "detail": "Same shape as the press-account rule.",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip",
+        "copy": true
+       },
+       {
+        "label": "Method",
+        "value": "POST",
+        "copy": true
+       },
+       {
+        "label": "Rate limit",
+        "value": "5 per 10 minutes per IP"
+       }
+      ],
+      "id": "s1"
+     },
+     {
+      "do": "Save and deploy",
+      "id": "s2"
+     }
+    ]
+   },
+   "usedIds": [
+    "s1",
+    "s2"
+   ],
+   "rev": 2,
+   "reason": "Copy the method too",
+   "output": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "urgency": "today",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "detail": "Same shape as the press-account rule.",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip",
+        "copy": true
+       },
+       {
+        "label": "Method",
+        "value": "POST",
+        "copy": true
+       },
+       {
+        "label": "Rate limit",
+        "value": "5 per 10 minutes per IP"
+       }
+      ],
+      "id": "s1"
+     },
+     {
+      "do": "Save and deploy",
+      "id": "s2"
+     }
+    ]
+   },
+   "summary": {
+    "changed": [
+     {
+      "id": "s1",
+      "path": "1",
+      "fields": [
+       "fields"
+      ]
+     }
+    ],
+    "added": [],
+    "removed": [],
+    "moved": [],
+    "top": []
+   },
+   "errors": []
+  },
+  {
+   "name": "fields-amend-rows-reordered",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "urgency": "today",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "detail": "Same shape as the press-account rule.",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip",
+        "copy": true
+       },
+       {
+        "label": "Method",
+        "value": "POST"
+       },
+       {
+        "label": "Rate limit",
+        "value": "5 per 10 minutes per IP"
+       }
+      ],
+      "id": "s1"
+     },
+     {
+      "do": "Save and deploy",
+      "id": "s2"
+     }
+    ]
+   },
+   "new": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "urgency": "today",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "detail": "Same shape as the press-account rule.",
+      "fields": [
+       {
+        "label": "Rate limit",
+        "value": "5 per 10 minutes per IP"
+       },
+       {
+        "label": "Method",
+        "value": "POST"
+       },
+       {
+        "label": "Name",
+        "value": "requests-ip",
+        "copy": true
+       }
+      ],
+      "id": "s1"
+     },
+     {
+      "do": "Save and deploy",
+      "id": "s2"
+     }
+    ]
+   },
+   "usedIds": [
+    "s1",
+    "s2"
+   ],
+   "rev": 2,
+   "reason": "Name first is wrong",
+   "output": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "urgency": "today",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "detail": "Same shape as the press-account rule.",
+      "fields": [
+       {
+        "label": "Rate limit",
+        "value": "5 per 10 minutes per IP"
+       },
+       {
+        "label": "Method",
+        "value": "POST"
+       },
+       {
+        "label": "Name",
+        "value": "requests-ip",
+        "copy": true
+       }
+      ],
+      "id": "s1"
+     },
+     {
+      "do": "Save and deploy",
+      "id": "s2"
+     }
+    ]
+   },
+   "summary": {
+    "changed": [
+     {
+      "id": "s1",
+      "path": "1",
+      "fields": [
+       "fields"
+      ]
+     }
+    ],
+    "added": [],
+    "removed": [],
+    "moved": [],
+    "top": []
+   },
+   "errors": []
+  },
+  {
+   "name": "fields-amend-table-added",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "urgency": "today",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "id": "s1"
+     },
+     {
+      "do": "Save and deploy",
+      "id": "s2"
+     }
+    ]
+   },
+   "new": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "urgency": "today",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "id": "s1",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip",
+        "copy": true
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy",
+      "id": "s2"
+     }
+    ]
+   },
+   "usedIds": [
+    "s1",
+    "s2"
+   ],
+   "rev": 2,
+   "reason": "Name the rule",
+   "output": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "urgency": "today",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "id": "s1",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip",
+        "copy": true
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy",
+      "id": "s2"
+     }
+    ]
+   },
+   "summary": {
+    "changed": [
+     {
+      "id": "s1",
+      "path": "1",
+      "fields": [
+       "fields"
+      ]
+     }
+    ],
+    "added": [],
+    "removed": [],
+    "moved": [],
+    "top": []
+   },
+   "errors": []
+  },
+  {
+   "name": "fields-amend-table-removed",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "urgency": "today",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "detail": "Same shape as the press-account rule.",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip",
+        "copy": true
+       },
+       {
+        "label": "Method",
+        "value": "POST"
+       },
+       {
+        "label": "Rate limit",
+        "value": "5 per 10 minutes per IP"
+       }
+      ],
+      "id": "s1"
+     },
+     {
+      "do": "Save and deploy",
+      "id": "s2"
+     }
+    ]
+   },
+   "new": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "urgency": "today",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "detail": "Same shape as the press-account rule.",
+      "id": "s1"
+     },
+     {
+      "do": "Save and deploy",
+      "id": "s2"
+     }
+    ]
+   },
+   "usedIds": [
+    "s1",
+    "s2"
+   ],
+   "rev": 2,
+   "reason": "The rule exists",
+   "output": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "urgency": "today",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "detail": "Same shape as the press-account rule.",
+      "id": "s1"
+     },
+     {
+      "do": "Save and deploy",
+      "id": "s2"
+     }
+    ]
+   },
+   "summary": {
+    "changed": [
+     {
+      "id": "s1",
+      "path": "1",
+      "fields": [
+       "fields"
+      ]
+     }
+    ],
+    "added": [],
+    "removed": [],
+    "moved": [],
+    "top": []
+   },
+   "errors": []
+  },
+  {
+   "name": "fields-amend-bad-row",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "urgency": "today",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "detail": "Same shape as the press-account rule.",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip",
+        "copy": true
+       },
+       {
+        "label": "Method",
+        "value": "POST"
+       },
+       {
+        "label": "Rate limit",
+        "value": "5 per 10 minutes per IP"
+       }
+      ],
+      "id": "s1"
+     },
+     {
+      "do": "Save and deploy",
+      "id": "s2"
+     }
+    ]
+   },
+   "new": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "urgency": "today",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "detail": "Same shape as the press-account rule.",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip",
+        "copy": true
+       },
+       {
+        "label": "Method",
+        "value": "POST"
+       },
+       {
+        "label": "Rate limit",
+        "value": "5 per 10 minutes per IP"
+       },
+       {
+        "label": "Name",
+        "value": "dup"
+       }
+      ],
+      "id": "s1"
+     },
+     {
+      "do": "Save and deploy",
+      "id": "s2"
+     }
+    ]
+   },
+   "usedIds": [
+    "s1",
+    "s2"
+   ],
+   "rev": 2,
+   "reason": "A second name",
+   "output": null,
+   "summary": null,
+   "errors": [
+    "steps[0].fields[3].label: duplicate label"
+   ]
+  },
+  {
+   "name": "fields-amend-on-verify",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "urgency": "today",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "detail": "Same shape as the press-account rule.",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip",
+        "copy": true
+       },
+       {
+        "label": "Method",
+        "value": "POST"
+       },
+       {
+        "label": "Rate limit",
+        "value": "5 per 10 minutes per IP"
+       }
+      ],
+      "id": "s1"
+     },
+     {
+      "do": "Save and deploy",
+      "id": "s2"
+     }
+    ]
+   },
+   "new": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "urgency": "today",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "detail": "Same shape as the press-account rule.",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip",
+        "copy": true
+       },
+       {
+        "label": "Method",
+        "value": "POST"
+       },
+       {
+        "label": "Rate limit",
+        "value": "5 per 10 minutes per IP"
+       }
+      ],
+      "id": "s1"
+     },
+     {
+      "do": "Save and deploy",
+      "id": "s2"
+     }
+    ],
+    "verify": {
+     "do": "Check it",
+     "fields": [
+      {
+       "label": "Name",
+       "value": "requests-ip",
+       "copy": true
+      }
+     ]
+    }
+   },
+   "usedIds": [
+    "s1",
+    "s2"
+   ],
+   "rev": 2,
+   "reason": "Check the rule",
+   "output": null,
+   "summary": null,
+   "errors": [
+    "verify.fields: unknown key"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,682 @@
+{
+ "version": 1,
+ "source": "hand-written: no implementation is its reference yet",
+ "format": "{name, note, instructable, clients?, expect: {stub, reason?}}, as in stub-vectors.json, for a reader that takes the fields feature (Pond 1.13.0). It adds one known key, fields, on a step and a sub-step, never on verify (not even null). fields is known when it is null, or when it is a list of 1 to 20 objects, each holding a string label, a string value and, optionally, a boolean copy, and nothing else. Any other fields is an unknown key at the fields itself (unknownKey:steps[0].fields, never a path inside it), so the ask is an update stub. Lengths, line breaks and duplicate labels are the Pond's check, not the reader's. Every other key follows stub-vectors.json. A reader without the fields feature skips this file and treats every fields as unknown. The Swift core has no unknown-key check yet, so every case carries clients [\"android\"].",
+ "cases": [
+  {
+   "name": "fields-stub-step-known",
+   "note": "rows on a step are known: not a stub",
+   "clients": [
+    "android"
+   ],
+   "instructable": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "id": "s1",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip",
+        "copy": true
+       },
+       {
+        "label": "Method",
+        "value": "POST"
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy",
+      "id": "s2"
+     }
+    ]
+   },
+   "expect": {
+    "stub": false
+   }
+  },
+  {
+   "name": "fields-stub-substep-known",
+   "note": "rows on a sub-step are known: not a stub",
+   "clients": [
+    "android"
+   ],
+   "instructable": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Set up the firewall",
+      "id": "s1",
+      "substeps": [
+       {
+        "do": "Add the custom rule",
+        "id": "s1.1",
+        "fields": [
+         {
+          "label": "Name",
+          "value": "requests-ip",
+          "copy": true
+         },
+         {
+          "label": "Method",
+          "value": "POST"
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "do": "Save and deploy",
+      "id": "s2"
+     }
+    ]
+   },
+   "expect": {
+    "stub": false
+   }
+  },
+  {
+   "name": "fields-stub-copy-absent",
+   "note": "copy may be left out",
+   "clients": [
+    "android"
+   ],
+   "instructable": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "id": "s1",
+      "fields": [
+       {
+        "label": "Method",
+        "value": "POST"
+       }
+      ]
+     }
+    ]
+   },
+   "expect": {
+    "stub": false
+   }
+  },
+  {
+   "name": "fields-stub-copy-false",
+   "note": "copy false is known",
+   "clients": [
+    "android"
+   ],
+   "instructable": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "id": "s1",
+      "fields": [
+       {
+        "label": "Method",
+        "value": "POST",
+        "copy": false
+       }
+      ]
+     }
+    ]
+   },
+   "expect": {
+    "stub": false
+   }
+  },
+  {
+   "name": "fields-stub-twenty-rows",
+   "note": "20 rows is the most",
+   "clients": [
+    "android"
+   ],
+   "instructable": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "id": "s1",
+      "fields": [
+       {
+        "label": "Setting 1",
+        "value": "on"
+       },
+       {
+        "label": "Setting 2",
+        "value": "on"
+       },
+       {
+        "label": "Setting 3",
+        "value": "on"
+       },
+       {
+        "label": "Setting 4",
+        "value": "on"
+       },
+       {
+        "label": "Setting 5",
+        "value": "on"
+       },
+       {
+        "label": "Setting 6",
+        "value": "on"
+       },
+       {
+        "label": "Setting 7",
+        "value": "on"
+       },
+       {
+        "label": "Setting 8",
+        "value": "on"
+       },
+       {
+        "label": "Setting 9",
+        "value": "on"
+       },
+       {
+        "label": "Setting 10",
+        "value": "on"
+       },
+       {
+        "label": "Setting 11",
+        "value": "on"
+       },
+       {
+        "label": "Setting 12",
+        "value": "on"
+       },
+       {
+        "label": "Setting 13",
+        "value": "on"
+       },
+       {
+        "label": "Setting 14",
+        "value": "on"
+       },
+       {
+        "label": "Setting 15",
+        "value": "on"
+       },
+       {
+        "label": "Setting 16",
+        "value": "on"
+       },
+       {
+        "label": "Setting 17",
+        "value": "on"
+       },
+       {
+        "label": "Setting 18",
+        "value": "on"
+       },
+       {
+        "label": "Setting 19",
+        "value": "on"
+       },
+       {
+        "label": "Setting 20",
+        "value": "on"
+       }
+      ]
+     }
+    ]
+   },
+   "expect": {
+    "stub": false
+   }
+  },
+  {
+   "name": "fields-stub-null",
+   "note": "fields null is no table",
+   "clients": [
+    "android"
+   ],
+   "instructable": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "id": "s1",
+      "fields": null
+     }
+    ]
+   },
+   "expect": {
+    "stub": false
+   }
+  },
+  {
+   "name": "fields-stub-on-verify",
+   "note": "verify can't have fields",
+   "clients": [
+    "android"
+   ],
+   "instructable": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "id": "s1"
+     }
+    ],
+    "verify": {
+     "do": "Check the rule",
+     "fields": [
+      {
+       "label": "Name",
+       "value": "requests-ip",
+       "copy": true
+      },
+      {
+       "label": "Method",
+       "value": "POST"
+      }
+     ]
+    }
+   },
+   "expect": {
+    "stub": true,
+    "reason": "unknownKey:verify.fields"
+   }
+  },
+  {
+   "name": "fields-stub-null-on-verify",
+   "note": "not even null on verify",
+   "clients": [
+    "android"
+   ],
+   "instructable": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "id": "s1"
+     }
+    ],
+    "verify": {
+     "do": "Check the rule",
+     "fields": null
+    }
+   },
+   "expect": {
+    "stub": true,
+    "reason": "unknownKey:verify.fields"
+   }
+  },
+  {
+   "name": "fields-stub-empty-list",
+   "note": "an empty list is not a table: unknown at fields itself",
+   "clients": [
+    "android"
+   ],
+   "instructable": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "id": "s1",
+      "fields": []
+     }
+    ]
+   },
+   "expect": {
+    "stub": true,
+    "reason": "unknownKey:steps[0].fields"
+   }
+  },
+  {
+   "name": "fields-stub-too-many-rows",
+   "note": "21 rows is too many",
+   "clients": [
+    "android"
+   ],
+   "instructable": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "id": "s1",
+      "fields": [
+       {
+        "label": "Setting 1",
+        "value": "on"
+       },
+       {
+        "label": "Setting 2",
+        "value": "on"
+       },
+       {
+        "label": "Setting 3",
+        "value": "on"
+       },
+       {
+        "label": "Setting 4",
+        "value": "on"
+       },
+       {
+        "label": "Setting 5",
+        "value": "on"
+       },
+       {
+        "label": "Setting 6",
+        "value": "on"
+       },
+       {
+        "label": "Setting 7",
+        "value": "on"
+       },
+       {
+        "label": "Setting 8",
+        "value": "on"
+       },
+       {
+        "label": "Setting 9",
+        "value": "on"
+       },
+       {
+        "label": "Setting 10",
+        "value": "on"
+       },
+       {
+        "label": "Setting 11",
+        "value": "on"
+       },
+       {
+        "label": "Setting 12",
+        "value": "on"
+       },
+       {
+        "label": "Setting 13",
+        "value": "on"
+       },
+       {
+        "label": "Setting 14",
+        "value": "on"
+       },
+       {
+        "label": "Setting 15",
+        "value": "on"
+       },
+       {
+        "label": "Setting 16",
+        "value": "on"
+       },
+       {
+        "label": "Setting 17",
+        "value": "on"
+       },
+       {
+        "label": "Setting 18",
+        "value": "on"
+       },
+       {
+        "label": "Setting 19",
+        "value": "on"
+       },
+       {
+        "label": "Setting 20",
+        "value": "on"
+       },
+       {
+        "label": "Setting 21",
+        "value": "on"
+       }
+      ]
+     }
+    ]
+   },
+   "expect": {
+    "stub": true,
+    "reason": "unknownKey:steps[0].fields"
+   }
+  },
+  {
+   "name": "fields-stub-object",
+   "note": "an object in place of the list",
+   "clients": [
+    "android"
+   ],
+   "instructable": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "id": "s1",
+      "fields": {
+       "Name": "requests-ip"
+      }
+     }
+    ]
+   },
+   "expect": {
+    "stub": true,
+    "reason": "unknownKey:steps[0].fields"
+   }
+  },
+  {
+   "name": "fields-stub-row-string",
+   "note": "a row that is a string",
+   "clients": [
+    "android"
+   ],
+   "instructable": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "id": "s1",
+      "fields": [
+       "Name: requests-ip"
+      ]
+     }
+    ]
+   },
+   "expect": {
+    "stub": true,
+    "reason": "unknownKey:steps[0].fields"
+   }
+  },
+  {
+   "name": "fields-stub-row-extra-member",
+   "note": "a row with a member the reader doesn't know: unknown at fields, never inside it",
+   "clients": [
+    "android"
+   ],
+   "instructable": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "id": "s1",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip",
+        "tone": "bold"
+       }
+      ]
+     }
+    ]
+   },
+   "expect": {
+    "stub": true,
+    "reason": "unknownKey:steps[0].fields"
+   }
+  },
+  {
+   "name": "fields-stub-row-no-value",
+   "note": "a row without value",
+   "clients": [
+    "android"
+   ],
+   "instructable": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "id": "s1",
+      "fields": [
+       {
+        "label": "Name"
+       }
+      ]
+     }
+    ]
+   },
+   "expect": {
+    "stub": true,
+    "reason": "unknownKey:steps[0].fields"
+   }
+  },
+  {
+   "name": "fields-stub-row-no-label",
+   "note": "a row without label",
+   "clients": [
+    "android"
+   ],
+   "instructable": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "id": "s1",
+      "fields": [
+       {
+        "value": "requests-ip"
+       }
+      ]
+     }
+    ]
+   },
+   "expect": {
+    "stub": true,
+    "reason": "unknownKey:steps[0].fields"
+   }
+  },
+  {
+   "name": "fields-stub-value-number",
+   "note": "a value that is a number",
+   "clients": [
+    "android"
+   ],
+   "instructable": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "id": "s1",
+      "fields": [
+       {
+        "label": "Limit",
+        "value": 5
+       }
+      ]
+     }
+    ]
+   },
+   "expect": {
+    "stub": true,
+    "reason": "unknownKey:steps[0].fields"
+   }
+  },
+  {
+   "name": "fields-stub-copy-string",
+   "note": "copy that is not a bool",
+   "clients": [
+    "android"
+   ],
+   "instructable": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "id": "s1",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip",
+        "copy": "yes"
+       }
+      ]
+     }
+    ]
+   },
+   "expect": {
+    "stub": true,
+    "reason": "unknownKey:steps[0].fields"
+   }
+  },
+  {
+   "name": "fields-stub-substep-bad",
+   "note": "a bad table on a sub-step names the sub-step's fields",
+   "clients": [
+    "android"
+   ],
+   "instructable": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Set up the firewall",
+      "id": "s1",
+      "substeps": [
+       {
+        "do": "Add it",
+        "id": "s1.1",
+        "fields": []
+       }
+      ]
+     }
+    ]
+   },
+   "expect": {
+    "stub": true,
+    "reason": "unknownKey:steps[0].substeps[0].fields"
+   }
+  },
+  {
+   "name": "fields-stub-unknown-key-before-fields",
+   "note": "the first unknown key in document order decides",
+   "clients": [
+    "android"
+   ],
+   "instructable": {
+    "v": 1,
+    "title": "Add the rate limit rule",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "id": "s1",
+      "shell": "zsh",
+      "fields": []
+     }
+    ]
+   },
+   "expect": {
+    "stub": true,
+    "reason": "unknownKey:steps[0].shell"
+   }
+  }
+ ]
+}
