@@ -16,6 +16,10 @@ those, consequential decisions needing context, and work needing a durable check
 follow-up. Don't add steps to turn a simple approval into an ask. Follow the owner's explicit
 routing preference. The `instructables` skill has the format and writing rules.
 
+An approval that already reaches the owner through its own prompt is not a Hook ask: a
+Telegram bot such as an SSH lease or cert request, a 2FA push, or a system dialog. At most,
+mention it in one chat line.
+
 - **How:** the MCP tool `relay_post {project, instructable}`. Without MCP:
   `relay post <project> --json - <<'EOF' … EOF`.
 - **Project:** the name this repo's instructions give, else the repo folder name.

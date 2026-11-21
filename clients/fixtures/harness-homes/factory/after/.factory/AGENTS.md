@@ -2,7 +2,7 @@
 
 Keep diffs small.
 
-<!-- hook:begin id=instructions v=1 sha=350f14e23a7dc1d8 -->
+<!-- hook:begin id=instructions v=1 sha=bdbb1976176def16 -->
 <!-- hook:instructions v=1 app=9.9.9 -->
 # Owner asks go to Hook
 
@@ -20,6 +20,10 @@ credentials, logins and secrets, commands on machines you can't reach, approvals
 those, consequential decisions needing context, and work needing a durable checklist or
 follow-up. Don't add steps to turn a simple approval into an ask. Follow the owner's explicit
 routing preference. The `instructables` skill has the format and writing rules.
+
+An approval that already reaches the owner through its own prompt is not a Hook ask: a
+Telegram bot such as an SSH lease or cert request, a 2FA push, or a system dialog. At most,
+mention it in one chat line.
 
 - **How:** the MCP tool `relay_post {project, instructable}`. Without MCP:
   `relay post <project> --json - <<'EOF' … EOF`.

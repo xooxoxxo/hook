@@ -342,6 +342,36 @@ def lint_hook_controls(doc: Any) -> List[Tuple[str, str]]:
     return problems
 
 
+# An ask whose every required step only says to approve a prompt another app already shows
+# the owner (a Telegram bot's SSH lease request, an authenticator push, a system dialog). That
+# app reaches the owner itself, so the ask is a duplicate. Real work beside it passes.
+_APPROVAL_PLACE = re.compile(r"\b(?:telegram|bot|authenticator|dialog|2fa|mfa)\b", re.IGNORECASE)
+_APPROVAL_DO = re.compile(r"(?:approve|confirm|tap|accept)\b", re.IGNORECASE)
+
+
+def _only_approves(node: Dict[str, Any]) -> bool:
+    if any(node.get(k) not in (None, "", []) for k in ("code", "url", "file", "question", "substeps")):
+        return False
+    where, do = node.get("where"), node.get("do")
+    return (isinstance(where, str) and bool(_APPROVAL_PLACE.search(where))
+            and isinstance(do, str) and bool(_APPROVAL_DO.match(do.strip())))
+
+
+def lint_approval_pointers(doc: Any) -> List[Tuple[str, str]]:
+    """(path, message) for each step when every required step only points at an approval that
+    another app already prompts for: where names Telegram, a bot, an authenticator or a dialog,
+    do starts with approve, confirm, tap or accept, and there is no code, url, file, question or
+    sub-steps. One step of real work anywhere in the required steps clears the whole ask."""
+    if not isinstance(doc, dict) or not isinstance(doc.get("steps"), list):
+        return []
+    required = [(i, s) for i, s in enumerate(doc["steps"]) if isinstance(s, dict) and not s.get("optional")]
+    if not required or not all(_only_approves(s) for _, s in required):
+        return []
+    return [(f"steps[{i}]", "only points at an approval that already reaches the owner "
+                            + ("on Telegram" if "telegram" in s["where"].lower() else "in its own prompt")
+                            + "; don't post it as an ask") for i, s in required]
+
+
 # --- do is the owner's one action ---
 
 DO_MAX = 60
@@ -431,7 +461,7 @@ def lint_do_title(doc: Any) -> List[Tuple[str, str]]:
 def lint_instructable(doc: Any) -> List[Tuple[str, str]]:
     """(path, message) for each `do` (step, sub-step, verify) that holds a value the owner
     would have to retype, then lint_requirements' pairs, then lint_choice_labels', then
-    lint_hook_controls', then lint_do_title's. A step shares its sub-steps' code and url, and
+    lint_hook_controls', then lint_do_title's, then lint_approval_pointers'. A step shares its sub-steps' code and url, and
     they share its."""
     problems: List[Tuple[str, str]] = []
     if not isinstance(doc, dict):
@@ -455,7 +485,7 @@ def lint_instructable(doc: Any) -> List[Tuple[str, str]]:
         if values:
             problems.append(("verify.do", _message(values, verify=True)))
     return (problems + lint_requirements(doc) + lint_choice_labels(doc) + lint_hook_controls(doc)
-            + lint_do_title(doc))
+            + lint_do_title(doc) + lint_approval_pointers(doc))
 
 
 def lint_details(doc: Any) -> List[str]:

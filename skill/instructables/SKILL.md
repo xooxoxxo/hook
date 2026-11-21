@@ -32,6 +32,10 @@ consequential decisions needing context; and work needing a durable checklist or
 Don't add steps just to send a simple approval to Hook. Follow explicit owner routing
 preferences.
 
+An approval that already reaches the owner through its own prompt is not a Hook ask: a
+Telegram bot such as an SSH lease or cert request, a 2FA push, or a system dialog. At most,
+mention it in one chat line.
+
 Don't save asks for the end of the session. Bundle related steps and questions into one
 instructable, then keep working on independent tasks.
 
