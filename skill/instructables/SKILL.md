@@ -41,12 +41,36 @@ instructable, then keep working on independent tasks.
 
 ## How to write it
 
+**The ask is the whole walkthrough.** If you would explain more in chat than the ask holds,
+the ask is incomplete. Every click is a sub-step with its `url`, settings go in `fields`, and a
+secret step first shows how to create the secret. Before (the steps were only in chat):
+
+```text
+{"do": "Create a restricted Stripe test key and store it",
+ "detail": "Create a restricted key in test mode with the permissions checkout needs.",
+ "code": "security add-generic-password -a \"$USER\" -s stripe-test-key -U -w"}
+```
+
+After:
+
+```json
+{"do": "Create the Stripe test key", "where": "Stripe dashboard, test mode", "substeps": [
+  {"do": "Sign in and switch to the sandbox", "url": "https://dashboard.stripe.com/test/apikeys"},
+  {"do": "Click Create restricted key", "fields": [{"label": "Name", "value": "checkout-test", "copy": true}]},
+  {"do": "Set the permissions, then click Create key", "fields": [
+    {"label": "Account", "value": "Read"}, {"label": "Payment Intents", "value": "Read"},
+    {"label": "Charges", "value": "Read"}, {"label": "Checkout Sessions", "value": "Write"},
+    {"label": "Webhook Endpoints", "value": "Write"}]},
+  {"do": "Copy the key that starts with rk_test_"},
+  {"do": "Store it in the Keychain", "where": "Mac terminal", "detail": "Paste the key at the prompt.",
+   "code": "security add-generic-password -a \"$USER\" -s stripe-test-key -U -w", "lang": "bash"}]}
+```
+
 **`do` is the owner's ONE action, in a few words.** Aim for 8 words or fewer, never more than
 about 60 characters: "Run the Leasekey agent setup", not "Install the Leasekey client on the
 Mac, create the Claude agent's token and add its rules on the server". What a command or a page
-does goes in `detail`; what the owner should see goes in `expect`. When the owner really does
-several things, make separate steps or sub-steps. A short click path is still one action
-("Open Settings and click Save"). Before and after:
+does goes in `detail`; what the owner should see goes in `expect`. Several actions are
+separate steps or sub-steps; a short click path is one ("Open Settings and click Save"):
 
 ```text
 {"do": "Install the Leasekey client on the Mac, create the Claude agent's token and add its rules on the server",
@@ -79,11 +103,10 @@ a step's `question` or in `reply`, not in a step that points at them. `relay_pos
   The queue dedupes on the title for 24 h, so a different ask needs a different title.
 - **why**: one sentence (at most 300 chars) on what it unblocks.
 - **urgency**: `now` (you're blocked this minute), `today` (the default) or `whenever`.
-- **steps** (1–20): one action per step. `do` says exactly what to click, in
-  order (site → page → menu → button). `where` names the place: "Slack desktop",
+- **steps** (1–20): one action per step. `where` names the place: "Slack desktop",
   "Mac terminal", "GitHub → Settings".
-- **substeps**: when a step needs more than one action, use `substeps` instead of listing
-  actions in `do` or `detail`. Keep the parent to `do` and `where`. Each sub-step is a step
+- **substeps**: a step with more than one action lists them as `substeps`, not in `do` or
+  `detail`. Keep the parent to `do` and `where`. Each sub-step is a step
   (same keys; 1–10 per step; they can't nest, and `verify` can't have them), shown indented
   as "3a", "3b" and ticked one by one. Steps plus sub-steps: at most 60.
 
@@ -220,8 +243,8 @@ a step's `question` or in `reply`, not in a step that points at them. `relay_pos
 
 **Never put a secret or its value in an instructable.** Hook rejects anything that
 looks like `sk-…`, `xoxb-…`, `ghp_…`, `github_pat_…`, `AKIA…` or a private key.
-When the owner has to give you a secret, write a step that stores it in the Keychain,
-then read it from there yourself:
+When the owner has to give you a secret, the sub-steps that create it end in a step that
+stores it in the Keychain; read it from there yourself:
 
 ```text
 {"do": "Store the Acme API token in the Keychain", "where": "Mac terminal",

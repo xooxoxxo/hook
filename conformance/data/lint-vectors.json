@@ -3139,6 +3139,247 @@
     ]
    },
    "expect": []
+  },
+  {
+   "name": "hint-create-key-in-test-mode",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Create a restricted Stripe test key and store it",
+      "detail": "Create a restricted key in test mode with the permissions checkout needs.",
+      "code": "security add-generic-password -a \"$USER\" -s stripe-test-key -U -w",
+      "lang": "bash"
+     }
+    ]
+   },
+   "expect": [],
+   "hints": [
+    [
+     "steps[0]",
+     "says to create something on a website but has no sub-steps or link: give each click as a sub-step with its url"
+    ]
+   ]
+  },
+  {
+   "name": "hint-generate-token-in-dashboard",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Generate an API token",
+      "where": "the DNS provider's dashboard"
+     }
+    ]
+   },
+   "expect": [],
+   "hints": [
+    [
+     "steps[0]",
+     "says to create something on a website but has no sub-steps or link: give each click as a sub-step with its url"
+    ]
+   ]
+  },
+  {
+   "name": "hint-make-webhook-on-named-site",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Add the deploy webhook",
+      "detail": "On GitHub, make a webhook for the repo that points at the Pond."
+     }
+    ]
+   },
+   "expect": [],
+   "hints": [
+    [
+     "steps[0]",
+     "says to create something on a website but has no sub-steps or link: give each click as a sub-step with its url"
+    ]
+   ]
+  },
+  {
+   "name": "hint-create-account-on-website",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Open the welcome page"
+     },
+     {
+      "do": "Create an account on the provider's website"
+     }
+    ]
+   },
+   "expect": [],
+   "hints": [
+    [
+     "steps[1]",
+     "says to create something on a website but has no sub-steps or link: give each click as a sub-step with its url"
+    ]
+   ]
+  },
+  {
+   "name": "hint-create-rule-where-names-site",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Create the rate-limit rule",
+      "where": "Cloudflare → Security"
+     }
+    ]
+   },
+   "expect": [],
+   "hints": [
+    [
+     "steps[0]",
+     "says to create something on a website but has no sub-steps or link: give each click as a sub-step with its url"
+    ]
+   ]
+  },
+  {
+   "name": "hint-create-with-substeps",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Create the Stripe test key",
+      "where": "Stripe dashboard, test mode",
+      "substeps": [
+       {
+        "do": "Click Create restricted key",
+        "url": "https://dashboard.stripe.com/test/apikeys"
+       },
+       {
+        "do": "Copy the key"
+       }
+      ]
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "hint-create-with-url",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Generate an API token",
+      "where": "the DNS provider's dashboard",
+      "url": "https://dash.example.com/profile/api-tokens"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "hint-create-in-terminal",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Generate an SSH key for the Pond",
+      "where": "Mac terminal",
+      "code": "ssh-keygen -t ed25519",
+      "lang": "bash"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "hint-created-earlier",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Paste the key",
+      "detail": "Use the key you created in the Stripe dashboard yesterday."
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "hint-do-not-create",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Reuse the old token",
+      "detail": "Don't create a new token in the dashboard; the old one still works."
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "hint-make-sure",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Check the app",
+      "detail": "Make sure the app on the dashboard shows Live."
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "hint-create-other-thing",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Export the report",
+      "detail": "Generate the report for the app in the console."
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "hint-button-label",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Click Create New App",
+      "where": "api.slack.com"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "hint-create-no-website",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Create the deploy key"
+     }
+    ]
+   },
+   "expect": []
   }
  ]
 }
