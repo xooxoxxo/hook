@@ -1,0 +1,1249 @@
+{
+ "source": "mailbox/tests/gen_brief_vectors.py (brief-* cases)",
+ "pond": "1.14.0",
+ "cases": [
+  {
+   "name": "brief-valid",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys"
+     },
+     {
+      "do": "Create a restricted key named import-reader"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh"
+     }
+    ],
+    "brief": "## Why\nThe import job needs read access to charges, nothing else.\n\n## Context\n- The dashboard calls them *restricted keys*.\n- Leave every other permission at **None**.\n\n## Links I used\n- [Restricted keys](https://payments.example.test/docs/keys#restricted)\n"
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys"
+     },
+     {
+      "do": "Create a restricted key named import-reader"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh"
+     }
+    ],
+    "brief": "## Why\nThe import job needs read access to charges, nothing else.\n\n## Context\n- The dashboard calls them *restricted keys*.\n- Leave every other permission at **None**.\n\n## Links I used\n- [Restricted keys](https://payments.example.test/docs/keys#restricted)\n",
+    "urgency": "today"
+   },
+   "pyBytes": 594
+  },
+  {
+   "name": "brief-valid-with-why",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys"
+     },
+     {
+      "do": "Create a restricted key named import-reader"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh"
+     }
+    ],
+    "why": "The import job is blocked.",
+    "brief": "## Why\nThe import job needs read access to charges, nothing else.\n\n## Context\n- The dashboard calls them *restricted keys*.\n- Leave every other permission at **None**.\n\n## Links I used\n- [Restricted keys](https://payments.example.test/docs/keys#restricted)\n"
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys"
+     },
+     {
+      "do": "Create a restricted key named import-reader"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh"
+     }
+    ],
+    "why": "The import job is blocked.",
+    "brief": "## Why\nThe import job needs read access to charges, nothing else.\n\n## Context\n- The dashboard calls them *restricted keys*.\n- Leave every other permission at **None**.\n\n## Links I used\n- [Restricted keys](https://payments.example.test/docs/keys#restricted)\n",
+    "urgency": "today"
+   },
+   "pyBytes": 631
+  },
+  {
+   "name": "brief-valid-one-line",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys"
+     },
+     {
+      "do": "Create a restricted key named import-reader"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh"
+     }
+    ],
+    "brief": "The import job reads charges only."
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys"
+     },
+     {
+      "do": "Create a restricted key named import-reader"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh"
+     }
+    ],
+    "brief": "The import job reads charges only.",
+    "urgency": "today"
+   },
+   "pyBytes": 362
+  },
+  {
+   "name": "brief-valid-8000",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys"
+     },
+     {
+      "do": "Create a restricted key named import-reader"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh"
+     }
+    ],
+    "brief": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys"
+     },
+     {
+      "do": "Create a restricted key named import-reader"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh"
+     }
+    ],
+    "brief": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "urgency": "today"
+   },
+   "pyBytes": 8328
+  },
+  {
+   "name": "brief-valid-null",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys"
+     },
+     {
+      "do": "Create a restricted key named import-reader"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh"
+     }
+    ],
+    "brief": null
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys"
+     },
+     {
+      "do": "Create a restricted key named import-reader"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh"
+     }
+    ],
+    "brief": null,
+    "urgency": "today"
+   },
+   "pyBytes": 330
+  },
+  {
+   "name": "brief-valid-empty",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys"
+     },
+     {
+      "do": "Create a restricted key named import-reader"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh"
+     }
+    ],
+    "brief": ""
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys"
+     },
+     {
+      "do": "Create a restricted key named import-reader"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh"
+     }
+    ],
+    "brief": "",
+    "urgency": "today"
+   },
+   "pyBytes": 328
+  },
+  {
+   "name": "brief-valid-tabs-and-lines",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys"
+     },
+     {
+      "do": "Create a restricted key named import-reader"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh"
+     }
+    ],
+    "brief": "Context\n\tindented\n\nend"
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys"
+     },
+     {
+      "do": "Create a restricted key named import-reader"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh"
+     }
+    ],
+    "brief": "Context\n\tindented\n\nend",
+    "urgency": "today"
+   },
+   "pyBytes": 354
+  },
+  {
+   "name": "brief-valid-non-ascii",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys"
+     },
+     {
+      "do": "Create a restricted key named import-reader"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh"
+     }
+    ],
+    "brief": "Açıklama: yalnızca okuma izni."
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys"
+     },
+     {
+      "do": "Create a restricted key named import-reader"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh"
+     }
+    ],
+    "brief": "Açıklama: yalnızca okuma izni.",
+    "urgency": "today"
+   },
+   "pyBytes": 361
+  },
+  {
+   "name": "brief-valid-emoji-zwj",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys"
+     },
+     {
+      "do": "Create a restricted key named import-reader"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh"
+     }
+    ],
+    "brief": "Done by the team 👨\u200d👩\u200d👧"
+   },
+   "valid": true,
+   "errors": [],
+   "cleaned": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys"
+     },
+     {
+      "do": "Create a restricted key named import-reader"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh"
+     }
+    ],
+    "brief": "Done by the team 👨\u200d👩\u200d👧",
+    "urgency": "today"
+   },
+   "pyBytes": 363
+  },
+  {
+   "name": "brief-8001",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys"
+     },
+     {
+      "do": "Create a restricted key named import-reader"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh"
+     }
+    ],
+    "brief": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+   },
+   "valid": false,
+   "errors": [
+    "brief: longer than 8000 characters"
+   ],
+   "cleaned": null,
+   "pyBytes": 8329
+  },
+  {
+   "name": "brief-number",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys"
+     },
+     {
+      "do": "Create a restricted key named import-reader"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh"
+     }
+    ],
+    "brief": 7
+   },
+   "valid": false,
+   "errors": [
+    "brief: must be a string"
+   ],
+   "cleaned": null,
+   "pyBytes": 327
+  },
+  {
+   "name": "brief-list",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys"
+     },
+     {
+      "do": "Create a restricted key named import-reader"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh"
+     }
+    ],
+    "brief": [
+     "Why",
+     "Context"
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "brief: must be a string"
+   ],
+   "cleaned": null,
+   "pyBytes": 344
+  },
+  {
+   "name": "brief-object",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys"
+     },
+     {
+      "do": "Create a restricted key named import-reader"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh"
+     }
+    ],
+    "brief": {
+     "why": "Context"
+    }
+   },
+   "valid": false,
+   "errors": [
+    "brief: must be a string"
+   ],
+   "cleaned": null,
+   "pyBytes": 344
+  },
+  {
+   "name": "brief-bool",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys"
+     },
+     {
+      "do": "Create a restricted key named import-reader"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh"
+     }
+    ],
+    "brief": true
+   },
+   "valid": false,
+   "errors": [
+    "brief: must be a string"
+   ],
+   "cleaned": null,
+   "pyBytes": 330
+  },
+  {
+   "name": "brief-carriage-return",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys"
+     },
+     {
+      "do": "Create a restricted key named import-reader"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh"
+     }
+    ],
+    "brief": "Context\r\nmore"
+   },
+   "valid": false,
+   "errors": [
+    "brief: contains hidden or control characters (U+000D)"
+   ],
+   "cleaned": null,
+   "pyBytes": 343
+  },
+  {
+   "name": "brief-bidi",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys"
+     },
+     {
+      "do": "Create a restricted key named import-reader"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh"
+     }
+    ],
+    "brief": "Context \u202e reversed"
+   },
+   "valid": false,
+   "errors": [
+    "brief: contains hidden or control characters (U+202E)"
+   ],
+   "cleaned": null,
+   "pyBytes": 348
+  },
+  {
+   "name": "brief-nul",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys"
+     },
+     {
+      "do": "Create a restricted key named import-reader"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh"
+     }
+    ],
+    "brief": "Context\u0000"
+   },
+   "valid": false,
+   "errors": [
+    "brief: contains hidden or control characters (U+0000)"
+   ],
+   "cleaned": null,
+   "pyBytes": 341
+  },
+  {
+   "name": "brief-secret",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys"
+     },
+     {
+      "do": "Create a restricted key named import-reader"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh"
+     }
+    ],
+    "brief": "Use the old key ghp_example-not-a-token if it fails."
+   },
+   "valid": false,
+   "errors": [
+    "brief: secret-like value"
+   ],
+   "cleaned": null,
+   "pyBytes": 380
+  },
+  {
+   "name": "brief-secret-anthropic",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys"
+     },
+     {
+      "do": "Create a restricted key named import-reader"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh"
+     }
+    ],
+    "brief": "The key starts sk-ant-example, keep it."
+   },
+   "valid": false,
+   "errors": [
+    "brief: secret-like value"
+   ],
+   "cleaned": null,
+   "pyBytes": 367
+  },
+  {
+   "name": "brief-secret-split",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys"
+     },
+     {
+      "do": "Create a restricted key named import-reader"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh"
+     }
+    ],
+    "brief": "sk-\u200dant-example"
+   },
+   "valid": false,
+   "errors": [
+    "brief: secret-like value"
+   ],
+   "cleaned": null,
+   "pyBytes": 345
+  },
+  {
+   "name": "brief-secret-private-key",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys"
+     },
+     {
+      "do": "Create a restricted key named import-reader"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh"
+     }
+    ],
+    "brief": "-----BEGIN RSA PRIVATE KEY-----\nexample\n"
+   },
+   "valid": false,
+   "errors": [
+    "brief: secret-like value"
+   ],
+   "cleaned": null,
+   "pyBytes": 370
+  },
+  {
+   "name": "brief-and-title",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys"
+     },
+     {
+      "do": "Create a restricted key named import-reader"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh"
+     }
+    ],
+    "brief": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+   },
+   "valid": false,
+   "errors": [
+    "title: must not be empty",
+    "brief: longer than 8000 characters"
+   ],
+   "cleaned": null,
+   "pyBytes": 8297
+  },
+  {
+   "name": "brief-on-a-step",
+   "kind": "instructable",
+   "input": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "steps": [
+     {
+      "do": "Open the page",
+      "brief": "## Why\nThe import job needs read access to charges, nothing else.\n\n## Context\n- The dashboard calls them *restricted keys*.\n- Leave every other permission at **None**.\n\n## Links I used\n- [Restricted keys](https://payments.example.test/docs/keys#restricted)\n"
+     }
+    ]
+   },
+   "valid": false,
+   "errors": [
+    "steps[0].brief: unknown key"
+   ],
+   "cleaned": null,
+   "pyBytes": 368
+  },
+  {
+   "name": "brief-canonical",
+   "kind": "canonical",
+   "input": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "urgency": "today",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys",
+      "id": "s1"
+     },
+     {
+      "do": "Create a restricted key named import-reader",
+      "id": "s2"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh",
+      "id": "s3"
+     }
+    ],
+    "brief": "## Why\nThe import job needs read access to charges, nothing else.\n\n## Context\n- The dashboard calls them *restricted keys*.\n- Leave every other permission at **None**.\n\n## Links I used\n- [Restricted keys](https://payments.example.test/docs/keys#restricted)\n"
+   },
+   "body": "{\"brief\":\"## Why\\nThe import job needs read access to charges, nothing else.\\n\\n## Context\\n- The dashboard calls them *restricted keys*.\\n- Leave every other permission at **None**.\\n\\n## Links I used\\n- [Restricted keys](https://payments.example.test/docs/keys#restricted)\\n\",\"steps\":[{\"do\":\"Open the API keys page\",\"id\":\"s1\",\"url\":\"https://payments.example.test/keys\"},{\"do\":\"Create a restricted key named import-reader\",\"id\":\"s2\"},{\"code\":\"security add-generic-password -s import-reader -a me -w\",\"do\":\"Store it in the Keychain\",\"id\":\"s3\",\"lang\":\"sh\"}],\"title\":\"Create a restricted payments key\",\"urgency\":\"today\",\"v\":1}"
+  },
+  {
+   "name": "brief-canonical-escapes",
+   "kind": "canonical",
+   "input": {
+    "brief": "line one\nline \"two\"\ttab \\ slash"
+   },
+   "body": "{\"brief\":\"line one\\nline \\\"two\\\"\\ttab \\\\ slash\"}"
+  },
+  {
+   "name": "brief-hash-body",
+   "kind": "hash",
+   "rev": 1,
+   "prev": "",
+   "at": "2026-10-29T10:00:00+00:00",
+   "reason": "",
+   "body": "{\"brief\":\"## Why\\nThe import job needs read access to charges, nothing else.\\n\\n## Context\\n- The dashboard calls them *restricted keys*.\\n- Leave every other permission at **None**.\\n\\n## Links I used\\n- [Restricted keys](https://payments.example.test/docs/keys#restricted)\\n\",\"steps\":[{\"do\":\"Open the API keys page\",\"id\":\"s1\",\"url\":\"https://payments.example.test/keys\"},{\"do\":\"Create a restricted key named import-reader\",\"id\":\"s2\"},{\"code\":\"security add-generic-password -s import-reader -a me -w\",\"do\":\"Store it in the Keychain\",\"id\":\"s3\",\"lang\":\"sh\"}],\"title\":\"Create a restricted payments key\",\"urgency\":\"today\",\"v\":1}",
+   "hash": "2f75fa9dc8153d37a28ef9700691874a5a6722db53bc02b0b1d6546e0ff10251"
+  },
+  {
+   "name": "brief-hash-brief-changed",
+   "kind": "hash",
+   "rev": 2,
+   "prev": "2f75fa9dc8153d37a28ef9700691874a5a6722db53bc02b0b1d6546e0ff10251",
+   "at": "2026-10-29T10:05:00+00:00",
+   "reason": "Say when it expires",
+   "body": "{\"brief\":\"## Why\\nThe import job needs read access to charges, nothing else.\\n\\n## Context\\n- The dashboard calls them *restricted keys*.\\n- Leave every other permission at **None**.\\n\\n## Links I used\\n- [Restricted keys](https://payments.example.test/docs/keys#restricted)\\n- The key expires in 90 days.\\n\",\"steps\":[{\"do\":\"Open the API keys page\",\"id\":\"s1\",\"url\":\"https://payments.example.test/keys\"},{\"do\":\"Create a restricted key named import-reader\",\"id\":\"s2\"},{\"code\":\"security add-generic-password -s import-reader -a me -w\",\"do\":\"Store it in the Keychain\",\"id\":\"s3\",\"lang\":\"sh\"}],\"title\":\"Create a restricted payments key\",\"urgency\":\"today\",\"v\":1}",
+   "hash": "33e43eb1a320b537322c32b34acd5c5b0746cc29689f1b0ea1b03ee78e8fff1d"
+  },
+  {
+   "name": "brief-amend-changed",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "urgency": "today",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys",
+      "id": "s1"
+     },
+     {
+      "do": "Create a restricted key named import-reader",
+      "id": "s2"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh",
+      "id": "s3"
+     }
+    ],
+    "brief": "## Why\nThe import job needs read access to charges, nothing else.\n\n## Context\n- The dashboard calls them *restricted keys*.\n- Leave every other permission at **None**.\n\n## Links I used\n- [Restricted keys](https://payments.example.test/docs/keys#restricted)\n"
+   },
+   "new": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "urgency": "today",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys",
+      "id": "s1"
+     },
+     {
+      "do": "Create a restricted key named import-reader",
+      "id": "s2"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh",
+      "id": "s3"
+     }
+    ],
+    "brief": "## Why\nThe import job needs read access to charges, nothing else.\n\n## Context\n- The dashboard calls them *restricted keys*.\n- Leave every other permission at **None**.\n\n## Links I used\n- [Restricted keys](https://payments.example.test/docs/keys#restricted)\n- The key expires in 90 days.\n"
+   },
+   "usedIds": [
+    "s1",
+    "s2",
+    "s3"
+   ],
+   "rev": 2,
+   "reason": "Say when it expires",
+   "output": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "urgency": "today",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys",
+      "id": "s1"
+     },
+     {
+      "do": "Create a restricted key named import-reader",
+      "id": "s2"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh",
+      "id": "s3"
+     }
+    ],
+    "brief": "## Why\nThe import job needs read access to charges, nothing else.\n\n## Context\n- The dashboard calls them *restricted keys*.\n- Leave every other permission at **None**.\n\n## Links I used\n- [Restricted keys](https://payments.example.test/docs/keys#restricted)\n- The key expires in 90 days.\n"
+   },
+   "summary": {
+    "changed": [],
+    "added": [],
+    "removed": [],
+    "moved": [],
+    "top": [
+     "brief"
+    ]
+   },
+   "errors": []
+  },
+  {
+   "name": "brief-amend-added",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "urgency": "today",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys",
+      "id": "s1"
+     },
+     {
+      "do": "Create a restricted key named import-reader",
+      "id": "s2"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh",
+      "id": "s3"
+     }
+    ]
+   },
+   "new": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "urgency": "today",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys",
+      "id": "s1"
+     },
+     {
+      "do": "Create a restricted key named import-reader",
+      "id": "s2"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh",
+      "id": "s3"
+     }
+    ],
+    "brief": "## Why\nThe import job needs read access to charges, nothing else.\n\n## Context\n- The dashboard calls them *restricted keys*.\n- Leave every other permission at **None**.\n\n## Links I used\n- [Restricted keys](https://payments.example.test/docs/keys#restricted)\n"
+   },
+   "usedIds": [
+    "s1",
+    "s2",
+    "s3"
+   ],
+   "rev": 2,
+   "reason": "Add the background",
+   "output": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "urgency": "today",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys",
+      "id": "s1"
+     },
+     {
+      "do": "Create a restricted key named import-reader",
+      "id": "s2"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh",
+      "id": "s3"
+     }
+    ],
+    "brief": "## Why\nThe import job needs read access to charges, nothing else.\n\n## Context\n- The dashboard calls them *restricted keys*.\n- Leave every other permission at **None**.\n\n## Links I used\n- [Restricted keys](https://payments.example.test/docs/keys#restricted)\n"
+   },
+   "summary": {
+    "changed": [],
+    "added": [],
+    "removed": [],
+    "moved": [],
+    "top": [
+     "brief"
+    ]
+   },
+   "errors": []
+  },
+  {
+   "name": "brief-amend-removed",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "urgency": "today",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys",
+      "id": "s1"
+     },
+     {
+      "do": "Create a restricted key named import-reader",
+      "id": "s2"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh",
+      "id": "s3"
+     }
+    ],
+    "brief": "## Why\nThe import job needs read access to charges, nothing else.\n\n## Context\n- The dashboard calls them *restricted keys*.\n- Leave every other permission at **None**.\n\n## Links I used\n- [Restricted keys](https://payments.example.test/docs/keys#restricted)\n"
+   },
+   "new": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "urgency": "today",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys",
+      "id": "s1"
+     },
+     {
+      "do": "Create a restricted key named import-reader",
+      "id": "s2"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh",
+      "id": "s3"
+     }
+    ]
+   },
+   "usedIds": [
+    "s1",
+    "s2",
+    "s3"
+   ],
+   "rev": 2,
+   "reason": "The background was wrong",
+   "output": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "urgency": "today",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys",
+      "id": "s1"
+     },
+     {
+      "do": "Create a restricted key named import-reader",
+      "id": "s2"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh",
+      "id": "s3"
+     }
+    ]
+   },
+   "summary": {
+    "changed": [],
+    "added": [],
+    "removed": [],
+    "moved": [],
+    "top": [
+     "brief"
+    ]
+   },
+   "errors": []
+  },
+  {
+   "name": "brief-amend-with-why-and-step",
+   "kind": "amend",
+   "current": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "urgency": "today",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys",
+      "id": "s1"
+     },
+     {
+      "do": "Create a restricted key named import-reader",
+      "id": "s2"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh",
+      "id": "s3"
+     }
+    ],
+    "brief": "## Why\nThe import job needs read access to charges, nothing else.\n\n## Context\n- The dashboard calls them *restricted keys*.\n- Leave every other permission at **None**.\n\n## Links I used\n- [Restricted keys](https://payments.example.test/docs/keys#restricted)\n"
+   },
+   "new": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "urgency": "today",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys",
+      "id": "s1"
+     },
+     {
+      "do": "Create a restricted key named import-read",
+      "id": "s2"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh",
+      "id": "s3"
+     }
+    ],
+    "brief": "## Why\nThe import job needs read access to charges, nothing else.\n\n## Context\n- The dashboard calls them *restricted keys*.\n- Leave every other permission at **None**.\n\n## Links I used\n- [Restricted keys](https://payments.example.test/docs/keys#restricted)\n- The key expires in 90 days.\n",
+    "why": "The import job is blocked."
+   },
+   "usedIds": [
+    "s1",
+    "s2",
+    "s3"
+   ],
+   "rev": 2,
+   "reason": "Shorter key name",
+   "output": {
+    "v": 1,
+    "title": "Create a restricted payments key",
+    "urgency": "today",
+    "steps": [
+     {
+      "do": "Open the API keys page",
+      "url": "https://payments.example.test/keys",
+      "id": "s1"
+     },
+     {
+      "do": "Create a restricted key named import-read",
+      "id": "s2"
+     },
+     {
+      "do": "Store it in the Keychain",
+      "code": "security add-generic-password -s import-reader -a me -w",
+      "lang": "sh",
+      "id": "s3"
+     }
+    ],
+    "brief": "## Why\nThe import job needs read access to charges, nothing else.\n\n## Context\n- The dashboard calls them *restricted keys*.\n- Leave every other permission at **None**.\n\n## Links I used\n- [Restricted keys](https://payments.example.test/docs/keys#restricted)\n- The key expires in 90 days.\n",
+    "why": "The import job is blocked."
+   },
+   "summary": {
+    "changed": [
+     {
+      "id": "s2",
+      "path": "2",
+      "fields": [
+       "do"
+      ]
+     }
+    ],
+    "added": [],
+    "removed": [],
+    "moved": [],
+    "top": [
+     "why",
+     "brief"
+    ]
+   },
+   "errors": []
+  }
+ ]
+}

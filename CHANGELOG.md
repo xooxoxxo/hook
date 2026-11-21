@@ -7,6 +7,8 @@ and versions follow Semantic Versioning.
 
 ### Added
 
+- An ask's `brief`: Markdown of up to 8000 characters with what the session would have said in chat (the why, the context, the links it used). `relay post`, `relay amend` and the MCP tools send it to a Pond that lists `brief` (Pond 1.14.0), and send the ask without it, with a note, to an older one. The schema, the skill and the tool descriptions say how to write one.
+- The protocol for **Ask about this**: `POST /asks/{id}/ask-about` on a Pond that lists `askAbout` answers the owner's question about an ask with Claude Haiku 5.5, from the ask and its brief, and stores the events `ask_about_question` and `ask_about_answer`, which never wake a session. The ask's text and brief go to Anthropic's API only when the owner asks ([privacy](docs/privacy.md#ask-about-this)).
 - A step's `fields`, a settings table of label and value rows for form settings and config values: `relay post`, `relay amend`, `relay append` and the MCP tools send it to a Pond that lists `fields`, send each row as a sub-step to an older one with a note, and hint when a `detail` lists three or more settings.
 
 ### Changed

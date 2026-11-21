@@ -67,6 +67,12 @@ AMEND_POND = "1.1.0"            # amend, edit keys, accept and problems
 # Adding steps to an open ask, and a question's `then`: gated on this entry of the Pond's
 # `features` list (GET /version), never on a version number. No `features` key means no feature.
 APPEND_FEATURE = "appendSteps"
+# An ask's `brief` (Pond 1.14.0): gated on this entry of `features`, never on a version. On a
+# Pond (or This Mac) that doesn't list it, post and amend send the ask without it and say so.
+BRIEF_FEATURE = "brief"
+BRIEF_KEY = "brief"
+BRIEF_NOTE = ("the Pond doesn't list the brief feature: the ask was sent without its brief "
+              "(put what the owner must know in why and the steps)")
 THEN_KEY = "question.then"
 APPEND_RETRY_MAX_S = 15         # a 429 `too soon` up to this long is waited out once
 PROTOCOL_CACHE_S = 300.0
@@ -501,8 +507,8 @@ def fill_from(instructable: Dict[str, Any], env: Optional[Mapping[str, str]] = N
 
 
 def _with_notes(resp: Dict[str, Any], notes: List[str], hints: List[str]) -> Dict[str, Any]:
-    """resp with `notes` (documents not copied, fields sent as sub-steps) and `hints` (relay_lint
-    advice that didn't stop the ask), each only when there is one."""
+    """resp with `notes` (documents not copied, fields sent as sub-steps, a brief left out) and
+    `hints` (relay_lint advice that didn't stop the ask), each only when there is one."""
     extra: Dict[str, Any] = {}
     if notes:
         extra["notes"] = notes
@@ -1208,7 +1214,9 @@ class Client:
             raise Refused(400, "invalid instructable", problems)
         self.check_pond(instructable)
         hints = hint_lines(instructable)
+        instructable, brief_notes = self._brief_fallback(instructable)
         instructable, fields_notes = self._fields_fallback(instructable, number=True)
+        fields_notes = brief_notes + fields_notes
         body: Dict[str, Any] = {"project": project, "instructable": fill_from(instructable, self.env)}
         keys: Optional[EditKeys] = None
         title = str(instructable.get("title") or "")
@@ -1258,7 +1266,9 @@ class Client:
             raise Refused(400, "invalid instructable", problems)
         self.check_pond(instructable)
         hints = hint_lines(instructable)
+        instructable, brief_notes = self._brief_fallback(instructable)
         instructable, fields_notes = self._fields_fallback(instructable)
+        fields_notes = brief_notes + fields_notes
         keys = edit_keys if edit_keys is not None else EditKeys(self.env)
         record = keys.load(ask_id)
         # A key only ever goes to the Pond it was made for: after a source change it stays home.
@@ -1410,6 +1420,14 @@ class Client:
             result["warning"] = f"ask {ask_id} was posted from another session; add steps only to the asks you posted"
         notes = fields_notes + notes
         return _with_notes(result, notes, hints)
+
+    def _brief_fallback(self, holder: Dict[str, Any]) -> Tuple[Dict[str, Any], List[str]]:
+        """holder as sent: on a Pond (or This Mac) that doesn't list BRIEF_FEATURE, without its
+        `brief`, with BRIEF_NOTE. An absent or null brief changes nothing. The input is never
+        mutated. → (holder, [the note] or [])."""
+        if holder.get(BRIEF_KEY) is None or self.has_feature(BRIEF_FEATURE):
+            return holder, []
+        return {k: v for k, v in holder.items() if k != BRIEF_KEY}, [BRIEF_NOTE]
 
     def _fields_fallback(self, holder: Dict[str, Any], *, number: bool = False,
                          path: str = "instructable") -> Tuple[Dict[str, Any], List[str]]:

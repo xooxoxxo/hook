@@ -10,6 +10,7 @@
     "title": { "type": "string", "minLength": 1, "maxLength": 120 },
     "why": { "type": "string", "maxLength": 300 },
     "warning": { "type": "string", "maxLength": 300, "description": "Ask-wide caution shown above all steps. Needs Pond 1.6.0. Does not lock steps." },
+    "brief": { "type": "string", "maxLength": 8000, "description": "Background in Markdown: what you would have told the owner in chat, such as why, the context, and the links you used. Hook shows it behind a Background disclosure, and Ask about this answers from it. Line breaks allowed; no secrets. Needs a Pond that lists the brief feature; the client drops it otherwise. A correction sends it again, or it is removed." },
     "urgency": { "enum": ["now", "today", "whenever"], "default": "today" },
     "steps": {
       "type": "array",

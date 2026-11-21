@@ -151,6 +151,14 @@
       "copies": ["Tests/RelayCoreTests/Fixtures/doc-vectors.json"]
     },
     {
+      "path": "data/brief-vectors.json",
+      "pond": "1.14.0",
+      "feature": "brief",
+      "roles": ["reader", "writer", "server"],
+      "kinds": {"instructable": ["writer", "server"], "canonical": ["writer", "server"], "hash": ["reader"], "amend": ["writer", "server"]},
+      "copies": []
+    },
+    {
       "path": "data/doc-stub-vectors.json",
       "pond": "1.10.0",
       "feature": "docs",
