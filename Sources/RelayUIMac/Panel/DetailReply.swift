@@ -193,7 +193,8 @@ struct DetailReply<Model: PanelViewModel>: View {
                         },
                         onSend: { model.sendChoice(snapshot.id) })
         } else {
-            ReplyBox(prompt: spec.prompt, text: draft, state: snapshot.reply, showHeading: showHeading,
+            ReplyBox(prompt: spec.prompt, text: draft, state: snapshot.reply,
+                     retrying: snapshot.sendRetrying, showHeading: showHeading,
                      isFocused: isFocused, sentText: AnswerEditing.latestText(snapshot.replies), onCancel: cancel,
                      onSend: { model.sendReply(snapshot.id) },
                      onRetry: { model.sendReply(snapshot.id) })

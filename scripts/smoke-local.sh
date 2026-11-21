@@ -20,7 +20,9 @@ trap cleanup EXIT
 fail() { echo "SMOKE FAIL: $*" >&2; exit 1; }
 mode_of() { stat -f '%Lp' "$1"; }
 
-BUILD_ONLY=1 ./scripts/build.sh >/dev/null
+# A dev bundle id: the throwaway app never shares Local Network or other privacy grants,
+# or defaults, with an installed Hook (the release id is io.github.xooxoxxo.relay).
+BUILD_ONLY=1 BUNDLE_ID=io.github.xooxoxxo.relay.dev ./scripts/build.sh >/dev/null
 
 # Both folders start 0755. The app tightens the data folder to 0700 at start,
 # but leaves the folder of a custom $RELAY_CONFIG as it is.

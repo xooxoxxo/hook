@@ -641,7 +641,15 @@ import RelayUI
             let seal = self.seal ?? { nil }
             let provider = secrets.map { OwnerKeyFlow.provider($0, sourceKey: key, url: settings.url, seal: seal) }
             swapIfNeeded(SourceIdentity(key: key, mailbox: settings), pollSeconds: pollSeconds) {
-                MailboxClient(settings: settings, ownerKey: provider)
+                let monitor = LocalNetworkMonitor(url: settings.url) { [weak self] change in
+                    self?.localNetworkChanged(change)
+                }
+                localNetwork = monitor
+                let retry = PondRetryPolicy(onWaiting: { [weak self] id, waiting in
+                    Task { @MainActor in self?.store?.sendRetrying(id, waiting: waiting) }
+                })
+                return MailboxClient(settings: settings, ownerKey: provider, retry: retry,
+                                     onOutcome: { monitor.record($0) })
             }
             attachOwnerKey(key, url: settings.url, MailboxClient(settings: settings, ownerKey: provider))
         case .incomplete, .invalid:
@@ -666,6 +674,22 @@ import RelayUI
     }
 
     /// A new identity swaps the source; the same identity only applies the poll interval.
+    /// The Pond client's Local Network watch; replaced with the client.
+    private var localNetwork: LocalNetworkMonitor?
+
+    /// Says once that macOS may be keeping Hook off the local network, and takes it back when
+    /// the Pond answers again.
+    private func localNetworkChanged(_ change: LocalNetworkGate.Change) {
+        switch change {
+        case .blocked:
+            HookLog.record(.localNetwork(blocked: true, reason: "local Pond keeps failing while online"))
+            store?.post(.localNetworkBlocked)
+        case .cleared:
+            HookLog.record(.localNetwork(blocked: false, reason: "the Pond answered"))
+            if store?.notice == .localNetworkBlocked { store?.dismissNotice() }
+        }
+    }
+
     private func swapIfNeeded(_ next: SourceIdentity, pollSeconds: Int, make: () -> (any QueueSource)?) {
         guard let store else { return }
         guard applied != next else {

@@ -7,9 +7,17 @@
 # SIGN_KEYCHAIN=…   the keychain that holds it.
 # HARDENED=1        with SIGN_IDENTITY: the hardened runtime, a secure timestamp and
 #                   Resources/Hook.entitlements, as notarization requires.
+# BUNDLE_ID=…       with BUILD_ONLY=1: a bundle id other than the release's, so a test build
+#                   (scripts/smoke-local.sh uses io.github.xooxoxxo.relay.dev) never shares macOS
+#                   privacy grants (Local Network, notifications) or defaults with an installed Hook.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+
+# Refused before anything is built or removed: BUNDLE_ID never reaches ~/Applications.
+if [ -n "${BUNDLE_ID:-}" ] && [ "${BUILD_ONLY:-0}" != "1" ]; then
+  echo "build.sh: BUNDLE_ID needs BUILD_ONLY=1" >&2; exit 1
+fi
 
 ARCHS=()
 if [ "${UNIVERSAL:-0}" = "1" ]; then ARCHS=(--arch arm64 --arch x86_64); fi
@@ -31,6 +39,9 @@ if [ "${BUILD_ONLY:-0}" = "1" ]; then rm -rf "$DEST/Relay.app"; fi
 mkdir -p "$APP/Contents/MacOS"
 cp "$BIN" "$APP/Contents/MacOS/Hook"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+if [ -n "${BUNDLE_ID:-}" ]; then
+  plutil -replace CFBundleIdentifier -string "$BUNDLE_ID" "$APP/Contents/Info.plist"
+fi
 # The document viewer's scripts (vendored marked and DOMPurify, and viewer.js) and their licences.
 # Package.swift copies them unchanged (.copy), so they come straight from the source tree: where
 # SwiftPM puts its resource bundle differs between build systems (.build/out/Products/Release with

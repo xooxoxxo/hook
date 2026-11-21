@@ -197,6 +197,9 @@ public enum LinkCheck: Equatable, Sendable {
     @Published public var messageFocus: String?
     /// The Messages send state, by ask, while it isn't idle.
     @Published public internal(set) var messageStates: [String: MessageBoxState] = [:]
+    /// Asks with a write that failed on the network and waits for the client's retry
+    /// (`PondRetryPolicy`): their reply and message fields say "will retry", not an error.
+    @Published public internal(set) var retryingSends: Set<String> = []
     /// Tick paths as loaded from TickStore, per ask, with the step source they were loaded
     /// against; dropped when the ask's detail changes, and reloaded when the source differs.
     /// Keyed on the source, not the tree: comparing it is cheap, building the tree hashes every step.
@@ -462,6 +465,7 @@ public enum LinkCheck: Equatable, Sendable {
             accepting = []; choiceFocus = nil; messageFocus = nil; reportFocus = nil
         }
         generation += 1
+        retryingSends = []
         backgroundFlush = nil
         draining = []; sendingUndo = nil
         watchGeneration = UUID()
@@ -1043,6 +1047,12 @@ public enum LinkCheck: Equatable, Sendable {
         return UndoInfo(verdict: latest.verdict, title: latest.title, deadline: latest.deadline, more: pending.count - 1)
     }
 
+    /// The client's retry began (`waiting`) or ended for a write on ask `id`.
+    public func sendRetrying(_ id: String?, waiting: Bool) {
+        guard let id else { return }
+        if waiting { retryingSends.insert(id) } else { retryingSends.remove(id) }
+    }
+
     public func post(_ notice: PanelNotice) {
         self.notice = notice
         guard notice.isTransient, noticeReset == nil else { return }
@@ -1120,6 +1130,8 @@ public enum LinkCheck: Equatable, Sendable {
             break
         case .newAgents:
             shell.openSettings(.agents)
+        case .localNetworkBlocked:
+            shell.openURL(PanelNotice.localNetworkSettingsURL)
         case .doneRefused(let id, _):
             if navigation.selectedID != id { open(id) }
         }
@@ -1942,6 +1954,7 @@ extension Store: PanelViewModel {
         snapshot.canMessage = talk.messages
         snapshot.limits = talk.limits
         snapshot.message = messageStates[id] ?? .idle
+        snapshot.sendRetrying = retryingSends.contains(id)
         snapshot.canReport = canReport(id)
         if snapshot.canReport, let target = reporting[id] {
             snapshot.reportTarget = target

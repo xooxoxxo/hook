@@ -160,6 +160,8 @@ public struct DetailSnapshot: Equatable, Sendable {
     public var messages: [ReplyLine] = []
     /// The Messages send state.
     public var message: MessageBoxState = .idle
+    /// A reply or message to this ask failed on the network and Hook will send it again.
+    public var sendRetrying = false
     /// The Messages section shows: a Pond with messages (1.2.0 or later), never This Mac. On a
     /// closed ask the earlier messages stay, read-only.
     public var canMessage = false
