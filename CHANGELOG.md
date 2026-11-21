@@ -3,6 +3,15 @@
 All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## [Unreleased]
+
+### Changed
+
+- An approval that already reaches the owner through its own prompt (a Telegram bot such as an SSH lease or cert request, a 2FA push, a system dialog) is no longer a Hook ask: the agent instructions and the instructables skill say to mention it in one chat line at most, and `relay post` refuses an ask whose every required step only says to approve, confirm, tap or accept such a prompt.
+
+<!-- hook:pond=^1.1.0 -->
+<!-- hook:mailbox-protocol=5 -->
+
 ## [0.18.0] - 2026-11-21
 
 ### Added

@@ -2636,6 +2636,204 @@
      "\"https://app.example.com/settings\" is a value to copy: put it in code (or a URL in url)"
     ]
    ]
+  },
+  {
+   "name": "approval-telegram-lease",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "where": "Telegram · an SSH lease bot",
+      "do": "Approve the SSH lease request",
+      "detail": "Pick the one-hour request whose match code matches the one in chat."
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0]",
+     "only points at an approval that already reaches the owner on Telegram; don't post it as an ask"
+    ]
+   ]
+  },
+  {
+   "name": "approval-authenticator-push",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "where": "Authenticator app on your phone",
+      "do": "Confirm the sign-in push"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0]",
+     "only points at an approval that already reaches the owner in its own prompt; don't post it as an ask"
+    ]
+   ]
+  },
+  {
+   "name": "approval-system-dialog",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "where": "macOS dialog",
+      "do": "Tap Allow"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0]",
+     "only points at an approval that already reaches the owner in its own prompt; don't post it as an ask"
+    ]
+   ]
+  },
+  {
+   "name": "approval-two-prompts",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "where": "Telegram · an SSH lease bot",
+      "do": "Approve the SSH lease request",
+      "detail": "Pick the one-hour request whose match code matches the one in chat."
+     },
+     {
+      "where": "Authenticator app",
+      "do": "Accept the 2FA push"
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0]",
+     "only points at an approval that already reaches the owner on Telegram; don't post it as an ask"
+    ],
+    [
+     "steps[1]",
+     "only points at an approval that already reaches the owner in its own prompt; don't post it as an ask"
+    ]
+   ]
+  },
+  {
+   "name": "approval-optional-work",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "where": "Telegram · an SSH lease bot",
+      "do": "Approve the SSH lease request",
+      "detail": "Pick the one-hour request whose match code matches the one in chat."
+     },
+     {
+      "do": "Look at the lease log",
+      "code": "lease log --last",
+      "optional": true
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0]",
+     "only points at an approval that already reaches the owner on Telegram; don't post it as an ask"
+    ]
+   ]
+  },
+  {
+   "name": "approval-with-real-work",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "where": "Telegram · an SSH lease bot",
+      "do": "Approve the SSH lease request",
+      "detail": "Pick the one-hour request whose match code matches the one in chat."
+     },
+     {
+      "do": "Run the import review",
+      "code": "bookmarks review --dry-run"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "approval-with-question",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "where": "Telegram · an SSH lease bot",
+      "do": "Approve the SSH lease request",
+      "detail": "Pick the one-hour request whose match code matches the one in chat."
+     },
+     {
+      "do": "Pick the review scope",
+      "question": {
+       "prompt": "Which folders?",
+       "choices": [
+        "All",
+        "Only new"
+       ]
+      }
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "approval-with-url",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "where": "Telegram · an SSH lease bot",
+      "do": "Approve the request",
+      "url": "https://example.com/lease"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "approval-not-an-approval",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "where": "Telegram · an SSH lease bot",
+      "do": "Read the bot's last message"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "approval-in-terminal",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "where": "Terminal",
+      "do": "Confirm the overwrite prompt"
+     }
+    ]
+   },
+   "expect": []
   }
  ]
 }
