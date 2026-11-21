@@ -684,7 +684,7 @@ class AppendToolTest(StubServerCase):
         self.assertEqual(tool["description"],
                          "Add steps to the end of an open ask you posted, after the owner's answer. Nothing the "
                          "owner saw changes, so there is no review. To change a step they saw, use relay_amend. "
-                         "If the ask is closed, post a follow-up ask.")
+                         "If the ask is closed, post a follow-up ask.\n" + relay_mcp.WALKTHROUGH_RULES)
 
     def test_post_then_append_through_the_server(self):
         s = Session.mailbox(self.tmp.name, self.url)
@@ -829,6 +829,14 @@ class DescriptionTest(unittest.TestCase):
         status = next(t for t in relay_mcp.tool_list() if t["name"] == "relay_status")
         self.assertIn("requirements", status["description"])
         self.assertIn("{left, ready}", status["description"])
+
+    def test_post_amend_and_append_carry_the_walkthrough_rules(self):
+        tools = {t["name"]: t for t in relay_mcp.tool_list()}
+        rules = relay_mcp.WALKTHROUGH_RULES
+        self.assertEqual([line[:2] for line in rules.splitlines()[1:]], ["1.", "2.", "3.", "4.", "5."])
+        for name in ("relay_post", "relay_amend", "relay_append"):
+            self.assertIn(rules, tools[name]["description"], name)
+        self.assertNotIn(rules, tools["relay_status"]["description"])
 
     def test_post_describes_substeps_and_ships_both_defs(self):
         import relay_cli

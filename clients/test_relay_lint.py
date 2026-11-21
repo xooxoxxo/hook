@@ -72,6 +72,17 @@ class VectorTests(unittest.TestCase):
         self.assertEqual(names["fields-values-in-rows"]["expect"], [])
         self.assertTrue(names["fields-value-in-do-still-refused"]["expect"])
 
+    def test_create_on_a_website_vectors_are_there(self):
+        cases = [c for c in CASES if c["name"].startswith("hint-create") or c["name"] in (
+            "hint-generate-token-in-dashboard", "hint-make-webhook-on-named-site", "hint-created-earlier",
+            "hint-do-not-create", "hint-make-sure", "hint-button-label")]
+        hinted = [c for c in cases if c.get("hints")]
+        self.assertGreaterEqual(len(hinted), 4)
+        self.assertGreaterEqual(len(cases) - len(hinted), 6)
+        self.assertEqual(next(c for c in CASES if c["name"] == "hint-create-key-in-test-mode")["hints"], [[
+            "steps[0]", "says to create something on a website but has no sub-steps or link: "
+                        "give each click as a sub-step with its url"]])
+
     def test_a_hint_is_never_a_refusal(self):
         for case in CASES:
             if case.get("hints"):

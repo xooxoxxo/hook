@@ -13,7 +13,9 @@ below", "Press Done") and a verify that only restates the reply or Done.
 lint_do_title() flags a do that is more than the owner's one action: over 60 characters, or
 several actions joined by commas, "and" or "then" ("Install X, create Y and add Z").
 lint_hints() is advice, never a refusal: a step whose `detail` lists three or more settings
-("path /api/v1/requests, method POST, rate limit 5 per minute") is better as `fields`.
+("path /api/v1/requests, method POST, rate limit 5 per minute") is better as `fields`, and a
+step that says to create a key, token, rule, account, webhook or app on a website, with no
+sub-steps and no url, should give each click as a sub-step with its url.
 
 The rules live here and nowhere else in Hook. Other clients copy this file's functions and
 test them against clients/lint-vectors.json. Stdlib only, Python 3.9+.
@@ -562,10 +564,114 @@ def settings_in(text: Any) -> int:
     return sum(1 for segment in _SEGMENT.split(text) if _is_setting(segment))
 
 
+# --- a step that says to create something on a website but gives no clicks ---
+
+_CREATE_VERB = re.compile(r"\b(create|generate|make)\s+", re.IGNORECASE)
+_CREATE_THING = re.compile(r"(?:api[ -])?(?:keys?|tokens?|rules?|accounts?|webhooks?|apps?|applications?)",
+                           re.IGNORECASE)
+_CREATE_ARTICLES = frozenset(("a", "an", "the", "your", "one", "new", "another"))
+# A word that ends the object of the verb: "Generate the report for the app" makes no app.
+_CREATE_STOP = frozenset((
+    "for", "of", "in", "on", "to", "with", "from", "at", "by", "and", "or", "the", "a", "an", "that",
+    "which", "if", "when", "so", "sure", "certain", "it", "this", "them",
+))
+# "you will create", "don't create", "Hook can make": not the owner's action.
+_CREATE_NOT_ASKED = frozenset((
+    "will", "would", "can", "could", "may", "might", "should", "shall", "don't", "dont", "not", "never",
+    "no", "we", "i", "it", "hook", "relay", "script",
+))
+_WEB_WORDS = re.compile(r"\b(?:dashboard|console|portal|website|web\s*site|web\s+ui|browser|admin\s+(?:page|panel|area)"
+                        r"|control\s+panel|developer\s+(?:settings|portal)|settings\s+page|test\s+mode|live\s+mode|sandbox)\b",
+                        re.IGNORECASE)
+_WEB_DOMAIN = re.compile(r"\b[a-z0-9-]+\.(?:com|io|dev|net|org|app|co|cloud)\b", re.IGNORECASE)
+# "in Stripe", "on GitHub": a named product. Hook itself and the Mac's own apps are not websites.
+_WEB_NAMED = re.compile(r"\b(?i:in|on|at|from)\s+(?:(?i:the|your)\s+)?([A-Z][\w.-]*)")
+_TERMINAL_WHERE = re.compile(r"\b(?:terminal|shell|ssh|command\s+line|cli|keychain)\b", re.IGNORECASE)
+_LOCAL_PLACES = frozenset((
+    "hook", "relay", "pond", "terminal", "keychain", "finder", "xcode", "system", "settings", "mac", "macos",
+    "iterm", "iterm2", "docker", "homebrew", "the", "this", "that", "step", "shell", "bash", "zsh",
+))
+
+
+def _says_create(text: Any) -> bool:
+    """text tells the owner to create, generate or make a key, token, rule, account, webhook or
+    app: the verb, at most one article, then up to four words before the thing, none of them a
+    joining word. "make" needs an article or "new" ("make sure" is not making anything)."""
+    if not isinstance(text, str):
+        return False
+    for found in _CREATE_VERB.finditer(text):
+        before = text[:found.start()].split()
+        if before and before[-1].lower().strip(_TRAILING + "\"'(") in _CREATE_NOT_ASKED:
+            continue
+        if before and found.group(1)[0].isupper() and before[-1][-1] not in ".:;!?":
+            continue                                   # a button's label: "Click Create New App"
+        words = text[found.end():].split()[:6]
+        if words and words[0].lower() in _CREATE_ARTICLES:
+            words = words[1:]
+        elif found.group(1).lower() == "make":
+            continue
+        for word in words[:5]:
+            bare = word.strip(_TRAILING + "\"'`()[]")
+            if _CREATE_THING.fullmatch(bare):
+                return True
+            if bare.lower() in _CREATE_STOP or not bare or bare != word.rstrip(_TRAILING) or word[-1] in _TRAILING:
+                break
+    return False
+
+
+def _on_website(texts: List[Any]) -> bool:
+    for text in texts:
+        if not isinstance(text, str):
+            continue
+        if _WEB_WORDS.search(text) or _WEB_DOMAIN.search(text):
+            return True
+        if any(m.group(1).rstrip(_TRAILING + "-").lower() not in _LOCAL_PLACES for m in _WEB_NAMED.finditer(text)):
+            return True
+    return False
+
+
+def _create_without_clicks(step: Dict[str, Any]) -> bool:
+    if any(step.get(k) not in (None, "", []) for k in ("substeps", "url")):
+        return False
+    do, detail, where = step.get("do"), step.get("detail"), step.get("where")
+    if isinstance(where, str) and _TERMINAL_WHERE.search(where):
+        return False
+    if not (_says_create(do) or _says_create(detail)):
+        return False
+    return _on_website([do, detail, where, _product_in(do), _product_in(detail), _place(where)])
+
+
+def _product_in(text: Any) -> str:
+    """"in X" for each capitalized word inside the object of a create ("a restricted Stripe test
+    key" names Stripe), so _on_website reads it like "in Stripe"."""
+    if not isinstance(text, str):
+        return ""
+    names = []
+    for found in _CREATE_VERB.finditer(text):
+        for word in text[found.end():].split()[1:6]:
+            bare = word.strip(_TRAILING + "\"'`()[]")
+            if bare[:1].isupper() and not bare.isupper():
+                names.append(f"in {bare}")
+            if _CREATE_THING.fullmatch(bare) or word[-1] in _TRAILING:
+                break
+    return " ".join(names)
+
+
+def _place(where: Any) -> str:
+    """A where that starts with a product name ("Stripe", "GitHub → Settings") as "in X"."""
+    if not isinstance(where, str) or not where.strip():
+        return ""
+    first = where.strip().split()[0]
+    return f"in {first}" if first[:1].isupper() else ""
+
+
 def lint_hints(doc: Any) -> List[Tuple[str, str]]:
     """(path, message) for each step or sub-step without `fields` whose `detail` lists three or
-    more settings: they read better as a `fields` table. Advice only: relay post, amend and
-    append print it and send the ask anyway. verify can't have fields, so it is not checked."""
+    more settings: they read better as a `fields` table. Then for each step whose do or detail
+    says to create a key, token, rule, account, webhook or app on a website (a dashboard, a
+    console, a domain, or a named product like "in Stripe"), with no sub-steps and no url.
+    Advice only: relay post, amend and append print it and send the ask anyway. verify is not
+    checked."""
     hints: List[Tuple[str, str]] = []
     if not isinstance(doc, dict):
         return hints
@@ -583,6 +689,9 @@ def lint_hints(doc: Any) -> List[Tuple[str, str]]:
             if count >= HINT_MIN_SETTINGS:
                 hints.append((f"{path}.detail", f"lists {count} settings: put them in fields, one "
                                                 "{\"label\", \"value\"} row each, so the owner reads a table"))
+        if _create_without_clicks(step):
+            hints.append((f"steps[{i}]", "says to create something on a website but has no sub-steps or link: "
+                                         "give each click as a sub-step with its url"))
     return hints
 
 

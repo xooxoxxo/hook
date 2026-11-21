@@ -62,6 +62,20 @@ FILES_SENTENCE = ("When the owner should read a document, write it as a Markdown
                   "A Pond that is too old refuses these keys.")
 
 
+# The core rules for a complete ask. relay_post, relay_amend and relay_append carry them in their
+# own descriptions, because agents read those on every call and often skip the skill.
+WALKTHROUGH_RULES = ("Rules:\n"
+                     "1. The ask is the full walkthrough. If you would explain more in chat than the ask holds, "
+                     "it is incomplete.\n"
+                     "2. Every click is a sub-step with its `url`.\n"
+                     "3. Settings go in `fields`.\n"
+                     "4. A secret step first says how to create the secret (sub-steps with links), then gives "
+                     "the Keychain command.\n"
+                     "5. One action per `do`. Values go in `code`, `url` or `fields`.")
+WALKTHROUGH_SHORT = ("The ask is the whole walkthrough: each click a sub-step with its url, settings in fields, "
+                     "a secret's creation steps before its Keychain command, one action per do, values in "
+                     "code, url or fields.")
+
 AMEND_SENTENCE = ("Send the whole corrected instructable: keep every step's `id` and leave ids out only on new "
                   "steps, and send the `brief` again (left out, it is removed). Only the process that posted the ask holds its edit key. The owner reviews the change "
                   "in Hook before acting on it.")
@@ -110,7 +124,7 @@ def _parser(out: Any, err: Any, prog: str = "relay") -> argparse.ArgumentParser:
     parser.add_argument("--version", action="store_true", help="print the version and exit")
     sub = parser.add_subparsers(dest="command", metavar="<command>")
     post = sub.add_parser("post", help="post one instructable",
-                          description=" ".join((SUBSTEPS_SENTENCE, QUESTIONS_SENTENCE, BLOCKING_SENTENCE,
+                          description=" ".join((WALKTHROUGH_SHORT, SUBSTEPS_SENTENCE, QUESTIONS_SENTENCE, BLOCKING_SENTENCE,
                                                 OPTIONAL_SENTENCE, REQUIRED_SENTENCE, CHOICE_SENTENCE,
                                                 FIELDS_SENTENCE, BRIEF_SENTENCE, FILES_SENTENCE)))
     post.add_argument("project")

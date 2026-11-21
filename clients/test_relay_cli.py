@@ -131,6 +131,12 @@ class CliTest(unittest.TestCase):
         self.assertEqual((code, err), (0, ""))
         self.assertIn(flat(relay_cli.SUBSTEPS_SENTENCE), flat(out))
 
+    def test_post_help_says_the_ask_is_the_whole_walkthrough(self):
+        with mock.patch.dict(os.environ, {"COLUMNS": "80"}):
+            code, out, err = self.run_cli("post", "--help")
+        self.assertEqual((code, err), (0, ""))
+        self.assertIn(flat(relay_cli.WALKTHROUGH_SHORT), flat(out))
+
     def test_post_help_explains_questions(self):
         with mock.patch.dict(os.environ, {"COLUMNS": "80"}):
             code, out, err = self.run_cli("post", "--help")

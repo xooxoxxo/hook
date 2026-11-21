@@ -25,7 +25,8 @@ if _CLIENTS not in sys.path:
 
 import relay_client  # noqa: E402
 from relay_cli import (AMEND_SENTENCE, BLOCKING_SENTENCE, BRIEF_SENTENCE, CHOICE_SENTENCE, FIELDS_SENTENCE,  # noqa: E402
-                       FILES_SENTENCE, OPTIONAL_SENTENCE, QUESTIONS_SENTENCE, REQUIRED_SENTENCE, SUBSTEPS_SENTENCE, answers_json,
+                       FILES_SENTENCE, OPTIONAL_SENTENCE, QUESTIONS_SENTENCE, REQUIRED_SENTENCE, SUBSTEPS_SENTENCE,
+                       WALKTHROUGH_RULES, answers_json,
                        bug_count, is_editable, owner_events_json, resolved_by, revision_json)
 
 SERVER_INFO = {"name": "relay", "version": relay_client.VERSION}
@@ -140,7 +141,7 @@ def relay_amend(args: Dict[str, Any]) -> Dict[str, Any]:
 
 APPEND_DESCRIPTION = ("Add steps to the end of an open ask you posted, after the owner's answer. Nothing the owner "
                       "saw changes, so there is no review. To change a step they saw, use relay_amend. If the ask "
-                      "is closed, post a follow-up ask.")
+                      "is closed, post a follow-up ask.\n" + WALKTHROUGH_RULES)
 
 
 def relay_append(args: Dict[str, Any]) -> Dict[str, Any]:
@@ -338,7 +339,7 @@ def tool_list() -> list:
             "name": "relay_post",
             "description": ("Send the owner ONE instructable: an ask written as numbered steps with "
                             "copy-paste code (see the instructables skill). It goes to the owner's Hook "
-                            "queue. Returns {id, deduped, openUrl, editable, notes, hints}; deduped means an ask with this "
+                            "queue.\n" + WALKTHROUGH_RULES + "\nReturns {id, deduped, openUrl, editable, notes, hints}; deduped means an ask with this "
                             "title is already open; editable means you can correct it with relay_amend; "
                             + NOTES_SENTENCE + " "
                             "Never include a secret value. " + SUBSTEPS_SENTENCE + " "
@@ -394,7 +395,8 @@ def tool_list() -> list:
                             "closing it and posting a new one. " + AMEND_SENTENCE + " Returns {id, rev, hash, "
                             "changed, added, removed, moved, top, openUrl, notes, hints}, plus warning when another session "
                             "posted the ask. At most 10 corrections per ask, 60 s apart. If the Pond answers that "
-                            "corrections aren't enabled, close the ask (relay done) and post a new one."),
+                            "corrections aren't enabled, close the ask (relay done) and post a new one.\n"
+                            + WALKTHROUGH_RULES),
             "inputSchema": amend_input_schema(),
         },
         {
