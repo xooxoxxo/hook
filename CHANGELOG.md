@@ -14,6 +14,7 @@ and versions follow Semantic Versioning.
 
 ### Changed
 
+- The agent instructions and the instructables skill keep quick actions in chat while the owner is there (a tap, a glance, one short step on a device in front of them), and status notes such as "I'm waiting for you to do X" are never asks. Hook is for actions done later or away from the chat, credentials, unreachable machines, and decisions or checklists that need follow-up.
 - A long Notice folds to a short line with Details. Open, it shows the whole text at full width, with its buttons on their own row, so a wide button no longer squeezes the text into a narrow column.
 - The Notice for a review key Hook can't read says in plain words what happened and what it locks. Try Again asks macOS for the key again. Start Over… (formerly Reset Review Records…) first says what you lose, then asks for Touch ID.
 - Owner key setup explains the Pond's refusals: when the Pond has no free slot, it says to revoke a device you no longer use, then set up again.

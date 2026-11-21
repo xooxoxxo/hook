@@ -1,7 +1,7 @@
 ---
 name: instructables
 description: >-
-  Send owner actions, checklists, and involved approvals to Hook: credentials, logins, manual steps, access changes, and decisions that need durable follow-up. Keep single yes/no approval-only requests, including simple merge or release approvals, in chat. Keep simple explanations and quick, low-risk clarifications in the current chat when a short answer or multiple choice is enough. Uses the relay_post MCP tool, or `relay post` as a fallback.
+  Send owner actions done later or away from the chat, checklists, and involved approvals to Hook: credentials, logins, commands on machines you can't reach, and decisions that need durable follow-up. Keep in chat: quick actions while the owner is there (a tap, a glance), single yes/no approvals including simple merge or release approvals, waiting and progress notes, and quick clarifications. Uses the relay_post MCP tool, or `relay post` as a fallback.
 ---
 
 # Instructables
@@ -14,25 +14,26 @@ block, and sends a notification.
 ## When to send
 
 First decide whether the owner needs an ask at all. Answer explanations, summaries,
-and status questions directly. Make routine implementation choices within the owner's
-existing instructions; don't ask them to approve work they already authorized.
+and status questions directly. Make routine choices within the owner's instructions;
+don't ask them to approve work they already authorized.
 
-Keep a quick, low-risk clarification in the current chat when a short answer or a few
-choices are enough, such as which label to use or whether a summary should be brief.
-Use the chat's question control when available. Don't turn it into an instructable
-just because it has choices or the answer is needed to continue.
+Keep these in the chat, not Hook, and use its question control or buttons when available:
+- a quick, low-risk clarification with a short answer or a few choices, even when you need
+  the answer to continue;
+- a quick action while the owner is in the chat: a tap, a glance, or one short step on a
+  device in front of them, such as "tap the tab counter on the phone and say what you see";
+- a single yes/no approval, including a simple merge or release approval. State the exact
+  change and wait; this rule does not grant permission to act;
+- status notes: "I'm waiting for you to do X", "still waiting on Y", progress and reminders.
 
-Send one ask when the owner must act outside the chat: provide credentials, log in,
-click a UI you cannot operate, run a command on an unreachable machine, or unlock access.
-Keep approval-only requests in chat when a single yes/no answer is enough, including
-a simple merge or release approval at the end of a task. State the exact change or
-artifact and wait for approval; this routing rule does not grant permission to act.
-Use Hook for approvals bundled with owner actions, consequential decisions needing
-context, or work needing a durable checklist or later follow-up. Do not add artificial
-steps just to send a simple approval to Hook. Follow explicit owner routing preferences.
+Send one ask for actions the owner does later or away from the chat; credentials, logins
+and secrets; commands on a machine you can't reach; approvals bundled with those;
+consequential decisions needing context; and work needing a durable checklist or follow-up.
+Don't add steps just to send a simple approval to Hook. Follow explicit owner routing
+preferences.
 
-Don't save these asks for the end of the session. Bundle related steps and questions
-into one instructable, then keep working on independent tasks.
+Don't save asks for the end of the session. Bundle related steps and questions into one
+instructable, then keep working on independent tasks.
 
 ## How to write it
 
