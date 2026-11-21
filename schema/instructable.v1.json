@@ -96,6 +96,22 @@
       }
     },
     "localPath": { "type": "string", "maxLength": 500, "pattern": "^(/|~/)[^\\n\\t]*$", "description": "An absolute path on the owner's Mac (/... or ~/...), one line." },
+    "fields": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "description": "A settings table shown under do: label left, value right. Use it for form settings and config values the owner enters, instead of listing them in detail. Labels are unique within the step; one line each, no secrets. A value to copy gets copy: true. Needs a Pond that lists fields; relay post sends rows as sub-steps to an older one.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label", "value"],
+        "properties": {
+          "label": { "type": "string", "minLength": 1, "maxLength": 40 },
+          "value": { "type": "string", "minLength": 1, "maxLength": 500, "pattern": "^[^\\n\\r\\t]*$" },
+          "copy": { "type": "boolean", "default": false, "description": "Show a Copy button for this value." }
+        }
+      }
+    },
     "question": {
       "type": "object",
       "additionalProperties": false,
@@ -166,7 +182,8 @@
         "optional": { "type": "boolean", "default": false, "description": "The owner may finish this step without doing or answering it, e.g. a feedback question or a nice-to-have. Never together with blocking. On a step with substeps it makes every sub-step optional, so none of them may be blocking." },
         "required": { "type": "boolean", "default": false, "description": "The owner's Done stays off until this step is finished: ticked, answered (a question), or every sub-step finished (a step with substeps). Skip always stays. Never together with optional, never inside an optional step, and not on a step with no question whose every sub-step is optional (it has nothing to finish). Use it when closing the ask without this step would leave the work broken or leave you without something you need. Needs Pond 1.3.0." },
         "file": { "$ref": "#/$defs/localPath", "description": "A document for the owner to read, usually Markdown, which Hook opens rendered. Write the document to a file and point to it here instead of pasting it into detail." },
-        "doc": { "$ref": "#/$defs/docRef", "description": "Filled in by Hook. Never write it. Only beside file." }
+        "doc": { "$ref": "#/$defs/docRef", "description": "Filled in by Hook. Never write it. Only beside file." },
+        "fields": { "$ref": "#/$defs/fields" }
       }
     },
     "step": {
@@ -194,6 +211,7 @@
         "required": { "type": "boolean", "default": false, "description": "The owner's Done stays off until this step is finished: ticked, answered (a question), or every sub-step finished (a step with substeps). Skip always stays. Never together with optional, never inside an optional step, and not on a step with no question whose every sub-step is optional (it has nothing to finish). Use it when closing the ask without this step would leave the work broken or leave you without something you need. Needs Pond 1.3.0." },
         "file": { "$ref": "#/$defs/localPath", "description": "A document for the owner to read, usually Markdown, which Hook opens rendered. Write the document to a file and point to it here instead of pasting it into detail." },
         "doc": { "$ref": "#/$defs/docRef", "description": "Filled in by Hook. Never write it. Only beside file." },
+        "fields": { "$ref": "#/$defs/fields" },
         "substeps": { "type": "array", "minItems": 1, "maxItems": 10, "items": { "$ref": "#/$defs/leaf" } }
       }
     }

@@ -50,6 +50,7 @@ A **Step** is a JSON object with these keys:
 | `lang` | ≤ 20, such as `bash`, `json` or `text` |
 | `expect` | ≤ 300: what the owner should see |
 | `url` | An http(s) page for this step |
+| `fields` | 1–20 rows `{label, value, copy?}`: a settings table under `do` ([Settings](#settings)). Needs a Pond that lists `fields` |
 | `substeps` | 1–10 Steps without `substeps`; not on `verify`. At most 60 steps and sub-steps per instructable |
 | `question` | A Question for the owner (below). At most 20 per instructable |
 | `blocking` | `true`: the owner can't open later steps until this one is done. Use it only when later steps fail without it, and give the reason in `warning` |
@@ -60,7 +61,7 @@ A **Step** is a JSON object with these keys:
 | `file` | An absolute path on the owner's Mac (`/…` or `~/…`), ≤ 500, one line, no hidden characters. Hook opens the document rendered, usually Markdown. Put long text in a file, never in the ask |
 | `doc` | Filled in by Hook's posting client, never by a session: the fingerprint of the document `file` points at ([Documents](#documents)). Only beside `file`. Needs a Pond that lists `docs` |
 
-`question`, `blocking`, `warning`, `optional`, `required`, `id`, `file` and `doc` go on steps and sub-steps, never on `verify`.
+`question`, `blocking`, `warning`, `optional`, `required`, `id`, `file`, `doc` and `fields` go on steps and sub-steps, never on `verify`.
 
 A **Question** is a JSON object with these keys:
 
@@ -122,7 +123,7 @@ A Pond that lists `docs` in `GET /version`'s `features` can keep a copy of the d
 
 ## Values to copy
 
-Every value the owner types or pastes is its own sub-step with `code`, one per form field, never inside `do`. A page to open goes in `url`.
+Every value the owner types or pastes is a [`fields`](#settings) row or its own sub-step with `code`, never inside `do`. A page to open goes in `url`.
 
 ```json
 {"do": "Add a reader: Settings › Readers › Add reader", "url": "https://app.example.com/app/", "substeps": [
@@ -145,6 +146,21 @@ Not `{"do": "Tap Add reader. Kind Ollama, Name studio, URL http://192.0.2.7:1143
 - a token of 12+ characters with letters and digits (and `:` `/` `.` `_` `-`)
 
 A value already in the `code` or `url` of that step or its sub-steps passes. So do versions (`0.11.0`), times, shortcuts (`⌘C`) and UI paths with › or →. The refusal quotes the values: `steps[3].do: "http://192.0.2.7:11434", "qwen2.5:14b-instruct" are values to copy: put each in a sub-step's code (or a URL in url)`. Rules: [`clients/relay_lint.py`](../clients/relay_lint.py); shared test vectors: [`clients/lint-vectors.json`](../clients/lint-vectors.json).
+
+## Settings
+
+Form settings and config values go in `fields`, a table of label and value, not in `detail` prose. Each row is `{"label", "value", "copy"}`: `label` ≤ 40, one line, unique in the step; `value` ≤ 500, one line, never a secret; `copy: true` adds a Copy button.
+
+```json
+{"do": "Add the custom rule", "detail": "Same shape as the press-account rule.", "fields": [
+  {"label": "Name", "value": "requests-ip", "copy": true},
+  {"label": "Path", "value": "/api/v1/requests", "copy": true},
+  {"label": "Method", "value": "POST"},
+  {"label": "Rate limit", "value": "5 per 10 minutes per IP"}
+]}
+```
+
+On a Pond that doesn't list `fields`, `relay post`, `amend`, `append` and the MCP tools send each row as a sub-step instead (label as `do`, value as `code`, `lang` `text`; a sub-step's rows follow it), keep every step id, and say so in a note: `note: the Pond doesn't list the fields feature: the settings of steps[0] were sent as sub-steps (label as do, value as code)`. A `detail` that lists three or more settings ("path /api/v1/requests, method POST, rate limit 5 per minute") posts with a hint, never a refusal: `hint: steps[0].detail: lists 3 settings: put them in fields, one {"label", "value"} row each, so the owner reads a table`. MCP returns it in `hints`.
 
 ## Hook's own controls
 
@@ -172,8 +188,9 @@ Not `{"do": "Install the Leasekey client on the Mac, create the Claude agent's t
 - `relay post`, `relay_post` and `relay amend` catch the last four before sending, and say what to do: `steps[2].required: can't go with optional: drop one of them`, `done: "reply" needs a reply prompt: add reply, or drop it from done`. Rules: `lint_requirements` in [`clients/relay_lint.py`](../clients/relay_lint.py), in the same shared vectors.
 - `file` and a link's `path` must be absolute: `steps[0].file: must be an absolute path`. A link needs exactly one of them: `links[0]: needs url or path, not both`.
 - `doc` needs `file` (or a link's `path`) beside it: `steps[0].doc: needs file`, `links[0].doc: needs path`. It holds only `sha256` and `bytes`: `steps[0].doc.sha256: must be 64 lowercase hex characters`, `steps[0].doc.bytes: must be a whole number from 1 to 262144`. `null` counts as absent.
+- `fields` is 1 to 20 rows: `steps[0].fields: must be a list of 1 to 20 rows`, `steps[0].fields[1].label: duplicate label`, `steps[0].fields[0].value: must be a single line`, `steps[0].fields[0].copy: must be true or false`, `verify.fields: unknown key`.
 - `id` must match `[a-z0-9][a-z0-9.-]{0,23}`, be unique in the ask and not look like a step number (`2`, `3.1`): `steps[1].id: duplicate`, `steps[0].id: must not look like a step number`. Give ids on every step and sub-step, or on none, and the Pond names them `s1`, `s2`, `s2.1`.
-- A step's errors come in this order: its text keys (`do`, `where`, `code`, `lang`, `expect`, `detail`), `url`, `file`, `doc`, `blocking`, `optional`, `required`, `warning`, `question`, `substeps`.
+- A step's errors come in this order: its text keys (`do`, `where`, `code`, `lang`, `expect`, `detail`), `url`, `fields`, `file`, `doc`, `blocking`, `optional`, `required`, `warning`, `question`, `substeps`.
 - The Pond's errors name field paths only (`steps[2].url: must be http(s)`), never values.
 - The JSON Schema is [`schema/instructable.v1.json`](../schema/instructable.v1.json).
 
@@ -187,6 +204,7 @@ Not `{"do": "Install the Leasekey client on the Mac, create the Claude agent's t
 | a choice object (`choices[].text`) | 1.4.0 |
 | a question's `then` | the `appendSteps` feature (Pond 1.9.0) |
 | `doc` beside `file` or a link's `path` | the `docs` feature (Pond 1.10.0) |
+| `fields` | the `fields` feature (Pond 1.13.0); without it, rows go as sub-steps ([Settings](#settings)) |
 
 `relay post`, `relay_post` and `relay amend` ask `GET /version` first, cached for 5 minutes per process. A newer minor or patch Pond never stops a key working ([Pond versions](mailbox-protocol.md#pond-versions)). When the Pond is too old, they refuse, post nothing and exit 1: ``Your Pond (1.0.0) is older than `id` needs (Pond 1.1.0 or newer). Update the Pond, or leave the key out.`` In This Mac mode the app is the server, so the refusal is "Hook's This Mac queue (Pond 1.0.0) can't take `id` yet."
 

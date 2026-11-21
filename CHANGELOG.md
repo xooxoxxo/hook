@@ -3,6 +3,15 @@
 All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
+## [Unreleased]
+
+### Added
+
+- A step's `fields`, a settings table of label and value rows for form settings and config values: `relay post`, `relay amend`, `relay append` and the MCP tools send it to a Pond that lists `fields`, send each row as a sub-step to an older one with a note, and hint when a `detail` lists three or more settings.
+
+<!-- hook:pond=^1.1.0 -->
+<!-- hook:mailbox-protocol=5 -->
+
 ## [0.18.0] - 2026-11-21
 
 ### Added

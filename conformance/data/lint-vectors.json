@@ -1,6 +1,6 @@
 {
  "version": 1,
- "about": "Values to copy inside a step's do: Hook's relay_lint.lint_instructable and every copy of it must give exactly these (path, message) pairs.",
+ "about": "Values to copy inside a step's do: Hook's relay_lint.lint_instructable and every copy of it must give exactly these (path, message) pairs. A case may also carry `hints`: the (path, message) pairs relay_lint.lint_hints gives, advice that never refuses an ask; a case without `hints` gives none.",
  "cases": [
   {
    "name": "url",
@@ -2636,6 +2636,311 @@
      "\"https://app.example.com/settings\" is a value to copy: put it in code (or a URL in url)"
     ]
    ]
+  },
+  {
+   "name": "fields-values-in-rows",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip",
+        "copy": true
+       },
+       {
+        "label": "Path",
+        "value": "/api/v1/requests",
+        "copy": true
+       },
+       {
+        "label": "Method",
+        "value": "POST"
+       }
+      ]
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "fields-value-in-do-still-refused",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Add the rule for /api/v1/requests",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip",
+        "copy": true
+       },
+       {
+        "label": "Path",
+        "value": "/api/v1/requests",
+        "copy": true
+       },
+       {
+        "label": "Method",
+        "value": "POST"
+       }
+      ]
+     }
+    ]
+   },
+   "expect": [
+    [
+     "steps[0].do",
+     "\"/api/v1/requests\" is a value to copy: put it in code (or a URL in url)"
+    ]
+   ]
+  },
+  {
+   "name": "fields-on-a-substep",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Set up the firewall",
+      "substeps": [
+       {
+        "do": "Add the custom rule",
+        "fields": [
+         {
+          "label": "Name",
+          "value": "requests-ip",
+          "copy": true
+         },
+         {
+          "label": "Path",
+          "value": "/api/v1/requests",
+          "copy": true
+         },
+         {
+          "label": "Method",
+          "value": "POST"
+         }
+        ]
+       },
+       {
+        "do": "Save"
+       }
+      ]
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "hint-settings-in-detail",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "detail": "Custom rule, same shape as the existing press-account rule: path /api/v1/requests, method POST, rate limit 5 requests per 10 minutes per IP, action deny (429). Name it requests-ip."
+     }
+    ]
+   },
+   "expect": [],
+   "hints": [
+    [
+     "steps[0].detail",
+     "lists 4 settings: put them in fields, one {\"label\", \"value\"} row each, so the owner reads a table"
+    ]
+   ]
+  },
+  {
+   "name": "hint-colon-list",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Add a reader",
+      "detail": "Kind: Ollama\nName: studio\nModel: qwen2.5:14b-instruct"
+     }
+    ]
+   },
+   "expect": [],
+   "hints": [
+    [
+     "steps[0].detail",
+     "lists 3 settings: put them in fields, one {\"label\", \"value\"} row each, so the owner reads a table"
+    ]
+   ]
+  },
+  {
+   "name": "hint-bullets",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Create the server",
+      "detail": "- Region: eu-west-1\n- Instance: t3.small\n- Disk: 20 GB"
+     }
+    ]
+   },
+   "expect": [],
+   "hints": [
+    [
+     "steps[0].detail",
+     "lists 3 settings: put them in fields, one {\"label\", \"value\"} row each, so the owner reads a table"
+    ]
+   ]
+  },
+  {
+   "name": "hint-on-a-substep",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Set up the job",
+      "substeps": [
+       {
+        "do": "Open the job form"
+       },
+       {
+        "do": "Fill it in",
+        "detail": "Timeout 30s, retries 3, backoff 2x"
+       }
+      ]
+     }
+    ]
+   },
+   "expect": [],
+   "hints": [
+    [
+     "steps[0].substeps[1].detail",
+     "lists 3 settings: put them in fields, one {\"label\", \"value\"} row each, so the owner reads a table"
+    ]
+   ]
+  },
+  {
+   "name": "hint-not-with-fields",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Add the custom rule",
+      "detail": "Custom rule, same shape as the existing press-account rule: path /api/v1/requests, method POST, rate limit 5 requests per 10 minutes per IP, action deny (429). Name it requests-ip.",
+      "fields": [
+       {
+        "label": "Name",
+        "value": "requests-ip",
+        "copy": true
+       },
+       {
+        "label": "Path",
+        "value": "/api/v1/requests",
+        "copy": true
+       },
+       {
+        "label": "Method",
+        "value": "POST"
+       }
+      ]
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "hint-two-settings",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Connect the database",
+      "detail": "Host db.example.test, port 5432. Ask the team for the user."
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "hint-prose-with-numbers",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Wait for the deploy",
+      "detail": "This takes about 2 minutes. The app restarts once, then shows the queue again."
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "hint-sentences-not-settings",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Read the errors",
+      "detail": "Error 429 means the limit hit. Error 500 means the server broke. Error 403 means no access."
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "hint-actions-not-settings",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Check the service",
+      "detail": "Open the page, wait 5 minutes, check port 8080."
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "hint-colon-prose",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Rotate the key",
+      "detail": "Why: the key expired. Where: the admin page. Tip: read the runbook first."
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "hint-verify-not-checked",
+   "instructable": {
+    "v": 1,
+    "title": "Lint vector",
+    "steps": [
+     {
+      "do": "Add the custom rule"
+     }
+    ],
+    "verify": {
+     "do": "Check the rule",
+     "detail": "Name: requests-ip\nMethod: POST\nAction: deny"
+    }
+   },
+   "expect": []
   }
  ]
 }

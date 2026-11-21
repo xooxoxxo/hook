@@ -24,8 +24,8 @@ if _CLIENTS not in sys.path:
     sys.path.insert(0, _CLIENTS)
 
 import relay_client  # noqa: E402
-from relay_cli import (AMEND_SENTENCE, BLOCKING_SENTENCE, CHOICE_SENTENCE, FILES_SENTENCE,  # noqa: E402
-                       OPTIONAL_SENTENCE, QUESTIONS_SENTENCE, REQUIRED_SENTENCE, SUBSTEPS_SENTENCE, answers_json,
+from relay_cli import (AMEND_SENTENCE, BLOCKING_SENTENCE, CHOICE_SENTENCE, FIELDS_SENTENCE,  # noqa: E402
+                       FILES_SENTENCE, OPTIONAL_SENTENCE, QUESTIONS_SENTENCE, REQUIRED_SENTENCE, SUBSTEPS_SENTENCE, answers_json,
                        bug_count, is_editable, owner_events_json, resolved_by, revision_json)
 
 SERVER_INFO = {"name": "relay", "version": relay_client.VERSION}
@@ -91,13 +91,19 @@ def relay_post(args: Dict[str, Any]) -> Dict[str, Any]:
     resp = with_client(lambda c: c.post(project, filled))
     item = resp.get("item") or {}
     return {"id": item.get("id"), "deduped": bool(resp.get("deduped")), "openUrl": resp.get("openUrl"),
-            "editable": resp.get("editable") is True, "notes": notes_of(resp)}
+            "editable": resp.get("editable") is True, "notes": notes_of(resp), "hints": hints_of(resp)}
 
 
 def notes_of(resp: Dict[str, Any]) -> list:
     """The documents Hook could not copy to the Pond, one line each ([] when none)."""
     notes = resp.get("notes") if isinstance(resp, dict) else None
     return [str(n) for n in notes] if isinstance(notes, list) else []
+
+
+def hints_of(resp: Dict[str, Any]) -> list:
+    """relay_lint's advice that didn't stop the ask, one line each ([] when none)."""
+    hints = resp.get("hints") if isinstance(resp, dict) else None
+    return [str(h) for h in hints] if isinstance(hints, list) else []
 
 
 def refresh_docs_arg(args: Dict[str, Any]) -> bool:
@@ -126,6 +132,7 @@ def relay_amend(args: Dict[str, Any]) -> Dict[str, Any]:
         result[key] = revision.get(key)
     result["openUrl"] = resp.get("openUrl")
     result["notes"] = notes_of(resp)
+    result["hints"] = hints_of(resp)
     if resp.get("warning"):
         result["warning"] = resp["warning"]
     return result
@@ -146,7 +153,7 @@ def relay_append(args: Dict[str, Any]) -> Dict[str, Any]:
         raise ToolError("steps must be a list of 1 to 10 steps")
     refresh = refresh_docs_arg(args)
     resp = with_client(lambda c: c.append(item_id.strip(), note, steps, refresh_docs=refresh))
-    return dict(resp, openUrl=resp.get("openUrl"), notes=notes_of(resp))
+    return dict(resp, openUrl=resp.get("openUrl"), notes=notes_of(resp), hints=hints_of(resp))
 
 
 def relay_status(args: Dict[str, Any]) -> Dict[str, Any]:
@@ -260,7 +267,9 @@ REFRESH_DOCS_SCHEMA = {
                     "copy of keeps the copy the owner saw, and the file is not read."),
 }
 NOTES_SENTENCE = ("notes lists each document Hook could not copy to the Pond, one line each "
-                  "(\"steps[2].file not copied to the Pond: <reason>\"); the ask is sent with the path alone.")
+                  "(\"steps[2].file not copied to the Pond: <reason>\"); the ask is sent with the path alone. "
+                  "It also says when a step's fields were sent as sub-steps. hints lists advice that didn't "
+                  "stop the ask, such as settings in detail that read better as fields.")
 
 
 def post_input_schema() -> Dict[str, Any]:
@@ -328,12 +337,13 @@ def tool_list() -> list:
             "name": "relay_post",
             "description": ("Send the owner ONE instructable: an ask written as numbered steps with "
                             "copy-paste code (see the instructables skill). It goes to the owner's Hook "
-                            "queue. Returns {id, deduped, openUrl, editable, notes}; deduped means an ask with this "
+                            "queue. Returns {id, deduped, openUrl, editable, notes, hints}; deduped means an ask with this "
                             "title is already open; editable means you can correct it with relay_amend; "
                             + NOTES_SENTENCE + " "
                             "Never include a secret value. " + SUBSTEPS_SENTENCE + " "
                             + QUESTIONS_SENTENCE + " " + BLOCKING_SENTENCE + " " + OPTIONAL_SENTENCE + " "
-                            + REQUIRED_SENTENCE + " " + CHOICE_SENTENCE + " " + FILES_SENTENCE),
+                            + REQUIRED_SENTENCE + " " + CHOICE_SENTENCE + " " + FIELDS_SENTENCE + " "
+                            + FILES_SENTENCE),
             "inputSchema": post_input_schema(),
         },
         {
@@ -381,7 +391,7 @@ def tool_list() -> list:
             "name": "relay_amend",
             "description": ("Correct an open ask you posted to the owner's Hook queue, in place, instead of "
                             "closing it and posting a new one. " + AMEND_SENTENCE + " Returns {id, rev, hash, "
-                            "changed, added, removed, moved, top, openUrl, notes}, plus warning when another session "
+                            "changed, added, removed, moved, top, openUrl, notes, hints}, plus warning when another session "
                             "posted the ask. At most 10 corrections per ask, 60 s apart. If the Pond answers that "
                             "corrections aren't enabled, close the ask (relay done) and post a new one."),
             "inputSchema": amend_input_schema(),
