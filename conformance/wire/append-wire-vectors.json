@@ -1,6 +1,6 @@
 {
  "version": 1,
- "pond": "1.14.0",
+ "pond": "1.15.0",
  "source": "mailbox/tests/gen_append_wire.py, recorded from the Pond over loopback",
  "format": "{name, note, request: {method, path, ownerKey, protocol, body}, response: {status, body}, binds?}\n\n`ownerKey` true sends an approved X-Hook-Owner-Key; `protocol` is the X-Hook-Protocol\nsent. `binds` names the item id the response carries ({\"ask1\": \"item.id\"}), and later\npaths use it as {ask1}. In responses every item id is its {name} and every ISO-8601\ntimestamp is {time}, except a revision's `at`, kept as recorded because its hash\ncovers it. `rev`, `hash`, `baseRev` and `baseHash` in a request body are the real\nvalues the Pond accepts; the edit key is a synthetic one. No file holds the Pond token\nor an owner key. Hook keeps a copy as conformance/wire/append-wire-vectors.json.",
  "cases": [

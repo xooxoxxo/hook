@@ -1,6 +1,6 @@
 {
  "version": 1,
- "pond": "1.14.0",
+ "pond": "1.15.0",
  "source": "mailbox/tests/gen_doc_wire.py, recorded from the Pond over loopback",
  "format": "{name, note, request: {method, path, token, protocol, body}, response: {status, headers, body}, binds?}\n\n`token` false sends no Authorization header; true sends the Pond token, which no file\nholds. `protocol` is the X-Hook-Protocol sent. `headers` are the response's\nContent-Type, and Cache-Control and X-Content-Type-Options when it has them. `body`\nis the parsed JSON for an application/json response and the exact text for a\ntext/plain one (a document read); a text/plain response also carries `bodyBase64`,\nthe exact bytes it sent in standard base64, which no JSON escaping can alter. `binds`\nnames the item id the response carries ({\"ask1\": \"item.id\"}), and later paths use it\nas {ask1}. In JSON bodies every item id is its {name} and every ISO-8601 timestamp is\n{time}, except a revision's `at`, kept as recorded because its hash covers it.\n`baseRev` and `baseHash` in a request body are the real values the Pond accepts; the\nedit key is a synthetic one. A `doc`'s `bytes` is the UTF-8 byte count of its text.\nThe switch is on until the case doc-version-off, and on again for the last case,\ndoc-post-store-full (Pond 1.12.0), recorded with docs.MAX_STORE_BYTES patched, for\nthat case only, to the bytes already stored. Every text and path is synthetic.",
  "cases": [
@@ -894,7 +894,7 @@
     },
     "body": {
      "service": "pond",
-     "version": "1.14.0",
+     "version": "1.15.0",
      "protocol": 5,
      "features": [
       "answers",
@@ -913,6 +913,7 @@
       "ownerKeyDates",
       "fields",
       "brief",
+      "longAnswers",
       "docs"
      ]
     }
@@ -935,7 +936,7 @@
     },
     "body": {
      "service": "pond",
-     "version": "1.14.0",
+     "version": "1.15.0",
      "protocol": 5,
      "features": [
       "answers",
@@ -953,7 +954,8 @@
       "ownerRevokeRequest",
       "ownerKeyDates",
       "fields",
-      "brief"
+      "brief",
+      "longAnswers"
      ]
     }
    }

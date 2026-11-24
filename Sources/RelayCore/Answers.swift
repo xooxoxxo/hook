@@ -29,7 +29,9 @@ public struct Answer: Sendable, Equatable {
 /// is the compact JSON it returns. Errors name the field and never echo a value.
 public enum Answers {
     public static let maxAnswers = 20
-    public static let maxText = 1000
+    /// A free-text answer, and the words on a pick: 8000 characters, as the reference has since
+    /// Pond 1.15.0 (feature `longAnswers`). An older Pond refuses past 1000 with its own error.
+    public static let maxText = 8000
     static let answerKeys: Set<String> = ["step", "picked", "text"]
 
     /// One answer of a batch, as `QueueSource.answer` sends it: `{"step","picked"}`.
