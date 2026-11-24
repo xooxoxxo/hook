@@ -13,6 +13,7 @@ and versions follow Semantic Versioning.
 
 ### Changed
 
+- The owner's answers take up to 8000 characters on a Pond that lists `longAnswers` (Pond 1.15.0), as messages do: a free-text answer and the words on a pick. An older Pond keeps 1000. Sessions read a long answer as they read a long message, cut at 8000 characters with the rest named (`relay status <id> --json`). The answers and choice conformance vectors test 8000 accepted and 8001 refused.
 - An approval that already reaches the owner through its own prompt (a Telegram bot such as an SSH lease or cert request, a 2FA push, a system dialog) is no longer a Hook ask: the agent instructions and the instructables skill say to mention it in one chat line at most, and `relay post` refuses an ask whose every required step only says to approve, confirm, tap or accept such a prompt.
 - An ask is the whole walkthrough: `relay_post`, `relay_amend`, `relay_append` and `relay post --help` list the rules (every click a sub-step with its link, settings in `fields`, a secret's creation steps before its Keychain command), the instructables skill shows a before and after, and Hook hints when a step says to create a key, token, rule, account, webhook or app on a website with no sub-steps and no link.
 

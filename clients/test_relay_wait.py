@@ -79,6 +79,23 @@ class WaitTest(unittest.TestCase):
                                               f"(300 more characters: relay status {ITEM_ID} --json)")
         self.assertEqual(rw.TEXT_CAP, 8000)
 
+    def test_an_8000_character_answer_reaches_the_session_whole(self):
+        """Pond 1.15.0 (`longAnswers`): an answer's text takes 8000 characters, as a message does."""
+        text = json.dumps({"step": "3", "text": "a" * 8000})
+        client = FakeAsk(detail(event(1, "posted", "session"), event(2, "answer", "owner", text)))
+        code, out, _ = self.wait(client)
+        self.assertEqual(code, 0)
+        self.assertEqual(out.splitlines()[1], '  ↳ owner answer 3 (version 1): "' + "a" * 8000 + '"')
+
+    def test_long_words_on_a_pick_are_cut_with_the_rest_named(self):
+        text = json.dumps({"step": "2", "picked": ["Mix"], "text": "w" * 8000})
+        client = FakeAsk(detail(event(1, "posted", "session"), event(2, "answer", "owner", text)))
+        code, out, _ = self.wait(client)
+        self.assertEqual(code, 0)
+        value = "Mix \u00b7 " + "w" * 8000
+        self.assertEqual(out.splitlines()[1], '  ↳ owner answer 2 (version 1): "' + value[:8000] + '" '
+                                              f"(6 more characters: relay status {ITEM_ID} --json)")
+
     def test_an_odd_ask_id_is_not_printed_as_a_command(self):
         client = FakeAsk(detail(event(1, "posted", "session"), event(2, "reply", "owner", "w" * 8300)))
         out, err = io.StringIO(), io.StringIO()

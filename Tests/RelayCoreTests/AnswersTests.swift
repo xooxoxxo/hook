@@ -82,7 +82,7 @@ private func event(_ seq: Int, _ text: String?, kind: String = "answer", actor: 
             == .success([#"{"step":"2","picked":["Mix"]}"#]))
         let long = try #require(vectors.cases["choice-answer-words-too-long"])
         #expect(Answers.validate(instructable, try #require(long.request["body"]?["answers"]))
-            == .failure(ValidationFailure(errors: ["answers[0].text: longer than 1000 characters"])))
+            == .failure(ValidationFailure(errors: ["answers[0].text: longer than 8000 characters"])))
         let secret: JSONValue = .array([Answers.entry(step: "2", picked: ["Mix"], words: "sk-ant-abc")])
         #expect(Answers.validate(instructable, secret) == .failure(ValidationFailure(errors: ["answers[0].text: secret-like value"])))
     }
