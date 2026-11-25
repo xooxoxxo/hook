@@ -8,6 +8,13 @@ on:
 permissions:
   contents: read
 
+env:
+  # The Pond's public repo at a reviewed commit. Its mailbox/tests/ copies must
+  # match conformance/ byte for byte. Change this pin together with the Pond's
+  # HOOK_REF (see conformance/README.md).
+  POND_REPOSITORY: xooxoxxo/pond
+  POND_REF: 769d8ef97de1b8bff24f7b4c927a4598925f29ee
+
 jobs:
   test:
     runs-on: macos-15
@@ -57,6 +64,20 @@ jobs:
 
       - name: Conformance suite
         run: python3 -m unittest scripts/test_check_conformance.py -v && python3 scripts/check-conformance.py
+
+      - name: Check out the Pond at the pinned commit
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          repository: ${{ env.POND_REPOSITORY }}
+          ref: ${{ env.POND_REF }}
+          path: pond-pin
+          persist-credentials: false
+
+      - name: Conformance sync with the Pond
+        run: |
+          test "$(git -C pond-pin rev-parse HEAD)" = "$POND_REF"
+          python3 -m unittest scripts/test_check_pond_sync.py -v
+          python3 scripts/check-pond-sync.py --pond pond-pin
 
       - name: Client tests
         run: python3 -m unittest discover -s clients -p 'test_*.py' -v

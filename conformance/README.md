@@ -18,6 +18,28 @@ python3 scripts/check-conformance.py
 
 It exits 1 and names the file when a copy differs, when a file here is not in the manifest, or when a manifest path is missing. CI runs it.
 
+## The Pond's copies
+
+Most vectors are recorded from the Pond, in the public [Pond repo](https://github.com/xooxoxxo/pond). Its generators are `mailbox/tests/gen_*.py`, and it keeps its own copy of each file it generates in `mailbox/tests/`, under the file's basename. The 25 manifest paths in `SHARED` in `scripts/check-pond-sync.py` must hold the same bytes in both repos. `POND_ONLY` lists the vector files only the Pond's tests read. The Pond runs the same check as `mailbox/tests/conformance_sync.py`, with the same two lists.
+
+```bash
+python3 scripts/check-pond-sync.py --pond ../pond
+```
+
+It exits 1 and names the file on a missing copy, a one-byte difference, a manifest path with no file, an empty intersection, a shared file `SHARED` does not list, or a Pond vector in neither list. Manifest files the Pond has no copy of are left to `check-conformance.py`.
+
+Each CI checks out the other repo at a pinned commit: here `POND_REF` in `.github/workflows/ci.yml`, in the Pond `HOOK_REF` in its `.github/workflows/ci.yml`. Neither needs credentials. The Pond's CI sets `HOOK_CONFORMANCE_REQUIRED=1` and fails if a sync test is skipped.
+
+To change a shared fixture:
+
+1. In a Pond branch, change the generator, run it, and commit the new files in `mailbox/tests/`.
+2. In a Hook branch, copy each changed file to its path here and over its `copies`, and run `python3 scripts/check-conformance.py`.
+3. Before moving either pin, compare the two PR head commits: check out both, then run `python3 scripts/check-pond-sync.py --pond <Pond checkout>` here and `python3 mailbox/tests/conformance_sync.py --hook <Hook checkout>/conformance` in the Pond. Both must report 25 matching files.
+4. In the same two PRs, set `POND_REF` here to the Pond PR's head commit and `HOOK_REF` in the Pond to the Hook PR's head commit, so each CI checks against the other's candidate. Write both commits in both PR descriptions.
+5. After both merge, move each pin to the other repo's merged commit (for a squash or merge commit, the commit on `main`) and check again.
+
+A new shared file goes into `SHARED` in both repos in the same pair of PRs; a new Pond-only vector goes into `POND_ONLY` in both.
+
 ## Roles
 
 A role says what an implementation does with a file's cases.
