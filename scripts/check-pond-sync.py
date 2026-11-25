@@ -83,8 +83,9 @@ class Report:
         return not self.errors
 
 
+# Keep this function identical to compare() in mailbox/tests/conformance_sync.py in the Pond repo.
 def compare(hook_suite, pond_tests, shared=SHARED, pond_only=POND_ONLY):
-    """Compare conformance/ (Hook's canonical suite) with the Pond's tests folder."""
+    """Compare Hook's conformance folder with the Pond's tests folder."""
     hook_suite, pond_tests = Path(hook_suite), Path(pond_tests)
     report = Report()
     err = report.errors

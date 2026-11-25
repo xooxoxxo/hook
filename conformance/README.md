@@ -35,7 +35,7 @@ To change a shared fixture:
 1. In a Pond branch, change the generator, run it, and commit the new files in `mailbox/tests/`.
 2. In a Hook branch, copy each changed file to its path here and over its `copies`, and run `python3 scripts/check-conformance.py`.
 3. Before moving either pin, compare the two PR head commits: check out both, then run `python3 scripts/check-pond-sync.py --pond <Pond checkout>` here and `python3 mailbox/tests/conformance_sync.py --hook <Hook checkout>/conformance` in the Pond. Both must report 25 matching files.
-4. In the same two PRs, set `POND_REF` here to the Pond PR's head commit and `HOOK_REF` in the Pond to the Hook PR's head commit, so each CI checks against the other's candidate. Write both commits in both PR descriptions.
+4. In the same two PRs, set each pin to the other PR's commit that holds the new fixtures: `POND_REF` here, `HOOK_REF` in the Pond. It need not be the latest head, because the check reads only the fixture files. Commit the fixtures first and the pin after, so each CI checks against the other's candidate. Write both commits in both PR descriptions. Don't force-push a PR whose commit the other repo pins; if you must, update that pin.
 5. After both merge, move each pin to the other repo's merged commit (for a squash or merge commit, the commit on `main`) and check again.
 
 A new shared file goes into `SHARED` in both repos in the same pair of PRs; a new Pond-only vector goes into `POND_ONLY` in both.
