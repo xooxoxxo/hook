@@ -19,7 +19,8 @@ _spec.loader.exec_module(sync)
 
 class PinnedLists(unittest.TestCase):
     def test_the_pinned_lists_are_well_formed(self):
-        self.assertEqual(len(sync.SHARED), 25)
+        self.assertEqual(len(sync.SHARED), 26)
+        self.assertIn("wire/admission-vectors.json", sync.SHARED)
         self.assertEqual(len(set(sync.SHARED)), len(sync.SHARED))
         names = [Path(p).name for p in sync.SHARED]
         self.assertEqual(len(set(names)), len(names), 'two shared paths share a basename')
@@ -71,10 +72,10 @@ class CheckPondSync(unittest.TestCase):
     def test_trees_that_agree_pass(self):
         report = sync.compare(self.suite, self.tests)
         self.assertEqual(report.errors, [])
-        self.assertEqual(len(report.matched), 25)
+        self.assertEqual(len(report.matched), len(sync.SHARED))
         code, out = self.run_check()
         self.assertEqual(code, 0, out)
-        self.assertIn('25 shared files match', out)
+        self.assertIn(f'{len(sync.SHARED)} shared files match', out)
 
     def test_a_missing_copy_fails(self):
         (self.tests / 'bug-vectors.json').unlink()

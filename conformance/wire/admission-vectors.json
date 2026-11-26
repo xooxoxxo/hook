@@ -1,0 +1,215 @@
+{
+  "pond": "1.16.0",
+  "firstInvite": "hook://join?v=2&pond=https%3A%2F%2Fpond.example#aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "cases": [
+    {
+      "name": "Desktop",
+      "request": {
+        "method": "POST",
+        "path": "/admission/claim",
+        "bearer": null,
+        "body": {
+          "kind": "device",
+          "label": "Desktop",
+          "invite": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "keyHash": "aaf3ff9d746eec87af8eb08ac763ff5d0bb44a41f16a439895931a77b3dd07e2"
+        }
+      },
+      "response": {
+        "status": 201,
+        "body": {
+          "id": "00000000-0000-0000-0000-000000000001",
+          "role": "admin",
+          "status": "approved"
+        }
+      }
+    },
+    {
+      "name": "Invite agent",
+      "request": {
+        "method": "POST",
+        "path": "/admission/invites",
+        "bearer": "fixture-desktop",
+        "body": {
+          "kind": "agent"
+        }
+      },
+      "response": {
+        "status": 201,
+        "body": {
+          "link": "hook://join?v=2&pond=https%3A%2F%2Fpond.example#bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "expires": 1700000900
+        }
+      }
+    },
+    {
+      "name": "Builder",
+      "request": {
+        "method": "POST",
+        "path": "/admission/claim",
+        "bearer": null,
+        "body": {
+          "kind": "agent",
+          "label": "Builder",
+          "invite": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "keyHash": "68939bba4c829e68aa0189ea88839ad36d20afc35e5158d3d77629f3f02b857b"
+        }
+      },
+      "response": {
+        "status": 201,
+        "body": {
+          "id": "00000000-0000-0000-0000-000000000002",
+          "code": "725062",
+          "status": "pending",
+          "expires": 1700000600
+        }
+      }
+    },
+    {
+      "name": "reject",
+      "request": {
+        "method": "POST",
+        "path": "/admission/requests/00000000-0000-0000-0000-000000000002/decision",
+        "bearer": "fixture-desktop",
+        "body": {
+          "code": "725062",
+          "decision": "reject"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "id": "00000000-0000-0000-0000-000000000002",
+          "status": "rejected"
+        }
+      }
+    },
+    {
+      "name": "Check own state",
+      "request": {
+        "method": "GET",
+        "path": "/admission/me",
+        "bearer": "fixture-reject",
+        "body": null
+      },
+      "response": {
+        "status": 401,
+        "body": {
+          "error": "unauthorized"
+        }
+      }
+    },
+    {
+      "name": "Invite agent",
+      "request": {
+        "method": "POST",
+        "path": "/admission/invites",
+        "bearer": "fixture-desktop",
+        "body": {
+          "kind": "agent"
+        }
+      },
+      "response": {
+        "status": 201,
+        "body": {
+          "link": "hook://join?v=2&pond=https%3A%2F%2Fpond.example#ccccccccccccccccccccccccccccccccccccccccccc",
+          "expires": 1700000900
+        }
+      }
+    },
+    {
+      "name": "Builder",
+      "request": {
+        "method": "POST",
+        "path": "/admission/claim",
+        "bearer": null,
+        "body": {
+          "kind": "agent",
+          "label": "Builder",
+          "invite": "ccccccccccccccccccccccccccccccccccccccccccc",
+          "keyHash": "e1ec2349685f53e3addaebc9bfdfc06af843c4326835c921f1727561d42f712f"
+        }
+      },
+      "response": {
+        "status": 201,
+        "body": {
+          "id": "00000000-0000-0000-0000-000000000003",
+          "code": "341458",
+          "status": "pending",
+          "expires": 1700000600
+        }
+      }
+    },
+    {
+      "name": "approve",
+      "request": {
+        "method": "POST",
+        "path": "/admission/requests/00000000-0000-0000-0000-000000000003/decision",
+        "bearer": "fixture-desktop",
+        "body": {
+          "code": "341458",
+          "decision": "approve"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "id": "00000000-0000-0000-0000-000000000003",
+          "status": "approved"
+        }
+      }
+    },
+    {
+      "name": "Check own state",
+      "request": {
+        "method": "GET",
+        "path": "/admission/me",
+        "bearer": "fixture-approve",
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "id": "00000000-0000-0000-0000-000000000003",
+          "kind": "agent",
+          "role": "agent",
+          "label": "Builder",
+          "status": "approved",
+          "created": 1700000000,
+          "lastUsed": 1700000000
+        }
+      }
+    },
+    {
+      "name": "Revoke",
+      "request": {
+        "method": "POST",
+        "path": "/admission/principals/00000000-0000-0000-0000-000000000003/revoke",
+        "bearer": "fixture-desktop",
+        "body": {}
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "id": "00000000-0000-0000-0000-000000000003",
+          "status": "revoked"
+        }
+      }
+    },
+    {
+      "name": "Check revoked credential",
+      "request": {
+        "method": "GET",
+        "path": "/admission/me",
+        "bearer": "fixture-approve",
+        "body": null
+      },
+      "response": {
+        "status": 401,
+        "body": {
+          "error": "unauthorized"
+        }
+      }
+    }
+  ]
+}

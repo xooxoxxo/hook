@@ -32,6 +32,7 @@ import sys
 
 # The manifest paths whose basename the Pond also writes to mailbox/tests/.
 SHARED = (
+    "wire/admission-vectors.json",
     "data/revision-vectors.json",
     "data/answers-vectors.json",
     "data/lint-vectors.json",
