@@ -125,7 +125,8 @@ def run(client: Any, ask_id: str, *, timeout: float = DEFAULT_TIMEOUT_S, interva
         monotonic: Optional[Callable[[], float]] = None, edit_keys: Any = None) -> int:
     """Poll client.get(ask_id) until an owner answer arrives (0) or `timeout` seconds pass (3).
 
-    NotFound, ConfigMissing and 4xx Refused propagate as RelayError; the CLI prints them.
+    Each poll reads the configured credential again. Revocation (401) and another
+    agent’s ask (404) end the wait immediately, including during answer settling.
     """
     sleep = sleep or time.sleep
     monotonic = monotonic or time.monotonic

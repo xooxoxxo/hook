@@ -123,6 +123,9 @@ def _parser(out: Any, err: Any, prog: str = "relay") -> argparse.ArgumentParser:
     parser = Parser(prog=prog, description="Send the owner instructables through Hook and read the answers.")
     parser.add_argument("--version", action="store_true", help="print the version and exit")
     sub = parser.add_subparsers(dest="command", metavar="<command>")
+    host = sub.add_parser("host", help="configure this agent")
+    enroll = host.add_subparsers(dest="action", required=True).add_parser("enroll", help="join a Pond")
+    enroll.add_argument("--agent", metavar="LABEL", help="agent label for the approving device")
     post = sub.add_parser("post", help="post one instructable",
                           description=" ".join((WALKTHROUGH_SHORT, SUBSTEPS_SENTENCE, QUESTIONS_SENTENCE, BLOCKING_SENTENCE,
                                                 OPTIONAL_SENTENCE, REQUIRED_SENTENCE, CHOICE_SENTENCE,
@@ -412,9 +415,10 @@ def _cmd_post(args: argparse.Namespace, ctx: _Ctx) -> int:
 
 
 def _cmd_status(args: argparse.Namespace, ctx: _Ctx) -> int:
-    detail = ctx.factory(autolaunch=True, timeout=DEFAULT_TIMEOUT).get(args.id)
+    client = ctx.factory(autolaunch=True, timeout=DEFAULT_TIMEOUT)
+    detail = client.get(args.id)
     if args.json:
-        editable = is_editable(args.id.strip(), ctx.env)
+        editable = is_editable(args.id.strip(), getattr(client, "env", ctx.env))
         ctx.say(json.dumps(_status_json(detail, editable), ensure_ascii=False, indent=2))
     else:
         for line in format_status(detail):
@@ -488,7 +492,7 @@ def _cmd_wait(args: argparse.Namespace, ctx: _Ctx) -> int:
     # Never auto-launch: the wait can outlive a quit Hook, and an unreachable source is retried.
     client = ctx.factory(autolaunch=False, timeout=DEFAULT_TIMEOUT)
     return relay_wait.run(client, args.id, timeout=args.timeout, interval=args.interval, after=args.after,
-                          out=ctx.out, err=ctx.err, edit_keys=EditKeys(ctx.env))
+                          out=ctx.out, err=ctx.err, edit_keys=EditKeys(getattr(client, "env", ctx.env)))
 
 
 def change_summary(revision: Any) -> str:
@@ -516,8 +520,8 @@ def change_summary(revision: Any) -> str:
 def _cmd_amend(args: argparse.Namespace, ctx: _Ctx) -> int:
     instructable = _read_instructable(args.json_src, ctx.stdin)
     client = ctx.factory(autolaunch=True, timeout=DEFAULT_TIMEOUT)
-    res = client.amend(args.id, args.reason, instructable, args.base, edit_keys=EditKeys(ctx.env),
-                       refresh_docs=args.refresh_docs)
+    keys = EditKeys(getattr(client, "env", ctx.env))
+    res = client.amend(args.id, args.reason, instructable, args.base, edit_keys=keys, refresh_docs=args.refresh_docs)
     print_notes(res, ctx.err)
     revision = res.get("revision") if isinstance(res.get("revision"), dict) else {}
     summary = change_summary(revision)
@@ -534,7 +538,8 @@ def _cmd_append(args: argparse.Namespace, ctx: _Ctx) -> int:
     if not isinstance(steps, list) or not steps:
         raise RelayError("--json input must be a JSON array of steps (1 to 10)")
     client = ctx.factory(autolaunch=True, timeout=DEFAULT_TIMEOUT)
-    res = client.append(args.id, args.note, steps, edit_keys=EditKeys(ctx.env), refresh_docs=args.refresh_docs)
+    keys = EditKeys(getattr(client, "env", ctx.env))
+    res = client.append(args.id, args.note, steps, edit_keys=keys, refresh_docs=args.refresh_docs)
     print_notes(res, ctx.err)
     added = res.get("added") if isinstance(res.get("added"), list) else []
     count = len(added) or len(steps)
@@ -613,8 +618,14 @@ def _cmd_docs(args: argparse.Namespace, ctx: _Ctx) -> int:
     return 0
 
 
+def _cmd_host(args, ctx):
+    import pond_enroll
+    import getpass
+    return pond_enroll.enroll(args.agent or getpass.getuser(), ctx.env, ctx.out)
+
+
 COMMANDS: Dict[str, Callable[[argparse.Namespace, _Ctx], int]] = {
-    "post": _cmd_post, "status": _cmd_status, "list": _cmd_list,
+    "host": _cmd_host, "post": _cmd_post, "status": _cmd_status, "list": _cmd_list,
     "done": _cmd_done, "skip": _cmd_skip, "replies": _cmd_replies, "wait": _cmd_wait, "amend": _cmd_amend,
     "append": _cmd_append, "docs": _cmd_docs,
 }

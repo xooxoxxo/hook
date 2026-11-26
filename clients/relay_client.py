@@ -476,6 +476,13 @@ def resolve_source(cfg: Dict[str, Any]) -> Dict[str, Any]:
         raise ConfigMissing(NO_CONFIG)
     if kind == "local":
         return {"kind": "local", "port": port}
+    if "credentialRef" in cfg:
+        import pond_enroll
+        ref = cfg["credentialRef"]
+        if not isinstance(ref, str) or not re.fullmatch(r"[0-9a-f]{32}", ref):
+            raise ConfigMissing("Invalid Pond credential reference")
+        return {"kind": "mailbox", "url": pond_enroll.origin(url), "credential_ref": ref,
+                "context": cfg.get("context") or DEFAULT_CONTEXT}
     token_file = cfg.get("tokenFile")
     if url is None or not _valid_http_url(url) or not isinstance(token_file, str) or not token_file.strip():
         raise ConfigMissing(MAILBOX_PROBLEM)
@@ -1075,6 +1082,9 @@ class Client:
                  monotonic: Optional[Callable[[], float]] = None) -> None:
         self.env = _env(env)
         self.source = resolve_source(load_config(self.env) if cfg is None else cfg)
+        if "credential_ref" in self.source:
+            directory = pathlib.Path(self.env.get("RELAY_EDIT_KEY_DIR") or EDIT_KEY_DIR).expanduser()
+            self.env = dict(self.env, RELAY_EDIT_KEY_DIR=str(directory / self.source_key()))
         self.kind = kind
         self.autolaunch = autolaunch
         self.timeout = float(timeout)
@@ -1106,6 +1116,9 @@ class Client:
     def source_key(self) -> str:
         if self.local:
             return "local"
+        if "credential_ref" in self.source:
+            import pond_enroll
+            return "agent-" + pond_enroll.account(self.source["url"], self.source["credential_ref"])
         return "mailbox:" + hashlib.sha1(self.source["url"].encode("utf-8")).hexdigest()[:12]
 
     # public calls
@@ -1637,6 +1650,9 @@ class Client:
         return token
 
     def _mailbox_token(self) -> str:
+        if "credential_ref" in self.source:
+            import pond_enroll
+            return pond_enroll.read_key(pond_enroll.account(self.base, self.source["credential_ref"]))
         path = pathlib.Path(self.source["token_file"]).expanduser()
         try:
             token = path.read_text(encoding="utf-8").strip()
