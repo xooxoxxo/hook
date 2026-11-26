@@ -79,13 +79,17 @@ Hook touches the file only when you press a button, and says **File not found** 
 
 ## Answer an ask
 
-- **Done, Skip or a reply.** A reply is text or one of the offered choices, with its own **Send**. Done never sends or drops anything silently. If a reply is typed but not sent, the bar warns **You have an unsent reply** and offers **Send & Done** or **Discard & Done**.
+- **Send, Done or Skip.** The main button at the bottom reads **Send** while the ask holds something you haven't sent: step answers, a reply, or a message to the session. One press sends them in that order and keeps the ask open. Send never closes an ask. Once nothing is left to send, the button reads **Done**, and Done closes the ask. **Skip** closes it unfinished. Both are off while a send is out. A card's context menu names Send or Done, whichever ⌘↩ would do.
+- **For example,** step 1 asks for a region and step 2, a required step, asks you to run a command. Pick **Staging**, type "I'll check the logs" in Messages and press **Send**. The session gets Staging as the answer to step 1 and your note as a message. Step 2 opens, and **Done** stays off until you tick it. Then press **Done** to close the ask.
+- **What finishes a step.** A question step has no tick; it is done once its answer is sent. A command or settings step that asks for its output is done once you send that output. Any other step needs a tick once you've done it: **Copy** only copies.
+- **If a send fails,** the reason shows and the button still reads **Send**. What went through stays sent. Press **Send** again for the rest.
+- **A double click** on Send doesn't press Done as well: a Done right after a Send is ignored. Press Done again.
+- **A reply** is text or one of the offered choices, with its own **Send**.
 - **Change a reply.** A sent reply folds to **You replied: … · time** with **Change**. Change brings your last reply back to edit. Sending again posts a new reply, and the agent may already have acted on the first. Earlier replies are under **History**.
-- **Answer questions.** A step can ask you to pick one or more options, or type an answer. A question step has no tick; it is done once its answer is sent. Each question has its own **Send**, and ⌘S sends all unsent answers but keeps the ask open. Unsent changes say **Not sent**, and the bar counts unanswered questions.
-- **Unsent answers.** With an answer unsent, Done warns **You have an unsent answer**. **Send & Done** sends the answers, then any reply, and closes only if every send worked. **Discard & Done** drops them and closes.
+- **Answer questions.** A step can ask you to pick one or more options, or type an answer. Each question has its own **Send**, and ⌘S sends all unsent answers. Unsent changes say **Not sent**, and the bar counts unanswered questions.
 - **Change an answer.** A sent answer folds to **You chose: …** (or **You answered: …**) with its time and **Change**. You can change answers until the ask closes. After that they are read-only until you **Reopen** the ask.
 - **A choice with a field.** With a Pond 1.4.0 or newer, a choice can have its own field ("What should change?"). Picking the choice opens the field. Send delivers the choice and your words together, up to 8,000 characters with a Pond 1.15.0 or newer (1,000 before). A free-text answer takes as many.
-- **After Done or Skip**, the panel opens the next ask, or the queue if Settings › Panel says so. An Undo bar shows for 10 seconds. Hook sends your answer only after that.
+- **After Done or Skip**, the panel opens the next ask, or the queue if Settings › Panel says so. An Undo bar shows for 10 seconds. Hook sends the Done or Skip only after that. Send stays on the ask and has no Undo.
 - **Resume Session**, in a card's context menu or an ask's ⋯ menu, opens a terminal in the session's folder and runs `claude --resume` for that session. It works only for sessions on this Mac; for another Mac, the item is dimmed and names it. If the terminal doesn't open, Hook copies the command and says why. Pick the terminal in Settings › General. Automatic uses the first installed of Ghostty, iTerm2, WezTerm, kitty, Warp and Alacritty, else Terminal.
 
 ## Talking to the session
@@ -95,7 +99,7 @@ On a Pond, you can send the session that posted an ask a note without opening it
 - **Report a Problem.** An open step with code or a tick has **Report** at its bottom right. The step's context menu and the card's context menu have **Report a Problem…** too. Type what went wrong under **Problem with step 2**, or paste the error. ⌘↩ sends and never presses Done.
 - **What the session gets.** The report arrives as a quoted note about that step, never as an instruction. The step shows a filled report icon until the session corrects it. Closed asks don't offer reports.
 - **A report needs the owner key.** Without this Mac's [owner key](#the-owner-key), Send opens the key setup and holds the note. The field says **Sends once the owner key is approved.** If the ask closes first, the note is dropped.
-- **Messages.** With a Pond 1.2.0 or newer, an open ask has a **Messages** section after the replies. A message is a side note, like typing in the session's chat. It doesn't answer, close or change the ask, and you can't edit it once sent. On an ask that wants a reply, the field is behind **Message the session**. **Message Session…** in a card's context menu opens the field. Only the session that posted the ask sees its messages.
+- **Messages.** With a Pond 1.2.0 or newer, an open ask has a **Messages** section after the replies. A message is a side note, like typing in the session's chat. It doesn't answer, close or change the ask, and you can't edit it once sent. The field's own ⌘↩ sends it, and so does the bar's **Send**. On an ask that wants a reply, the field is behind **Message the session**. **Message Session…** in a card's context menu opens the field. Only the session that posted the ask sees its messages.
 - **Length.** With a Pond 1.4.0 or newer, a message or report takes up to 8,000 characters, and a report keeps its line breaks. An older Pond takes 1,000 characters for a message and 300 for a one-line report. A counter ("7 412 / 8 000") shows past 80 % of the limit. Hook never cuts text silently: a longer paste says **Trim 1 204 characters to send.** and Send stays off.
 - The Pond refuses a report or message that looks like a secret. Neither goes into Hook's activity log.
 
@@ -154,16 +158,15 @@ The key goes only over https, or plain http to this Mac itself, and only to the 
 | Panel | ⌃⌘A | Show all projects |
 | List | ↑ ↓ | Move the selection |
 | List | Return | Open the selected ask |
-| List | ⌘↩ / ⌘⌫ | Done / Skip the selected ask; with something unsent, Done opens it with the warning |
+| List | ⌘↩ / ⌘⌫ | Send or Done / Skip the selected ask; Send opens it and sends only its changes |
 | List | ⇧⌘R | Reopen the selected closed ask |
 | List, ask | ⇧⌘L | Copy the link to the ask |
 | List, ask | ⌃⌘P | Show only this ask's project |
 | Ask | Esc, ⌘[ | Back to the list |
 | Ask | ⌘↑ / ⌘↓ | Previous / next ask |
-| Ask | ⌘↩ | Done; with something unsent, the warning's Send & Done |
-| Ask | Esc (in the Done warning) | Back to editing |
+| Ask | ⌘↩ | The main button: Send or Done |
 | Ask | ⌘S | Send the step answers |
-| Ask | ⌘⌫ | Skip |
+| Ask | ⌘⌫ | Skip (off while a send is out) |
 | Ask | ⌘T / ⇧⌘T | Tick the current step or sub-step / untick the last |
 | Ask | ⇧⌘C / ⇧⌘O | Copy the current step's code / open its link |
 | Ask | ⌘L | Focus the reply field (Change on a sent reply); on an ask without a reply prompt, the Messages field |
