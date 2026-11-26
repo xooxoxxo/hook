@@ -13,7 +13,7 @@ env:
   # match conformance/ byte for byte. Change this pin together with the Pond's
   # HOOK_REF (see conformance/README.md).
   POND_REPOSITORY: xooxoxxo/pond
-  POND_REF: 769d8ef97de1b8bff24f7b4c927a4598925f29ee
+  POND_REF: d1578302b76784b824937b349d6f45cf09cf8003
 
 jobs:
   test:
