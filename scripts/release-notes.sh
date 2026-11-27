@@ -24,5 +24,7 @@ printf '%s\n' "$notes" | grep -Eq '<!-- hook:pond=[^ ]+ -->' \
   || { echo "release-notes: the $version section has no <!-- hook:pond=<range> --> marker" >&2; exit 1; }
 printf '%s\n' "$notes" | grep -Eq '<!-- hook:mailbox-protocol=[0-9]+ -->' \
   || { echo "release-notes: the $version section has no <!-- hook:mailbox-protocol=N --> marker" >&2; exit 1; }
+# A release must agree with the range sealed into its CLI and Mac app.
+printf '%s\n' "$notes" | python3 "$ROOT/clients/pond_release.py" "$ROOT/Sources/RelayCore/Semver.swift"
 # Trim the blank lines around the section.
 printf '%s\n' "$notes" | awk 'NF { for (; blanks > 0; blanks--) print ""; print; seen = 1; next } seen { blanks++ }'
