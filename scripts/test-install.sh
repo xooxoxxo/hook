@@ -121,10 +121,19 @@ mkdir -p "$CTX"
 echo "https://mailbox.example.test/" > "$CTX/mailbox-url"
 echo "example-mailbox-value" > "$CTX/mailbox-token"
 CTX_REAL="$(cd "$CTX" && pwd -P)"
+python3 - "$CONFIG" <<'PYCFG'
+import json, pathlib, sys
+p = pathlib.Path(sys.argv[1])
+config = json.loads(p.read_text())
+config.update(source="mailbox", credentialRef="synthetic", enrolledAgent="Builder")
+p.write_text(json.dumps(config))
+PYCFG
 run --mailbox "$CTX" || { cat "$OUT"; fail "--mailbox exited non-zero"; }
 config_key source '"mailbox"'
 config_key mailboxURL '"https://mailbox.example.test"'
 config_key tokenFile "\"$CTX_REAL/mailbox-token\""
+config_key credentialRef null
+config_key enrolledAgent null
 config_key custom 7
 if grep -q 'example-mailbox-value' "$OUT" "$CONFIG"; then fail "the token value was printed or stored"; fi
 ok "--mailbox"

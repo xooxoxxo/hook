@@ -146,7 +146,6 @@ def write_config(path, data):
 def enroll(agent, env, out):
     if not agent.strip() or len(agent) > 40 or any(not ch.isprintable() for ch in agent):
         raise ConfigMissing('Choose a printable agent label of 1 to 40 characters.')
-    url, invite = parse_invite(hidden_invite())
     path = config_path(env)
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     check_trusted_dir(path.parent)
@@ -156,13 +155,18 @@ def enroll(agent, env, out):
         except BlockingIOError:
             raise ConfigMissing('Another enrollment is using this configuration.') from None
         try:
-            return _enroll(path, url, invite, agent, env, out)
+            return _enroll(path, agent, env, out)
         except OSError:
             raise ConfigMissing('Could not save the agent configuration.') from None
 
 
-def _enroll(path, url, invite, agent, env, out):
-    existing = load_config(env) if path.exists() else {}
+def _enroll(path, agent, env, out):
+    existing = load_config(env) if path.exists() else None
+    if existing is not None and (existing.get('enrolledAgent') != agent
+                                 or existing.get('source') != 'mailbox'
+                                 or not existing.get('credentialRef')):
+        raise ConfigMissing('Set RELAY_CONFIG to a separate agent config path before enrolling.')
+    url, invite = parse_invite(hidden_invite())
     pending_path = path.with_name(path.name + '.enrollment')
     pending = load_config({'RELAY_CONFIG': str(pending_path)}) if pending_path.exists() else {}
     digest = hashlib.sha256(invite.encode()).hexdigest()
@@ -178,7 +182,7 @@ def _enroll(path, url, invite, agent, env, out):
             raise ConfigMissing(STORE_HELP)
         write_config(pending_path, dict(url=url, ref=ref, agent=agent, inviteHash=digest))
 
-    cfg = dict(existing, source='mailbox', mailboxURL=url, credentialRef=ref)
+    cfg = dict(existing or {}, source='mailbox', mailboxURL=url, credentialRef=ref, enrolledAgent=agent)
     cfg.pop('tokenFile', None)
     client = Client(cfg, env=env, autolaunch=False)
     def request(method, route, *, body=None, auth=key):
@@ -219,6 +223,8 @@ def _enroll(path, url, invite, agent, env, out):
     events = client.events(limit=1)
     if not isinstance(events.get('events'), list):
         raise RelayError('Pond returned an invalid answer feed.')
+    if (load_config(env) if path.exists() else None) != existing:
+        raise ConfigMissing('The config changed during enrollment. Check RELAY_CONFIG before retrying.')
     write_config(path, cfg)
     pending_path.unlink()
     print(f'Enrolled {agent} on {url}.', file=out)

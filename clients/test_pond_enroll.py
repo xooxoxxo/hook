@@ -114,7 +114,7 @@ class Enrollment(unittest.TestCase):
         self.assertEqual(sum(path == '/admission/claim' for _, path, *_ in self.calls), 1)
 
     def test_missing_feature_leaves_previous_configuration_intact(self):
-        previous = {'source': 'local', 'port': 48000}
+        previous = dict(source='mailbox', credentialRef='d'*32, mailboxURL=ORIGIN, enrolledAgent='Builder')
         self.path.write_text(json.dumps(previous))
         exchange = self.exchange
         def older(*args, **kwargs):
@@ -148,3 +148,12 @@ class Enrollment(unittest.TestCase):
             run.return_value = CompletedProcess([], 1, stdout=b'')
             with self.assertRaisesRegex(relay_client.ConfigMissing, 'Secret Service'):
                 enroll.read_key('agent-account')
+
+    def test_enroll_preserves_owner_profile_before_asking_for_invite(self):
+        for cfg in ({'source': 'local'}, {'source': 'mailbox', 'tokenFile': 'legacy'},
+                    {'source': 'mailbox', 'credentialRef': 'device-reference'}):
+            self.path.write_text(json.dumps(cfg))
+            with patch.object(enroll, 'hidden_invite', side_effect=AssertionError('prompted')):
+                with self.assertRaisesRegex(relay_client.ConfigMissing, 'RELAY_CONFIG'):
+                    enroll.enroll('Builder', self.env, self.out)
+            self.assertEqual(json.loads(self.path.read_text()), cfg)

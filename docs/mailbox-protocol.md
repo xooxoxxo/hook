@@ -247,6 +247,8 @@ an unlocked collection accessible on that account's D-Bus session. The config
 contains the HTTPS Pond origin and a credential reference. Enrollment activates
 it after checking the approved identity, the advertised feature and the agent's
 answer feed. Each CLI and MCP process reads the profile selected by
-`RELAY_CONFIG`. Set a separate config path for each agent on a host. Use
+`RELAY_CONFIG`. If Hook already has an owner profile, set a separate path before enrolling, for example
+`export RELAY_CONFIG="$HOME/.config/relay/agents/builder.json"`. Use that path
+for subsequent CLI and MCP calls. Use
 separate OS accounts when the agents require isolation from one another's
 local files and secret stores.
