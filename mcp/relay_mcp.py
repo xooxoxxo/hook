@@ -51,7 +51,7 @@ class RpcError(Exception):
 # --- queue access ---
 
 def make_client() -> relay_client.Client:
-    """A fresh client per call, so config edits apply without restarting the server."""
+    """Resolve this process’s RELAY_CONFIG on every call, including its enrolled agent identity."""
     return relay_client.Client(kind="mcp")
 
 

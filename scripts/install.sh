@@ -581,6 +581,9 @@ try:
     created = False
 except FileNotFoundError:
     cfg, created = {}, True
+if mode in ("local", "mailbox"):
+    cfg.pop("credentialRef", None)
+    cfg.pop("enrolledAgent", None)
 if mode == "local":
     cfg["source"] = "local"
 elif mode == "mailbox":

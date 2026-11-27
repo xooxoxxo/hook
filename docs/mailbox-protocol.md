@@ -232,3 +232,23 @@ Each tick is bound to the submitted revision and the node's raw own content.
 Changing Verify content invalidates its tick; a legacy tick remains only at the
 same path with unchanged own content. Lists allow up to 61 identities (60 steps
 plus Verify). The 1.3/1.4 contract above remains limited to 60 real step ids.
+
+## Agent admission
+
+On a Pond with the `admission` feature, an owner device can invite an agent. Run
+`hook host enroll --agent Builder` as the account that will run the agent, and
+paste the invite at the hidden prompt. Compare the six digits with the owner
+device before approving. If the connection drops, repeat the command with the
+same invite and configuration to resume.
+
+The CLI saves the credential in the login Keychain on macOS or the service
+account's Secret Service collection on Linux. Linux needs `secret-tool` and
+an unlocked collection accessible on that account's D-Bus session. The config
+contains the HTTPS Pond origin and a credential reference. Enrollment activates
+it after checking the approved identity, the advertised feature and the agent's
+answer feed. Each CLI and MCP process reads the profile selected by
+`RELAY_CONFIG`. If Hook already has an owner profile, set a separate path before enrolling, for example
+`export RELAY_CONFIG="$HOME/.config/relay/agents/builder.json"`. Use that path
+for subsequent CLI and MCP calls. Use
+separate OS accounts when the agents require isolation from one another's
+local files and secret stores.
