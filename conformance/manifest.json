@@ -181,6 +181,13 @@
       "copies": []
     },
     {
+      "path": "wire/admission-vectors.json",
+      "pond": "1.16.0",
+      "feature": "admission",
+      "roles": ["reader", "actor", "server"],
+      "copies": []
+    },
+    {
       "path": "wire/append-wire-vectors.json",
       "pond": "1.9.0",
       "feature": "appendSteps",
