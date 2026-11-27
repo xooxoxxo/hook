@@ -3,6 +3,8 @@ from datetime import datetime, timedelta, timezone
 import hashlib
 import io
 import json
+import os
+import subprocess
 from pathlib import Path
 import sys
 from urllib.request import urlopen
@@ -28,8 +30,11 @@ def require_age(date):
 
 
 def main():
-    base = "https://api.github.com/repos/sigstore/cosign/releases/tags/"
-    release = json.loads(fetch(base + VERIFIER_VERSION))
+    route = "repos/sigstore/cosign/releases/tags/" + VERIFIER_VERSION
+    if os.environ.get("GITHUB_ACTIONS"):
+        release = json.loads(subprocess.check_output(["gh", "api", route]))
+    else:
+        release = json.loads(fetch("https://api.github.com/" + route))
     if release["draft"] or release["prerelease"] or release["tag_name"] != VERIFIER_VERSION:
         raise ValueError("Expected a published stable cosign release")
     require_age(release["published_at"])

@@ -80,6 +80,8 @@ jobs:
           python3 scripts/check-pond-sync.py --pond pond-pin
 
       - name: Verify Pond installer dependency age and checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: python3 scripts/check-pond-installer-pins.py
 
       - name: Client tests
