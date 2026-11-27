@@ -35,6 +35,7 @@ for f in "$ROOT"/clients/*.py; do
   case "${f##*/}" in test_*|answers_fixture.py) continue ;; esac
   cp "$f" "$S/clients/"
 done
+cp "$ROOT/clients/pond-compose.json" "$S/clients/"
 cp "$ROOT/mcp/relay_mcp.py" "$S/mcp/"
 cp "$ROOT"/schema/*.json "$S/schema/"
 ditto --norsrc "$ROOT/skill/instructables" "$S/skill/instructables"
