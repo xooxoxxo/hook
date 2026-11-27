@@ -34,7 +34,7 @@ from relay_docs import (DOCS_FEATURE, MAX_DOC_BYTES, attach_docs, doc_list, fit_
 from relay_fields import FIELDS_FEATURE, FieldsDontFit, fallback_note, has_fields, rows_as_substeps
 from relay_lint import hint_lines, lint_details, lint_instructable  # noqa: F401  (re-exported)
 
-VERSION = "0.18.0"
+VERSION = "0.19.0"
 DEFAULT_CONFIG = "~/.config/relay/config.json"
 DEFAULT_PORT = 47823
 DEFAULT_CONTEXT = "personal"

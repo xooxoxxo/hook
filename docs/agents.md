@@ -134,7 +134,7 @@ Every command starts Hook if it isn't running, except `relay replies --hook`, `r
 | `relay docs <id> [--json]` | One line per document: `<n>  <field>  "<path>"  <bytes> bytes  <first 12 characters of the hash>`, or `no documents in ask <id>`. See [Documents](#documents) |
 | `relay docs <id> get <n> [-o FILE]` | The document's text, exactly as the Pond keeps it. `-o` writes it to a new file instead |
 | `relay docs <id> release` | `released <n> documents of <id>` |
-| `relay --version` | `relay 0.18.0` (`hook --version` prints `hook 0.18.0`) |
+| `relay --version` | `relay 0.19.0` (`hook --version` prints `hook 0.19.0`) |
 
 Exit codes of these commands: 0 success, 1 refused or not found, 2 no config or Hook unreachable, 3 `relay wait` timed out.
 
