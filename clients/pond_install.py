@@ -14,6 +14,7 @@ import sys
 import time
 from urllib.parse import parse_qs, urlsplit
 
+import pond_enroll
 import pond_host
 import pond_release
 import pond_ssh
@@ -21,13 +22,20 @@ import relay_client
 
 
 def origin(value):
-    if not isinstance(value, str) or any(c.isspace() or ord(c) < 32 or c == "\\" for c in value):
-        raise ValueError("Specify the HTTPS origin reachable from Hook and your phone")
-    parts = urlsplit(value)
-    if (parts.scheme != "https" or not parts.hostname or parts.username is not None or parts.password is not None
-            or parts.path not in ("", "/") or "?" in value or "#" in value or parts.port == 0):
-        raise ValueError("Use an HTTPS origin without credentials, path, query or fragment")
-    return "https://" + parts.netloc
+    try:
+        return pond_enroll.origin(value)
+    except relay_client.ConfigMissing:
+        raise ValueError("Specify a reachable HTTPS Pond origin") from None
+
+
+def verify_principal(config, descriptor):
+    if not config.get("credentialRef"):
+        raise ValueError("Join this Mac to verify the admitted client's access")
+    client = relay_client.Client(config)
+    info = client.pond_info()
+    if (not info or str(info[0]) != descriptor["version"]
+            or not set(descriptor["features"]).issubset(client.pond_features() or ())):
+        raise ValueError("The admitted client could not verify the installed Pond version")
 
 
 def candidate(target_platform):
@@ -123,6 +131,8 @@ def install(args, path, stdin, out):
         if existing.get("installation") != prior["installation"] or url != prior["url"]:
             raise ValueError("The target differs from the previously verified Pond")
     descriptor = existing.get("current") if existing["installed"] else candidate(existing["platform"])
+    if not set(pond_release.REQUIRED_FEATURES).issubset(descriptor["features"]):
+        raise ValueError("The installed Pond lacks managed installation support")
     if existing["installed"] and (existing["url"] != url or args.telegram_owner_id):
         raise ValueError("Rerun install with the saved origin and existing Telegram configuration")
     telegram = telegram_config(args.telegram_owner_id, url)
@@ -136,7 +146,13 @@ def install(args, path, stdin, out):
     pond_host.routed_health(url, identity, False)
     if report["admission"] != "native":
         raise ValueError("The installer requires native admission")
-    if not report["claimed"]:
+    if report["claimed"]:
+        config = configuration(path)
+        if config.get("mailboxURL") == url and config.get("credentialRef"):
+            verify_principal(config, descriptor)
+        else:
+            out.write("Pond already claimed. Join this Mac to verify its access.\n")
+    else:
         with terminal_for(out) as tty:
             link = remote("invite", installation=identity)["link"]
             parts = urlsplit(link)
@@ -151,17 +167,23 @@ def install(args, path, stdin, out):
 
 
 def management(args, path, out):
-    config = configuration(path) if path.exists() else {}
+    try:
+        config = configuration(path) if path.exists() else {}
+    except (ValueError, relay_client.ConfigMissing) as exc:
+        raise MissingConfig("Invalid Hook configuration") from exc
     host, folder = config.get("pondSSHHost"), config.get("pondFolder")
     if not host or not folder or not config.get("mailboxURL"):
         raise MissingConfig("No managed Pond configured. Run hook pond install user@host")
-    host, url = pond_ssh.host_name(host), origin(config["mailboxURL"])
+    try:
+        host, url = pond_ssh.host_name(host), origin(config["mailboxURL"])
+    except ValueError as exc:
+        raise MissingConfig(str(exc)) from exc
     binding = receipt(path, host, folder)
     if not binding.exists():
         raise MissingConfig("Verify the managed Pond on this Mac with hook pond install")
     known = pond_host.read(binding)
     if known["url"] != url:
-        raise ValueError("Saved management origin differs from the selected Pond")
+        raise MissingConfig("Saved management origin differs from the selected Pond")
     def remote(action, **data):
         return pond_ssh.request(host, dict(action=action, folder=folder, url=url,
                                            installation=known["installation"], **data))
@@ -169,15 +191,20 @@ def management(args, path, out):
         current = remote("status")
         report, descriptor = current["report"], current["current"]
         healthy = True
+        principal = "awaiting first claim"
         try:
             pond_host.check_status(report, known["installation"], descriptor, False)
             pond_host.routed_health(url, known["installation"], False)
-        except (OSError, ValueError):
+            if report.get("claimed"):
+                principal = "unverified"
+                verify_principal(config, descriptor)
+                principal = "verified"
+        except (OSError, ValueError, relay_client.RelayError):
             healthy = False
         summary = {"host": host, "folder": folder, "version": descriptor["version"], "digest": descriptor["digest"],
                    "platform": descriptor["platform"], "required": pond_release.REQUIRED_RANGE, "healthy": healthy,
                    "admission": report["admission"], "telegram": report["telegram"], "backup": current["backup"],
-                   "operation": current["operation"], "operationID": current.get("operationID")}
+                   "principal": principal, "operation": current["operation"], "operationID": current.get("operationID")}
         if args.json:
             out.write(json.dumps(summary) + "\n")
         else:
@@ -185,14 +212,16 @@ def management(args, path, out):
                 out.write(f"{key}: {value if value is not None else 'none'}\n")
         return 0 if healthy else 1
     target = None
-    if args.action == "update":
+    pending = remote("pending")
+    action = "resume" if pending["resume"] else args.action
+    if action == "update":
         target = candidate(remote("preflight")["platform"])
-    elif args.action == "rollback":
+    elif action == "rollback":
         details = remote("rollback-info")
         out.write(f"Previous Pond {details['version']}, snapshot {details['backup']}, "
                   f"saved at {details['time']} UTC. Changed data requires reconciliation.\n")
         out.flush()
-    job = remote(args.action, target=target)
+    job = pending.get("worker") or remote(action, target=target)
     out.write(f"Pond {args.action} {job['id']} started.\n")
     out.flush()
     while True:
@@ -205,7 +234,12 @@ def management(args, path, out):
             raise ValueError(result["error"])
         if result["state"] != "running":
             out.write("Pond operation: " + result["state"] + "\n")
-            return 1 if result["state"] == "restored" else 0
+            if result["state"] == "restored":
+                return 1
+            if config.get("credentialRef"):
+                current = remote("status")
+                verify_principal(config, current["current"])
+            return 0
         time.sleep(2)
 
 

@@ -40,6 +40,9 @@ class Runtime:
         if previous["backup"] not in self.backups:
             raise ValueError("Missing backup")
 
+    def same_environment(self, previous, current):
+        return self.fail != "changed environment"
+
     def preserve(self, journal):
         pass
 
@@ -116,6 +119,14 @@ class UpdateTests(unittest.TestCase):
             self.run_op("rollback", None)
         self.assertEqual(self.state_now()["current"]["digest"], NEW["digest"])
         self.assertEqual(self.runtime.active["digest"], NEW["digest"])
+        self.assertEqual(len(self.runtime.backups), 2)
+
+    def test_rollback_with_rotated_environment_retains_current_service_and_fresh_copy(self):
+        self.run_op()
+        self.runtime.fail = "changed environment"
+        with self.assertRaisesRegex(ValueError, "reconciliation"):
+            self.run_op("rollback", None)
+        self.assertEqual(self.state_now()["current"]["digest"], NEW["digest"])
         self.assertEqual(len(self.runtime.backups), 2)
 
     def test_verified_rollback_reattaches_previous_volume(self):

@@ -78,7 +78,7 @@ if RELAY_CONFIG="$T/new-config.json" PATH=/usr/bin:/bin "$S/bin/relay" pond stat
 else
   [ "$?" -eq 2 ] && grep -q 'No managed Pond' "$OUT" || fail "packaged pond status failed to load"
 fi
-for resource in pond_release.py pond_ssh.py pond_install.py pond_host.py qrcodegen.py pond-compose.json; do
+for resource in pond_enroll.py pond_release.py pond_ssh.py pond_install.py pond_host.py qrcodegen.py pond-compose.json; do
   [ -s "$S/clients/$resource" ] || fail "missing Pond installer resource $resource"
 done
 

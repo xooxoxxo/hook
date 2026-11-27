@@ -79,6 +79,9 @@ jobs:
           python3 -m unittest scripts/test_check_pond_sync.py -v
           python3 scripts/check-pond-sync.py --pond pond-pin
 
+      - name: Verify Pond installer dependency age and checksums
+        run: python3 scripts/check-pond-installer-pins.py
+
       - name: Client tests
         run: python3 -m unittest discover -s clients -p 'test_*.py' -v
 

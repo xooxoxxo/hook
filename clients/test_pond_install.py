@@ -54,11 +54,11 @@ class InstallTests(unittest.TestCase):
         self.path.write_text('{"source":"local","unrelated":7}')
         self.env = {"RELAY_CONFIG": str(self.path)}
         self.status = {"installation": "a" * 32, "version": {"service":"pond", "version":"1.16.0",
-                       "features":["longAnswers","admission"]}, "admission":"native", "claimed": False,
+                       "features":["longAnswers","admission","managedInstall"]}, "admission":"native", "claimed": False,
                        "health":{"ok":True}, "telegram":False}
         self.operations = []
         self.failure = None
-        self.descriptor = {"version":"1.16.0", "digest":"sha256:" + "a"*64, "features":["longAnswers","admission"],
+        self.descriptor = {"version":"1.16.0", "digest":"sha256:" + "a"*64, "features":["longAnswers","admission","managedInstall"],
                            "platform":"linux/arm64"}
         self.tty = io.StringIO()
         self.tty.isatty = lambda: True
@@ -152,3 +152,34 @@ class ManagementSafetyTests(unittest.TestCase):
             self.assertIn("StrictHostKeyChecking=yes", command)
             self.assertNotIn("synthetic-only-test-value", " ".join(command))
             self.assertIn("synthetic-only-test-value", run.call_args.kwargs["input"])
+class ReviewRegressions(unittest.TestCase):
+    def test_host_origin_canonicalization_matches_invite_issuer(self):
+        self.assertEqual(pond_install.origin("https://POND.EXAMPLE:443/"), "https://pond.example")
+
+    def test_admission_only_release_is_ineligible_for_management(self):
+        import pond_release
+        old = pond_release.Release("1.16.0", "sha256:" + "a"*64, pond_release.IMAGE,
+                                   ("admission","longAnswers"), ("linux/arm64",))
+        with self.assertRaises(ValueError):
+            pond_release.select_release("^1.1.0", [old], "linux/arm64", pond_release.REQUIRED_FEATURES)
+
+    def test_unfinished_update_recovers_without_registry_or_disk_preflight(self):
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "config.json"
+            pond_install.bind_config(path,"host","~/pond","https://pond.example","b"*32)
+            steps = []
+            def remote(host, req):
+                steps.append(req["action"])
+                return {"resume":True} if req["action"]=="pending" else {"id":"job","state":"completed"}
+            from argparse import Namespace
+            with patch.object(pond_ssh,"request",remote), patch.object(pond_install,"candidate",side_effect=AssertionError):
+                self.assertEqual(pond_install.management(Namespace(action="update"),path,io.StringIO()),0)
+            self.assertEqual(steps,["pending","resume","worker"])
+
+    def test_claimed_status_requires_version_from_admitted_client(self):
+        from unittest.mock import Mock
+        descriptor={"version":"1.16.0", "features":["admission"]}
+        client=Mock()
+        client.pond_info.return_value=None
+        with patch.object(pond_install.relay_client,"Client",return_value=client), self.assertRaises(ValueError):
+            pond_install.verify_principal({"credentialRef":"reference"},descriptor)

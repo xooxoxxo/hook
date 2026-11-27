@@ -1,6 +1,6 @@
 # Run your own Pond
 
-A Pond keeps your queue available to Hook on your Mac, your phone and your agents. You need a Hook build with `hook pond install`, a published signed Pond image with native admission, and Hook clients that support **Join a Pond**. The first device to claim the invite becomes the administrator. Telegram is optional.
+A Pond keeps your queue available to Hook on your Mac, your phone and your agents. You need a Hook build with `hook pond install`, a published signed Pond image with the `admission`, `longAnswers` and `managedInstall` features, and Hook clients that support **Join a Pond**. The first device to claim the invite becomes the administrator. Telegram is optional.
 
 ## Prepare the server
 
@@ -68,7 +68,7 @@ hook pond update
 hook pond rollback
 ```
 
-Status reports the installed version, index digest, platform, health, admission mode, Telegram setting, last snapshot and operation. Use `--json` for machine-readable output. In Hook’s Queue settings, a managed installation uses the bundled updater. An existing advanced update command takes precedence until you clear it.
+Status reports the installed version, index digest, platform, health, admission mode, Telegram setting, last snapshot and operation. After the first claim, status also checks the enrolled credential on this Mac. A missing or revoked credential reports degraded status. Use `--json` for machine-readable output. In Hook’s Queue settings, a managed installation uses the bundled updater. An existing advanced update command takes precedence until you clear it.
 
 Update verifies and pulls the candidate before stopping the serving process. It snapshots the queue and credentials and probes a working copy with external writes held. A failed check before commit restores the previous verified service. If SSH disconnects, reconnect and run status. A detached operation can finish on the host. If the host itself restarted, rerun the interrupted command to recover.
 

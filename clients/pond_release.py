@@ -22,7 +22,7 @@ INDEX_TYPES = ("application/vnd.oci.image.index.v1+json",
                "application/vnd.docker.distribution.manifest.list.v2+json")
 DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 REQUIRED_RANGE = "^1.1.0"
-REQUIRED_FEATURES = ("admission", "longAnswers")
+REQUIRED_FEATURES = ("admission", "longAnswers", "managedInstall")
 
 # From cosign_checksums.txt at the pinned upstream release.
 VERIFIER_VERSION = "v3.1.4"

@@ -102,6 +102,8 @@ def operate_locked(folder, runtime, kind, target):
         unfinished = read(path)
         if unfinished["phase"] not in ("completed", "restored"):
             return recover(folder, runtime, unfinished)
+    if kind == "resume":
+        return {"phase": "current"}
     state = read(folder / "state.json")
     current = state["current"]
     runtime.identify(state)
@@ -127,7 +129,8 @@ def operate_locked(folder, runtime, kind, target):
         journal["snapshot"] = runtime.snapshot(current, op)
         phase(folder, journal, "snapshotted")
         if kind == "rollback":
-            if journal["snapshot"] != previous["baseline"]:
+            if (journal["snapshot"] != previous["baseline"]
+                    or not runtime.same_environment(previous["backup"], op)):
                 raise ValueError(f"Changes since {previous['time']} require reconciliation; recovery copy {op}")
         else:
             runtime.clone(current, target, op)
@@ -222,9 +225,16 @@ class Docker:
                 or len(backups) != 1 or backups[0]["Source"] != str(self.folder / "backups")):
             raise ValueError("The service image or mounted volumes differ from this installation")
 
+    def check_volume_users(self, volume):
+        managed = self.docker(*self.compose_args, "ps", "-q", "mailbox")
+        users = self.docker("ps", "--no-trunc", "-q", "--filter", "volume=" + volume)
+        if any(not managed or not cid.startswith(managed) for cid in users.splitlines()):
+            raise ValueError("Another running container mounts the managed volume")
+
     def identify(self, state):
         if read(self.folder / "compose.yaml") != compose(state, state["current"], False):
             raise ValueError("Managed Compose configuration changed")
+        self.check_volume_users(state["current"]["volume"])
         self.inspect(state["current"])
         self.verify(state, state["current"], False)
 
@@ -233,6 +243,14 @@ class Docker:
         dest.mkdir(mode=0o700, parents=True)
         for name in ("compose.yaml", "pond.env", "state.json"):
             atomic(dest / name, (self.folder / name).read_bytes())
+
+    def same_environment(self, previous, current):
+        recovery = self.folder / "recovery"
+        return (recovery / previous / "pond.env").read_bytes() == (recovery / current / "pond.env").read_bytes()
+
+    def require_idle(self, volume):
+        if self.docker("ps", "-q", "--filter", "volume=" + volume):
+            raise ValueError("A running container still mounts the managed volume")
 
     def stop(self):
         self.docker(*self.compose_args, "stop", "--timeout", "30", "mailbox")
@@ -252,6 +270,7 @@ class Docker:
                                       "python3", "-m", "mailbox.admin", "maintenance", mode, op, timeout=900))
 
     def snapshot(self, current, op):
+        self.require_idle(current["volume"])
         return self.helper(current["imageID"], current["volume"], "snapshot", op)
 
     def clone(self, current, target, op):
@@ -272,6 +291,7 @@ class Docker:
 
     def serve(self, descriptor, fenced):
         self.docker("volume", "inspect", descriptor["volume"], "--format", "{{.Name}}")
+        self.check_volume_users(descriptor["volume"])
         save(self.folder / "compose.yaml", compose(self.state, descriptor, fenced))
         self.docker(*self.compose_args, "up", "-d", "--no-build", "--pull", "never", "mailbox")
 
@@ -279,10 +299,10 @@ class Docker:
         return self.docker(*self.compose_args, "exec", "-T", "mailbox", "python3", "-m", "mailbox.admin", *args)
 
     def verify(self, state, descriptor, fenced):
-        self.inspect(descriptor)
         deadline = time.monotonic() + 100
         while True:
             try:
+                self.inspect(descriptor)
                 report = json.loads(self.admin("status", "--json"))
                 check_status(report, state["installation"], descriptor, fenced)
                 routed_health(state["url"], state["installation"], fenced)
@@ -380,6 +400,8 @@ def prepare_install(folder, request):
             volume = descriptor["volume"]
             present = docker.docker("volume", "ls", "--filter", f"name=^{volume}$", "--format", "{{.Name}}")
             if not present:
+                if state.get("initialized"):
+                    raise ValueError("Previously initialized data volume is missing")
                 docker.create_volume(volume)
             owner = docker.docker("volume", "inspect", "--format", '{{index .Labels "pond.installation"}}', volume)
             if owner != state["installation"]:
@@ -396,6 +418,13 @@ def prepare_install(folder, request):
                           " with tempfile.TemporaryFile(dir=p) as f: f.write(b'test'); f.flush()")
             if (folder / "pond.env").stat().st_mode & 0o077:
                 raise ValueError("Pond configuration must be private")
+            if not state.get("initialized"):
+                docker.require_idle(volume)
+                docker.docker("run", "--rm", "--network", "none", "--mount", data_mount,
+                              "-e", "POND_INSTALL_ID=" + state["installation"], descriptor["imageID"],
+                              "python3", "-m", "mailbox.admin", "maintenance", "initialize")
+                state["initialized"] = True
+                save(folder / "state.json", state)
             docker.serve(descriptor, fenced=False)
             docker.verify(state, descriptor, fenced=False)
             state.pop("installing")
@@ -478,6 +507,12 @@ def dispatch(request):
     docker = Docker(folder, state)
     if action == "status":
         return public_status(folder, state)
+    if action == "pending":
+        worker = worker_status(folder) if (folder / "worker.json").exists() else {}
+        path = folder / "operation.json"
+        pending = path.exists() and read(path)["phase"] not in ("completed", "restored")
+        active = worker.get("state") == "running"
+        return {"resume": active or pending, "worker": worker if active else None}
     if action == "rollback-info":
         previous = state.get("previous")
         if not previous:
@@ -490,7 +525,7 @@ def dispatch(request):
         with lock(folder):
             docker.identify(state)
             return {"link": docker.admin("admission", "invite", "--first")}
-    if action in ("update", "rollback"):
+    if action in ("update", "rollback", "resume"):
         return detach(folder, docker, action, request.get("target"))
     raise ValueError("Unknown Pond management action")
 
