@@ -18,7 +18,10 @@ import Testing
     @Test func everyConfigKeyHasARowInConfigurationMd() throws {
         let doc = try Self.read("docs/configuration.md")
         let rows = Set(Self.matches(#"(?m)^\| `([A-Za-z]+)` \|"#, in: doc))
-        let keys = Set(RelayConfig.CodingKeys.allCases.map(\.rawValue)).subtracting(Self.undocumentedKeys)
+        // The bundled Python CLI also reads these management settings.
+        let keys = Set(RelayConfig.CodingKeys.allCases.map(\.rawValue))
+            .subtracting(Self.undocumentedKeys)
+            .union(["pondSSHHost", "pondFolder"])
         #expect(keys.subtracting(rows).sorted() == [], "keys without a row in docs/configuration.md")
         #expect(rows.subtracting(keys).sorted() == [], "rows for keys Hook doesn't read")
     }

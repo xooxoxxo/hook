@@ -107,7 +107,7 @@ def invoked_name(argv0: Optional[str]) -> str:
     return name if name in NAMES else "relay"
 
 
-def _parser(out: Any, err: Any, prog: str = "relay") -> argparse.ArgumentParser:
+def _parser(out: Any, err: Any, prog: str = "relay", pond: bool = False) -> argparse.ArgumentParser:
     class Parser(argparse.ArgumentParser):
         """argparse that writes to the given streams and never calls sys.exit."""
 
@@ -126,6 +126,12 @@ def _parser(out: Any, err: Any, prog: str = "relay") -> argparse.ArgumentParser:
     host = sub.add_parser("host", help="configure this agent")
     enroll = host.add_subparsers(dest="action", required=True).add_parser("enroll", help="join a Pond")
     enroll.add_argument("--agent", metavar="LABEL", help="agent label for the approving device")
+    if pond:
+        import pond_install
+        pond_install.arguments(sub)
+    else:
+        sub.add_parser("pond", help="install or manage a Pond over SSH")
+
     post = sub.add_parser("post", help="post one instructable",
                           description=" ".join((WALKTHROUGH_SHORT, SUBSTEPS_SENTENCE, QUESTIONS_SENTENCE, BLOCKING_SENTENCE,
                                                 OPTIONAL_SENTENCE, REQUIRED_SENTENCE, CHOICE_SENTENCE,
@@ -658,7 +664,7 @@ def main(argv: Optional[List[str]] = None, *, stdin: Any = None, stdout: Any = N
         # Imported here, not at load, so `relay post` starts as fast as before.
         import relay_integrations
         return relay_integrations.main(argv[1:], env=env, out=out, err=err)
-    parser = _parser(out, err, prog)
+    parser = _parser(out, err, prog, pond=argv[:1] == ["pond"])
     try:
         args = parser.parse_args(argv)
     except _ParserExit as exc:
@@ -669,6 +675,9 @@ def main(argv: Optional[List[str]] = None, *, stdin: Any = None, stdout: Any = N
     if not args.command:
         parser.print_usage(err)
         return 2
+    if args.command == "pond":
+        import pond_install
+        return pond_install.run(args, stdin, out, err, env)
     ctx = _Ctx(stdin, out, err, factory, env)
     try:
         return COMMANDS[args.command](args, ctx)

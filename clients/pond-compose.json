@@ -1,0 +1,31 @@
+{
+  "services": {
+    "mailbox": {
+      "image": "IMAGE",
+      "restart": "unless-stopped",
+      "ports": [
+        "127.0.0.1:8790:8790"
+      ],
+      "env_file": [
+        "./pond.env"
+      ],
+      "environment": {
+        "MAILBOX_DATA_DIR": "/data",
+        "MAILBOX_BACKUP_DIR": "/backups",
+        "MAILBOX_PUBLIC_ORIGIN": "ORIGIN",
+        "POND_INSTALL_ID": "INSTALLATION",
+        "POND_MAINTENANCE": "FENCE"
+      },
+      "volumes": [
+        "data:/data",
+        "./backups:/backups"
+      ]
+    }
+  },
+  "volumes": {
+    "data": {
+      "external": true,
+      "name": "VOLUME"
+    }
+  }
+}

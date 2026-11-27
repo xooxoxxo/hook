@@ -5,6 +5,7 @@ Hook (formerly Relay) is a macOS menu-bar inbox for the asks your coding agents 
 ## Get started
 
 - [Install](install.md): install, update and remove Hook
+- [Run your own Pond](run-your-own-pond.md)
 - [Using Hook](using.md): the panel, asks, keys, Settings, crash reports, the owner key
 - [Agents](agents.md): what Hook sets up in each agent, `relay integrations`, the MCP tools and the `relay` command
 - [Claude Code](claude-code.md): the Hook plugin, the rules file, moving from the CLAUDE.md section

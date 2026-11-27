@@ -23,3 +23,7 @@ SHA-256 of the copied files:
 To update one, pick a version published at least 5 days ago, download its tarball,
 check its integrity against `npm view <package>@<version> dist.integrity`, copy the
 browser build and the licence, and update this file.
+
+## QR Code generator
+
+The Pond installer includes qrcodegen 1.8.0 by Project Nayuki, distributed under the MIT License. The full notice is retained in clients/qrcodegen.py. [Upstream project](https://www.nayuki.io/page/qr-code-generator-library)

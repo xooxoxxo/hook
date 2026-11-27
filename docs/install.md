@@ -1,5 +1,7 @@
 # Install
 
+To connect your Mac and phone to a shared queue, see [Run your own Pond](run-your-own-pond.md).
+
 Hook installs from a prebuilt release. Nothing is compiled on your Mac.
 
 ## Requirements

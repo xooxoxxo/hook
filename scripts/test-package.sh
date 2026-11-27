@@ -72,6 +72,16 @@ fi
 [ "$(wc -l < "$T/dist/SHA256SUMS" | tr -d ' ')" = "1" ] || fail "SHA256SUMS without --dmg has $(wc -l < "$T/dist/SHA256SUMS") lines"
 ok "zip layout and SHA256SUMS"
 
+# The packaged CLI can run with no clone or existing configuration.
+if RELAY_CONFIG="$T/new-config.json" PATH=/usr/bin:/bin "$S/bin/relay" pond status >"$OUT" 2>&1; then
+  fail "packaged pond status accepted a missing configuration"
+else
+  [ "$?" -eq 2 ] && grep -q 'No managed Pond' "$OUT" || fail "packaged pond status failed to load"
+fi
+for resource in pond_enroll.py pond_release.py pond_ssh.py pond_install.py pond_host.py qrcodegen.py pond-compose.json; do
+  [ -s "$S/clients/$resource" ] || fail "missing Pond installer resource $resource"
+done
+
 # 1c. An app without the bundled payload (or with another version's) is refused.
 mkdir -p "$T/bare/Hook.app"
 ditto "$T/build/Hook.app" "$T/bare/Hook.app"
