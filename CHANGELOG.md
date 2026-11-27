@@ -3,19 +3,33 @@
 All notable changes to Hook (formerly Relay) are listed here. The format follows Keep a Changelog,
 and versions follow Semantic Versioning.
 
-## [Unreleased]
+## [0.19.0] - 2026-11-27
 
 ### Added
 
 - An ask's `brief`: Markdown of up to 8000 characters with what the session would have said in chat (the why, the context, the links it used). `relay post`, `relay amend` and the MCP tools send it to a Pond that lists `brief` (Pond 1.14.0), and send the ask without it, with a note, to an older one. The schema, the skill and the tool descriptions say how to write one.
 - The protocol for **Ask about this**: `POST /asks/{id}/ask-about` on a Pond that lists `askAbout` answers the owner's question about an ask with Claude Haiku 5.5, from the ask and its brief, and stores the events `ask_about_question` and `ask_about_answer`, which never wake a session. The ask's text and brief go to Anthropic's API only when the owner asks ([privacy](docs/privacy.md#ask-about-this)).
 - A step's `fields`, a settings table of label and value rows for form settings and config values: `relay post`, `relay amend`, `relay append` and the MCP tools send it to a Pond that lists `fields`, send each row as a sub-step to an older one with a note, and hint when a `detail` lists three or more settings.
+- Join a Pond from a pasted invite link, a scanned QR code or a `hook://` link. The Mac keeps its device key in the Keychain. Settings › Queue › **Devices** shows the devices and agents waiting to join: compare the code, approve with Touch ID or your password, and revoke one after you confirm. Needs a Pond that lists `admission` (Pond 1.16.0); older Ponds keep the pairing they have.
+- `hook host enroll` lets a CLI or MCP agent join a Pond with an invite, under its own credential, kept in the macOS Keychain or the Linux Secret Service. Each enrolled agent has its own edit keys and event cursors.
+- `hook pond install`, `status`, `update` and `rollback` install and keep a managed Pond on a Linux host over SSH. They pick a stable signed Pond release in Hook's range, check its digest and signature before use, take a checked snapshot before an update, and keep a recovery copy on rollback. Settings › Queue takes the SSH host and folder and runs the bundled updater; an unmanaged Pond gets a link to the operator guide.
+- Hook on the Mac shows a step's `fields` as a settings table, with Copy on a copyable row. Accepting a correction that adds or changes a copyable row needs Touch ID, as a command does.
+- An ask's brief shows under its why as **Background**, collapsed. On a Pond that lists `askAbout`, the Messages box switches between **Message the session** and **Ask about this**; an answer offers **Ask the session** to send the same question on.
+- A fishing scene at the top of the queue: Willow pier and the fishing house, lit by your Mac's clock. Settings › Panel › **Animate the scene** keeps it still, as Reduce Motion does.
+- The DMG opens a branded window: Hook on the left, Applications on the right, drag to install.
 
 ### Changed
 
 - The owner's answers take up to 8000 characters on a Pond that lists `longAnswers` (Pond 1.15.0), as messages do: a free-text answer and the words on a pick. An older Pond keeps 1000. Sessions read a long answer as they read a long message, cut at 8000 characters with the rest named (`relay status <id> --json`). The answers and choice conformance vectors test 8000 accepted and 8001 refused.
 - An approval that already reaches the owner through its own prompt (a Telegram bot such as an SSH lease or cert request, a 2FA push, a system dialog) is no longer a Hook ask: the agent instructions and the instructables skill say to mention it in one chat line at most, and `relay post` refuses an ask whose every required step only says to approve, confirm, tap or accept such a prompt.
 - An ask is the whole walkthrough: `relay_post`, `relay_amend`, `relay_append` and `relay post --help` list the rules (every click a sub-step with its link, settings in `fields`, a secret's creation steps before its Keychain command), the instructables skill shows a before and after, and Hook hints when a step says to create a key, token, rule, account, webhook or app on a website with no sub-steps and no link.
+- When an ask has something unsent, the footer button reads **Send**: it sends the step answers, the reply and the message, in that order, and keeps the ask open. With nothing left to send it reads **Done**. The unsent warning and its Send & Done and Discard & Done buttons are gone.
+- Answers take more than one line: Return sends, Option-Return adds a line. A long or multi-line answer shows as a block with Copy, and the status line says how many lines it has. An answer over the Pond's limit shows a counter and stays unsent until it fits, instead of failing after Send.
+- Typing in a large ask stays fast: a keystroke redraws only its own question.
+
+### Fixed
+
+- A key Hook can read only after you allow it in macOS (for example after a rebuild) is no longer shown as "Not set up": Settings › Queue and a Notice offer **Allow Keychain Access**, and Hook checks the key works quietly before it calls it approved. A key that belongs to another copy of Hook says so.
 
 <!-- hook:pond=^1.1.0 -->
 <!-- hook:mailbox-protocol=5 -->
